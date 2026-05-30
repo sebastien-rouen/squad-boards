@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Squad Board</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <link rel="stylesheet" href="/css/tokens.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/views.css">
+    <script src="/js/vendor/chart.umd.min.js" defer></script>
+</head>
+<body>
+    <!-- SVG Icon Sprites -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+        <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+        <symbol id="i-columns" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></symbol>
+        <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></symbol>
+        <symbol id="i-sync" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></symbol>
+        <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></symbol>
+        <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+        <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+        <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
+        <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+        <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></symbol>
+        <symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0115-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 01-15 6.7L3 16"/></symbol>
+        <symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+        <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></symbol>
+        <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></symbol>
+        <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+        <symbol id="i-git-branch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 01-9 9"/></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+        <symbol id="i-agenda" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="13" y2="18"/></symbol>
+    </svg>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">SB</div>
+            <span class="sidebar-title">Squad Board</span>
+        </div>
+        <nav class="sidebar-nav" id="sidebar-nav"></nav>
+        <div class="sidebar-section">
+            <div class="sidebar-section-label">Equipes</div>
+            <div class="team-btns" id="team-btns"></div>
+        </div>
+        <div class="sidebar-footer">
+            <button id="btn-theme" class="sidebar-btn" title="Changer le theme">
+                <svg class="icon"><use href="#i-moon"/></svg>
+                <span>Theme</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main id="app" class="app">
+        <header id="topbar" class="topbar">
+            <div class="topbar-left">
+                <button id="btn-menu" class="btn-icon mobile-only" title="Menu">
+                    <svg class="icon"><use href="#i-menu"/></svg>
+                </button>
+                <h1 id="view-title" class="topbar-title">Dashboard</h1>
+            </div>
+            <div class="topbar-center">
+                <div class="search-box" id="search-box">
+                    <svg class="icon"><use href="#i-search"/></svg>
+                    <input type="search" id="search-input" placeholder="Rechercher... (Ctrl+K)" autocomplete="off">
+                </div>
+                <!-- Sélecteur PI (PI-2..PI+2), visible uniquement sur pi/picalendar/roadmap -->
+                <div id="pi-selector-host" class="pi-selector-host" hidden></div>
+            </div>
+            <div class="topbar-right">
+                <button id="btn-my-tickets" class="btn btn-secondary btn-toggle" title="Voir uniquement mes tickets" aria-pressed="false">
+                    <span class="btn-label">Mes tickets</span>
+                </button>
+                <button id="btn-favorites" class="btn-icon btn-fav" title="Vues favorites (★)" aria-label="Favoris">★</button>
+                <button id="btn-create" class="btn btn-primary" title="Nouveau ticket (N)">
+                    + Nouveau
+                </button>
+                <div class="btn-split">
+                    <button id="btn-sync" class="btn btn-secondary btn-split-main" title="Sync rapide depuis JIRA (derniers 14 jours, merge)">
+                        <svg class="icon"><use href="#i-sync"/></svg>
+                        <span class="btn-label">JIRA <small>14j</small></span>
+                    </button>
+                    <button id="btn-sync-menu" class="btn btn-secondary btn-split-arrow" title="Options de synchronisation" aria-haspopup="true" aria-expanded="false">
+                        <svg class="icon icon-xs"><use href="#i-chevron-down"/></svg>
+                    </button>
+                    <div id="sync-menu" class="sync-menu" hidden>
+                        <button class="sync-menu-item" data-sync="7">↻ Sync rapide · 7 jours</button>
+                        <button class="sync-menu-item sync-menu-item--current" data-sync="14">↻ Sync rapide · 14 jours</button>
+                        <button class="sync-menu-item" data-sync="30">↻ Sync rapide · 30 jours</button>
+                        <hr class="sync-menu-sep">
+                        <button class="sync-menu-item sync-menu-item--danger" data-sync="full">⟳ Sync complète (replace)</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <div class="content-layout">
+            <div id="content" class="content"></div>
+            <aside id="info-panel" class="info-panel"></aside>
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal" id="modal">
+            <div class="modal-header">
+                <h2 id="modal-title"></h2>
+                <button class="btn-icon" id="modal-close" title="Fermer">
+                    <svg class="icon"><use href="#i-x"/></svg>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Command Palette (Ctrl+K) -->
+    <div id="cmd-overlay" class="cmd-overlay cmd-hidden" role="search">
+        <div class="cmd-box">
+            <div class="cmd-input-row">
+                <svg class="cmd-search-icon icon"><use href="#i-search"/></svg>
+                <input id="cmd-input" class="cmd-input" type="text" autocomplete="off" spellcheck="false"
+                    placeholder="Rechercher… (@nom · team:fuego · status:blocked · type:bug)">
+                <kbd class="cmd-esc-hint">Échap</kbd>
+            </div>
+            <div id="cmd-results" class="cmd-results"></div>
+            <div class="cmd-footer">
+                <span id="cmd-count" class="cmd-count"></span>
+                <span class="cmd-hints"><kbd>↑↓</kbd> Naviguer · <kbd>↵</kbd> Ouvrir · <kbd>Ctrl+↵</kbd> JIRA</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sync Progress Overlay -->
+    <div id="sync-overlay" class="sync-overlay hidden">
+        <div class="sync-dialog">
+            <div class="sync-dialog-icon"><svg class="icon icon-lg"><use href="#i-sync"/></svg></div>
+            <h3 class="sync-dialog-title" id="sync-title">Import JIRA</h3>
+            <div class="sync-progress-bar"><div class="sync-progress-fill" id="sync-fill"></div></div>
+            <p class="sync-dialog-label" id="sync-label">Initialisation...</p>
+            <p class="sync-dialog-detail text-xs text-muted" id="sync-detail"></p>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script type="module" src="/js/app.js"></script>
+</body>
+</html>

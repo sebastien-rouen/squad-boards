@@ -158,7 +158,7 @@ export function buildFistSlackRaw(sprintName) {
   let raw = `✊ [SONDAGE] Vote de confiance PI - ${sprintLabel}\n\n`;
   raw += `Pour rappel, on vote sur l'atteinte des objectifs du PI avec notre connaissance au moment du vote, notre avancement durant les sprints précédents, etc\n\n`;
   FIST_SCALE.forEach(r => { raw += `${r.n} *${r.label}* = ${r.text}\n`; });
-  raw += `\n→ Votez avec un chiffre (1 à 5) ou utilisez Squad Board pour enregistrer votre vote 🗳️`;
+  raw += `\n→ Votez avec un chiffre (1 à 5) pour enregistrer votre vote 🗳️`;
   return raw;
 }
   

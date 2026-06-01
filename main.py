@@ -2016,4 +2016,5 @@ app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=3000, reload=True)
+    port = int(os.getenv("PORT", 3000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)

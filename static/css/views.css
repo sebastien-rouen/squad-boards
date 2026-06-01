@@ -8341,7 +8341,7 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
    VIEW: Roadmap - Drag & drop + Dependency graph
    ══════════════════════════════════════════════════════════════════════════════ */
 .pi-section-hdr { display: flex; align-items: baseline; gap: var(--sp-3); margin-bottom: var(--sp-2); }
-.feature-draggable { cursor: default; transition: opacity 0.2s, background 0.15s; }
+.feature-draggable { cursor: pointer; transition: opacity 0.2s, background 0.15s; }
 .feature-draggable.dragging { opacity: 0.4; }
 .feature-draggable.drop-over { background: var(--primary-bg); outline: 2px dashed var(--primary); }
 .drag-handle {

@@ -1953,9 +1953,94 @@
     font-weight: var(--fw-medium);
     min-width: 0;
 }
+/* ── Features tab v2 ────────────────────────────────────────────────────── */
+.feature-list2 { display: flex; flex-direction: column; gap: var(--sp-4); }
+.feat-team-group { display: flex; flex-direction: column; gap: 2px; }
+
+/* En-tête équipe */
+.feat-team-hdr {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px var(--sp-3) 5px;
+    border-radius: var(--r-md) var(--r-md) 0 0;
+    background: var(--bg); border: 1px solid var(--border); border-bottom: none;
+    font-size: 12px;
+}
+.feat-team-name { font-weight: var(--fw-bold); color: var(--text); }
+.feat-team-count { color: var(--text-muted); margin-left: 2px; }
+.feat-team-sp-planned { margin-left: auto; font-weight: var(--fw-semibold); color: var(--text-muted); font-size: 11px; }
+
+/* Ligne feature */
+.feature-row2 {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px var(--sp-3);
+    background: var(--surface);
+    border: 1px solid var(--border); border-top: none;
+    cursor: pointer;
+    transition: background 0.1s;
+    position: relative;
+}
+.feature-row2::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--feat-color, var(--border));
+    border-radius: 2px 0 0 2px; opacity: 0.7;
+    transition: opacity 0.1s;
+}
+.feature-row2:hover { background: var(--surface-hover); }
+.feature-row2:hover::before { opacity: 1; }
+.feature-row2:last-of-type { border-radius: 0 0 var(--r-md) var(--r-md); }
+.feat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.feat-id { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); flex-shrink: 0; min-width: 72px; }
+.feat-title { flex: 1; font-size: 13px; font-weight: var(--fw-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.feat-status {
+    flex-shrink: 0; font-size: 10.5px; font-weight: var(--fw-semibold);
+    padding: 2px 8px; border-radius: 99px; white-space: nowrap;
+}
+.feat-bar-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; width: 100px; }
+.feat-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.feat-bar-fill { display: block; height: 100%; border-radius: 3px; }
+.feat-pct { font-size: 10.5px; color: var(--text-muted); min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
+.feat-sp { font-size: 12px; font-weight: var(--fw-semibold); min-width: 52px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.feat-sp-unit { font-size: 10px; font-weight: 400; color: var(--text-muted); }
+.feat-tickets { font-size: 11.5px; color: var(--text-muted); min-width: 52px; text-align: right; flex-shrink: 0; }
+.feat-team { font-size: 11px; color: var(--text-muted); min-width: 70px; text-align: right; flex-shrink: 0; }
+
+/* Séparateur capacité */
+.feat-cap-separator {
+    border: 1px solid color-mix(in srgb, var(--cap-color) 30%, var(--border));
+    border-radius: 0 0 var(--r-md) var(--r-md);
+    background: color-mix(in srgb, var(--cap-color) 5%, var(--surface));
+    padding: 6px var(--sp-3);
+    margin-top: -1px;
+}
+.feat-cap-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.feat-cap-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: var(--fw-semibold); color: var(--text-muted); }
+.feat-cap-net { font-size: 12.5px; font-weight: var(--fw-bold); }
+.feat-cap-buf { font-size: 11px; color: #7c3aed; }
+.feat-cap-gauge {
+    flex: 1; min-width: 60px; max-width: 120px;
+    height: 5px; background: var(--border); border-radius: 3px; overflow: hidden;
+}
+.feat-cap-gauge-fill { display: block; height: 100%; border-radius: 3px; transition: width 0.3s; }
+.feat-cap-ratio { font-size: 11.5px; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.feat-cap-warn { font-size: 11px; color: var(--danger); font-weight: var(--fw-semibold); }
+
+/* Anciens styles (compatibilité) */
 .feature-progress {
-    width: 120px;
-    flex-shrink: 0;
+    display: flex; align-items: center; gap: 5px;
+    width: 110px; flex-shrink: 0;
+}
+.feature-progress-pct {
+    font-size: 10.5px; color: var(--text-muted);
+    min-width: 30px; text-align: right; font-variant-numeric: tabular-nums;
+}
+.feature-pts {
+    font-size: 12px; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums;
+    color: var(--text); min-width: 60px; text-align: right; flex-shrink: 0;
+}
+.feature-pts-unit { font-size: 10px; font-weight: 400; color: var(--text-muted); }
+.feature-child-count {
+    font-size: 11.5px; color: var(--text-muted);
+    min-width: 70px; text-align: right; flex-shrink: 0;
 }
 .feature-team {
     font-size: var(--fs-xs);
@@ -2694,6 +2779,401 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
 .velocity-compare-info strong { color: var(--primary); font-variant-numeric: tabular-nums; }
 .velocity-compare-info small { color: var(--text-muted); margin-left: 4px; }
 .velocity-compare-actions { display: inline-flex; gap: 6px; }
+
+/* ── PI Capacité (picap) ─────────────────────────────────────────────────── */
+.picap { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+/* Bandeau paramètres — 2 lignes */
+.picap-params {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: var(--sp-2) var(--sp-3);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+/* Ligne 1 : vélocité + badge + lien */
+.picap-params-row1 {
+    display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+}
+/* Ligne 2 : rôles exclus pleine largeur */
+.picap-params-row2 {
+    display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--border); padding-top: 6px;
+}
+.picap-params-sep { flex: 1; }
+.picap-params-label { font-size: 11.5px; font-weight: var(--fw-semibold); color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.picap-params-row { display: flex; align-items: center; gap: 8px; }
+.picap-params-hint { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+/* Badges inline */
+.picap-warn,
+.picap-source-info {
+    display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+    font-size: 11.5px; color: var(--text-muted); white-space: nowrap;
+    padding: 2px 8px; border-radius: 99px;
+}
+.picap-warn {
+    background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
+}
+.picap-source-info {
+    background: color-mix(in srgb, var(--success) 8%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--success) 25%, var(--border));
+}
+
+/* Autocomplete rôles exclus */
+.picap-role-select {
+    position: relative;
+    flex: 1; min-width: 0;
+}
+.picap-role-tags {
+    display: flex; flex-wrap: nowrap; align-items: center; gap: 4px;
+    height: 30px; padding: 0 6px;
+    border: 1px solid var(--border); border-radius: var(--r-md);
+    background: var(--bg); cursor: text;
+    overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: none;
+    transition: border-color 0.15s;
+}
+.picap-role-tags::-webkit-scrollbar { display: none; }
+.picap-role-select:focus-within .picap-role-tags {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-bg);
+}
+.picap-role-tag {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 1px 6px 1px 8px; border-radius: 99px;
+    font-size: 11.5px; font-weight: var(--fw-medium);
+    background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border));
+    color: var(--danger);
+    white-space: nowrap;
+}
+.picap-role-tag em { font-style: normal; opacity: 0.7; font-size: 10px; }
+.picap-role-tag-rm {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; border-radius: 50%; border: none;
+    background: color-mix(in srgb, var(--danger) 20%, transparent);
+    color: var(--danger); font-size: 12px; line-height: 1;
+    cursor: pointer; padding: 0; flex-shrink: 0;
+}
+.picap-role-tag-rm:hover { background: var(--danger); color: #fff; }
+.picap-role-input {
+    border: none; outline: none; background: transparent;
+    font-size: 12px; color: var(--text); min-width: 80px; flex: 1;
+    padding: 2px 2px;
+}
+.picap-role-input::placeholder { color: var(--text-muted); }
+.picap-role-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 200;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-md); box-shadow: var(--shadow-md);
+    list-style: none; margin: 0; padding: 4px 0;
+    max-height: 220px; overflow-y: auto;
+}
+.picap-role-opt {
+    padding: 5px 12px; font-size: 12.5px; cursor: pointer;
+    color: var(--text); display: flex; align-items: center; gap: 6px;
+}
+.picap-role-opt em { font-style: normal; font-size: 10.5px; color: var(--warning); margin-left: auto; }
+.picap-role-opt:hover { background: var(--primary-bg); color: var(--primary); }
+
+/* Grille par équipe */
+.picap-grid { display: flex; flex-direction: column; gap: var(--sp-3); }
+.picap-team-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    /* pas d'overflow:hidden ici — les tooltips absolute doivent déborder */
+}
+.picap-team-hdr {
+    display: flex; align-items: center; gap: 8px;
+    padding: var(--sp-2) var(--sp-3);
+    background: color-mix(in srgb, var(--surface) 60%, var(--bg));
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.picap-team-name { font-weight: var(--fw-semibold); font-size: var(--fs-sm); }
+.picap-team-meta { font-size: 11.5px; color: var(--text-muted); margin-left: 2px; }
+.picap-team-empty { font-size: 11.5px; color: var(--text-muted); font-style: italic; }
+/* Champ Base Capacité dans le header équipe */
+.picap-base-wrap {
+    display: inline-flex; align-items: center; gap: 4px; cursor: text;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 2px 7px;
+    transition: border-color 0.15s;
+}
+.picap-base-wrap:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-bg);
+}
+.picap-base-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    font-weight: var(--fw-semibold); color: var(--text-muted); white-space: nowrap;
+}
+.picap-base-input {
+    width: 42px; border: none; background: transparent; outline: none;
+    font-size: 12px; font-weight: var(--fw-semibold); color: var(--text);
+    text-align: center; padding: 0;
+    -moz-appearance: textfield;
+}
+.picap-base-input::-webkit-inner-spin-button,
+.picap-base-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.picap-base-input::placeholder { color: var(--text-muted); font-weight: 400; }
+.picap-base-unit { font-size: 10px; color: var(--text-muted); }
+.picap-base-badge {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em;
+    font-weight: var(--fw-bold); color: var(--primary);
+    background: var(--primary-bg); border-radius: 99px; padding: 1px 5px;
+}
+.picap-team-totals { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.picap-total-sp {
+    font-size: 12px; font-weight: var(--fw-semibold); color: var(--primary);
+    background: var(--primary-bg); border-radius: 99px; padding: 2px 10px;
+}
+.picap-total-buf {
+    font-size: 12px; font-weight: var(--fw-semibold); color: #7c3aed;
+    background: color-mix(in srgb, #7c3aed 10%, var(--surface));
+    border-radius: 99px; padding: 2px 10px;
+}
+
+/* Sprints en ligne horizontale */
+.picap-sprints {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border-radius: 0 0 var(--r-lg) var(--r-lg);
+    overflow: visible; /* laisse les tooltips déborder */
+}
+.picap-sprint {
+    background: var(--surface);
+    padding: var(--sp-2) var(--sp-3);
+    display: flex; flex-direction: column; gap: 8px;
+    overflow: visible;
+}
+.picap-sprint:first-child { border-radius: 0 0 0 var(--r-lg); }
+.picap-sprint:last-child  { border-radius: 0 0 var(--r-lg) 0; }
+.picap-sprint--done   { background: color-mix(in srgb, var(--success) 4%, var(--surface)); }
+.picap-sprint--active { background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
+.picap-sprint-hdr { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-height: 28px; }
+.picap-sprint-label { font-weight: var(--fw-bold); font-size: 13px; color: var(--text); }
+.picap-sprint-dates { font-size: 10px; color: var(--text-muted); }
+.picap-sprint-real { font-size: 11px; color: var(--success); margin-left: auto; }
+.picap-sprint-real strong { color: var(--success); }
+.picap-sprint-badge-active {
+    margin-left: auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em;
+    font-weight: var(--fw-bold); color: var(--primary);
+    background: var(--primary-bg); border-radius: 99px; padding: 1px 6px;
+}
+
+/* Tooltips riches */
+.picap-has-tt { position: relative; }
+.picap-tt {
+    display: none;
+    position: absolute;
+    z-index: 120;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 210px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-md);
+    padding: 6px 0;
+    pointer-events: none;
+}
+.picap-has-tt:hover .picap-tt { display: block; }
+.picap-tt-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; padding: 3px 10px; font-size: 11.5px; color: var(--text-muted);
+}
+.picap-tt-row strong { color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.picap-tt-row--head {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    font-weight: var(--fw-semibold); color: var(--text-muted);
+    border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 2px;
+}
+.picap-tt-row--total {
+    border-top: 1px solid var(--border); margin-top: 2px; padding-top: 5px;
+    font-weight: var(--fw-semibold); color: var(--text);
+}
+.picap-tt-row--total strong { color: var(--primary); }
+.picap-tt-row--warn strong  { color: var(--warning); }
+.picap-tt-row--buf strong   { color: #7c3aed; }
+.picap-tt-row--formula {
+    font-size: 11px; color: var(--text-muted);
+    background: var(--bg); border-radius: var(--r-sm);
+    padding: 3px 10px; margin: 1px 0;
+    font-variant-numeric: tabular-nums;
+}
+.picap-tt-row--formula strong { color: var(--text); }
+/* Lien vers Paramètres dans le bandeau capacité */
+.picap-params-group--settings-link {
+    flex-shrink: 0; margin-left: 0;
+}
+.picap-settings-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: var(--fw-medium);
+    color: var(--primary);
+    text-decoration: none;
+    padding: 5px 12px;
+    border-radius: 99px;
+    border: 1.5px solid var(--primary);
+    background: var(--primary-bg);
+    transition: all 0.15s;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.picap-settings-link:hover {
+    background: var(--primary);
+    color: #fff;
+}
+.picap-settings-link .icon { opacity: 0.8; }
+/* Badge % sur les chips rôles */
+.picap-role-pct { font-size: 10px; font-weight: var(--fw-bold); color: var(--warning); margin-left: 2px; }
+/* Section Paramètres — grille rôles */
+.cap-roles-grid { display: flex; flex-direction: column; gap: 6px; max-width: 520px; }
+.cap-role-row {
+    display: grid;
+    grid-template-columns: 1fr auto 200px;
+    align-items: center; gap: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+}
+.cap-role-row:last-child { border-bottom: none; }
+.cap-role-name { font-size: 13px; font-weight: var(--fw-medium); color: var(--text); }
+.cap-role-count { font-size: 11px; white-space: nowrap; }
+/* Compteur cliquable avec tooltip membres */
+.cap-role-count--tip {
+    position: relative; cursor: pointer;
+    color: var(--text-muted); font-size: 11px;
+    border-bottom: 1px dashed var(--border);
+    padding-bottom: 1px;
+    transition: color 0.12s;
+}
+.cap-role-count--tip:hover { color: var(--primary); border-bottom-color: var(--primary); }
+.cap-role-tip {
+    display: none;
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 200;
+    min-width: 200px; max-width: 280px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-md); box-shadow: var(--shadow-md);
+    padding: 6px 0; pointer-events: none;
+}
+.cap-role-count--tip:hover .cap-role-tip,
+.cap-role-count--tip:focus .cap-role-tip { display: block; }
+.cap-role-tip-member {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; padding: 3px 10px; font-size: 11.5px;
+}
+.cap-role-tip-name { color: var(--text); font-weight: var(--fw-medium); }
+.cap-role-tip-team { color: var(--text-muted); font-size: 10.5px; white-space: nowrap; }
+.cap-role-tip-hint {
+    display: block; padding: 4px 10px 2px;
+    font-size: 10px; color: var(--text-muted);
+    border-top: 1px solid var(--border); margin-top: 3px;
+    text-align: center; font-style: italic;
+}
+.cap-role-slider-wrap { display: flex; align-items: center; gap: 8px; }
+.cap-role-slider {
+    flex: 1; height: 4px; cursor: pointer;
+    accent-color: var(--primary);
+}
+.cap-role-pct-val { font-size: 12px; font-weight: var(--fw-semibold); color: var(--text); min-width: 34px; text-align: right; }
+.cap-role-pct-zero    { color: var(--text-muted); }
+.cap-role-pct-partial { color: var(--warning); }
+.picap-tt--wide { min-width: 270px; }
+.picap-tt-sep { height: 1px; background: var(--border); margin: 4px 0; }
+.picap-tt-member {
+    gap: 6px;
+    align-items: center;
+    padding-top: 2px; padding-bottom: 2px;
+}
+.picap-tt-member-name {
+    min-width: 0; flex: 1; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text);
+}
+.picap-tt-member-bar-wrap { flex-shrink: 0; }
+.picap-tt-member-bar {
+    display: block; width: 60px; height: 5px;
+    background: var(--border); border-radius: 3px; overflow: hidden;
+}
+.picap-tt-member-fill {
+    display: block; height: 100%;
+    background: var(--success); border-radius: 3px;
+    transition: width 0.2s;
+}
+.picap-tt-member strong { flex-shrink: 0; font-size: 11px; min-width: 50px; text-align: right; }
+.picap-tt-low  { color: var(--danger) !important; }
+.picap-tt-mid  { color: var(--warning) !important; }
+.picap-tt-abs  { font-weight: 400; color: var(--warning); font-size: 10px; }
+
+/* Barre disponibilité */
+.picap-avail-bar-wrap { display: flex; flex-direction: column; gap: 3px; }
+.picap-avail-bar {
+    height: 6px; border-radius: 3px; overflow: hidden;
+    background: var(--border); display: flex;
+}
+.picap-avail-fill { background: var(--success); border-radius: 3px 0 0 3px; transition: width 0.3s; }
+.picap-avail-abs  { background: color-mix(in srgb, var(--warning) 55%, var(--border)); }
+.picap-avail-pct  { font-size: 10.5px; color: var(--text-muted); }
+
+/* Barres SP net + buffer */
+.picap-sp-row { display: flex; align-items: center; gap: 6px; }
+.picap-sp-bars {
+    flex: 1; display: flex; height: 28px; border-radius: var(--r-sm); overflow: hidden;
+    border: 1px solid var(--border);
+}
+.picap-sp-net {
+    background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+    display: flex; align-items: center; justify-content: center; gap: 3px;
+    min-width: 0; overflow: hidden;
+    transition: flex 0.3s;
+}
+.picap-sp-buf {
+    background: color-mix(in srgb, #7c3aed 14%, var(--surface));
+    display: flex; align-items: center; justify-content: center; gap: 3px;
+    min-width: 0; overflow: hidden;
+    transition: flex 0.3s;
+}
+.picap-sp-val { font-size: 11px; font-weight: var(--fw-bold); color: var(--text); }
+.picap-sp-lbl { font-size: 9px; color: var(--text-muted); }
+.picap-sp-total { font-size: 12px; font-weight: var(--fw-semibold); color: var(--text); white-space: nowrap; }
+
+/* Récap PI */
+.picap-recap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: var(--sp-3) var(--sp-4);
+}
+.picap-recap-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+    font-weight: var(--fw-semibold); color: var(--text-muted); margin-bottom: var(--sp-2);
+}
+.picap-recap-kpis { display: flex; flex-wrap: wrap; gap: 8px; }
+.picap-recap-kpi {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 5px 12px;
+    font-size: 12.5px;
+}
+.picap-recap-kpi--total {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+    font-weight: var(--fw-semibold);
+}
+.picap-recap-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.picap-recap-team { color: var(--text-muted); }
+.picap-recap-val { font-weight: var(--fw-bold); color: var(--text); }
+.picap-recap-buf { font-size: 11px; color: #7c3aed; }
 
 /* Modal de comparaison de sprints */
 .sprint-compare-overlay { opacity: 0; transition: opacity 0.2s ease; }
@@ -4966,6 +5446,8 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
 .mdl-meta-right .chip {
     font-weight: var(--fw-semibold);
 }
+.mdl-meta-created { color: var(--text-muted); white-space: nowrap; }
+.mdl-meta-created small { opacity: 0.75; }
 .mdl-meta-right .text-xs {
     max-width: 180px;
     overflow: hidden;
@@ -4990,7 +5472,22 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
     .mdl-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .mdl-field { display: flex; flex-direction: column; gap: 2px; }
-.mdl-field--full { grid-column: 1 / -1; }
+.mdl-field--full  { grid-column: 1 / -1; }
+.mdl-field--span2 { grid-column: span 2; }
+/* Epic row — sous le header, pleine largeur, style compact */
+.mdl-epic-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px var(--sp-4);
+    background: var(--bg); border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    margin-bottom: var(--sp-3);
+    font-size: 12.5px;
+}
+.mdl-epic-row .mdl-field-label {
+    flex-shrink: 0; font-size: 10px; letter-spacing: 0.04em;
+}
+.mdl-epic-row .mdl-field-value { font-size: 12.5px; }
+.mdl-epic-row .mdl-field-with-open { display: flex; align-items: center; gap: 4px; }
 .mdl-field-label { font-size: var(--fs-xs); color: var(--text-muted); font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.03em; }
 .mdl-field-value { font-size: var(--fs-sm); color: var(--text); display: flex; align-items: center; gap: var(--sp-2); }
 .mdl-field-value.flex-wrap { flex-wrap: wrap; }
@@ -5253,6 +5750,94 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
     white-space: nowrap;
 }
 .epic-picker-opt.epic-picker-opt--clear .epic-picker-title { color: var(--text-muted); font-style: italic; }
+
+/* Person picker / Label picker — input dans le flux, liste en dropdown absolu */
+.person-picker {
+    position: relative;
+    display: inline-flex; align-items: center;
+}
+.person-picker-input {
+    min-width: 90px; max-width: 200px;
+    padding: 3px 8px;
+    border: 1px solid var(--primary); border-radius: var(--r-md);
+    background: var(--surface); color: var(--text);
+    font-size: 12.5px; font-family: inherit; outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.person-picker-input::placeholder { color: var(--text-muted); font-style: italic; }
+.person-picker-list {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 300;
+    min-width: 220px;
+    background: var(--surface);
+    border: 1px solid var(--primary); border-radius: var(--r-md);
+    box-shadow: 0 6px 20px rgb(0 0 0/.15);
+    max-height: 240px; overflow-y: auto; padding: 4px 0;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-muted) 30%, transparent) transparent;
+}
+.person-picker-list[hidden] { display: none; }
+.person-picker-opt {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px; cursor: pointer; font-size: 12.5px;
+    transition: background .08s;
+}
+.person-picker-opt:hover,
+.person-picker-opt.is-hover { background: var(--bg-alt); }
+.person-picker-opt.is-current { background: color-mix(in srgb, var(--success) 10%, transparent); }
+.person-picker-opt.is-current .person-picker-name::after { content: ' ✓'; color: var(--success); font-size: 11px; }
+.person-picker-avatar {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: var(--fw-bold); color: #fff;
+}
+.person-picker-avatar--none {
+    background: var(--border); color: var(--text-muted);
+    font-size: 14px; font-weight: 400;
+}
+.person-picker-name { flex: 1; color: var(--text); }
+.person-picker-opt--clear .person-picker-name { color: var(--text-muted); font-style: italic; }
+/* Label picker — pas d'avatar */
+.label-picker .person-picker-input { min-width: 160px; }
+.label-picker-new .person-picker-name { color: var(--primary); }
+.label-picker-new .person-picker-name strong { font-weight: var(--fw-semibold); }
+/* Chip picker dropdown (priorité, points, équipe) — popin fixe, ne décale pas le layout */
+.chip-picker {
+    display: flex; flex-wrap: wrap; gap: 5px; padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--primary); border-radius: var(--r-md);
+    box-shadow: 0 8px 24px rgb(0 0 0/.18), 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);
+    z-index: 9999;
+    min-width: 120px; max-width: 280px;
+    animation: chip-picker-in .1s ease;
+}
+@keyframes chip-picker-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.chip-picker--nowrap { flex-wrap: nowrap; }
+.chip-picker-opt {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 99px; cursor: pointer;
+    font-size: 12px; font-weight: var(--fw-medium);
+    border: 1px solid var(--border);
+    background: var(--bg); color: var(--text);
+    transition: filter 0.1s, transform 0.1s;
+    white-space: nowrap;
+}
+.chip-picker-opt:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.chip-picker-opt.is-current {
+    border-width: 2px;
+    box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 20%, transparent);
+}
+.chip-picker-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.chip-picker-check { font-size: 10px; opacity: 0.8; }
+
+.contrib-add-btn {
+    font-size: 11.5px; color: var(--text-muted); padding: 2px 8px;
+    border: 1px dashed var(--border); border-radius: 99px;
+    cursor: pointer; transition: all 0.15s; background: transparent;
+}
+.contrib-add-btn:hover { border-color: var(--primary); color: var(--primary); }
+
 .mdl-field-with-open .mdl-field-value { flex: 1; }
 .btn-open-linked {
     flex-shrink: 0;
@@ -5280,12 +5865,48 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
 .editable-field {
     cursor: pointer;
     border-radius: var(--r-sm);
-    transition: outline 0.1s, box-shadow 0.1s;
+    transition: background 0.12s, outline 0.1s, box-shadow 0.1s;
+    position: relative;
 }
 .editable-field:hover {
-    outline: 1px dashed var(--primary);
-    outline-offset: 2px;
-    box-shadow: 0 0 0 3px var(--primary-bg);
+    background: color-mix(in srgb, var(--primary) 6%, transparent);
+    outline: 1px dashed color-mix(in srgb, var(--primary) 50%, transparent);
+    outline-offset: 3px;
+}
+/* Flash vert après sauvegarde */
+@keyframes mdl-saved-flash {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 50%, transparent); background: color-mix(in srgb, var(--success) 12%, transparent); }
+    60%  { box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 20%, transparent); }
+    100% { box-shadow: none; background: transparent; }
+}
+.mdl-field-saved {
+    animation: mdl-saved-flash 0.9s ease forwards;
+    border-radius: var(--r-sm);
+}
+
+/* Icône crayon persistante sur les mdl-field contenant un editable-field */
+.mdl-field:has(.editable-field) .mdl-field-label::after {
+    content: ' ✎';
+    font-size: 9px;
+    opacity: 0.35;
+    vertical-align: middle;
+    margin-left: 2px;
+}
+/* Au hover sur le champ, le crayon devient primaire */
+.mdl-field:has(.editable-field:hover) .mdl-field-label::after {
+    opacity: 1;
+    color: var(--primary);
+}
+/* Pour les chips éditables dans mdl-meta (priorité, points, équipe) */
+.mdl-meta .editable-field::after {
+    content: ' ✎';
+    font-size: 9px;
+    opacity: 0;
+    transition: opacity 0.1s;
+    pointer-events: none;
+}
+.mdl-meta .editable-field:hover::after {
+    opacity: 0.6;
 }
 .mdl-title-span {
     cursor: pointer;
@@ -6809,6 +7430,30 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
 .rot-count-cell.rot-count-partial { color: var(--warning) !important; }
 
 /* Toggle PI suivant — switch à 2 segments façon tab-bar */
+/* Support rotation — tab PI Planning (lecture seule) */
+.pi-support-rota { display: flex; flex-direction: column; gap: var(--sp-3); }
+.pi-support-rota-hdr {
+    display: flex; align-items: center; gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+.pi-support-rota .rot-panel-hdr { cursor: default; }
+.pi-support-rota .rot-panel-hdr:hover { background: none; }
+/* Corrige la cellule membre : display:flex casse la hauteur uniforme des lignes */
+.pi-support-rota .rot-member-td {
+    display: table-cell;
+    vertical-align: middle;
+    padding: 4px var(--sp-2);
+    border: none;
+    white-space: nowrap;
+}
+.pi-support-rota .rot-chip {
+    min-width: 22px; min-height: 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm); border: 1px solid var(--border);
+    font-size: 11px; pointer-events: none; background: transparent;
+}
+.pi-support-rota .rot-chip.rot-chip-on { font-weight: var(--fw-bold); }
+
 .rot-pi-switch {
     display: inline-flex;
     align-items: stretch;
@@ -8193,6 +8838,15 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
 .pi-obj-title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); margin: 0; }
 
 /* Toolbar (équipe active + bouton save) */
+.pi-offset-notice {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 12px; margin-bottom: var(--sp-3);
+    font-size: 12.5px; color: var(--text-muted);
+    background: color-mix(in srgb, var(--info) 7%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--info) 20%, var(--border));
+    border-radius: var(--r-md);
+}
+.pi-offset-notice strong { color: var(--text); }
 .pi-obj-toolbar {
     display: flex;
     align-items: center;

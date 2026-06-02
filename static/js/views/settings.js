@@ -361,6 +361,54 @@ export function renderSettings(container) {
             </div>
         </div>
 
+        <!-- ═══ Capacité dev — % par rôle ═══ -->
+        ${(() => {
+            const effMembers = deriveMembersFromAbsences(absences, members);
+            const roles = [...new Set(effMembers.map(m => m.role).filter(Boolean))].sort();
+            const rolePctMap = piInfo?.roleCapacity || {};
+            if (!roles.length) return '';
+            return `
+        <div class="settings-section collapsed" id="section-cap-roles">
+            <div class="settings-section-header" data-stg-toggle>
+                <div>
+                    <h3>Capacité dev — % de travail par rôle</h3>
+                    <p>Pondère la contribution de chaque rôle au calcul de capacité. 100% = dev full-time, 0% = exclu.</p>
+                </div>
+                <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
+            </div>
+            <div class="settings-section-body">
+                <div class="cap-roles-grid" id="cap-roles-settings-grid">
+                    ${roles.map(r => {
+                        const pct = rolePctMap[r] !== undefined ? rolePctMap[r] : 100;
+                        const roleMembers = effMembers.filter(m => m.role === r)
+                            .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+                        const count = roleMembers.length;
+                        const copyText = roleMembers.map(m => `${m.name} (${m.team})`).join('\n');
+                        return `
+                        <div class="cap-role-row">
+                            <span class="cap-role-name">${esc(r)}</span>
+                            <span class="cap-role-count cap-role-count--tip" data-copy="${esc(copyText)}" tabindex="0">
+                                ${count} membre${count > 1 ? 's' : ''}
+                                <span class="cap-role-tip">
+                                    ${roleMembers.map(m => `<span class="cap-role-tip-member">
+                                        <span class="cap-role-tip-name">${esc(m.name)}</span>
+                                        <span class="cap-role-tip-team">${esc(m.team)}</span>
+                                    </span>`).join('')}
+                                    <span class="cap-role-tip-hint">Clic pour copier</span>
+                                </span>
+                            </span>
+                            <div class="cap-role-slider-wrap">
+                                <input type="range" class="cap-role-slider" min="0" max="100" step="10"
+                                    value="${pct}" data-role="${esc(r)}">
+                                <span class="cap-role-pct-val${pct === 0 ? ' cap-role-pct-zero' : pct < 100 ? ' cap-role-pct-partial' : ''}">${pct}%</span>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        </div>`;
+        })()}
+
         <!-- ═══ Absences / Conges ═══ -->
         <div class="settings-section collapsed">
             <div class="settings-section-header" data-stg-toggle>
@@ -1735,6 +1783,46 @@ function _rotWirePanelEvents(container) {
                 toast(`Rotation ${team} supprimee`, 'info');
                 await _rotRefreshPanels(container);
             } catch (e) { toast(e.message, 'error'); }
+        });
+    });
+
+    // ── Capacité dev — sliders % par rôle ────────────────────────────────────
+    let _roleSaveTimer = null;
+    container.querySelectorAll('.cap-role-slider').forEach(slider => {
+    // Clic sur "N membres" → copie la liste
+    container.querySelectorAll('.cap-role-count--tip').forEach(el => {
+        el.addEventListener('click', e => {
+            e.stopPropagation();
+            const text = el.dataset.copy;
+            if (!text) return;
+            navigator.clipboard.writeText(text)
+                .then(() => toast('Liste copiée', 'success'))
+                .catch(() => toast('Copie impossible', 'error'));
+        });
+    });
+
+        slider.addEventListener('input', () => {
+            const pct   = parseInt(slider.value, 10);
+            // Mise à jour visuelle immédiate
+            const valEl = slider.closest('.cap-role-slider-wrap')?.querySelector('.cap-role-pct-val');
+            if (valEl) {
+                valEl.textContent = pct + '%';
+                valEl.className = 'cap-role-pct-val' + (pct === 0 ? ' cap-role-pct-zero' : pct < 100 ? ' cap-role-pct-partial' : '');
+            }
+            // Debounce : sauvegarde 600ms après le dernier glissement
+            clearTimeout(_roleSaveTimer);
+            _roleSaveTimer = setTimeout(async () => {
+                // Reconstruit la map complète depuis tous les sliders visibles
+                const map = {};
+                container.querySelectorAll('.cap-role-slider').forEach(s => {
+                    map[s.dataset.role] = parseInt(s.value, 10);
+                });
+                try {
+                    const current = store.get('piInfo') || {};
+                    const updated = await api.updatePI({ ...current, roleCapacity: map });
+                    store.set('piInfo', updated);
+                } catch (e) { toast(e.message, 'error'); }
+            }, 600);
         });
     });
 }

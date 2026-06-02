@@ -886,17 +886,24 @@ export function buildSupportPiWeeks(piInfo, sprintInfo, weekMode = SUPPORT_WEEK_
     const wps       = Math.max(1, Math.floor(sprintDur / 7));
     const targetDow = (SUPPORT_WEEK_MODES[weekMode] || SUPPORT_WEEK_MODES[SUPPORT_WEEK_MODE_DEFAULT]).dow;
 
+    // Formate une Date locale en YYYY-MM-DD sans conversion UTC (évite le décalage timezone).
+    const _fmt = (dt) => {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const d = String(dt.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
     const _add = (d, n) => {
         const dt = new Date(d + 'T00:00:00');
         dt.setDate(dt.getDate() + n);
-        return dt.toISOString().slice(0, 10);
+        return _fmt(dt);
     };
     // Snap au jour de semaine ciblé (recul jusqu'à 6j max).
     const _snap = (iso) => {
         const d = new Date(iso + 'T00:00:00');
         const back = (d.getDay() - targetDow + 7) % 7;
         d.setDate(d.getDate() - back);
-        return d.toISOString().slice(0, 10);
+        return _fmt(d);
     };
 
     // Priorité 1 : piInfo.startDate si saisi explicitement par l'utilisateur.

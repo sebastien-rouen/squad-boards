@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Cap Debug</title>
+<style>
+  body { font-family: monospace; font-size: 13px; padding: 16px; background: #0f172a; color: #e2e8f0; }
+  h2 { color: #60a5fa; margin: 16px 0 4px; }
+  .ok  { color: #4ade80; }
+  .err { color: #f87171; }
+  .warn { color: #fbbf24; }
+  table { border-collapse: collapse; margin-bottom: 12px; }
+  td, th { border: 1px solid #334155; padding: 4px 10px; text-align: left; }
+  th { background: #1e293b; color: #94a3b8; }
+</style>
+</head>
+<body>
+<h1>Capacité — diagnostic membres</h1>
+<div id="out"></div>
+<script>
+const BASE = '';
+const log = [];
+const out = document.getElementById('out');
+
+function print(html) { out.innerHTML += html; }
+function row(label, val, ok) {
+  return `<tr><td>${label}</td><td class="${ok===true?'ok':ok===false?'err':''}">${val}</td></tr>`;
+}
+
+async function run() {
+  const [teamsRaw, absRaw, membersRaw, piRaw, sprintRaw] = await Promise.all([
+    fetch('/api/teams').then(r=>r.json()),
+    fetch('/api/absences').then(r=>r.json()),
+    fetch('/api/members').then(r=>r.json()),
+    fetch('/api/pi').then(r=>r.json()),
+    fetch('/api/sprint').then(r=>r.json()),
+  ]);
+
+  // 1. Noms d'équipes
+  const teamNames = teamsRaw.map(t => t.name);
+  print(`<h2>1. Équipes en base (${teamNames.length})</h2>`);
+  print(`<p>${teamNames.join(', ')}</p>`);
+
+  // 2. Équipes dans les absences
+  const absTeams = [...new Set(absRaw.map(a => a.team))].sort();
+  print(`<h2>2. Équipes dans les absences (${absTeams.length})</h2>`);
+  print(`<p>${absTeams.join(', ')}</p>`);
+
+  // 3. Correspondances
+  print(`<h2>3. Correspondance teams ↔ absences</h2><table><tr><th>Team (base)</th><th>Match exact absences</th><th>Membres via absences</th></tr>`);
+  for (const tn of teamNames) {
+    const exactMatch = absTeams.includes(tn);
+    const membersFromAbs = [...new Set(absRaw.filter(a => a.team === tn).map(a => a.memberName))];
+    print(row(tn, exactMatch ? `✓ ${membersFromAbs.length} membres` : `✗ pas de match`, exactMatch));
+  }
+  print(`</table>`);
+
+  // 4. Quelles absences matchent "Fuego" vs "Team Fuego" ?
+  print(`<h2>4. Membres deriveMembersFromAbsences pour "Fuego" et "Team Fuego"</h2><table><tr><th>Filtre team</th><th>Membres trouvés</th></tr>`);
+  for (const q of ['Fuego', 'Team Fuego', 'Ami', 'Team Ami']) {
+    const members = [...new Set(absRaw.filter(a => a.team === q).map(a => a.memberName))];
+    print(row(q, members.length ? members.slice(0,5).join(', ') + (members.length > 5 ? '…' : '') : '(aucun)', members.length > 0));
+  }
+  print(`</table>`);
+
+  // 5. Membres dans la table members pour Fuego
+  print(`<h2>5. Table members (team="Fuego")</h2><table><tr><th>Nom</th><th>Role</th><th>Entity</th></tr>`);
+  const fuegoPure = membersRaw.filter(m => m.team === 'Fuego');
+  for (const m of fuegoPure) print(row(m.name, m.role||'(vide)', null));
+  if (!fuegoPure.length) print(row('(aucun)', '', false));
+  print(`</table>`);
+
+  // 6. Résumé du problème
+  print(`<h2>6. Diagnostic</h2>`);
+  const mismatch = teamNames.filter(tn => !absTeams.includes(tn) && absTeams.includes('Team ' + tn));
+  if (mismatch.length) {
+    print(`<p class="err">⚠ Mismatch détecté sur ${mismatch.length} équipe(s) : <strong>${mismatch.join(', ')}</strong></p>`);
+    print(`<p class="warn">Les absences utilisent le préfixe "Team X" mais la table teams n'a que "X".<br>
+    → <strong>renderCapacity</strong> filtre <code>m.team === teamName</code> (ex: "Fuego") mais <code>deriveMembersFromAbsences</code> retourne <code>team: "Team Fuego"</code>.</p>`);
+    print(`<p class="ok">Fix : normaliser le nom d'équipe lors du filtre dans _capSprintWindows / renderCapacity.</p>`);
+  } else {
+    print(`<p class="ok">✓ Pas de mismatch détecté.</p>`);
+  }
+}
+
+run().catch(e => print(`<p class="err">Erreur: ${e.message}</p>`));
+</script>
+</body>
+</html>

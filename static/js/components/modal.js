@@ -152,6 +152,208 @@ function _makeEpicPicker(allEpics, currentId, onCommit, onCancel) {
     return { wrap, input };
 }
 
+function _makePersonPicker(allNames, currentName, onCommit, onCancel) {
+    const _initials = (n) => n ? n.split(/[\s,]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') : '?';
+    const _color = (n) => {
+        let h = 0; for (const c of (n || '')) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+        return `hsl(${h % 360},55%,48%)`;
+    };
+    const _avatarHtml = (n) => `<span class="person-picker-avatar" style="background:${_color(n)}">${_initials(n)}</span>`;
+
+    // Wrapper positionné — seul l'input est dans le flux, la liste est en absolute
+    const wrap = document.createElement('div');
+    wrap.className = 'person-picker';
+
+    const input = document.createElement('input');
+    input.type = 'text'; input.className = 'person-picker-input';
+    input.placeholder = '🔍 Filtrer…'; input.autocomplete = 'off';
+    input.value = currentName || '';
+
+    const list = document.createElement('div');
+    list.className = 'person-picker-list'; list.role = 'listbox';
+
+    const _buildList = (q = '') => {
+        const lq = q.toLowerCase();
+        const items = [];
+        // Option "Non assigné" (uniquement si demandé par l'appelant — géré via CSS .person-picker--no-clear)
+        if (!wrap.classList.contains('person-picker--no-clear')) {
+            items.push(`<div class="person-picker-opt person-picker-opt--clear${!currentName ? ' is-current' : ''}" data-name="" role="option">
+                <span class="person-picker-avatar person-picker-avatar--none">—</span>
+                <span class="person-picker-name">Non assigné</span>
+            </div>`);
+        }
+        allNames.filter(n => !lq || n.toLowerCase().includes(lq)).forEach(n => {
+            items.push(`<div class="person-picker-opt${n === currentName ? ' is-current' : ''}" data-name="${esc(n)}" role="option">
+                ${_avatarHtml(n)}
+                <span class="person-picker-name">${esc(n)}</span>
+            </div>`);
+        });
+        list.innerHTML = items.join('');
+        list.hidden = items.length === 0;
+    };
+
+    wrap.appendChild(input);
+    wrap.appendChild(list);
+    _buildList();
+
+    const _allOpts = () => [...list.querySelectorAll('.person-picker-opt')];
+
+    input.addEventListener('input', () => _buildList(input.value));
+    input.addEventListener('focus',  () => { input.select(); _buildList(input.value); list.hidden = false; });
+
+    list.addEventListener('mousedown', e => {
+        // mousedown pour éviter que blur sur l'input ne ferme avant le click
+        const opt = e.target.closest('.person-picker-opt');
+        if (opt) { e.preventDefault(); onCommit(opt.dataset.name); }
+    });
+    list.addEventListener('mouseover', e => {
+        const opt = e.target.closest('.person-picker-opt');
+        if (opt) { _allOpts().forEach(o => o.classList.remove('is-hover')); opt.classList.add('is-hover'); }
+    });
+
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { e.stopPropagation(); onCancel(); return; }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const hovered = list.querySelector('.is-hover') || list.querySelector('.is-current');
+            if (hovered) onCommit(hovered.dataset.name);
+            return;
+        }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const opts = _allOpts();
+            const cur = list.querySelector('.is-hover');
+            let idx = cur ? opts.indexOf(cur) : -1;
+            idx = e.key === 'ArrowDown' ? Math.min(opts.length - 1, idx + 1) : Math.max(0, idx - 1);
+            _allOpts().forEach(o => o.classList.remove('is-hover'));
+            if (opts[idx]) { opts[idx].classList.add('is-hover'); opts[idx].scrollIntoView({ block: 'nearest' }); }
+        }
+    });
+    input.addEventListener('blur', () => { setTimeout(() => { if (!list.matches(':hover')) onCancel(); }, 120); });
+
+    return { wrap, input };
+}
+
+// ── Picker générique dropdown (chips cliquables) ───────────────────────────
+// options : [{ value, label, color?, bg?, dot? }]
+// currentValue : string | string[] — valeur(s) courante(s) marquées ✓
+function _makeChipPicker(options, currentValue, onCommit) {
+    const currentSet = new Set(Array.isArray(currentValue) ? currentValue : [currentValue]);
+    const wrap = document.createElement('div');
+    wrap.className = 'chip-picker';
+    wrap.innerHTML = options.map(o => {
+        const isCur = o.value !== '' && currentSet.has(o.value);
+        return `<button type="button" class="chip-picker-opt${isCur ? ' is-current' : ''}"
+            data-value="${esc(o.value)}"
+            style="${o.bg ? `background:${o.bg};` : ''}${o.color ? `color:${o.color};border-color:${o.color}40` : ''}">
+            ${o.dot ? `<span class="chip-picker-dot" style="background:${o.dot}"></span>` : ''}
+            ${esc(o.label)}
+            ${isCur ? '<span class="chip-picker-check">✓</span>' : ''}
+        </button>`;
+    }).join('');
+    wrap.querySelectorAll('.chip-picker-opt').forEach(btn => {
+        btn.addEventListener('click', () => onCommit(btn.dataset.value));
+    });
+    return wrap;
+}
+
+function _openChipPicker(el, options, currentValue, onCommit) {
+    if (document.querySelector('.chip-picker--open')) return;
+    const wrap = _makeChipPicker(options, currentValue, async (val) => {
+        cleanup();
+        if (val !== currentValue) onCommit(val);
+    });
+    wrap.classList.add('chip-picker--open');
+    // Positionne la popin juste sous l'élément déclencheur
+    const rect = el.getBoundingClientRect();
+    wrap.style.position = 'fixed';
+    wrap.style.top  = `${rect.bottom + 6}px`;
+    wrap.style.left = `${rect.left}px`;
+    document.body.appendChild(wrap);
+    const onDocClick = (ev) => { if (!wrap.contains(ev.target) && ev.target !== el) cleanup(); };
+    const cleanup = () => {
+        wrap.remove();
+        document.removeEventListener('mousedown', onDocClick, true);
+    };
+    setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+}
+
+// Autocomplete pour les labels — suggestions depuis les labels existants du store + frappe libre
+function _makeLabelPicker(currentLabels, onAdd, onCancel) {
+    const allTickets  = [...(store.get('tickets') || []), ...(store.get('features') || []), ...(store.get('epics') || [])];
+    const suggestions = [...new Set(allTickets.flatMap(t => t.labels || []))]
+        .filter(l => !currentLabels.includes(l))
+        .sort();
+
+    const wrap  = document.createElement('div');
+    wrap.className = 'person-picker label-picker';
+    wrap.classList.add('person-picker--no-clear');
+
+    const input = document.createElement('input');
+    input.type = 'text'; input.className = 'person-picker-input';
+    input.placeholder = '+ label (Entrée ou clic)'; input.autocomplete = 'off';
+
+    const list = document.createElement('div');
+    list.className = 'person-picker-list'; list.role = 'listbox';
+
+    const _buildList = (q = '') => {
+        if (!q) { list.hidden = true; list.innerHTML = ''; return; }
+        const lq = q.toLowerCase();
+        const matches = suggestions.filter(s => s.toLowerCase().includes(lq));
+        list.innerHTML = matches.map(s =>
+            `<div class="person-picker-opt label-picker-opt" data-label="${esc(s)}" role="option">
+                <span class="person-picker-name">${esc(s)}</span>
+            </div>`
+        ).join('');
+        if (!matches.some(s => s.toLowerCase() === lq)) {
+            list.innerHTML += `<div class="person-picker-opt label-picker-opt label-picker-new" data-label="${esc(q)}" role="option">
+                <span class="person-picker-name">Créer <strong>"${esc(q)}"</strong></span>
+            </div>`;
+        }
+        list.hidden = false;
+    };
+
+    wrap.appendChild(input);
+    wrap.appendChild(list);
+    list.hidden = true;
+
+    input.addEventListener('input', () => _buildList(input.value));
+    input.addEventListener('focus', () => { _buildList(input.value); });
+
+    list.addEventListener('mousedown', e => {
+        const opt = e.target.closest('.person-picker-opt');
+        if (opt) { e.preventDefault(); onAdd(opt.dataset.label); input.value = ''; _buildList(); }
+    });
+    list.addEventListener('mouseover', e => {
+        const opt = e.target.closest('.person-picker-opt');
+        const all = [...list.querySelectorAll('.person-picker-opt')];
+        if (opt) { all.forEach(o => o.classList.remove('is-hover')); opt.classList.add('is-hover'); }
+    });
+
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { e.stopPropagation(); onCancel(); return; }
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const hovered = list.querySelector('.is-hover');
+            const val = hovered ? hovered.dataset.label : input.value.trim();
+            if (val) { onAdd(val); input.value = ''; _buildList(); }
+            return;
+        }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const opts = [...list.querySelectorAll('.person-picker-opt')];
+            const cur = list.querySelector('.is-hover');
+            let idx = cur ? opts.indexOf(cur) : -1;
+            idx = e.key === 'ArrowDown' ? Math.min(opts.length - 1, idx + 1) : Math.max(0, idx - 1);
+            opts.forEach(o => o.classList.remove('is-hover'));
+            if (opts[idx]) opts[idx].classList.add('is-hover');
+        }
+    });
+    input.addEventListener('blur', () => { setTimeout(() => { if (!list.matches(':hover')) onCancel(); }, 120); });
+
+    return { wrap, input };
+}
+
 const _isWikiMarkup = s => /(?:^|\n)h[1-6]\. |(?:^|\n)[*#]+ |\{code[\s:{]/.test(s);
 
 function _renderCommentBody(body) {
@@ -202,6 +404,13 @@ const bodyEl = () => document.getElementById('modal-body');
 
 export function initModal() {
     document.getElementById('modal-close')?.addEventListener('click', closeModal);
+    document.getElementById('modal-fullpage')?.addEventListener('click', () => {
+        const isFs = document.getElementById('modal')?.classList.toggle('modal--fullscreen');
+        document.getElementById('modal-overlay')?.classList.toggle('modal-overlay--fullscreen', isFs);
+        // Met à jour l'icône : expand ↔ compress
+        const btn = document.getElementById('modal-fullpage');
+        if (btn) btn.title = isFs ? 'Réduire' : 'Pleine page';
+    });
     overlay()?.addEventListener('click', e => { if (e.target === overlay()) closeModal(); });
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape' && !overlay().classList.contains('hidden')) closeModal();
@@ -221,9 +430,10 @@ export function closeModal() {
     document.getElementById('mdl-children-side')?.remove();
     document.getElementById('mdl-children-toggle')?.remove();
     document.getElementById('modal')?.classList.remove('has-children-sidebar');
+    document.getElementById('modal')?.removeAttribute('data-status');
+    // B : retour navigateur propre — évite de laisser le hash /ticket/XXX dans l'historique
     if (/\/ticket\//.test(location.hash)) {
-        const base = location.hash.replace(/\/ticket\/[^/]+$/, '');
-        history.pushState(null, '', base || `#${store.get('view') || 'dashboard'}`);
+        history.back();
     }
 }
 function showModal() { overlay().classList.remove('hidden'); }
@@ -325,10 +535,19 @@ export function openTicketModal(ticketId) {
         `;
     }
 
+    // ── G : bordure statut sur la modale ─────────────────────────────────────
+    const modalEl = document.getElementById('modal');
+    if (modalEl) {
+        modalEl.dataset.status = ticket.status;
+    }
+
     // ── Title bar with prev/next ──────────────────────────────────────────────
     titleEl().innerHTML = `
         <button class="mdl-nav-btn${_modalIdx <= 0 ? ' disabled' : ''}" id="mdl-prev" title="Precedent (←)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-        <span class="badge badge-type badge-${ticket.type}">${esc(typeLabel)}</span>
+        <!-- H : avatar leader -->
+        ${leader ? `<span class="mdl-header-avatar" style="background:${hashColor(leader)}" title="${esc(leader)}">${esc(initials(leader))}</span>` : ''}
+        <!-- D : badge type éditable -->
+        <span class="badge badge-type badge-${ticket.type} mdl-type-badge editable-field" data-field="type" data-value="${ticket.type}" title="Cliquer pour modifier le type">${esc(typeLabel)}</span>
         ${jiraLink
             ? `<a class="mdl-ticket-link" href="${esc(jiraLink)}" target="_blank" rel="noopener" title="Ouvrir dans JIRA">${esc(ticket.id)}</a>`
             : `<span class="mdl-ticket-id">${esc(ticket.id)}</span>`
@@ -336,12 +555,37 @@ export function openTicketModal(ticketId) {
         <button class="copy-btn copy-btn--always" id="mdl-copy-key" data-copy-key="${esc(ticket.id)}" data-copy-title="${esc(ticket.title)}" title="Copier '${esc(ticket.id)} - ${esc(ticket.title)}'">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
         </button>
+        <!-- E : copie URL JIRA -->
+        ${jiraLink ? `<button class="copy-btn copy-btn--always" id="mdl-copy-url" title="Copier le lien JIRA">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+        </button>` : ''}
         <span class="truncate flex-1 mdl-title-span" id="mdl-title-span" title="Cliquer pour modifier">${esc(ticket.title)}</span>
+        <!-- C : badge commentaires -->
+        ${comments.length ? `<button class="mdl-comments-badge" id="mdl-scroll-comments" title="Voir les commentaires">💬 ${comments.length}</button>` : ''}
         <button class="mdl-nav-btn${_modalIdx >= all.length - 1 ? ' disabled' : ''}" id="mdl-next" title="Suivant (→)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
     `;
 
     // ── Body ──────────────────────────────────────────────────────────────────
     bodyEl().innerHTML = `
+        <!-- Epic — avant meta, sous le header -->
+        ${(() => {
+            const epicObj = ticket.epic ? all.find(t => t.id === ticket.epic) : null;
+            const epicTitle = epicObj?.title || '';
+            return `<div class="mdl-epic-row">
+                <span class="mdl-field-label">Epic</span>
+                <div class="mdl-field-with-open">
+                    <span class="mdl-field-value editable-field" data-field="epic" data-value="${esc(ticket.epic || '')}">
+                        ${ticket.epic
+                            ? `<span class="mdl-link-id" data-ticket-id="${esc(ticket.epic)}">${esc(ticket.epic)}</span>${epicTitle ? ` <span class="text-muted text-xs">– ${esc(epicTitle)}</span>` : ''}`
+                            : '<span class="text-muted text-xs">— Aucun</span>'}
+                    </span>
+                    ${ticket.epic
+                        ? `<button class="btn-open-linked" data-ticket-id="${esc(ticket.epic)}" title="Ouvrir ${esc(ticket.epic)}"><svg class="icon icon-xs"><use href="#i-external"/></svg></button>`
+                        : ''}
+                </div>
+            </div>`;
+        })()}
+
         <!-- Meta row -->
         <div class="mdl-meta">
             <select class="status-select" id="detail-status" style="background:var(--status-${ticket.status}-bg);color:var(--status-${ticket.status})">
@@ -362,6 +606,10 @@ export function openTicketModal(ticketId) {
                 <span class="chip editable-field" data-field="team" data-value="${esc(ticket.team || '')}" style="${ticket.team ? '' : 'opacity:0.5'}">${ticket.team ? esc(ticket.team) : '— Équipe'}</span>
                 ${ticket.piSprint ? `<span class="chip">${esc(ticket.piSprint)}</span>` : ''}
                 ${ticket.sprintName ? `<span class="text-xs text-muted">${esc(ticket.sprintName)}</span>` : ''}
+                <span class="text-xs text-muted mdl-meta-created" title="${esc(fmtDateLong(ticket.createdAt))} · maj ${esc(fmtRelative(ticket.updatedAt))}">
+                    ${esc(fmtDate(ticket.createdAt))}
+                    <small>· ${esc(fmtRelative(ticket.updatedAt))}</small>
+                </span>
             </div>
         </div>
 
@@ -375,66 +623,35 @@ export function openTicketModal(ticketId) {
             </div>
             <div class="mdl-field">
                 <span class="mdl-field-label">Rapporteur</span>
-                <span class="mdl-field-value">${personChip(reporter)}</span>
+                <span class="mdl-field-value editable-field" data-field="reporter" data-value="${esc(reporter || '')}">${personChip(reporter)}</span>
             </div>
-            <div class="mdl-field" title="${esc(fmtDateLong(ticket.createdAt))} · maj ${esc(fmtRelative(ticket.updatedAt))}">
-                <span class="mdl-field-label">Créé · maj</span>
-                <span class="mdl-field-value text-sm">
-                    ${esc(fmtDateLong(ticket.createdAt))}
-                    <small class="text-muted">· ${esc(fmtRelative(ticket.updatedAt))}</small>
-                </span>
-            </div>
-            ${(() => {
-                const sprints = _sprintsHistoryOfTicket(ticket);
-                const piTag = ticket.piSprint ? `<span class="chip chip-pi" title="PI dérivé">${esc(ticket.piSprint)}</span>` : '';
-                if (!sprints.length && !piTag) {
-                    return `<div class="mdl-field mdl-field--full">
-                        <span class="mdl-field-label">Sprint(s)</span>
-                        <span class="mdl-field-value text-muted text-xs">— Aucun sprint</span>
-                    </div>`;
-                }
-                const chips = sprints.map(s =>
-                    `<span class="chip chip-sprint${s.isCurrent ? ' chip-sprint--current' : ' chip-sprint--past'}" title="${s.isCurrent ? 'Sprint courant côté JIRA' : 'Sprint historique (extrait du changelog)'}">${s.isCurrent ? '● ' : '○ '}${esc(s.name)}</span>`
-                ).join('');
-                return `<div class="mdl-field mdl-field--full">
-                    <span class="mdl-field-label">Sprint(s)</span>
-                    <span class="mdl-field-value flex-wrap">${chips}${piTag}</span>
-                </div>`;
-            })()}
-            <div class="mdl-field mdl-field--full">
+            <div class="mdl-field">
                 <span class="mdl-field-label">Contributors</span>
                 <span class="mdl-field-value flex-wrap" id="contrib-inline-wrap">
                     ${contributors.map(c => `<span class="chip chip-gap">${avatar(c, false, 18)} ${esc(c)} <button type="button" class="contrib-rm" data-name="${esc(c)}" title="Retirer">×</button></span>`).join('')}
-                    <select class="mdl-inline-select" id="contrib-add-select">
-                        <option value="">+ Ajouter</option>
-                        ${getMemberNames().filter(m => !contributors.includes(m) && m !== leader).map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('')}
-                    </select>
+                    <button type="button" class="contrib-add-btn" id="contrib-add-btn" title="Ajouter un contributeur">+ Ajouter</button>
                 </span>
             </div>
+            <!-- Sprint + Labels côte à côte -->
             ${(() => {
-                const epicObj = ticket.epic ? all.find(t => t.id === ticket.epic) : null;
-                const epicTitle = epicObj?.title || '';
-                return `<div class="mdl-field mdl-field--full">
-                    <span class="mdl-field-label">Epic</span>
-                    <div class="mdl-field-with-open">
-                        <span class="mdl-field-value editable-field" data-field="epic" data-value="${esc(ticket.epic || '')}">
-                            ${ticket.epic
-                                ? `<span class="mdl-link-id" data-ticket-id="${esc(ticket.epic)}">${esc(ticket.epic)}</span>${epicTitle ? ` <span class="text-muted text-xs">– ${esc(epicTitle)}</span>` : ''}`
-                                : '<span class="text-muted text-xs">— Aucun</span>'}
-                        </span>
-                        ${ticket.epic
-                            ? `<button class="btn-open-linked" data-ticket-id="${esc(ticket.epic)}" title="Ouvrir ${esc(ticket.epic)}"><svg class="icon icon-xs"><use href="#i-external"/></svg></button>`
-                            : ''}
-                    </div>
+                const sprints = _sprintsHistoryOfTicket(ticket);
+                const piTag = ticket.piSprint ? `<span class="chip chip-pi" title="PI dérivé">${esc(ticket.piSprint)}</span>` : '';
+                const currentSprint = ticket.sprintName || '';
+                const sprintContent = sprints.length
+                    ? sprints.map(s => `<span class="chip chip-sprint${s.isCurrent ? ' chip-sprint--current' : ' chip-sprint--past'}" title="${s.isCurrent ? 'Sprint courant' : 'Sprint historique'}">${s.isCurrent ? '● ' : '○ '}${esc(s.name)}</span>`).join('') + piTag
+                    : `<span class="text-muted text-xs">— Aucun sprint</span>${piTag}`;
+                return `<div class="mdl-field">
+                    <span class="mdl-field-label">Sprint(s)</span>
+                    <span class="mdl-field-value flex-wrap editable-field" id="sprint-field" data-field="sprint" data-value="${esc(currentSprint)}">${sprintContent}</span>
+                </div>
+                <div class="mdl-field mdl-field--span2">
+                    <span class="mdl-field-label">Labels</span>
+                    <span class="mdl-field-value flex-wrap" id="labels-inline-wrap">
+                        ${(ticket.labels || []).map(l => `<span class="chip chip-gap">${esc(l)} <button type="button" class="label-rm" data-label="${esc(l)}" title="Retirer">×</button></span>`).join('')}
+                        <input type="text" class="mdl-inline-input" id="label-add-input" placeholder="+ label (Entrée)">
+                    </span>
                 </div>`;
             })()}
-            <div class="mdl-field mdl-field--full">
-                <span class="mdl-field-label">Labels</span>
-                <span class="mdl-field-value flex-wrap" id="labels-inline-wrap">
-                    ${(ticket.labels || []).map(l => `<span class="chip chip-gap">${esc(l)} <button type="button" class="label-rm" data-label="${esc(l)}" title="Retirer">×</button></span>`).join('')}
-                    <input type="text" class="mdl-inline-input" id="label-add-input" placeholder="+ label (Entrée)">
-                </span>
-            </div>
         </div>
 
         <!-- Description (wysiwyg inline) -->
@@ -600,6 +817,22 @@ export function openTicketModal(ticketId) {
         } catch (err) { toast(err.message, 'error'); }
     });
 
+    // E : copie URL JIRA
+    document.getElementById('mdl-copy-url')?.addEventListener('click', () => {
+        if (jiraLink) copyToClipboard(jiraLink, 'Lien JIRA copié');
+    });
+
+
+    // C : scroll vers les commentaires
+    document.getElementById('mdl-scroll-comments')?.addEventListener('click', () => {
+        const commentList = bodyEl().querySelector('#comment-list') || bodyEl().querySelector('details');
+        if (commentList) {
+            const details = commentList.closest('details') || commentList.querySelector('details');
+            if (details) details.open = true;
+            commentList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+
     // Bouton copier (clé + titre)
     document.getElementById('mdl-copy-key')?.addEventListener('click', e => {
         const btn = e.currentTarget;
@@ -704,10 +937,18 @@ function _bindDescriptionEditor(container, ticket) {
 // ══════════════════════════════════════════════════════════════════════════════
 // Inline field editors
 // ══════════════════════════════════════════════════════════════════════════════
+// Flash vert discret sur un élément après sauvegarde réussie
+function _flashSaved(el) {
+    if (!el) return;
+    el.classList.add('mdl-field-saved');
+    setTimeout(() => el?.classList.remove('mdl-field-saved'), 900);
+}
+
 function _bindInlineEditors(container, ticket) {
-    const apiSave = async (fields) => {
+    const apiSave = async (fields, flashEl) => {
         const fn = ticket.type === 'feature' ? api.updateFeature : ticket.type === 'epic' ? api.updateEpic : api.updateTicket;
         await fn(ticket.id, fields);
+        if (flashEl) _flashSaved(flashEl);
         await refreshData();
     };
 
@@ -737,36 +978,68 @@ function _bindInlineEditors(container, ticket) {
         });
     }
 
-    // ── Single-value select/toggle fields ────────────────────────────────────
-    const PI = { critical: '🔴', high: '🟠', medium: '🔵', low: '⚪' };
-    const priorities = ['critical', 'high', 'medium', 'low'].map(p => [p, `${PI[p]} ${p}`]);
-    const points = [0,1,2,3,5,8,13,21].map(p => [String(p), p ? `${p} pts` : '—']);
-    const teams = (store.get('teams') || []).map(t => [t.name || t, t.name || t]);
-    const members = getMemberNames().map(m => [m, m]);
-
-    const OPTIONS = {
-        priority: priorities,
-        points,
-        team:     [['', '— Aucune'], ...teams],
-        leader:   [['', '— Non assigné'], ...members],
-        // epic : picker custom avec autocomplete (cf. _makeEpicPicker) — pas dans OPTIONS
+    // ── Chip pickers : priorité, points, équipe ──────────────────────────────
+    const PRIO_CFG = {
+        critical: { label: '🔴 Critical', color: 'var(--danger)',      bg: 'var(--danger-bg)'  },
+        high:     { label: '🟠 High',     color: 'var(--warning)',     bg: 'var(--warning-bg)' },
+        medium:   { label: '🔵 Medium',   color: 'var(--info)',        bg: 'var(--info-bg)'    },
+        low:      { label: '⚪ Low',      color: 'var(--text-muted)',  bg: 'var(--bg-alt)'     },
     };
-
-    const makeSelect = (options, current) => {
-        const sel = document.createElement('select');
-        sel.className = 'mdl-inline-select';
-        options.forEach(([v, l]) => { const o = new Option(l, v); if (v === current) o.selected = true; sel.appendChild(o); });
-        return sel;
-    };
+    const prioOptions = Object.entries(PRIO_CFG).map(([v, c]) => ({ value: v, label: c.label, color: c.color, bg: c.bg }));
+    const ptOptions   = [0,1,2,3,5,8,13,21].map(p => ({ value: String(p), label: p ? `${p}` : '—' }));
+    const teamObjs    = store.get('teamObjects') || [];
+    const teamOptions = [
+        { value: '', label: '— Aucune' },
+        ...teamObjs.map(t => ({ value: t.name, label: t.name, dot: t.color })),
+    ];
 
     container.querySelectorAll('[data-field]').forEach(el => {
         const field = el.dataset.field;
+
+        // D : type éditable
+        if (field === 'type') {
+            const typeOptions = Object.entries(TYPE_LABELS)
+                .filter(([v]) => !['epic','feature'].includes(v)) // épics/features gérés autrement
+                .map(([v, l]) => ({ value: v, label: l }));
+            el.addEventListener('click', () => _openChipPicker(el, typeOptions, el.dataset.value, async (val) => {
+                try { await apiSave({ type: val }, el); openTicketModal(ticket.id); }
+                catch (err) { toast(err.message, 'error'); }
+            }));
+            return;
+        }
 
         if (field === 'flagged') {
             el.addEventListener('click', async () => {
                 try { await apiSave({ flagged: el.dataset.value !== 'true' }); openTicketModal(ticket.id); }
                 catch (err) { toast(err.message, 'error'); }
             });
+            return;
+        }
+
+        if (field === 'priority') {
+            el.addEventListener('click', () => _openChipPicker(el, prioOptions, el.dataset.value, async (val) => {
+                try { await apiSave({ priority: val }, el); openTicketModal(ticket.id); }
+                catch (err) { toast(err.message, 'error'); }
+            }));
+            return;
+        }
+
+        if (field === 'points') {
+            el.addEventListener('click', () => {
+                _openChipPicker(el, ptOptions, String(el.dataset.value || '0'), async (val) => {
+                    try { await apiSave({ points: parseInt(val) || 0 }, el); openTicketModal(ticket.id); }
+                    catch (err) { toast(err.message, 'error'); }
+                });
+                document.querySelector('.chip-picker--open')?.classList.add('chip-picker--nowrap');
+            });
+            return;
+        }
+
+        if (field === 'team') {
+            el.addEventListener('click', () => _openChipPicker(el, teamOptions, el.dataset.value || '', async (val) => {
+                try { await apiSave({ team: val || null }, el); openTicketModal(ticket.id); }
+                catch (err) { toast(err.message, 'error'); }
+            }));
             return;
         }
 
@@ -796,77 +1069,139 @@ function _bindInlineEditors(container, ticket) {
             return;
         }
 
-        const options = OPTIONS[field];
-        if (!options) return;
+        // Leader / Reporter : picker autocomplete avec avatars
+        if (field === 'leader' || field === 'reporter') {
+            el.addEventListener('click', () => {
+                if (el.querySelector('.person-picker')) return;
+                const orig = el.innerHTML;
+                const current = el.dataset.value || '';
+                const allNames = getMemberNames();
+                const fieldEl = el.closest('.mdl-field');
+                const onCommit = async (name) => {
+                    cleanup();
+                    try { await apiSave({ [field]: name || null }, fieldEl); openTicketModal(ticket.id); }
+                    catch (err) { toast(err.message, 'error'); el.innerHTML = orig; }
+                };
+                const onCancel = () => { cleanup(); el.innerHTML = orig; };
+                const { wrap, input } = _makePersonPicker(allNames, current, onCommit, onCancel);
+                el.innerHTML = '';
+                el.appendChild(wrap);
+                requestAnimationFrame(() => input.focus());
+                const onDocClick = (ev) => { if (!wrap.contains(ev.target)) onCancel(); };
+                const cleanup = () => document.removeEventListener('mousedown', onDocClick, true);
+                setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+            });
+            return;
+        }
 
-        el.addEventListener('click', e => {
-            if (el.querySelector('select')) return;
-            const current = el.dataset.value || '';
-            const sel = makeSelect(options, current);
-            const orig = el.innerHTML;
-            el.innerHTML = ''; el.appendChild(sel); sel.focus();
-            let done = false;
-            const commit = async () => {
-                if (done) return; done = true;
-                const val = sel.value;
-                try {
-                    const payload = field === 'points'
-                        ? { points: parseInt(val) || 0 }
-                        : { [field]: val || null };
-                    await apiSave(payload);
-                    openTicketModal(ticket.id);
-                } catch (err) { toast(err.message, 'error'); el.innerHTML = orig; }
-            };
-            sel.addEventListener('change', commit);
-            sel.addEventListener('blur', commit);
-            sel.addEventListener('keydown', e => { if (e.key === 'Escape') { done = true; el.innerHTML = orig; } });
-        });
     });
+
+    // ── Sprint éditable ───────────────────────────────────────────────────────
+    const sprintEl = container.querySelector('#sprint-field');
+    if (sprintEl) {
+        sprintEl.addEventListener('click', () => {
+            if (document.querySelector('.chip-picker--open')) return;
+            // Sprints JIRA de l'équipe
+            const allTeamSprints = (store.get('sprintInfo')?.teamSprints || [])
+                .filter(s => s.team === ticket.team)
+                .sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+            // Sprints historiques du ticket (changelog) — pas nécessairement dans teamSprints
+            const historicalSprints = _sprintsHistoryOfTicket(ticket).map(s => s.name);
+            // Union des deux sources, dédupliquée
+            const seen = new Set();
+            const allNames = [
+                ...allTeamSprints.map(s => ({ name: s.name, state: s.state })),
+                ...historicalSprints.map(n => ({ name: n, state: 'closed' })),
+            ].filter(s => { if (seen.has(s.name)) return false; seen.add(s.name); return true; })
+             .slice(0, 14);
+            const sprintOptions = [
+                { value: '', label: '— Aucun sprint' },
+                ...allNames.map(s => ({
+                    value: s.name,
+                    label: s.name,
+                    color: s.state === 'active' ? 'var(--success)' : s.state === 'future' ? 'var(--primary)' : undefined,
+                    bg:    s.state === 'active' ? 'color-mix(in srgb, var(--success) 10%, var(--surface))' : s.state === 'future' ? 'var(--primary-bg)' : undefined,
+                })),
+            ];
+            // Toutes les valeurs courantes (sprint actif JIRA + sprints historiques)
+            const currentValues = [...new Set([ticket.sprintName, ...historicalSprints].filter(Boolean))];
+            const fieldEl = sprintEl.closest('.mdl-field');
+            _openChipPicker(sprintEl, sprintOptions, currentValues, async (val) => {
+                try { await apiSave({ sprintName: val || null }, fieldEl); openTicketModal(ticket.id); }
+                catch (err) { toast(err.message, 'error'); }
+            });
+        });
+    }
 
     // ── Contributors inline ───────────────────────────────────────────────────
     const contribWrap = container.querySelector('#contrib-inline-wrap');
     if (contribWrap) {
         const getNames = () => Array.from(contribWrap.querySelectorAll('.contrib-rm')).map(b => b.dataset.name);
         const saveC = async () => { try { await apiSave({ contributors: getNames() }); } catch (err) { toast(err.message, 'error'); } };
+
+        // Retrait d'un contributeur
         contribWrap.addEventListener('click', async e => {
             const btn = e.target.closest('.contrib-rm'); if (!btn) return;
-            const name = btn.dataset.name;
             btn.closest('.chip').remove();
-            const sel = contribWrap.querySelector('#contrib-add-select');
-            if (sel) sel.appendChild(new Option(name, name));
             await saveC();
         });
-        contribWrap.querySelector('#contrib-add-select')?.addEventListener('change', async e => {
-            const name = e.target.value; if (!name) return;
-            const chip = document.createElement('span');
-            chip.className = 'chip chip-gap';
-            chip.innerHTML = `${avatar(name, false, 18)} ${esc(name)} <button type="button" class="contrib-rm" data-name="${esc(name)}" title="Retirer">×</button>`;
-            contribWrap.insertBefore(chip, e.target);
-            e.target.querySelector(`option[value="${CSS.escape(name)}"]`)?.remove();
-            e.target.value = '';
-            await saveC();
-        });
+
+        // Bouton + Ajouter → ouvre le person picker
+        const addBtn = contribWrap.querySelector('#contrib-add-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => {
+                if (contribWrap.querySelector('.person-picker')) return;
+                const current = getNames();
+                const allNames = getMemberNames().filter(m => !current.includes(m) && m !== (ticket.leader || ticket.assignee));
+                const onCommit = async (name) => {
+                    cleanup();
+                    if (!name) return;
+                    const chip = document.createElement('span');
+                    chip.className = 'chip chip-gap';
+                    chip.innerHTML = `${avatar(name, false, 18)} ${esc(name)} <button type="button" class="contrib-rm" data-name="${esc(name)}" title="Retirer">×</button>`;
+                    contribWrap.insertBefore(chip, addBtn);
+                    await saveC();
+                };
+                const onCancel = () => { cleanup(); pickerWrap.remove(); };
+                const { wrap: pickerWrap, input } = _makePersonPicker(allNames, '', onCommit, onCancel);
+                pickerWrap.classList.add('person-picker--no-clear');
+                contribWrap.insertBefore(pickerWrap, addBtn);
+                requestAnimationFrame(() => input.focus());
+                const onDocClick = (ev) => { if (!pickerWrap.contains(ev.target) && ev.target !== addBtn) onCancel(); };
+                const cleanup = () => document.removeEventListener('mousedown', onDocClick, true);
+                setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+            });
+        }
     }
 
-    // ── Labels inline ─────────────────────────────────────────────────────────
+    // ── Labels inline — autocomplete ──────────────────────────────────────────
     const labelsWrap = container.querySelector('#labels-inline-wrap');
     if (labelsWrap) {
         const getLabels = () => Array.from(labelsWrap.querySelectorAll('.label-rm')).map(b => b.dataset.label);
         const saveL = async () => { try { await apiSave({ labels: getLabels() }); } catch (err) { toast(err.message, 'error'); } };
+
+        // Retrait d'un label
         labelsWrap.addEventListener('click', async e => {
             const btn = e.target.closest('.label-rm'); if (!btn) return;
             btn.closest('.chip').remove(); await saveL();
         });
-        labelsWrap.querySelector('#label-add-input')?.addEventListener('keydown', async e => {
-            if (e.key !== 'Enter' && e.key !== ',') return;
-            e.preventDefault();
-            const val = e.target.value.trim(); if (!val) return;
-            const chip = document.createElement('span');
-            chip.className = 'chip chip-gap';
-            chip.innerHTML = `${esc(val)} <button type="button" class="label-rm" data-label="${esc(val)}" title="Retirer">×</button>`;
-            labelsWrap.insertBefore(chip, e.target);
-            e.target.value = ''; await saveL();
-        });
+
+        // Remplace l'input texte par le label picker
+        const oldInput = labelsWrap.querySelector('#label-add-input');
+        const { wrap: labelPickerWrap, input: labelInput } = _makeLabelPicker(
+            getLabels(),
+            async (val) => {
+                if (!val || getLabels().includes(val)) return;
+                const chip = document.createElement('span');
+                chip.className = 'chip chip-gap';
+                chip.innerHTML = `${esc(val)} <button type="button" class="label-rm" data-label="${esc(val)}" title="Retirer">×</button>`;
+                labelsWrap.insertBefore(chip, labelPickerWrap);
+                await saveL();
+            },
+            () => { labelInput.value = ''; }
+        );
+        if (oldInput) oldInput.replaceWith(labelPickerWrap);
+        else labelsWrap.appendChild(labelPickerWrap);
     }
 }
 
@@ -1131,6 +1466,7 @@ function _renderChildrenSidebar(feature) {
             <span class="mdl-cs-id">${esc(t.id)}</span>
             <span class="mdl-cs-title truncate">${esc(t.title || '(sans titre)')}</span>
             <span class="badge badge-${esc(t.status)} badge-status badge-2xs">${esc(STATUS_LABELS[t.status] || t.status)}</span>
+            <span class="mdl-cs-pts">${t.points ? t.points : '—'}</span>
         </div>`;
     side.innerHTML = `
         <div class="mdl-cs-hdr">

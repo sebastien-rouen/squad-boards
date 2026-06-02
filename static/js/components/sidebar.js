@@ -214,11 +214,6 @@ export function initSidebar() {
             html += `<button class="team-btn${active ? ' active' : ''}" data-team="${esc(t)}" title="${esc(t)}" style="background:${color}">${esc(t.slice(0, 2).toUpperCase())}</button>`;
         }
 
-        // Bouton "🔍 Rechercher" (raccourci Ctrl+E) — ouvre le team switcher
-        if (teams.length > 5) {
-            html += '<hr class="sep">';
-            html += `<button class="team-btn team-btn-search" data-action="search" title="Rechercher une équipe (Ctrl+E)" aria-label="Rechercher une équipe">🔍</button>`;
-        }
         container.innerHTML = html;
     }
 

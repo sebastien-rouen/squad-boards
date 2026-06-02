@@ -163,6 +163,7 @@ class PIConfig(SQLModel, table=True):
     velocity_target: Optional[int] = None
     objectives: list[dict] = Field(default=[], sa_column=Column(JSON))
     sprint_velocities: list[dict] = Field(default=[], sa_column=Column(JSON))
+    role_capacity: dict = Field(default={}, sa_column=Column(JSON))
     updated_at: str = Field(default_factory=_now)
 
 
@@ -578,6 +579,7 @@ def _pi_dict(p: PIConfig) -> dict | None:
         "velocityTarget": p.velocity_target,
         "objectives": p.objectives or [],
         "sprintVelocities": p.sprint_velocities or [],
+        "roleCapacity": p.role_capacity or {},
         "updatedAt": p.updated_at,
     }
 
@@ -1154,6 +1156,8 @@ async def update_pi(request: Request, session: Session = Depends(get_session)):
     p.velocity_target    = body.get("velocityTarget", p.velocity_target)
     p.objectives         = body.get("objectives", p.objectives)
     p.sprint_velocities  = body.get("sprintVelocities", p.sprint_velocities)
+    if "roleCapacity" in body:
+        p.role_capacity  = body.get("roleCapacity") or {}
     p.updated_at = _now()
     session.add(p)
     session.commit()

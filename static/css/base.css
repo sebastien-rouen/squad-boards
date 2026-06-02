@@ -134,16 +134,19 @@ body { display: flex; }
 .sidebar-footer {
     padding: var(--sp-2);
     border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    gap: 4px;
 }
 .sidebar-btn {
     display: flex;
     align-items: center;
-    gap: var(--sp-3);
+    justify-content: center;
+    gap: var(--sp-2);
     padding: var(--sp-2) var(--sp-3);
     border-radius: var(--r-md);
     color: #94a3b8;
     font-size: var(--fs-sm);
-    width: 100%;
+    flex: 1;
     transition: background var(--tr-fast), color var(--tr-fast);
 }
 .sidebar-btn:hover { background: rgba(255,255,255,0.06); color: #e2e8f0; }
@@ -660,6 +663,21 @@ body { display: flex; }
 }
 /* Quand ouverte au-dessus de la modal Demo (z-index 10000), on doit passer devant */
 .modal-overlay.above-demo { z-index: 11000; }
+/* Mode pleine page */
+.modal-overlay--fullscreen {
+    background: var(--bg);
+    backdrop-filter: none;
+    padding: 24px 32px;
+    align-items: flex-start;
+}
+.modal--fullscreen {
+    max-width: 1280px;
+    width: 100%;
+    max-height: calc(100vh - 48px);
+    height: calc(100vh - 48px);
+    border-radius: var(--r-xl);
+    box-shadow: 0 0 0 1px var(--border), var(--shadow-xl);
+}
 .modal-overlay.hidden { display: none; }
 .modal {
     background: var(--surface);
@@ -671,7 +689,43 @@ body { display: flex; }
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    /* G : bordure gauche colorée selon le statut */
+    border-left: 4px solid var(--border);
+    transition: border-color 0.2s;
 }
+.modal[data-status="done"]    { border-left-color: var(--status-done); }
+.modal[data-status="inprog"]  { border-left-color: var(--status-inprog); }
+.modal[data-status="review"]  { border-left-color: var(--status-review, #6366f1); }
+.modal[data-status="test"]    { border-left-color: var(--status-test, var(--warning)); }
+.modal[data-status="blocked"] { border-left-color: var(--status-blocked); }
+.modal[data-status="todo"]    { border-left-color: var(--border); }
+/* Boutons OS-style (fullpage + close) dans le coin du header */
+.modal-header-actions {
+    display: flex; align-items: center; gap: 6px;
+    flex-shrink: 0;
+}
+.modal-action-btn {
+    width: 14px; height: 14px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer; padding: 0; flex-shrink: 0;
+    background: var(--border);
+    transition: background 0.15s, transform 0.1s;
+    overflow: hidden;
+}
+.modal-action-btn svg {
+    width: 8px; height: 8px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    stroke: rgba(0,0,0,0.5);
+}
+.modal-header-actions:hover .modal-action-btn svg { opacity: 1; }
+.modal-action-btn:hover { transform: scale(1.15); }
+.modal-action-btn { background: #febc2e; } /* jaune — maximize */
+.modal-action-btn--close { background: #ff5f57; } /* rouge — close */
+.modal-action-btn:hover { filter: brightness(0.9); }
+/* En pleine page, le bouton fullpage devient vert (comme macOS) */
+.modal--fullscreen .modal-action-btn:not(.modal-action-btn--close) { background: #28c840; }
+
 .modal-header {
     display: flex;
     align-items: center;
@@ -1773,7 +1827,7 @@ tr:hover td { background: var(--surface-hover); }
 }
 
 .cmd-results {
-    max-height: 58vh;
+    max-height: 66vh;
     overflow-y: auto;
 }
 
@@ -1865,6 +1919,12 @@ tr:hover td { background: var(--surface-hover); }
 .cmd-tips {
     padding: var(--sp-3) var(--sp-4);
     border-top: 1px solid var(--border);
+}
+/* Tips dans le footer (fixe, ne scrolle pas) */
+.cmd-tips--footer {
+    background: color-mix(in srgb, var(--primary) 4%, var(--surface));
+    border-top: 1px solid color-mix(in srgb, var(--primary) 15%, var(--border));
+    border-bottom: 1px solid color-mix(in srgb, var(--primary) 15%, var(--border));
 }
 .cmd-tips-title {
     font-size: var(--fs-xs);
@@ -2076,6 +2136,30 @@ summary { cursor: pointer; }
 }
 .mdl-ticket-link:hover { opacity: 0.75; }
 
+/* H : avatar du leader dans le header */
+.mdl-header-avatar {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: var(--fw-bold); color: #fff;
+    border: 2px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--border);
+    cursor: default;
+}
+
+/* C : badge commentaires scrollable */
+.mdl-comments-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11.5px; color: var(--text-muted);
+    background: var(--bg-alt); border: 1px solid var(--border);
+    border-radius: 99px; padding: 2px 8px; cursor: pointer;
+    transition: all 0.15s; flex-shrink: 0;
+}
+.mdl-comments-badge:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
+
+/* D : badge type éditable */
+.mdl-type-badge { cursor: pointer; transition: filter 0.12s; }
+.mdl-type-badge:hover { filter: brightness(0.9); outline: 2px dashed currentColor; outline-offset: 2px; }
+
 /* Truncate with max-width */
 .truncate-sm { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -2285,6 +2369,20 @@ textarea.input {
     flex-shrink: 0;
 }
 .mdl-cs-title { flex: 1; min-width: 0; }
+.mdl-cs-pts {
+    flex-shrink: 0;
+    width: 28px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    font-variant-numeric: tabular-nums;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 1px 0;
+    color: var(--text-muted);
+}
+.mdl-cs-row:has(.badge-done) .mdl-cs-pts { color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, var(--border)); }
 .mdl-cs-empty {
     padding: var(--sp-6) var(--sp-4);
     text-align: center;

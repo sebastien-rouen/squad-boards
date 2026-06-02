@@ -4,27 +4,56 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildMoodSlackRaw, buildFistSlackRaw } from '../components/sondage.js';
 
 let _activeTab = 'objectives';
 
 export function renderPI(container) {
-    const team = store.get('team');
-    const tickets = filterByTeam(store.get('tickets') || [], team);
-    // Features filtrées par équipe (champ team = Team[Team] JIRA, équipe responsable SAFe).
-    // Si team='all' sans groupe → toutes les features (vue globale RTE).
-    const features = filterByTeam(store.get('features') || [], team);
-    const epics = store.get('epics') || [];
-    const teams = store.get('teams') || [];
+    const team       = store.get('team');
+    const piInfo     = store.get('piInfo');
+    const sprintInfo = store.get('sprintInfo');
+    const absences   = store.get('absences') || [];
+    const jiraUrl    = store.get('jiraUrl') || null;
+    const teams      = store.get('teams') || [];
     const teamObjects = store.get('teamObjects') || [];
-    const piInfo = store.get('piInfo');
-    const absences = store.get('absences') || [];
-    const jiraUrl = store.get('jiraUrl') || null;
+    const epics      = store.get('epics') || [];
 
-    const piLabel = piInfo?.name || 'PI en cours';
-    const objectives = piInfo?.objectives || [];
+    // PI sélectionné (sélecteur topbar piOffset)
+    const basePiNum  = piInfo?.number || _extractPi(sprintInfo?.name) || 0;
+    const piOffset   = store.get('piOffset') || 0;
+    const piNum      = basePiNum ? Math.max(1, basePiNum + piOffset) : 0;
+    const piTag      = piNum ? `PI#${piNum}` : null;
+
+    // Helper : est-ce que ce ticket/feature appartient au PI sélectionné ?
+    const _normPi = v => v == null ? '' : String(v).toUpperCase().replace(/\s+/g, '');
+    const _inPi = (raw) => {
+        if (!raw || !piTag) return !piOffset; // pas de tag → on garde tout si PI courant
+        const s = _normPi(raw);
+        if (s === _normPi(piTag)) return true;
+        if (s === `PI${piNum}`) return true;
+        const m = s.match(/^(\d+)\.\d+$/);
+        return !!(m && parseInt(m[1], 10) === piNum);
+    };
+    const _ticketInPi = (t) => _inPi(t.piSprint) || _inPi(t.sprintName) ||
+        (t.labels || []).some(l => _inPi(l));
+    const _featureInPi = (f) => _inPi(f.piSprint) || _inPi(f.sprintName) ||
+        (f.labels || []).some(l => _inPi(l));
+
+    // Filtre par équipe puis par PI
+    const allTeamTickets   = filterByTeam(store.get('tickets') || [], team);
+    const allTeamFeatures  = filterByTeam(store.get('features') || [], team);
+    const tickets  = piTag ? allTeamTickets.filter(_ticketInPi)  : allTeamTickets;
+    const features = piTag ? allTeamFeatures.filter(_featureInPi) : allTeamFeatures;
+
+    // Label et objectifs du PI sélectionné
+    // Les objectifs sont stockés dans piInfo (PI courant) — si on affiche un autre PI, on le signale
+    const isCurrentPi = piOffset === 0;
+    const piLabel = piNum
+        ? (isCurrentPi ? (piInfo?.name || `PI#${piNum}`) : `PI#${piNum}`)
+        : 'PI en cours';
+    const objectives = isCurrentPi ? (piInfo?.objectives || []) : [];
 
     // Buffer & Velocity metrics
     const _isBuf     = t => (t.labels || []).some(l => /buffer/i.test(l));
@@ -53,7 +82,9 @@ export function renderPI(container) {
         const total = all.length || 1;
         const done = all.filter(t => t.status === 'done').length;
         const rolledStatus = rollupStatus(children, f.status);
-        return { ...f, progress: pct(done, total), childCount: all.length, rolledStatus };
+        const childPts = sumBy(children, t => t.points || 0);
+        const childPtsDone = sumBy(children.filter(t => t.status === 'done'), t => t.points || 0);
+        return { ...f, progress: pct(done, total), childCount: children.length, allCount: all.length, rolledStatus, childPts, childPtsDone };
     });
 
     // Team capacity — membres dérivés des absences (source de vérité CSV RH)
@@ -61,7 +92,10 @@ export function renderPI(container) {
     const teamCap = teams.map((t, i) => {
         const tObj = teamObjects.find(o => o.name === t);
         const color = tObj?.color || TEAM_COLORS[i % TEAM_COLORS.length];
-        const tt = filterByTeam(store.get('tickets') || [], t);
+        // Filtre par équipe ET par PI sélectionné
+        const tt = (piTag
+            ? filterByTeam(store.get('tickets') || [], t).filter(_ticketInPi)
+            : filterByTeam(store.get('tickets') || [], t));
         const total = tt.length;
         const done = tt.filter(x => x.status === 'done').length;
         const pts = sumBy(tt, x => x.points);
@@ -72,12 +106,65 @@ export function renderPI(container) {
         return { name: t, color, total, done, pts, donePts, memberCount: members.length, absDays };
     });
 
+    // Capacité nette estimée par équipe sur le PI entier (pour la ligne séparatrice dans Features)
+    const sprintInfo2  = store.get('sprintInfo');
+    const allTeamSprints = sprintInfo2?.teamSprints || [];
+    const rolePctMap   = _capGetRolePct();
+    const excludedRolesForCap = _capGetExcludedRoles();
+    const historyMode2 = _capGetHistoryMode();
+    const historyCount2 = _capGetHistoryCount();
+    const sprintDur2   = piInfo?.sprintDuration || 14;
+    const sprintCnt2   = piInfo?.sprintsPerPI   || 5;
+    const absenceTeamNames2 = new Set(absences.map(a => a.team));
+    const _absAlias2 = tn => absenceTeamNames2.has(tn) ? tn : (absenceTeamNames2.has('Team ' + tn) ? 'Team ' + tn : tn);
+    const sprintWindows2 = _capSprintWindows({ ...piInfo, number: piNum, startDate: piOffset === 0 ? piInfo?.startDate : null }, allTeamSprints);
+
+    const capByTeam = {};  // { teamName: { spNet, spEst, spBuf, color } }
+    teams.forEach(teamName => {
+        const tObj  = teamObjects.find(o => o.name === teamName);
+        const color = tObj?.color || '#64748b';
+        const absTeam = _absAlias2(teamName);
+        const mems = effectiveMembers.filter(m => {
+            if (m.team !== absTeam) return false;
+            return !excludedRolesForCap.some(r => r.toLowerCase() === (m.role || '').toLowerCase());
+        });
+        const memberEtp = mems.reduce((s, m) => s + _capRolePct(m.role, rolePctMap) / 100, 0);
+        if (memberEtp === 0) { capByTeam[teamName] = { spNet: 0, spEst: 0, spBuf: 0, color }; return; }
+        const baseCapRaw = localStorage.getItem(`cap-base-${piNum}-${teamName}`);
+        const baseCapacity = baseCapRaw && baseCapRaw !== '' ? parseInt(baseCapRaw, 10) : null;
+        const avgVel = _capAvgVelocity(allTeamSprints, teamName, piNum, historyMode2, historyCount2);
+        const capMult = (baseCapacity !== null && baseCapacity > 0) ? baseCapacity : avgVel;
+        let totalSpEst = 0;
+        for (let idx = 0; idx < sprintCnt2; idx++) {
+            const win = sprintWindows2?.[idx] || null;
+            const totalDays = memberEtp * sprintDur2;
+            const absDays = win
+                ? Math.round(mems.reduce((s, m) => {
+                    const pct2 = _capRolePct(m.role, rolePctMap) / 100;
+                    if (pct2 === 0) return s;
+                    const raw = _capAbsDaysInWindow(absences.filter(a => a.memberName === m.name), absTeam, win.from, win.to);
+                    return s + raw * pct2;
+                }, 0) * 10) / 10
+                : 0;
+            const availPct = totalDays > 0 ? Math.round(((totalDays - absDays) / totalDays) * 100) : 100;
+            totalSpEst += Math.ceil(capMult * (availPct / 100));
+        }
+        const spBuf = Math.round(totalSpEst * 0.2);
+        capByTeam[teamName] = { spEst: totalSpEst, spBuf, spNet: totalSpEst - spBuf, color };
+    });
+
+    // Objectifs filtrés par équipe pour le compteur du tab
+    const objectivesFiltered = (!team || team === 'all')
+        ? objectives
+        : objectives.filter(o => (o.team || '') === team);
+
     const tabs = [
-        { id: 'objectives', label: `Objectifs (${objectives.length})` },
+        { id: 'objectives', label: `Objectifs (${objectivesFiltered.length})` },
         { id: 'features', label: `Features (${features.length})` },
-        { id: 'capacity', label: 'Capacite' },
+        { id: 'capacity', label: 'Capacité' },
         { id: 'burnup', label: '📈 Burnup' },
-        { id: 'teams', label: 'Equipes' },
+        { id: 'teams', label: 'Équipes' },
+        { id: 'support', label: '🛡️ Support' },
         { id: 'mood', label: 'Mood / ROTI' },
         { id: 'fist', label: 'Fist of Five' },
     ];
@@ -87,9 +174,12 @@ export function renderPI(container) {
     const hashTab   = hashParts[2] || store.get('piTab') || '';
     if (validTabIds.has(hashTab)) _activeTab = hashTab;
 
+    // Epics filtrés par PI
+    const piEpics = piTag ? epics.filter(e => _inPi(e.piSprint) || _inPi(e.sprintName)) : epics;
+
     container.innerHTML = `
         <div class="pi-header">
-            <h2>${esc(piLabel)}</h2>
+            <h2>${esc(piLabel)}${!isCurrentPi ? ` <span class="chip chip-pi" style="font-size:12px;vertical-align:middle">PI#${piNum}</span>` : ''}</h2>
         </div>
 
         <!-- PI Metrics -->
@@ -103,13 +193,13 @@ export function renderPI(container) {
             <div class="metric-card mc-info">
                 <span class="metric-icon">🏗️</span>
                 <span class="metric-label">Epics</span>
-                <span class="metric-value">${epics.length}</span>
+                <span class="metric-value">${piEpics.length}</span>
             </div>
-            <div class="metric-card ${objectives.filter(o => o.status === 'done').length === objectives.length && objectives.length ? 'mc-done' : 'mc-warning'}">
+            <div class="metric-card ${objectivesFiltered.filter(o => o.status === 'done').length === objectivesFiltered.length && objectivesFiltered.length ? 'mc-done' : 'mc-warning'}">
                 <span class="metric-icon">🎯</span>
                 <span class="metric-label">Objectifs</span>
-                <span class="metric-value">${objectives.length}</span>
-                <span class="metric-sub">${objectives.filter(o => o.status === 'done').length} atteints</span>
+                <span class="metric-value">${objectivesFiltered.length}</span>
+                <span class="metric-sub">${objectivesFiltered.filter(o => o.status === 'done').length} atteints</span>
             </div>
             <div class="metric-card mc-inprog">
                 <span class="metric-label">Equipes</span>
@@ -213,10 +303,10 @@ export function renderPI(container) {
         store.set('piTab', _activeTab);
         window.__squadBoard?.pushHash?.();
         container.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === _activeTab));
-        renderTabContent(container.querySelector('#pi-tab-content'), _activeTab, { objectives, featureList, teamCap, tickets, teams, teamObjects, piInfo, absences });
+        renderTabContent(container.querySelector('#pi-tab-content'), _activeTab, { objectives, featureList, teamCap, tickets, teams, teamObjects, piInfo, absences, epics: piEpics, isCurrentPi, piNum, capByTeam });
     });
 
-    renderTabContent(container.querySelector('#pi-tab-content'), _activeTab, { objectives, featureList, teamCap, tickets, teams, teamObjects, piInfo, absences });
+    renderTabContent(container.querySelector('#pi-tab-content'), _activeTab, { objectives, featureList, teamCap, tickets, teams, teamObjects, piInfo, absences, epics: piEpics, isCurrentPi, piNum, capByTeam });
 }
 
 function renderTabContent(el, tab, data) {
@@ -226,13 +316,14 @@ function renderTabContent(el, tab, data) {
         case 'capacity': return renderCapacity(el, data);
         case 'burnup': return renderBurnup(el, data);
         case 'teams': return renderTeams(el, data);
+        case 'support': return renderSupportRota(el, data);
         case 'mood': return renderMood(el, data);
         case 'fist': return renderFist(el, data);
     }
 }
 
 // ── Objectives tab ────────────────────────────────────────────────────────────
-function renderObjectives(el, { objectives, piInfo, teams, teamObjects }) {
+function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurrentPi, piNum }) {
     const allTeams   = teams || store.get('teams') || [];
     const allTObjs   = teamObjects || store.get('teamObjects') || [];
     const team       = store.get('team');
@@ -314,11 +405,15 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects }) {
     }
 
     el.innerHTML = `
+        ${isCurrentPi === false ? `<div class="pi-offset-notice">
+            <svg class="icon icon-sm" style="color:var(--info)"><use href="#i-alert"/></svg>
+            Objectifs du <strong>PI#${piNum}</strong> — lecture seule (les objectifs s'éditent uniquement sur le PI courant).
+        </div>` : ''}
         <div class="pi-obj-toolbar">
             ${!showAll
                 ? `<span class="chip" style="background:var(--primary-bg);color:var(--primary)">${esc(team)}</span>`
                 : `<span class="text-sm text-muted">Toutes les équipes</span>`}
-            <button class="btn btn-primary btn-sm" id="pi-obj-save">Enregistrer</button>
+            ${isCurrentPi !== false ? `<button class="btn btn-primary btn-sm" id="pi-obj-save">Enregistrer</button>` : ''}
         </div>
 
         <div id="pi-obj-list">
@@ -381,73 +476,724 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects }) {
 }
 
 // ── Features tab ──────────────────────────────────────────────────────────────
-function renderFeatures(el, { featureList }) {
-    el.innerHTML = `
-        <div class="card card-flush">
-            ${featureList.length ? featureList.map(f => `
-                <div class="feature-row" data-ticket-id="${esc(f.id)}">
-                    <span class="feature-id">${esc(f.id)}</span>
-                    <span class="feature-title truncate">${esc(f.title)}</span>
-                    ${(() => {
-                        const s = f.rolledStatus || f.status;
-                        const tip = f.rolledStatus && f.rolledStatus !== f.status
-                            ? `Statut dérivé des ${f.childCount} enfants (JIRA propre: ${STATUS_LABELS[f.status] || f.status})`
-                            : `Statut JIRA`;
-                        return `<span class="badge badge-${s} badge-status" title="${esc(tip)}">${esc(STATUS_LABELS[s] || s)}</span>`;
-                    })()}
-                    <div class="feature-progress">
-                        <div class="progress progress-xs"><div class="progress-bar ${progressColor(f.progress)}" style="width:${f.progress}%"></div></div>
-                    </div>
-                    <span class="text-xs text-muted">${f.childCount} tickets</span>
-                    <span class="feature-team">${esc(f.team || '-')}</span>
+function renderFeatures(el, { featureList, capByTeam = {} }) {
+    if (!featureList.length) {
+        el.innerHTML = '<div class="empty-state"><p>Aucune feature</p></div>';
+        return;
+    }
+
+    // Groupe les features par équipe pour insérer les séparateurs de capacité
+    const byTeam = new Map();
+    for (const f of featureList) {
+        const key = f.team || '—';
+        if (!byTeam.has(key)) byTeam.set(key, []);
+        byTeam.get(key).push(f);
+    }
+
+    // Couleurs statut
+    const STATUS_COLOR = {
+        done:   { bg: 'var(--status-done-bg,#dcfce7)',   text: 'var(--status-done,#16a34a)',   dot: '#16a34a' },
+        inprog: { bg: 'var(--status-inprog-bg,#dbeafe)', text: 'var(--status-inprog,#2563eb)', dot: '#2563eb' },
+        review: { bg: '#ede9fe',                          text: '#7c3aed',                      dot: '#7c3aed' },
+        test:   { bg: 'var(--warning-bg,#fef9c3)',        text: 'var(--warning,#ca8a04)',        dot: '#ca8a04' },
+        blocked:{ bg: 'var(--danger-bg,#fee2e2)',         text: 'var(--danger,#dc2626)',         dot: '#dc2626' },
+        todo:   { bg: 'var(--bg-alt)',                    text: 'var(--text-muted)',             dot: '#94a3b8' },
+    };
+
+    const _featureRow = (f) => {
+        const s   = f.rolledStatus || f.status || 'todo';
+        const sc  = STATUS_COLOR[s] || STATUS_COLOR.todo;
+        const tip = f.rolledStatus && f.rolledStatus !== f.status
+            ? `Dérivé des ${f.childCount} enfants (JIRA: ${STATUS_LABELS[f.status] || f.status})`
+            : 'Statut JIRA';
+        const spLabel = f.childPts > 0
+            ? `${f.childPtsDone}/${f.childPts}`
+            : (f.points ? String(f.points) : '—');
+        const spDonePct = f.childPts > 0 ? Math.round(f.childPtsDone / f.childPts * 100) : 0;
+        return `
+        <div class="feature-row2" data-ticket-id="${esc(f.id)}" style="--feat-color:${sc.dot}">
+            <span class="feat-dot" style="background:${sc.dot}"></span>
+            <span class="feat-id">${esc(f.id)}</span>
+            <span class="feat-title">${esc(f.title)}</span>
+            <span class="feat-status" style="background:${sc.bg};color:${sc.text}" title="${esc(tip)}">${esc(STATUS_LABELS[s] || s)}</span>
+            <span class="feat-bar-wrap" title="${f.progress}% complété">
+                <span class="feat-bar"><span class="feat-bar-fill ${progressColor(f.progress)}" style="width:${f.progress}%"></span></span>
+                <span class="feat-pct">${f.progress}%</span>
+            </span>
+            <span class="feat-sp" title="SP${f.childPts > 0 ? ` · ${spDonePct}% livrés` : ''}">
+                ${spLabel}<span class="feat-sp-unit"> SP</span>
+            </span>
+            <span class="feat-tickets">${f.childCount}<span class="feat-sp-unit"> tkts</span></span>
+            <span class="feat-team">${esc(f.team || '—')}</span>
+        </div>`;
+    };
+
+    // Construit le HTML par équipe avec séparateur capacité
+    let html = '<div class="feature-list2">';
+    for (const [teamName, tFeatures] of byTeam) {
+        const cap = capByTeam[teamName];
+        const tObj = store.get('teamObjects')?.find(o => o.name === teamName);
+        const color = tObj?.color || '#64748b';
+        const totalSpPlanned = sumBy(tFeatures, f => f.childPts || f.points || 0);
+
+        html += `<div class="feat-team-group">`;
+
+        // En-tête équipe
+        html += `<div class="feat-team-hdr">
+            <span class="team-dot" style="background:${color}"></span>
+            <span class="feat-team-name">${esc(teamName)}</span>
+            <span class="feat-team-count">${tFeatures.length} feature${tFeatures.length > 1 ? 's' : ''}</span>
+            <span class="feat-team-sp-planned">${totalSpPlanned} SP planifiés</span>
+        </div>`;
+
+        // Lignes features
+        html += tFeatures.map(_featureRow).join('');
+
+        // Séparateur capacité
+        if (cap && (cap.spNet > 0 || cap.spEst > 0)) {
+            const overload = totalSpPlanned > cap.spNet;
+            const ratio    = cap.spNet > 0 ? Math.min(100, Math.round(totalSpPlanned / cap.spNet * 100)) : 0;
+            const capColor = overload ? 'var(--danger)' : ratio > 80 ? 'var(--warning)' : 'var(--success)';
+            html += `<div class="feat-cap-separator" style="--cap-color:${capColor}">
+                <div class="feat-cap-line"></div>
+                <div class="feat-cap-info">
+                    <span class="feat-cap-label">Capacité ${esc(teamName)}</span>
+                    <span class="feat-cap-net" style="color:${capColor}">
+                        ${cap.spNet} SP nets
+                    </span>
+                    <span class="feat-cap-buf">+ ${cap.spBuf} buffer</span>
+                    <span class="feat-cap-gauge">
+                        <span class="feat-cap-gauge-fill" style="width:${ratio}%;background:${capColor}"></span>
+                    </span>
+                    <span class="feat-cap-ratio" style="color:${capColor}">${totalSpPlanned}/${cap.spNet} SP (${ratio}%)</span>
+                    ${overload ? `<span class="feat-cap-warn">⚠ surcharge</span>` : ''}
                 </div>
-            `).join('') : '<div class="empty-state"><p>Aucune feature</p></div>'}
-        </div>
-    `;
-    el.querySelectorAll('.feature-row').forEach(row => {
+            </div>`;
+        }
+
+        html += '</div>';
+    }
+    html += '</div>';
+
+    el.innerHTML = html;
+    el.querySelectorAll('.feature-row2').forEach(row => {
         row.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(row.dataset.ticketId));
     });
 }
 
 // ── Capacity tab ──────────────────────────────────────────────────────────────
-function renderCapacity(el, { teamCap }) {
-    const totalPts = teamCap.reduce((s, t) => s + t.pts, 0);
+
+// Rôles exclus du calcul de capacité (non-devs). Persisté en localStorage.
+const CAP_EXCLUDED_ROLES_KEY = 'cap-excluded-roles';
+const CAP_EXCLUDED_ROLES_DEFAULT = [
+    'Product Owner', 'Scrum Master', 'Product Manager',
+    'Release Train Engineer', 'Business Owner',
+    'RTE', 'BO', 'TRV', 'PO', 'SM', 'PM',
+];
+const CAP_HISTORY_MODE_KEY  = 'cap-history-mode';   // 'pi' | 'sprint'
+const CAP_HISTORY_COUNT_KEY = 'cap-history-count';  // number
+const CAP_ROLE_PCT_KEY      = 'cap-role-pct';       // { role: pct 0-100 }
+
+function _capGetExcludedRoles() {
+    try {
+        const v = localStorage.getItem(CAP_EXCLUDED_ROLES_KEY);
+        return v ? JSON.parse(v) : CAP_EXCLUDED_ROLES_DEFAULT;
+    } catch { return CAP_EXCLUDED_ROLES_DEFAULT; }
+}
+function _capGetHistoryMode()  { return localStorage.getItem(CAP_HISTORY_MODE_KEY)  || 'pi'; }
+function _capGetHistoryCount() { return parseInt(localStorage.getItem(CAP_HISTORY_COUNT_KEY) || '2', 10) || 2; }
+// Retourne la map rôle → % de travail (0-100) depuis piInfo.roleCapacity (persisté serveur).
+function _capGetRolePct() {
+    return store.get('piInfo')?.roleCapacity || {};
+}
+// % effectif d'un rôle (100 si non configuré)
+function _capRolePct(role, rolePctMap) {
+    if (!role) return 100;
+    const v = rolePctMap[role];
+    return (v !== undefined && v !== null) ? v : 100;
+}
+
+// Extrait le numéro de PI depuis un nom de sprint ("Fuego - Ité 28.3" → 28)
+function _capPiFromSprint(name) {
+    const m = String(name || '').match(/\b(\d{2,})\.\d+/);
+    return m ? parseInt(m[1], 10) : null;
+}
+// Extrait le numéro de sprint dans le PI ("Fuego - Ité 28.3" → 3)
+function _capSprintIdx(name) {
+    const m = String(name || '').match(/\b\d{2,}\.(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+}
+
+// Calcule la vélocité moyenne historique par équipe
+// mode='pi' → moyenne sur les X PI précédents (tous sprints confondus)
+// mode='sprint' → moyenne sur les X derniers sprints
+function _capAvgVelocity(teamSprints, teamName, curPiNum, mode, count) {
+    const closed = teamSprints.filter(s =>
+        s.team === teamName && s.state === 'closed' && (s.velocity || 0) > 0
+    );
+    if (!closed.length) return 0;
+
+    let pool;
+    if (mode === 'sprint') {
+        // Exclut les sprints du PI sélectionné lui-même
+        pool = [...closed]
+            .filter(s => _capPiFromSprint(s.name) !== curPiNum)
+            .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+            .slice(0, count);
+    } else {
+        // mode 'pi' : garde les N PI précédents
+        const prevPis = new Set();
+        for (const s of closed) {
+            const pi = _capPiFromSprint(s.name);
+            if (pi && pi < curPiNum) prevPis.add(pi);
+        }
+        const sortedPis = [...prevPis].sort((a, b) => b - a).slice(0, count);
+        pool = closed.filter(s => sortedPis.includes(_capPiFromSprint(s.name)));
+    }
+    if (!pool.length) return 0;
+    return Math.round(sumBy(pool, s => s.velocity) / pool.length);
+}
+
+// Calcule les jours d'absence d'une équipe sur une fenêtre de dates [from, to] (ISO strings)
+function _capAbsDaysInWindow(absences, teamName, from, to) {
+    return absences
+        .filter(a => a.team === teamName && a.startDate <= to && a.endDate >= from)
+        .reduce((s, a) => {
+            // Intersection de la plage d'absence avec la fenêtre
+            const start = a.startDate > from ? a.startDate : from;
+            const end   = a.endDate   < to   ? a.endDate   : to;
+            // Proportion des jours dans la fenêtre vs durée totale de l'absence
+            const absDur  = Math.max(1, Math.round((new Date(a.endDate) - new Date(a.startDate)) / 86400000) + 1);
+            const winDur  = Math.max(0, Math.round((new Date(end)       - new Date(start))       / 86400000) + 1);
+            return s + (a.days || 0) * (winDur / absDur);
+        }, 0);
+}
+
+// Retourne la dispo de chaque membre sur la fenêtre : [{ name, role, absDays, availDays, availPct }]
+function _capMemberAvail(members, absences, absTeamName, from, to, sprintDur) {
+    return members.map(m => {
+        const mAbs = absences.filter(a =>
+            a.memberName === m.name && a.team === absTeamName &&
+            a.startDate <= to && a.endDate >= from
+        );
+        const absDays = mAbs.reduce((s, a) => {
+            const start  = a.startDate > from ? a.startDate : from;
+            const end    = a.endDate   < to   ? a.endDate   : to;
+            const absDur = Math.max(1, Math.round((new Date(a.endDate) - new Date(a.startDate)) / 86400000) + 1);
+            const winDur = Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000) + 1);
+            return s + (a.days || 0) * (winDur / absDur);
+        }, 0);
+        const roundedAbs = Math.round(absDays * 10) / 10;
+        const availDays  = Math.max(0, sprintDur - roundedAbs);
+        const availPct   = Math.round((availDays / sprintDur) * 100);
+        return { name: m.name, role: m.role || '', absDays: roundedAbs, availDays, availPct };
+    }).sort((a, b) => a.availPct - b.availPct); // plus absents en premier
+}
+
+// Génère les dates de début/fin de chaque sprint du PI courant.
+// Priorité 1 : piInfo.startDate (config manuelle).
+// Priorité 2 : dates réelles issues de teamSprints (JIRA) — union de toutes les équipes,
+//              couvre sprints clôturés ET futurs déjà créés dans JIRA.
+function _capSprintWindows(piInfo, teamSprints) {
+    const sprintCnt = piInfo?.sprintsPerPI  || 5;
+    const sprintDur = piInfo?.sprintDuration || 14;
+    const piNum     = piInfo?.number || 0;
+
+    const fmt = (dt) => {
+        const y = dt.getFullYear(), m = String(dt.getMonth()+1).padStart(2,'0'), d = String(dt.getDate()).padStart(2,'0');
+        return `${y}-${m}-${d}`;
+    };
+    const add = (iso, n) => { const d = new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return fmt(d); };
+
+    // Priorité 1 : date de début configurée manuellement
+    if (piInfo?.startDate) {
+        const startDate = piInfo.startDate;
+        return Array.from({ length: sprintCnt }, (_, i) => ({
+            label: `${piNum || '?'}.${i+1}`,
+            from:  add(startDate, i * sprintDur),
+            to:    add(startDate, (i + 1) * sprintDur - 1),
+            source: 'config',
+        }));
+    }
+
+    // Priorité 2 : dériver depuis les teamSprints du PI courant (toutes équipes confondues).
+    // Pour chaque numéro de sprint dans le PI, on prend la startDate la plus ancienne
+    // et la endDate la plus récente parmi toutes les équipes.
+    if (!piNum || !teamSprints?.length) return null;
+
+    const byIdx = new Map(); // sprintIdx → { from, to }
+    for (const s of teamSprints) {
+        if (_capPiFromSprint(s.name) !== piNum) continue;
+        const idx = _capSprintIdx(s.name);
+        if (!idx || !s.startDate) continue;
+        const from = String(s.startDate).slice(0, 10);
+        const to   = s.endDate ? String(s.endDate).slice(0, 10) : add(from, sprintDur - 1);
+        const cur  = byIdx.get(idx);
+        if (!cur) { byIdx.set(idx, { from, to }); continue; }
+        if (from < cur.from) cur.from = from;
+        if (to   > cur.to)   cur.to   = to;
+    }
+    if (!byIdx.size) return null;
+
+    return Array.from({ length: sprintCnt }, (_, i) => {
+        const idx  = i + 1;
+        const win  = byIdx.get(idx);
+        return win
+            ? { label: `${piNum}.${idx}`, from: win.from, to: win.to, source: 'jira' }
+            : null; // sprint non encore créé dans JIRA
+    });
+}
+
+function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
+    const sprintInfo    = store.get('sprintInfo');
+    const allMembers    = store.get('members') || [];
+    const allTeamSprints = sprintInfo?.teamSprints || [];
+    const effectiveMembers = deriveMembersFromAbsences(absences, allMembers);
+    const rolePctMap    = _capGetRolePct();
+
+    const excludedRoles = _capGetExcludedRoles();
+    const historyMode   = _capGetHistoryMode();
+    const historyCount  = _capGetHistoryCount();
+    const sprintDur     = piInfo?.sprintDuration || 14;
+    const basePiNum     = piInfo?.number || _extractPi(sprintInfo?.name) || 0;
+    const piOffset      = store.get('piOffset') || 0;
+    const curPiNum      = basePiNum ? Math.max(1, basePiNum + piOffset) : 0;
+    // Pour un PI autre que le courant, startDate ne s'applique pas → on force la dérivation JIRA
+    const piInfoForWindows = (piOffset === 0)
+        ? piInfo
+        : { ...piInfo, number: curPiNum, startDate: null };
+    const sprintWindows = _capSprintWindows(piInfoForWindows, allTeamSprints);
+
+    // Toutes les équipes visibles (filtre topbar)
+    const teamFilter = store.get('team');
+    const visibleTeams = (!teamFilter || teamFilter === 'all') ? teams : teams.filter(t => t === teamFilter);
+
+    // Rôles uniques issus des membres dérivés des absences (source de vérité RH)
+    const allRoles = [...new Set(
+        effectiveMembers.map(m => m.role).filter(Boolean)
+    )].sort();
+
+    // Les absences utilisent parfois "Team Fuego" là où la table teams dit "Fuego".
+    // On construit un ensemble d'alias par nom d'équipe pour matcher les deux formes.
+    const absenceTeamNames = new Set(absences.map(a => a.team));
+    const _absTeamAlias = (teamName) => {
+        if (absenceTeamNames.has(teamName)) return teamName;
+        const prefixed = 'Team ' + teamName;
+        if (absenceTeamNames.has(prefixed)) return prefixed;
+        return teamName; // fallback sans alias
+    };
+
+    // Calcul par équipe
+    const teamData = visibleTeams.map((teamName, i) => {
+        const tObj  = teamObjects.find(o => o.name === teamName);
+        const color = tObj?.color || TEAM_COLORS[i % TEAM_COLORS.length];
+
+        // Résout l'alias d'équipe pour les absences (ex: "Fuego" → "Team Fuego")
+        const absTeamName = _absTeamAlias(teamName);
+
+        // Membres de l'équipe (source de vérité absences), rôles exclus filtrés
+        const members = effectiveMembers.filter(m => {
+            if (m.team !== absTeamName) return false;
+            return !excludedRoles.some(r => r.toLowerCase() === (m.role || '').toLowerCase());
+        });
+        // ETP pondéré : somme des ratios (ex: Ops=1.0, Tech Lead=0.4, Co-BO=0.0)
+        const memberEtp   = members.reduce((s, m) => s + _capRolePct(m.role, rolePctMap) / 100, 0);
+        const memberCount = members.length; // nb brut (affiché dans l'UI)
+
+        // Vélocité moyenne historique (par sprint)
+        const avgVelPerSprint = _capAvgVelocity(allTeamSprints, teamName, curPiNum, historyMode, historyCount);
+
+        // Base Capacité manuelle (override de la vélocité historique, par équipe)
+        const baseCapRaw = localStorage.getItem(`cap-base-${curPiNum}-${teamName}`);
+        const baseCapacity = baseCapRaw !== null && baseCapRaw !== '' ? parseInt(baseCapRaw, 10) : null;
+        // Multiplicateur effectif : base manuelle si renseignée, sinon vélocité historique
+        const capMultiplier = (baseCapacity !== null && baseCapacity > 0) ? baseCapacity : avgVelPerSprint;
+        const capSource     = (baseCapacity !== null && baseCapacity > 0) ? 'manual' : 'history';
+
+        // Sprints du PI courant issus de teamSprints (pour vérifier les données réelles)
+        const piTeamSprints = allTeamSprints
+            .filter(s => s.team === teamName && _capPiFromSprint(s.name) === curPiNum)
+            .sort((a, b) => (_capSprintIdx(a.name)||0) - (_capSprintIdx(b.name)||0));
+
+        // Capacité par sprint
+        const sprintCount = piInfo?.sprintsPerPI || 5;
+        const sprints = Array.from({ length: sprintCount }, (_, idx) => {
+            const sprintNum = idx + 1;
+            const label     = `${curPiNum || '?'}.${sprintNum}`;
+            const window    = sprintWindows?.[idx] || null;
+
+            // Jours théoriques disponibles (pondérés par ETP rôle)
+            const totalDays = memberEtp * sprintDur;
+
+            // Absences sur la fenêtre de ce sprint — pondérées par le ratio rôle de chaque membre
+            const absDays = window
+                ? Math.round(members.reduce((s, m) => {
+                    const pct = _capRolePct(m.role, rolePctMap) / 100;
+                    if (pct === 0) return s;
+                    const raw = _capAbsDaysInWindow(
+                        absences.filter(a => a.memberName === m.name),
+                        absTeamName, window.from, window.to
+                    );
+                    return s + raw * pct;
+                }, 0) * 10) / 10
+                : 0;
+
+            const availDays = Math.max(0, totalDays - absDays);
+            const availPct  = totalDays > 0 ? Math.round((availDays / totalDays) * 100) : 100;
+
+            // SP estimés = base capacité × % dispo (arrondi au supérieur)
+            const spEst   = memberEtp > 0 ? Math.ceil(capMultiplier * (availPct / 100)) : 0;
+            const spBuf   = Math.round(spEst * 0.2);
+            const spNet   = spEst - spBuf;
+
+            // Disponibilité par membre (pour la tooltip détail)
+            const memberAvail = window
+                ? _capMemberAvail(members, absences, absTeamName, window.from, window.to, sprintDur)
+                : members.map(m => ({ name: m.name, role: m.role || '', absDays: 0, availDays: sprintDur, availPct: 100 }));
+
+            // Données réelles du sprint (si déjà clôturé)
+            const real = piTeamSprints.find(s => _capSprintIdx(s.name) === sprintNum);
+            const realVel   = real?.velocity  || null;
+            const realState = real?.state     || null;
+
+            return { label, totalDays, absDays, availDays, availPct, spEst, spBuf, spNet, realVel, realState, window, memberAvail };
+        });
+
+        const totalSpEst = sumBy(sprints, s => s.spEst);
+        const totalBuf   = sumBy(sprints, s => s.spBuf);
+        const totalAbs   = Math.round(sumBy(sprints, s => s.absDays) * 10) / 10;
+
+        return { teamName, color, memberCount, avgVelPerSprint, capMultiplier, capSource, baseCapacity, sprints, totalSpEst, totalBuf, totalAbs };
+    });
+
+    // ── HTML ──────────────────────────────────────────────────────────────────
+
+    const modeLabel = historyMode === 'pi'
+        ? `${historyCount} PI précédent${historyCount > 1 ? 's' : ''}`
+        : `${historyCount} dernier${historyCount > 1 ? 's' : ''} sprint${historyCount > 1 ? 's' : ''}`;
+
+    const hasWindows   = !!sprintWindows;
+    // Détermine la source des fenêtres (pour le badge info dans le bandeau)
+    const windowSource = !sprintWindows ? 'none'
+        : piInfo?.startDate ? 'config'
+        : 'jira';
+    // Compte les sprints avec fenêtre connue vs manquants
+    const knownWindows  = sprintWindows ? sprintWindows.filter(Boolean).length : 0;
+    const totalSprints  = piInfo?.sprintsPerPI || 5;
+
     el.innerHTML = `
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr><th>Equipe</th><th>Membres</th><th>Tickets</th><th>Done</th><th>Points</th><th>Done pts</th><th>Abs (j)</th><th>Charge</th></tr>
-                </thead>
-                <tbody>
-                    ${teamCap.map(t => {
-                        const p = pct(t.donePts, t.pts);
-                        return `<tr>
-                            <td><span class="inline-flex-center"><span class="team-dot" style="background:${t.color}"></span>${esc(t.name)}</span></td>
-                            <td>${t.memberCount}</td>
-                            <td>${t.total}</td>
-                            <td>${t.done}</td>
-                            <td>${t.pts}</td>
-                            <td>${t.donePts}</td>
-                            <td>${t.absDays > 0 ? `<span class="text-warning">${t.absDays}</span>` : '0'}</td>
-                            <td><div class="inline-flex-center"><div class="progress progress-inline-sm"><div class="progress-bar ${progressColor(p)}" style="width:${p}%"></div></div><span class="text-xs">${p}%</span></div></td>
-                        </tr>`;
-                    }).join('')}
-                </tbody>
-                <tfoot>
-                    <tr style="font-weight:var(--fw-semibold)">
-                        <td>Total</td>
-                        <td>${teamCap.reduce((s, t) => s + t.memberCount, 0)}</td>
-                        <td>${teamCap.reduce((s, t) => s + t.total, 0)}</td>
-                        <td>${teamCap.reduce((s, t) => s + t.done, 0)}</td>
-                        <td>${totalPts}</td>
-                        <td>${teamCap.reduce((s, t) => s + t.donePts, 0)}</td>
-                        <td>${teamCap.reduce((s, t) => s + t.absDays, 0)}</td>
-                        <td></td>
-                    </tr>
-                </tfoot>
-            </table>
+    <div class="picap">
+
+        <!-- ── Bandeau paramètres ── -->
+        <div class="picap-params">
+            <!-- Ligne 1 : vélocité + lien + badge source -->
+            <div class="picap-params-row1">
+                <span class="picap-params-label">Vélocité</span>
+                <select class="select select-sm" id="cap-history-mode">
+                    <option value="pi"     ${historyMode==='pi'     ? 'selected' : ''}>Par PI</option>
+                    <option value="sprint" ${historyMode==='sprint' ? 'selected' : ''}>Par sprint</option>
+                </select>
+                <input class="input input-sm" id="cap-history-count" type="number" min="1" max="20" value="${historyCount}" style="width:48px" title="Nombre de PI ou sprints">
+                <span class="picap-params-hint">${esc(modeLabel)}</span>
+                <span class="picap-params-sep"></span>
+                ${windowSource === 'jira' ? `<span class="picap-source-info">
+                    <svg class="icon icon-sm" style="color:var(--success)"><use href="#i-check"/></svg>
+                    Dates JIRA${knownWindows < totalSprints ? ` · <span class="text-warning">${totalSprints - knownWindows} sprint${totalSprints - knownWindows > 1 ? 's' : ''} manquant${totalSprints - knownWindows > 1 ? 's' : ''}</span>` : ''}
+                </span>` : windowSource === 'none' ? `<span class="picap-warn">
+                    <svg class="icon icon-sm" style="color:var(--warning)"><use href="#i-alert"/></svg>
+                    Aucun sprint PI trouvé
+                </span>` : ''}
+                <a class="picap-settings-link" id="cap-goto-settings" href="#settings">
+                    <svg class="icon icon-sm"><use href="#i-settings"/></svg>
+                    % par rôle
+                </a>
+            </div>
+            <!-- Ligne 2 : rôles exclus sur toute la largeur -->
+            <div class="picap-params-row2">
+                <span class="picap-params-label">Exclus</span>
+                <div class="picap-role-select" id="cap-role-select">
+                    <div class="picap-role-tags">
+                        ${excludedRoles.filter(r => allRoles.includes(r)).map(r => {
+                            const pct = _capRolePct(r, rolePctMap);
+                            return `<span class="picap-role-tag" data-role="${esc(r)}">
+                                ${esc(r)}${pct < 100 ? ` <em>${pct}%</em>` : ''}
+                                <button class="picap-role-tag-rm" data-role="${esc(r)}" tabindex="-1">×</button>
+                            </span>`;
+                        }).join('')}
+                        <input class="picap-role-input" id="cap-role-input" placeholder="Ajouter un rôle à exclure…" autocomplete="off">
+                    </div>
+                    <ul class="picap-role-dropdown" id="cap-role-dropdown" hidden></ul>
+                </div>
+            </div>
         </div>
-    `;
+
+        <!-- ── Grille sprints ── -->
+        <div class="picap-grid">
+            ${teamData.map(td => {
+                if (!td.memberCount) return `
+                    <div class="picap-team-block">
+                        <div class="picap-team-hdr">
+                            <span class="team-dot" style="background:${td.color}"></span>
+                            <span class="picap-team-name">${esc(td.teamName)}</span>
+                            <span class="picap-team-empty">Aucun membre dev</span>
+                        </div>
+                    </div>`;
+
+                return `
+                <div class="picap-team-block">
+                    <div class="picap-team-hdr">
+                        <span class="team-dot" style="background:${td.color}"></span>
+                        <span class="picap-team-name">${esc(td.teamName)}</span>
+                        <span class="picap-team-meta">${td.memberCount} dev · vél. moy. <strong>${td.avgVelPerSprint}</strong> SP/sprint</span>
+                        <label class="picap-base-wrap" title="Base Capacité : remplace la vélocité historique pour l'estimation. Vide = vélocité historique (${td.avgVelPerSprint} SP).">
+                            <span class="picap-base-label">Base</span>
+                            <input class="picap-base-input"
+                                type="number" min="1" max="999"
+                                placeholder="${td.avgVelPerSprint}"
+                                value="${td.baseCapacity !== null ? td.baseCapacity : ''}"
+                                data-team="${esc(td.teamName)}"
+                                data-pi="${curPiNum}">
+                            <span class="picap-base-unit">SP</span>
+                            ${td.capSource === 'manual' ? `<span class="picap-base-badge">perso</span>` : ''}
+                        </label>
+                        <span class="picap-team-totals">
+                            <span class="picap-total-sp">${td.totalSpEst} SP estimés</span>
+                            <span class="picap-total-buf">${td.totalBuf} buffer</span>
+                        </span>
+                    </div>
+                    <div class="picap-sprints">
+                        ${td.sprints.map(s => {
+                            const isDone = s.realState === 'closed';
+                            const isActive = s.realState === 'active';
+                            const barW = Math.min(100, s.availPct);
+                            const netPct = s.spEst > 0 ? Math.round((s.spNet / s.spEst) * 100) : 80;
+                            return `
+                            <div class="picap-sprint${isDone ? ' picap-sprint--done' : isActive ? ' picap-sprint--active' : ''}">
+                                <div class="picap-sprint-hdr">
+                                    <span class="picap-sprint-label">Sprint ${s.label}</span>
+                                    ${s.window ? `<span class="picap-sprint-dates">${_rotFmtCapDate(s.window.from)} → ${_rotFmtCapDate(s.window.to)}</span>` : ''}
+                                    ${isDone && s.realVel != null ? `<span class="picap-sprint-real">Réalisé : <strong>${s.realVel} SP</strong></span>` : ''}
+                                    ${isActive ? `<span class="picap-sprint-badge-active">En cours</span>` : ''}
+                                </div>
+
+                                <!-- Barre dispo + absences -->
+                                <div class="picap-avail-bar-wrap picap-has-tt">
+                                    <div class="picap-avail-bar">
+                                        <div class="picap-avail-fill" style="width:${barW}%"></div>
+                                        ${s.absDays > 0 ? `<div class="picap-avail-abs" style="width:${100-barW}%"></div>` : ''}
+                                    </div>
+                                    <span class="picap-avail-pct">${s.availPct}% dispo${s.absDays > 0 ? ` · <span class="text-warning">${s.absDays}j abs</span>` : ''}</span>
+                                    <div class="picap-tt">
+                                        <div class="picap-tt-row picap-tt-row--head">
+                                            <span>Disponibilité sprint ${s.label}</span>
+                                        </div>
+                                        <div class="picap-tt-row">
+                                            <span>Membres dev</span>
+                                            <strong>${td.memberCount}</strong>
+                                        </div>
+                                        <div class="picap-tt-row">
+                                            <span>Durée sprint</span>
+                                            <strong>${sprintDur} j</strong>
+                                        </div>
+                                        <div class="picap-tt-row">
+                                            <span>Jours théoriques</span>
+                                            <strong>${s.totalDays} j</strong>
+                                        </div>
+                                        ${s.absDays > 0 ? `
+                                        <div class="picap-tt-row picap-tt-row--warn">
+                                            <span>Congés / absences</span>
+                                            <strong>− ${s.absDays} j</strong>
+                                        </div>` : ''}
+                                        <div class="picap-tt-row picap-tt-row--total">
+                                            <span>Jours disponibles</span>
+                                            <strong>${s.availDays} j (${s.availPct}%)</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SP : net + buffer -->
+                                <div class="picap-sp-row picap-has-tt">
+                                    <div class="picap-sp-bars">
+                                        <div class="picap-sp-net" style="flex:${s.spNet}">
+                                            <span class="picap-sp-val">${s.spNet}</span>
+                                            <span class="picap-sp-lbl">SP</span>
+                                        </div>
+                                        <div class="picap-sp-buf" style="flex:${s.spBuf}">
+                                            <span class="picap-sp-val">${s.spBuf}</span>
+                                            <span class="picap-sp-lbl">buf</span>
+                                        </div>
+                                    </div>
+                                    <span class="picap-sp-total">≈&thinsp;${s.spEst} SP</span>
+                                    <div class="picap-tt picap-tt--wide">
+                                        <div class="picap-tt-row picap-tt-row--head">
+                                            <span>Membres disponibles — sprint ${s.label}</span>
+                                        </div>
+                                        ${s.memberAvail.map(m => `
+                                        <div class="picap-tt-row picap-tt-member">
+                                            <span class="picap-tt-member-name">${esc(m.name)}</span>
+                                            <span class="picap-tt-member-bar-wrap">
+                                                <span class="picap-tt-member-bar">
+                                                    <span class="picap-tt-member-fill" style="width:${m.availPct}%"></span>
+                                                </span>
+                                            </span>
+                                            <strong class="${m.availPct < 70 ? 'picap-tt-low' : m.availPct < 100 ? 'picap-tt-mid' : ''}">${m.availPct}%${m.absDays > 0 ? ` <span class="picap-tt-abs">−${m.absDays}j</span>` : ''}</strong>
+                                        </div>`).join('')}
+                                        <div class="picap-tt-sep"></div>
+                                        <div class="picap-tt-row picap-tt-row--head">
+                                            <span>Calcul estimation</span>
+                                        </div>
+                                        <div class="picap-tt-row">
+                                            <span>${td.capSource === 'manual' ? 'Base Capacité <em>(perso)</em>' : `Vél. moy. (${historyCount} ${historyMode === 'pi' ? 'PI' : 'sprints'})`}</span>
+                                            <strong>${td.capMultiplier} SP</strong>
+                                        </div>
+                                        <div class="picap-tt-row">
+                                            <span>× disponibilité équipe</span>
+                                            <strong>${s.availPct}%</strong>
+                                        </div>
+                                        <div class="picap-tt-row picap-tt-row--formula">
+                                            <span>${td.capMultiplier} × ${s.availPct}% = <strong>${(td.capMultiplier * s.availPct / 100).toFixed(1)}</strong> → ⌈ ${s.spEst} SP ⌉</span>
+                                        </div>
+                                        <div class="picap-tt-row picap-tt-row--total">
+                                            <span>SP estimés</span>
+                                            <strong>${s.spEst} SP</strong>
+                                        </div>
+                                        <div class="picap-tt-row picap-tt-row--buf">
+                                            <span>Buffer (20%)</span>
+                                            <strong>− ${s.spBuf} SP</strong>
+                                        </div>
+                                        <div class="picap-tt-row picap-tt-row--total">
+                                            <span>SP nets</span>
+                                            <strong>${s.spNet} SP</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>
+
+        <!-- ── Récap PI ── -->
+        <div class="picap-recap">
+            <div class="picap-recap-title">Récap PI#${curPiNum || '?'}</div>
+            <div class="picap-recap-kpis">
+                ${teamData.filter(td => td.memberCount > 0).map(td => `
+                    <div class="picap-recap-kpi">
+                        <span class="picap-recap-dot" style="background:${td.color}"></span>
+                        <span class="picap-recap-team">${esc(td.teamName)}</span>
+                        <span class="picap-recap-val">${td.totalSpEst} SP</span>
+                        <span class="picap-recap-buf">+ ${td.totalBuf} buf</span>
+                    </div>`).join('')}
+                <div class="picap-recap-kpi picap-recap-kpi--total">
+                    <span class="picap-recap-team">Total</span>
+                    <span class="picap-recap-val">${sumBy(teamData, td => td.totalSpEst)} SP</span>
+                    <span class="picap-recap-buf">+ ${sumBy(teamData, td => td.totalBuf)} buf</span>
+                </div>
+            </div>
+        </div>
+
+    </div>`;
+
+    // ── Interactions ──────────────────────────────────────────────────────────
+    const _rerender = () => renderCapacity(el, { piInfo, absences, teams, teamObjects });
+
+    el.querySelector('#cap-history-mode')?.addEventListener('change', e => {
+        localStorage.setItem(CAP_HISTORY_MODE_KEY, e.target.value);
+        _rerender();
+    });
+    el.querySelector('#cap-history-count')?.addEventListener('change', e => {
+        const v = Math.max(1, Math.min(20, parseInt(e.target.value) || 2));
+        localStorage.setItem(CAP_HISTORY_COUNT_KEY, String(v));
+        _rerender();
+    });
+    // ── Autocomplete rôles exclus ─────────────────────────────────────────────
+    const _saveExcluded = (list) => {
+        localStorage.setItem(CAP_EXCLUDED_ROLES_KEY, JSON.stringify(list));
+        _rerender();
+    };
+    const input    = el.querySelector('#cap-role-input');
+    const dropdown = el.querySelector('#cap-role-dropdown');
+
+    const _showDropdown = (query) => {
+        const current = _capGetExcludedRoles();
+        const matches = allRoles.filter(r =>
+            !current.includes(r) &&
+            r.toLowerCase().includes(query.toLowerCase())
+        );
+        if (!matches.length) { dropdown.hidden = true; return; }
+        dropdown.innerHTML = matches.map(r => {
+            const pct = _capRolePct(r, rolePctMap);
+            return `<li class="picap-role-opt" data-role="${esc(r)}">${esc(r)}${pct < 100 ? ` <em>${pct}%</em>` : ''}</li>`;
+        }).join('');
+        dropdown.hidden = false;
+    };
+
+    input?.addEventListener('focus',  () => _showDropdown(input.value));
+    input?.addEventListener('input',  () => _showDropdown(input.value));
+    input?.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { dropdown.hidden = true; input.blur(); }
+        if (e.key === 'Backspace' && !input.value) {
+            // Supprime le dernier tag
+            const current = _capGetExcludedRoles().filter(r => allRoles.includes(r));
+            if (current.length) _saveExcluded(current.slice(0, -1));
+        }
+    });
+    dropdown?.addEventListener('mousedown', e => {
+        const li = e.target.closest('.picap-role-opt');
+        if (!li) return;
+        e.preventDefault();
+        const role = li.dataset.role;
+        const current = _capGetExcludedRoles();
+        if (!current.includes(role)) _saveExcluded([...current, role]);
+    });
+    // Clic sur × d'un tag
+    el.querySelector('#cap-role-select')?.addEventListener('click', e => {
+        const btn = e.target.closest('.picap-role-tag-rm');
+        if (!btn) return;
+        const role = btn.dataset.role;
+        _saveExcluded(_capGetExcludedRoles().filter(r => r !== role));
+    });
+    // Ferme le dropdown au clic extérieur
+    document.addEventListener('click', function _outsideClick(e) {
+        if (!el.querySelector('#cap-role-select')?.contains(e.target)) {
+            if (dropdown) dropdown.hidden = true;
+            document.removeEventListener('click', _outsideClick);
+        }
+    });
+    el.querySelectorAll('.picap-base-input').forEach(inp => {
+        const _save = (target) => {
+            const team = target.dataset.team;
+            const pi   = target.dataset.pi;
+            const key  = `cap-base-${pi}-${team}`;
+            const v    = target.value.trim();
+            if (v === '' || isNaN(parseInt(v))) {
+                localStorage.removeItem(key);
+            } else {
+                localStorage.setItem(key, String(Math.max(1, parseInt(v))));
+            }
+            _rerender();
+        };
+        // Sauvegarde uniquement sur blur ou Enter — pas à chaque frappe ni flèche
+        inp.addEventListener('blur',    e => _save(e.target));
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); _save(e.target); e.target.blur(); } });
+        inp.addEventListener('click',   e => e.stopPropagation());
+    });
+
+    el.querySelector('#cap-goto-settings')?.addEventListener('click', e => {
+        e.preventDefault();
+        const sb = window.__squadBoard;
+        if (!sb) return;
+        // Positionne la tab cible avant de changer de vue (consommé par _settingsApplyTabs)
+        sb.store.set('settingsSection', 'cap-roles');
+        sb.store.set('view', 'settings');
+    });
+}
+
+function _rotFmtCapDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
 // ── Teams tab ─────────────────────────────────────────────────────────────────
@@ -486,6 +1232,163 @@ function renderTeams(el, { teamCap, tickets, teams }) {
             }).join('')}
         </div>
     `;
+}
+
+// ── Support Rotation (lecture seule) ─────────────────────────────────────────
+function renderSupportRota(el, { teams, teamObjects }) {
+    const support    = store.get('support') || [];
+    const absences   = store.get('absences') || [];
+    const members    = store.get('members') || [];
+    const allMembers = deriveMembersFromAbsences(absences, members);
+    const piInfo     = store.get('piInfo');
+    const sprintInfo = store.get('sprintInfo');
+    const today      = new Date().toISOString().slice(0, 10);
+
+    // Match tolérant équipe app ↔ CSV RH (même logique que settings.js)
+    const _norm = s => (s || '').toLowerCase().trim();
+    const _matchTeam = (mt, tgt) => { const t = _norm(mt), g = _norm(tgt); return t === g || (t && g && (t.includes(g) || g.includes(t))); };
+
+    // Filtre par équipe sélectionnée dans le topbar
+    const activeTeam = store.get('team');
+    const filteredTeams = (!activeTeam || activeTeam === 'all') ? teams : teams.filter(t => t === activeTeam);
+    const teamNames = [...filteredTeams].sort((a, b) => String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' }));
+
+    // Switch PI courant / suivant — état local persisté
+    const LS_KEY = 'pi-tab-support-next';
+    let showNext = localStorage.getItem(LS_KEY) === '1';
+
+    const _render = () => {
+        const panels = teamNames.map(teamName => {
+            const tObj  = teamObjects.find(o => o.name === teamName);
+            const color = tObj?.color || '#64748b';
+            const mode  = getSupportWeekMode(teamName);
+            const { curWeeks, nextWeeks, curPiNum, nextPiNum } = buildSupportPiWeeks(piInfo, sprintInfo, mode);
+            const allWeeks   = showNext ? nextWeeks : curWeeks;
+            const panelPiNum = showNext ? nextPiNum : curPiNum;
+            const teamMembers = allMembers.filter(m => _matchTeam(m.team, teamName));
+            if (!teamMembers.length) return '';
+            const teamSupport = support.filter(s => _matchTeam(s.team, teamName));
+            const mpw = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
+
+            // Résumé
+            const filledWeeks = allWeeks.filter(w => {
+                const e = teamSupport.find(s => s.weekStart === w.weekStart);
+                return e && (e.members || []).length > 0;
+            }).length;
+            const summaryColor = filledWeeks === allWeeks.length ? 'var(--success)' : filledWeeks > 0 ? 'var(--warning)' : 'var(--danger)';
+
+            // En-têtes semaines
+            const weekRow = allWeeks.map(w => {
+                const isCur = today >= w.weekStart && today <= w.weekEnd;
+                return `<th class="rot-wk-th${isCur ? ' rot-wk-current' : ''}${showNext ? ' rot-wk-next-pi' : ''}">
+                    <span class="rot-wk-label">${w.label}</span>
+                    <span class="rot-wk-dates">${_rotFmtCapDate(w.weekStart)}</span>
+                </th>`;
+            }).join('');
+
+            // Lignes membres — cellules en lecture seule
+            const memberRows = teamMembers.map(m => {
+                const active = isMemberSupportActive(m.name);
+                const cells = allWeeks.map(w => {
+                    const entry  = teamSupport.find(s => s.weekStart === w.weekStart);
+                    const sel    = entry && (entry.members || []).includes(m.name);
+                    const absDays = absences.filter(a =>
+                        a.memberName === m.name && _matchTeam(a.team, teamName) &&
+                        a.startDate <= w.weekEnd && a.endDate >= w.weekStart
+                    ).reduce((s, a) => {
+                        const st = a.startDate > w.weekStart ? a.startDate : w.weekStart;
+                        const en = a.endDate   < w.weekEnd   ? a.endDate   : w.weekEnd;
+                        const ad = Math.max(1, Math.round((new Date(a.endDate) - new Date(a.startDate)) / 86400000) + 1);
+                        const wd = Math.max(0, Math.round((new Date(en) - new Date(st)) / 86400000) + 1);
+                        return s + (a.days || 0) * (wd / ad);
+                    }, 0);
+                    const absent  = absDays >= 2.5;
+                    const partial = absDays > 0 && !absent;
+                    const isCur   = today >= w.weekStart && today <= w.weekEnd;
+                    const absBadge = absDays > 0
+                        ? `<span class="rot-abs-badge${absent ? ' rot-abs-full' : ''}">${absDays % 1 ? absDays.toFixed(1) : absDays}j</span>`
+                        : '';
+                    const cls = ['rot-cell', absent ? 'rot-cell-absent' : '', partial ? 'rot-cell-partial' : '', isCur ? 'rot-cell-current' : '', showNext ? 'rot-cell-next-pi' : ''].filter(Boolean).join(' ');
+                    // Cellule figée : span au lieu de button
+                    return `<td class="${cls}">
+                        ${absBadge}
+                        <span class="rot-chip${sel ? ' rot-chip-on' : ''}"
+                            style="${sel ? `background:${color}22;color:${color};border-color:${color}` : ''}">
+                            ${sel ? '✓' : ''}
+                        </span>
+                    </td>`;
+                }).join('');
+                return `<tr class="${active ? '' : 'rot-row-inactive'}">
+                    <td class="rot-member-td">
+                        <span class="rot-member-name${active ? '' : ' is-inactive'}">${esc(m.name)}</span>
+                    </td>
+                    ${cells}
+                </tr>`;
+            }).join('');
+
+            // Ligne totaux
+            const countRow = allWeeks.map(w => {
+                const entry = teamSupport.find(s => s.weekStart === w.weekStart);
+                const cnt   = entry ? (entry.members || []).length : 0;
+                const isCur = today >= w.weekStart && today <= w.weekEnd;
+                const cls   = cnt === mpw ? 'rot-count-ok' : cnt > 0 ? 'rot-count-partial' : '';
+                return `<td class="rot-cell rot-count-cell ${cls}${isCur ? ' rot-cell-current' : ''}${showNext ? ' rot-cell-next-pi' : ''}">${cnt}/${mpw}</td>`;
+            }).join('');
+
+            return `<div class="rot-panel" style="border-left:3px solid ${color}">
+                <div class="rot-panel-hdr">
+                    <span class="rot-dot" style="background:${color}"></span>
+                    <span class="rot-name">${esc(teamName)}</span>
+                    <span class="rot-sum">${teamMembers.length} membres · <span style="color:${summaryColor}">${filledWeeks}/${allWeeks.length} sem.</span></span>
+                </div>
+                <div class="rot-panel-body">
+                    <div class="table-wrap">
+                        <table class="rot-grid">
+                            <thead>
+                                <tr>
+                                    <th class="rot-member-th" rowspan="2">Membre</th>
+                                    <th colspan="${allWeeks.length}" class="rot-pi-group-th${showNext ? ' rot-pi-group-next' : ''}">PI ${panelPiNum || '?'}</th>
+                                </tr>
+                                <tr>${weekRow}</tr>
+                            </thead>
+                            <tbody>
+                                ${memberRows}
+                                <tr class="rot-count-row">
+                                    <td class="rot-member-th">Total</td>
+                                    ${countRow}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+        }).filter(Boolean).join('');
+
+        el.innerHTML = `
+            <div class="pi-support-rota">
+                <div class="pi-support-rota-hdr">
+                    <div class="rot-pi-switch">
+                        <button class="rot-pi-switch-btn${!showNext ? ' is-active' : ''}" id="pir-cur">📆 PI courant</button>
+                        <button class="rot-pi-switch-btn${showNext ? ' is-active' : ''}" id="pir-next">📅 PI suivant</button>
+                    </div>
+                    <a class="picap-settings-link" id="pir-goto-settings" href="#settings">
+                        <svg class="icon icon-sm"><use href="#i-settings"/></svg>
+                        Modifier dans Paramètres
+                    </a>
+                </div>
+                ${panels || '<p class="text-muted text-sm">Aucune rotation configurée.</p>'}
+            </div>`;
+
+        el.querySelector('#pir-cur')?.addEventListener('click', () => { showNext = false; localStorage.setItem(LS_KEY, '0'); _render(); });
+        el.querySelector('#pir-next')?.addEventListener('click', () => { showNext = true; localStorage.setItem(LS_KEY, '1'); _render(); });
+        el.querySelector('#pir-goto-settings')?.addEventListener('click', e => {
+            e.preventDefault();
+            window.__squadBoard?.store.set('settingsSection', 'rotation');
+            window.__squadBoard?.store.set('view', 'settings');
+        });
+    };
+
+    _render();
 }
 
 // ── Burnup PI multi-équipes ──────────────────────────────────────────────────

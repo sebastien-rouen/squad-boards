@@ -75,9 +75,10 @@ function pushHash() {
 
     let hash = view;
     if (view === 'pi') {
-        // PI : toujours page/équipe/tab pour une hiérarchie complète
-        const tab = store.get('piTab') || 'objectives';
-        hash = `pi/${teamPart}/${tab}`;
+        // PI : pi/équipe/tab[/piOffset] — piOffset omis si 0
+        const tab      = store.get('piTab') || 'objectives';
+        const piOffset = store.get('piOffset') || 0;
+        hash = `pi/${teamPart}/${tab}${piOffset !== 0 ? '/' + piOffset : ''}`;
     } else if (view === 'roadmap') {
         // Format : roadmap/<team|all|group:X>/<tab>  — tab toujours présent pour éviter ambiguïté
         const tab = store.get('roadmapTab') || 'current';
@@ -145,8 +146,12 @@ function applyHash() {
                     store.set('team', 'all');
                 }
                 if (parts[2]) {
-                    if (view === 'pi') store.set('piTab', decodeURIComponent(parts[2]));
-                    else if (view === 'roadmap') store.set('roadmapTab', decodeURIComponent(parts[2]));
+                    if (view === 'pi') {
+                        store.set('piTab', decodeURIComponent(parts[2]));
+                        // parts[3] = piOffset si présent
+                        const off = parts[3] !== undefined ? parseInt(parts[3], 10) : 0;
+                        store.set('piOffset', isNaN(off) ? 0 : off);
+                    } else if (view === 'roadmap') store.set('roadmapTab', decodeURIComponent(parts[2]));
                     else if (view === 'sprint') store.set('sprintPick', decodeURIComponent(parts[2]));
                 }
                 // Si pas de parts[2] sur sprint → reset le sprint pick (au cas où on était sur un autre sprint)
@@ -464,10 +469,10 @@ async function init() {
 
     // Navigation listeners : re-render + mise à jour du hash
     // Reset du piOffset au changement de vue (pour repartir sur le PI courant à chaque navigation)
-    store.on('view',  () => { store.set('piOffset', 0); renderView(); pushHash(); });
+    store.on('view',  () => { if (!_applyingHash) store.set('piOffset', 0); renderView(); pushHash(); });
     store.on('team',  () => { renderView(); pushHash(); });
     store.on('group', () => { renderView(); pushHash(); });
-    store.on('piOffset', () => { renderView(); });
+    store.on('piOffset', () => { renderView(); pushHash(); });
 
     // Boutons retour/avant du navigateur + liens <a href="#...">
     window.addEventListener('popstate', applyHash);

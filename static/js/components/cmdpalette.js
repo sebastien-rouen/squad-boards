@@ -7,9 +7,10 @@ import { store } from '../state.js';
 import { esc, toast, getSprintForTeam } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 
-const HISTORY_KEY  = 'sb-cmd-history';
-const MAX_RESULTS  = 50;
-const DEBOUNCE_MS  = 80;
+const HISTORY_KEY   = 'sb-cmd-history';
+const FIRST_OPEN_KEY = 'sb-cmd-seen';
+const MAX_RESULTS   = 50;
+const DEBOUNCE_MS   = 80;
 
 // ── Templates Slack par rituel (texte brut, pas de mrkdwn — Slack n'interprète pas au paste) ──
 function _copySlackTpl(kind) {
@@ -187,6 +188,7 @@ export function initCmdPalette() {
     });
 
     _input()?.addEventListener('input', e => {
+        _markSeen();
         clearTimeout(_debounce);
         _debounce = setTimeout(() => _search(e.target.value.trim()), DEBOUNCE_MS);
     });
@@ -195,13 +197,27 @@ export function initCmdPalette() {
 // ── Open / close ──────────────────────────────────────────────────────────────
 function _isOpen() { return !_overlay()?.classList.contains('cmd-hidden'); }
 
+const _footerTips = () => document.getElementById('cmd-footer-tips');
+
 function _open() {
     _overlay()?.classList.remove('cmd-hidden');
     const inp = _input();
     if (!inp) return;
     inp.value = '';
     inp.focus();
+    // Affiche les tips dans le footer uniquement à la 1ère ouverture
+    const isFirstOpen = !localStorage.getItem(FIRST_OPEN_KEY);
+    const tipsEl = _footerTips();
+    if (tipsEl) tipsEl.hidden = !isFirstOpen;
     _renderEmpty();
+}
+
+function _markSeen() {
+    if (!localStorage.getItem(FIRST_OPEN_KEY)) {
+        localStorage.setItem(FIRST_OPEN_KEY, '1');
+        const tipsEl = _footerTips();
+        if (tipsEl) tipsEl.hidden = true;
+    }
 }
 
 function _close() {
@@ -231,15 +247,6 @@ function _renderEmpty() {
             <span class="cmd-item-title">${esc(a.label)}</span>
         </div>`
     ).join('');
-    html += `<div class="cmd-tips">
-        <div class="cmd-tips-title">Astuces — filtres préfixe</div>
-        <div class="cmd-tips-grid">
-            <div><kbd>@nom</kbd> Par assigné</div>
-            <div><kbd>team:fuego</kbd> Par équipe</div>
-            <div><kbd>status:blocked</kbd> Par statut</div>
-            <div><kbd>type:bug</kbd> Par type</div>
-        </div>
-    </div>`;
     el.innerHTML = html;
     _countEl() && (_countEl().textContent = '');
     el.querySelectorAll('.cmd-history').forEach(item => {

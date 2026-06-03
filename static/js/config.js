@@ -98,7 +98,7 @@ export const NAV_ITEMS = [
     { id: 'health',     label: 'Health',       icon: 'i-shield',     shortcut: 'H' },
     { id: 'retro',      label: 'Amelioration', icon: 'i-refresh',    shortcut: '7' },
     { id: 'support',    label: 'Support',      icon: 'i-users',      shortcut: 'S' },
-    { id: 'roam',       label: 'ROAM',         icon: 'i-shield',     shortcut: 'R' },
+    { id: 'atlas',      label: 'Atlas',        icon: 'i-network',    shortcut: 'A' },
     { id: 'agenda',     label: 'Agenda',       icon: 'i-agenda',     shortcut: 'G' },
     { id: 'reports',    label: 'Rapports',     icon: 'i-chart',      shortcut: '8' },
     { id: 'settings',   label: 'Parametres',   icon: 'i-settings',   shortcut: '9' },

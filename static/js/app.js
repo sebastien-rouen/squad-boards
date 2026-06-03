@@ -39,6 +39,7 @@ import { renderRoam } from './views/roam.js';
 import { renderPICalendar } from './views/picalendar.js';
 import { renderAgenda } from './views/agenda.js';
 import { renderHealth } from './views/health.js';
+import { renderAtlas } from './views/atlas.js';
 
 const VIEW_RENDERERS = {
     dashboard: renderDashboard,
@@ -51,6 +52,7 @@ const VIEW_RENDERERS = {
     retro: renderRetro,
     support: renderSupport,
     roam: renderRoam,
+    atlas: renderAtlas,
     agenda: renderAgenda,
     reports: renderReports,
     settings: renderSettings,
@@ -271,6 +273,21 @@ async function loadAllData() {
     } catch { /* ignore */ }
     // Notifications: count tickets modified since last visit
     store.set('newCount', _computeNewCount(tickets));
+
+    // Atlas (chargé en parallèle, non bloquant pour le reste de l'app)
+    Promise.all([
+        api.getSkills().catch(() => []),
+        api.getAppetences().catch(() => []),
+        api.getMemberSkills().catch(() => []),
+        api.getMemberAppetences().catch(() => []),
+        api.getMobility().catch(() => []),
+    ]).then(([skills, appetences, memberSkills, memberAppetences, mobility]) => {
+        store.set('skills', skills);
+        store.set('appetences', appetences);
+        store.set('memberSkills', memberSkills);
+        store.set('memberAppetences', memberAppetences);
+        store.set('mobility', mobility);
+    });
 }
 
 // ── JIRA Import handler ───────────────────────────────────────────────────────

@@ -32,7 +32,7 @@ export function renderRoadmap(container) {
         const m = String(name).match(/(\d+)\.\d+/) || String(name).match(/PI\s*#?\s*(\d+)/i);
         return m ? parseInt(m[1], 10) : 0;
     };
-    const _basePi = piInfo?.number || _extractPiNum(_sprintInfo?.name) || 0;
+    const _basePi = _extractPiNum(_sprintInfo?.name) || piInfo?.number || 0;
     const _piOffset = store.get('piOffset') || 0;
     const currentPiNum = _basePi ? Math.max(1, _basePi + _piOffset) : 0;
     // Sub-mode cards/list pour la vue "PI futur" — préservé via roadmapTab

@@ -58,7 +58,7 @@ export function renderPICalendar(container) {
         const m = String(name).match(/(\d+)\.\d+/) || String(name).match(/PI\s*#?\s*(\d+)/i);
         return m ? parseInt(m[1], 10) : 0;
     };
-    const _basePi   = piInfo?.number || _extractPiNum(sprint?.name) || 0;
+    const _basePi   = _extractPiNum(sprint?.name) || piInfo?.number || 0;
     const _piOff    = store.get('piOffset') || 0;
     const piNum     = _basePi ? Math.max(1, _basePi + _piOff) : '';
 

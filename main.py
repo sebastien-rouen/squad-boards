@@ -266,6 +266,76 @@ class Risk(SQLModel, table=True):
     updated_at: str = Field(default_factory=_now)
 
 
+# ── Atlas : compétences, appétences, mobilité (coaching/RH) ──────────────────
+class Skill(SQLModel, table=True):
+    """Compétence du catalogue (ex: React, Python, Cloud, Agile)."""
+    __table_args__ = _TA
+    id: str = Field(default_factory=_gen_id, primary_key=True)
+    name: str = Field(index=True)
+    category: str = ""           # Frontend | Backend | DevOps | Agile | Data | Soft...
+    color: str = "#6366f1"
+    sort: int = 0
+    created_at: str = Field(default_factory=_now)
+    updated_at: str = Field(default_factory=_now)
+
+
+class Appetence(SQLModel, table=True):
+    """Domaine d'appétence / d'intérêt (ex: Cloud, Management, Craft)."""
+    __table_args__ = _TA
+    id: str = Field(default_factory=_gen_id, primary_key=True)
+    name: str = Field(index=True)
+    category: str = ""
+    color: str = "#f59e0b"
+    sort: int = 0
+    created_at: str = Field(default_factory=_now)
+    updated_at: str = Field(default_factory=_now)
+
+
+class MemberSkill(SQLModel, table=True):
+    """Niveau d'une compétence — pour un membre OU une équipe.
+    Clé logique = scope|scope_key|skill_id. Niveau 1-4 (référentiel métier)."""
+    __tablename__ = "member_skill"
+    __table_args__ = _TA
+    id: str = Field(default_factory=_gen_id, primary_key=True)
+    scope: str = "member"        # "member" | "team"
+    scope_key: str = Field(default="", index=True)  # nom du membre OU nom de l'équipe
+    team: str = ""               # équipe de rattachement (pour filtrage)
+    skill_id: str = Field(default="", index=True)
+    level: int = 0               # 0=aucun, 1=exécutant, 2=opérationnel, 3=cloud ready, 4=référent
+    updated_at: str = Field(default_factory=_now)
+
+
+class MemberAppetence(SQLModel, table=True):
+    """Appétence — pour un membre OU une équipe. Valeur faible/neutre/forte."""
+    __tablename__ = "member_appetence"
+    __table_args__ = _TA
+    id: str = Field(default_factory=_gen_id, primary_key=True)
+    scope: str = "member"        # "member" | "team"
+    scope_key: str = Field(default="", index=True)
+    team: str = ""
+    appetence_id: str = Field(default="", index=True)
+    value: str = "neutre"        # faible | neutre | forte
+    updated_at: str = Field(default_factory=_now)
+
+
+class MemberMobility(SQLModel, table=True):
+    """Ligne de suivi de mobilité / trajectoire d'un membre (tableau coaching)."""
+    __tablename__ = "member_mobility"
+    __table_args__ = _TA
+    id: str = Field(default_factory=_gen_id, primary_key=True)
+    member_name: str = Field(default="", index=True)
+    team: str = ""                       # équipe actuelle
+    target_team: str = ""                # équipe cible
+    target_role: str = ""                # rôle cible
+    current_level: int = 0               # niveau actuel 1-4
+    potential: str = "moyen"             # faible | moyen | fort
+    appetence: str = "neutre"            # faible | neutre | forte
+    risk: str = "aucun"                  # aucun | moyen | critique
+    plan: str = ""                       # plan d'accompagnement
+    transition_duration: str = ""        # durée de transition (ex: "3 mois")
+    updated_at: str = Field(default_factory=_now)
+
+
 class TeamCalendar(SQLModel, table=True):
     """Lien vers un calendrier public ICS (Google Calendar) par equipe."""
     __tablename__ = "team_calendar"
@@ -327,6 +397,35 @@ def _run_migrations():
 
 
 _run_migrations()
+
+
+def _seed_atlas_catalog():
+    """Insère un catalogue par défaut de compétences et appétences si vide."""
+    default_skills = [
+        ("Frontend", "#3b82f6", ["React / JS", "CSS / Design System", "Accessibilité"]),
+        ("Backend",  "#8b5cf6", ["API REST", "SQL / Données", "Sécurité"]),
+        ("DevOps",   "#06b6d4", ["CI/CD", "Cloud / Infra", "Observabilité"]),
+        ("Agile",    "#22c55e", ["Facilitation", "Craft / Tests", "Product"]),
+    ]
+    default_appetences = [
+        ("Technique", "#f59e0b", ["Cloud", "Craft / Qualité", "Data / IA"]),
+        ("Posture",   "#ec4899", ["Management", "Coaching / Mentorat", "Innovation"]),
+    ]
+    with Session(engine) as s:
+        if not s.exec(select(Skill)).first():
+            sort = 0
+            for cat, color, names in default_skills:
+                for n in names:
+                    s.add(Skill(name=n, category=cat, color=color, sort=sort)); sort += 1
+        if not s.exec(select(Appetence)).first():
+            sort = 0
+            for cat, color, names in default_appetences:
+                for n in names:
+                    s.add(Appetence(name=n, category=cat, color=color, sort=sort)); sort += 1
+        s.commit()
+
+
+_seed_atlas_catalog()
 
 
 def get_session():
@@ -556,6 +655,32 @@ def _team_dict(t: Team) -> dict:
         "id": t.id, "name": t.name, "color": t.color,
         "createdAt": t.created_at, "updatedAt": t.updated_at,
     }
+
+
+def _skill_dict(s: Skill) -> dict:
+    return {"id": s.id, "name": s.name, "category": s.category, "color": s.color, "sort": s.sort}
+
+
+def _appetence_dict(a: Appetence) -> dict:
+    return {"id": a.id, "name": a.name, "category": a.category, "color": a.color, "sort": a.sort}
+
+
+def _member_skill_dict(ms: MemberSkill) -> dict:
+    return {"id": ms.id, "scope": ms.scope, "scopeKey": ms.scope_key, "team": ms.team,
+            "skillId": ms.skill_id, "level": ms.level, "updatedAt": ms.updated_at}
+
+
+def _member_appetence_dict(ma: MemberAppetence) -> dict:
+    return {"id": ma.id, "scope": ma.scope, "scopeKey": ma.scope_key, "team": ma.team,
+            "appetenceId": ma.appetence_id, "value": ma.value, "updatedAt": ma.updated_at}
+
+
+def _mobility_dict(m: MemberMobility) -> dict:
+    return {"id": m.id, "memberName": m.member_name, "team": m.team,
+            "targetTeam": m.target_team, "targetRole": m.target_role,
+            "currentLevel": m.current_level, "potential": m.potential,
+            "appetence": m.appetence, "risk": m.risk, "plan": m.plan,
+            "transitionDuration": m.transition_duration, "updatedAt": m.updated_at}
 
 
 def _sprint_dict(s: SprintConfig) -> dict | None:
@@ -1051,6 +1176,196 @@ async def bulk_merge_members(request: Request, session: Session = Depends(get_se
 
     session.commit()
     return {"ok": True, "created": created, "updated": updated}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Atlas: Skills, Appetences, MemberSkills, MemberAppetences, Mobility
+# ══════════════════════════════════════════════════════════════════════════════
+@app.get("/api/skills")
+def list_skills(session: Session = Depends(get_session)):
+    rows = session.exec(select(Skill)).all()
+    return [_skill_dict(s) for s in sorted(rows, key=lambda x: (x.sort, x.name))]
+
+
+@app.post("/api/skills")
+async def create_skill(request: Request, session: Session = Depends(get_session)):
+    body = await request.json()
+    if not body.get("name"):
+        raise HTTPException(400, "Le nom est requis")
+    s = Skill(id=body.get("id") or _gen_id(), name=body["name"],
+              category=body.get("category", ""), color=body.get("color", "#6366f1"),
+              sort=body.get("sort", 0))
+    session.add(s); session.commit(); session.refresh(s)
+    return _skill_dict(s)
+
+
+@app.put("/api/skills/{skill_id}")
+async def update_skill(skill_id: str, request: Request, session: Session = Depends(get_session)):
+    s = session.get(Skill, skill_id)
+    if not s:
+        raise HTTPException(404, "Compétence non trouvée")
+    body = await request.json()
+    for k, v in body.items():
+        if hasattr(s, k):
+            setattr(s, k, v)
+    s.updated_at = _now()
+    session.add(s); session.commit(); session.refresh(s)
+    return _skill_dict(s)
+
+
+@app.delete("/api/skills/{skill_id}")
+def delete_skill(skill_id: str, session: Session = Depends(get_session)):
+    s = session.get(Skill, skill_id)
+    if not s:
+        raise HTTPException(404, "Compétence non trouvée")
+    session.delete(s)
+    # Nettoie les niveaux associés
+    for ms in session.exec(select(MemberSkill).where(MemberSkill.skill_id == skill_id)).all():
+        session.delete(ms)
+    session.commit()
+    return {"ok": True}
+
+
+@app.get("/api/appetences")
+def list_appetences(session: Session = Depends(get_session)):
+    rows = session.exec(select(Appetence)).all()
+    return [_appetence_dict(a) for a in sorted(rows, key=lambda x: (x.sort, x.name))]
+
+
+@app.post("/api/appetences")
+async def create_appetence(request: Request, session: Session = Depends(get_session)):
+    body = await request.json()
+    if not body.get("name"):
+        raise HTTPException(400, "Le nom est requis")
+    a = Appetence(id=body.get("id") or _gen_id(), name=body["name"],
+                  category=body.get("category", ""), color=body.get("color", "#f59e0b"),
+                  sort=body.get("sort", 0))
+    session.add(a); session.commit(); session.refresh(a)
+    return _appetence_dict(a)
+
+
+@app.put("/api/appetences/{appetence_id}")
+async def update_appetence(appetence_id: str, request: Request, session: Session = Depends(get_session)):
+    a = session.get(Appetence, appetence_id)
+    if not a:
+        raise HTTPException(404, "Appétence non trouvée")
+    body = await request.json()
+    for k, v in body.items():
+        if hasattr(a, k):
+            setattr(a, k, v)
+    a.updated_at = _now()
+    session.add(a); session.commit(); session.refresh(a)
+    return _appetence_dict(a)
+
+
+@app.delete("/api/appetences/{appetence_id}")
+def delete_appetence(appetence_id: str, session: Session = Depends(get_session)):
+    a = session.get(Appetence, appetence_id)
+    if not a:
+        raise HTTPException(404, "Appétence non trouvée")
+    session.delete(a)
+    for ma in session.exec(select(MemberAppetence).where(MemberAppetence.appetence_id == appetence_id)).all():
+        session.delete(ma)
+    session.commit()
+    return {"ok": True}
+
+
+@app.get("/api/member-skills")
+def list_member_skills(session: Session = Depends(get_session)):
+    return [_member_skill_dict(ms) for ms in session.exec(select(MemberSkill)).all()]
+
+
+@app.put("/api/member-skills")
+async def upsert_member_skill(request: Request, session: Session = Depends(get_session)):
+    """Upsert par clé logique scope|scope_key|skill_id. level=0 supprime l'entrée."""
+    body = await request.json()
+    scope = body.get("scope", "member")
+    scope_key = (body.get("scopeKey") or "").strip()
+    skill_id = body.get("skillId") or ""
+    level = int(body.get("level", 0))
+    if not scope_key or not skill_id:
+        raise HTTPException(400, "scopeKey et skillId requis")
+    row = session.exec(select(MemberSkill).where(
+        MemberSkill.scope == scope, MemberSkill.scope_key == scope_key,
+        MemberSkill.skill_id == skill_id)).first()
+    if level <= 0:
+        if row:
+            session.delete(row); session.commit()
+        return {"ok": True, "deleted": True}
+    if row:
+        row.level = level; row.team = body.get("team", row.team); row.updated_at = _now()
+    else:
+        row = MemberSkill(scope=scope, scope_key=scope_key, team=body.get("team", ""),
+                          skill_id=skill_id, level=level)
+    session.add(row); session.commit(); session.refresh(row)
+    return _member_skill_dict(row)
+
+
+@app.get("/api/member-appetences")
+def list_member_appetences(session: Session = Depends(get_session)):
+    return [_member_appetence_dict(ma) for ma in session.exec(select(MemberAppetence)).all()]
+
+
+@app.put("/api/member-appetences")
+async def upsert_member_appetence(request: Request, session: Session = Depends(get_session)):
+    body = await request.json()
+    scope = body.get("scope", "member")
+    scope_key = (body.get("scopeKey") or "").strip()
+    appetence_id = body.get("appetenceId") or ""
+    value = body.get("value", "neutre")
+    if not scope_key or not appetence_id:
+        raise HTTPException(400, "scopeKey et appetenceId requis")
+    row = session.exec(select(MemberAppetence).where(
+        MemberAppetence.scope == scope, MemberAppetence.scope_key == scope_key,
+        MemberAppetence.appetence_id == appetence_id)).first()
+    if value == "neutre" and not body.get("keepNeutre"):
+        if row:
+            session.delete(row); session.commit()
+        return {"ok": True, "deleted": True}
+    if row:
+        row.value = value; row.team = body.get("team", row.team); row.updated_at = _now()
+    else:
+        row = MemberAppetence(scope=scope, scope_key=scope_key, team=body.get("team", ""),
+                              appetence_id=appetence_id, value=value)
+    session.add(row); session.commit(); session.refresh(row)
+    return _member_appetence_dict(row)
+
+
+@app.get("/api/mobility")
+def list_mobility(session: Session = Depends(get_session)):
+    return [_mobility_dict(m) for m in session.exec(select(MemberMobility)).all()]
+
+
+@app.put("/api/mobility")
+async def upsert_mobility(request: Request, session: Session = Depends(get_session)):
+    """Upsert une ligne de mobilité par memberName (1 ligne par membre)."""
+    body = await request.json()
+    member_name = (body.get("memberName") or "").strip()
+    if not member_name:
+        raise HTTPException(400, "memberName requis")
+    row = session.exec(select(MemberMobility).where(
+        MemberMobility.member_name == member_name)).first()
+    if not row:
+        row = MemberMobility(member_name=member_name)
+    _map = {"team": "team", "targetTeam": "target_team", "targetRole": "target_role",
+            "currentLevel": "current_level", "potential": "potential",
+            "appetence": "appetence", "risk": "risk", "plan": "plan",
+            "transitionDuration": "transition_duration"}
+    for k, attr in _map.items():
+        if k in body:
+            setattr(row, attr, body[k])
+    row.updated_at = _now()
+    session.add(row); session.commit(); session.refresh(row)
+    return _mobility_dict(row)
+
+
+@app.delete("/api/mobility/{mobility_id}")
+def delete_mobility(mobility_id: str, session: Session = Depends(get_session)):
+    m = session.get(MemberMobility, mobility_id)
+    if not m:
+        raise HTTPException(404, "Ligne non trouvée")
+    session.delete(m); session.commit()
+    return {"ok": True}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1631,6 +1946,11 @@ def export_all(session: Session = Depends(get_session)):
         "support": [_support_dict(s) for s in session.exec(select(SupportRotation)).all()],
         "events": [_event_dict(e) for e in session.exec(select(Event)).all()],
         "risks": [_risk_dict(r) for r in session.exec(select(Risk)).all()],
+        "skills": [_skill_dict(s) for s in session.exec(select(Skill)).all()],
+        "appetences": [_appetence_dict(a) for a in session.exec(select(Appetence)).all()],
+        "memberSkills": [_member_skill_dict(ms) for ms in session.exec(select(MemberSkill)).all()],
+        "memberAppetences": [_member_appetence_dict(ma) for ma in session.exec(select(MemberAppetence)).all()],
+        "mobility": [_mobility_dict(m) for m in session.exec(select(MemberMobility)).all()],
         "sprint": _sprint_dict(session.get(SprintConfig, "sprint-1")),
         "pi": _pi_dict(session.get(PIConfig, "pi-1")),
         "exportedAt": _now(),
@@ -1855,6 +2175,77 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
             )
             session.merge(e)
         counts["events"] = len(items)
+
+    # ── Atlas : compétences / appétences / niveaux / mobilité ──────────────────
+    if "skills" in body and body["skills"] is not None:
+        items = body["skills"]
+        if mode == "replace":
+            for row in session.exec(select(Skill)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(Skill(
+                id=d.get("id") or _gen_id(), name=d.get("name", ""),
+                category=d.get("category", ""), color=d.get("color", "#6366f1"),
+                sort=d.get("sort", 0),
+            ))
+        counts["skills"] = len(items)
+
+    if "appetences" in body and body["appetences"] is not None:
+        items = body["appetences"]
+        if mode == "replace":
+            for row in session.exec(select(Appetence)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(Appetence(
+                id=d.get("id") or _gen_id(), name=d.get("name", ""),
+                category=d.get("category", ""), color=d.get("color", "#f59e0b"),
+                sort=d.get("sort", 0),
+            ))
+        counts["appetences"] = len(items)
+
+    if "memberSkills" in body and body["memberSkills"] is not None:
+        items = body["memberSkills"]
+        if mode == "replace":
+            for row in session.exec(select(MemberSkill)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(MemberSkill(
+                id=d.get("id") or _gen_id(),
+                scope=d.get("scope", "member"), scope_key=d.get("scopeKey", ""),
+                team=d.get("team", ""), skill_id=d.get("skillId", ""),
+                level=d.get("level", 0),
+            ))
+        counts["memberSkills"] = len(items)
+
+    if "memberAppetences" in body and body["memberAppetences"] is not None:
+        items = body["memberAppetences"]
+        if mode == "replace":
+            for row in session.exec(select(MemberAppetence)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(MemberAppetence(
+                id=d.get("id") or _gen_id(),
+                scope=d.get("scope", "member"), scope_key=d.get("scopeKey", ""),
+                team=d.get("team", ""), appetence_id=d.get("appetenceId", ""),
+                value=d.get("value", "neutre"),
+            ))
+        counts["memberAppetences"] = len(items)
+
+    if "mobility" in body and body["mobility"] is not None:
+        items = body["mobility"]
+        if mode == "replace":
+            for row in session.exec(select(MemberMobility)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(MemberMobility(
+                id=d.get("id") or _gen_id(), member_name=d.get("memberName", ""),
+                team=d.get("team", ""), target_team=d.get("targetTeam", ""),
+                target_role=d.get("targetRole", ""), current_level=d.get("currentLevel", 0),
+                potential=d.get("potential", "moyen"), appetence=d.get("appetence", "neutre"),
+                risk=d.get("risk", "aucun"), plan=d.get("plan", ""),
+                transition_duration=d.get("transitionDuration", ""),
+            ))
+        counts["mobility"] = len(items)
 
     session.commit()
     return {"ok": True, "mode": mode, "counts": counts}

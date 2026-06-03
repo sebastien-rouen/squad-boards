@@ -1,3 +1,90 @@
+## [3.11.7] - 2026-06-03
+
+### Feat : Atlas — visite guidée automatique (onboarding)
+- Bouton **▶ Visite guidée** dans la barre de la carte unFIX ([atlas.js](squad-board/static/js/views/atlas.js) `_startTour`) : enchaîne automatiquement les étapes **Programme → chaque ligne produit → chaque équipe** (~4 s/étape), avec un panneau de commentaire (titre + stats + appétences fortes de l'équipe).
+- **Contrôles** : précédent / pause-reprise / suivant / arrêter, barre de progression, raccourcis clavier (← → Échap). Couleur de l'accent adaptée au groupe/équipe affiché.
+- Compatible **mode présentation plein écran** (l'overlay reste fixé en bas). Idéal pour un coach qui présente l'organisation sans cliquer.
+- Refacto : `_wireStage` séparé de `_wireMap` pour ré-attacher les clics du stage sans dupliquer les listeners de la barre.
+
+## [3.11.6] - 2026-06-03
+
+### Feat : Atlas — export carte PNG + nettoyage des orphelins
+- **Export de la carte unFIX en PNG** : bouton ⬇ dans la barre de carte ([atlas.js](squad-board/static/js/views/atlas.js) `_exportMapPng`) — capture le stage courant (niveau de zoom affiché) via html2canvas (chargé à la demande depuis CDN, scale 2, fond adapté au thème). Nom de fichier contextuel (`atlas-<équipe|groupe|programme>-AAAA-MM-JJ.png`). Idéal pour les slides d'onboarding.
+- **Robustesse orphelins** : le tableau de suivi de mobilité signale les lignes **orphelines** (membre absent du CSV RH après renommage/suppression) avec un bandeau ⚠ + bouton **Nettoyer** (supprime les lignes via `deleteMobility`). Les niveaux/appétences orphelins étaient déjà ignorés à l'affichage (pas de plantage).
+
+## [3.11.5] - 2026-06-03
+
+### UI : Section Sprint & PI élargie + Atlas (lien mobilité, heatmap appétence)
+- **Section "Sprint & PI"** (Paramètres) élargie (`settings-section--wide`, jusqu'à 1100px) pour afficher les 6 sprints d'un PI sur une seule ligne sans repli.
+- **Atlas — lien Skills Matrix ↔ Mobilité** : le tableau de suivi affiche, à côté du "Niveau (1-4)" saisi, un badge **≈N** = niveau dérivé de la moyenne des compétences évaluées du membre (tooltip : nb de compétences, moyenne, max). Badge en orange si différent du niveau saisi ; clic = reprendre la valeur dérivée.
+- **Atlas — appétences équipe** : la carte unFIX affiche désormais les appétences **fortes** (plein) ET **faibles** (atténué/tireté avec ↓), plus seulement les fortes. Les neutres restent masquées.
+
+## [3.11.4] - 2026-06-03
+
+### Feat : Rotation Support — bouton "Copier" (message Slack/Teams)
+- Nouveau bouton **📋 Copier** par équipe ([settings.js](squad-board/static/js/views/settings.js) `_rotBuildCopyMessage`) → génère un message de rotation prêt à coller :
+  ```
+  🟣 Support N3 OPS [PI30]
+
+  * 🟦 Itération 30.1.1 (12/06/2026 au 18/06/2026)
+      * @Prénom NOM  @Prénom2 NOM2
+  * 🟦 Itération 30.1.2 (19/06/2026 au 25/06/2026)
+      * …
+  ```
+  - Une ligne par itération (semaine), dates JJ/MM/AAAA, membres préfixés `@` (format "Prénom NOM").
+  - Respecte le PI sélectionné (offset topbar) et le mode semaine de l'équipe.
+  - **Clic droit** sur le bouton → personnaliser le libellé du support (ex: "Support N3 OPS", "Astreinte", persisté en `localStorage.rot-label-<équipe>`).
+
+## [3.11.3] - 2026-06-03
+
+### Fix : Rotation Support — détection du 6e sprint (PI exceptionnel)
+- La section **Rotation Support** et les pills **Sprint & PI** (Paramètres) n'affichaient que 5 sprints même quand le PI en compte 6 (ex: PI30 avec un sprint `30.6`). Désormais le nombre de sprints est **détecté depuis les `teamSprints` JIRA** (max index trouvé pour le PI) — `_detectSprintsPerPI` / détection inline ([settings.js](squad-board/static/js/views/settings.js)). On prend `max(détecté, config)` pour ne jamais masquer un sprint réel.
+
+### Feat : Atlas — filtres Skills Matrix + mode présentation
+- **Filtre/recherche** dans la Skills Matrix : champ de recherche (filtre les lignes par nom de membre/équipe) + case **"masquer les non-évalués"** (cache lignes ET colonnes sans aucune évaluation). Compteur dynamique `affichés/total`.
+- **Mode présentation / onboarding** : bouton plein écran sur la carte unFIX (API Fullscreen native + fallback pseudo-plein-écran). Éléments agrandis pour la projection — idéal pour un coach qui présente l'organisation.
+
+## [3.11.2] - 2026-06-03
+
+### Feat : Atlas — fiche membre (radar), réordonnancement, assignation
+- **Fiche membre** (clic sur une pastille de la carte unFIX) : modal avec **radar Chart.js** des compétences évaluées (≥3), barres de niveau triées, appétences fortes, trajectoire de mobilité (rôle/équipe cible, risque). Bouton "Voir dans la matrice →".
+- **Réordonnancement** des compétences/appétences : flèches ← → dans le popover d'édition (échange le `sort` avec le voisin de la même catégorie). La grille re-trie par `(catégorie, sort, nom)`.
+- **Assignation réelle** depuis l'action 🧭 : bouton "Assigner" sur chaque membre suggéré → popover de sélection de ticket (recherche, tickets de l'équipe non-done, libres en premier) → définit le membre comme `leader` via `updateTicket`.
+
+## [3.11.1] - 2026-06-03
+
+### Feat : Atlas — édition rapide du catalogue + import complet
+- **Import** ([main.py](squad-board/main.py) `import_all`) : `skills`, `appetences`, `memberSkills`, `memberAppetences`, `mobility` sont désormais importés (merge/replace) — un import/export round-trip préserve toutes les données Atlas (testé, pas de doublon en merge).
+- **Bouton ＋ permanent** dans le coin de la grille Skills Matrix → popover d'ajout rapide d'une compétence (nom, catégorie avec autocomplete, sélecteur de couleur), sans quitter la grille.
+- **Édition d'une compétence/appétence** : clic sur l'en-tête de colonne → popover (renommer, changer catégorie/couleur, supprimer). Utilise les endpoints PUT existants.
+- **Tooltip pédagogique** sur les niveaux 1-4 dans la légende (description du référentiel au survol) + rappel des raccourcis (clic = +1, clic droit = -1, double-clic faible = ticket skill-up).
+
+## [3.11.0] - 2026-06-03
+
+### Feat : Nouvelle vue **Atlas** — pilotage humain (carte unFIX + Skills Matrix + suivi mobilité)
+Outil de coaching / RH / onboarding combinant 3 artefacts liés, accessible via le menu (raccourci `A`, icône `i-network`).
+
+- **Backend** ([main.py](squad-board/main.py)) — 5 nouvelles tables + endpoints REST :
+  - `Skill` / `Appetence` : catalogues (seed par défaut : 12 compétences réparties Frontend/Backend/DevOps/Agile + 6 appétences).
+  - `MemberSkill` / `MemberAppetence` : niveau (1-4) et appétence (faible/neutre/forte) par **scope** `member` OU `team` (clé logique `scope|scopeKey|skillId`). Upsert idempotent ; `level=0` supprime l'entrée.
+  - `MemberMobility` : 1 ligne de trajectoire par membre (équipe/rôle cible, potentiel, risque SPoF, plan, durée transition).
+  - Intégrés dans `/api/export`.
+- **Onglet Carte unFIX** ([atlas.js](squad-board/static/js/views/atlas.js)) — visualisation zoomable inspirée du framework unFIX :
+  - 3 niveaux : Programme (bases/groupes) → Équipe (crews) → Membre (fiche + top 3 compétences).
+  - Pastilles membres colorées, halo d'appétence dominante, breadcrumb, zoom/reset.
+  - Clic membre → bascule sur la Skills Matrix focalisée. Synchronisé avec le filtre topbar (équipe/groupe).
+- **Onglet Skills Matrix** — grille **entités × compétences** éditable :
+  - Scope commutable **membre / équipe**. Référentiel niveaux : 1=exécutant spécialisé · 2=opérationnel structuré · 3=ingénieur cloud ready · 4=référent/architecte.
+  - Cellule : clic = +1 niveau (cycle 0→4), clic droit = -1. Colonne appétences (cycle neutre/forte/faible).
+  - Ligne **Couverture** (heatmap) en pied : moyenne + nb d'évalués par compétence, alerte sur les lacunes (SPoF).
+- **Tableau de suivi de mobilité** (modal) — 1 ligne/collaborateur avec colonnes Équipe actuelle/cible, Rôle cible, Niveau, Potentiel, Appétence, Risque, Plan, Transition. Selects colorés, sauvegarde auto, **export CSV**.
+- **Gestion du catalogue** (modal ⚙️) : ajouter / supprimer compétences et appétences, organisées par catégorie. État vide géré avec CTA.
+- **Action A — ticket "montée en compétence"** : double-clic sur une cellule faible (niveau ≤ 2) → modal pré-remplie (titre `[Skill-up] …`, board cible, leader, plan), crée un ticket avec labels `skill-up` + slug compétence.
+- **Action B — suggestions d'affectation** (🧭) : pour une compétence donnée, classe les membres par score = `niveau×25 − charge×8 − absence + appétence forte`. Top 8 avec médailles, charge (tickets actifs), alerte absence prochaine.
+- **Appétences niveau équipe** affichées en tags sur les crews de la carte unFIX.
+- Sauvegarde **optimiste** (store mis à jour avant l'API) pour une édition fluide.
+- CSS dédié ([atlas.css](squad-board/static/css/atlas.css)), responsive < 900px.
+
 ## [3.10.80] - 2026-05-29
 
 ### Feat : Modal Démo — indicateur "Buffer" (nombre + somme des points)

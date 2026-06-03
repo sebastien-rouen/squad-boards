@@ -59,6 +59,12 @@ export const store = new Store({
     support: [],     // support rotation objects
     events: [],      // events (faits marquants)
     retroItems: [],  // retro/amelioration items
+    // Atlas (compétences / appétences / mobilité)
+    skills: [],            // catalogue compétences
+    appetences: [],        // catalogue appétences
+    memberSkills: [],      // niveaux par scope (membre|équipe)
+    memberAppetences: [],  // appétences par scope
+    mobility: [],          // lignes de suivi de mobilité
     sprintInfo: null,
     velocityHistory: [],  // legacy — désormais calculé à la volée via utils.computeVelocityHistory
     piOffset: 0,          // décalage PI sélectionné dans le topbar (-2..+2), 0 = PI courant

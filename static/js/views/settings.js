@@ -252,6 +252,45 @@ export function renderSettings(container) {
         other:     { icon: 'ℹ️',  label: 'Info' },
     };
 
+    // ── Jours ouvrés France (partagé entre makePills et _switchPiTrack) ────────
+    const _frHolidaysFn = (() => {
+        const cache = {};
+        const easter = y => {
+            const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
+            const f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+            const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+            const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+            return new Date(y,Math.floor((h+l-7*m+114)/31)-1,((h+l-7*m+114)%31)+1);
+        };
+        return y => {
+            if (cache[y]) return cache[y];
+            const E=easter(y), add=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
+            const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            cache[y]=new Set([
+                fmt(new Date(y,0,1)), fmt(add(E,1)), fmt(new Date(y,4,1)),
+                fmt(new Date(y,4,8)), fmt(add(E,39)), fmt(add(E,50)),
+                fmt(new Date(y,6,14)), fmt(new Date(y,7,15)),
+                fmt(new Date(y,10,1)), fmt(new Date(y,10,11)), fmt(new Date(y,11,25)),
+            ]);
+            return cache[y];
+        };
+    })();
+    const _workdays = (from, to) => {
+        if (!from || !to) return null;
+        let count = 0;
+        const cur = new Date(from + 'T00:00:00');
+        const end = new Date(to   + 'T00:00:00');
+        while (cur <= end) {
+            const dow = cur.getDay();
+            if (dow !== 0 && dow !== 6) {
+                const iso = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`;
+                if (!_frHolidaysFn(cur.getFullYear()).has(iso)) count++;
+            }
+            cur.setDate(cur.getDate() + 1);
+        }
+        return count;
+    };
+
     container.innerHTML = `
         <!-- Barre de tabs PLEINE LARGEUR (hors du settings-layout qui est cappé à 800px) -->
         <nav id="settings-tabs" class="settings-tabs" aria-label="Sections Paramètres"></nav>
@@ -605,10 +644,20 @@ export function renderSettings(container) {
         </div>
 
         <!-- ═══ Sprint + PI Config ═══ -->
-        <div class="settings-section collapsed">${(() => {
+        <div class="settings-section settings-section--wide collapsed">${(() => {
             const piNum       = piInfo?.number      || '';
             const piName      = piInfo?.name        || '';
-            const sprintsCnt  = piInfo?.sprintsPerPI  || 5;
+            // Nombre de sprints : détecté depuis teamSprints JIRA (gère le 6e sprint exceptionnel)
+            // puis localStorage pi-cfg, puis piInfo. On prend le max pour ne jamais masquer un sprint réel.
+            const _cfgLocal   = piNum ? (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNum}`) || 'null'); } catch { return null; } })() : null;
+            const _detectedCnt = (() => {
+                if (!piNum) return 0;
+                const all = sprintInfo?.teamSprints || [];
+                let mx = 0;
+                for (const s of all) { const m = String(s.name||'').match(/\b(\d{2,})\.(\d+)/); if (m && parseInt(m[1],10) === piNum) mx = Math.max(mx, parseInt(m[2],10)); }
+                return mx;
+            })();
+            const sprintsCnt  = Math.max(_detectedCnt, _cfgLocal?.sprintsPerPI || piInfo?.sprintsPerPI || 5);
             const sprintDur   = piInfo?.sprintDuration || 14;
             const velTarget   = piInfo?.velocityTarget || '';
             const totalDays   = sprintsCnt * sprintDur;
@@ -626,15 +675,51 @@ export function renderSettings(container) {
                 sprintPct   = Math.round(Math.max(0, Math.min(1, (now - start) / (end - start))) * 100);
             }
 
-            // Pills de sprints
-            const pills = [...Array(sprintsCnt)].map((_, i) => {
-                const label  = piNum ? `${piNum}.${i + 1}` : `S${i + 1}`;
-                const isCur  = i === curIdx;
-                const isDone = curIdx >= 0 && i < curIdx;
+            // Résout les dates d'un sprint depuis TOUS les teamSprints (pas filtré par équipe)
+            // Le filtre équipe s'applique uniquement au dot "has-data", pas aux dates
+            const _sprintDates = (displayPiNum, sprintIdx) => {
+                const label = `${displayPiNum}.${sprintIdx+1}`;
+                const ts = allTeamSprints.find(s => String(s.name||'').includes(label) && s.startDate && s.endDate);
+                if (ts) return { from: String(ts.startDate).slice(0,10), to: String(ts.endDate).slice(0,10) };
+                if (piInfo?.startDate) {
+                    const add = (iso, n) => { const d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+                    const from = add(piInfo.startDate, sprintIdx * sprintDur);
+                    return { from, to: add(from, sprintDur - 1) };
+                }
+                return null;
+            };
+
+            // PI connus depuis teamSprints — filtrés par équipe sélectionnée
+            const allTeamSprints = sprintInfo?.teamSprints || [];
+            const selectedTeamForPills = store.get('team');
+            const teamSprints = (selectedTeamForPills && selectedTeamForPills !== 'all')
+                ? allTeamSprints.filter(s => s.team === selectedTeamForPills)
+                : allTeamSprints;
+            const knownPis = [...new Set(
+                teamSprints.map(s => { const m = String(s.name||'').match(/\b(\d{2,})\.\d+/); return m ? parseInt(m[1]) : null; }).filter(Boolean)
+            )].sort((a, b) => a - b);
+            const basePiRaw = typeof piNum === 'number' ? piNum : (parseInt(piNum) || 0);
+            // Fallback : si piInfo.number non configuré, prend le PI le plus récent des teamSprints
+            const basePi = basePiRaw || (knownPis.length ? knownPis[knownPis.length - 1] : 0);
+            if (basePi && !knownPis.includes(basePi)) knownPis.push(basePi);
+            knownPis.sort((a, b) => a - b);
+            const prevPi = knownPis.filter(p => p < basePi).slice(-1)[0] || null;
+            const nextPi = knownPis.find(p => p > basePi) || null;
+
+            // Génère les pills pour un PI donné (affichePiNum peut différer de basePi)
+            const makePills = (displayPiNum) => [...Array(sprintsCnt)].map((_, i) => {
+                const label  = displayPiNum ? `${displayPiNum}.${i + 1}` : `S${i + 1}`;
+                const isCur  = displayPiNum === basePi && i === curIdx;
+                const isDone = displayPiNum === basePi && curIdx >= 0 && i < curIdx;
                 const isIP   = i === sprintsCnt - 1;
-                const cls    = isIP ? 'ip' : isCur ? 'current' : isDone ? 'done' : '';
+                const hasData = teamSprints.some(s => String(s.name||'').includes(`${displayPiNum}.${i+1}`));
+                const cls    = [isIP ? 'ip' : isCur ? 'current' : isDone ? 'done' : '', hasData ? 'has-data' : ''].filter(Boolean).join(' ');
                 const icon   = isCur ? '▶ ' : isDone ? '✓ ' : '';
-                return `<span class="pi-sprint-pill ${cls}" data-sprint-idx="${i}" data-sprint-label="${esc(label)}" title="${isIP ? 'IP - ' : ''}Configurer ${esc(label)}">${icon}${esc(label)}</span>`;
+                const dates  = _sprintDates(displayPiNum, i);
+                const wd     = dates ? _workdays(dates.from, dates.to) : null;
+                const wdHtml = wd !== null ? `<span class="pi-pill-wd">${wd}j</span>` : '';
+                const tip    = `${isIP ? 'IP — ' : ''}Sprint ${label}${hasData ? ' · données disponibles' : ''}${dates ? ` · ${dates.from} → ${dates.to}` : ''}${wd !== null ? ` · ${wd} j ouvrés` : ''}`;
+                return `<span class="pi-sprint-pill ${cls}" data-sprint-idx="${i}" data-sprint-label="${esc(label)}" data-pi-num="${displayPiNum}" title="${esc(tip)}">${icon}${esc(label)}${wdHtml}</span>`;
             }).join('');
 
             return `
@@ -654,46 +739,89 @@ export function renderSettings(container) {
                             <button type="submit" class="pi-cfg-save-btn">Enregistrer PI</button>
                         </div>
 
-                        <div class="pi-sprint-track" data-cur-idx="${curIdx}" data-sprint-dur="${sprintDur}" data-cur-start="${sprintInfo?.startDate?.slice(0,10) || ''}">
-                            ${pills}
+                        <!-- Navigation inter-PI + pills -->
+                        <div class="pi-track-nav">
+                            <button type="button" class="pi-track-nav-btn" id="pi-track-prev" data-pi="${prevPi || ''}" ${!prevPi ? 'disabled' : ''} title="${prevPi ? `PI#${prevPi}` : 'Aucun PI précédent'}">
+                                <svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="10 4 6 8 10 12"/></svg>
+                                ${prevPi ? `PI#${prevPi}` : ''}
+                            </button>
+                            <div class="pi-sprint-track" id="pi-sprint-track" data-cur-idx="${curIdx}" data-sprint-dur="${sprintDur}" data-cur-start="${sprintInfo?.startDate?.slice(0,10) || ''}" data-display-pi="${basePi}">
+                                ${makePills(basePi)}
+                            </div>
+                            <button type="button" class="pi-track-nav-btn" id="pi-track-next" data-pi="${nextPi || ''}" ${!nextPi ? 'disabled' : ''} title="${nextPi ? `PI#${nextPi}` : 'Aucun PI suivant dans les données JIRA'}">
+                                ${nextPi ? `PI#${nextPi}` : ''}
+                                <svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 4 10 8 6 12"/></svg>
+                            </button>
                         </div>
 
                         <div class="pi-cfg-body">
-                            <div class="form-row pi-cfg-fields">
-                                <div class="form-group"><label class="label">N° PI</label><input class="input" name="number" type="number" value="${piNum}" placeholder="29"></div>
-                                <div class="form-group"><label class="label">Nom PI</label><input class="input" name="piName" value="${esc(piName)}" placeholder="PI#29"></div>
-                                <div class="form-group"><label class="label">Sprints / PI</label><input class="input" name="sprintsPerPI" type="number" value="${sprintsCnt}" min="1" max="10"></div>
-                                <div class="form-group"><label class="label">Duree (j)</label><input class="input" name="sprintDuration" type="number" value="${sprintDur}" min="7" max="28"></div>
-                                <div class="form-group" title="Date du 1er jour du PI courant (ex: 2026-04-03). Si vide, calculée depuis le sprint actif.">
-                                    <label class="label">Début PI (1er jour)</label>
-                                    <input class="input" name="startDate" type="date" value="${esc(piInfo?.startDate || '')}">
+                            <div class="pi-cfg-grid">
+                                <div class="pi-cfg-field">
+                                    <label class="pi-cfg-label">N° PI</label>
+                                    <input class="pi-cfg-input" name="number" type="number" value="${piNum}" placeholder="30">
                                 </div>
-                                <div class="form-group"><label class="label">Velocity cible</label><input class="input" name="velocityTarget" type="number" value="${velTarget}" placeholder="40 pts"></div>
+                                <div class="pi-cfg-field">
+                                    <label class="pi-cfg-label">Nom du PI</label>
+                                    <input class="pi-cfg-input" name="piName" value="${esc(piName)}" placeholder="PI#30 — Été 2026">
+                                </div>
+                                <div class="pi-cfg-field">
+                                    <label class="pi-cfg-label">Sprints / PI</label>
+                                    <input class="pi-cfg-input" name="sprintsPerPI" type="number" value="${sprintsCnt}" min="1" max="10">
+                                </div>
+                                <div class="pi-cfg-field">
+                                    <label class="pi-cfg-label">Durée sprint (j)</label>
+                                    <input class="pi-cfg-input" name="sprintDuration" type="number" value="${sprintDur}" min="7" max="28">
+                                </div>
+                                <div class="pi-cfg-field" title="1er jour du PI. Si vide, calculé depuis le sprint actif.">
+                                    <label class="pi-cfg-label pi-cfg-label--date" for="pi-start-date">
+                                        <svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="2" width="14" height="13" rx="2"/><path d="M1 6h14M5 1v2M11 1v2"/></svg>
+                                        Début du PI
+                                    </label>
+                                    <input class="pi-cfg-input pi-cfg-input--date" id="pi-start-date" name="startDate" type="date" value="${esc(piInfo?.startDate || '')}">
+                                </div>
                             </div>
                         </div>
                     </form>
 
-                    <!-- ── Sprint courant : niché dans le PI ── -->
+                    <!-- ── Sprint sélectionné : niché dans le PI ── -->
                     <form id="sprint-form">
                         <div class="sprint-nested-card">
                             <div class="sprint-nested-hdr">
                                 <span class="sprint-nested-dot"></span>
                                 <span class="sprint-nested-label">Sprint en cours</span>
                                 ${sprintPct > 0 ? `
-                                    <div class="sprint-nested-bar" title="${sprintPct}% ecoule">
+                                    <div class="sprint-nested-bar" title="${sprintPct}% écoulé">
                                         <div class="sprint-nested-fill" style="width:${sprintPct}%"></div>
                                     </div>
                                     <span class="sprint-nested-pct">${sprintPct}%</span>
                                 ` : ''}
                             </div>
                             <div class="sprint-nested-body">
-                                <div class="form-group"><label class="label">Nom</label><input class="input" name="name" placeholder="Sprint${piNum ? ' #' + piNum + '.1' : ''}"></div>
-                                <div class="form-row">
-                                    <div class="form-group"><label class="label">Debut</label><input class="input" type="date" name="startDate" value="${sprintInfo?.startDate?.slice(0,10) || ''}"></div>
-                                    <div class="form-group"><label class="label">Fin</label><input class="input" type="date" name="endDate" value="${sprintInfo?.endDate?.slice(0,10) || ''}"></div>
+                                <div class="sprint-nested-grid">
+                                    <div class="pi-cfg-field pi-cfg-field--full">
+                                        <label class="pi-cfg-label" for="spr-name">Nom du sprint</label>
+                                        <input id="spr-name" class="pi-cfg-input" name="name" placeholder="Sprint${piNum ? ' #' + piNum + '.1' : ''}">
+                                    </div>
+                                    <div class="pi-cfg-field">
+                                        <label class="pi-cfg-label pi-cfg-label--date" for="spr-start">
+                                            <svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="2" width="14" height="13" rx="2"/><path d="M1 6h14M5 1v2M11 1v2"/></svg>
+                                            Début
+                                        </label>
+                                        <input id="spr-start" class="pi-cfg-input pi-cfg-input--date" type="date" name="startDate" value="${sprintInfo?.startDate?.slice(0,10) || ''}">
+                                    </div>
+                                    <div class="pi-cfg-field">
+                                        <label class="pi-cfg-label pi-cfg-label--date" for="spr-end">
+                                            <svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="2" width="14" height="13" rx="2"/><path d="M1 6h14M5 1v2M11 1v2"/></svg>
+                                            Fin
+                                        </label>
+                                        <input id="spr-end" class="pi-cfg-input pi-cfg-input--date" type="date" name="endDate" value="${sprintInfo?.endDate?.slice(0,10) || ''}" ${sprintInfo?.startDate ? `min="${sprintInfo.startDate.slice(0,10)}"` : ''}>
+                                    </div>
+                                    <div class="pi-cfg-field pi-cfg-field--full">
+                                        <label class="pi-cfg-label" for="spr-goal">Objectif du sprint</label>
+                                        <textarea id="spr-goal" class="pi-cfg-input pi-cfg-input--textarea" name="goal" rows="2">${esc(sprintInfo?.goal || '')}</textarea>
+                                    </div>
                                 </div>
-                                <div class="form-group"><label class="label">Objectif</label><textarea class="input" name="goal" rows="2">${esc(sprintInfo?.goal || '')}</textarea></div>
-                                <div class="flex items-center gap-2 flex-wrap">
+                                <div class="sprint-nested-actions">
                                     <button type="submit" class="btn btn-primary btn-sm">Enregistrer sprint</button>
                                     ${sprintInfo?.jiraId ? `
                                         <button type="button" class="btn btn-secondary btn-sm" id="btn-sprint-push-jira" title="Mettre a jour le sprint dans JIRA avec les valeurs locales">
@@ -1351,38 +1479,385 @@ export function renderSettings(container) {
     });
 
     // ── Sprint ────────────────────────────────────────────────────────────────
-    // ── Sprint pills - clic pour pré-remplir le formulaire sprint ────────────
-    container.querySelectorAll('.pi-sprint-pill[data-sprint-idx]').forEach(pill => {
-        pill.addEventListener('click', () => {
-            const idx      = parseInt(pill.dataset.sprintIdx);
-            const label    = pill.dataset.sprintLabel;
-            const track    = container.querySelector('.pi-sprint-track');
-            const curIdx   = parseInt(track?.dataset.curIdx ?? '-1');
-            const dur      = parseInt(track?.dataset.sprintDur ?? '14');
-            const curStart = track?.dataset.curStart;
+    // Helper : remplit le formulaire sprint depuis une pill
+    const _fillSprintForm = (pill) => {
+        const idx      = parseInt(pill.dataset.sprintIdx);
+        const label    = pill.dataset.sprintLabel;
+        const track    = container.querySelector('#pi-sprint-track');
+        const curIdx   = parseInt(track?.dataset.curIdx ?? '-1');
+        const dur      = parseInt(track?.dataset.sprintDur ?? '14');
+        const curStart = track?.dataset.curStart;
 
-            const nameEl = container.querySelector('#sprint-form input[name="name"]');
+        // 1. Cherche dans teamSprints un sprint dont le nom contient le label (ex: "29.3")
+        const teamSprints = store.get('sprintInfo')?.teamSprints || [];
+        const selectedTeam = store.get('team');
+        const matchedSprints = teamSprints.filter(s => String(s.name || '').includes(label));
+        // Priorité : sprint de l'équipe sélectionnée, sinon le premier disponible
+        const real = (selectedTeam && selectedTeam !== 'all'
+            ? matchedSprints.find(s => s.team === selectedTeam)
+            : null) || matchedSprints[0] || null;
+
+        const nameEl  = container.querySelector('#sprint-form input[name="name"]');
+        const startEl = container.querySelector('#sprint-form input[name="startDate"]');
+        const endEl   = container.querySelector('#sprint-form input[name="endDate"]');
+        const goalEl  = container.querySelector('#sprint-form textarea[name="goal"]');
+
+        if (real) {
+            // Données réelles JIRA disponibles
+            if (nameEl)  nameEl.value  = real.name || `Sprint #${label}`;
+            if (startEl) startEl.value = (real.startDate || '').slice(0, 10);
+            if (endEl)   endEl.value   = (real.endDate   || '').slice(0, 10);
+            if (goalEl)  goalEl.value  = real.goal || '';
+        } else {
+            // Calcul par décalage depuis le sprint courant (fallback)
             if (nameEl) nameEl.value = `Sprint #${label}`;
-
             if (curStart && curIdx >= 0) {
-                const offset   = idx - curIdx;
-                const start    = new Date(curStart + 'T00:00:00');
+                const offset = idx - curIdx;
+                const start  = new Date(curStart + 'T00:00:00');
                 start.setDate(start.getDate() + offset * dur);
                 const end = new Date(start);
                 end.setDate(end.getDate() + dur - 1);
-                const startEl = container.querySelector('#sprint-form input[name="startDate"]');
-                const endEl   = container.querySelector('#sprint-form input[name="endDate"]');
                 if (startEl) startEl.value = start.toISOString().slice(0, 10);
                 if (endEl)   endEl.value   = end.toISOString().slice(0, 10);
             }
+            if (goalEl) goalEl.value = '';
+        }
 
-            // Marquer ce pill comme "current" (un seul à la fois)
-            container.querySelectorAll('.pi-sprint-pill[data-sprint-idx]').forEach(p => p.classList.remove('current'));
-            pill.classList.add('current');
+        // Badge source dans le header du formulaire
+        const hdr = container.querySelector('.sprint-nested-label');
+        if (hdr) hdr.textContent = real ? `Sprint ${label}` : `Sprint ${label} (dates estimées)`;
 
-            // Scroll vers le formulaire sprint
-            container.querySelector('.sprint-nested-card')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // Marquer ce pill comme sélectionné
+        container.querySelectorAll('.pi-sprint-pill[data-sprint-idx]').forEach(p => p.classList.remove('selected'));
+        pill.classList.add('selected');
+
+        // Sync contraintes min/max après remplissage
+        const startEl2 = container.querySelector('#spr-start');
+        const endEl2   = container.querySelector('#spr-end');
+        if (startEl2?.value) endEl2 && (endEl2.min = startEl2.value);
+        if (endEl2?.value)   startEl2 && (startEl2.max = endEl2.value);
+
+        container.querySelector('.sprint-nested-card')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    // ── Sprint pills - clic pour pré-remplir le formulaire sprint ────────────
+    container.querySelectorAll('.pi-sprint-pill[data-sprint-idx]').forEach(pill => {
+        pill.addEventListener('click', () => _fillSprintForm(pill));
+    });
+
+    // ── Contraintes intelligentes dates début / fin ───────────────────────────
+    const _syncDateConstraints = () => {
+        const startEl = container.querySelector('#spr-start');
+        const endEl   = container.querySelector('#spr-end');
+        if (!startEl || !endEl) return;
+        if (startEl.value) endEl.min = startEl.value;
+        if (endEl.value)   startEl.max = endEl.value;
+        // Si fin < début, corriger fin = début + durée sprint
+        if (startEl.value && endEl.value && endEl.value < startEl.value) {
+            const dur = parseInt(container.querySelector('#pi-sprint-track')?.dataset.sprintDur ?? '14');
+            const d = new Date(startEl.value + 'T00:00:00');
+            d.setDate(d.getDate() + dur - 1);
+            endEl.value = d.toISOString().slice(0, 10);
+        }
+    };
+    container.querySelector('#spr-start')?.addEventListener('change', _syncDateConstraints);
+    container.querySelector('#spr-end')?.addEventListener('change', _syncDateConstraints);
+    // Init contraintes au chargement
+    _syncDateConstraints();
+
+    // ── Navigation inter-PI (prev / next) ────────────────────────────────────
+    const _switchPiTrack = (displayPiNum, overrideSprintsCnt) => {
+        const track = container.querySelector('#pi-sprint-track');
+        if (!track) return;
+        const sprintsCnt  = overrideSprintsCnt || parseInt(container.querySelector('#pi-form input[name="sprintsPerPI"]')?.value) || piInfo?.sprintsPerPI || 5;
+        const basePi      = piInfo?.number || 0;
+        const allSprints  = store.get('sprintInfo')?.teamSprints || [];
+        const selectedTeam = store.get('team');
+        // Filtre par équipe sélectionnée pour le dot hasData et la navigation
+        const teamSprints = (selectedTeam && selectedTeam !== 'all')
+            ? allSprints.filter(s => s.team === selectedTeam)
+            : allSprints;
+
+        const idxMatch = (store.get('sprintInfo')?.name || '').match(/\.(\d+)\s*$/);
+        const curIdx   = idxMatch ? parseInt(idxMatch[1]) - 1 : -1;
+
+        track.dataset.displayPi = displayPiNum;
+        const sprintDurSwitch = piInfo?.sprintDuration || 14;
+        track.innerHTML = [...Array(sprintsCnt)].map((_, i) => {
+            const label   = `${displayPiNum}.${i + 1}`;
+            const isCur   = displayPiNum === basePi && i === curIdx;
+            const isDone  = displayPiNum === basePi && curIdx >= 0 && i < curIdx;
+            const isIP    = i === sprintsCnt - 1;
+            const hasData = teamSprints.some(s => String(s.name || '').includes(`${displayPiNum}.${i + 1}`));
+            const cls     = [isIP ? 'ip' : isCur ? 'current' : isDone ? 'done' : '', hasData ? 'has-data' : ''].filter(Boolean).join(' ');
+            const icon    = isCur ? '▶ ' : isDone ? '✓ ' : '';
+            // Dates depuis allSprints (non filtré) pour toujours avoir les dates même si l'équipe n'a pas ce sprint
+            const ts = allSprints.find(s => String(s.name||'').includes(`${displayPiNum}.${i+1}`) && s.startDate && s.endDate);
+            const dates = ts
+                ? { from: String(ts.startDate).slice(0,10), to: String(ts.endDate).slice(0,10) }
+                : piInfo?.startDate ? (() => { const add=(iso,n)=>{const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};const from=add(piInfo.startDate,i*sprintDurSwitch);return{from,to:add(from,sprintDurSwitch-1)};})() : null;
+            const wd     = dates ? _workdays(dates.from, dates.to) : null;
+            const wdHtml = wd !== null ? `<span class="pi-pill-wd">${wd}j</span>` : '';
+            const tip    = `${isIP ? 'IP — ' : ''}Sprint ${label}${hasData ? ' · données disponibles' : ''}${dates ? ` · ${dates.from} → ${dates.to}` : ''}${wd !== null ? ` · ${wd} j ouvrés` : ''}`;
+            return `<span class="pi-sprint-pill ${cls}" data-sprint-idx="${i}" data-sprint-label="${label}" data-pi-num="${displayPiNum}" title="${tip}">${icon}${label}${wdHtml}</span>`;
+        }).join('');
+
+        track.querySelectorAll('.pi-sprint-pill').forEach(pill => {
+            pill.addEventListener('click', () => _fillSprintForm(pill));
         });
+
+        // PIs connus depuis teamSprints + toujours inclure le PI courant configuré (_basePiNum)
+        const knownPis = [...new Set([
+            ...teamSprints.map(s => { const m = String(s.name||'').match(/\b(\d{2,})\.\d+/); return m ? parseInt(m[1]) : null; }).filter(Boolean),
+            ...(_basePiNum ? [_basePiNum] : []),
+        ])].sort((a, b) => a - b);
+
+        const prevBtn = container.querySelector('#pi-track-prev');
+        const nextBtn = container.querySelector('#pi-track-next');
+        if (prevBtn) {
+            const prevPi = knownPis.filter(p => p < displayPiNum).slice(-1)[0] || null;
+            prevBtn.dataset.pi = prevPi || '';
+            prevBtn.disabled = !prevPi;
+            prevBtn.innerHTML = prevPi
+                ? `<svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="10 4 6 8 10 12"/></svg> PI#${prevPi}`
+                : `<svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="10 4 6 8 10 12"/></svg>`;
+        }
+        if (nextBtn) {
+            const nextPi = knownPis.find(p => p > displayPiNum) || null;
+            nextBtn.dataset.pi = nextPi || '';
+            nextBtn.disabled = !nextPi;
+            nextBtn.innerHTML = nextPi
+                ? `PI#${nextPi} <svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 4 10 8 6 12"/></svg>`
+                : `<svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 4 10 8 6 12"/></svg>`;
+        }
+    };
+
+    // ── Persistance locale des configs PI (une entrée localStorage par PI) ──────
+    const PI_CFG_KEY = (n) => `pi-cfg-${n}`;
+    const _piCfgLoad = (n) => { try { return JSON.parse(localStorage.getItem(PI_CFG_KEY(n)) || 'null'); } catch { return null; } };
+    const _piCfgSave = (n, data) => localStorage.setItem(PI_CFG_KEY(n), JSON.stringify(data));
+
+    // Lit les valeurs actuelles des champs PI sous forme d'objet
+    const _piFormRead = () => {
+        const f = container.querySelector('#pi-form');
+        if (!f) return null;
+        return {
+            number:        parseInt(f.querySelector('[name="number"]')?.value) || 0,
+            name:          f.querySelector('[name="piName"]')?.value || '',
+            sprintsPerPI:  parseInt(f.querySelector('[name="sprintsPerPI"]')?.value) || 5,
+            sprintDuration:parseInt(f.querySelector('[name="sprintDuration"]')?.value) || 14,
+            startDate:     f.querySelector('[name="startDate"]')?.value || '',
+        };
+    };
+
+    // Snapshot pour détecter les modifications (chaîne stable)
+    const _piFormSnapshot = () => { const v = _piFormRead(); return v ? Object.values(v).join('|') : ''; };
+    let _piFormBaseline = _piFormSnapshot();
+
+    // Remplit les champs du formulaire PI depuis un objet config
+    const _piFormFill = (cfg) => {
+        const f = container.querySelector('#pi-form');
+        if (!f || !cfg) return;
+        const _set = (name, val) => { const el = f.querySelector(`[name="${name}"]`); if (el && val != null) el.value = val; };
+        _set('number',         cfg.number ?? '');
+        _set('piName',         cfg.name ?? '');
+        _set('sprintsPerPI',   cfg.sprintsPerPI ?? '');
+        _set('sprintDuration', cfg.sprintDuration ?? '');
+        _set('startDate',      cfg.startDate ?? '');
+        const badge   = container.querySelector('.pi-cfg-badge');
+        const titleEl = container.querySelector('.pi-cfg-title');
+        const meta    = container.querySelector('.pi-cfg-meta');
+        if (badge)   badge.textContent = `PI #${cfg.number || '?'}`;
+        if (titleEl) titleEl.textContent = cfg.name || `PI#${cfg.number || '?'}`;
+        if (meta && cfg.sprintsPerPI && cfg.sprintDuration)
+            meta.textContent = `${cfg.sprintsPerPI} sprints · ${cfg.sprintDuration} j · ${cfg.sprintsPerPI * cfg.sprintDuration} j`;
+    };
+
+    // Cherche la date de début du sprint 1 d'un PI dans teamSprints
+    // Utilise la même regex que _capSprintIdx : /\b\d{2,}\.(\d+)/
+    const _findSprint1Start = (piNum) => {
+        const all = store.get('sprintInfo')?.teamSprints || [];
+        const matched = all.filter(s => {
+            const mPi  = String(s.name || '').match(/\b(\d{2,})\.\d+/);
+            const mIdx = String(s.name || '').match(/\b\d{2,}\.(\d+)/);
+            return mPi && parseInt(mPi[1]) === piNum && mIdx && parseInt(mIdx[1]) === 1 && s.startDate;
+        });
+        if (!matched.length) return '';
+        matched.sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)));
+        return String(matched[0].startDate).slice(0, 10);
+    };
+
+    // Compte le nombre de sprints d'un PI depuis teamSprints
+    const _detectSprintCount = (piNum) => {
+        const all = store.get('sprintInfo')?.teamSprints || [];
+        const indices = all
+            .map(s => { const mPi = String(s.name||'').match(/\b(\d{2,})\.\d+/); const mIdx = String(s.name||'').match(/\b\d{2,}\.(\d+)/); return (mPi && parseInt(mPi[1]) === piNum && mIdx) ? parseInt(mIdx[1]) : null; })
+            .filter(Boolean);
+        return indices.length ? Math.max(...indices) : null;
+    };
+
+    // Au chargement : initialise la config du PI courant (localStorage + pré-remplissage du champ)
+    // Fallback : si piInfo.number non configuré, dérive depuis les teamSprints (PI le plus récent)
+    const _allKnownPis = [...new Set((store.get('sprintInfo')?.teamSprints || [])
+        .map(s => { const m = String(s.name||'').match(/\b(\d{2,})\.\d+/); return m ? parseInt(m[1]) : null; }).filter(Boolean)
+    )].sort((a, b) => a - b);
+    const _fromSprint = (() => { const m = String(sprintInfo?.name || '').match(/(\d+)\.\d+/) || String(sprintInfo?.name || '').match(/PI\s*#?\s*(\d+)/i); return m ? parseInt(m[1], 10) : 0; })();
+    const _basePiNum = _fromSprint || piInfo?.number || (_allKnownPis.length ? _allKnownPis[_allKnownPis.length - 1] : 0);
+    if (_basePiNum) {
+        const existing = _piCfgLoad(_basePiNum);
+        const startDate = piInfo?.startDate || _findSprint1Start(_basePiNum);
+        const cfg = existing || {
+            number: _basePiNum,
+            name: piInfo?.name || '',
+            sprintsPerPI: piInfo?.sprintsPerPI || 5,
+            sprintDuration: piInfo?.sprintDuration || 14,
+            startDate,
+        };
+        // Si startDate manquait dans localStorage, on le complète
+        if (existing && !existing.startDate && startDate) cfg.startDate = startDate;
+        _piCfgSave(_basePiNum, cfg);
+        // Pré-remplit le champ si vide dans le formulaire
+        const dateEl = container.querySelector('#pi-start-date');
+        if (dateEl && !dateEl.value && cfg.startDate) {
+            dateEl.value = cfg.startDate;
+            _piFormBaseline = _piFormSnapshot();
+        }
+    }
+
+    // Bannière de confirmation inline (non bloquante)
+    const _askSavePi = (label, onSave, onDiscard) => {
+        container.querySelector('#pi-dirty-banner')?.remove();
+        const banner = document.createElement('div');
+        banner.id = 'pi-dirty-banner';
+        banner.className = 'pi-dirty-banner';
+        banner.innerHTML = `
+            <span class="pi-dirty-msg">⚠ PI#${label} — modifications non sauvegardées</span>
+            <button class="pi-dirty-btn pi-dirty-btn--save" type="button">Sauvegarder</button>
+            <button class="pi-dirty-btn pi-dirty-btn--discard" type="button">Ignorer</button>
+            <button class="pi-dirty-btn pi-dirty-btn--cancel" type="button">✕</button>
+        `;
+        container.querySelector('.pi-track-nav')?.insertAdjacentElement('beforebegin', banner);
+        banner.querySelector('.pi-dirty-btn--save').addEventListener('click', async () => {
+            banner.remove(); await onSave();
+        });
+        banner.querySelector('.pi-dirty-btn--discard').addEventListener('click', () => {
+            banner.remove(); onDiscard();
+        });
+        banner.querySelector('.pi-dirty-btn--cancel').addEventListener('click', () => {
+            banner.remove();
+        });
+    };
+
+    // Navigation inter-PI avec détection dirty
+    const _navToPi = (targetPi) => {
+        const track = container.querySelector('#pi-sprint-track');
+        const currentPi = parseInt(track?.dataset.displayPi || '0') || _basePiNum;
+        const snapshot  = _piFormSnapshot();
+
+        if (snapshot !== _piFormBaseline) {
+            _askSavePi(currentPi,
+                async () => {
+                    // Sauvegarde locale pour ce PI
+                    const data = _piFormRead();
+                    if (data) _piCfgSave(currentPi, data);
+                    // Si c'est le PI courant en base, sauvegarde aussi en API
+                    if (currentPi === _basePiNum) {
+                        try {
+                            await api.updatePI({ ...(store.get('piInfo') || {}), ...data, name: data.name });
+                            const fresh = await api.getPI(); store.set('piInfo', fresh);
+                        } catch {}
+                    }
+                    _loadPiAndSwitch(targetPi);
+                },
+                () => _loadPiAndSwitch(targetPi)
+            );
+        } else {
+            _loadPiAndSwitch(targetPi);
+        }
+    };
+
+    // Charge la config d'un PI (localStorage en priorité) et switch le track
+    const _loadPiAndSwitch = (targetPi) => {
+        const saved = _piCfgLoad(targetPi);
+        const startDate = (saved?.startDate) || _findSprint1Start(targetPi);
+        const sprintsPerPI = saved?.sprintsPerPI || _detectSprintCount(targetPi) || piInfo?.sprintsPerPI || 5;
+
+        const cfg = saved
+            ? { ...saved, startDate: startDate || saved.startDate || '', sprintsPerPI }
+            : {
+                number: targetPi,
+                name: targetPi === _basePiNum ? (piInfo?.name || '') : `PI#${targetPi}`,
+                sprintsPerPI,
+                sprintDuration: piInfo?.sprintDuration || 14,
+                startDate: startDate || '',
+            };
+        _piFormFill(cfg);
+        _switchPiTrack(targetPi, cfg.sprintsPerPI);
+        _piFormBaseline = _piFormSnapshot();
+    };
+
+    container.querySelector('#pi-track-prev')?.addEventListener('click', (e) => {
+        const pi = parseInt(e.currentTarget.dataset.pi);
+        if (pi) _navToPi(pi);
+    });
+    container.querySelector('#pi-track-next')?.addEventListener('click', (e) => {
+        const pi = parseInt(e.currentTarget.dataset.pi);
+        if (pi) _navToPi(pi);
+    });
+
+    // ── Mise à jour live des pills quand "Sprints / PI" change ───────────────
+    container.querySelector('#pi-form input[name="sprintsPerPI"]')?.addEventListener('input', (e) => {
+        const newCount = parseInt(e.target.value) || 0;
+        if (newCount < 1 || newCount > 10) return;
+        const track = container.querySelector('#pi-sprint-track');
+        if (!track) return;
+        const displayPiNum = parseInt(track.dataset.displayPi) || (piInfo?.number || 0);
+        const allSprints   = store.get('sprintInfo')?.teamSprints || [];
+        const selectedTeam = store.get('team');
+        const teamSprints  = (selectedTeam && selectedTeam !== 'all')
+            ? allSprints.filter(s => s.team === selectedTeam)
+            : allSprints;
+        const idxMatch = (store.get('sprintInfo')?.name || '').match(/\.(\d+)\s*$/);
+        const curIdx   = idxMatch ? parseInt(idxMatch[1]) - 1 : -1;
+        const basePi   = piInfo?.number || 0;
+
+        const durLive = parseInt(container.querySelector('#pi-form input[name="sprintDuration"]')?.value) || (piInfo?.sprintDuration || 14);
+        track.innerHTML = [...Array(newCount)].map((_, i) => {
+            const label   = displayPiNum ? `${displayPiNum}.${i + 1}` : `S${i + 1}`;
+            const isCur   = displayPiNum === basePi && i === curIdx;
+            const isDone  = displayPiNum === basePi && curIdx >= 0 && i < curIdx;
+            const isIP    = i === newCount - 1;
+            const hasData = teamSprints.some(s => String(s.name || '').includes(`${displayPiNum}.${i + 1}`));
+            const cls     = [isIP ? 'ip' : isCur ? 'current' : isDone ? 'done' : '', hasData ? 'has-data' : ''].filter(Boolean).join(' ');
+            const icon    = isCur ? '▶ ' : isDone ? '✓ ' : '';
+            const ts = allSprints.find(s => String(s.name||'').includes(`${displayPiNum}.${i+1}`) && s.startDate && s.endDate);
+            const dates = ts
+                ? { from: String(ts.startDate).slice(0,10), to: String(ts.endDate).slice(0,10) }
+                : piInfo?.startDate ? (() => { const add=(iso,n)=>{const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};const from=add(piInfo.startDate,i*durLive);return{from,to:add(from,durLive-1)};})() : null;
+            const wd     = dates ? _workdays(dates.from, dates.to) : null;
+            const wdHtml = wd !== null ? `<span class="pi-pill-wd">${wd}j</span>` : '';
+            const tip    = `${isIP ? 'IP — ' : ''}Sprint ${label}${hasData ? ' · données disponibles' : ''}${dates ? ` · ${dates.from} → ${dates.to}` : ''}${wd !== null ? ` · ${wd} j ouvrés` : ''}`;
+            return `<span class="pi-sprint-pill ${cls}" data-sprint-idx="${i}" data-sprint-label="${label}" data-pi-num="${displayPiNum}" title="${tip}">${icon}${label}${wdHtml}</span>`;
+        }).join('');
+
+        track.querySelectorAll('.pi-sprint-pill').forEach(pill => {
+            pill.addEventListener('click', () => _fillSprintForm(pill));
+        });
+
+        // Met à jour le meta dans le header PI
+        const meta = container.querySelector('.pi-cfg-meta');
+        if (meta) {
+            const dur = parseInt(container.querySelector('#pi-form input[name="sprintDuration"]')?.value) || (piInfo?.sprintDuration || 14);
+            meta.textContent = `${newCount} sprints · ${dur} j · ${newCount * dur} j`;
+        }
+    });
+
+    // Met à jour uniquement le meta quand la durée du sprint change
+    container.querySelector('#pi-form input[name="sprintDuration"]')?.addEventListener('input', (e) => {
+        const dur = parseInt(e.target.value) || 0;
+        const cnt = parseInt(container.querySelector('#pi-form input[name="sprintsPerPI"]')?.value) || (piInfo?.sprintsPerPI || 5);
+        const meta = container.querySelector('.pi-cfg-meta');
+        if (meta && dur > 0) meta.textContent = `${cnt} sprints · ${dur} j · ${cnt * dur} j`;
     });
 
     container.querySelector('#sprint-form')?.addEventListener('submit', async (e) => {
@@ -1452,22 +1927,33 @@ export function renderSettings(container) {
     // PI form
     container.querySelector('#pi-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const fd = new FormData(e.target);
-        try {
-            const current = store.get('piInfo') || {};
-            await api.updatePI({
-                ...current,
-                number: parseInt(fd.get('number')) || current.number || 0,
-                name: fd.get('piName') || current.name || '',
-                sprintsPerPI: parseInt(fd.get('sprintsPerPI')) || 5,
-                sprintDuration: parseInt(fd.get('sprintDuration')) || 14,
-                startDate: (fd.get('startDate') || '').toString() || null,
-                velocityTarget: parseInt(fd.get('velocityTarget')) || null,
-            });
-            // Recharger piInfo dans le store pour que la timeline rotation soit immédiatement réalignée
-            try { const fresh = await api.getPI(); store.set('piInfo', fresh); } catch {}
-            toast('PI mis a jour', 'success');
-        } catch (e) { toast(e.message, 'error'); }
+        const data = _piFormRead();
+        if (!data) return;
+        const track = container.querySelector('#pi-sprint-track');
+        const displayPi = parseInt(track?.dataset.displayPi || '0') || _basePiNum;
+        // Toujours sauvegarder en localStorage pour ce PI
+        _piCfgSave(displayPi, data);
+        // Mettre à jour le nombre de sprints dans le track
+        _switchPiTrack(displayPi, data.sprintsPerPI);
+        _piFormBaseline = _piFormSnapshot();
+        // Appel API seulement si c'est le PI courant en base
+        if (displayPi === _basePiNum) {
+            try {
+                const current = store.get('piInfo') || {};
+                await api.updatePI({
+                    ...current,
+                    number: data.number,
+                    name: data.name,
+                    sprintsPerPI: data.sprintsPerPI,
+                    sprintDuration: data.sprintDuration,
+                    startDate: data.startDate || null,
+                });
+                try { const fresh = await api.getPI(); store.set('piInfo', fresh); } catch {}
+                toast('PI mis à jour', 'success');
+            } catch (err) { toast(err.message, 'error'); }
+        } else {
+            toast(`PI#${displayPi} sauvegardé localement`, 'success');
+        }
     });
 
 
@@ -1710,15 +2196,6 @@ function _rotWirePanelEvents(container) {
         });
     });
 
-    // Switch PI courant / suivant (état session uniquement → reset au reload sur "courant")
-    container.querySelector('#rot-pi-switch-cur')?.addEventListener('click', () => {
-        _rotShowNext = false;
-        _rotRenderPanels(container, store.get('support') || []);
-    });
-    container.querySelector('#rot-next-pi-toggle')?.addEventListener('click', () => {
-        _rotShowNext = true;
-        _rotRenderPanels(container, store.get('support') || []);
-    });
 
     // Shuffle (génération automatique) — règles métier centralisées dans utils.generateSupportRotation
     container.querySelectorAll('[data-rot-shuffle]').forEach(btn => {
@@ -1786,6 +2263,29 @@ function _rotWirePanelEvents(container) {
         });
     });
 
+    // ── Copier un message de rotation (Slack/Teams) ──────────────────────────
+    container.querySelectorAll('[data-rot-copy]').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const team = btn.dataset.rotCopy;
+            const msg  = _rotBuildCopyMessage(team);
+            navigator.clipboard.writeText(msg)
+                .then(() => toast('Message de rotation copié', 'success'))
+                .catch(() => toast('Copie impossible', 'error'));
+        });
+        // Clic droit → personnaliser le libellé du rôle (ex: "Support N3 OPS")
+        btn.addEventListener('contextmenu', e => {
+            e.preventDefault(); e.stopPropagation();
+            const team = btn.dataset.rotCopy;
+            const cur = localStorage.getItem(`rot-label-${team}`) || 'Support N3 OPS';
+            const next = prompt(`Libellé du support pour ${team} :`, cur);
+            if (next !== null) {
+                localStorage.setItem(`rot-label-${team}`, next.trim() || 'Support N3 OPS');
+                toast('Libellé mis à jour — utilisé dans le message copié', 'success');
+            }
+        });
+    });
+
     // ── Capacité dev — sliders % par rôle ────────────────────────────────────
     let _roleSaveTimer = null;
     container.querySelectorAll('.cap-role-slider').forEach(slider => {
@@ -1831,11 +2331,143 @@ function _rotWirePanelEvents(container) {
 // Rotation Support - Grid helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/** Formate un nom "NOM, Prénom" → "Prénom NOM". Laisse inchangé si pas de virgule. */
+function _fmtMemberName(n) {
+    const comma = n.indexOf(',');
+    if (comma < 0) return n;
+    return `${n.slice(comma + 1).trim()} ${n.slice(0, comma).trim()}`;
+}
+
+/** Construit un message de rotation prêt à coller (Slack/Teams) pour une équipe.
+ *  Format : en-tête (rôle support + PI) puis une ligne par itération avec dates + membres @. */
+function _rotBuildCopyMessage(teamName) {
+    const { selectedWeeks, selectedPiNum } = _rotBuildPiWeeks(teamName);
+    const support = (store.get('support') || []).filter(s => {
+        const t = (s.team || '').toLowerCase().trim(), g = teamName.toLowerCase().trim();
+        return t === g || (t && g && (t.includes(g) || g.includes(t)));
+    });
+    // Libellé de support configurable par équipe (défaut "Support N3 OPS")
+    const roleLabel = localStorage.getItem(`rot-label-${teamName}`) || 'Support N3 OPS';
+
+    const _fmtDate = iso => {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('-');
+        return `${d}/${m}/${y}`;
+    };
+
+    const lines = [`🟣 ${roleLabel} [PI${selectedPiNum || '?'}]`, ''];
+    for (const w of selectedWeeks) {
+        const entry = support.find(s => s.weekStart === w.weekStart);
+        const members = (entry?.members || []).map(m => `@${_fmtMemberName(m)}`).join(' ');
+        lines.push(`* 🟦 Itération ${w.label} (${_fmtDate(w.weekStart)} au ${_fmtDate(w.weekEnd)})`);
+        lines.push(`    * ${members || '—'}`);
+    }
+    return lines.join('\n');
+}
+
+/** Trie une liste de noms membres : actifs en premier, puis par prénom puis nom.
+ *  Format attendu : "NOM, Prénom" ou "Prénom NOM" — les deux cas sont gérés. */
+function _sortSupportMembers(names) {
+    const _parseName = n => {
+        // Format "NOM, Prénom" → { first: "Prénom", last: "NOM" }
+        const comma = n.indexOf(',');
+        if (comma > 0) return { first: n.slice(comma + 1).trim(), last: n.slice(0, comma).trim() };
+        // Format "Prénom NOM" → dernier mot = nom
+        const parts = n.trim().split(/\s+/);
+        return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] || '' };
+    };
+    return [...names].sort((a, b) => {
+        const aActive = isMemberSupportActive(a) ? 0 : 1;
+        const bActive = isMemberSupportActive(b) ? 0 : 1;
+        if (aActive !== bActive) return aActive - bActive;
+        const pa = _parseName(a), pb = _parseName(b);
+        const firstCmp = pa.first.localeCompare(pb.first, 'fr', { sensitivity: 'base' });
+        if (firstCmp !== 0) return firstCmp;
+        return pa.last.localeCompare(pb.last, 'fr', { sensitivity: 'base' });
+    });
+}
+
+/** Détecte le nombre réel de sprints d'un PI depuis les teamSprints JIRA (max index).
+ *  Couvre les PI exceptionnels à 6 sprints (ex: PI30 avec un sprint 30.6). */
+function _detectSprintsPerPI(piNum, fallback) {
+    if (!piNum) return fallback;
+    const all = store.get('sprintInfo')?.teamSprints || [];
+    let maxIdx = 0;
+    for (const s of all) {
+        const m = String(s.name || '').match(/\b(\d{2,})\.(\d+)/);
+        if (m && parseInt(m[1], 10) === piNum) maxIdx = Math.max(maxIdx, parseInt(m[2], 10));
+    }
+    return maxIdx > 0 ? Math.max(maxIdx, fallback) : fallback;
+}
+
 /** Génère les semaines du PI courant et suivant pour une équipe.
  *  Si pas d'équipe, utilise le mode par défaut. */
 function _rotBuildPiWeeks(team = null) {
-    const mode = team ? getSupportWeekMode(team) : SUPPORT_WEEK_MODE_DEFAULT;
-    return buildSupportPiWeeks(store.get('piInfo'), store.get('sprintInfo'), mode);
+    const mode      = team ? getSupportWeekMode(team) : SUPPORT_WEEK_MODE_DEFAULT;
+    const piInfoRaw = store.get('piInfo');
+    const sprintInfo = store.get('sprintInfo');
+
+    // Priorité : startDate du localStorage pi-cfg-<N> (mis à jour par la section Sprint & PI)
+    // plutôt que piInfo.startDate en base qui peut pointer vers un PI précédent
+    const _sprintName = store.get('sprintInfo')?.name || '';
+    const _piFromSprint = (() => { const m = _sprintName.match(/(\d+)\.\d+/) || _sprintName.match(/PI\s*#?\s*(\d+)/i); return m ? parseInt(m[1], 10) : 0; })();
+    const basePiNum = _piFromSprint || piInfoRaw?.number || 0;
+    const localCfg  = basePiNum ? (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${basePiNum}`) || 'null'); } catch { return null; } })() : null;
+    // Nombre de sprints : localStorage > détecté depuis JIRA (gère le 6e sprint) > piInfo > 5
+    const baseSprintsCnt = _detectSprintsPerPI(basePiNum, localCfg?.sprintsPerPI || piInfoRaw?.sprintsPerPI || 5);
+    // Toujours corriger number avec basePiNum (dérivé du sprint actif) + startDate locale si disponible
+    const piInfo = {
+        ...piInfoRaw,
+        number: basePiNum || piInfoRaw?.number,
+        sprintsPerPI: baseSprintsCnt,
+        ...(localCfg?.startDate ? { startDate: localCfg.startDate } : {}),
+    };
+
+    const base      = buildSupportPiWeeks(piInfo, sprintInfo, mode);
+    if (_rotPiOff() === 0) return { ...base, selectedWeeks: base.curWeeks, selectedPiNum: base.curPiNum };
+
+    // Calcule les semaines pour le PI sélectionné via l'offset
+    const targetPiForCnt = basePiNum ? Math.max(1, basePiNum + _rotPiOff()) : 0;
+    const sprintCnt = _detectSprintsPerPI(targetPiForCnt, piInfo?.sprintsPerPI || 5);
+    const sprintDur = piInfo?.sprintDuration || 14;
+    const targetPiNum = basePiNum ? Math.max(1, basePiNum + _rotPiOff()) : base.curPiNum;
+    const wps = Math.max(1, Math.floor(sprintDur / 7));
+
+    // Pour les PI précédents, cherche leur startDate dans localStorage
+    const targetCfg = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${targetPiNum}`) || 'null'); } catch { return null; } })();
+    let curStart = base.curWeeks[0]?.weekStart;
+
+    // Si le PI cible a sa propre startDate, l'utilise directement
+    if (targetCfg?.startDate) {
+        // Calcule les semaines depuis la startDate du PI cible
+        const selectedWeeks = [];
+        for (let s = 0; s < sprintCnt; s++) {
+            for (let w = 0; w < wps; w++) {
+                const d = new Date(targetCfg.startDate + 'T00:00:00');
+                d.setDate(d.getDate() + s * sprintDur + w * 7);
+                const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+                const wStart = fmt(d);
+                const wEnd   = (() => { const e = new Date(d); e.setDate(e.getDate() + 6); return fmt(e); })();
+                selectedWeeks.push({ label: `${targetPiNum}.${s + 1}.${w + 1}`, weekStart: wStart, weekEnd: wEnd });
+            }
+        }
+        return { ...base, selectedWeeks, selectedPiNum: targetPiNum };
+    }
+
+    if (!curStart) return { ...base, selectedWeeks: base.curWeeks, selectedPiNum: base.curPiNum };
+
+    const selectedWeeks = [];
+    for (let s = 0; s < sprintCnt; s++) {
+        for (let w = 0; w < wps; w++) {
+            const d = new Date(curStart + 'T00:00:00');
+            d.setDate(d.getDate() + _rotPiOff() * sprintCnt * sprintDur + s * sprintDur + w * 7);
+            const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+            const wStart = fmt(d);
+            const wEnd   = (() => { const e = new Date(d); e.setDate(e.getDate() + 6); return fmt(e); })();
+            selectedWeeks.push({ label: `${targetPiNum}.${s + 1}.${w + 1}`, weekStart: wStart, weekEnd: wEnd });
+        }
+    }
+    return { ...base, selectedWeeks, selectedPiNum: targetPiNum };
 }
 
 /** Nombre de jours d'absence pour un membre sur une plage */
@@ -1860,31 +2492,16 @@ function _rotSetCollapsed(team, val) {
     try { const s = JSON.parse(localStorage.getItem('rot-collapsed') || '{}'); s[team] = val; localStorage.setItem('rot-collapsed', JSON.stringify(s)); } catch {}
 }
 
-// État du switch PI courant/suivant : variable de module = reset au reload.
-// Le user demande "afficher PI en cours par défaut" → on ne persiste plus dans localStorage.
-// Le switch reste fonctionnel pendant la session via cette variable.
-let _rotShowNext = false;
+// L'offset PI de la rotation lit directement store.get('piOffset') — piloté par le topbar.
+const _rotPiOff = () => store.get('piOffset') || 0;
 
 /** Rend tous les panneaux de rotation (un par équipe) */
 function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
     if (!teamNames.length) return '<p class="text-muted text-sm">Aucune equipe configuree</p>';
-    const { curWeeks, nextWeeks, curPiNum, nextPiNum } = _rotBuildPiWeeks();
-    // Tri alpha-numérique des équipes (insensible à la casse, accents normalisés)
+    const { curPiNum, selectedWeeks: _sw, selectedPiNum: _sp } = _rotBuildPiWeeks();
     teamNames = [...teamNames].sort((a, b) => String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' }));
-    const showNext = _rotShowNext;
     const today    = new Date().toISOString().slice(0, 10);
-
-    // Switch exclusif : on affiche soit le PI courant, soit le PI suivant (jamais les 2)
-    const toggleBtn = `<div class="rot-pi-switch" role="tablist" aria-label="PI affiché dans le tableau">
-        <button class="rot-pi-switch-btn${!showNext ? ' is-active' : ''}" id="rot-pi-switch-cur" role="tab" aria-selected="${!showNext}" title="Afficher le PI courant">
-            <span class="rot-pi-switch-icon">📆</span>
-            <span>PI ${curPiNum || '?'} <small>courant</small></span>
-        </button>
-        <button class="rot-pi-switch-btn${showNext ? ' is-active' : ''}" id="rot-next-pi-toggle" role="tab" aria-selected="${showNext}" title="Afficher le PI suivant">
-            <span class="rot-pi-switch-icon">📅</span>
-            <span>PI ${nextPiNum || '?'} <small>suivant</small></span>
-        </button>
-    </div>`;
+    const showNext = _rotPiOff() > 0; // pour les classes CSS existantes
 
     // Match tolérant entre équipes config app et équipes du CSV RH (cf. piège #5 agent debugger)
     const _norm = s => (s || '').toLowerCase().trim();
@@ -1897,11 +2514,12 @@ function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
     const panels = teamNames.map(teamName => {
         const teamObj   = teamObjects.find(t => (typeof t === 'string' ? t : t.name) === teamName);
         const teamColor = (typeof teamObj === 'object' ? teamObj?.color : null) || '#64748b';
-        const teamMembers = members.filter(m => _matchTeam(m.team, teamName)).map(m => m.name);
+        const teamMembers = _sortSupportMembers(members.filter(m => _matchTeam(m.team, teamName)).map(m => m.name));
         if (!teamMembers.length) return '';
         const teamSupport = support.filter(s => _matchTeam(s.team, teamName));
+        const { selectedWeeks, selectedPiNum } = _rotBuildPiWeeks(teamName);
         return _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absences,
-            curWeeks, nextWeeks, showNext, today, curPiNum, nextPiNum);
+            selectedWeeks, selectedWeeks, showNext, today, selectedPiNum, selectedPiNum);
     }).filter(Boolean).join('');
 
     // Diagnostic : si aucun panneau, on liste les équipes vues côté CSV pour aider à corriger le mapping
@@ -1917,21 +2535,20 @@ function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
             : '<p class="text-muted text-sm">Ajoutez des membres aux équipes (ou importez le CSV congés) pour configurer la rotation.</p>';
     }
 
-    return toggleBtn + (panels || emptyHint);
+    return panels || emptyHint;
 }
 
 /** Rend le panneau d'une équipe avec sa grille membre×semaine. Le switch PI sélectionne
  *  UN seul PI à la fois (courant OU suivant), pas la concaténation.
  *  Les semaines sont recalculées selon le mode équipe (friday par défaut, mercredi pour certaines). */
 function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absences,
-                            _ignoredCurWeeks, _ignoredNextWeeks, showNext, today, curPiNum, nextPiNum) {
+                            _ignoredCurWeeks, _ignoredNextWeeks, showNext, today, curPiNum, _ignoredNextPiNum) {
     const collapsed  = _rotIsCollapsed(teamName);
     const mpw        = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
-    // Recalcul des semaines selon le mode de l'équipe (override le calcul global)
-    const { curWeeks, nextWeeks } = _rotBuildPiWeeks(teamName);
-    // Switch exclusif : PI courant OU PI suivant (pas les 2)
-    const allWeeks   = showNext ? nextWeeks : curWeeks;
-    const panelPiNum = showNext ? nextPiNum : curPiNum;
+    // Recalcul des semaines selon le mode de l'équipe ET l'offset PI sélectionné
+    const { selectedWeeks, selectedPiNum } = _rotBuildPiWeeks(teamName);
+    const allWeeks   = selectedWeeks;
+    const panelPiNum = selectedPiNum;
 
     // Résumé sur le PI affiché (pas toujours le courant)
     const filledWeeks = allWeeks.filter(w => {
@@ -2030,7 +2647,7 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
                         data-rot-active="${esc(member)}"
                         title="${toggleLbl}"
                         aria-pressed="${active}">${active ? '🛎️' : '🚫'}</button>
-                <span class="rot-member-name${active ? '' : ' is-inactive'}">${esc(member)}</span>
+                <span class="rot-member-name${active ? '' : ' is-inactive'}" title="${esc(member)}">${esc(_fmtMemberName(member))}</span>
             </td>
             ${allWeeks.map(w => mkCell(w, member, showNext)).join('')}
         </tr>`;
@@ -2060,6 +2677,7 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
                         ).join('')}
                     </select>
                 </label>
+                <button class="btn btn-sm btn-secondary rot-btn" data-rot-copy="${esc(teamName)}" title="Copier un message de rotation prêt à coller (Slack/Teams). Clic droit = personnaliser le libellé.">📋 Copier</button>
                 <button class="btn btn-sm btn-secondary rot-btn" data-rot-shuffle="${esc(teamName)}" title="Générer automatiquement en respectant les congés">🎲 Shuffle</button>
                 <button class="btn btn-sm btn-danger rot-btn" data-rot-clear="${esc(teamName)}" title="Effacer la rotation de cette équipe">✕</button>
             </div>

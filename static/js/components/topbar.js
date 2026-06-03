@@ -61,7 +61,7 @@ export function initTopbar() {
     updateTitle();
 
     // ── Sélecteur PI dans le topbar (PI-2..PI+2) — visible uniquement sur pi/picalendar/roadmap
-    const PI_VIEWS = new Set(['pi', 'picalendar', 'roadmap']);
+    const PI_VIEWS = new Set(['pi', 'picalendar', 'roadmap', 'settings']);
     const piHost = document.getElementById('pi-selector-host');
     const _extractPiNum = (name) => {
         if (!name) return 0;
@@ -73,8 +73,10 @@ export function initTopbar() {
         const view = store.get('view');
         const piInfo = store.get('piInfo');
         const sprintInfo = store.get('sprintInfo');
-        // Fallback : piInfo.number > déduit du sprint actif (ex: "Fuego - Ite 29.3" → 29)
-        const basePi = piInfo?.number || _extractPiNum(sprintInfo?.name);
+        // PI courant = dérivé du sprint actif JIRA en priorité (ex: "Fuego - Ite 29.3" → 29)
+        // Fallback sur piInfo.number si aucun sprint actif n'est connu
+        const fromSprint = _extractPiNum(sprintInfo?.name);
+        const basePi = fromSprint || piInfo?.number;
         const visible = PI_VIEWS.has(view) && basePi;
         piHost.hidden = !visible;
         if (!visible) { piHost.innerHTML = ''; return; }

@@ -51,6 +51,23 @@ export const createMember    = data => request('/api/members', { method: 'POST',
 export const updateMember    = (id, data) => request(`/api/members/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteMember    = id   => request(`/api/members/${id}`, { method: 'DELETE' });
 
+// ── Atlas : Skills, Appétences, Mobilité ──────────────────────────────────────
+export const getSkills           = ()   => request('/api/skills');
+export const createSkill         = data => request('/api/skills', { method: 'POST', body: JSON.stringify(data) });
+export const updateSkill         = (id, data) => request(`/api/skills/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteSkill         = id   => request(`/api/skills/${id}`, { method: 'DELETE' });
+export const getAppetences       = ()   => request('/api/appetences');
+export const createAppetence     = data => request('/api/appetences', { method: 'POST', body: JSON.stringify(data) });
+export const updateAppetence     = (id, data) => request(`/api/appetences/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteAppetence     = id   => request(`/api/appetences/${id}`, { method: 'DELETE' });
+export const getMemberSkills     = ()   => request('/api/member-skills');
+export const upsertMemberSkill   = data => request('/api/member-skills', { method: 'PUT', body: JSON.stringify(data) });
+export const getMemberAppetences = ()   => request('/api/member-appetences');
+export const upsertMemberAppetence = data => request('/api/member-appetences', { method: 'PUT', body: JSON.stringify(data) });
+export const getMobility         = ()   => request('/api/mobility');
+export const upsertMobility      = data => request('/api/mobility', { method: 'PUT', body: JSON.stringify(data) });
+export const deleteMobility      = id   => request(`/api/mobility/${id}`, { method: 'DELETE' });
+
 // ── Teams ─────────────────────────────────────────────────────────────────────
 export const getTeams        = ()   => request('/api/teams');
 export const createTeam      = data => request('/api/teams', { method: 'POST', body: JSON.stringify(data) });

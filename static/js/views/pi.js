@@ -7,6 +7,7 @@ import * as api from '../api.js';
 import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildMoodSlackRaw, buildFistSlackRaw } from '../components/sondage.js';
+import { renderRoam } from './roam.js';
 
 let _activeTab = 'objectives';
 
@@ -21,7 +22,7 @@ export function renderPI(container) {
     const epics      = store.get('epics') || [];
 
     // PI sélectionné (sélecteur topbar piOffset)
-    const basePiNum  = piInfo?.number || _extractPi(sprintInfo?.name) || 0;
+    const basePiNum  = _extractPi(sprintInfo?.name) || piInfo?.number || 0;
     const piOffset   = store.get('piOffset') || 0;
     const piNum      = basePiNum ? Math.max(1, basePiNum + piOffset) : 0;
     const piTag      = piNum ? `PI#${piNum}` : null;
@@ -76,15 +77,21 @@ export function renderPI(container) {
         .filter(x => x.count > 0);
 
     // Feature progress + statut dérivé depuis les enfants (avancée réelle)
+    // Chaîne de résolution : ticket.epic → epic.id + epic.feature === feature.id
+    // Fallback : ticket.epic === feature.id (tickets liés directement à la feature sans epic intermédiaire)
     const featureList = features.map(f => {
-        const children = tickets.filter(t => t.epic && epics.find(e => e.id === t.epic && e.feature === f.id));
+        const viaEpic    = tickets.filter(t => t.epic && epics.find(e => e.id === t.epic && e.feature === f.id));
+        const viaDirect  = tickets.filter(t => t.epic === f.id || t.featureId === f.id || t.feature === f.id);
+        const children   = viaEpic.length > 0 ? viaEpic : viaDirect;
         const all = children.length ? children : tickets.filter(t => t.team === f.team);
         const total = all.length || 1;
         const done = all.filter(t => t.status === 'done').length;
         const rolledStatus = rollupStatus(children, f.status);
-        const childPts = sumBy(children, t => t.points || 0);
+        const childPts     = sumBy(children, t => t.points || 0);
         const childPtsDone = sumBy(children.filter(t => t.status === 'done'), t => t.points || 0);
-        return { ...f, progress: pct(done, total), childCount: children.length, allCount: all.length, rolledStatus, childPts, childPtsDone };
+        // SP affichés : enfants trouvés > champ points JIRA de la feature > SP des tickets fallback équipe
+        const displayPts = childPts > 0 ? childPts : (f.points || sumBy(all, t => t.points || 0));
+        return { ...f, progress: pct(done, total), childCount: children.length, allCount: all.length, rolledStatus, childPts: displayPts, childPtsDone };
     });
 
     // Team capacity — membres dérivés des absences (source de vérité CSV RH)
@@ -108,16 +115,29 @@ export function renderPI(container) {
 
     // Capacité nette estimée par équipe sur le PI entier (pour la ligne séparatrice dans Features)
     const sprintInfo2  = store.get('sprintInfo');
-    const allTeamSprints = sprintInfo2?.teamSprints || [];
+    // Enrichit les teamSprints : si velocity = 0, fallback sur tickets done
+    const allTeamSprints = (sprintInfo2?.teamSprints || []).map(s => {
+        if ((s.velocity || 0) > 0) return s;
+        const fromTickets = sumBy(
+            tickets.filter(t => t.status === 'done' && t.team === s.team && (t.sprintName || t.sprint_name) === s.name),
+            t => t.points || 0
+        );
+        return fromTickets > 0 ? { ...s, velocity: fromTickets, _velFromTickets: true } : s;
+    });
     const rolePctMap   = _capGetRolePct();
     const excludedRolesForCap = _capGetExcludedRoles();
     const historyMode2 = _capGetHistoryMode();
     const historyCount2 = _capGetHistoryCount();
-    const sprintDur2   = piInfo?.sprintDuration || 14;
-    const sprintCnt2   = piInfo?.sprintsPerPI   || 5;
+    // Config locale du PI affiché (stockée par settings.js)
+    const _piCfgLocal2 = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNum}`) || 'null'); } catch { return null; } })();
+    const sprintDur2   = _piCfgLocal2?.sprintDuration || piInfo?.sprintDuration || 14;
+    const sprintCnt2   = _piCfgLocal2?.sprintsPerPI   || piInfo?.sprintsPerPI   || 5;
     const absenceTeamNames2 = new Set(absences.map(a => a.team));
     const _absAlias2 = tn => absenceTeamNames2.has(tn) ? tn : (absenceTeamNames2.has('Team ' + tn) ? 'Team ' + tn : tn);
-    const sprintWindows2 = _capSprintWindows({ ...piInfo, number: piNum, startDate: piOffset === 0 ? piInfo?.startDate : null }, allTeamSprints);
+    const piStartDate2 = piOffset === 0
+        ? (_piCfgLocal2?.startDate || piInfo?.startDate || null)
+        : (_piCfgLocal2?.startDate || null);
+    const sprintWindows2 = _capSprintWindows({ ...piInfo, number: piNum, sprintsPerPI: sprintCnt2, sprintDuration: sprintDur2, startDate: piStartDate2 }, allTeamSprints);
 
     const capByTeam = {};  // { teamName: { spNet, spEst, spBuf, color } }
     teams.forEach(teamName => {
@@ -137,6 +157,8 @@ export function renderPI(container) {
         let totalSpEst = 0;
         for (let idx = 0; idx < sprintCnt2; idx++) {
             const win = sprintWindows2?.[idx] || null;
+            // Sprint IP (dernier sprint d'un PI ≥ 6) : exclu des estimations de planning
+            if (win?.isIP) continue;
             const totalDays = memberEtp * sprintDur2;
             const absDays = win
                 ? Math.round(mems.reduce((s, m) => {
@@ -158,15 +180,17 @@ export function renderPI(container) {
         ? objectives
         : objectives.filter(o => (o.team || '') === team);
 
+    const roamCount = (store.get('risks') || []).length;
     const tabs = [
-        { id: 'objectives', label: `Objectifs (${objectivesFiltered.length})` },
-        { id: 'features', label: `Features (${features.length})` },
-        { id: 'capacity', label: 'Capacité' },
-        { id: 'burnup', label: '📈 Burnup' },
-        { id: 'teams', label: 'Équipes' },
-        { id: 'support', label: '🛡️ Support' },
-        { id: 'mood', label: 'Mood / ROTI' },
-        { id: 'fist', label: 'Fist of Five' },
+        { id: 'objectives', label: `🎯 Objectifs (${objectivesFiltered.length})` },
+        { id: 'features',   label: `📦 Features (${features.length})` },
+        { id: 'capacity',   label: '⚡ Capacité' },
+        { id: 'burnup',     label: '📈 Burnup' },
+        { id: 'roam',       label: `⚠️ ROAM${roamCount ? ` (${roamCount})` : ''}` },
+        { id: 'teams',      label: '👥 Équipes' },
+        { id: 'support',    label: '🛡️ Support' },
+        { id: 'mood',       label: '😊 Mood / ROTI' },
+        { id: 'fist',       label: '✊ Fist of Five' },
     ];
     const validTabIds = new Set(tabs.map(t => t.id));
     // Hash format : #pi/équipe/tab - le tab est en 3ème segment
@@ -317,6 +341,7 @@ function renderTabContent(el, tab, data) {
         case 'burnup': return renderBurnup(el, data);
         case 'teams': return renderTeams(el, data);
         case 'support': return renderSupportRota(el, data);
+        case 'roam': return renderRoam(el);
         case 'mood': return renderMood(el, data);
         case 'fist': return renderFist(el, data);
     }
@@ -500,41 +525,87 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
         todo:   { bg: 'var(--bg-alt)',                    text: 'var(--text-muted)',             dot: '#94a3b8' },
     };
 
-    const _featureRow = (f) => {
+    const _isBufFeature = f => (f.labels || []).some(l => /buffer/i.test(l));
+
+    const _featureRow = (f, beyondCap = false) => {
         const s   = f.rolledStatus || f.status || 'todo';
         const sc  = STATUS_COLOR[s] || STATUS_COLOR.todo;
         const tip = f.rolledStatus && f.rolledStatus !== f.status
             ? `Dérivé des ${f.childCount} enfants (JIRA: ${STATUS_LABELS[f.status] || f.status})`
             : 'Statut JIRA';
-        const spLabel = f.childPts > 0
-            ? `${f.childPtsDone}/${f.childPts}`
-            : (f.points ? String(f.points) : '—');
-        const spDonePct = f.childPts > 0 ? Math.round(f.childPtsDone / f.childPts * 100) : 0;
+        // SP : si on a des enfants réels avec avancement → "fait/total", sinon total seul
+        const hasRealChildren = f.childCount > 0 && f.childPtsDone !== undefined;
+        const spTotal = f.childPts || 0;
+        const spDone  = f.childPtsDone || 0;
+        const spLabel = spTotal > 0
+            ? (hasRealChildren ? `${spDone}/${spTotal}` : String(spTotal))
+            : '—';
+        const spDonePct = spTotal > 0 && hasRealChildren ? Math.round(spDone / spTotal * 100) : 0;
+        const isBuffer = _isBufFeature(f);
+        // Les features buffer ne sont jamais grisées
+        const dimmed = beyondCap && !isBuffer;
+        const tktCount = f.childCount > 0 ? f.childCount : (f.allCount || 0);
         return `
-        <div class="feature-row2" data-ticket-id="${esc(f.id)}" style="--feat-color:${sc.dot}">
+        <div class="feature-row2${dimmed ? ' feat-row-dimmed' : ''}${isBuffer ? ' feat-row-buffer' : ''}" data-ticket-id="${esc(f.id)}" style="--feat-color:${sc.dot}">
             <span class="feat-dot" style="background:${sc.dot}"></span>
             <span class="feat-id">${esc(f.id)}</span>
-            <span class="feat-title">${esc(f.title)}</span>
+            <span class="feat-title">${esc(f.title)}${isBuffer ? ' <span class="feat-buf-badge">Buffer</span>' : ''}</span>
             <span class="feat-status" style="background:${sc.bg};color:${sc.text}" title="${esc(tip)}">${esc(STATUS_LABELS[s] || s)}</span>
             <span class="feat-bar-wrap" title="${f.progress}% complété">
                 <span class="feat-bar"><span class="feat-bar-fill ${progressColor(f.progress)}" style="width:${f.progress}%"></span></span>
                 <span class="feat-pct">${f.progress}%</span>
             </span>
-            <span class="feat-sp" title="SP${f.childPts > 0 ? ` · ${spDonePct}% livrés` : ''}">
+            <span class="feat-sp" title="SP${spDonePct > 0 ? ` · ${spDonePct}% livrés` : ''}">
                 ${spLabel}<span class="feat-sp-unit"> SP</span>
             </span>
-            <span class="feat-tickets">${f.childCount}<span class="feat-sp-unit"> tkts</span></span>
+            <span class="feat-tickets">${tktCount}<span class="feat-sp-unit"> tkts</span></span>
             <span class="feat-team">${esc(f.team || '—')}</span>
         </div>`;
     };
 
-    // Construit le HTML par équipe avec séparateur capacité
+    // Construit le HTML par équipe avec ligne de coupure dans la liste
     let html = '<div class="feature-list2">';
     for (const [teamName, tFeatures] of byTeam) {
         const cap = capByTeam[teamName];
         const tObj = store.get('teamObjects')?.find(o => o.name === teamName);
         const color = tObj?.color || '#64748b';
-        const totalSpPlanned = sumBy(tFeatures, f => f.childPts || f.points || 0);
+
+        // Tri par rang JIRA (0 = haute priorité, puis croissant)
+        const ranked = [...tFeatures].sort((a, b) => {
+            const ra = a.rank ?? 9999, rb = b.rank ?? 9999;
+            if (ra !== rb) return ra - rb;
+            return (a.id || '').localeCompare(b.id || '');
+        });
+
+        const totalSpPlanned = sumBy(ranked, f => f.childPts || f.points || 0);
+
+        // Calcul de la ligne de coupure :
+        // - Les features Buffer (label "Buffer") sont toujours prises → budget = spNet + spBuf
+        // - Les autres features sont prises dans l'ordre jusqu'à épuisement de spNet
+        // - La ligne est insérée juste après la dernière feature qui passe dans la capacité
+        let cutIdx = null; // index APRÈS lequel insérer la ligne (null = pas de ligne)
+        let overBudget = false;
+        if (cap && (cap.spNet > 0 || cap.spEst > 0)) {
+            const _isBufFeature = f => (f.labels || []).some(l => /buffer/i.test(l));
+            let cumSp = 0;
+            const budgetNet = cap.spNet;
+            const budgetTotal = cap.spEst; // inclut le buffer
+
+            for (let i = 0; i < ranked.length; i++) {
+                const f = ranked[i];
+                const sp = f.childPts || f.points || 0;
+                if (_isBufFeature(f)) {
+                    // Feature buffer : toujours prise, utilise le budget buffer
+                    continue;
+                }
+                cumSp += sp;
+                if (cumSp > budgetNet && cutIdx === null) {
+                    // On a dépassé la capacité nette → la ligne se place avant cette feature
+                    cutIdx = i;
+                    overBudget = cumSp > budgetTotal;
+                }
+            }
+        }
 
         html += `<div class="feat-team-group">`;
 
@@ -542,34 +613,26 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
         html += `<div class="feat-team-hdr">
             <span class="team-dot" style="background:${color}"></span>
             <span class="feat-team-name">${esc(teamName)}</span>
-            <span class="feat-team-count">${tFeatures.length} feature${tFeatures.length > 1 ? 's' : ''}</span>
+            <span class="feat-team-count">${ranked.length} feature${ranked.length > 1 ? 's' : ''}</span>
             <span class="feat-team-sp-planned">${totalSpPlanned} SP planifiés</span>
+            ${cap && cap.spNet > 0 ? `<span class="feat-team-cap" style="color:${totalSpPlanned <= cap.spNet ? 'var(--success)' : 'var(--danger)'}">cap. ${cap.spNet} SP nets</span>` : ''}
         </div>`;
 
-        // Lignes features
-        html += tFeatures.map(_featureRow).join('');
-
-        // Séparateur capacité
-        if (cap && (cap.spNet > 0 || cap.spEst > 0)) {
-            const overload = totalSpPlanned > cap.spNet;
-            const ratio    = cap.spNet > 0 ? Math.min(100, Math.round(totalSpPlanned / cap.spNet * 100)) : 0;
-            const capColor = overload ? 'var(--danger)' : ratio > 80 ? 'var(--warning)' : 'var(--success)';
-            html += `<div class="feat-cap-separator" style="--cap-color:${capColor}">
-                <div class="feat-cap-line"></div>
-                <div class="feat-cap-info">
-                    <span class="feat-cap-label">Capacité ${esc(teamName)}</span>
-                    <span class="feat-cap-net" style="color:${capColor}">
-                        ${cap.spNet} SP nets
-                    </span>
-                    <span class="feat-cap-buf">+ ${cap.spBuf} buffer</span>
-                    <span class="feat-cap-gauge">
-                        <span class="feat-cap-gauge-fill" style="width:${ratio}%;background:${capColor}"></span>
-                    </span>
-                    <span class="feat-cap-ratio" style="color:${capColor}">${totalSpPlanned}/${cap.spNet} SP (${ratio}%)</span>
-                    ${overload ? `<span class="feat-cap-warn">⚠ surcharge</span>` : ''}
-                </div>
-            </div>`;
-        }
+        // Lignes features avec ligne de coupure intercalée
+        ranked.forEach((f, i) => {
+            if (i === cutIdx) {
+                // Ligne de coupure : STOP ici
+                const capColor = overBudget ? 'var(--danger)' : 'var(--warning)';
+                html += `<div class="feat-cut-line" style="--cut-color:${capColor}">
+                    <div class="feat-cut-bar"></div>
+                    <button class="feat-cut-label" data-goto-tab="capacity" title="Voir le détail de la capacité">
+                        ⛔ Limite capacité — ${cap.spNet} SP nets · ${cap.spBuf} buffer
+                    </button>
+                    <div class="feat-cut-bar"></div>
+                </div>`;
+            }
+            html += _featureRow(f, i >= (cutIdx ?? Infinity));
+        });
 
         html += '</div>';
     }
@@ -578,6 +641,12 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
     el.innerHTML = html;
     el.querySelectorAll('.feature-row2').forEach(row => {
         row.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(row.dataset.ticketId));
+    });
+    el.querySelectorAll('[data-goto-tab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.gotoTab;
+            document.querySelector(`#pi-tabs .tab[data-tab="${tabId}"]`)?.click();
+        });
     });
 }
 
@@ -623,13 +692,22 @@ function _capSprintIdx(name) {
     const m = String(name || '').match(/\b\d{2,}\.(\d+)/);
     return m ? parseInt(m[1], 10) : null;
 }
+// Retourne true si le sprint est le dernier du PI ET que le PI a ≥ 6 sprints (sprint IP/innovation)
+function _isIpSprint(sprintName, sprintsPerPI) {
+    if (!sprintsPerPI || sprintsPerPI < 6) return false;
+    const idx = _capSprintIdx(sprintName);
+    return idx === sprintsPerPI;
+}
 
 // Calcule la vélocité moyenne historique par équipe
 // mode='pi' → moyenne sur les X PI précédents (tous sprints confondus)
 // mode='sprint' → moyenne sur les X derniers sprints
 function _capAvgVelocity(teamSprints, teamName, curPiNum, mode, count) {
+    // Exclut les sprints IP (dernier sprint d'un PI ≥ 6 sprints) : pas de vélocité de planning
+    const sprintsPerPI = store.get('piInfo')?.sprintsPerPI || 5;
     const closed = teamSprints.filter(s =>
         s.team === teamName && s.state === 'closed' && (s.velocity || 0) > 0
+        && !_isIpSprint(s.name, sprintsPerPI)
     );
     if (!closed.length) return 0;
 
@@ -654,40 +732,50 @@ function _capAvgVelocity(teamSprints, teamName, curPiNum, mode, count) {
     return Math.round(sumBy(pool, s => s.velocity) / pool.length);
 }
 
-// Calcule les jours d'absence d'une équipe sur une fenêtre de dates [from, to] (ISO strings)
+// Calcule les jours d'absence sur une fenêtre [from, to] (les deux bornes inclusives)
 function _capAbsDaysInWindow(absences, teamName, from, to) {
     return absences
         .filter(a => a.team === teamName && a.startDate <= to && a.endDate >= from)
         .reduce((s, a) => {
-            // Intersection de la plage d'absence avec la fenêtre
             const start = a.startDate > from ? a.startDate : from;
             const end   = a.endDate   < to   ? a.endDate   : to;
-            // Proportion des jours dans la fenêtre vs durée totale de l'absence
-            const absDur  = Math.max(1, Math.round((new Date(a.endDate) - new Date(a.startDate)) / 86400000) + 1);
-            const winDur  = Math.max(0, Math.round((new Date(end)       - new Date(start))       / 86400000) + 1);
+            const absDur = Math.max(1, Math.round((new Date(a.endDate) - new Date(a.startDate)) / 86400000) + 1);
+            const winDur = Math.max(0, Math.round((new Date(end)       - new Date(start))       / 86400000) + 1);
             return s + (a.days || 0) * (winDur / absDur);
         }, 0);
 }
 
 // Retourne la dispo de chaque membre sur la fenêtre : [{ name, role, absDays, availDays, availPct }]
-function _capMemberAvail(members, absences, absTeamName, from, to, sprintDur) {
-    return members.map(m => {
-        const mAbs = absences.filter(a =>
-            a.memberName === m.name && a.team === absTeamName &&
-            a.startDate <= to && a.endDate >= from
-        );
-        const absDays = mAbs.reduce((s, a) => {
-            const start  = a.startDate > from ? a.startDate : from;
-            const end    = a.endDate   < to   ? a.endDate   : to;
-            const absDur = Math.max(1, Math.round((new Date(a.endDate) - new Date(a.startDate)) / 86400000) + 1);
-            const winDur = Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000) + 1);
-            return s + (a.days || 0) * (winDur / absDur);
-        }, 0);
-        const roundedAbs = Math.round(absDays * 10) / 10;
-        const availDays  = Math.max(0, sprintDur - roundedAbs);
-        const availPct   = Math.round((availDays / sprintDur) * 100);
-        return { name: m.name, role: m.role || '', absDays: roundedAbs, availDays, availPct };
-    }).sort((a, b) => a.availPct - b.availPct); // plus absents en premier
+// Retourne la dispo de chaque membre sur la fenêtre [from, to] (les deux bornes inclusives)
+function _capMemberAvail(members, absences, absTeamName, from, to, sprintDur, rolePctMap = {}) {
+    return members
+        .map(m => {
+            const rolePct = _capRolePct(m.role, rolePctMap); // ratio ETP en % (0-100)
+            const mAbs = absences.filter(a =>
+                a.memberName === m.name && a.team === absTeamName &&
+                a.startDate <= to && a.endDate >= from
+            );
+            const absDays = mAbs.reduce((s, a) => {
+                const start  = a.startDate > from ? a.startDate : from;
+                const end    = a.endDate   < to   ? a.endDate   : to;
+                const absDur = Math.max(1, Math.round((new Date(a.endDate) - new Date(a.startDate)) / 86400000) + 1);
+                const winDur = Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000) + 1);
+                return s + (a.days || 0) * (winDur / absDur);
+            }, 0);
+            const roundedAbs = Math.round(absDays * 10) / 10;
+            const availDays  = Math.max(0, sprintDur - roundedAbs);
+            const availPct   = Math.round((availDays / sprintDur) * 100);
+            return { name: m.name, role: m.role || '', rolePct, absDays: roundedAbs, availDays, availPct };
+        })
+        .filter(m => m.rolePct > 0) // exclut les rôles à 0% (PO, SM, etc.)
+        .sort((a, b) => a.availPct - b.availPct); // plus absents en premier
+}
+
+// Soustrait N jours à une date ISO (pour convertir borne exclusive → inclusive pour l'affichage)
+function _isoAddDays(iso, n) {
+    const d = new Date(iso + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 // Génère les dates de début/fin de chaque sprint du PI courant.
@@ -705,14 +793,19 @@ function _capSprintWindows(piInfo, teamSprints) {
     };
     const add = (iso, n) => { const d = new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return fmt(d); };
 
+    // Le dernier sprint d'un PI ≥ 6 sprints est un sprint IP (Innovation & Planning)
+    const isIpIdx = sprintCnt >= 6 ? sprintCnt : null;
+
     // Priorité 1 : date de début configurée manuellement
+    // `to` est exclusif (premier jour du sprint suivant) — les calculs d'absences utilisent [from, to[
     if (piInfo?.startDate) {
         const startDate = piInfo.startDate;
         return Array.from({ length: sprintCnt }, (_, i) => ({
             label: `${piNum || '?'}.${i+1}`,
             from:  add(startDate, i * sprintDur),
-            to:    add(startDate, (i + 1) * sprintDur - 1),
+            to:    add(startDate, (i + 1) * sprintDur - 1),  // inclusif (dernier jour du sprint)
             source: 'config',
+            isIP:  isIpIdx !== null && (i + 1) === isIpIdx,
         }));
     }
 
@@ -727,7 +820,8 @@ function _capSprintWindows(piInfo, teamSprints) {
         const idx = _capSprintIdx(s.name);
         if (!idx || !s.startDate) continue;
         const from = String(s.startDate).slice(0, 10);
-        const to   = s.endDate ? String(s.endDate).slice(0, 10) : add(from, sprintDur - 1);
+        // JIRA endDate est inclusif — on le prend tel quel
+        const to = s.endDate ? String(s.endDate).slice(0, 10) : add(from, sprintDur - 1);
         const cur  = byIdx.get(idx);
         if (!cur) { byIdx.set(idx, { from, to }); continue; }
         if (from < cur.from) cur.from = from;
@@ -739,7 +833,7 @@ function _capSprintWindows(piInfo, teamSprints) {
         const idx  = i + 1;
         const win  = byIdx.get(idx);
         return win
-            ? { label: `${piNum}.${idx}`, from: win.from, to: win.to, source: 'jira' }
+            ? { label: `${piNum}.${idx}`, from: win.from, to: win.to, source: 'jira', isIP: isIpIdx !== null && idx === isIpIdx }
             : null; // sprint non encore créé dans JIRA
     });
 }
@@ -747,21 +841,46 @@ function _capSprintWindows(piInfo, teamSprints) {
 function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
     const sprintInfo    = store.get('sprintInfo');
     const allMembers    = store.get('members') || [];
-    const allTeamSprints = sprintInfo?.teamSprints || [];
+    const tickets       = store.get('tickets') || [];
     const effectiveMembers = deriveMembersFromAbsences(absences, allMembers);
     const rolePctMap    = _capGetRolePct();
+
+    // Enrichit les teamSprints : si velocity = 0, fallback sur les tickets done du sprint
+    const allTeamSprints = (sprintInfo?.teamSprints || []).map(s => {
+        if ((s.velocity || 0) > 0) return s;
+        const fromTickets = sumBy(
+            tickets.filter(t =>
+                t.status === 'done' && t.team === s.team &&
+                (t.sprintName || t.sprint_name) === s.name
+            ),
+            t => t.points || 0
+        );
+        return fromTickets > 0 ? { ...s, velocity: fromTickets, _velFromTickets: true } : s;
+    });
 
     const excludedRoles = _capGetExcludedRoles();
     const historyMode   = _capGetHistoryMode();
     const historyCount  = _capGetHistoryCount();
-    const sprintDur     = piInfo?.sprintDuration || 14;
-    const basePiNum     = piInfo?.number || _extractPi(sprintInfo?.name) || 0;
+    const basePiNum     = _extractPi(sprintInfo?.name) || piInfo?.number || 0;
     const piOffset      = store.get('piOffset') || 0;
     const curPiNum      = basePiNum ? Math.max(1, basePiNum + piOffset) : 0;
-    // Pour un PI autre que le courant, startDate ne s'applique pas → on force la dérivation JIRA
-    const piInfoForWindows = (piOffset === 0)
-        ? piInfo
-        : { ...piInfo, number: curPiNum, startDate: null };
+
+    // Lit la config locale du PI affiché (stockée par settings.js sous pi-cfg-<N>)
+    const _piCfgLocal = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${curPiNum}`) || 'null'); } catch { return null; } })();
+
+    const sprintDur     = _piCfgLocal?.sprintDuration || piInfo?.sprintDuration || 14;
+    const sprintCount   = _piCfgLocal?.sprintsPerPI   || piInfo?.sprintsPerPI   || 5;
+
+    // Pour les fenêtres : utilise startDate local si dispo, sinon dérivation JIRA
+    const piInfoForWindows = {
+        ...piInfo,
+        number:        curPiNum,
+        sprintsPerPI:  sprintCount,
+        sprintDuration: sprintDur,
+        startDate: piOffset === 0
+            ? (_piCfgLocal?.startDate || piInfo?.startDate || null)
+            : (_piCfgLocal?.startDate || null),  // PI autre : local si sauvegardé, sinon dérivation JIRA
+    };
     const sprintWindows = _capSprintWindows(piInfoForWindows, allTeamSprints);
 
     // Toutes les équipes visibles (filtre topbar)
@@ -815,12 +934,12 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
             .filter(s => s.team === teamName && _capPiFromSprint(s.name) === curPiNum)
             .sort((a, b) => (_capSprintIdx(a.name)||0) - (_capSprintIdx(b.name)||0));
 
-        // Capacité par sprint
-        const sprintCount = piInfo?.sprintsPerPI || 5;
+        // Capacité par sprint — utilise sprintCount dérivé du PI affiché (local ou JIRA)
         const sprints = Array.from({ length: sprintCount }, (_, idx) => {
             const sprintNum = idx + 1;
             const label     = `${curPiNum || '?'}.${sprintNum}`;
             const window    = sprintWindows?.[idx] || null;
+            const isIP      = window?.isIP || false; // Sprint Innovation & Planning
 
             // Jours théoriques disponibles (pondérés par ETP rôle)
             const totalDays = memberEtp * sprintDur;
@@ -841,29 +960,49 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
             const availDays = Math.max(0, totalDays - absDays);
             const availPct  = totalDays > 0 ? Math.round((availDays / totalDays) * 100) : 100;
 
-            // SP estimés = base capacité × % dispo (arrondi au supérieur)
-            const spEst   = memberEtp > 0 ? Math.ceil(capMultiplier * (availPct / 100)) : 0;
-            const spBuf   = Math.round(spEst * 0.2);
+            // Sprint IP : pas d'estimation de planning (spEst/spBuf/spNet = 0)
+            const spEst   = (!isIP && memberEtp > 0) ? Math.ceil(capMultiplier * (availPct / 100)) : 0;
+            const spBuf   = !isIP ? Math.round(spEst * 0.2) : 0;
             const spNet   = spEst - spBuf;
 
             // Disponibilité par membre (pour la tooltip détail)
             const memberAvail = window
-                ? _capMemberAvail(members, absences, absTeamName, window.from, window.to, sprintDur)
-                : members.map(m => ({ name: m.name, role: m.role || '', absDays: 0, availDays: sprintDur, availPct: 100 }));
+                ? _capMemberAvail(members, absences, absTeamName, window.from, window.to, sprintDur, rolePctMap)
+                : members.filter(m => _capRolePct(m.role, rolePctMap) > 0).map(m => ({ name: m.name, role: m.role || '', rolePct: _capRolePct(m.role, rolePctMap), absDays: 0, availDays: sprintDur, availPct: 100 }));
 
-            // Données réelles du sprint (si déjà clôturé)
-            const real = piTeamSprints.find(s => _capSprintIdx(s.name) === sprintNum);
-            const realVel   = real?.velocity  || null;
-            const realState = real?.state     || null;
+            // Données réelles du sprint (si déjà clôturé) — comptabilisées même pour sprint IP
+            // Cherche par index (pattern XX.N) en priorité, puis par fenêtre de dates
+            const real = piTeamSprints.find(s => _capSprintIdx(s.name) === sprintNum)
+                || (window ? allTeamSprints.find(s =>
+                    s.team === teamName && s.state === 'closed' &&
+                    String(s.startDate || '').slice(0,10) === window.from
+                ) : null);
+            const realState = real?.state || null;
+            // realVel : velocity du sprint (déjà enrichie avec fallback tickets dans allTeamSprints)
+            // Si toujours 0, fallback direct sur les tickets done du sprint
+            let realVel = (real?.velocity || 0) > 0 ? real.velocity : null;
+            if (realVel == null && real?.name) {
+                const fromTkts = sumBy(
+                    tickets.filter(t => t.status === 'done' && t.team === teamName &&
+                        (t.sprintName || t.sprint_name) === real.name),
+                    t => t.points || 0
+                );
+                if (fromTkts > 0) realVel = fromTkts;
+            }
 
-            return { label, totalDays, absDays, availDays, availPct, spEst, spBuf, spNet, realVel, realState, window, memberAvail };
+            return { label, totalDays, absDays, availDays, availPct, spEst, spBuf, spNet, realVel, realState, window, memberAvail, isIP };
         });
 
-        const totalSpEst = sumBy(sprints, s => s.spEst);
-        const totalBuf   = sumBy(sprints, s => s.spBuf);
-        const totalAbs   = Math.round(sumBy(sprints, s => s.absDays) * 10) / 10;
+        const totalSpEst  = sumBy(sprints, s => s.spEst);
+        const totalBuf    = sumBy(sprints, s => s.spBuf);
+        const totalAbs    = Math.round(sumBy(sprints, s => s.absDays) * 10) / 10;
+        const closedSprints  = sprints.filter(s => s.realVel != null && s.realState !== 'active');
+        const closedCount    = closedSprints.length;
+        const totalRealVel   = sumBy(closedSprints, s => s.realVel);
+        const totalRealNet   = sumBy(closedSprints, s => s.spNet);   // capacité nette estimée sur sprints clôturés
+        const totalRealBuf   = Math.max(0, totalRealVel - totalRealNet); // part qui déborde dans le buffer
 
-        return { teamName, color, memberCount, avgVelPerSprint, capMultiplier, capSource, baseCapacity, sprints, totalSpEst, totalBuf, totalAbs };
+        return { teamName, color, memberCount, memberEtp, members, avgVelPerSprint, capMultiplier, capSource, baseCapacity, sprints, totalSpEst, totalBuf, totalAbs, totalRealVel, totalRealBuf, closedCount };
     });
 
     // ── HTML ──────────────────────────────────────────────────────────────────
@@ -879,7 +1018,9 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
         : 'jira';
     // Compte les sprints avec fenêtre connue vs manquants
     const knownWindows  = sprintWindows ? sprintWindows.filter(Boolean).length : 0;
-    const totalSprints  = piInfo?.sprintsPerPI || 5;
+    const totalSprints  = sprintCount;
+    // Détecte si la vélocité historique vient des tickets (pas de Greenhopper JIRA)
+    const velFromTickets = allTeamSprints.some(s => s._velFromTickets);
 
     el.innerHTML = `
     <div class="picap">
@@ -894,7 +1035,7 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
                     <option value="sprint" ${historyMode==='sprint' ? 'selected' : ''}>Par sprint</option>
                 </select>
                 <input class="input input-sm" id="cap-history-count" type="number" min="1" max="20" value="${historyCount}" style="width:48px" title="Nombre de PI ou sprints">
-                <span class="picap-params-hint">${esc(modeLabel)}</span>
+                <span class="picap-params-hint">${esc(modeLabel)}${velFromTickets ? ' <span class="picap-vel-source" title="Vélocité calculée depuis les tickets done (pas de données Greenhopper JIRA)">· tickets</span>' : ''}</span>
                 <span class="picap-params-sep"></span>
                 ${windowSource === 'jira' ? `<span class="picap-source-info">
                     <svg class="icon icon-sm" style="color:var(--success)"><use href="#i-check"/></svg>
@@ -944,7 +1085,50 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
                     <div class="picap-team-hdr">
                         <span class="team-dot" style="background:${td.color}"></span>
                         <span class="picap-team-name">${esc(td.teamName)}</span>
-                        <span class="picap-team-meta">${td.memberCount} dev · vél. moy. <strong>${td.avgVelPerSprint}</strong> SP/sprint</span>
+                        <span class="picap-team-meta picap-has-tt">${(() => {
+                            const etp = Math.round(td.memberEtp * 10) / 10;
+                            const pct = td.memberCount > 0 ? Math.round((td.memberEtp / td.memberCount) * 100) : 100;
+                            const etpStr = etp !== td.memberCount
+                                ? `${td.memberCount} membres <span class="picap-meta-etp">(${etp} ETP · ${pct}%)</span>`
+                                : `${td.memberCount} membres`;
+                            // Regroupe par rôle pour le tooltip
+                            const byRole = {};
+                            td.members.forEach(m => {
+                                const r = m.role || 'Dev';
+                                const p = _capRolePct(m.role, rolePctMap);
+                                if (!byRole[r]) byRole[r] = { pct: p, count: 0, etp: 0 };
+                                byRole[r].count++;
+                                byRole[r].etp += p / 100;
+                            });
+                            const roleRows = Object.entries(byRole)
+                                .sort(([,a],[,b]) => b.etp - a.etp)
+                                .map(([role, d]) => {
+                                    const isZero = d.pct === 0;
+                                    return `
+                                <div class="picap-tt-row${isZero ? ' picap-tt-row--excluded' : ''}">
+                                    <span>${esc(role)} <em class="picap-tt-role-count">(×${d.count})</em>${isZero ? ' <em class="picap-tt-role-excl">exclu</em>' : ''}</span>
+                                    <strong>${isZero ? '—' : `${Math.round(d.etp * 10) / 10} ETP <span class="picap-tt-role-pct">${d.pct}%</span>`}</strong>
+                                </div>`;
+                                }).join('');
+                            const histRows = td.avgVelPerSprint > 0 ? `
+                                <div class="picap-tt-sep"></div>
+                                <div class="picap-tt-row picap-tt-row--head"><span>Vélocité historique</span></div>
+                                <div class="picap-tt-row">
+                                    <span>${historyMode === 'pi' ? `${historyCount} PI précédent${historyCount > 1 ? 's' : ''}` : `${historyCount} dernier${historyCount > 1 ? 's' : ''} sprint${historyCount > 1 ? 's' : ''}`}</span>
+                                    <strong>${td.avgVelPerSprint} SP/sprint</strong>
+                                </div>` : '';
+                            return `${etpStr} · vél. moy. <strong>${td.avgVelPerSprint}</strong> SP/sprint
+                            <div class="picap-tt picap-tt--meta">
+                                <div class="picap-tt-row picap-tt-row--head"><span>Composition de l'équipe</span></div>
+                                ${roleRows}
+                                <div class="picap-tt-sep"></div>
+                                <div class="picap-tt-row picap-tt-row--total">
+                                    <span>Total ETP</span>
+                                    <strong>${etp} ETP <span class="picap-tt-role-pct">(${pct}%)</span></strong>
+                                </div>
+                                ${histRows}
+                            </div>`;
+                        })()}</span>
                         <label class="picap-base-wrap" title="Base Capacité : remplace la vélocité historique pour l'estimation. Vide = vélocité historique (${td.avgVelPerSprint} SP).">
                             <span class="picap-base-label">Base</span>
                             <input class="picap-base-input"
@@ -957,20 +1141,112 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
                             ${td.capSource === 'manual' ? `<span class="picap-base-badge">perso</span>` : ''}
                         </label>
                         <span class="picap-team-totals">
-                            <span class="picap-total-sp">${td.totalSpEst} SP estimés</span>
-                            <span class="picap-total-buf">${td.totalBuf} buffer</span>
+
+                            <!-- Chip SP estimés -->
+                            <span class="picap-total-sp picap-has-tt">
+                                ${td.totalSpEst} SP estimés
+                                <div class="picap-tt picap-tt--totals">
+                                    <div class="picap-tt-row picap-tt-row--head"><span>Capacité estimée PI</span></div>
+                                    ${td.sprints.filter(s => !s.isIP).map(s => `
+                                    <div class="picap-tt-row">
+                                        <span>Sprint ${s.label}${s.realState === 'closed' ? ' ✓' : s.realState === 'active' ? ' ▶' : ''}</span>
+                                        <strong>${s.spEst} SP</strong>
+                                    </div>`).join('')}
+                                    <div class="picap-tt-sep"></div>
+                                    <div class="picap-tt-row picap-tt-row--total">
+                                        <span>Total estimé</span>
+                                        <strong>${td.totalSpEst} SP</strong>
+                                    </div>
+                                    <div class="picap-tt-row">
+                                        <span>dont buffer (20%)</span>
+                                        <strong style="color:#7c3aed">− ${td.totalBuf} SP</strong>
+                                    </div>
+                                    <div class="picap-tt-row picap-tt-row--total">
+                                        <span>Capacité nette</span>
+                                        <strong>${td.totalSpEst - td.totalBuf} SP</strong>
+                                    </div>
+                                </div>
+                            </span>
+
+                            <!-- Chip buffer -->
+                            <span class="picap-total-buf picap-has-tt">
+                                ${td.totalBuf} buffer
+                                <div class="picap-tt picap-tt--totals">
+                                    <div class="picap-tt-row picap-tt-row--head"><span>Buffer de capacité (20%)</span></div>
+                                    ${td.sprints.filter(s => !s.isIP).map(s => `
+                                    <div class="picap-tt-row">
+                                        <span>Sprint ${s.label}</span>
+                                        <strong style="color:#7c3aed">${s.spBuf} SP</strong>
+                                    </div>`).join('')}
+                                    <div class="picap-tt-sep"></div>
+                                    <div class="picap-tt-row picap-tt-row--buf">
+                                        <span>Total buffer</span>
+                                        <strong>${td.totalBuf} SP</strong>
+                                    </div>
+                                    <div class="picap-tt-row">
+                                        <span>Capacité brute</span>
+                                        <strong>${td.totalSpEst} SP</strong>
+                                    </div>
+                                    <div class="picap-tt-row picap-tt-row--total">
+                                        <span>Capacité nette</span>
+                                        <strong>${td.totalSpEst - td.totalBuf} SP</strong>
+                                    </div>
+                                </div>
+                            </span>
+
+                            <!-- Chip réalisé -->
+                            ${td.closedCount > 0 ? (() => {
+                                const cls = td.sprints.filter(s => s.realState === 'closed' && s.realVel != null);
+                                const estClosed = sumBy(cls, s => s.spEst);
+                                const netClosed = sumBy(cls, s => s.spNet);
+                                const ecart     = td.totalRealVel - netClosed;
+                                const ecartCls  = ecart >= 0 ? 'picap-tt-row--total' : 'picap-tt-row--warn';
+                                return `
+                            <span class="picap-total-real picap-has-tt">
+                                ✓ ${td.totalRealVel} SP réalisés${td.totalRealBuf > 0 ? ` <span class="picap-total-real-buf">dont ${td.totalRealBuf} buf</span>` : ''}
+                                <div class="picap-tt picap-tt--totals">
+                                    <div class="picap-tt-row picap-tt-row--head"><span>Réalisé — ${td.closedCount} sprint${td.closedCount > 1 ? 's' : ''} clôturé${td.closedCount > 1 ? 's' : ''}</span></div>
+                                    ${cls.map(s => `
+                                    <div class="picap-tt-row">
+                                        <span>Sprint ${s.label}</span>
+                                        <strong style="color:var(--success)">${s.realVel} SP</strong>
+                                    </div>`).join('')}
+                                    <div class="picap-tt-sep"></div>
+                                    <div class="picap-tt-row picap-tt-row--total" style="--picap-total-color:var(--success)">
+                                        <span>Total réalisé</span>
+                                        <strong style="color:var(--success)">${td.totalRealVel} SP</strong>
+                                    </div>
+                                    ${td.totalRealBuf > 0 ? `
+                                    <div class="picap-tt-row">
+                                        <span>dont buffer utilisé</span>
+                                        <strong style="color:#7c3aed">+${td.totalRealBuf} SP</strong>
+                                    </div>` : ''}
+                                    <div class="picap-tt-sep"></div>
+                                    <div class="picap-tt-row">
+                                        <span>Estimé (${td.closedCount} sprint${td.closedCount > 1 ? 's' : ''})</span>
+                                        <strong>${estClosed} SP</strong>
+                                    </div>
+                                    <div class="picap-tt-row ${ecartCls}">
+                                        <span>Écart vs capacité nette</span>
+                                        <strong>${ecart >= 0 ? '+' : ''}${ecart} SP</strong>
+                                    </div>
+                                </div>
+                            </span>`;
+                            })() : ''}
+
                         </span>
                     </div>
                     <div class="picap-sprints">
                         ${td.sprints.map(s => {
-                            const isDone = s.realState === 'closed';
+                            const isDone = s.realState === 'closed' || (s.realVel != null && s.realState !== 'active');
                             const isActive = s.realState === 'active';
                             const barW = Math.min(100, s.availPct);
                             const netPct = s.spEst > 0 ? Math.round((s.spNet / s.spEst) * 100) : 80;
                             return `
-                            <div class="picap-sprint${isDone ? ' picap-sprint--done' : isActive ? ' picap-sprint--active' : ''}">
+                            <div class="picap-sprint${isDone ? ' picap-sprint--done' : isActive ? ' picap-sprint--active' : ''}${s.isIP ? ' picap-sprint--ip' : ''}">
                                 <div class="picap-sprint-hdr">
                                     <span class="picap-sprint-label">Sprint ${s.label}</span>
+                                    ${s.isIP ? '<span class="picap-sprint-badge-ip" title="Sprint Innovation & Planning — exclu des estimations de capacité">🧪 IP</span>' : ''}
                                     ${s.window ? `<span class="picap-sprint-dates">${_rotFmtCapDate(s.window.from)} → ${_rotFmtCapDate(s.window.to)}</span>` : ''}
                                     ${isDone && s.realVel != null ? `<span class="picap-sprint-real">Réalisé : <strong>${s.realVel} SP</strong></span>` : ''}
                                     ${isActive ? `<span class="picap-sprint-badge-active">En cours</span>` : ''}
@@ -1011,26 +1287,40 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
                                     </div>
                                 </div>
 
-                                <!-- SP : net + buffer -->
+                                <!-- SP : net + buffer (masqué pour sprint IP) -->
+                                ${s.isIP ? `
+                                <div class="picap-sp-row picap-sp-row--ip">
+                                    <span class="picap-sp-ip-note">Sprint Innovation & Planning — pas d'estimation de capacité</span>
+                                    ${s.realVel != null ? `<span class="picap-sprint-real">Réalisé : <strong>${s.realVel} SP</strong></span>` : ''}
+                                </div>` : `
+                                ${(() => {
+                                    const rv       = s.realVel ?? null;
+                                    const realNet  = rv !== null ? Math.min(rv, s.spNet) : null;       // part vélocité dans le net
+                                    const realBuf  = rv !== null ? Math.max(0, rv - s.spNet) : null;   // part dans le buffer
+                                    const netFill  = s.spNet > 0 && realNet !== null ? Math.round((realNet / s.spNet) * 100) : 0;
+                                    const bufFill  = s.spBuf > 0 && realBuf !== null ? Math.min(100, Math.round((realBuf / s.spBuf) * 100)) : 0;
+                                    return `
                                 <div class="picap-sp-row picap-has-tt">
                                     <div class="picap-sp-bars">
                                         <div class="picap-sp-net" style="flex:${s.spNet}">
+                                            ${realNet !== null ? `<div class="picap-sp-real-fill picap-sp-real-fill--net" style="width:${netFill}%" title="${realNet} SP réalisés sur ${s.spNet} nets"></div>` : ''}
                                             <span class="picap-sp-val">${s.spNet}</span>
-                                            <span class="picap-sp-lbl">SP</span>
+                                            <span class="picap-sp-lbl">SP${realNet !== null ? ` <em class="picap-sp-real-hint">/ ${realNet} réal.</em>` : ''}</span>
                                         </div>
                                         <div class="picap-sp-buf" style="flex:${s.spBuf}">
+                                            ${realBuf !== null && realBuf > 0 ? `<div class="picap-sp-real-fill picap-sp-real-fill--buf" style="width:${bufFill}%" title="${realBuf} SP réalisés sur ${s.spBuf} buffer"></div>` : ''}
                                             <span class="picap-sp-val">${s.spBuf}</span>
-                                            <span class="picap-sp-lbl">buf</span>
+                                            <span class="picap-sp-lbl">buf${realBuf !== null && realBuf > 0 ? ` <em class="picap-sp-real-hint">/ ${realBuf}</em>` : ''}</span>
                                         </div>
                                     </div>
-                                    <span class="picap-sp-total">≈&thinsp;${s.spEst} SP</span>
+                                    <span class="picap-sp-total">≈&thinsp;${s.spEst} SP${rv !== null ? ` <span class="picap-sp-total-real">✓${rv}</span>` : ''}</span>
                                     <div class="picap-tt picap-tt--wide">
                                         <div class="picap-tt-row picap-tt-row--head">
                                             <span>Membres disponibles — sprint ${s.label}</span>
                                         </div>
                                         ${s.memberAvail.map(m => `
                                         <div class="picap-tt-row picap-tt-member">
-                                            <span class="picap-tt-member-name">${esc(m.name)}</span>
+                                            <span class="picap-tt-member-name">${esc(m.name)}${m.rolePct < 100 ? ` <span class="picap-tt-role-pct">${m.rolePct}%</span>` : ''}</span>
                                             <span class="picap-tt-member-bar-wrap">
                                                 <span class="picap-tt-member-bar">
                                                     <span class="picap-tt-member-fill" style="width:${m.availPct}%"></span>
@@ -1043,12 +1333,25 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
                                             <span>Calcul estimation</span>
                                         </div>
                                         <div class="picap-tt-row">
-                                            <span>${td.capSource === 'manual' ? 'Base Capacité <em>(perso)</em>' : `Vél. moy. (${historyCount} ${historyMode === 'pi' ? 'PI' : 'sprints'})`}</span>
-                                            <strong>${td.capMultiplier} SP</strong>
+                                            <span>Jours théoriques (${Math.round(td.memberEtp * 10) / 10} ETP × ${sprintDur}j)</span>
+                                            <strong>${Math.round(s.totalDays * 10) / 10} j</strong>
                                         </div>
+                                        ${s.absDays > 0 ? `
+                                        <div class="picap-tt-row picap-tt-row--warn">
+                                            <span>− Absences pondérées</span>
+                                            <strong>− ${s.absDays} j</strong>
+                                        </div>` : ''}
                                         <div class="picap-tt-row">
-                                            <span>× disponibilité équipe</span>
-                                            <strong>${s.availPct}%</strong>
+                                            <span>= Jours disponibles</span>
+                                            <strong>${Math.round(s.availDays * 10) / 10} j (${s.availPct}%)</strong>
+                                        </div>
+                                        <div class="picap-tt-sep"></div>
+                                        <div class="picap-tt-row">
+                                            <span>${td.capSource === 'manual'
+                                                ? 'Base Capacité <em>(perso)</em>'
+                                                : `Vél. moy. (${historyCount} ${historyMode === 'pi' ? 'PI' : 'sprints'})${velFromTickets ? ' <span class="picap-vel-source">tickets</span>' : ''}`
+                                            }</span>
+                                            <strong>${td.capMultiplier} SP</strong>
                                         </div>
                                         <div class="picap-tt-row picap-tt-row--formula">
                                             <span>${td.capMultiplier} × ${s.availPct}% = <strong>${(td.capMultiplier * s.availPct / 100).toFixed(1)}</strong> → ⌈ ${s.spEst} SP ⌉</span>
@@ -1065,8 +1368,29 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
                                             <span>SP nets</span>
                                             <strong>${s.spNet} SP</strong>
                                         </div>
+                                        ${rv !== null ? `
+                                        <div class="picap-tt-sep"></div>
+                                        <div class="picap-tt-row picap-tt-row--head"><span>Réalisé</span></div>
+                                        <div class="picap-tt-row">
+                                            <span>Vélocité réelle</span>
+                                            <strong style="color:var(--success)">${rv} SP</strong>
+                                        </div>
+                                        <div class="picap-tt-row">
+                                            <span>dont vélocité nette</span>
+                                            <strong>${realNet} SP</strong>
+                                        </div>
+                                        ${realBuf > 0 ? `
+                                        <div class="picap-tt-row picap-tt-row--buf">
+                                            <span>dont buffer utilisé</span>
+                                            <strong>+${realBuf} SP</strong>
+                                        </div>` : ''}
+                                        <div class="picap-tt-row ${rv >= s.spNet ? 'picap-tt-row--total' : 'picap-tt-row--warn'}">
+                                            <span>Écart vs estimé</span>
+                                            <strong>${rv - s.spEst >= 0 ? '+' : ''}${rv - s.spEst} SP</strong>
+                                        </div>` : ''}
                                     </div>
-                                </div>
+                                </div>`;
+                                })()}`}
                             </div>`;
                         }).join('')}
                     </div>
@@ -1234,6 +1558,30 @@ function renderTeams(el, { teamCap, tickets, teams }) {
     `;
 }
 
+// Formate "NOM, Prénom" → "Prénom NOM" pour l'affichage
+function _fmtMemberName(n) {
+    const comma = n.indexOf(',');
+    if (comma < 0) return n;
+    return `${n.slice(comma + 1).trim()} ${n.slice(0, comma).trim()}`;
+}
+
+// Trie les membres support : actifs en premier, puis prénom puis nom
+function _sortSupportMembers(names) {
+    const _parse = n => {
+        const comma = n.indexOf(',');
+        if (comma > 0) return { first: n.slice(comma + 1).trim(), last: n.slice(0, comma).trim() };
+        const parts = n.trim().split(/\s+/);
+        return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] || '' };
+    };
+    return [...names].sort((a, b) => {
+        const diff = (isMemberSupportActive(a) ? 0 : 1) - (isMemberSupportActive(b) ? 0 : 1);
+        if (diff !== 0) return diff;
+        const pa = _parse(a), pb = _parse(b);
+        const fc = pa.first.localeCompare(pb.first, 'fr', { sensitivity: 'base' });
+        return fc !== 0 ? fc : pa.last.localeCompare(pb.last, 'fr', { sensitivity: 'base' });
+    });
+}
+
 // ── Support Rotation (lecture seule) ─────────────────────────────────────────
 function renderSupportRota(el, { teams, teamObjects }) {
     const support    = store.get('support') || [];
@@ -1253,19 +1601,48 @@ function renderSupportRota(el, { teams, teamObjects }) {
     const filteredTeams = (!activeTeam || activeTeam === 'all') ? teams : teams.filter(t => t === activeTeam);
     const teamNames = [...filteredTeams].sort((a, b) => String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' }));
 
-    // Switch PI courant / suivant — état local persisté
-    const LS_KEY = 'pi-tab-support-next';
-    let showNext = localStorage.getItem(LS_KEY) === '1';
+    // Sélecteur PI — utilise piOffset du store (même logique que topbar)
+    const basePiNum = _extractPi(sprintInfo?.name) || piInfo?.number || 0;
 
     const _render = () => {
+        const piOffset   = store.get('piOffset') || 0;
+        const showNext   = piOffset > 0; // pour les classes CSS existantes
         const panels = teamNames.map(teamName => {
             const tObj  = teamObjects.find(o => o.name === teamName);
             const color = tObj?.color || '#64748b';
             const mode  = getSupportWeekMode(teamName);
             const { curWeeks, nextWeeks, curPiNum, nextPiNum } = buildSupportPiWeeks(piInfo, sprintInfo, mode);
-            const allWeeks   = showNext ? nextWeeks : curWeeks;
-            const panelPiNum = showNext ? nextPiNum : curPiNum;
+
+            // Calcule les semaines pour le PI sélectionné via piOffset
+            const sprintCnt = piInfo?.sprintsPerPI || 5;
+            const sprintDur = piInfo?.sprintDuration || 14;
+            const targetPiNum = basePiNum ? Math.max(1, basePiNum + piOffset) : curPiNum;
+            // Décale le piStart du nombre de PI d'écart
+            const piStart = (() => {
+                const base = curWeeks[0]?.weekStart || new Date().toISOString().slice(0,10);
+                const d = new Date(base + 'T00:00:00');
+                d.setDate(d.getDate() + piOffset * sprintCnt * sprintDur);
+                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            })();
+            // Reconstruit les semaines pour ce PI
+            const wps = Math.max(1, Math.floor(sprintDur / 7));
+            const allWeeks = (() => {
+                const ws = [];
+                for (let s = 0; s < sprintCnt; s++) {
+                    const d = new Date(piStart + 'T00:00:00');
+                    d.setDate(d.getDate() + s * sprintDur);
+                    for (let w = 0; w < wps; w++) {
+                        const wStart = new Date(d); wStart.setDate(d.getDate() + w * 7);
+                        const wEnd   = new Date(wStart); wEnd.setDate(wStart.getDate() + 6);
+                        const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+                        ws.push({ label: `${targetPiNum}.${s + 1}.${w + 1}`, weekStart: fmt(wStart), weekEnd: fmt(wEnd) });
+                    }
+                }
+                return ws;
+            })();
+            const panelPiNum = targetPiNum;
             const teamMembers = allMembers.filter(m => _matchTeam(m.team, teamName));
+            const sortedMembers = _sortSupportMembers(teamMembers.map(m => m.name));
             if (!teamMembers.length) return '';
             const teamSupport = support.filter(s => _matchTeam(s.team, teamName));
             const mpw = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
@@ -1276,6 +1653,7 @@ function renderSupportRota(el, { teams, teamObjects }) {
                 return e && (e.members || []).length > 0;
             }).length;
             const summaryColor = filledWeeks === allWeeks.length ? 'var(--success)' : filledWeeks > 0 ? 'var(--warning)' : 'var(--danger)';
+            const memberCount = sortedMembers.length;
 
             // En-têtes semaines
             const weekRow = allWeeks.map(w => {
@@ -1286,8 +1664,9 @@ function renderSupportRota(el, { teams, teamObjects }) {
                 </th>`;
             }).join('');
 
-            // Lignes membres — cellules en lecture seule
-            const memberRows = teamMembers.map(m => {
+            // Lignes membres — cellules en lecture seule (triées actifs > prénom > nom)
+            const memberRows = sortedMembers.map(name => {
+                const m = { name };
                 const active = isMemberSupportActive(m.name);
                 const cells = allWeeks.map(w => {
                     const entry  = teamSupport.find(s => s.weekStart === w.weekStart);
@@ -1320,7 +1699,7 @@ function renderSupportRota(el, { teams, teamObjects }) {
                 }).join('');
                 return `<tr class="${active ? '' : 'rot-row-inactive'}">
                     <td class="rot-member-td">
-                        <span class="rot-member-name${active ? '' : ' is-inactive'}">${esc(m.name)}</span>
+                        <span class="rot-member-name${active ? '' : ' is-inactive'}" title="${esc(m.name)}">${esc(_fmtMemberName(m.name))}</span>
                     </td>
                     ${cells}
                 </tr>`;
@@ -1339,7 +1718,7 @@ function renderSupportRota(el, { teams, teamObjects }) {
                 <div class="rot-panel-hdr">
                     <span class="rot-dot" style="background:${color}"></span>
                     <span class="rot-name">${esc(teamName)}</span>
-                    <span class="rot-sum">${teamMembers.length} membres · <span style="color:${summaryColor}">${filledWeeks}/${allWeeks.length} sem.</span></span>
+                    <span class="rot-sum">${memberCount} membres · <span style="color:${summaryColor}">${filledWeeks}/${allWeeks.length} sem.</span></span>
                 </div>
                 <div class="rot-panel-body">
                     <div class="table-wrap">
@@ -1364,13 +1743,22 @@ function renderSupportRota(el, { teams, teamObjects }) {
             </div>`;
         }).filter(Boolean).join('');
 
+        const offsets  = [-2, -1, 0, 1, 2].filter(o => basePiNum ? (basePiNum + o) >= 1 : o >= 0);
+        const piSelectorHtml = basePiNum ? `
+            <div class="pi-selector" role="tablist" aria-label="Choix du PI">
+                ${offsets.map(o => {
+                    const piN = basePiNum + o;
+                    const isActive = o === piOffset;
+                    const label = o === 0 ? `PI${piN} <small>courant</small>` : `PI${piN}`;
+                    const cls = `pi-selector-btn${isActive ? ' active' : ''}${o === 0 ? ' pi-selector-btn--current' : ''}`;
+                    return `<button class="${cls}" role="tab" aria-selected="${isActive}" data-offset="${o}">${label}</button>`;
+                }).join('')}
+            </div>` : '';
+
         el.innerHTML = `
             <div class="pi-support-rota">
                 <div class="pi-support-rota-hdr">
-                    <div class="rot-pi-switch">
-                        <button class="rot-pi-switch-btn${!showNext ? ' is-active' : ''}" id="pir-cur">📆 PI courant</button>
-                        <button class="rot-pi-switch-btn${showNext ? ' is-active' : ''}" id="pir-next">📅 PI suivant</button>
-                    </div>
+                    ${piSelectorHtml}
                     <a class="picap-settings-link" id="pir-goto-settings" href="#settings">
                         <svg class="icon icon-sm"><use href="#i-settings"/></svg>
                         Modifier dans Paramètres
@@ -1379,8 +1767,12 @@ function renderSupportRota(el, { teams, teamObjects }) {
                 ${panels || '<p class="text-muted text-sm">Aucune rotation configurée.</p>'}
             </div>`;
 
-        el.querySelector('#pir-cur')?.addEventListener('click', () => { showNext = false; localStorage.setItem(LS_KEY, '0'); _render(); });
-        el.querySelector('#pir-next')?.addEventListener('click', () => { showNext = true; localStorage.setItem(LS_KEY, '1'); _render(); });
+        el.querySelectorAll('.pi-selector-btn[data-offset]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const o = parseInt(btn.dataset.offset, 10);
+                if (!Number.isNaN(o)) store.set('piOffset', o);
+            });
+        });
         el.querySelector('#pir-goto-settings')?.addEventListener('click', e => {
             e.preventDefault();
             window.__squadBoard?.store.set('settingsSection', 'rotation');
@@ -1403,7 +1795,7 @@ function renderBurnup(el, { piInfo, teams, teamObjects }) {
     const team = store.get('team');
     const teamFilter = team && team !== 'all';
     // PI courant décalé par le sélecteur topbar (piOffset = -2..+2)
-    const _basePi = piInfo?.number || _extractPi(sprintInfo?.name);
+    const _basePi = _extractPi(sprintInfo?.name) || piInfo?.number;
     const _piOffset = store.get('piOffset') || 0;
     const piNumber = _basePi ? Math.max(1, _basePi + _piOffset) : 0;
 
@@ -1602,7 +1994,8 @@ async function renderVotingPanel(el, type, title, teams, scale) {
     const _basePiNum    = piInfo?.number || 0;
     const _piOff        = store.get('piOffset') || 0;
     const piNum         = _basePiNum ? Math.max(1, _basePiNum + _piOff) : '';
-    const sprintsCnt    = piInfo?.sprintsPerPI || 0;
+    const _piCfgLocalBu = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNum}`) || 'null'); } catch { return null; } })();
+    const sprintsCnt    = _piCfgLocalBu?.sprintsPerPI || piInfo?.sprintsPerPI || 0;
     const defaultSprint = (sprintInfo?.name || '').match(/(\d+\.\d+)/)?.[1] || '';
     const currentTeam   = store.get('team');
     const teamObjects   = store.get('teamObjects') || [];

@@ -192,23 +192,25 @@ function _mapStageHtml(nodes) {
         const g = nodes.find(n => n.id === _zoom.groupId);
         const t = g?.teams.find(x => x.name === _zoom.team);
         if (!t) { _zoom = { level: 0, groupId: null, team: null }; return _mapStageHtml(nodes); }
+        const byRole = _groupByRole(t.members);
         return `<div class="atlas-crew atlas-crew--detail" style="--crew:${t.color}">
             <div class="atlas-crew-hdr">
                 <span class="atlas-crew-dot" style="background:${t.color}"></span>
                 <span class="atlas-crew-name">${esc(t.name)}</span>
                 <span class="atlas-crew-count">${t.members.length} membre${t.members.length > 1 ? 's' : ''}</span>
             </div>
-            <div class="atlas-crew-grid atlas-crew-grid--lg">
-                ${t.members.length ? t.members.map(m => `
-                    <div class="atlas-member-card" data-member="${esc(m.name)}">
-                        ${_memberChipHtml(m)}
-                        <div class="atlas-member-info">
-                            <span class="atlas-member-name">${esc(m.name)}</span>
-                            <span class="atlas-member-role">${esc(m.role || '—')}</span>
-                        </div>
-                        ${_memberSkillBadgesHtml(m.name)}
-                    </div>`).join('') : '<div class="atlas-empty-sm">Aucun membre (absences non importées ?)</div>'}
-            </div>
+            ${t.members.length ? _rolesRowHtml(byRole, rg =>
+                `<div class="atlas-role-members">
+                    ${rg.members.map(m => `
+                        <div class="atlas-member-card" data-member="${esc(m.name)}">
+                            ${_memberChipHtml(m)}
+                            <div class="atlas-member-info">
+                                <span class="atlas-member-name">${esc(m.name)}</span>
+                            </div>
+                            ${_memberSkillBadgesHtml(m.name)}
+                        </div>`).join('')}
+                </div>`
+            ) : '<div class="atlas-empty-sm">Aucun membre (absences non importées ?)</div>'}
         </div>`;
     }
 
@@ -236,8 +238,66 @@ function _mapStageHtml(nodes) {
     </div>`;
 }
 
-/** Bloc "crew" (équipe) : pastilles membres en grille. compact=true pour la vue programme. */
+// Palette de couleurs et icônes par mot-clé de rôle
+const _ROLE_PALETTE = [
+    { match: /\b(SM|scrum\s*master|coach)\b/i,   color: '#8b5cf6', icon: '🔄' },
+    { match: /\b(PO|product\s*owner|product)\b/i, color: '#f59e0b', icon: '🎯' },
+    { match: /\b(lead|tech\s*lead|architect)\b/i, color: '#ef4444', icon: '⚡' },
+    { match: /\b(dev|developer|fullstack|front|back|mobile)\b/i, color: '#3b82f6', icon: '💻' },
+    { match: /\b(qa|test|qualit|recette)\b/i,     color: '#10b981', icon: '✅' },
+    { match: /\b(data|analyst|bi|analyst)\b/i,    color: '#06b6d4', icon: '📊' },
+    { match: /\b(design|ux|ui)\b/i,               color: '#ec4899', icon: '🎨' },
+    { match: /\b(devops|ops|infra|sre|cloud)\b/i, color: '#f97316', icon: '⚙️' },
+];
+function _roleStyle(role) {
+    if (!role || role === '—') return { color: '#94a3b8', icon: '👤' };
+    for (const p of _ROLE_PALETTE) {
+        if (p.match.test(role)) return { color: p.color, icon: p.icon };
+    }
+    return { color: '#6366f1', icon: '👥' };
+}
+
+/** Regroupe les membres par rôle, rôles vides en dernier. */
+function _groupByRole(members) {
+    const map = new Map();
+    for (const m of members) {
+        const role = (m.role || '').trim() || '—';
+        if (!map.has(role)) map.set(role, []);
+        map.get(role).push(m);
+    }
+    return [...map.entries()]
+        .sort(([a], [b]) => {
+            if (a === '—') return 1;
+            if (b === '—') return -1;
+            return a.localeCompare(b, 'fr', { sensitivity: 'base' });
+        })
+        .map(([role, members]) => ({ role, members, ..._roleStyle(role) }));
+}
+
+function _roleGroupHtml({ role, members, color, icon }, contentHtml) {
+    return `<div class="atlas-role-group">
+        <div class="atlas-role-label" style="color:${color}">
+            <span class="atlas-role-label-icon">${icon}</span>
+            ${esc(role)}
+            <span class="atlas-role-label-count">${members.length}</span>
+        </div>
+        ${contentHtml}
+    </div>`;
+}
+
+function _rolesRowHtml(byRole, makeContent) {
+    return `<div class="atlas-roles-row">${byRole.map(rg => _roleGroupHtml(rg, makeContent(rg))).join('')}</div>`;
+}
+
+/** Bloc "crew" (équipe) : pastilles membres groupées par rôle. compact=true pour la vue programme. */
 function _crewBlockHtml(g, t, compact = false) {
+    const byRole = _groupByRole(t.members);
+    const chipsHtml = _rolesRowHtml(byRole, rg =>
+        `<div class="atlas-crew-grid--compact-role">
+            ${rg.members.slice(0, compact ? 8 : 99).map(m => _memberChipHtml(m)).join('')}
+            ${compact && rg.members.length > 8 ? `<span class="atlas-chip-more">+${rg.members.length - 8}</span>` : ''}
+        </div>`
+    );
     return `<div class="atlas-crew${compact ? ' atlas-crew--compact' : ''}" data-group="${esc(g.id)}" data-team="${esc(t.name)}" style="--crew:${t.color}">
         <div class="atlas-crew-hdr">
             <span class="atlas-crew-dot" style="background:${t.color}"></span>
@@ -245,10 +305,7 @@ function _crewBlockHtml(g, t, compact = false) {
             <span class="atlas-crew-count">${t.members.length}</span>
         </div>
         ${!compact ? _teamAppetenceTagsHtml(t.name) : ''}
-        <div class="atlas-crew-grid">
-            ${t.members.slice(0, compact ? 12 : 99).map(m => _memberChipHtml(m)).join('')}
-            ${compact && t.members.length > 12 ? `<span class="atlas-chip-more">+${t.members.length - 12}</span>` : ''}
-        </div>
+        ${chipsHtml}
     </div>`;
 }
 
@@ -714,7 +771,140 @@ function _memberGlobalLevel(name) {
 // Tri d'affichage des items catalogue : par sort puis nom (cohérent avec le backend)
 const _bySort = (a, b) => (a.sort ?? 0) - (b.sort ?? 0) || (a.name || '').localeCompare(b.name || '');
 
+// ── Compétences requises/favoris par équipe (localStorage) ───────────────────
+function _teamReqKey(teamName) { return `sb-team-req-${teamName}`; }
+function _getTeamReq(teamName) {
+    try { const v = localStorage.getItem(_teamReqKey(teamName)); return v ? new Set(JSON.parse(v)) : new Set(); }
+    catch { return new Set(); }
+}
+function _toggleTeamReq(teamName, skillId) {
+    const req = _getTeamReq(teamName);
+    if (req.has(skillId)) req.delete(skillId); else req.add(skillId);
+    if (req.size) localStorage.setItem(_teamReqKey(teamName), JSON.stringify([...req]));
+    else localStorage.removeItem(_teamReqKey(teamName));
+    return req.has(skillId);
+}
+
+// ── Sélection de compétences par équipe (localStorage) ───────────────────────
+function _teamSkillsKey(teamName) { return `sb-team-skills-${teamName}`; }
+function _getTeamSkills(teamName) {
+    try { const v = localStorage.getItem(_teamSkillsKey(teamName)); return v ? new Set(JSON.parse(v)) : null; }
+    catch { return null; }
+}
+function _setTeamSkills(teamName, ids) {
+    if (!ids || ids.size === 0) localStorage.removeItem(_teamSkillsKey(teamName));
+    else localStorage.setItem(_teamSkillsKey(teamName), JSON.stringify([...ids]));
+}
+function _applyTeamSkillFilter(skills, teamName) {
+    if (!teamName || teamName === 'all') return skills;
+    const sel = _getTeamSkills(teamName);
+    return sel ? skills.filter(s => sel.has(s.id)) : skills;
+}
+
+function _openTeamSkillPicker(el, teamName, skills) {
+    document.getElementById('atlas-tsp-overlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'atlas-tsp-overlay';
+    overlay.className = 'atlas-mobility-overlay';
+    const sel = _getTeamSkills(teamName) || new Set(skills.map(s => s.id));
+    const cats = [...new Set(skills.map(s => s.category || 'Autres'))].sort((a, b) => a.localeCompare(b, 'fr'));
+
+    overlay.innerHTML = `
+        <div class="atlas-catalog-modal atlas-tsp-modal">
+            <div class="atlas-mobility-hdr">
+                <h3>Compétences visibles — ${esc(teamName)}</h3>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <button class="btn btn-sm btn-secondary" id="atlas-tsp-all">Tout cocher</button>
+                    <button class="btn btn-sm btn-secondary" id="atlas-tsp-none">Tout décocher</button>
+                    <button class="btn-icon" id="atlas-tsp-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                </div>
+            </div>
+            <div class="atlas-tsp-body">
+                ${cats.map(cat => {
+                    const catSkills = skills.filter(s => (s.category || 'Autres') === cat).sort(_bySort);
+                    return `<div class="atlas-tsp-cat">
+                        <div class="atlas-tsp-cat-hdr">
+                            <label class="atlas-tsp-cat-check">
+                                <input type="checkbox" class="atlas-tsp-cat-cb" data-cat="${esc(cat)}"
+                                    ${catSkills.every(s => sel.has(s.id)) ? 'checked' : ''}>
+                                <strong>${esc(cat)}</strong>
+                                <span class="atlas-cat-n">${catSkills.length}</span>
+                            </label>
+                        </div>
+                        <div class="atlas-tsp-items">
+                            ${catSkills.map(s => `
+                                <label class="atlas-tsp-item">
+                                    <input type="checkbox" class="atlas-tsp-cb" data-id="${esc(s.id)}" data-cat="${esc(cat)}"
+                                        ${sel.has(s.id) ? 'checked' : ''}>
+                                    <span class="atlas-cat-dot" style="background:${s.color}"></span>
+                                    ${esc(s.name)}
+                                </label>`).join('')}
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+            <div class="atlas-tsp-footer">
+                <span class="atlas-tsp-count" id="atlas-tsp-count"></span>
+                <button class="btn btn-primary" id="atlas-tsp-save">Appliquer</button>
+            </div>
+        </div>`;
+
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+
+    const updateCount = () => {
+        const n = overlay.querySelectorAll('.atlas-tsp-cb:checked').length;
+        overlay.querySelector('#atlas-tsp-count').textContent = `${n} / ${skills.length} compétences sélectionnées`;
+    };
+    updateCount();
+
+    // Cocher/décocher une catégorie entière
+    overlay.querySelectorAll('.atlas-tsp-cat-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+            overlay.querySelectorAll(`.atlas-tsp-cb[data-cat="${cb.dataset.cat}"]`).forEach(c => { c.checked = cb.checked; });
+            updateCount();
+        });
+    });
+    overlay.querySelectorAll('.atlas-tsp-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const cat = cb.dataset.cat;
+            const catCbs = [...overlay.querySelectorAll(`.atlas-tsp-cb[data-cat="${cat}"]`)];
+            const catCb  = overlay.querySelector(`.atlas-tsp-cat-cb[data-cat="${cat}"]`);
+            if (catCb) catCb.checked = catCbs.every(c => c.checked);
+            updateCount();
+        });
+    });
+
+    overlay.querySelector('#atlas-tsp-all').addEventListener('click', () => {
+        overlay.querySelectorAll('.atlas-tsp-cb, .atlas-tsp-cat-cb').forEach(c => { c.checked = true; });
+        updateCount();
+    });
+    overlay.querySelector('#atlas-tsp-none').addEventListener('click', () => {
+        overlay.querySelectorAll('.atlas-tsp-cb, .atlas-tsp-cat-cb').forEach(c => { c.checked = false; });
+        updateCount();
+    });
+
+    const close = () => {
+        overlay.classList.remove('visible');
+        overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+    };
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.querySelector('#atlas-tsp-close').addEventListener('click', close);
+
+    overlay.querySelector('#atlas-tsp-save').addEventListener('click', () => {
+        const checked = new Set([...overlay.querySelectorAll('.atlas-tsp-cb:checked')].map(c => c.dataset.id));
+        // Si tout est coché → pas de filtre (null = tout afficher)
+        _setTeamSkills(teamName, checked.size === skills.length ? null : checked);
+        close();
+        _renderMatrix(el);
+    });
+}
+
 function _renderMatrix(el) {
+    // Preserve scroll position across re-renders
+    const _scrollEl = el?.querySelector('.atlas-matrix-scroll');
+    const _scrollLeft = _scrollEl?.scrollLeft ?? 0;
+    const _scrollTop  = _scrollEl?.scrollTop  ?? 0;
     const skills     = [...(store.get('skills') || [])].sort(_bySort);
     const appetences = [...(store.get('appetences') || [])].sort(_bySort);
     const entities   = _matrixEntities();
@@ -778,17 +968,19 @@ function _renderMatrix(el) {
         return;
     }
 
-    // ── Filtres : recherche par nom + masquer les non-évalués ──────────────────
+    // ── Filtres : recherche par nom + masquer les non-évalués + filtre équipe ──
     const q = _matrixQuery.trim().toLowerCase();
+    const selTeamName = store.get('team');
+    const teamHasFilter = selTeamName && selTeamName !== 'all';
     let fEntities = entities;
     if (q) fEntities = entities.filter(e => e.label.toLowerCase().includes(q) || (e.team || '').toLowerCase().includes(q));
-    let fSkills = skills;
+    // Filtre skills par équipe (sélection configurée par équipe)
+    let fSkills = _applyTeamSkillFilter(skills, teamHasFilter ? selTeamName : null);
+    const teamSkillsActive = teamHasFilter && _getTeamSkills(selTeamName) !== null;
     if (_matrixHideEmpty) {
-        // Lignes : au moins une compétence évaluée
-        fEntities = fEntities.filter(e => skills.some(s => _skillLevel(scope, e.key, s.id) > 0)
+        fEntities = fEntities.filter(e => fSkills.some(s => _skillLevel(scope, e.key, s.id) > 0)
             || appetences.some(a => _appValue(scope, e.key, a.id) !== 'neutre'));
-        // Colonnes : au moins une entité (parmi les visibles) l'a évaluée
-        fSkills = skills.filter(s => fEntities.some(e => _skillLevel(scope, e.key, s.id) > 0));
+        fSkills = fSkills.filter(s => fEntities.some(e => _skillLevel(scope, e.key, s.id) > 0));
     }
     const entityCount = entities.length, shownCount = fEntities.length;
 
@@ -811,6 +1003,9 @@ function _renderMatrix(el) {
                 <span class="atlas-matrix-count">${shownCount === entityCount ? `${entityCount}` : `${shownCount}/${entityCount}`} ${scope === 'team' ? 'équipe(s)' : 'pers.'} · ${fSkills.length} comp.</span>
                 <div class="atlas-matrix-actions">
                     <button class="btn btn-secondary btn-sm" id="atlas-suggest-btn" title="Suggérer qui affecter selon les compétences et la disponibilité">🧭 Affectation</button>
+                    ${teamHasFilter ? `<button class="btn btn-sm ${teamSkillsActive ? 'btn-primary' : 'btn-secondary'}" id="atlas-tsp-btn" title="Sélectionner les compétences visibles pour cette équipe">
+                        🎯 Compétences équipe${teamSkillsActive ? ` <span style="font-size:10px;opacity:.8">(${fSkills.length}/${skills.length})</span>` : ''}
+                    </button>` : ''}
                     <button class="btn btn-secondary btn-sm" id="atlas-catalog-btn" title="Ajouter / modifier les compétences et appétences">⚙️ Catalogue</button>
                     <button class="btn btn-secondary btn-sm" id="atlas-mobility-btn" title="Tableau de suivi de mobilité">📋 Suivi mobilité</button>
                 </div>
@@ -832,8 +1027,16 @@ function _renderMatrix(el) {
                             ${appetences.length ? `<th class="atlas-grid-cat atlas-grid-cat--app" colspan="${appetences.length}">Appétences</th>` : ''}
                         </tr>
                         <tr class="atlas-grid-skills">
-                            ${cats.flatMap(c => fSkills.filter(s => (s.category || 'Autres') === c)).map(s =>
-                                `<th class="atlas-grid-skill atlas-grid-skill--edit" style="--sc:${s.color}" data-skill-hdr="${esc(s.id)}" title="${esc(s.name)} · clic = modifier"><span>${esc(s.name)}</span></th>`).join('')}
+                            <th class="atlas-grid-rowhdr" style="background:var(--bg)"></th>
+                            ${cats.flatMap(c => fSkills.filter(s => (s.category || 'Autres') === c)).map(s => {
+                                const isReq = teamHasFilter && _getTeamReq(selTeamName).has(s.id);
+                                const isEmpty = !fEntities.some(e => _skillLevel(scope, e.key, s.id) > 0);
+                                return `<th class="atlas-grid-skill atlas-grid-skill--edit${isReq ? ' atlas-skill-req' : ''}" style="--sc:${s.color}" data-skill-hdr="${esc(s.id)}" title="${esc(s.name)} · clic = modifier">
+                                    <span>${esc(s.name)}</span>
+                                    ${teamHasFilter ? `<button class="atlas-skill-fav${isReq ? ' is-req' : ''}" data-fav-skill="${esc(s.id)}" title="${isReq ? 'Retirer des compétences requises' : 'Marquer comme requise pour l\'équipe'}">${isReq ? '⭐' : '☆'}</button>` : ''}
+                                    ${isReq && isEmpty ? `<span class="atlas-skill-warn" title="Compétence requise mais aucun membre évalué — action nécessaire !">⚠️</span>` : ''}
+                                </th>`;
+                            }).join('')}
                             ${appetences.map(a => `<th class="atlas-grid-skill atlas-grid-skill--app atlas-grid-skill--edit" style="--sc:${a.color}" data-app-hdr="${esc(a.id)}" title="${esc(a.name)} · clic = modifier"><span>${esc(a.name)}</span></th>`).join('')}
                         </tr>
                     </thead>
@@ -854,6 +1057,11 @@ function _renderMatrix(el) {
         </div>`;
 
     _wireMatrix(el);
+    // Restore scroll position after re-render
+    if (_scrollLeft || _scrollTop) {
+        const newScrollEl = el.querySelector('.atlas-matrix-scroll');
+        if (newScrollEl) { newScrollEl.scrollLeft = _scrollLeft; newScrollEl.scrollTop = _scrollTop; }
+    }
     // Scroll vers le membre ciblé si on vient de la carte
     if (_matrixFocus && scope === 'member') {
         const row = el.querySelector(`tr[data-ent="${CSS.escape(_matrixFocus)}"]`);
@@ -970,11 +1178,24 @@ function _wireMatrix(el) {
     el.querySelector('#atlas-catalog-btn')?.addEventListener('click', () => _openCatalogModal(el));
     el.querySelector('#atlas-mobility-btn')?.addEventListener('click', () => _openMobilityModal());
     el.querySelector('#atlas-suggest-btn')?.addEventListener('click', () => _openSuggestModal());
+    el.querySelector('#atlas-tsp-btn')?.addEventListener('click', () => _openTeamSkillPicker(el, store.get('team'), store.get('skills') || []));
 
     // Bouton ＋ dans le coin : ajout rapide d'une compétence (popover inline)
     el.querySelector('#atlas-add-skill')?.addEventListener('click', e => {
         e.stopPropagation();
         _openQuickAddSkill(e.currentTarget, el);
+    });
+
+    // Bouton favori/requis sur les en-têtes skill (intercepté avant le clic edit)
+    el.querySelectorAll('.atlas-skill-fav').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const skillId  = btn.dataset.favSkill;
+            const teamName = store.get('team');
+            if (!teamName || teamName === 'all') return;
+            _toggleTeamReq(teamName, skillId);
+            _renderMatrix(el);
+        });
     });
 
     // Clic en-tête compétence/appétence → édition rapide (renommer / catégorie / supprimer)
@@ -991,15 +1212,65 @@ function _wireMatrix(el) {
         cell.title += '\nClic = créer un ticket de montée en compétence';
     });
     el.querySelectorAll('.atlas-cell[data-skill]').forEach(cell => {
-        // double-clic sur une cellule faible (niveau 0-1) → propose ticket skill-up
-        cell.addEventListener('dblclick', e => {
-            e.preventDefault();
+        // Long press (600ms) → propose ticket skill-up, avec loader circulaire visuel
+        let _pressTimer = null;
+        const PRESS_MS = 600;
+        const _startPress = e => {
+            if (e.button !== undefined && e.button !== 0) return;
             const row = cell.closest('tr');
             const key = row.dataset.ent;
             const skillId = cell.dataset.skill;
             const lvl = _skillLevel(_matrixScope, key, skillId);
-            if (lvl <= 2) _openSkillUpModal(key, cell.dataset.team, skillId);
-        });
+            if (lvl > 2) return;
+
+            // SVG circle progress — calcul à partir de la taille réelle de la cellule
+            const W = cell.offsetWidth || 38;
+            const H = cell.offsetHeight || 34;
+            const cx = W / 2, cy = H / 2;
+            const r = Math.min(cx, cy) - 3;
+            const circ = +(2 * Math.PI * r).toFixed(2);
+            // Couleur de la compétence (lue depuis --lvl via getComputedStyle)
+            const color = getComputedStyle(cell).getPropertyValue('--lvl').trim() || '#6366f1';
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('class', 'atlas-press-svg');
+            svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+            // Piste grise
+            const track = document.createElementNS(svgNS, 'circle');
+            track.setAttribute('class', 'atlas-press-track');
+            track.setAttribute('cx', cx); track.setAttribute('cy', cy); track.setAttribute('r', r);
+            track.setAttribute('stroke', 'rgba(0,0,0,.1)'); track.setAttribute('stroke-width', '2.5');
+            // Arc coloré
+            const arc = document.createElementNS(svgNS, 'circle');
+            arc.setAttribute('class', 'atlas-press-arc');
+            arc.setAttribute('cx', cx); arc.setAttribute('cy', cy); arc.setAttribute('r', r);
+            arc.setAttribute('stroke', color); arc.setAttribute('stroke-width', '3');
+            arc.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
+            arc.style.setProperty('--circ', circ);
+            arc.style.setProperty('--press-ms', `${PRESS_MS}ms`);
+            svg.appendChild(track);
+            svg.appendChild(arc);
+            cell.appendChild(svg);
+
+            cell.classList.add('atlas-cell--pressing');
+            cell.style.setProperty('--press-ms', `${PRESS_MS}ms`);
+            _pressTimer = setTimeout(() => {
+                svg.remove();
+                cell.classList.remove('atlas-cell--pressing');
+                _openSkillUpModal(key, cell.dataset.team, skillId);
+            }, PRESS_MS);
+        };
+        const _cancelPress = () => {
+            clearTimeout(_pressTimer);
+            cell.classList.remove('atlas-cell--pressing');
+            cell.querySelector('.atlas-press-svg')?.remove();
+        };
+        cell.addEventListener('mousedown', _startPress);
+        cell.addEventListener('mouseup', _cancelPress);
+        cell.addEventListener('mouseleave', _cancelPress);
+        cell.addEventListener('touchstart', _startPress, { passive: true });
+        cell.addEventListener('touchend', _cancelPress);
+        cell.addEventListener('touchcancel', _cancelPress);
     });
 }
 
@@ -1384,6 +1655,21 @@ function _openCatalogModal(matrixEl) {
                 <div class="atlas-catalog-col" id="atlas-cat-skills"></div>
                 <div class="atlas-catalog-col" id="atlas-cat-apps"></div>
             </div>
+            <details class="atlas-cat-import">
+                <summary class="atlas-cat-import-hdr">
+                    <span class="atlas-cat-import-title">Import</span>
+                    <span class="atlas-cat-import-hint">JSON ou CSV <code>nom;catégorie;couleur</code></span>
+                    <span class="atlas-cat-import-status" id="atlas-cat-import-status"></span>
+                </summary>
+                <div class="atlas-cat-import-row">
+                    <textarea class="input atlas-cat-import-ta" id="atlas-cat-import-ta" rows="2" placeholder='[{"name":"React","category":"Frontend"},{"name":"API REST","category":"Backend"}]'></textarea>
+                    <div class="atlas-cat-import-controls">
+                        <label class="atlas-cat-import-kind-lbl"><input type="radio" name="atlas-import-kind" value="skill" checked> Compétences</label>
+                        <label class="atlas-cat-import-kind-lbl"><input type="radio" name="atlas-import-kind" value="appetence"> Appétences</label>
+                        <button class="btn btn-primary btn-sm" id="atlas-cat-import-btn" disabled>Importer</button>
+                    </div>
+                </div>
+            </details>
         </div>`;
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visible'));
@@ -1398,23 +1684,117 @@ function _openCatalogModal(matrixEl) {
 
     _renderCatalogList(overlay, 'skill');
     _renderCatalogList(overlay, 'appetence');
+
+    // ── Import
+    const ta     = overlay.querySelector('#atlas-cat-import-ta');
+    const status = overlay.querySelector('#atlas-cat-import-status');
+    const btn    = overlay.querySelector('#atlas-cat-import-btn');
+
+    const _parseCatalogImport = raw => {
+        raw = (raw || '').trim();
+        if (!raw) return null;
+        // Tentative JSON
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length) {
+                const valid = parsed.filter(x => x && typeof x.name === 'string' && x.name.trim());
+                if (valid.length) return { items: valid, ok: valid.length === parsed.length };
+            }
+        } catch { /* try CSV */ }
+        // Tentative CSV  nom;catégorie;couleur
+        const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+        const items = lines.map(l => {
+            const [name, category = 'Autres', color = ''] = l.split(';').map(s => s.trim());
+            return name ? { name, category, color: color || null } : null;
+        }).filter(Boolean);
+        if (items.length) return { items, ok: items.length === lines.length };
+        return { items: [], ok: false };
+    };
+
+    const _updateStatus = () => {
+        const result = _parseCatalogImport(ta.value);
+        if (!result || !ta.value.trim()) {
+            status.textContent = '';
+            status.className = 'atlas-cat-import-status';
+            btn.disabled = true;
+            return;
+        }
+        if (!result.items.length) {
+            status.innerHTML = '● Format non reconnu';
+            status.className = 'atlas-cat-import-status atlas-cat-import-status--red';
+            btn.disabled = true;
+        } else if (!result.ok) {
+            status.innerHTML = `● ${result.items.length} entrée(s) valides (lignes ignorées)`;
+            status.className = 'atlas-cat-import-status atlas-cat-import-status--orange';
+            btn.disabled = false;
+        } else {
+            status.innerHTML = `● ${result.items.length} entrée(s) prêtes`;
+            status.className = 'atlas-cat-import-status atlas-cat-import-status--green';
+            btn.disabled = false;
+        }
+    };
+
+    ta.addEventListener('input', _updateStatus);
+
+    btn.addEventListener('click', async () => {
+        const result = _parseCatalogImport(ta.value);
+        if (!result?.items?.length) return;
+        const kind = overlay.querySelector('input[name="atlas-import-kind"]:checked')?.value || 'skill';
+        const isSkill = kind === 'skill';
+        const existing = store.get(isSkill ? 'skills' : 'appetences') || [];
+        const existingNames = new Set(existing.map(x => x.name.toLowerCase()));
+        const toCreate = result.items.filter(x => !existingNames.has(x.name.toLowerCase()));
+        if (!toCreate.length) {
+            status.innerHTML = '● Toutes les entrées existent déjà';
+            status.className = 'atlas-cat-import-status atlas-cat-import-status--orange';
+            return;
+        }
+        btn.disabled = true;
+        btn.textContent = '…';
+        const colors = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#f97316','#ec4899'];
+        let created = [...existing];
+        try {
+            for (let i = 0; i < toCreate.length; i++) {
+                const { name, category = 'Autres', color } = toCreate[i];
+                const c = color || colors[(existing.length + i) % colors.length];
+                const item = isSkill
+                    ? await api.createSkill({ name, category, color: c, sort: existing.length + i })
+                    : await api.createAppetence({ name, category, color: c, sort: existing.length + i });
+                created.push(item);
+            }
+            store.set(isSkill ? 'skills' : 'appetences', created);
+            _renderCatalogList(overlay, kind);
+            ta.value = '';
+            status.innerHTML = `● ${toCreate.length} entrée(s) importées`;
+            status.className = 'atlas-cat-import-status atlas-cat-import-status--green';
+            btn.textContent = 'Importer';
+            btn.disabled = true;
+        } catch {
+            const { toast } = await import('../utils.js');
+            toast('Erreur import catalogue', 'error');
+            btn.textContent = 'Importer';
+            btn.disabled = false;
+        }
+    });
 }
 
 function _renderCatalogList(overlay, kind) {
     const isSkill = kind === 'skill';
-    const items = (store.get(isSkill ? 'skills' : 'appetences') || []);
+    const storeKey = isSkill ? 'skills' : 'appetences';
+    const items = [...(store.get(storeKey) || [])].sort(_bySort);
     const col = overlay.querySelector(isSkill ? '#atlas-cat-skills' : '#atlas-cat-apps');
     const cats = [...new Set(items.map(i => i.category || 'Autres'))];
     const title = isSkill ? '🎯 Compétences' : '🔥 Appétences';
 
     col.innerHTML = `
         <div class="atlas-cat-hdr">${title} <span class="atlas-cat-n">${items.length}</span></div>
-        <div class="atlas-cat-list">
+        <div class="atlas-cat-list" id="atlas-cat-list-${kind}">
             ${cats.map(c => `
-                <div class="atlas-cat-group">
+                <div class="atlas-cat-group" data-cat="${esc(c)}">
                     <div class="atlas-cat-group-name">${esc(c)}</div>
                     ${items.filter(i => (i.category || 'Autres') === c).map(i => `
-                        <div class="atlas-cat-item" data-id="${esc(i.id)}">
+                        <div class="atlas-cat-item" draggable="true" data-id="${esc(i.id)}" data-cat="${esc(i.category || 'Autres')}">
+                            <span class="atlas-cat-drag" title="Glisser pour réordonner">⠿</span>
                             <span class="atlas-cat-dot" style="background:${i.color}"></span>
                             <span class="atlas-cat-item-name">${esc(i.name)}</span>
                             <button class="atlas-cat-del btn-icon btn-icon-sm" data-id="${esc(i.id)}" title="Supprimer"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
@@ -1422,7 +1802,7 @@ function _renderCatalogList(overlay, kind) {
                 </div>`).join('')}
         </div>
         <form class="atlas-cat-add" data-kind="${kind}">
-            <input class="input input-sm" name="name" placeholder="Nouvelle ${isSkill ? 'compétence' : 'appétence'}…" required>
+            <input class="input input-sm" name="name" placeholder="${isSkill ? 'Compétence…' : 'Appétence…'}" required>
             <input class="input input-sm" name="category" placeholder="Catégorie" list="atlas-cat-${kind}-cats">
             <datalist id="atlas-cat-${kind}-cats">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
             <button type="submit" class="btn btn-primary btn-sm">＋</button>
@@ -1463,6 +1843,63 @@ function _renderCatalogList(overlay, kind) {
             } catch (err) {
                 const { toast } = await import('../utils.js');
                 toast('Erreur suppression', 'error');
+            }
+        });
+    });
+
+    // ── Drag & drop pour réordonner ──────────────────────────────────────────
+    const list = col.querySelector(`#atlas-cat-list-${kind}`);
+    let _dragId = null, _dragEl = null;
+
+    col.querySelectorAll('.atlas-cat-item[draggable]').forEach(row => {
+        row.addEventListener('dragstart', e => {
+            _dragId = row.dataset.id;
+            _dragEl = row;
+            row.classList.add('atlas-cat-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragend', () => {
+            _dragEl?.classList.remove('atlas-cat-dragging');
+            list.querySelectorAll('.atlas-cat-drop-over').forEach(el => el.classList.remove('atlas-cat-drop-over'));
+            _dragId = null; _dragEl = null;
+        });
+        row.addEventListener('dragover', e => {
+            if (!_dragId || row.dataset.id === _dragId) return;
+            e.preventDefault();
+            list.querySelectorAll('.atlas-cat-drop-over').forEach(el => el.classList.remove('atlas-cat-drop-over'));
+            row.classList.add('atlas-cat-drop-over');
+        });
+        row.addEventListener('drop', async e => {
+            e.preventDefault();
+            if (!_dragId || row.dataset.id === _dragId) return;
+            row.classList.remove('atlas-cat-drop-over');
+
+            // Reconstruit l'ordre depuis le DOM après drop
+            const allRows = [...list.querySelectorAll('.atlas-cat-item[data-id]')];
+            const domOrder = allRows.map(r => r.dataset.id);
+            // Insère _dragId avant la cible dans domOrder
+            const fromIdx = domOrder.indexOf(_dragId);
+            const toIdx   = domOrder.indexOf(row.dataset.id);
+            if (fromIdx === -1 || toIdx === -1) return;
+            domOrder.splice(fromIdx, 1);
+            domOrder.splice(toIdx, 0, _dragId);
+
+            // Assigne les nouveaux sort values et sauvegarde
+            const currentItems = store.get(storeKey) || [];
+            const updated = domOrder.map((id, idx) => {
+                const item = currentItems.find(x => x.id === id);
+                return item ? { ...item, sort: idx } : null;
+            }).filter(Boolean);
+
+            store.set(storeKey, updated);
+            _renderCatalogList(overlay, kind);
+
+            // Persistance API en arrière-plan (fire & forget)
+            for (const item of updated) {
+                try {
+                    if (isSkill) await api.updateSkill(item.id, { sort: item.sort });
+                    else await api.updateAppetence(item.id, { sort: item.sort });
+                } catch { /* ignore */ }
             }
         });
     });
@@ -1580,7 +2017,7 @@ function _openSuggestModal() {
             <div class="atlas-action-body">
                 <label class="atlas-field"><span>Compétence requise</span>
                     <select class="input" id="atlas-sg-skill">
-                        ${skills.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}
+                        ${[...skills].sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })).map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}
                     </select></label>
                 <label class="atlas-field atlas-field--inline">
                     <input type="checkbox" id="atlas-sg-team-only"> <span>Limiter à l'équipe filtrée</span></label>

@@ -115,9 +115,10 @@ function applyHash() {
     const alertId = am ? decodeURIComponent(am[2]) : null;
     let rest = am ? am[1] : raw;
 
-    // Extract optional ticket fragment: #view[/team[/tab]]/ticket/ID
-    const tm = rest.match(/^(.*?)\/ticket\/([^/]+)$/);
-    const ticketId = tm ? decodeURIComponent(tm[2]) : null;
+    // Extract optional ticket fragment: #view[/team[/tab]]/ticket/ID[/poker]
+    const tm = rest.match(/^(.*?)\/ticket\/([^/]+?)(?:\/(poker))?$/);
+    const ticketId  = tm ? decodeURIComponent(tm[2]) : null;
+    const ticketSub = tm ? (tm[3] || null) : null; // "poker" ou null
     const h = tm ? tm[1] : rest;
 
     if (h) {
@@ -164,7 +165,13 @@ function applyHash() {
     }
 
     if (ticketId) {
-        requestAnimationFrame(() => window.__squadBoard?.openTicketModal?.(ticketId));
+        requestAnimationFrame(() => {
+            window.__squadBoard?.openTicketModal?.(ticketId);
+            if (ticketSub === 'poker') {
+                // Ouvre la modale poker après que la modale ticket soit rendue
+                setTimeout(() => document.getElementById('mdl-poker-btn')?.click(), 150);
+            }
+        });
     } else {
         // Back navigation removed ticket from hash — close modal if open
         const mo = document.getElementById('modal-overlay');
@@ -229,47 +236,36 @@ window.__squadBoard.openCurrentSprintDemo   = openCurrentSprintDemo;
 
 // ── Load all data from backend ────────────────────────────────────────────────
 async function loadAllData() {
-    const [tickets, features, epics, members, teams, groups, absences, support, events, retroItems, sprint, pi, risks, moodVotes, fistVotes, calendars, calendarEvents] = await Promise.all([
-        api.getTickets(),
-        api.getFeatures(),
-        api.getEpics(),
-        api.getMembers(),
-        api.getTeams(),
-        api.getGroups(),
-        api.getAbsences(),
-        api.getSupport(),
-        api.getEvents(),
-        api.getRetro(),
-        api.getSprint().catch(() => null),
-        api.getPI().catch(() => null),
-        api.getRisks().catch(() => []),
-        api.getMood({ type: 'mood' }).catch(() => []),
-        api.getMood({ type: 'fist' }).catch(() => []),
-        api.getCalendars().catch(() => []),
-        api.getCalendarEvents().catch(() => []),
-    ]);
+    const d = await api.getAll();
+    const tickets = d.tickets || [];
+    const teams = d.teams || [];
     store.set('tickets', tickets);
-    store.set('features', features);
-    store.set('epics', epics);
-    store.set('members', members);
+    store.set('features', d.features || []);
+    store.set('epics', d.epics || []);
+    store.set('members', d.members || []);
     store.set('teams', teams.map(t => typeof t === 'string' ? t : t.name));
     store.set('teamObjects', teams);
-    store.set('groups', groups);
-    store.set('absences', absences);
-    store.set('support', support);
-    store.set('events', events);
-    store.set('retroItems', retroItems);
-    store.set('sprintInfo', sprint);
-    store.set('piInfo', pi);
-    store.set('risks', risks);
-    store.set('moodVotes', moodVotes);
-    store.set('fistVotes', fistVotes);
-    store.set('calendars', calendars);
-    store.set('calendarEvents', calendarEvents);
+    store.set('groups', d.groups || []);
+    store.set('absences', d.absences || []);
+    store.set('support', d.support || []);
+    store.set('events', d.events || []);
+    store.set('retroItems', d.retroItems || []);
+    store.set('sprintInfo', d.sprint || null);
+    store.set('piInfo', d.pi || null);
+    store.set('risks', d.risks || []);
+    store.set('moodVotes', d.moodVotes || []);
+    store.set('fistVotes', d.fistVotes || []);
+    store.set('calendars', d.calendars || []);
+    store.set('calendarEvents', d.calendarEvents || []);
     // Board column labels (persisted from last sync)
     try {
         const saved = localStorage.getItem('sb-boardColumns');
         if (saved) store.set('boardColumns', JSON.parse(saved));
+    } catch { /* ignore */ }
+    // JIRA project→teams mapping (persisted from last sync, used for group suggestions)
+    try {
+        const saved = localStorage.getItem('sb-jiraProjectTeams');
+        if (saved) store.set('jiraProjectTeams', JSON.parse(saved));
     } catch { /* ignore */ }
     // Notifications: count tickets modified since last visit
     store.set('newCount', _computeNewCount(tickets));
@@ -321,6 +317,10 @@ async function handleJiraImport(mode = 14) {
         if (result.boardColumns && Object.keys(result.boardColumns).length) {
             localStorage.setItem('sb-boardColumns', JSON.stringify(result.boardColumns));
             store.set('boardColumns', result.boardColumns);
+        }
+        if (result.projectTeams && Object.keys(result.projectTeams).length) {
+            localStorage.setItem('sb-jiraProjectTeams', JSON.stringify(result.projectTeams));
+            store.set('jiraProjectTeams', result.projectTeams);
         }
         await loadAllData();
         const label = isFull ? 'Sync complète' : `Sync rapide ${mode}j`;

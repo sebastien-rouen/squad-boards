@@ -233,6 +233,7 @@ export function renderSettings(container) {
     const teams = store.get('teamObjects') || [];
     const teamNames = (store.get('teams') || []).slice().sort((a, b) => String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' }));
     const groups = store.get('groups') || [];
+    const jiraProjectTeams = store.get('jiraProjectTeams') || {};
     const members = store.get('members') || [];
     const absences = store.get('absences') || [];
     // Pour la rotation support : on dérive depuis les absences (CSV RH = vérité)
@@ -304,8 +305,30 @@ export function renderSettings(container) {
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
             </div>
             <div class="settings-section-body">
+                ${(() => {
+                    const projects = Object.entries(jiraProjectTeams);
+                    if (!projects.length) return '';
+                    const existingTeamSets = groups.map(g => new Set((g.teams || []).map(t => t.toLowerCase())));
+                    const missing = projects.filter(([pk, teams]) => {
+                        const teamsLower = teams.map(t => t.toLowerCase());
+                        return !existingTeamSets.some(s => teamsLower.every(t => s.has(t)));
+                    });
+                    if (!missing.length) return '';
+                    const preview = missing.map(([pk, ts]) =>
+                        `<span class="jira-project-chip" data-project="${esc(pk)}" data-teams="${esc(ts.join(','))}"><strong>${esc(pk)}</strong> <span class="chip-teams">${ts.map(t => esc(t)).join(', ')}</span></span>`
+                    ).join('');
+                    return `<div class="jira-group-suggest">
+                        <svg class="icon icon-sm" style="flex-shrink:0"><use href="#i-jira"/></svg>
+                        <div class="jira-group-suggest-body">
+                            <strong>Regroupement automatique par projet JIRA</strong>
+                            <span>Cliquez sur "Creer les groupes" pour creer un groupe par projet avec les equipes detectees :</span>
+                            <div class="jira-project-chips">${preview}</div>
+                        </div>
+                        <button class="btn btn-sm btn-primary" id="btn-create-groups-from-jira">Creer les groupes</button>
+                    </div>`;
+                })()}
                 <div class="item-list" id="group-list">
-                    ${groups.map(g => `
+                    ${groups.length ? groups.map(g => `
                         <div class="item-row" data-id="${esc(g.id)}">
                             <span class="team-dot" style="background:${g.color}"></span>
                             <span class="item-name">${esc(g.name)}</span>
@@ -315,7 +338,7 @@ export function renderSettings(container) {
                                 <button class="btn-icon btn-del-group" data-id="${esc(g.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
                             </div>
                         </div>
-                    `).join('')}
+                    `).join('') : `<p class="text-muted" style="font-size:var(--fs-sm);padding:var(--sp-2) 0">Aucun groupe — utilisez la suggestion ci-dessus ou ajoutez manuellement.</p>`}
                 </div>
                 <div class="add-inline mt-2">
                     <input class="input" id="new-group-name" placeholder="Nom du groupe">
@@ -1091,6 +1114,24 @@ export function renderSettings(container) {
         toast('Configuration sync JIRA enregistree', 'success');
         // Met à jour le label du bouton topbar pour refléter la nouvelle durée
         window.__squadBoard?.refreshSyncButtonLabel?.();
+    });
+
+    // ── Groups — création depuis projets JIRA ─────────────────────────────────
+    container.querySelector('#btn-create-groups-from-jira')?.addEventListener('click', async () => {
+        const chips = container.querySelectorAll('.jira-project-chip');
+        if (!chips.length) return;
+        const toCreate = [...chips].map(c => ({ project: c.dataset.project, teams: c.dataset.teams.split(',').filter(Boolean) }));
+        const names = toCreate.map(x => `${x.project} (${x.teams.join(', ')})`).join('\n');
+        if (!confirm(`Créer ${toCreate.length} groupe(s) :\n${names}`)) return;
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
+        try {
+            for (let i = 0; i < toCreate.length; i++) {
+                const { project, teams: groupTeams } = toCreate[i];
+                await api.createGroup({ name: project, teams: groupTeams, color: colors[i % colors.length] });
+            }
+            toast(`${toCreate.length} groupe(s) créé(s)`, 'success');
+            await reloadAndRender(container);
+        } catch (e) { toast(e.message, 'error'); }
     });
 
     // ── Groups ────────────────────────────────────────────────────────────────

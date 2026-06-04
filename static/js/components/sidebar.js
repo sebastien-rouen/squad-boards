@@ -178,7 +178,19 @@ export function initSidebar() {
 
         let html = '';
         const allActive = !currentGroup && (!currentTeam || currentTeam === 'all');
-        html += `<button class="team-btn team-btn-all${allActive ? ' active' : ''}" data-team="all" title="Toutes les equipes">Tous</button>`;
+        const hasPicker = groups.length > 0;
+        html += `<div class="team-btn-all-wrap${hasPicker ? ' has-picker' : ''}">
+            <button class="team-btn team-btn-all${allActive ? ' active' : ''}" data-team="all" title="Toutes les equipes">Tous</button>
+            ${hasPicker ? `<div class="team-btn-picker">
+                <button class="team-btn-picker-item${allActive ? ' active' : ''}" data-team="all">Toutes les équipes</button>
+                ${groups.map(g => {
+                    const gActive = currentGroup === g.id;
+                    return `<button class="team-btn-picker-item${gActive ? ' active' : ''}" data-group="${esc(g.id)}" style="--pc:${g.color}">
+                        <span class="team-btn-picker-dot"></span>${esc(g.name)}
+                    </button>`;
+                }).join('')}
+            </div>` : ''}
+        </div>`;
 
         const activeGroupTeams = currentGroup
             ? (groups.find(g => g.id === currentGroup)?.teams || [])
@@ -187,11 +199,8 @@ export function initSidebar() {
         // Track which teams belong to a group
         const groupedTeams = new Set();
 
-        // Render groups: group header + its team buttons
+        // Render teams grouped (group-btn supprimé — doublon avec le picker "Tous")
         for (const g of groups) {
-            const gActive = currentGroup === g.id;
-            html += '<hr class="sep">';
-            html += `<button class="team-btn group-btn${gActive ? ' active' : ''}" data-group="${esc(g.id)}" title="${esc(g.name)}" style="background:${g.color}">${esc(g.name.slice(0, 3).toUpperCase())}</button>`;
             for (const tName of (g.teams || [])) {
                 groupedTeams.add(tName);
                 const idx = teams.indexOf(tName);
@@ -205,7 +214,6 @@ export function initSidebar() {
 
         // Ungrouped teams
         const ungrouped = teams.filter(t => !groupedTeams.has(t));
-        if (ungrouped.length && groups.length) html += '<hr class="sep">';
         for (let i = 0; i < ungrouped.length; i++) {
             const t = ungrouped[i];
             const tObj = teamObjects.find(o => o.name === t);
@@ -225,6 +233,18 @@ export function initSidebar() {
 
     // Click handler for team/group buttons
     document.getElementById('team-btns')?.addEventListener('click', e => {
+        // Picker items
+        const pickerItem = e.target.closest('.team-btn-picker-item');
+        if (pickerItem) {
+            if (pickerItem.dataset.group) {
+                store.set('group', pickerItem.dataset.group);
+                store.set('team', 'all');
+            } else {
+                store.set('group', null);
+                store.set('team', 'all');
+            }
+            return;
+        }
         const btn = e.target.closest('.team-btn');
         if (!btn) return;
 

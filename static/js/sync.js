@@ -175,10 +175,17 @@ async function _doImport(projects, sinceDays = null) {
     const skippedCount = allBoards.filter(b => projectSet.has((b.location?.projectKey || '').toUpperCase()) && b.type !== 'scrum').length;
 
     // Deduplicate boards by team name (e.g. "Sprint Fuego" and "Board Fuego" → one "Fuego")
+    // Also build project → [teamNames] mapping for post-sync group suggestions
     const boardsByTeam = new Map();
+    const projectTeams = {}; // { "ERPC": ["Fuego", "Gabbiano"], "GCOM": [...] }
     for (const b of scrumBoards) {
         const teamName = extractTeam(b.name);
         if (!boardsByTeam.has(teamName)) boardsByTeam.set(teamName, b);
+        const pk = (b.location?.projectKey || b.location?.projectName || '').toUpperCase();
+        if (pk && teamName) {
+            if (!projectTeams[pk]) projectTeams[pk] = [];
+            if (!projectTeams[pk].includes(teamName)) projectTeams[pk].push(teamName);
+        }
     }
     const boards = [...boardsByTeam.values()];
     // Short team names from boards — used to normalize JIRA Team[Team] values like "GCOM - Fuego" → "Fuego"
@@ -201,7 +208,56 @@ async function _doImport(projects, sinceDays = null) {
     let teamIdx = 0;
     const boardColumns = {}; // { teamName: { [internal_status]: column_label } }
 
-    // 3. For each board: get sprint + issues
+    // 3. Pre-fetch all board metadata in parallel (sprints + config + velocity)
+    //    then iterate sequentially over results to process issues.
+    setProgress(15, 'Récupération des métadonnées des boards...', `${boards.length} boards en parallèle`);
+    const _fetchBoardMeta = async (board) => {
+        let allBoardSprints = [];
+        let boardConfig = null;
+        let velocityById = {};
+        if (board.type !== 'scrum') return { allBoardSprints, boardConfig, velocityById };
+        // Sprints + config en parallèle
+        const [sprintsResult, configResult] = await Promise.allSettled([
+            (async () => {
+                try {
+                    const resp = await api.jiraGet(`rest/agile/1.0/board/${board.id}/sprint`, { state: 'closed,active,future', maxResults: 50 });
+                    const values = resp.values || [];
+                    if (values.length) return values;
+                } catch { /* fallback below */ }
+                // Fallback: 3 appels séparés
+                const result = [];
+                for (const st of ['active', 'future', 'closed']) {
+                    try {
+                        const r = await api.jiraGet(`rest/agile/1.0/board/${board.id}/sprint`, { state: st, maxResults: 50 });
+                        if (r?.values?.length) result.push(...r.values.map(s => ({ ...s, state: s.state || st })));
+                    } catch { /* ignore */ }
+                }
+                return result;
+            })(),
+            api.jiraGet(`rest/agile/1.0/board/${board.id}/configuration`).catch(() => null),
+        ]);
+        allBoardSprints = sprintsResult.status === 'fulfilled' ? (sprintsResult.value || []) : [];
+        boardConfig     = configResult.status  === 'fulfilled' ? configResult.value : null;
+        // Velocity (Greenhopper) — only if closed sprints exist
+        const hasClosed = allBoardSprints.some(s => s.state === 'closed');
+        if (hasClosed) {
+            try {
+                const vr = await api.jiraGet(`rest/greenhopper/1.0/rapid/charts/velocity.json`, { rapidViewId: board.id });
+                const entries = vr?.velocityStatEntries || {};
+                for (const [sid, ent] of Object.entries(entries)) {
+                    const completed = ent?.completed?.value;
+                    const estimated = ent?.estimated?.value;
+                    const hasC = typeof completed === 'number' && completed > 0;
+                    const hasE = typeof estimated === 'number' && estimated > 0;
+                    if (hasC || hasE) velocityById[sid] = { velocity: hasC ? Math.round(completed) : 0, estimated: hasE ? Math.round(estimated) : 0 };
+                }
+            } catch { /* board sans estimation → skip silencieux */ }
+        }
+        return { allBoardSprints, boardConfig, velocityById };
+    };
+    const boardMetas = await Promise.all(boards.map(b => _fetchBoardMeta(b)));
+
+    // 3b. For each board: process sprints + issues (sequential — results accumulate into shared arrays)
     const totalBoards = boards.length;
     for (let bi = 0; bi < totalBoards; bi++) {
         const board = boards[bi];
@@ -213,32 +269,10 @@ async function _doImport(projects, sinceDays = null) {
             teamsSet.set(teamName, teamColors[teamIdx++ % teamColors.length]);
         }
 
-        // Get all sprints (closed + active + future) + board column config in parallel
-        let activeSprint = null;
-        let boardConfig = null;
-        let allBoardSprints = [];  // sprints du board : passés / actuel / futurs
-        if (board.type === 'scrum') {
-            // Tentative 1 : state combiné. Si ça échoue OU si la liste est vide, on retombe sur 3 appels séparés.
-            try {
-                const resp = await api.jiraGet(`rest/agile/1.0/board/${board.id}/sprint`, { state: 'closed,active,future', maxResults: 50 });
-                allBoardSprints = resp.values || [];
-            } catch { allBoardSprints = []; }
-            if (!allBoardSprints.length) {
-                // Fallback : 3 appels séparés (certaines instances JIRA n'aiment pas la version combinée)
-                for (const st of ['active', 'future', 'closed']) {
-                    try {
-                        const r = await api.jiraGet(`rest/agile/1.0/board/${board.id}/sprint`, { state: st, maxResults: 50 });
-                        if (r?.values?.length) allBoardSprints.push(...r.values.map(s => ({ ...s, state: s.state || st })));
-                    } catch { /* ignore */ }
-                }
-            }
-            activeSprint = allBoardSprints.find(s => s.state === 'active')
-                        || allBoardSprints.find(s => s.state === 'future')
-                        || null;
-            try {
-                boardConfig = await api.jiraGet(`rest/agile/1.0/board/${board.id}/configuration`);
-            } catch { /* ignore */ }
-        }
+        const { allBoardSprints, boardConfig, velocityById } = boardMetas[bi];
+        const activeSprint = allBoardSprints.find(s => s.state === 'active')
+                          || allBoardSprints.find(s => s.state === 'future')
+                          || null;
 
         // Extract column config: array of { key, label, jiraStatuses[] }
         // Preserves duplicate internal keys (e.g. "A faire" + "Prêt" both → todo)
@@ -277,31 +311,7 @@ async function _doImport(projects, sinceDays = null) {
             if (colArray.length) boardColumns[teamName] = colArray;
         }
 
-        // Récupère la vélocité historique du board (story points estimés et complétés par sprint)
-        // Endpoint Greenhopper (Velocity Chart natif JIRA) → ~7 derniers sprints clos
-        // `/rest/agile/1.0/board/{id}/velocity` n'existe pas dans l'API publique : il faut
-        // passer par l'endpoint greenhopper.
-        // Évite d'avoir à charger tous les tickets des sprints clos (coût prohibitif).
-        let velocityById = {};
-        const hasClosed = allBoardSprints.some(s => s.state === 'closed');
-        if (board.type === 'scrum' && hasClosed) {
-            try {
-                const vr = await api.jiraGet(`rest/greenhopper/1.0/rapid/charts/velocity.json`, { rapidViewId: board.id });
-                const entries = vr?.velocityStatEntries || {};
-                for (const [sid, ent] of Object.entries(entries)) {
-                    const completed = ent?.completed?.value;
-                    const estimated = ent?.estimated?.value;
-                    const hasC = typeof completed === 'number' && completed > 0;
-                    const hasE = typeof estimated === 'number' && estimated > 0;
-                    if (hasC || hasE) {
-                        velocityById[sid] = {
-                            velocity:  hasC ? Math.round(completed) : 0,
-                            estimated: hasE ? Math.round(estimated) : 0,
-                        };
-                    }
-                }
-            } catch { /* board sans estimation activée, ou endpoint indispo → skip silencieux */ }
-        }
+        // velocityById already populated by _fetchBoardMeta (pre-fetched in parallel above)
 
         // Pousse TOUS les sprints du board (closed + active + future) dans teamSprints
         // pour que la modal calendrier puisse afficher le sprint correspondant à la semaine navigée.
@@ -743,7 +753,7 @@ async function _doImport(projects, sinceDays = null) {
     setProgress(100, 'Import termine !', `${allTickets.length} tickets, ${teams.length} equipes`);
     await new Promise(r => setTimeout(r, 600));
 
-    return { ticketCount: allTickets.length, featureCount: allFeatures.length, epicCount: allEpics.length, teamCount: teams.length, boardColumns };
+    return { ticketCount: allTickets.length, featureCount: allFeatures.length, epicCount: allEpics.length, teamCount: teams.length, boardColumns, projectTeams };
 }
 
 // ── Map JIRA column name → internal status key ───────────────────────────────

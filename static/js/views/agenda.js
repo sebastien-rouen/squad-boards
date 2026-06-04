@@ -26,6 +26,20 @@ function _saveSet(key, set) {
 let _weekStart   = null;
 let _extraNames  = _loadSet(LS_EXTRAS);
 let _hiddenNames = _loadSet(LS_HIDDEN);
+let _popstateAttached = false;
+
+function _weekFromHash() {
+    const m = window.location.hash.match(/\/(\d{4}-\d{2}-\d{2})$/);
+    return m ? _monday(new Date(m[1])) : null;
+}
+
+function _pushWeekHash(weekStart) {
+    const team = store.get('team');
+    const teamSeg = team && team !== 'all' ? `/${team}` : '';
+    const dateSeg = `/${_iso(weekStart)}`;
+    const hash = `#agenda${teamSeg}${dateSeg}`;
+    if (window.location.hash !== hash) window.history.pushState(null, '', hash);
+}
 
 function _monday(d) {
     const date = new Date(d);
@@ -75,10 +89,12 @@ function _memberRow(member, color, absences, dayIsos, today, { removable = false
         const abs      = _absOnDay(absences, member.name, dayIso);
         const todayCls = dayIso === today ? ' agenda-today' : '';
         if (abs) {
-            const cfg  = ABSENCE_CONFIG[abs.type] || ABSENCE_CONFIG.autre;
-            const note = abs.note ? ` title="${esc(abs.note)}"` : '';
+            const cfg    = ABSENCE_CONFIG[abs.type] || ABSENCE_CONFIG.autre;
+            const isHalf = abs.days === 0.5;
+            const note   = abs.note ? ` title="${esc(abs.note)}"` : '';
+            const label  = isHalf ? `½ ${cfg.label}` : cfg.label;
             return `<td class="agenda-cell${todayCls}">
-                <span class="agenda-pill"${note} style="background:${cfg.bg};color:${cfg.color}">${esc(cfg.label)}</span>
+                <span class="agenda-pill${isHalf ? ' agenda-pill--half' : ''}"${note} style="background:${cfg.bg};color:${cfg.color}">${esc(label)}</span>
             </td>`;
         }
         return `<td class="agenda-cell${todayCls}"><span class="agenda-present">✓</span></td>`;
@@ -147,7 +163,11 @@ function _offBannerRow(dayIsos, offByDay, today) {
 }
 
 export function renderAgenda(container) {
+    // Lire le hash en priorité (navigation back/forward), sinon garder l'état en mémoire
+    const fromHash = _weekFromHash();
+    if (fromHash) _weekStart = fromHash;
     if (!_weekStart) _weekStart = _monday(new Date());
+    _pushWeekHash(_weekStart);
 
     const teamObjects    = store.get('teamObjects') || [];
     const absences       = store.get('absences') || [];
@@ -187,11 +207,28 @@ export function renderAgenda(container) {
             const teamMembers = filteredMembers.filter(m => m.team === teamName);
             const teamBg      = _hexAlpha(color, 0.1);
 
-            // Support members first, then alphabetical
-            const sorted = [
-                ...teamMembers.filter(m => supportThisWeek.has(m.name)),
-                ...teamMembers.filter(m => !supportThisWeek.has(m.name)),
-            ];
+            // Tri : support en premier, puis par rôle, puis par prénom nom
+            const _roleRank = role => {
+                const r = (role || '').toLowerCase();
+                if (/scrum.master|sm\b|coach/i.test(r))           return 0;
+                if (/product.owner|po\b/i.test(r))                 return 1;
+                if (/tech.lead|lead|architect/i.test(r))           return 2;
+                if (/dev|fullstack|front|back|mobile/i.test(r))    return 3;
+                if (/qa|test|qualit/i.test(r))                     return 4;
+                if (/design|ux|ui/i.test(r))                       return 5;
+                if (/data|analyst/i.test(r))                       return 6;
+                if (/devops|ops|infra|cloud/i.test(r))             return 7;
+                return 8;
+            };
+            const _firstName = name => (name || '').trim().split(/\s+/)[0] || name;
+            const sorted = [...teamMembers].sort((a, b) => {
+                const aSupp = supportThisWeek.has(a.name) ? 0 : 1;
+                const bSupp = supportThisWeek.has(b.name) ? 0 : 1;
+                if (aSupp !== bSupp) return aSupp - bSupp;
+                const rDiff = _roleRank(a.role) - _roleRank(b.role);
+                if (rDiff !== 0) return rDiff;
+                return _firstName(a.name).localeCompare(_firstName(b.name), 'fr', { sensitivity: 'base' });
+            });
 
             const visibleCount = sorted.filter(m => !_hiddenNames.has(m.name)).length;
             if (visibleCount === 0) return '';
@@ -304,16 +341,27 @@ export function renderAgenda(container) {
     // ── Week navigation ──────────────────────────────────────────────────────
     document.getElementById('agenda-prev')?.addEventListener('click', () => {
         _weekStart = _addDays(_weekStart, -7);
+        _pushWeekHash(_weekStart);
         renderAgenda(container);
     });
     document.getElementById('agenda-next')?.addEventListener('click', () => {
         _weekStart = _addDays(_weekStart, 7);
+        _pushWeekHash(_weekStart);
         renderAgenda(container);
     });
     document.getElementById('agenda-today')?.addEventListener('click', () => {
         _weekStart = _monday(new Date());
+        _pushWeekHash(_weekStart);
         renderAgenda(container);
     });
+
+    // Retour / avant navigateur
+    if (!_popstateAttached) {
+        _popstateAttached = true;
+        window.addEventListener('popstate', () => {
+            if (store.get('view') === 'agenda') renderAgenda(container);
+        });
+    }
 
     // ── Unhide all ───────────────────────────────────────────────────────────
     document.getElementById('agenda-unhide')?.addEventListener('click', () => {

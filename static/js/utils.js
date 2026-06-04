@@ -805,13 +805,17 @@ export function deriveMembersFromAbsences(absences, members = []) {
     const byKey = new Map();
     for (const a of (absences || [])) {
         if (!a.memberName || !a.team) continue;
-        const key = `${a.memberName}|${a.team}`;
-        if (!byKey.has(key)) byKey.set(key, { name: a.memberName, team: a.team, role: '' });
+        // Normalize "Team Fuego" → "Fuego" to align with JIRA board names used in groups.
+        // Applies to data already in DB (backend normalizes new imports, this covers existing rows).
+        const team = extractTeam(a.team);
+        const key = `${a.memberName}|${team}`;
+        if (!byKey.has(key)) byKey.set(key, { name: a.memberName, team, role: '' });
     }
     // Merge des rôles depuis la table members (si la personne y existe aussi)
     for (const m of (members || [])) {
         if (!m.name || !m.team) continue;
-        const key = `${m.name}|${m.team}`;
+        const team = extractTeam(m.team);
+        const key = `${m.name}|${team}`;
         const existing = byKey.get(key);
         if (existing && m.role) existing.role = m.role;
     }

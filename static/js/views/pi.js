@@ -51,8 +51,11 @@ export function renderPI(container) {
     // Label et objectifs du PI sélectionné
     // Les objectifs sont stockés dans piInfo (PI courant) — si on affiche un autre PI, on le signale
     const isCurrentPi = piOffset === 0;
+    // piInfo.name peut être "PI#30" alors que basePiNum=29 (extrait du sprint actif) — on utilise
+    // toujours piNum (source de vérité calculée) pour le titre, piInfo.name en suffixe seulement si cohérent.
+    const piInfoName = piInfo?.name && piInfo.name.includes(String(piNum)) ? piInfo.name : null;
     const piLabel = piNum
-        ? (isCurrentPi ? (piInfo?.name || `PI#${piNum}`) : `PI#${piNum}`)
+        ? (isCurrentPi ? (piInfoName || `PI#${piNum}`) : `PI#${piNum}`)
         : 'PI en cours';
     const objectives = isCurrentPi ? (piInfo?.objectives || []) : [];
 
@@ -75,6 +78,10 @@ export function renderPI(container) {
     const velRows = ['done','inprog','review','test','blocked','todo']
         .map(s => ({ s, pts: sumBy(nonBufTickets.filter(t => t.status === s), t => t.points || 0), count: nonBufTickets.filter(t => t.status === s).length }))
         .filter(x => x.count > 0);
+
+    // Blockers — pour la metric-card de remplacement
+    const blockedTickets = tickets.filter(t => t.status === 'blocked');
+    const blockedPts     = sumBy(blockedTickets, t => t.points || 0);
 
     // Feature progress + statut dérivé depuis les enfants (avancée réelle)
     // Chaîne de résolution : ticket.epic → epic.id + epic.feature === feature.id
@@ -108,7 +115,8 @@ export function renderPI(container) {
         const pts = sumBy(tt, x => x.points);
         const donePts = sumBy(tt.filter(x => x.status === 'done'), x => x.points);
         const members = effectiveMembers.filter(m => m.team === t);
-        const teamAbsences = absences.filter(a => a.team === t);
+        // absences gardent le nom brut "Team Fuego" — on accepte les deux formes
+        const teamAbsences = absences.filter(a => a.team === t || a.team === 'Team ' + t);
         const absDays = teamAbsences.reduce((s, a) => s + (a.days || 0), 0);
         return { name: t, color, total, done, pts, donePts, memberCount: members.length, absDays };
     });
@@ -208,26 +216,29 @@ export function renderPI(container) {
 
         <!-- PI Metrics -->
         <div class="pi-overview mb-4">
-            <div class="metric-card mc-primary">
+            <div class="metric-card mc-primary mc-has-tooltip" data-mc-tt="mc-tt-features">
                 <span class="metric-icon">📦</span>
                 <span class="metric-label">Features</span>
                 <span class="metric-value">${features.length}</span>
                 <span class="metric-sub">${features.filter(f => f.status === 'done').length} terminees</span>
             </div>
-            <div class="metric-card mc-info">
+            <div class="metric-card mc-info mc-has-tooltip" data-mc-tt="mc-tt-epics">
                 <span class="metric-icon">🏗️</span>
                 <span class="metric-label">Epics</span>
                 <span class="metric-value">${piEpics.length}</span>
+                <span class="metric-sub">${piEpics.filter(e => e.status === 'done').length} termines</span>
             </div>
-            <div class="metric-card ${objectivesFiltered.filter(o => o.status === 'done').length === objectivesFiltered.length && objectivesFiltered.length ? 'mc-done' : 'mc-warning'}">
+            <div class="metric-card ${objectivesFiltered.filter(o => o.status === 'done').length === objectivesFiltered.length && objectivesFiltered.length ? 'mc-done' : 'mc-warning'} mc-has-tooltip" data-mc-tt="mc-tt-obj">
                 <span class="metric-icon">🎯</span>
                 <span class="metric-label">Objectifs</span>
                 <span class="metric-value">${objectivesFiltered.length}</span>
                 <span class="metric-sub">${objectivesFiltered.filter(o => o.status === 'done').length} atteints</span>
             </div>
-            <div class="metric-card mc-inprog">
-                <span class="metric-label">Equipes</span>
-                <span class="metric-value">${teams.length}</span>
+            <div class="metric-card ${blockedTickets.length > 0 ? 'mc-danger' : 'mc-done'} mc-has-tooltip" data-mc-tt="mc-tt-blocked">
+                <span class="metric-icon">🚫</span>
+                <span class="metric-label">Bloqués</span>
+                <span class="metric-value">${blockedTickets.length}</span>
+                <span class="metric-sub">${blockedPts} pts impactés</span>
             </div>
             <div class="metric-card ${velRatio >= 80 ? 'mc-done' : velRatio >= 40 ? 'mc-inprog' : 'mc-warning'} mc-has-tooltip" data-mc-tt="mc-tt-vel">
                 <span class="metric-icon">⚡</span>
@@ -243,6 +254,45 @@ export function renderPI(container) {
             </div>
 
             <!-- Tooltips détail (position:fixed via JS) -->
+            <div class="mc-tt" id="mc-tt-features">
+                <div class="mc-tt-head">📦 Features · détail</div>
+                ${['done','inprog','blocked','todo'].map(s => {
+                    const n = features.filter(f => f.status === s).length;
+                    if (!n) return '';
+                    return `<div class="mc-tt-row"><span><span style="color:${_stC[s]}">${_stI[s]}</span> ${_stL[s]}</span><strong>${n}</strong></div>`;
+                }).join('')}
+            </div>
+            <div class="mc-tt" id="mc-tt-epics">
+                <div class="mc-tt-head">🏗️ Epics · détail</div>
+                ${['done','inprog','blocked','todo'].map(s => {
+                    const n = piEpics.filter(e => e.status === s).length;
+                    if (!n) return '';
+                    return `<div class="mc-tt-row"><span><span style="color:${_stC[s]}">${_stI[s]}</span> ${_stL[s]}</span><strong>${n}</strong></div>`;
+                }).join('')}
+                ${piEpics.length === 0 ? '<div class="mc-tt-empty">Aucun epic</div>' : ''}
+            </div>
+            <div class="mc-tt" id="mc-tt-obj">
+                <div class="mc-tt-head">🎯 Objectifs · détail</div>
+                ${objectivesFiltered.length ? objectivesFiltered.map(o => `
+                <div class="mc-tt-row">
+                    <span><span style="color:${o.status === 'done' ? 'var(--success)' : 'var(--text-muted)'}">${o.status === 'done' ? '✓' : '○'}</span> ${esc(o.title || '—')}</span>
+                    <strong style="color:${o.businessValue ? 'var(--warning)' : 'var(--text-muted)'}">${o.businessValue ? o.businessValue + ' BV' : '—'}</strong>
+                </div>`).join('') : '<div class="mc-tt-empty">Aucun objectif</div>'}
+            </div>
+            <div class="mc-tt" id="mc-tt-blocked">
+                <div class="mc-tt-head">🚫 Tickets bloqués</div>
+                ${blockedTickets.length ? blockedTickets.slice(0, 8).map(t => `
+                <div class="mc-tt-row mc-tt-ticket-row" data-ticket-id="${esc(t.id)}">
+                    <span>
+                        ${jiraUrl
+                            ? `<a class="mc-tt-jira" href="${esc(jiraUrl)}/browse/${esc(t.id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(t.id)}</a>`
+                            : `<span class="mc-tt-key">${esc(t.id)}</span>`}
+                        ${esc(t.title)}
+                    </span>
+                    <strong>${t.points ? `${t.points} <span class="mc-tt-pts-unit">pts</span>` : '—'}</strong>
+                </div>`).join('') : '<div class="mc-tt-empty">Aucun ticket bloqué 🎉</div>'}
+                ${blockedTickets.length > 8 ? `<div class="mc-tt-row" style="color:var(--text-muted);font-size:10px">… et ${blockedTickets.length - 8} autres</div>` : ''}
+            </div>
             <div class="mc-tt" id="mc-tt-vel">
                 <div class="mc-tt-head">⚡ Vélocité · détail</div>
                 <div class="mc-tt-row mc-tt-row--total">
@@ -526,6 +576,52 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
     };
 
     const _isBufFeature = f => (f.labels || []).some(l => /buffer/i.test(l));
+    const jiraUrl = store.get('jiraUrl') || null;
+
+    // Formate une feature : "[Feature] https://jira.../browse/ID - Titre - X pts"
+    const _miroLine = (f) => {
+        const type   = _isBufFeature(f) ? 'Buffer' : 'Feature';
+        const pts    = f.childPts || f.points || 0;
+        const link   = jiraUrl ? `${jiraUrl}/browse/${f.id}` : f.id;
+        const ptsStr = ` - ${pts || 0} pts`;
+        return `[${type}] ${link} - ${f.title}${ptsStr}`;
+    };
+
+    // Copie les features au format TSV — collable dans Miro comme tableau
+    const _copyMiroImage = async (items, teamName) => {
+        const { toast } = await import('../utils.js');
+        try {
+            const featStyle  = 'border:2px solid #6366f1;border-radius:6px;padding:6px 10px;font-size:13px;font-family:sans-serif;white-space:nowrap;background:#f5f3ff;';
+            const childStyle = 'border:1px solid #c7d2fe;border-radius:6px;padding:5px 10px 5px 22px;font-size:12px;font-family:sans-serif;white-space:nowrap;background:#eef2ff;';
+            const htmlRows = items.map(item => {
+                const link = jiraUrl ? `${jiraUrl}/browse/${item.id}` : item.id;
+                if (item._isChild) {
+                    const pts    = item.points || 0;
+                    const ptsStr = ` - ${pts || 0} pts`;
+                    const ticket = `[Buffer] <a href="${link}">${item.id}</a> - ${item.title}${ptsStr}`;
+                    return `<tr><td style="${childStyle}">${ticket}</td></tr>`;
+                }
+                const type   = _isBufFeature(item) ? 'Buffer' : 'Feature';
+                const pts    = item.childPts || item.points || 0;
+                const ptsStr = ` - ${pts || 0} pts`;
+                const ticket = `[${type}] <a href="${link}">${item.id}</a> - ${item.title}${ptsStr}`;
+                return `<tr><td style="${featStyle}">${ticket}</td></tr>`;
+            }).join('');
+            const html = `<table style="border-collapse:collapse;border-spacing:0 4px;"><tbody>${htmlRows}</tbody></table>`;
+            await navigator.clipboard.write([new ClipboardItem({
+                'text/html': new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([items.map(item => {
+                    const type = _isBufFeature(item) && !item._isChild ? 'Feature Buffer' : 'Buffer';
+                    const pts  = item._isChild ? (item.points || 0) : (item.childPts || item.points || 0);
+                    const prefix = item._isChild ? '  ' : '';
+                    return `${prefix}[Buffer] ${item.id} - ${item.title}${pts ? ` - ${pts} pts` : ''}`;
+                }).join('\n')], { type: 'text/plain' }),
+            })]);
+            toast(`${items.length} lignes copiées — ${teamName}`, 'success', 2500);
+        } catch {
+            toast('Copie non supportée — utilisez HTTPS', 'error');
+        }
+    };
 
     const _featureRow = (f, beyondCap = false) => {
         const s   = f.rolledStatus || f.status || 'todo';
@@ -533,7 +629,6 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
         const tip = f.rolledStatus && f.rolledStatus !== f.status
             ? `Dérivé des ${f.childCount} enfants (JIRA: ${STATUS_LABELS[f.status] || f.status})`
             : 'Statut JIRA';
-        // SP : si on a des enfants réels avec avancement → "fait/total", sinon total seul
         const hasRealChildren = f.childCount > 0 && f.childPtsDone !== undefined;
         const spTotal = f.childPts || 0;
         const spDone  = f.childPtsDone || 0;
@@ -542,24 +637,53 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
             : '—';
         const spDonePct = spTotal > 0 && hasRealChildren ? Math.round(spDone / spTotal * 100) : 0;
         const isBuffer = _isBufFeature(f);
-        // Les features buffer ne sont jamais grisées
         const dimmed = beyondCap && !isBuffer;
         const tktCount = f.childCount > 0 ? f.childCount : (f.allCount || 0);
+
+        // Tickets enfants pour le bloc pliable
+        const allTickets = store.get('tickets') || [];
+        const allEpics   = store.get('epics') || [];
+        const children   = allTickets.filter(t => t.epic && allEpics.find(ep => ep.id === t.epic && ep.feature === f.id))
+            .concat(allTickets.filter(t => t.epic === f.id || t.featureId === f.id))
+            .filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i); // dédup
+
+        const _stC = { done:'var(--success)', inprog:'var(--primary)', review:'#6366f1', test:'var(--warning)', blocked:'var(--danger)', todo:'var(--text-muted)' };
+        const _stI = { done:'✓', inprog:'●', review:'◑', test:'◕', blocked:'✗', todo:'○' };
+        const childrenHtml = children.length ? `
+            <div class="feat-children-list">
+                ${children.map(t => {
+                    const pts = t.points || 0;
+                    const tLink = jiraUrl ? `<a class="feat-child-id" href="${esc(jiraUrl)}/browse/${esc(t.id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(t.id)}</a>` : `<span class="feat-child-id">${esc(t.id)}</span>`;
+                    return `<div class="feat-child-row">
+                        <span style="color:${_stC[t.status]||_stC.todo}">${_stI[t.status]||'○'}</span>
+                        ${tLink}
+                        <span class="feat-child-title">${esc(t.title)}</span>
+                        ${pts ? `<span class="feat-child-pts">${pts} SP</span>` : ''}
+                    </div>`;
+                }).join('')}
+            </div>` : '';
+
         return `
-        <div class="feature-row2${dimmed ? ' feat-row-dimmed' : ''}${isBuffer ? ' feat-row-buffer' : ''}" data-ticket-id="${esc(f.id)}" style="--feat-color:${sc.dot}">
-            <span class="feat-dot" style="background:${sc.dot}"></span>
-            <span class="feat-id">${esc(f.id)}</span>
-            <span class="feat-title">${esc(f.title)}${isBuffer ? ' <span class="feat-buf-badge">Buffer</span>' : ''}</span>
-            <span class="feat-status" style="background:${sc.bg};color:${sc.text}" title="${esc(tip)}">${esc(STATUS_LABELS[s] || s)}</span>
-            <span class="feat-bar-wrap" title="${f.progress}% complété">
-                <span class="feat-bar"><span class="feat-bar-fill ${progressColor(f.progress)}" style="width:${f.progress}%"></span></span>
-                <span class="feat-pct">${f.progress}%</span>
-            </span>
-            <span class="feat-sp" title="SP${spDonePct > 0 ? ` · ${spDonePct}% livrés` : ''}">
-                ${spLabel}<span class="feat-sp-unit"> SP</span>
-            </span>
-            <span class="feat-tickets">${tktCount}<span class="feat-sp-unit"> tkts</span></span>
-            <span class="feat-team">${esc(f.team || '—')}</span>
+        <div class="feat-row-wrap${dimmed ? ' feat-row-dimmed' : ''}${children.length ? ' has-children' : ''}">
+            <div class="feature-row2${isBuffer ? ' feat-row-buffer' : ''}" data-ticket-id="${esc(f.id)}" style="--feat-color:${sc.dot}">
+                ${children.length ? `<button class="feat-expand-btn" title="Voir les ${children.length} tickets enfants" onclick="event.stopPropagation();this.closest('.feat-row-wrap').classList.toggle('expanded')">
+                    <svg class="feat-expand-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg>
+                </button>` : '<span class="feat-expand-spacer"></span>'}
+                <span class="feat-dot" style="background:${sc.dot}"></span>
+                <span class="feat-id">${esc(f.id)}</span>
+                <span class="feat-title">${esc(f.title)}${isBuffer ? ' <span class="feat-buf-badge">Buffer</span>' : ''}</span>
+                <span class="feat-status" style="background:${sc.bg};color:${sc.text}" title="${esc(tip)}">${esc(STATUS_LABELS[s] || s)}</span>
+                <span class="feat-bar-wrap" title="${f.progress}% complété">
+                    <span class="feat-bar"><span class="feat-bar-fill ${progressColor(f.progress)}" style="width:${f.progress}%"></span></span>
+                    <span class="feat-pct">${f.progress}%</span>
+                </span>
+                <span class="feat-sp" title="SP${spDonePct > 0 ? ` · ${spDonePct}% livrés` : ''}">
+                    ${spLabel}<span class="feat-sp-unit"> SP</span>
+                </span>
+                <span class="feat-tickets">${tktCount}<span class="feat-sp-unit"> tkts</span></span>
+                <span class="feat-team">${esc(f.team || '—')}</span>
+            </div>
+            ${childrenHtml}
         </div>`;
     };
 
@@ -609,30 +733,52 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
 
         html += `<div class="feat-team-group">`;
 
-        // En-tête équipe
+        // Sépare features normales et buffer pour affichage dépliable du buffer
+        const bufFeatures = ranked.filter(f => _isBufFeature(f));
+        const netFeatures = ranked.filter(f => !_isBufFeature(f));
+        const bufId = `feat-buf-${teamName.replace(/\s+/g, '-')}`;
+
+        // En-tête équipe avec bouton copie Miro
         html += `<div class="feat-team-hdr">
             <span class="team-dot" style="background:${color}"></span>
             <span class="feat-team-name">${esc(teamName)}</span>
             <span class="feat-team-count">${ranked.length} feature${ranked.length > 1 ? 's' : ''}</span>
             <span class="feat-team-sp-planned">${totalSpPlanned} SP planifiés</span>
             ${cap && cap.spNet > 0 ? `<span class="feat-team-cap" style="color:${totalSpPlanned <= cap.spNet ? 'var(--success)' : 'var(--danger)'}">cap. ${cap.spNet} SP nets</span>` : ''}
+            <button class="feat-miro-btn" data-team="${esc(teamName)}" title="Copier les features pour Miro (stickies)">📋 Miro</button>
         </div>`;
 
-        // Lignes features avec ligne de coupure intercalée
-        ranked.forEach((f, i) => {
-            if (i === cutIdx) {
-                // Ligne de coupure : STOP ici
+        // Lignes features nettes avec ligne de coupure intercalée (sans buffer)
+        let netCutIdx = cutIdx;
+        netFeatures.forEach((f, i) => {
+            if (i === netCutIdx) {
                 const capColor = overBudget ? 'var(--danger)' : 'var(--warning)';
                 html += `<div class="feat-cut-line" style="--cut-color:${capColor}">
                     <div class="feat-cut-bar"></div>
                     <button class="feat-cut-label" data-goto-tab="capacity" title="Voir le détail de la capacité">
-                        ⛔ Limite capacité — ${cap.spNet} SP nets · ${cap.spBuf} buffer
+                        ⛔ Limite capacité — ${cap?.spNet ?? 0} SP nets · ${cap?.spBuf ?? 0} buffer
                     </button>
                     <div class="feat-cut-bar"></div>
                 </div>`;
             }
-            html += _featureRow(f, i >= (cutIdx ?? Infinity));
+            html += _featureRow(f, i >= (netCutIdx ?? Infinity));
         });
+
+        // Features buffer dépliables
+        if (bufFeatures.length) {
+            const bufPtsTot = sumBy(bufFeatures, f => f.childPts || f.points || 0);
+            html += `<details class="feat-buf-group" id="${esc(bufId)}">
+                <summary class="feat-buf-summary">
+                    <span class="feat-buf-toggle-icon">›</span>
+                    <span class="feat-buf-badge">Buffer</span>
+                    <span class="feat-buf-count">${bufFeatures.length} feature${bufFeatures.length > 1 ? 's' : ''} · ${bufPtsTot} SP</span>
+                    <button class="feat-miro-btn feat-miro-btn--buf" data-team="${esc(teamName)}" data-buf="1" title="Copier les features buffer pour Miro">📋 Miro</button>
+                </summary>
+                <div class="feat-buf-list">
+                    ${bufFeatures.map(f => _featureRow(f, false)).join('')}
+                </div>
+            </details>`;
+        }
 
         html += '</div>';
     }
@@ -646,6 +792,43 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
         btn.addEventListener('click', () => {
             const tabId = btn.dataset.gotoTab;
             document.querySelector(`#pi-tabs .tab[data-tab="${tabId}"]`)?.click();
+        });
+    });
+
+    // Boutons copie Miro
+    el.querySelectorAll('.feat-miro-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const teamName = btn.dataset.team;
+            const isBuf = btn.dataset.buf === '1';
+            const teamFeatures = featureList.filter(f => (f.team || '—') === teamName);
+
+            if (isBuf) {
+                // Pour le buffer : features buffer + leurs tickets enfants
+                const allTickets = store.get('tickets') || [];
+                const allEpics   = store.get('epics') || [];
+                const bufFeatures = teamFeatures.filter(f => _isBufFeature(f));
+                const items = [];
+                for (const f of bufFeatures) {
+                    items.push({ ...f, _isFeature: true });
+                    const children = allTickets.filter(t =>
+                        t.epic && allEpics.find(ep => ep.id === t.epic && ep.feature === f.id)
+                    ).concat(
+                        allTickets.filter(t => t.epic === f.id || t.featureId === f.id)
+                    );
+                    // Dédupliquer
+                    const seen = new Set();
+                    for (const t of children) {
+                        if (seen.has(t.id)) continue;
+                        seen.add(t.id);
+                        items.push({ ...t, _isChild: true, _parentId: f.id });
+                    }
+                }
+                _copyMiroImage(items, teamName + ' [Buffer]');
+            } else {
+                const toCopy = teamFeatures.filter(f => !_isBufFeature(f));
+                _copyMiroImage(toCopy, teamName);
+            }
         });
     });
 }
@@ -735,40 +918,59 @@ function _capAvgVelocity(teamSprints, teamName, curPiNum, mode, count) {
 // Calcule les jours d'absence sur une fenêtre [from, to] (les deux bornes inclusives)
 function _capAbsDaysInWindow(absences, teamName, from, to) {
     return absences
-        .filter(a => a.team === teamName && a.startDate <= to && a.endDate >= from)
+        .filter(a => (a.team === teamName || a.team === 'Team ' + teamName) && a.startDate <= to && a.endDate >= from)
         .reduce((s, a) => {
-            const start = a.startDate > from ? a.startDate : from;
-            const end   = a.endDate   < to   ? a.endDate   : to;
-            const absDur = Math.max(1, Math.round((new Date(a.endDate) - new Date(a.startDate)) / 86400000) + 1);
-            const winDur = Math.max(0, Math.round((new Date(end)       - new Date(start))       / 86400000) + 1);
+            const wFrom = a.startDate > from ? a.startDate : from;
+            const wTo   = a.endDate   < to   ? a.endDate   : to;
+            const absDur = Math.max(1, _workdays(a.startDate, a.endDate));
+            const winDur = Math.max(0, _workdays(wFrom, wTo));
             return s + (a.days || 0) * (winDur / absDur);
         }, 0);
 }
 
 // Retourne la dispo de chaque membre sur la fenêtre : [{ name, role, absDays, availDays, availPct }]
 // Retourne la dispo de chaque membre sur la fenêtre [from, to] (les deux bornes inclusives)
+// Compte les jours ouvrés (lun-ven) entre deux dates ISO inclusives
+function _workdays(isoFrom, isoTo) {
+    let count = 0;
+    const cur = new Date(isoFrom + 'T00:00:00');
+    const end = new Date(isoTo   + 'T00:00:00');
+    while (cur <= end) {
+        const dow = cur.getDay();
+        if (dow !== 0 && dow !== 6) count++;
+        cur.setDate(cur.getDate() + 1);
+    }
+    return count;
+}
+
 function _capMemberAvail(members, absences, absTeamName, from, to, sprintDur, rolePctMap = {}) {
+    // Jours ouvrés réels du sprint (base pour le % dispo) — plus précis que sprintDur configuré
+    const sprintWorkdays = _workdays(from, to);
+    const effectiveDur   = sprintWorkdays || sprintDur;
+
     return members
         .map(m => {
-            const rolePct = _capRolePct(m.role, rolePctMap); // ratio ETP en % (0-100)
+            const rolePct = _capRolePct(m.role, rolePctMap);
             const mAbs = absences.filter(a =>
-                a.memberName === m.name && a.team === absTeamName &&
+                a.memberName === m.name && (a.team === absTeamName || a.team === absTeamName.replace(/^Team /, '')) &&
                 a.startDate <= to && a.endDate >= from
             );
             const absDays = mAbs.reduce((s, a) => {
-                const start  = a.startDate > from ? a.startDate : from;
-                const end    = a.endDate   < to   ? a.endDate   : to;
-                const absDur = Math.max(1, Math.round((new Date(a.endDate) - new Date(a.startDate)) / 86400000) + 1);
-                const winDur = Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000) + 1);
+                // Fenêtre intersection absence ∩ sprint
+                const wFrom = a.startDate > from ? a.startDate : from;
+                const wTo   = a.endDate   < to   ? a.endDate   : to;
+                // Proportion en jours ouvrés (évite le biais calendaire week-end)
+                const absDur = Math.max(1, _workdays(a.startDate, a.endDate));
+                const winDur = Math.max(0, _workdays(wFrom, wTo));
                 return s + (a.days || 0) * (winDur / absDur);
             }, 0);
             const roundedAbs = Math.round(absDays * 10) / 10;
-            const availDays  = Math.max(0, sprintDur - roundedAbs);
-            const availPct   = Math.round((availDays / sprintDur) * 100);
+            const availDays  = Math.max(0, effectiveDur - roundedAbs);
+            const availPct   = Math.round((availDays / effectiveDur) * 100);
             return { name: m.name, role: m.role || '', rolePct, absDays: roundedAbs, availDays, availPct };
         })
-        .filter(m => m.rolePct > 0) // exclut les rôles à 0% (PO, SM, etc.)
-        .sort((a, b) => a.availPct - b.availPct); // plus absents en premier
+        .filter(m => m.rolePct > 0)
+        .sort((a, b) => a.availPct - b.availPct);
 }
 
 // Soustrait N jours à une date ISO (pour convertir borne exclusive → inclusive pour l'affichage)
@@ -820,8 +1022,10 @@ function _capSprintWindows(piInfo, teamSprints) {
         const idx = _capSprintIdx(s.name);
         if (!idx || !s.startDate) continue;
         const from = String(s.startDate).slice(0, 10);
-        // JIRA endDate est inclusif — on le prend tel quel
-        const to = s.endDate ? String(s.endDate).slice(0, 10) : add(from, sprintDur - 1);
+        // JIRA endDate est exclusif (le dernier jour = premier jour du sprint suivant)
+        // → on soustrait 1 jour pour obtenir la borne inclusive réelle
+        const rawTo = s.endDate ? String(s.endDate).slice(0, 10) : add(from, sprintDur - 1);
+        const to = add(rawTo, -1);
         const cur  = byIdx.get(idx);
         if (!cur) { byIdx.set(idx, { from, to }); continue; }
         if (from < cur.from) cur.from = from;
@@ -911,8 +1115,9 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
         const absTeamName = _absTeamAlias(teamName);
 
         // Membres de l'équipe (source de vérité absences), rôles exclus filtrés
+        // effectiveMembers a déjà normalisé m.team via extractTeam → comparer avec teamName directement
         const members = effectiveMembers.filter(m => {
-            if (m.team !== absTeamName) return false;
+            if (m.team !== teamName && m.team !== absTeamName) return false;
             return !excludedRoles.some(r => r.toLowerCase() === (m.role || '').toLowerCase());
         });
         // ETP pondéré : somme des ratios (ex: Ops=1.0, Tech Lead=0.4, Co-BO=0.0)

@@ -13,74 +13,7 @@ import { store } from '../state.js';
 import { esc, sumBy, toast, deriveMembersFromAbsences, getStatusLabel } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER } from '../config.js';
 import * as api from '../api.js';
-
-// ── Métadonnées par actionable (titre, icône, description, filtre) ──────────
-const _ACTIONABLES = {
-    unassigned: {
-        icon: '👤',
-        title: 'Tickets sans assigné·e',
-        intro: 'Ces tickets n\'ont pas de responsable. Assigne quelqu\'un pour que le travail démarre.',
-        filter: t => t.status !== 'done' && !(t.leader || t.assignee),
-        editableFields: ['leader', 'points'],
-    },
-    noPoints: {
-        icon: '📊',
-        title: 'Tickets sans estimation',
-        intro: 'Ces tickets n\'ont pas de Story Points. Estime-les pour suivre la vélocité correctement.',
-        // Exclut les Actions Rétro (label ActionRetro) qui ne nécessitent pas d'estimation
-        filter: t => !t.points
-            && t.status !== 'done'
-            && !(t.labels || []).some(l => /^ActionRetro$/i.test(l)),
-        editableFields: ['points', 'leader'],
-    },
-    blocked: {
-        icon: '⛔',
-        title: 'Tickets bloqués',
-        intro: 'Identifie le blocker et débloquer rapidement pour limiter l\'impact sprint.',
-        filter: t => t.status === 'blocked',
-        editableFields: ['leader', 'points'],
-    },
-    oldBlockers: {
-        icon: '🔴',
-        title: 'Blockers sans mouvement > 48h',
-        intro: 'Ces blockers stagnent depuis plus de 48h — sollicite l\'équipe pour les résoudre.',
-        filter: t => {
-            const now = Date.now();
-            return t.status === 'blocked' && t.updatedAt &&
-                (now - new Date(t.updatedAt).getTime()) > 48 * 3600 * 1000;
-        },
-        editableFields: ['leader', 'points'],
-    },
-    stale: {
-        icon: '🐌',
-        title: 'Tickets stagnants (>5j sans update)',
-        intro: 'En cours mais aucune activité depuis plus de 5 jours. Relance ou réassigne.',
-        filter: t => {
-            const now = Date.now();
-            return ['inprog', 'review', 'test'].includes(t.status) && t.updatedAt &&
-                (now - new Date(t.updatedAt).getTime()) > 5 * 86400 * 1000;
-        },
-        editableFields: ['leader', 'points'],
-    },
-    wip: {
-        icon: '🔄',
-        title: 'WIP élevé — tickets en cours',
-        intro: 'Trop de tickets en parallèle. Concentre-toi sur les plus avancés ou réassigne.',
-        filter: t => ['inprog', 'review', 'test'].includes(t.status),
-        editableFields: ['leader', 'points'],
-    },
-    scopeCreep: {
-        icon: '📈',
-        title: 'Périmètre élargi — tickets ajoutés en cours de sprint',
-        intro: 'Tickets ajoutés après le début du sprint. Vérifie si justifié ou à reporter.',
-        filter: (t, sprintInfo) => {
-            if (!sprintInfo?.startDate) return false;
-            const sprintStart = new Date(sprintInfo.startDate).getTime();
-            return new Date(t.createdAt).getTime() > sprintStart && t.status !== 'done';
-        },
-        editableFields: ['leader', 'points'],
-    },
-};
+import { ANOMALY_BY_KEY } from '../business_rules.js';
 
 /**
  * Ouvre la modal pour une alerte donnée. Met à jour le hash de l'URL.
@@ -89,17 +22,20 @@ const _ACTIONABLES = {
  * @param {object} opts          { updateHash: bool (defaut true) }
  */
 export function openAlertModal(actionable, opts = {}) {
-    if (!_ACTIONABLES[actionable]) return;
+    const meta = ANOMALY_BY_KEY[actionable];
+    if (!meta) return;
     _closeAlertModal();
 
-    const meta = _ACTIONABLES[actionable];
     const team = store.get('team');
     const teamFilter = team && team !== 'all';
     const allTickets = store.get('tickets') || [];
     const sprintInfo = store.get('sprintInfo');
+    const sprintStartMs = sprintInfo?.startDate
+        ? new Date(String(sprintInfo.startDate).slice(0, 10)).getTime() : 0;
+    const ctx = { sprintStartMs };
     const tickets = allTickets
         .filter(t => !teamFilter || t.team === team)
-        .filter(t => meta.filter(t, sprintInfo));
+        .filter(t => meta.match(t, ctx));
 
     const overlay = document.createElement('div');
     overlay.id = 'alert-modal-overlay';

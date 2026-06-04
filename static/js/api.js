@@ -151,6 +151,7 @@ export const deleteRisk      = id   => request(`/api/risks/${id}`, { method: 'DE
 export const rankFeatures    = items => request('/api/features/rank', { method: 'POST', body: JSON.stringify(items) });
 
 // ── Import / Export ───────────────────────────────────────────────────────────
+export const getAll          = ()   => request('/api/all');
 export const exportAll       = ()   => request('/api/export');
 export const importAll       = (data, mode = 'replace') => request('/api/import', {
     method: 'POST',

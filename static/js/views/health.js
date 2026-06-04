@@ -16,6 +16,7 @@ import { esc, filterByTeam, sumBy, computeCapacityNextPI } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
 import { sparkline, trendChip } from '../components/sparkline.js';
+import { ANOMALY_RULES } from '../business_rules.js';
 
 // Historique local du score Health (snapshot à chaque visite, max 30 entrées)
 const HEALTH_HIST_KEY = 'sb-health-history';
@@ -36,57 +37,8 @@ function _pushHealthSnapshot(score, byKey) {
     return list;
 }
 
-// ── Définition des anomalies (1 endroit unique pour ajouter une règle) ──────
-const ANOMALIES = [
-    {
-        key: 'blocked',     icon: '🚫', label: 'Bloqués',
-        desc: 'Tickets en statut blocked',
-        sev: 'danger',
-        match: t => t.status === 'blocked',
-    },
-    {
-        key: 'oldBlockers', icon: '🔴', label: 'Blockers >48h',
-        desc: 'Bloqués sans mouvement depuis >48h',
-        sev: 'danger',
-        match: t => t.status === 'blocked' && t.updatedAt &&
-            (Date.now() - new Date(t.updatedAt).getTime()) > 48 * 3600 * 1000,
-    },
-    {
-        key: 'stale',       icon: '🐌', label: 'Stagnants',
-        desc: 'En cours sans update depuis >5 jours',
-        sev: 'warning',
-        match: t => ['inprog','review','test'].includes(t.status) && t.updatedAt &&
-            (Date.now() - new Date(t.updatedAt).getTime()) > 5 * 86400 * 1000,
-    },
-    {
-        key: 'unassigned',  icon: '👤', label: 'Sans assigné·e',
-        desc: 'Tickets actifs sans leader',
-        sev: 'info',
-        match: t => t.status !== 'done' && !(t.leader || t.assignee),
-    },
-    {
-        key: 'noPoints',    icon: '📊', label: 'Sans estimation',
-        desc: 'Tickets actifs sans Story Points (hors ActionRetro)',
-        sev: 'info',
-        // Exclut les Actions Rétro (label ActionRetro) — pas d'estimation attendue.
-        // Doit rester aligné avec alert_modal.js ACTIONABLES.noPoints.filter
-        match: t => !t.points && t.status !== 'done'
-            && !(t.labels || []).some(l => /^ActionRetro$/i.test(l)),
-    },
-    {
-        key: 'wip',         icon: '🔄', label: 'WIP élevé',
-        desc: 'Tickets en cours / review / test',
-        sev: 'warning',
-        match: t => ['inprog','review','test'].includes(t.status),
-    },
-    {
-        key: 'scopeCreep',  icon: '📈', label: 'Périmètre élargi',
-        desc: 'Tickets ajoutés après début du sprint actif',
-        sev: 'warning',
-        match: (t, ctx) => ctx.sprintStartMs && t.createdAt &&
-            new Date(t.createdAt).getTime() > ctx.sprintStartMs && t.status !== 'done',
-    },
-];
+// ANOMALY_RULES imported from business_rules.js — single source of truth shared with alert_modal.js
+const ANOMALIES = ANOMALY_RULES;
 
 const SEV_COLOR = { danger: 'var(--danger)', warning: 'var(--warning)', info: 'var(--info)' };
 const SEV_BG    = {
@@ -328,25 +280,17 @@ export function renderHealth(container) {
         </div>
     `;
 
-    // Click handlers : carte synthèse + cellule matrice → ouvre la modal d'action
-    container.querySelectorAll('.health-card').forEach(c => {
-        c.addEventListener('click', () => {
-            const key = c.dataset.anomaly;
-            if (key) openAlertModal(key);
-        });
-    });
-    container.querySelectorAll('.health-cell.has-val').forEach(c => {
-        c.addEventListener('click', () => {
-            const key = c.dataset.anomaly;
-            const tm  = c.dataset.team;
-            // Bascule le filtre topbar sur l'équipe sélectionnée puis ouvre la modal
-            if (tm) {
-                store.set('group', null);
-                store.set('team', tm);
-            }
-            if (key) setTimeout(() => openAlertModal(key), 60);
-        });
-        c.style.cursor = 'pointer';
+    // Delegated click handlers — one listener per container instead of one per element
+    container.addEventListener('click', e => {
+        const card = e.target.closest('.health-card');
+        if (card?.dataset.anomaly) { openAlertModal(card.dataset.anomaly); return; }
+
+        const cell = e.target.closest('.health-cell.has-val');
+        if (cell?.dataset.anomaly) {
+            const tm = cell.dataset.team;
+            if (tm) { store.set('group', null); store.set('team', tm); }
+            setTimeout(() => openAlertModal(cell.dataset.anomaly), 60);
+        }
     });
 }
 

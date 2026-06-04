@@ -8,7 +8,10 @@ import { NAV_ITEMS } from '../config.js';
 import { esc, debounce, getStatusLabel } from '../utils.js';
 import { toggleFavoritesDropdown } from './favorites.js';
 
+let _topbarInited = false;
 export function initTopbar() {
+    if (_topbarInited) return;
+    _topbarInited = true;
     const viewTitle = document.getElementById('view-title');
     const searchInput = document.getElementById('search-input');
     const searchBox = document.getElementById('search-box');

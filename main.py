@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 import httpx
 from dotenv import load_dotenv
 from sqlmodel import SQLModel, Field, Session, create_engine, select, JSON, Column
+from sqlalchemy import Index as _SAIndex
 
 load_dotenv()
 
@@ -43,6 +44,15 @@ def _gen_id() -> str:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+import re as _re
+def _normalize_team(name: str) -> str:
+    """Strip CSV prefixes like 'Team Fuego' → 'Fuego', 'Equipe Alpha' → 'Alpha'.
+    Mirrors extractTeam() in utils.js so member.team aligns with JIRA board names."""
+    if not name:
+        return name
+    return _re.sub(r'^(?:Sprint|Équipe|Equipe|Team|Board|Kanban)\s+', '', name, flags=_re.IGNORECASE).strip() or name
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -72,7 +82,11 @@ class Member(SQLModel, table=True):
 
 
 class Ticket(SQLModel, table=True):
-    __table_args__ = _TA
+    __table_args__ = (
+        _SAIndex('ix_ticket_team_status', 'team', 'status'),
+        _SAIndex('ix_ticket_team_pi', 'team', 'pi_sprint'),
+        _TA,
+    )
     id: str = Field(default_factory=_gen_id, primary_key=True)
     title: str
     type: str = "story"
@@ -122,7 +136,10 @@ class Feature(SQLModel, table=True):
 
 
 class Epic(SQLModel, table=True):
-    __table_args__ = _TA
+    __table_args__ = (
+        _SAIndex('ix_epic_feature_team', 'feature_id', 'team'),
+        _TA,
+    )
     id: str = Field(default_factory=_gen_id, primary_key=True)
     title: str
     status: str = Field(default="todo", index=True)
@@ -392,6 +409,17 @@ def _run_migrations():
                 if col not in existing:
                     conn.execute(text(sql))
                     conn.commit()
+            except Exception:
+                pass
+        # Composite indexes for existing databases (CREATE INDEX IF NOT EXISTS is idempotent)
+        for idx_sql in [
+            "CREATE INDEX IF NOT EXISTS ix_ticket_team_status ON ticket (team, status)",
+            "CREATE INDEX IF NOT EXISTS ix_ticket_team_pi ON ticket (team, pi_sprint)",
+            "CREATE INDEX IF NOT EXISTS ix_epic_feature_team ON epic (feature_id, team)",
+        ]:
+            try:
+                conn.execute(text(idx_sql))
+                conn.commit()
             except Exception:
                 pass
 
@@ -1140,7 +1168,7 @@ async def bulk_merge_members(request: Request, session: Session = Depends(get_se
         if not name:
             continue
         key = name.lower()
-        new_team   = (d.get("team")   or "").strip()
+        new_team   = _normalize_team((d.get("team")   or "").strip())
         new_role   = (d.get("role")   or "").strip()
         new_entity = (d.get("entity") or "").strip()
 
@@ -1552,7 +1580,7 @@ async def create_absence(request: Request, session: Session = Depends(get_sessio
         raise HTTPException(400, "Le nom du membre est requis")
     a = Absence(
         member_name=body["memberName"],
-        team=body.get("team", ""),
+        team=_normalize_team(body.get("team", "")),
         start_date=body.get("startDate", ""),
         end_date=body.get("endDate", ""),
         type=body.get("type", "conge"),
@@ -1591,7 +1619,7 @@ async def bulk_create_absences(request: Request, session: Session = Depends(get_
             continue
         a = Absence(
             member_name=d.get("memberName", ""),
-            team=d.get("team", ""),
+            team=_normalize_team(d.get("team", "")),
             start_date=d.get("startDate", ""),
             end_date=d.get("endDate", d.get("startDate", "")),
             type=d.get("type", "conge"),
@@ -1954,6 +1982,43 @@ def export_all(session: Session = Depends(get_session)):
         "sprint": _sprint_dict(session.get(SprintConfig, "sprint-1")),
         "pi": _pi_dict(session.get(PIConfig, "pi-1")),
         "exportedAt": _now(),
+    }
+
+
+@app.get("/api/all")
+def get_all_data(session: Session = Depends(get_session)):
+    """Single endpoint for boot load — replaces 17 parallel HTTP calls in loadAllData().
+    Atlas data (skills/appetences/memberSkills/memberAppetences/mobility) is excluded
+    and still loaded lazily in the background."""
+    cal_events: list[dict] = []
+    for cal in session.exec(select(TeamCalendar)).all():
+        if not cal.events_json:
+            continue
+        try:
+            for ev in json.loads(cal.events_json):
+                ev["calendarId"] = cal.id; ev["calendarName"] = cal.name; ev["team"] = cal.team
+                cal_events.append(ev)
+        except Exception:
+            pass
+    cal_events.sort(key=lambda e: e.get("start", ""))
+    return {
+        "tickets":       [_ticket_dict(t) for t in session.exec(select(Ticket)).all()],
+        "features":      [_feature_dict(f) for f in session.exec(select(Feature)).all()],
+        "epics":         [_epic_dict(e) for e in session.exec(select(Epic)).all()],
+        "members":       [_member_dict(m) for m in session.exec(select(Member)).all()],
+        "teams":         [_team_dict(t) for t in session.exec(select(Team)).all()],
+        "groups":        [_group_dict(g) for g in session.exec(select(TeamGroup)).all()],
+        "absences":      [_absence_dict(a) for a in session.exec(select(Absence)).all()],
+        "support":       [_support_dict(s) for s in session.exec(select(SupportRotation)).all()],
+        "events":        [_event_dict(e) for e in session.exec(select(Event)).all()],
+        "retroItems":    [_retro_dict(r) for r in session.exec(select(RetroItem)).all()],
+        "risks":         [_risk_dict(r) for r in session.exec(select(Risk)).all()],
+        "moodVotes":     [_mood_dict(m) for m in session.exec(select(MoodVote).where(MoodVote.type == "mood")).all()],
+        "fistVotes":     [_mood_dict(m) for m in session.exec(select(MoodVote).where(MoodVote.type == "fist")).all()],
+        "calendars":     [_cal_dict(c) for c in session.exec(select(TeamCalendar)).all()],
+        "calendarEvents": cal_events,
+        "sprint":        _sprint_dict(session.get(SprintConfig, "sprint-1")),
+        "pi":            _pi_dict(session.get(PIConfig, "pi-1")),
     }
 
 

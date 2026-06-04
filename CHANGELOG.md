@@ -1,3 +1,40 @@
+## [3.12.0] - 2026-06-04
+
+### Feat : Planning Poker (estimation collective des Story Points)
+- Bouton **🃏 Réestimer** dans la modale ticket ([modal.js](squad-board/static/js/components/modal.js) `_openPokerModal`) : ouvre une modale de vote Fibonacci (1, 2, 3, 5, 8, 13, 21, ?) avec cartes cliquables.
+- **Vote multi-participants** persisté en `localStorage` (`sb-poker-<ticketId>`), votes masqués jusqu'à révélation, puis affichage des stats : moyenne / min / max / écart-type (⚠ si σ ≥ 4 = désaccord à discuter), distribution en barres, Fibonacci la plus proche.
+- Bouton **Enregistrer X SP** met à jour les Story Points du ticket via l'API.
+- Accès direct via hash `#…/ticket/ID/poker` (partageable, géré dans [app.js](squad-board/static/js/app.js)).
+
+### Feat : Atlas — compétences requises par équipe + sélection catalogue
+- **Compétences requises/favoris** (⭐) par équipe sur les en-têtes de la Skills Matrix ([atlas.js](squad-board/static/js/views/atlas.js)) — persistance `localStorage sb-team-req-<équipe>`. Alerte ⚠ animée si une compétence requise n'a aucun membre évalué.
+- **Sélection des compétences visibles par équipe** (bouton 🎯) — chaque équipe choisit un sous-ensemble du catalogue global (`sb-team-skills-<équipe>`).
+- **Catalogue** : drag & drop pour réordonner, import JSON/CSV avec contrôle visuel vert/orange/rouge, affichage 2 colonnes compact, tri alphabétique des sélecteurs.
+- **Long press** (600 ms) sur une cellule de niveau pour proposer un ticket de montée en compétence (loader SVG animé), remplace le double-clic.
+- Regroupement des membres **par rôle** dans la carte unFIX (icône + couleur par rôle).
+
+### Feat : PI Planning — copie Miro & tickets enfants
+- Bouton **📋 Miro** par équipe (onglet Features) : copie HTML (table avec liens JIRA cliquables) collable directement en stickies Miro. Features buffer copiées avec leurs tickets enfants.
+- **Tickets enfants pliables** sous chaque feature (chevron à gauche, rotation au dépli).
+- Card "Bloqués" (remplace "Équipes") + tooltips détaillés sur les metric-cards (Features, Epics, Objectifs, Bloqués).
+
+### Fix : PI capacité & cohérence équipes
+- **Sélecteur PI ↔ titre** : le titre utilise toujours le numéro de PI calculé (corrige l'incohérence PI29 sélecteur vs PI30 titre).
+- **Capacité par membre** : calcul des jours d'absence en **jours ouvrés** (corrige le ratio de dispo, ex. 30 % au lieu de 50 %) ; `endDate` JIRA traité comme borne exclusive.
+- **Normalisation des équipes** : `"Team Fuego"` → `"Fuego"` à l'import (backend) ET à la lecture (`deriveMembersFromAbsences`), 564 absences existantes normalisées.
+
+### Perf : optimisations backend & frontend
+- **Endpoint `GET /api/all`** : 1 requête au boot au lieu de 17 ([main.py](squad-board/main.py), [app.js](squad-board/static/js/app.js)).
+- **Index SQLite composés** : `(team, status)`, `(team, pi_sprint)` sur ticket, `(feature_id, team)` sur epic.
+- **`business_rules.js`** : règles d'anomalies partagées (health.js + alert_modal.js), fin de la duplication.
+- **roadmap.js** : pré-indexation (Map) au lieu de boucles N+1 ; **health.js** : délégation d'événements ; **sync.js** : fetch des métadonnées boards JIRA en parallèle ; **topbar.js** : guard contre les listeners dupliqués.
+
+### Fix : agenda & sidebar
+- **Agenda** : hash par date (navigation back/forward), affichage des demi-journées (½), tri membres par rôle puis prénom, boutons ‹/› élargis.
+- **Sidebar** : picker de groupe au survol de "Tous", suppression des boutons de groupe en doublon.
+
+---
+
 ## [3.11.7] - 2026-06-03
 
 ### Feat : Atlas — visite guidée automatique (onboarding)

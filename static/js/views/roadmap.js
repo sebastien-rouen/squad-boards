@@ -89,10 +89,30 @@ export function renderRoadmap(container) {
         return (a.createdAt || '').localeCompare(b.createdAt || '');
     });
 
+    // Pre-index for O(1) lookups — avoids O(features × tickets × epics) nested loops
+    const ticketsByEpicId = new Map();
+    for (const t of tickets) {
+        if (!t.epic) continue;
+        if (!ticketsByEpicId.has(t.epic)) ticketsByEpicId.set(t.epic, []);
+        ticketsByEpicId.get(t.epic).push(t);
+    }
+    const epicsByFeatureId = new Map();
+    for (const e of epics) {
+        if (!e.feature) continue;
+        if (!epicsByFeatureId.has(e.feature)) epicsByFeatureId.set(e.feature, []);
+        epicsByFeatureId.get(e.feature).push(e);
+    }
+    const ticketsByTeam = new Map();
+    for (const t of tickets) {
+        if (!ticketsByTeam.has(t.team)) ticketsByTeam.set(t.team, []);
+        ticketsByTeam.get(t.team).push(t);
+    }
+
     // Feature progress (current PI view)
     const featureData = sortedFeatures.map(f => {
-        const children = tickets.filter(t => t.epic && epics.find(e => e.id === t.epic && e.feature === f.id));
-        const all = children.length ? children : tickets.filter(t => t.team === f.team);
+        const featEpics = epicsByFeatureId.get(f.id) || [];
+        const children = featEpics.flatMap(e => ticketsByEpicId.get(e.id) || []);
+        const all = children.length ? children : (ticketsByTeam.get(f.team) || []);
         const total = all.length || 1;
         const done = all.filter(t => t.status === 'done').length;
         const childPts = sumBy(all, t => t.points);
@@ -105,10 +125,22 @@ export function renderRoadmap(container) {
 
     // Next PI features — filtered by selected team/group, searches feature + ticket stores
     const nextPiFeatureData = nextPiTag ? (() => {
+        // Pre-index allTickets by piSprint for the nextPi lookups below
+        const allTicketsByEpicId = new Map();
+        const nextPiTickets = [];
+        for (const t of allTickets) {
+            if (t.epic) {
+                if (!allTicketsByEpicId.has(t.epic)) allTicketsByEpicId.set(t.epic, []);
+                allTicketsByEpicId.get(t.epic).push(t);
+            }
+            if (t.piSprint === nextPiTag) nextPiTickets.push(t);
+        }
+        const epicById = new Map(epics.map(e => [e.id, e]));
+
         const fromFeatureStore = features.filter(f => f.piSprint === nextPiTag);
-        const fromTicketStore  = tickets.filter(t =>
-            t.piSprint === nextPiTag && t.type === 'feature' &&
-            !fromFeatureStore.find(f => f.id === t.id)
+        const fromFeatureIds = new Set(fromFeatureStore.map(f => f.id));
+        const fromTicketStore = tickets.filter(t =>
+            t.piSprint === nextPiTag && t.type === 'feature' && !fromFeatureIds.has(t.id)
         );
 
         // Inherited features: feature is labelled in an earlier PI but has child tickets in nextPi.
@@ -119,9 +151,9 @@ export function renderRoadmap(container) {
             ...fromTicketStore.map(t => t.id),
         ]);
         const inheritedFeatureIds = new Set();
-        for (const t of allTickets) {
-            if (t.piSprint !== nextPiTag || !t.epic) continue;
-            const ep = epics.find(e => e.id === t.epic);
+        for (const t of nextPiTickets) {
+            if (!t.epic) continue;
+            const ep = epicById.get(t.epic);
             if (ep?.feature) inheritedFeatureIds.add(ep.feature);
         }
         const fromInherited = features
@@ -132,9 +164,9 @@ export function renderRoadmap(container) {
         // Used as proxy-features for projects that plan at the epic level (e.g. GCOM).
         const featureIds = new Set(features.map(f => f.id));
         const epicsForTeam = filterByTeam(epics, team);
+        const nextPiEpicIds = new Set(nextPiTickets.map(t => t.epic).filter(Boolean));
         const fromOrphanEpics = epicsForTeam
-            .filter(ep => (!ep.feature || !featureIds.has(ep.feature)) &&
-                          allTickets.some(t => t.piSprint === nextPiTag && t.epic === ep.id))
+            .filter(ep => (!ep.feature || !featureIds.has(ep.feature)) && nextPiEpicIds.has(ep.id))
             .map(ep => ({ ...ep, _piProxy: 'epic', piSprint: ep.piSprint || nextPiTag }));
 
         return [...fromFeatureStore, ...fromTicketStore, ...fromInherited, ...fromOrphanEpics]
@@ -144,14 +176,13 @@ export function renderRoadmap(container) {
                 // Sinon : tickets via la chaîne epic → feature, fallback direct ticket → feature
                 let children;
                 if (f._piProxy === 'epic') {
-                    children = allTickets.filter(t => t.piSprint === nextPiTag && t.epic === f.id);
+                    children = (allTicketsByEpicId.get(f.id) || []).filter(t => t.piSprint === nextPiTag);
                 } else {
-                    const featEpics = epics.filter(e => e.feature === f.id);
-                    children = allTickets.filter(t =>
-                        t.piSprint === nextPiTag && t.epic && featEpics.some(e => e.id === t.epic)
-                    );
+                    const featEpics = epicsByFeatureId.get(f.id) || [];
+                    const epicIdSet = new Set(featEpics.map(e => e.id));
+                    children = nextPiTickets.filter(t => t.epic && epicIdSet.has(t.epic));
                     if (!children.length) {
-                        children = allTickets.filter(t => t.piSprint === nextPiTag && t.epic === f.id);
+                        children = (allTicketsByEpicId.get(f.id) || []).filter(t => t.piSprint === nextPiTag);
                     }
                 }
                 const childPts     = sumBy(children, t => t.points);

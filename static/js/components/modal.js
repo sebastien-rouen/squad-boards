@@ -599,6 +599,7 @@ export function openTicketModal(ticketId) {
                 return `<span class="chip editable-field" data-field="priority" data-value="${p}" style="background:${pb};color:${pc};border-color:${pc}30">${pi} ${esc(p)}</span>`;
             })()}
             <span class="badge badge-points editable-field" data-field="points" data-value="${ticket.points || 0}">${ticket.points ? `${ticket.points} pts` : '— pts'}</span>
+            <button class="chip chip-poker" id="mdl-poker-btn" data-ticket-id="${esc(ticket.id)}" title="Planning Poker — voter collectivement sur les Story Points">🃏 Réestimer</button>
             <span class="chip editable-field" data-field="flagged" data-value="${ticket.flagged ? 'true' : 'false'}" style="${ticket.flagged ? 'background:var(--danger-bg);color:var(--danger);border-color:var(--danger)30' : 'opacity:0.35'}" title="${ticket.flagged ? 'Cliquer pour débloquer' : 'Cliquer pour bloquer'}">🚫 Bloqué</span>
             ${ct ? `<span class="chip" title="Cycle time">⏱ ${ct}j cycle</span>` : ''}
             ${lt ? `<span class="chip" title="Lead time">📅 ${lt}j lead</span>` : ''}
@@ -1203,6 +1204,238 @@ function _bindInlineEditors(container, ticket) {
         if (oldInput) oldInput.replaceWith(labelPickerWrap);
         else labelsWrap.appendChild(labelPickerWrap);
     }
+
+    // ── Planning Poker ────────────────────────────────────────────────────────
+    container.querySelector('#mdl-poker-btn')?.addEventListener('click', () => {
+        // Ajoute /poker au hash pour permettre le partage direct du lien
+        const cur = location.hash;
+        if (!cur.endsWith('/poker')) {
+            history.replaceState(null, '', cur.replace(/\/poker$/, '') + '/poker');
+        }
+        _openPokerModal(ticket, apiSave, openTicketModal);
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Planning Poker — vote collectif Story Points
+// ══════════════════════════════════════════════════════════════════════════════
+const POKER_KEY = (ticketId) => `sb-poker-${ticketId}`;
+const POKER_FIB = [1, 2, 3, 5, 8, 13, 21, '?'];
+
+function _openPokerModal(ticket, apiSave, openTicketModal) {
+    document.getElementById('poker-overlay')?.remove();
+    const saved = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
+
+    const ov = document.createElement('div');
+    ov.id = 'poker-overlay';
+    ov.className = 'poker-overlay';
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add('visible'));
+
+    const close = () => {
+        // Retire /poker du hash à la fermeture
+        if (location.hash.endsWith('/poker')) {
+            history.replaceState(null, '', location.hash.replace(/\/poker$/, ''));
+        }
+        ov.classList.remove('visible');
+        ov.addEventListener('transitionend', () => ov.remove(), { once: true });
+    };
+
+    const render = () => {
+        const votes = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
+        const numVotes = votes.filter(v => typeof v.val === 'number');
+        const avg  = numVotes.length ? numVotes.reduce((s, v) => s + v.val, 0) / numVotes.length : null;
+        const min  = numVotes.length ? Math.min(...numVotes.map(v => v.val)) : null;
+        const max  = numVotes.length ? Math.max(...numVotes.map(v => v.val)) : null;
+        const std  = numVotes.length > 1
+            ? Math.sqrt(numVotes.reduce((s, v) => s + Math.pow(v.val - avg, 2), 0) / numVotes.length)
+            : 0;
+        // Fibonacci la plus proche de la moyenne
+        const fibs = [1,2,3,5,8,13,21];
+        const nearest = avg !== null ? fibs.reduce((a, b) => Math.abs(b - avg) < Math.abs(a - avg) ? b : a) : null;
+        const revealed = votes.length > 0 && votes.every(v => v.revealed);
+
+        ov.innerHTML = `
+        <div class="poker-modal">
+            <div class="poker-hdr">
+                <div class="poker-hdr-title">
+                    <span class="poker-card-icon">🃏</span>
+                    <div>
+                        <div class="poker-ticket-id">${esc(ticket.id)}</div>
+                        <div class="poker-ticket-title">${esc(ticket.title)}</div>
+                    </div>
+                </div>
+                <button class="btn-icon" id="poker-close"><svg class="icon"><use href="#i-x"/></svg></button>
+            </div>
+
+            <div class="poker-body">
+                <!-- Zone de vote -->
+                <div class="poker-vote-section">
+                    <div class="poker-vote-label">Votre estimation</div>
+                    <div class="poker-cards">
+                        ${POKER_FIB.map(v => {
+                            const myVote = votes.find(x => x.me);
+                            const isSelected = myVote?.val === v;
+                            return `<button class="poker-card${isSelected ? ' poker-card--selected' : ''}" data-val="${v}">
+                                <span class="poker-card-val">${v}</span>
+                            </button>`;
+                        }).join('')}
+                    </div>
+                    <div class="poker-actions-row">
+                        <button class="btn btn-sm btn-secondary" id="poker-reveal" ${votes.length === 0 ? 'disabled' : ''}>
+                            ${revealed ? '🔄 Revote' : '👁 Révéler les votes'}
+                        </button>
+                        <button class="btn btn-sm btn-danger-outline" id="poker-reset">🗑 Reset</button>
+                    </div>
+                </div>
+
+                <!-- Votes collectés -->
+                <div class="poker-results-section">
+                    <div class="poker-votes-list">
+                        ${votes.length === 0 ? '<div class="poker-empty">Aucun vote pour l\'instant…</div>' :
+                            votes.map(v => `
+                            <div class="poker-vote-chip${v.revealed ? '' : ' poker-vote-chip--hidden'}">
+                                <span class="poker-vote-name">${esc(v.name)}</span>
+                                <span class="poker-vote-val">${v.revealed ? v.val : '🂠'}</span>
+                                ${v.me ? `<button class="poker-vote-rm" data-name="${esc(v.name)}" title="Supprimer mon vote">×</button>` : ''}
+                            </div>`).join('')}
+                    </div>
+
+                    ${revealed && numVotes.length >= 2 ? `
+                    <div class="poker-stats">
+                        <div class="poker-stat">
+                            <span class="poker-stat-lbl">Moy.</span>
+                            <span class="poker-stat-val">${avg.toFixed(1)}</span>
+                        </div>
+                        <div class="poker-stat">
+                            <span class="poker-stat-lbl">Min</span>
+                            <span class="poker-stat-val poker-stat--low">${min}</span>
+                        </div>
+                        <div class="poker-stat">
+                            <span class="poker-stat-lbl">Max</span>
+                            <span class="poker-stat-val poker-stat--high">${max}</span>
+                        </div>
+                        <div class="poker-stat">
+                            <span class="poker-stat-lbl">σ</span>
+                            <span class="poker-stat-val${std >= 4 ? ' poker-stat--warn' : ''}" title="Écart-type${std >= 4 ? ' — fort désaccord, discussion recommandée !' : ''}">${std.toFixed(1)}${std >= 4 ? ' ⚠️' : ''}</span>
+                        </div>
+                    </div>
+                    <!-- Distribution visuelle -->
+                    <div class="poker-distrib">
+                        ${fibs.filter(f => numVotes.some(v => v.val === f)).map(f => {
+                            const count = numVotes.filter(v => v.val === f).length;
+                            const pct   = Math.round(count / numVotes.length * 100);
+                            return `<div class="poker-distrib-row">
+                                <span class="poker-distrib-lbl">${f}</span>
+                                <div class="poker-distrib-bar-wrap">
+                                    <div class="poker-distrib-bar" style="width:${pct}%"></div>
+                                </div>
+                                <span class="poker-distrib-n">${count}×</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    ${nearest !== null ? `
+                    <div class="poker-consensus">
+                        <span>Fibonacci la plus proche :</span>
+                        <strong class="poker-consensus-val">${nearest} SP</strong>
+                        <button class="btn btn-primary btn-sm" id="poker-save" data-pts="${nearest}">
+                            ✓ Enregistrer ${nearest} SP
+                        </button>
+                    </div>` : ''}
+                    ` : revealed && numVotes.length === 1 ? '<div class="poker-empty">1 seul vote numérique — attendez les autres.</div>' : ''}
+                </div>
+            </div>
+
+            <!-- Ajout d'un votant -->
+            <div class="poker-add-voter">
+                <input class="input input-sm" id="poker-voter-name" placeholder="Votre prénom…" autocomplete="off">
+                <button class="btn btn-sm btn-secondary" id="poker-add-voter">+ Participer</button>
+            </div>
+        </div>`;
+
+        // Listeners
+        ov.querySelector('#poker-close').addEventListener('click', close);
+        ov.addEventListener('click', e => { if (e.target === ov) close(); });
+
+        ov.querySelectorAll('.poker-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const val = card.dataset.val === '?' ? '?' : parseInt(card.dataset.val);
+                const cur = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
+                const meVote = cur.find(v => v.me);
+                if (!meVote) {
+                    const name = localStorage.getItem('sb-poker-myname') || 'Moi';
+                    cur.push({ name, val, me: true, revealed: false });
+                } else {
+                    meVote.val = val;
+                    meVote.revealed = false;
+                }
+                localStorage.setItem(POKER_KEY(ticket.id), JSON.stringify(cur));
+                render();
+            });
+        });
+
+        ov.querySelector('#poker-reveal')?.addEventListener('click', () => {
+            const cur = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
+            if (cur.every(v => v.revealed)) {
+                // Revote : masquer
+                cur.forEach(v => { v.revealed = false; });
+            } else {
+                cur.forEach(v => { v.revealed = true; });
+            }
+            localStorage.setItem(POKER_KEY(ticket.id), JSON.stringify(cur));
+            render();
+        });
+
+        ov.querySelector('#poker-reset')?.addEventListener('click', () => {
+            localStorage.removeItem(POKER_KEY(ticket.id));
+            render();
+        });
+
+        ov.querySelectorAll('.poker-vote-rm').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const cur = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
+                const updated = cur.filter(v => !v.me);
+                localStorage.setItem(POKER_KEY(ticket.id), JSON.stringify(updated));
+                render();
+            });
+        });
+
+        ov.querySelector('#poker-save')?.addEventListener('click', async () => {
+            const pts = parseInt(ov.querySelector('#poker-save').dataset.pts);
+            if (isNaN(pts)) return;
+            try {
+                await apiSave({ points: pts });
+                localStorage.removeItem(POKER_KEY(ticket.id));
+                close();
+                openTicketModal(ticket.id);
+                toast(`Story Points mis à jour : ${pts} SP`, 'success');
+            } catch (e) { toast(e.message, 'error'); }
+        });
+
+        ov.querySelector('#poker-add-voter')?.addEventListener('click', () => {
+            const name = ov.querySelector('#poker-voter-name').value.trim();
+            if (!name) return;
+            localStorage.setItem('sb-poker-myname', name);
+            const cur = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
+            if (!cur.find(v => v.me)) {
+                cur.push({ name, val: null, me: true, revealed: false });
+                localStorage.setItem(POKER_KEY(ticket.id), JSON.stringify(cur));
+            } else {
+                cur.find(v => v.me).name = name;
+                localStorage.setItem(POKER_KEY(ticket.id), JSON.stringify(cur));
+            }
+            render();
+        });
+
+        // Pré-remplir le nom si connu
+        const nameInput = ov.querySelector('#poker-voter-name');
+        if (nameInput) {
+            const myName = localStorage.getItem('sb-poker-myname') || '';
+            nameInput.value = myName;
+        }
+    };
+
+    render();
 }
 
 // Arrow keys for modal navigation

@@ -3,7 +3,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { renderStatusChart, renderVelocityChart } from '../components/charts.js';
 import { renderActivityList, bindActivityClicks } from '../components/activity.js';
@@ -38,10 +38,23 @@ export function renderDashboard(container) {
     const sprintInfo = getSprintForTeam(team, sprintInfoAll);
     const piInfo = store.get('piInfo');
 
+    // PI affiché = PI courant + offset du sélecteur topbar (-2..+2)
+    const piOffset = store.get('piOffset') || 0;
+    // PI COURANT (offset 0) = source unique getCurrentPi (sprint actif > piInfo.number).
+    const _basePiNum = getCurrentPi({ sprintInfo: sprintInfoAll, piInfo });
+    const displayPiNum = _basePiNum ? Math.max(1, _basePiNum + piOffset) : 0;
+
     // Atteinte des PI Objectives (SAFe predictability score)
     // Score = Σ BV livrés (commits done) / Σ BV planifiés (commits)
     // Stretch livré = bonus au numérateur (peut dépasser 100%)
-    const piObjs = (piInfo?.objectives || []).filter(o => (o.text || '').trim());
+    // Objectifs du PI affiché : snapshot pi_objectives[n] en priorité (source d'un import CSV ou
+    // auto-synchro depuis PI Planning), puis jeu vivant piInfo.objectives en fallback si pas de snapshot
+    // (rétrocompat pour les PI sans snapshot — PI Planning écrit `objectives` + auto-snapshot à chaque save).
+    const _piObjSnap = (piInfo?.piObjectives || {})[String(displayPiNum)];
+    const _rawObjs = _piObjSnap != null
+        ? _piObjSnap
+        : (piOffset === 0 ? (piInfo?.objectives || []) : []);
+    const piObjs = _rawObjs.filter(o => (o.text || '').trim());
     const teamObjs = (team && team !== 'all') ? piObjs.filter(o => (o.team || '') === team) : piObjs;
     const _bv = o => Math.max(0, Math.min(10, parseInt(o.bv) || 0));
     const commitObjs   = teamObjs.filter(o => o.committed);
@@ -179,11 +192,22 @@ export function renderDashboard(container) {
             </div>
         </div>
 
-        ${sprintInfo ? (() => {
+        ${(sprintInfo && piOffset === 0) ? (() => {
             // Calcul positionnel du sprint : où en est-on dans la durée ?
             const _parse = s => { const d = String(s || '').slice(0,10); return d ? new Date(`${d}T00:00:00`).getTime() : NaN; };
             const sStart = _parse(sprintInfo.startDate);
             const sEnd   = _parse(sprintInfo.endDate);
+            // Nom court du sprint : extrait "30.1" depuis "Fuego - Ite 30.1" ou similaire
+            const _sprintShort = (() => { const m = (sprintInfo.name || '').match(/(\d+\.\d+)/); return m ? m[1] : null; })();
+            // Events chevauchant le sprint
+            const _allEvents = store.get('events') || [];
+            const _sprintEvents = (!isNaN(sStart) && !isNaN(sEnd))
+                ? _allEvents.filter(ev => {
+                    const es = _parse(ev.startDate), ee = _parse(ev.endDate || ev.startDate);
+                    return es <= sEnd && ee >= sStart;
+                  })
+                : [];
+            const _EV_ICONS = { incident:'💥', freeze:'🧊', milestone:'🚩', period:'📅', other:'ℹ️' };
             const now    = Date.now();
             const totalMs   = (!isNaN(sStart) && !isNaN(sEnd) && sEnd > sStart) ? sEnd - sStart : 0;
             const elapsedMs = totalMs ? Math.max(0, Math.min(totalMs, now - sStart)) : 0;
@@ -219,6 +243,16 @@ export function renderDashboard(container) {
             </div>
             ${sprintInfo.goal ? `<div class="sprint-goal-line">🎯 ${esc(sprintInfo.goal)}</div>` : ''}
             <div class="sprint-progress-wrap">
+                <div class="sprint-progress-meta">
+                    ${_sprintShort ? `<span class="sprint-progress-label" title="${esc(sprintInfo.name)}">${esc(_sprintShort)}</span>` : ''}
+                    ${_sprintEvents.length ? `<span class="sprint-progress-events">${_sprintEvents.map(ev => {
+                        const icon = _EV_ICONS[ev.type] || 'ℹ️';
+                        const _fmtD = iso => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}`; };
+                        const dateStr = ev.endDate && ev.endDate !== ev.startDate ? `${_fmtD(ev.startDate)} → ${_fmtD(ev.endDate)}` : _fmtD(ev.startDate);
+                        const tip = [ev.title, dateStr, ev.description].filter(Boolean).join(' · ');
+                        return `<span class="sprint-ev-chip sprint-ev-chip--${ev.type || 'other'}" title="${esc(tip)}">${icon} ${esc(ev.title)}</span>`;
+                    }).join('')}</span>` : ''}
+                </div>
                 <div class="sprint-progress-bar" title="Avancement points : ${donePts}/${totalPts} pts (${ptsPct}%) — Temps écoulé : ${timePct ?? '?'}%">
                     <div class="sprint-progress-time" style="width:${timePct ?? 0}%" title="Temps écoulé : ${timePct ?? '?'}%"></div>
                     <div class="sprint-progress-pts ${progressColor(ptsPct)}" style="width:${ptsPct}%"></div>
@@ -232,75 +266,104 @@ export function renderDashboard(container) {
                     <span class="sprint-progress-end">${_fmt(sEnd)}</span>
                 </div>` : ''}
             </div>
-            ${_renderPiSprintsStrip(sprintInfoAll, sprintInfo, team, allTickets)}
+            ${_renderPiSprintsStrip(sprintInfoAll, sprintInfo, team, allTickets, displayPiNum)}
         </div>`;
         })() : ''}
 
-        <!-- Cette semaine (5 derniers jours) -->
-        <div class="this-week mb-4" title="Activité quotidienne sur les 5 derniers jours ouvrés">
-            <h3 class="section-title">📅 Cette semaine</h3>
-            <div class="this-week-grid">
-                ${wkDays.map(d => {
-                    const intensity = Math.min(1, d.doneCount / 4);
-                    const bg = d.doneCount === 0 ? 'var(--bg-alt)'
-                             : `color-mix(in srgb, var(--success) ${Math.round(15 + intensity * 35)}%, transparent)`;
-                    return `<div class="this-week-day${d.isToday ? ' is-today' : ''}" style="background:${bg}" title="${d.dayLbl} : ${d.doneCount} tickets terminés${d.donePts ? ' · ' + d.donePts + ' pts' : ''}">
-                        <span class="this-week-day-lbl">${d.dayLbl}</span>
-                        <span class="this-week-day-val">${d.doneCount}</span>
-                        <span class="this-week-day-sub">${d.donePts ? d.donePts + ' pts' : 'tickets'}</span>
-                    </div>`;
-                }).join('')}
-            </div>
-        </div>
+        ${(piOffset !== 0 && displayPiNum) ? (() => {
+            // PI sélectionné ≠ courant : pas de "sprint en cours", on affiche le bandeau PI + ses sprints
+            const strip = _renderPiSprintsStrip(sprintInfoAll, sprintInfo, team, allTickets, displayPiNum);
+            return `
+            <div class="sprint-header mb-4 sprint-header--other-pi">
+                <div class="sprint-header-top">
+                    <div class="sprint-info">
+                        <span class="sprint-name">🗓️ PI #${displayPiNum}</span>
+                        <span class="sprint-dayleft">${piOffset > 0 ? `PI +${piOffset}` : `PI ${piOffset}`}</span>
+                    </div>
+                </div>
+                ${strip || '<p class="text-sm text-muted" style="padding:var(--sp-2) 0">Aucun sprint connu pour ce PI.</p>'}
+            </div>`;
+        })() : ''}
 
-        <!-- Team Cards -->
-        <h3 class="section-title">Equipes</h3>
+        <!-- Team Cards — affiché seulement si >1 équipe -->
+        ${teams.length > 1 ? (() => {
+            const _isBuf = t => (t.labels || []).some(l => /buffer/i.test(l));
+            return `
+        <h3 class="section-title">Équipes</h3>
         <div class="team-cards mb-4">
             ${teams.map((t, i) => {
-                const tt = byTeam.get(t) || [];
-                const d  = tt.filter(x => x.status === 'done').length;
-                const ip = tt.filter(x => x.status === 'inprog').length;
-                const b  = tt.filter(x => x.status === 'blocked').length;
-                const todo = tt.filter(x => x.status === 'todo').length;
-                const pts = sumBy(tt, x => x.points);
-                const dPts = sumBy(tt.filter(x => x.status === 'done'), x => x.points);
-                const tPct = pct(d, tt.length);
-                const pPct = pct(dPts, pts);
-                const tObj = teamObjects.find(o => o.name === t);
+                const tt    = byTeam.get(t) || [];
+                const done  = tt.filter(x => x.status === 'done');
+                const b     = tt.filter(x => x.status === 'blocked').length;
+                const tObj  = teamObjects.find(o => o.name === t);
                 const color = tObj?.color || TEAM_COLORS[i % TEAM_COLORS.length];
-                return `
-                    <div class="team-card" style="--team-card-color:${color}">
-                        <div class="team-card-header">
-                            <span class="team-card-name inline-flex-center"><span class="team-dot" style="background:${color}"></span> ${esc(t)}</span>
-                            <span class="badge badge-points" title="Story points livrés / total">${dPts}/${pts} pts</span>
-                        </div>
-                        <div class="team-card-progress">
-                            <div class="team-card-progress-row" title="Tickets : ${d}/${tt.length} terminés (${tPct}%)">
-                                <span class="team-card-progress-label">Tickets</span>
-                                <div class="progress progress-sm"><div class="progress-bar ${progressColor(tPct)}" style="width:${tPct}%"></div></div>
-                                <span class="team-card-progress-pct">${tPct}%</span>
-                            </div>
-                            <div class="team-card-progress-row" title="Story points : ${dPts}/${pts} livrés (${pPct}%)">
-                                <span class="team-card-progress-label">Points</span>
-                                <div class="progress progress-sm"><div class="progress-bar ${progressColor(pPct)}" style="width:${pPct}%"></div></div>
-                                <span class="team-card-progress-pct">${pPct}%</span>
-                            </div>
-                        </div>
-                        <div class="team-card-stats">
-                            <span class="team-card-stat" title="Total tickets">📋 ${tt.length}</span>
-                            <span class="team-card-stat team-card-stat--done" title="Tickets terminés">✓ ${d}</span>
-                            ${ip > 0 ? `<span class="team-card-stat team-card-stat--inprog" title="En cours">▶ ${ip}</span>` : ''}
-                            ${todo > 0 ? `<span class="team-card-stat team-card-stat--todo" title="À faire">○ ${todo}</span>` : ''}
-                            ${b > 0 ? `<span class="team-card-stat team-card-stat--blocked" title="Bloqués">⚠ ${b}</span>` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('')}
-        </div>
 
+                // SP nets (hors buffer) + SP buffer réalisés
+                const netDone    = done.filter(x => !_isBuf(x));
+                const bufDone    = done.filter(x => _isBuf(x));
+                const spNetDone  = sumBy(netDone, x => x.points);
+                const spBufDone  = sumBy(bufDone, x => x.points);
+
+                // SP totaux estimés (hors buffer) pour la largeur des barres
+                const netAll     = tt.filter(x => !_isBuf(x));
+                const bufAll     = tt.filter(x => _isBuf(x));
+                const spNetRaw   = sumBy(netAll, x => x.points);
+                const spBufRaw   = sumBy(bufAll, x => x.points);
+                const spNetTotal = spNetRaw || 1;
+                const spBufTotal = spBufRaw || 1;
+
+                const netFill = Math.round(Math.min(spNetDone / spNetTotal, 1) * 100);
+                const bufFill = Math.round(Math.min(spBufDone / spBufTotal, 1) * 100);
+
+                const tipNet = `${spNetDone} SP nets réalisés / ${spNetRaw} estimés (${netFill}%)`;
+                const tipBuf = `${spBufDone} SP buffer réalisés / ${spBufRaw} estimés (${bufFill}%)`;
+
+                return `
+                <div class="team-card" style="--team-card-color:${color}">
+                    <div class="team-card-header">
+                        <span class="team-card-name inline-flex-center">
+                            <span class="team-dot" style="background:${color}"></span>
+                            ${esc(t)}
+                        </span>
+                        ${b > 0 ? `<span class="team-card-stat team-card-stat--blocked" title="${b} bloqué${b>1?'s':''}">⚠ ${b}</span>` : ''}
+                    </div>
+                    <div class="picap-sp-row dash-sp-row">
+                        <div class="picap-sp-bars">
+                            <div class="picap-sp-net" style="flex:${spNetTotal}">
+                                <div class="picap-sp-real-fill picap-sp-real-fill--net" style="width:${netFill}%" title="${esc(tipNet)}"></div>
+                                <span class="picap-sp-val">${spNetDone}</span>
+                                <span class="picap-sp-lbl">SP <em class="picap-sp-real-hint">/ ${sumBy(netAll, x => x.points)}</em></span>
+                            </div>
+                            ${spBufTotal > 1 ? `
+                            <div class="picap-sp-buf" style="flex:${spBufTotal}">
+                                <div class="picap-sp-real-fill picap-sp-real-fill--buf" style="width:${bufFill}%" title="${esc(tipBuf)}"></div>
+                                <span class="picap-sp-val">${spBufDone}</span>
+                                <span class="picap-sp-lbl">buf</span>
+                            </div>` : ''}
+                        </div>
+                        <span class="picap-sp-total">≈&thinsp;${spNetRaw + spBufRaw} SP</span>
+                    </div>
+                    <div class="team-card-stats">
+                        <span class="team-card-stat" title="Tickets terminés / total">✓ ${done.length}/${tt.length}</span>
+                        <span class="team-card-stat" title="SP réalisés / total">${spNetDone + spBufDone}/${sumBy(tt, x => x.points)} pts</span>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>`;
+        })() : ''}
+
+        ${(!teamObjs.length && displayPiNum) ? `
+        <!-- Aucun objectif enregistré pour ce PI (ni jeu courant, ni snapshot pi_objectives) -->
+        <h3 class="section-title">Objectifs PI #${displayPiNum}${team && team !== 'all' ? ` — ${esc(team)}` : ''}</h3>
+        <div class="card pi-obj-attain mc-info">
+            <p class="text-sm text-muted" style="padding:var(--sp-3)">
+                Aucun objectif enregistré pour le PI #${displayPiNum}${team && team !== 'all' ? ` (équipe ${esc(team)})` : ''}.
+                Saisissez-les dans <strong>PI Planning → Objectifs</strong>.
+            </p>
+        </div>` : ''}
         ${teamObjs.length ? `
         <!-- PI Objectives — atteinte (Predictability score SAFe) -->
-        <h3 class="section-title">Objectifs PI${piInfo?.number ? ' #' + piInfo.number : ''}${team && team !== 'all' ? ` — ${esc(team)}` : ''}</h3>
+        <h3 class="section-title">Objectifs PI${displayPiNum ? ' #' + displayPiNum : ''}${team && team !== 'all' ? ` — ${esc(team)}` : ''}</h3>
         <div class="card pi-obj-attain ${piScoreColor}">
             <div class="pi-obj-attain-hdr">
                 <div class="pi-obj-attain-score">
@@ -327,21 +390,53 @@ export function renderDashboard(container) {
                 </div>
             </div>` : '<div class="text-sm text-muted">Aucun objectif commis défini — ajouter via PI Planning → Objectifs</div>'}
             <div class="pi-obj-attain-list">
-                ${teamObjs
-                    .slice()
-                    .sort((a, b) => (a.committed === b.committed ? 0 : a.committed ? -1 : 1) || _bv(b) - _bv(a))
-                    .map(o => {
-                        const stCls = o.status === 'done' ? 'done' : o.status === 'inprog' ? 'inprog' : o.status === 'blocked' ? 'blocked' : 'todo';
-                        const icon = o.status === 'done' ? '✓' : o.status === 'inprog' ? '◐' : o.status === 'blocked' ? '⚠' : '○';
-                        const kind = o.committed ? `<span class="pi-obj-kind pi-obj-kind--commit">Commis</span>` : `<span class="pi-obj-kind pi-obj-kind--stretch">Stretch</span>`;
-                        return `<div class="pi-obj-attain-item pi-obj-attain-item--${stCls}" title="${esc(o.text || '')}${o.team ? ' · ' + esc(o.team) : ''}">
-                            <span class="pi-obj-attain-icon">${icon}</span>
+                ${(() => {
+                    const _stCls = o => o.status === 'done' ? 'done' : o.status === 'inprog' ? 'inprog' : o.status === 'blocked' ? 'blocked' : 'todo';
+                    const _icon  = o => o.status === 'done' ? '✓' : o.status === 'inprog' ? '◐' : o.status === 'blocked' ? '⚠' : '○';
+                    const _row   = o => {
+                        const kind = o.committed
+                            ? `<span class="pi-obj-kind pi-obj-kind--commit">Commis</span>`
+                            : `<span class="pi-obj-kind pi-obj-kind--stretch">Stretch</span>`;
+                        return `<div class="pi-obj-attain-item pi-obj-attain-item--${_stCls(o)}" title="${esc(o.text || '')}">
+                            <span class="pi-obj-attain-icon">${_icon(o)}</span>
                             <span class="pi-obj-attain-text">${esc(o.text || 'Sans titre')}</span>
-                            ${o.team && (!team || team === 'all') ? `<span class="pi-obj-attain-team">${esc(o.team)}</span>` : ''}
                             ${kind}
                             <span class="pi-obj-attain-bv" title="Business Value">BV ${_bv(o)}</span>
                         </div>`;
-                    }).join('')}
+                    };
+                    const _sortObjs = list => list.slice().sort((a, b) =>
+                        (a.committed === b.committed ? 0 : a.committed ? -1 : 1) || _bv(b) - _bv(a)
+                    );
+
+                    // Vue équipe unique : pas de groupement
+                    if (team && team !== 'all') {
+                        return _sortObjs(teamObjs).map(_row).join('');
+                    }
+
+                    // Vue globale : grouper par équipe, triées alphabétiquement
+                    const byTeamMap = new Map();
+                    for (const o of teamObjs) {
+                        const k = o.team || '—';
+                        if (!byTeamMap.has(k)) byTeamMap.set(k, []);
+                        byTeamMap.get(k).push(o);
+                    }
+                    return [...byTeamMap.entries()]
+                        .sort((a, b) => a[0].localeCompare(b[0], 'fr', { sensitivity: 'base' }))
+                        .map(([teamName, objs]) => {
+                            const tObj  = teamObjects.find(o => o.name === teamName);
+                            const color = tObj?.color || 'var(--border)';
+                            const done  = objs.filter(o => o.status === 'done').length;
+                            return `
+                            <div class="pi-obj-team-group">
+                                <div class="pi-obj-team-hdr">
+                                    <span class="pi-obj-team-dot" style="background:${color}"></span>
+                                    <span class="pi-obj-team-name">${esc(teamName)}</span>
+                                    <span class="pi-obj-team-count">${done}/${objs.length}</span>
+                                </div>
+                                ${_sortObjs(objs).map(_row).join('')}
+                            </div>`;
+                        }).join('');
+                })()}
             </div>
         </div>` : ''}
 
@@ -484,7 +579,7 @@ export function renderDashboard(container) {
 //                        getSprintForTeam) — utilisé pour déduire le PI courant
 // @param team            Équipe sélectionnée ('all' ou nom)
 // @param allTickets      Pour le compteur points par sprint
-function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets) {
+function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, displayPiNum = 0) {
     const ts = Array.isArray(sprintInfoAll?.teamSprints) ? sprintInfoAll.teamSprints : [];
     if (!ts.length) return '';
     // Extraction du PI courant (regex `(\d+)\.\d+` ou `PI\s*#?\s*(\d+)` sur le nom)
@@ -493,11 +588,10 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets) {
         const m = String(name).match(/(\d+)\.\d+/) || String(name).match(/PI\s*#?\s*(\d+)/i);
         return m ? parseInt(m[1], 10) : 0;
     };
-    // Détection du PI courant : on prend le sprint actif de l'équipe d'abord,
-    // sinon le sprintInfo global, sinon le premier sprint "active" de la liste.
+    // PI à afficher : displayPiNum (du sélecteur) en priorité, sinon dérivé du sprint actif.
     const referenceName = currentSprint?.name || sprintInfoAll?.name
         || (ts.find(s => s.state === 'active')?.name) || '';
-    const curPi = _extractPi(referenceName);
+    const curPi = displayPiNum || _extractPi(referenceName);
     if (!curPi) return '';
 
     // Filtre les sprints du PI courant (selon le nom)

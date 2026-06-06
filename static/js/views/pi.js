@@ -4,12 +4,15 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildMoodSlackRaw, buildFistSlackRaw } from '../components/sondage.js';
 import { renderRoam } from './roam.js';
+import { renderPICalendar } from './picalendar.js';
 
 let _activeTab = 'objectives';
+let _objUnlocked  = false; // déverrouillage manuel des objectifs sur PI passé
+let _lastPiOffset = null;  // détecte le changement de PI pour réinitialiser le verrou
 
 export function renderPI(container) {
     const team       = store.get('team');
@@ -47,6 +50,10 @@ export function renderPI(container) {
     const allTeamFeatures  = filterByTeam(store.get('features') || [], team);
     const tickets  = piTag ? allTeamTickets.filter(_ticketInPi)  : allTeamTickets;
     const features = piTag ? allTeamFeatures.filter(_featureInPi) : allTeamFeatures;
+
+    // Reset du verrou si l'utilisateur change de PI
+    if (_lastPiOffset !== null && _lastPiOffset !== piOffset) _objUnlocked = false;
+    _lastPiOffset = piOffset;
 
     // Label et objectifs du PI sélectionné
     // Les objectifs sont stockés dans piInfo (PI courant) — si on affiche un autre PI, on le signale
@@ -90,15 +97,19 @@ export function renderPI(container) {
         const viaEpic    = tickets.filter(t => t.epic && epics.find(e => e.id === t.epic && e.feature === f.id));
         const viaDirect  = tickets.filter(t => t.epic === f.id || t.featureId === f.id || t.feature === f.id);
         const children   = viaEpic.length > 0 ? viaEpic : viaDirect;
-        const all = children.length ? children : tickets.filter(t => t.team === f.team);
-        const total = all.length || 1;
-        const done = all.filter(t => t.status === 'done').length;
+        const total = children.length;
+        const done  = children.filter(t => t.status === 'done').length;
         const rolledStatus = rollupStatus(children, f.status);
         const childPts     = sumBy(children, t => t.points || 0);
         const childPtsDone = sumBy(children.filter(t => t.status === 'done'), t => t.points || 0);
-        // SP affichés : enfants trouvés > champ points JIRA de la feature > SP des tickets fallback équipe
-        const displayPts = childPts > 0 ? childPts : (f.points || sumBy(all, t => t.points || 0));
-        return { ...f, progress: pct(done, total), childCount: children.length, allCount: all.length, rolledStatus, childPts: displayPts, childPtsDone };
+        // SP affichés : enfants trouvés > champ points JIRA de la feature (jamais fallback tous tickets équipe)
+        const displayPts = childPts > 0 ? childPts : (f.points || 0);
+        // Progress : % tickets enfants done, ou 100/50/0 selon statut JIRA si pas d'enfants
+        const progress = total > 0 ? pct(done, total)
+            : f.status === 'done'   ? 100
+            : f.status === 'inprog' ? 50
+            : 0;
+        return { ...f, progress, childCount: children.length, allCount: children.length, rolledStatus, childPts: displayPts, childPtsDone };
     });
 
     // Team capacity — membres dérivés des absences (source de vérité CSV RH)
@@ -147,41 +158,67 @@ export function renderPI(container) {
         : (_piCfgLocal2?.startDate || null);
     const sprintWindows2 = _capSprintWindows({ ...piInfo, number: piNum, sprintsPerPI: sprintCnt2, sprintDuration: sprintDur2, startDate: piStartDate2 }, allTeamSprints);
 
-    const capByTeam = {};  // { teamName: { spNet, spEst, spBuf, color } }
-    teams.forEach(teamName => {
-        const tObj  = teamObjects.find(o => o.name === teamName);
-        const color = tObj?.color || '#64748b';
-        const absTeam = _absAlias2(teamName);
-        const mems = effectiveMembers.filter(m => {
-            if (m.team !== absTeam) return false;
-            return !excludedRolesForCap.some(r => r.toLowerCase() === (m.role || '').toLowerCase());
+    const _computeCapByTeam = () => {
+        const _rolePctMap   = _capGetRolePct();
+        const _excluded     = _capGetExcludedRoles();
+        const _histMode     = _capGetHistoryMode();
+        const _histCount    = _capGetHistoryCount();
+        const _piCfgLoc     = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNum}`) || 'null'); } catch { return null; } })();
+        const _spDur        = _piCfgLoc?.sprintDuration || piInfo?.sprintDuration || 14;
+        const _spCnt        = _piCfgLoc?.sprintsPerPI   || piInfo?.sprintsPerPI   || 5;
+        const _piStart      = piOffset === 0
+            ? (_piCfgLoc?.startDate || piInfo?.startDate || null)
+            : (_piCfgLoc?.startDate || null);
+        const _absTeamNames = new Set(absences.map(a => a.team));
+        const _absAlias     = tn => _absTeamNames.has(tn) ? tn : (_absTeamNames.has('Team ' + tn) ? 'Team ' + tn : tn);
+        const _sprintInfo2  = store.get('sprintInfo');
+        const _allTeamSpr   = (_sprintInfo2?.teamSprints || []).map(s => {
+            if ((s.velocity || 0) > 0) return s;
+            const fromT = sumBy(
+                (store.get('tickets') || []).filter(t => t.status === 'done' && t.team === s.team && (t.sprintName || t.sprint_name) === s.name),
+                t => t.points || 0
+            );
+            return fromT > 0 ? { ...s, velocity: fromT, _velFromTickets: true } : s;
         });
-        const memberEtp = mems.reduce((s, m) => s + _capRolePct(m.role, rolePctMap) / 100, 0);
-        if (memberEtp === 0) { capByTeam[teamName] = { spNet: 0, spEst: 0, spBuf: 0, color }; return; }
-        const baseCapRaw = localStorage.getItem(`cap-base-${piNum}-${teamName}`);
-        const baseCapacity = baseCapRaw && baseCapRaw !== '' ? parseInt(baseCapRaw, 10) : null;
-        const avgVel = _capAvgVelocity(allTeamSprints, teamName, piNum, historyMode2, historyCount2);
-        const capMult = (baseCapacity !== null && baseCapacity > 0) ? baseCapacity : avgVel;
-        let totalSpEst = 0;
-        for (let idx = 0; idx < sprintCnt2; idx++) {
-            const win = sprintWindows2?.[idx] || null;
-            // Sprint IP (dernier sprint d'un PI ≥ 6) : exclu des estimations de planning
-            if (win?.isIP) continue;
-            const totalDays = memberEtp * sprintDur2;
-            const absDays = win
-                ? Math.round(mems.reduce((s, m) => {
-                    const pct2 = _capRolePct(m.role, rolePctMap) / 100;
-                    if (pct2 === 0) return s;
-                    const raw = _capAbsDaysInWindow(absences.filter(a => a.memberName === m.name), absTeam, win.from, win.to);
-                    return s + raw * pct2;
-                }, 0) * 10) / 10
-                : 0;
-            const availPct = totalDays > 0 ? Math.round(((totalDays - absDays) / totalDays) * 100) : 100;
-            totalSpEst += Math.ceil(capMult * (availPct / 100));
-        }
-        const spBuf = Math.round(totalSpEst * 0.2);
-        capByTeam[teamName] = { spEst: totalSpEst, spBuf, spNet: totalSpEst - spBuf, color };
-    });
+        const _wins = _capSprintWindows({ ...piInfo, number: piNum, sprintsPerPI: _spCnt, sprintDuration: _spDur, startDate: _piStart }, _allTeamSpr);
+        const result = {};
+        teams.forEach(teamName => {
+            const tObj  = teamObjects.find(o => o.name === teamName);
+            const color = tObj?.color || '#64748b';
+            const absTeam = _absAlias(teamName);
+            const mems = effectiveMembers.filter(m => {
+                if (m.team !== absTeam) return false;
+                return !_excluded.some(r => r.toLowerCase() === (m.role || '').toLowerCase());
+            });
+            const memberEtp = mems.reduce((s, m) => s + _capRolePct(m.role, _rolePctMap) / 100, 0);
+            if (memberEtp === 0) { result[teamName] = { spNet: 0, spEst: 0, spBuf: 0, color }; return; }
+            const baseCapRaw = localStorage.getItem(`cap-base-${piNum}-${teamName}`);
+            const baseCapacity = baseCapRaw && baseCapRaw !== '' ? parseInt(baseCapRaw, 10) : null;
+            const avgVel = _capAvgVelocity(_allTeamSpr, teamName, piNum, _histMode, _histCount);
+            const capMult = (baseCapacity !== null && baseCapacity > 0) ? baseCapacity : avgVel;
+            let totalSpEst = 0;
+            for (let idx = 0; idx < _spCnt; idx++) {
+                const win = _wins?.[idx] || null;
+                if (win?.isIP) continue;
+                const totalDays = memberEtp * _spDur;
+                const absDays = win
+                    ? Math.round(mems.reduce((s, m) => {
+                        const p2 = _capRolePct(m.role, _rolePctMap) / 100;
+                        if (p2 === 0) return s;
+                        const raw = _capAbsDaysInWindow(absences.filter(a => a.memberName === m.name), absTeam, win.from, win.to);
+                        return s + raw * p2;
+                    }, 0) * 10) / 10
+                    : 0;
+                const availPct = totalDays > 0 ? Math.round(((totalDays - absDays) / totalDays) * 100) : 100;
+                totalSpEst += Math.ceil(capMult * (availPct / 100));
+            }
+            const spBuf = Math.round(totalSpEst * 0.2);
+            result[teamName] = { spEst: totalSpEst, spBuf, spNet: totalSpEst - spBuf, color };
+        });
+        return result;
+    };
+
+    const capByTeam = _computeCapByTeam();
 
     // Objectifs filtrés par équipe pour le compteur du tab
     const objectivesFiltered = (!team || team === 'all')
@@ -199,6 +236,7 @@ export function renderPI(container) {
         { id: 'support',    label: '🛡️ Support' },
         { id: 'mood',       label: '😊 Mood / ROTI' },
         { id: 'fist',       label: '✊ Fist of Five' },
+        { id: 'calendar',   label: '📅 Calendrier' },
     ];
     const validTabIds = new Set(tabs.map(t => t.id));
     // Hash format : #pi/équipe/tab - le tab est en 3ème segment
@@ -212,6 +250,7 @@ export function renderPI(container) {
     container.innerHTML = `
         <div class="pi-header">
             <h2>${esc(piLabel)}${!isCurrentPi ? ` <span class="chip chip-pi" style="font-size:12px;vertical-align:middle">PI#${piNum}</span>` : ''}</h2>
+            <button class="btn-icon pi-present-btn" id="pi-present-btn" title="Mode présentation (plein écran)"><svg class="icon"><use href="#i-maximize"/></svg></button>
         </div>
 
         <!-- PI Metrics -->
@@ -334,6 +373,34 @@ export function renderPI(container) {
             ${tabs.map(t => `<button class="tab${t.id === _activeTab ? ' active' : ''}" data-tab="${t.id}">${t.label}</button>`).join('')}
         </div>
 
+        <!-- Mini-heatmap capacité par équipe (#2) -->
+        ${(() => {
+            const heatItems = [...teams].sort((a, b) => String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' })).map(t => {
+                const cap = capByTeam[t] || {};
+                const tc  = teamCap.find(x => x.name === t);
+                const spNet = cap.spNet || 0;
+                const spPlan = tc?.pts || 0;
+                const tObj = teamObjects.find(o => o.name === t);
+                const col = tObj?.color || '#64748b';
+                let dot = 'var(--success)';
+                if (spNet > 0) {
+                    const ratio = spPlan / spNet;
+                    dot = ratio > 1 ? 'var(--danger)' : ratio > 0.8 ? 'var(--warning)' : 'var(--success)';
+                } else if (tc?.memberCount === 0) {
+                    dot = 'var(--border)';
+                }
+                const tip = spNet > 0
+                    ? `${esc(t)} — ${spPlan} SP planifiés / ${spNet} SP nets (${Math.round(spPlan / spNet * 100)}%)`
+                    : `${esc(t)} — capacité non configurée`;
+                return `<button class="pi-cap-dot" data-team="${esc(t)}" style="--tc:${col};--dot:${dot}" title="${tip}">
+                    <span class="pi-cap-dot-dot" style="background:${dot}"></span>
+                    <span class="pi-cap-dot-name">${esc(t)}</span>
+                    ${spNet > 0 ? `<span class="pi-cap-dot-val">${spPlan}/${spNet}</span>` : ''}
+                </button>`;
+            }).join('');
+            return heatItems ? `<div class="pi-cap-strip" id="pi-cap-strip">${heatItems}</div>` : '';
+        })()}
+
         <!-- Tab content -->
         <div id="pi-tab-content"></div>
     `;
@@ -370,17 +437,73 @@ export function renderPI(container) {
     });
 
     // Tab switching
-    container.querySelector('#pi-tabs')?.addEventListener('click', e => {
-        const btn = e.target.closest('.tab');
-        if (!btn) return;
-        _activeTab = btn.dataset.tab;
+    const _tabData = { objectives, featureList, teamCap, tickets, teams, teamObjects, piInfo, absences, epics: piEpics, isCurrentPi, piNum, capByTeam, _computeCapByTeam };
+    function _switchTab(id) {
+        if (!tabs.find(t => t.id === id)) return;
+        _activeTab = id;
         store.set('piTab', _activeTab);
         window.__squadBoard?.pushHash?.();
         container.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === _activeTab));
-        renderTabContent(container.querySelector('#pi-tab-content'), _activeTab, { objectives, featureList, teamCap, tickets, teams, teamObjects, piInfo, absences, epics: piEpics, isCurrentPi, piNum, capByTeam });
+        renderTabContent(container.querySelector('#pi-tab-content'), _activeTab, _tabData);
+    }
+
+    container.querySelector('#pi-tabs')?.addEventListener('click', e => {
+        const btn = e.target.closest('.tab');
+        if (btn) _switchTab(btn.dataset.tab);
     });
 
-    renderTabContent(container.querySelector('#pi-tab-content'), _activeTab, { objectives, featureList, teamCap, tickets, teams, teamObjects, piInfo, absences, epics: piEpics, isCurrentPi, piNum, capByTeam });
+    // Mini-heatmap : clic sur une pastille équipe → onglet capacité + filtre topbar (#2)
+    container.querySelector('#pi-cap-strip')?.addEventListener('click', e => {
+        const btn = e.target.closest('.pi-cap-dot');
+        if (!btn) return;
+        const teamName = btn.dataset.team;
+        if (teamName) store.set('team', teamName);
+        _switchTab('capacity');
+        container.querySelectorAll('.pi-cap-dot').forEach(b => b.classList.toggle('pi-cap-dot--active', b.dataset.team === teamName));
+    });
+
+    // Raccourcis clavier 1-9 → onglets (désactivés si focus sur un champ)
+    if (!container._piKbCleanup) {
+        const _piKbHandler = e => {
+            if (!container.isConnected) { document.removeEventListener('keydown', _piKbHandler); return; }
+            if (e.target.closest('input,textarea,select,[contenteditable]')) return;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            const idx = parseInt(e.key, 10);
+            if (idx >= 1 && idx <= 9) {
+                const t = tabs[idx - 1];
+                if (t) { e.preventDefault(); _switchTab(t.id); }
+            }
+        };
+        document.addEventListener('keydown', _piKbHandler);
+        container._piKbCleanup = () => document.removeEventListener('keydown', _piKbHandler);
+        // Nettoyage à la navigation hors de la vue (unsub utilise la valeur retournée par store.on)
+        let _kbViewUnsub;
+        const _kbViewCb = () => { container._piKbCleanup?.(); container._piKbCleanup = null; _kbViewUnsub?.(); };
+        _kbViewUnsub = store.on('view', _kbViewCb);
+    }
+
+    renderTabContent(container.querySelector('#pi-tab-content'), _activeTab, _tabData);
+
+    // Mode présentation PI plein écran (#10)
+    container.querySelector('#pi-present-btn')?.addEventListener('click', () => {
+        const fsEl = document.fullscreenElement;
+        if (fsEl) {
+            document.exitFullscreen?.();
+        } else if (container.requestFullscreen) {
+            container.classList.add('pi--present');
+            container.requestFullscreen().catch(() => container.classList.toggle('pi--present-fallback'));
+        } else {
+            container.classList.toggle('pi--present-fallback');
+        }
+    });
+    if (!document._piPresentFsBound) {
+        document._piPresentFsBound = true;
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.querySelectorAll('.pi--present').forEach(el => el.classList.remove('pi--present'));
+            }
+        });
+    }
 }
 
 function renderTabContent(el, tab, data) {
@@ -394,18 +517,48 @@ function renderTabContent(el, tab, data) {
         case 'roam': return renderRoam(el);
         case 'mood': return renderMood(el, data);
         case 'fist': return renderFist(el, data);
+        case 'calendar': return renderPICalendar(el);
     }
 }
 
 // ── Objectives tab ────────────────────────────────────────────────────────────
-function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurrentPi, piNum }) {
+function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurrentPi, piNum, featureList = [] }) {
     const allTeams   = teams || store.get('teams') || [];
     const allTObjs   = teamObjects || store.get('teamObjects') || [];
     const team       = store.get('team');
     const showAll    = !team || team === 'all';
+
+    // Snapshot par PI en base (source de vérité partagée). Fallback localStorage legacy
+    // pour les objectifs saisis avant la migration vers pi_objectives.
+    const _lsKey = piNum ? `sb-pi-obj-PI${piNum}` : null;
+    const _snapForPi = (piInfo?.piObjectives || {})[String(piNum)] || null;
+
+    // Snapshot pi_objectives[piNum] en priorité (import CSV ou auto-synchro depuis un save PI Planning).
+    // Fallback sur piInfo.objectives (jeu vivant) pour le PI courant si pas encore de snapshot.
+    const isEditable          = isCurrentPi !== false || _objUnlocked;
+    const effectiveObjectives = isCurrentPi
+        ? (_snapForPi != null ? _snapForPi : (piInfo?.objectives || []))
+        : (_snapForPi || (_lsKey ? JSON.parse(localStorage.getItem(_lsKey) || '[]') : []));
+
     const filtered   = showAll
-        ? objectives
-        : objectives.filter(o => (o.team || '') === team);
+        ? effectiveObjectives
+        : effectiveObjectives.filter(o => (o.team || '') === team);
+
+    // Progression rollup par équipe depuis les features (#5)
+    const _teamFeatures = t => featureList.filter(f => f.team === t);
+    const _teamProgress = t => {
+        const fs = _teamFeatures(t);
+        if (!fs.length) return null;
+        const done = fs.filter(f => (f.rolledStatus || f.status) === 'done').length;
+        return { done, total: fs.length, pct: Math.round(done / fs.length * 100) };
+    };
+
+    // Jauge globale : objectifs done / total parmi les visibles
+    const globalDone  = filtered.filter(o => (o.status || 'todo') === 'done').length;
+    const globalTotal = filtered.length;
+
+    const globalPct   = globalTotal ? Math.round(globalDone / globalTotal * 100) : 0;
+    const globalCol   = globalPct >= 80 ? 'var(--success)' : globalPct >= 40 ? 'var(--warning)' : 'var(--danger)';
 
     const STATUS_OPT = [
         { v: 'todo',   l: 'À faire',  col: 'var(--status-todo)'   },
@@ -415,6 +568,27 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
 
     function objRow(o, idx, isNew = false) {
         const st = STATUS_OPT.find(s => s.v === (o.status || 'todo')) || STATUS_OPT[0];
+        const prog = o.team ? _teamProgress(o.team) : null;
+        const progHtml = prog
+            ? `<span class="pi-obj-prog" title="${prog.done}/${prog.total} features terminées pour ${esc(o.team)}">
+                <span class="pi-obj-prog-bar"><span style="width:${prog.pct}%;background:${prog.pct >= 80 ? 'var(--success)' : prog.pct >= 40 ? 'var(--warning)' : 'var(--danger)'}"></span></span>
+                <span class="pi-obj-prog-val">${prog.pct}%</span>
+               </span>`
+            : '';
+
+        if (!isEditable) {
+            return `
+            <div class="pi-obj-row pi-obj-row--ro" data-obj-idx="${idx}">
+                <span class="pi-obj-dot" style="background:${st.col}"></span>
+                <span class="pi-obj-ro-text">${esc(o.text || '—')}</span>
+                ${o.team ? `<span class="chip pi-obj-ro-team">${esc(o.team)}</span>` : ''}
+                ${o.bv ? `<span class="pi-obj-ro-bv" title="Business Value">${o.bv} BV</span>` : ''}
+                ${o.committed ? `<span class="pi-obj-ro-committed">Commis</span>` : ''}
+                <span class="pi-obj-ro-status" style="color:${st.col}">${st.l}</span>
+                ${progHtml}
+            </div>`;
+        }
+
         const teamOpts = allTeams.map(t =>
             `<option value="${esc(t)}"${t === (o.team || team) ? ' selected' : ''}>${esc(t)}</option>`
         ).join('');
@@ -437,6 +611,7 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
                     `<option value="${s.v}"${s.v === (o.status || 'todo') ? ' selected' : ''}>${s.l}</option>`
                 ).join('')}
             </select>
+            ${progHtml}
             <button class="btn-icon pi-obj-del" title="Supprimer">
                 <svg class="icon icon-sm text-danger"><use href="#i-x"/></svg>
             </button>
@@ -451,7 +626,7 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
                 <p class="pi-obj-empty-hint">Clique sur « + Ajouter un objectif » pour commencer</p>
             </div>`;
 
-        if (!showAll) return filtered.map(o => objRow(o, objectives.indexOf(o))).join('');
+        if (!showAll) return filtered.map(o => objRow(o, effectiveObjectives.indexOf(o))).join('');
 
         // Mode "toutes les équipes" → grouper par équipe
         const byTeam = new Map();
@@ -467,38 +642,59 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
             const tObj  = allTObjs.find(o => o.name === key);
             const color = tObj?.color || 'var(--border)';
             const label = key ? esc(key) : '<em class="text-muted">Sans équipe</em>';
+            const teamProg = key ? _teamProgress(key) : null;
             return `
             <div class="pi-obj-group">
                 <div class="pi-obj-group-header">
                     <span class="pi-obj-group-dot" style="background:${color}"></span>
                     <span class="pi-obj-group-name">${label}</span>
                     <span class="pi-obj-group-count">${objs.length}</span>
+                    ${teamProg ? `<span class="pi-obj-team-prog" title="${teamProg.done}/${teamProg.total} features">
+                        <span class="pi-obj-prog-bar pi-obj-prog-bar--sm"><span style="width:${teamProg.pct}%;background:${teamProg.pct >= 80 ? 'var(--success)' : teamProg.pct >= 40 ? 'var(--warning)' : 'var(--danger)'}"></span></span>
+                        <span class="pi-obj-prog-val pi-obj-prog-val--sm">${teamProg.pct}% feat.</span>
+                    </span>` : ''}
                 </div>
-                ${objs.map(o => objRow(o, objectives.indexOf(o))).join('')}
+                ${objs.map(o => objRow(o, effectiveObjectives.indexOf(o))).join('')}
             </div>`;
         }).join('');
     }
 
     el.innerHTML = `
-        ${isCurrentPi === false ? `<div class="pi-offset-notice">
+        ${isCurrentPi === false && !_objUnlocked ? `<div class="pi-offset-notice">
             <svg class="icon icon-sm" style="color:var(--info)"><use href="#i-alert"/></svg>
             Objectifs du <strong>PI#${piNum}</strong> — lecture seule (les objectifs s'éditent uniquement sur le PI courant).
+            <button class="btn btn-xs btn-secondary pi-obj-unlock-btn" title="Déverrouiller l'édition">🔓 Déverrouiller</button>
+        </div>` : ''}
+        ${isCurrentPi === false && _objUnlocked ? `<div class="pi-offset-notice pi-offset-notice--unlocked">
+            <svg class="icon icon-sm" style="color:var(--warning)"><use href="#i-alert"/></svg>
+            <strong>PI#${piNum}</strong> déverrouillé — modifications enregistrées localement pour ce PI.
+        </div>` : ''}
+        ${globalTotal > 0 ? `<div class="pi-obj-gauge">
+            <span class="pi-obj-gauge-lbl">Avancement objectifs</span>
+            <div class="pi-obj-gauge-bar"><div class="pi-obj-gauge-fill" style="width:${globalPct}%;background:${globalCol}"></div></div>
+            <span class="pi-obj-gauge-pct" style="color:${globalCol}">${globalDone}/${globalTotal} · ${globalPct}%</span>
         </div>` : ''}
         <div class="pi-obj-toolbar">
             ${!showAll
                 ? `<span class="chip" style="background:var(--primary-bg);color:var(--primary)">${esc(team)}</span>`
                 : `<span class="text-sm text-muted">Toutes les équipes</span>`}
-            ${isCurrentPi !== false ? `<button class="btn btn-primary btn-sm" id="pi-obj-save">Enregistrer</button>` : ''}
+            ${isEditable ? `<button class="btn btn-primary btn-sm" id="pi-obj-save">Enregistrer</button>` : ''}
         </div>
 
         <div id="pi-obj-list">
             ${listHtml()}
         </div>
 
-        <div class="pi-obj-add-row mt-3">
+        ${isEditable ? `<div class="pi-obj-add-row mt-3">
             <button class="btn btn-secondary btn-sm" id="pi-obj-add">+ Ajouter un objectif</button>
-        </div>
+        </div>` : ''}
     `;
+
+    // ── Déverrouillage PI passé ───────────────────────────────────────────────
+    el.querySelector('.pi-obj-unlock-btn')?.addEventListener('click', () => {
+        _objUnlocked = true;
+        renderObjectives(el, { objectives, piInfo, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
+    });
 
     // ── Sync dot color on status change ───────────────────────────────────────
     function bindRow(row) {
@@ -513,7 +709,7 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
     // ── Ajouter une ligne vide ─────────────────────────────────────────────────
     el.querySelector('#pi-obj-add')?.addEventListener('click', () => {
         const list = el.querySelector('#pi-obj-list');
-        const idx  = (store.get('piInfo')?.objectives || []).length + list.querySelectorAll('.pi-obj-row').length;
+        const idx  = effectiveObjectives.length + list.querySelectorAll('.pi-obj-row').length;
         const div  = document.createElement('div');
         div.innerHTML = objRow({ text: '', team: team !== 'all' ? team : '', status: 'todo' }, idx, true);
         const row = div.firstElementChild;
@@ -524,12 +720,6 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
 
     // ── Enregistrer ───────────────────────────────────────────────────────────
     el.querySelector('#pi-obj-save')?.addEventListener('click', async () => {
-        // Lire toutes les lignes visibles + lignes hors filtre (équipes différentes)
-        const currentObjs = store.get('piInfo')?.objectives || [];
-        const hiddenObjs  = (team && team !== 'all')
-            ? currentObjs.filter(o => (o.team || '') !== team)
-            : [];
-
         const rows = el.querySelectorAll('.pi-obj-row');
         const editedObjs = Array.from(rows).map(row => ({
             text:      row.querySelector('.pi-obj-text')?.value.trim() || '',
@@ -539,21 +729,50 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
             committed: row.querySelector('.pi-obj-committed')?.checked || false,
         })).filter(o => o.text);
 
-        const newObjs = [...hiddenObjs, ...editedObjs];
-        try {
-            const current = store.get('piInfo') || {};
-            const updated = await api.updatePI({ ...current, objectives: newObjs });
-            store.set('piInfo', updated);
-            toast(`${editedObjs.length} objectif(s) enregistré(s)`, 'success');
-            renderObjectives(el, { objectives: updated.objectives || [], piInfo: updated, teams: allTeams });
-        } catch (e) { toast(e.message, 'error'); }
+        if (isCurrentPi) {
+            // PI courant → sauvegarde via API (update_pi snapshot auto dans pi_objectives[number])
+            const currentObjs = store.get('piInfo')?.objectives || [];
+            const hiddenObjs  = (team && team !== 'all') ? currentObjs.filter(o => (o.team || '') !== team) : [];
+            const newObjs = [...hiddenObjs, ...editedObjs];
+            try {
+                const updated = await api.updatePI({ ...(store.get('piInfo') || {}), objectives: newObjs });
+                store.set('piInfo', updated);
+                toast(`${editedObjs.length} objectif(s) enregistré(s)`, 'success');
+                renderObjectives(el, { objectives: updated.objectives || [], piInfo: updated, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
+            } catch (e) { toast(e.message, 'error'); }
+        } else {
+            // Autre PI → snapshot en base via /api/pi/objectives/{piNum} (partagé, plus de localStorage)
+            const snap = (store.get('piInfo')?.piObjectives || {})[String(piNum)] || [];
+            const hiddenObjs  = (team && team !== 'all') ? snap.filter(o => (o.team || '') !== team) : [];
+            const newObjs = [...hiddenObjs, ...editedObjs];
+            try {
+                await api.setPiObjectives(piNum, newObjs);
+                // Rafraîchit le piObjectives local sans recharger toute la config
+                const pi = { ...(store.get('piInfo') || {}) };
+                pi.piObjectives = { ...(pi.piObjectives || {}), [String(piNum)]: newObjs };
+                store.set('piInfo', pi);
+                if (_lsKey) localStorage.removeItem(_lsKey);   // nettoie l'ancien stockage legacy
+                toast(`${editedObjs.length} objectif(s) enregistré(s)`, 'success');
+                renderObjectives(el, { objectives, piInfo: pi, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
+            } catch (e) { toast(e.message, 'error'); }
+        }
     });
 }
 
 // ── Features tab ──────────────────────────────────────────────────────────────
 function renderFeatures(el, { featureList, capByTeam = {} }) {
     if (!featureList.length) {
-        el.innerHTML = '<div class="empty-state"><p>Aucune feature</p></div>';
+        const team = store.get('team');
+        const jiraUrl = store.get('jiraUrl');
+        el.innerHTML = `
+            <div class="pi-empty-state">
+                <span class="pi-empty-icon">📦</span>
+                <h3 class="pi-empty-title">Aucune feature pour ce PI</h3>
+                <p class="pi-empty-hint">
+                    ${team && team !== 'all' ? `L'équipe <strong>${esc(team)}</strong> n'a pas encore de features pour ce PI.` : 'Aucune feature importée pour ce PI.'}
+                    ${jiraUrl ? `<br>Importez les features depuis JIRA via <strong>Paramètres → Synchronisation</strong>.` : `<br>Configurez un sprint JIRA dans <strong>Paramètres</strong> pour importer les features.`}
+                </p>
+            </div>`;
         return;
     }
 
@@ -591,33 +810,55 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
     const _copyMiroImage = async (items, teamName) => {
         const { toast } = await import('../utils.js');
         try {
-            const featStyle  = 'border:2px solid #6366f1;border-radius:6px;padding:6px 10px;font-size:13px;font-family:sans-serif;white-space:nowrap;background:#f5f3ff;';
-            const childStyle = 'border:1px solid #c7d2fe;border-radius:6px;padding:5px 10px 5px 22px;font-size:12px;font-family:sans-serif;white-space:nowrap;background:#eef2ff;';
-            const htmlRows = items.map(item => {
-                const link = jiraUrl ? `${jiraUrl}/browse/${item.id}` : item.id;
+            const featStyle  = 'border:2px solid #6366f1;border-radius:6px;padding:6px 10px;font-size:13px;font-family:sans-serif;white-space:nowrap;background:#f5f3ff;vertical-align:top;';
+            const childStyle = 'border:1px solid #c7d2fe;border-radius:6px;padding:5px 10px;font-size:12px;font-family:sans-serif;white-space:nowrap;background:#eef2ff;vertical-align:top;';
+
+            // Regroupe les items en lignes : [feature, ...enfants]
+            const rows = [];
+            let cur = null;
+            for (const item of items) {
                 if (item._isChild) {
-                    const pts    = item.points || 0;
-                    const ptsStr = ` - ${pts || 0} pts`;
-                    const ticket = `[Buffer] <a href="${link}">${item.id}</a> - ${item.title}${ptsStr}`;
-                    return `<tr><td style="${childStyle}">${ticket}</td></tr>`;
+                    if (cur) cur.children.push(item);
+                } else {
+                    cur = { feature: item, children: [] };
+                    rows.push(cur);
                 }
-                const type   = _isBufFeature(item) ? 'Buffer' : 'Feature';
-                const pts    = item.childPts || item.points || 0;
-                const ptsStr = ` - ${pts || 0} pts`;
-                const ticket = `[${type}] <a href="${link}">${item.id}</a> - ${item.title}${ptsStr}`;
-                return `<tr><td style="${featStyle}">${ticket}</td></tr>`;
-            }).join('');
-            const html = `<table style="border-collapse:collapse;border-spacing:0 4px;"><tbody>${htmlRows}</tbody></table>`;
+            }
+
+            const _featCell = (f) => {
+                const link   = jiraUrl ? `${jiraUrl}/browse/${f.id}` : f.id;
+                const type   = _isBufFeature(f) ? 'Buffer' : 'Feature';
+                const pts    = f.childPts || f.points || 0;
+                return `<td style="${featStyle}">[${type}] <a href="${link}">${f.id}</a> - ${f.title} - ${pts} pts</td>`;
+            };
+            const _childCell = (t) => {
+                const link = jiraUrl ? `${jiraUrl}/browse/${t.id}` : t.id;
+                const pts  = t.points || 0;
+                return `<td style="${childStyle}"><a href="${link}">${t.id}</a> - ${t.title} - ${pts} pts</td>`;
+            };
+
+            const htmlRows = rows.map(r =>
+                `<tr>${_featCell(r.feature)}${r.children.map(_childCell).join('')}</tr>`
+            ).join('');
+            const html = `<table style="border-collapse:separate;border-spacing:4px;"><tbody>${htmlRows}</tbody></table>`;
+
+            const plainLines = rows.flatMap(r => {
+                const type = _isBufFeature(r.feature) ? 'Feature Buffer' : 'Feature';
+                const pts  = r.feature.childPts || r.feature.points || 0;
+                const head = `[${type}] ${r.feature.id} - ${r.feature.title} - ${pts} pts`;
+                const children = r.children.map(t => {
+                    const p = t.points || 0;
+                    return `\t${t.id} - ${t.title} - ${p} pts`;
+                });
+                return [head, ...children];
+            });
+
             await navigator.clipboard.write([new ClipboardItem({
-                'text/html': new Blob([html], { type: 'text/html' }),
-                'text/plain': new Blob([items.map(item => {
-                    const type = _isBufFeature(item) && !item._isChild ? 'Feature Buffer' : 'Buffer';
-                    const pts  = item._isChild ? (item.points || 0) : (item.childPts || item.points || 0);
-                    const prefix = item._isChild ? '  ' : '';
-                    return `${prefix}[Buffer] ${item.id} - ${item.title}${pts ? ` - ${pts} pts` : ''}`;
-                }).join('\n')], { type: 'text/plain' }),
+                'text/html':  new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([plainLines.join('\n')], { type: 'text/plain' }),
             })]);
-            toast(`${items.length} lignes copiées — ${teamName}`, 'success', 2500);
+            const total = items.length;
+            toast(`${rows.length} feature${rows.length > 1 ? 's' : ''} · ${total - rows.length} tickets copiés — ${teamName}`, 'success', 2500);
         } catch {
             toast('Copie non supportée — utilisez HTTPS', 'error');
         }
@@ -629,13 +870,11 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
         const tip = f.rolledStatus && f.rolledStatus !== f.status
             ? `Dérivé des ${f.childCount} enfants (JIRA: ${STATUS_LABELS[f.status] || f.status})`
             : 'Statut JIRA';
-        const hasRealChildren = f.childCount > 0 && f.childPtsDone !== undefined;
         const spTotal = f.childPts || 0;
         const spDone  = f.childPtsDone || 0;
-        const spLabel = spTotal > 0
-            ? (hasRealChildren ? `${spDone}/${spTotal}` : String(spTotal))
-            : '—';
-        const spDonePct = spTotal > 0 && hasRealChildren ? Math.round(spDone / spTotal * 100) : 0;
+        const hasProgress = spTotal > 0 && spDone > 0;
+        const spLabel = spTotal > 0 ? (hasProgress ? `${spDone}/${spTotal}` : String(spTotal)) : '—';
+        const spDonePct = hasProgress ? Math.round(spDone / spTotal * 100) : 0;
         const isBuffer = _isBufFeature(f);
         const dimmed = beyondCap && !isBuffer;
         const tktCount = f.childCount > 0 ? f.childCount : (f.allCount || 0);
@@ -654,11 +893,15 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
                 ${children.map(t => {
                     const pts = t.points || 0;
                     const tLink = jiraUrl ? `<a class="feat-child-id" href="${esc(jiraUrl)}/browse/${esc(t.id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(t.id)}</a>` : `<span class="feat-child-id">${esc(t.id)}</span>`;
-                    return `<div class="feat-child-row">
+                    const ptsCls = pts === 0 ? 'feat-child-pts--zero'
+                                : pts <= 3  ? 'feat-child-pts--low'
+                                : pts <= 8  ? 'feat-child-pts--mid'
+                                :             'feat-child-pts--high';
+                    return `<div class="feat-child-row" data-ticket-id="${esc(t.id)}" style="cursor:pointer">
                         <span style="color:${_stC[t.status]||_stC.todo}">${_stI[t.status]||'○'}</span>
                         ${tLink}
                         <span class="feat-child-title">${esc(t.title)}</span>
-                        ${pts ? `<span class="feat-child-pts">${pts} SP</span>` : ''}
+                        <span class="feat-child-pts ${ptsCls}">${pts} SP</span>
                     </div>`;
                 }).join('')}
             </div>` : '';
@@ -675,12 +918,12 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
                 <span class="feat-status" style="background:${sc.bg};color:${sc.text}" title="${esc(tip)}">${esc(STATUS_LABELS[s] || s)}</span>
                 <span class="feat-bar-wrap" title="${f.progress}% complété">
                     <span class="feat-bar"><span class="feat-bar-fill ${progressColor(f.progress)}" style="width:${f.progress}%"></span></span>
-                    <span class="feat-pct">${f.progress}%</span>
+                    <span class="feat-pct feat-pct--${progressColor(f.progress)}">${f.progress}%</span>
                 </span>
-                <span class="feat-sp" title="SP${spDonePct > 0 ? ` · ${spDonePct}% livrés` : ''}">
+                <span class="feat-sp feat-sp--${spTotal === 0 ? 'zero' : spTotal <= 13 ? 'low' : spTotal <= 34 ? 'mid' : 'high'}" title="SP${spDonePct > 0 ? ` · ${spDonePct}% livrés` : ''}">
                     ${spLabel}<span class="feat-sp-unit"> SP</span>
                 </span>
-                <span class="feat-tickets">${tktCount}<span class="feat-sp-unit"> tkts</span></span>
+                <span class="feat-tickets">${tktCount}<span class="feat-sp-unit"> ticket${tktCount > 1 ? 's' : ''}</span></span>
                 <span class="feat-team">${esc(f.team || '—')}</span>
             </div>
             ${childrenHtml}
@@ -785,8 +1028,11 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
     html += '</div>';
 
     el.innerHTML = html;
-    el.querySelectorAll('.feature-row2').forEach(row => {
-        row.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(row.dataset.ticketId));
+    el.querySelectorAll('.feature-row2, .feat-child-row').forEach(row => {
+        row.addEventListener('click', e => {
+            if (e.target.closest('a')) return;
+            window.__squadBoard?.openTicketModal?.(row.dataset.ticketId);
+        });
     });
     el.querySelectorAll('[data-goto-tab]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -826,8 +1072,25 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
                 }
                 _copyMiroImage(items, teamName + ' [Buffer]');
             } else {
-                const toCopy = teamFeatures.filter(f => !_isBufFeature(f));
-                _copyMiroImage(toCopy, teamName);
+                const allTickets = store.get('tickets') || [];
+                const allEpics   = store.get('epics') || [];
+                const netFeatures = teamFeatures.filter(f => !_isBufFeature(f));
+                const items = [];
+                for (const f of netFeatures) {
+                    items.push({ ...f, _isFeature: true });
+                    const children = allTickets.filter(t =>
+                        t.epic && allEpics.find(ep => ep.id === t.epic && ep.feature === f.id)
+                    ).concat(
+                        allTickets.filter(t => t.epic === f.id || t.featureId === f.id)
+                    );
+                    const seen = new Set();
+                    for (const t of children) {
+                        if (seen.has(t.id)) continue;
+                        seen.add(t.id);
+                        items.push({ ...t, _isChild: true, _parentId: f.id });
+                    }
+                }
+                _copyMiroImage(items, teamName);
             }
         });
     });
@@ -915,10 +1178,21 @@ function _capAvgVelocity(teamSprints, teamName, curPiNum, mode, count) {
     return Math.round(sumBy(pool, s => s.velocity) / pool.length);
 }
 
+// Normalise un nom d'équipe pour le matching (mojibake, accents, casse)
+function _normTeamName(s) {
+    if (!s) return '';
+    try {
+        const bytes = new Uint8Array([...s].map(c => c.charCodeAt(0) & 0xFF));
+        s = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    } catch { /* keep as-is */ }
+    return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
 // Calcule les jours d'absence sur une fenêtre [from, to] (les deux bornes inclusives)
 function _capAbsDaysInWindow(absences, teamName, from, to) {
+    const normT = _normTeamName(teamName);
     return absences
-        .filter(a => (a.team === teamName || a.team === 'Team ' + teamName) && a.startDate <= to && a.endDate >= from)
+        .filter(a => (_normTeamName(a.team) === normT || _normTeamName(a.team) === _normTeamName('Team ' + teamName)) && a.startDate <= to && a.endDate >= from)
         .reduce((s, a) => {
             const wFrom = a.startDate > from ? a.startDate : from;
             const wTo   = a.endDate   < to   ? a.endDate   : to;
@@ -951,8 +1225,9 @@ function _capMemberAvail(members, absences, absTeamName, from, to, sprintDur, ro
     return members
         .map(m => {
             const rolePct = _capRolePct(m.role, rolePctMap);
+            const normAbs = _normTeamName(absTeamName);
             const mAbs = absences.filter(a =>
-                a.memberName === m.name && (a.team === absTeamName || a.team === absTeamName.replace(/^Team /, '')) &&
+                a.memberName === m.name && _normTeamName(a.team) === normAbs &&
                 a.startDate <= to && a.endDate >= from
             );
             const absDays = mAbs.reduce((s, a) => {
@@ -1042,7 +1317,7 @@ function _capSprintWindows(piInfo, teamSprints) {
     });
 }
 
-function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
+function renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapByTeam, capByTeam: _capByTeamRef }) {
     const sprintInfo    = store.get('sprintInfo');
     const allMembers    = store.get('members') || [];
     const tickets       = store.get('tickets') || [];
@@ -1096,14 +1371,30 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
         effectiveMembers.map(m => m.role).filter(Boolean)
     )].sort();
 
-    // Les absences utilisent parfois "Team Fuego" là où la table teams dit "Fuego".
-    // On construit un ensemble d'alias par nom d'équipe pour matcher les deux formes.
-    const absenceTeamNames = new Set(absences.map(a => a.team));
+    // Décode le mojibake UTF-8 interprété en Latin-1 (ex: "CamÃ©lÃ©on" → "Caméléon")
+    // Technique : ré-encoder en Latin-1 byte par byte puis décoder en UTF-8
+    const _fixMojibake = s => {
+        if (!s) return s;
+        try {
+            const bytes = new Uint8Array([...s].map(c => c.charCodeAt(0) & 0xFF));
+            return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+        } catch { return s; }
+    };
+
+    // Normalisation : retire accents, casse, espaces — appliqué après correction mojibake
+    const _norm = s => _fixMojibake(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+    // Lookup : normalisé → nom réel dans les absences (gère "Team Fuego", accents, casse, mojibake)
+    const _absTeamRealNames = new Map(absences.map(a => [_norm(a.team), a.team]));
     const _absTeamAlias = (teamName) => {
-        if (absenceTeamNames.has(teamName)) return teamName;
-        const prefixed = 'Team ' + teamName;
-        if (absenceTeamNames.has(prefixed)) return prefixed;
-        return teamName; // fallback sans alias
+        // Essai exact
+        if (_absTeamRealNames.has(_norm(teamName)))   return _absTeamRealNames.get(_norm(teamName));
+        // Essai avec préfixe "Team "
+        if (_absTeamRealNames.has(_norm('Team ' + teamName))) return _absTeamRealNames.get(_norm('Team ' + teamName));
+        // Essai en retirant un préfixe "Team " éventuel dans teamName
+        const without = teamName.replace(/^Team\s+/i, '');
+        if (_absTeamRealNames.has(_norm(without))) return _absTeamRealNames.get(_norm(without));
+        return teamName;
     };
 
     // Calcul par équipe
@@ -1111,13 +1402,14 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
         const tObj  = teamObjects.find(o => o.name === teamName);
         const color = tObj?.color || TEAM_COLORS[i % TEAM_COLORS.length];
 
-        // Résout l'alias d'équipe pour les absences (ex: "Fuego" → "Team Fuego")
         const absTeamName = _absTeamAlias(teamName);
 
-        // Membres de l'équipe (source de vérité absences), rôles exclus filtrés
-        // effectiveMembers a déjà normalisé m.team via extractTeam → comparer avec teamName directement
+        // Membres : match normalisé sur m.team pour absorber accents/casse/mojibake
+        const _normTeam    = _norm(teamName);
+        const _normAbsTeam = _norm(absTeamName);
         const members = effectiveMembers.filter(m => {
-            if (m.team !== teamName && m.team !== absTeamName) return false;
+            const mt = _norm(m.team);
+            if (mt !== _normTeam && mt !== _normAbsTeam) return false;
             return !excludedRoles.some(r => r.toLowerCase() === (m.role || '').toLowerCase());
         });
         // ETP pondéré : somme des ratios (ex: Ops=1.0, Tech Lead=0.4, Co-BO=0.0)
@@ -1242,10 +1534,7 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
                 <input class="input input-sm" id="cap-history-count" type="number" min="1" max="20" value="${historyCount}" style="width:48px" title="Nombre de PI ou sprints">
                 <span class="picap-params-hint">${esc(modeLabel)}${velFromTickets ? ' <span class="picap-vel-source" title="Vélocité calculée depuis les tickets done (pas de données Greenhopper JIRA)">· tickets</span>' : ''}</span>
                 <span class="picap-params-sep"></span>
-                ${windowSource === 'jira' ? `<span class="picap-source-info">
-                    <svg class="icon icon-sm" style="color:var(--success)"><use href="#i-check"/></svg>
-                    Dates JIRA${knownWindows < totalSprints ? ` · <span class="text-warning">${totalSprints - knownWindows} sprint${totalSprints - knownWindows > 1 ? 's' : ''} manquant${totalSprints - knownWindows > 1 ? 's' : ''}</span>` : ''}
-                </span>` : windowSource === 'none' ? `<span class="picap-warn">
+                ${windowSource === 'none' ? `<span class="picap-warn">
                     <svg class="icon icon-sm" style="color:var(--warning)"><use href="#i-alert"/></svg>
                     Aucun sprint PI trouvé
                 </span>` : ''}
@@ -1281,7 +1570,7 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
                         <div class="picap-team-hdr">
                             <span class="team-dot" style="background:${td.color}"></span>
                             <span class="picap-team-name">${esc(td.teamName)}</span>
-                            <span class="picap-team-empty">Aucun membre dev</span>
+                            <span class="picap-team-empty" title="Importez les absences CSV dans Paramètres → Import CSV absences pour voir la capacité">⚠️ Aucun membre — importez les absences CSV</span>
                         </div>
                     </div>`;
 
@@ -1347,57 +1636,42 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
                         </label>
                         <span class="picap-team-totals">
 
-                            <!-- Chip SP estimés -->
-                            <span class="picap-total-sp picap-has-tt">
-                                ${td.totalSpEst} SP estimés
+                            <!-- Barre PI totaux : même style que les sprints (net + buffer) -->
+                            <div class="picap-sp-row picap-sp-row--pi-total picap-has-tt">
+                                <div class="picap-sp-bars">
+                                    <div class="picap-sp-net" style="flex:${td.totalSpEst - td.totalBuf}">
+                                        <span class="picap-sp-val">${td.totalSpEst - td.totalBuf}</span>
+                                        <span class="picap-sp-lbl">SP nets</span>
+                                    </div>
+                                    <div class="picap-sp-buf" style="flex:${td.totalBuf}">
+                                        <span class="picap-sp-val">${td.totalBuf}</span>
+                                        <span class="picap-sp-lbl">buf</span>
+                                    </div>
+                                </div>
+                                <span class="picap-sp-total">≈&thinsp;${td.totalSpEst} SP</span>
+                                <!-- Tooltip SP estimés (conservé) -->
                                 <div class="picap-tt picap-tt--totals">
-                                    <div class="picap-tt-row picap-tt-row--head"><span>Capacité estimée PI</span></div>
+                                    <div class="picap-tt-row picap-tt-row--head"><span>Capacité PI — net + buffer</span></div>
                                     ${td.sprints.filter(s => !s.isIP).map(s => `
                                     <div class="picap-tt-row">
                                         <span>Sprint ${s.label}${s.realState === 'closed' ? ' ✓' : s.realState === 'active' ? ' ▶' : ''}</span>
-                                        <strong>${s.spEst} SP</strong>
+                                        <strong>${s.spNet} <span style="color:#7c3aed">+${s.spBuf}</span> SP</strong>
                                     </div>`).join('')}
                                     <div class="picap-tt-sep"></div>
+                                    <div class="picap-tt-row picap-tt-row--total">
+                                        <span>Capacité nette</span>
+                                        <strong>${td.totalSpEst - td.totalBuf} SP</strong>
+                                    </div>
+                                    <div class="picap-tt-row">
+                                        <span>dont buffer (20%)</span>
+                                        <strong style="color:#7c3aed">+ ${td.totalBuf} SP</strong>
+                                    </div>
                                     <div class="picap-tt-row picap-tt-row--total">
                                         <span>Total estimé</span>
                                         <strong>${td.totalSpEst} SP</strong>
                                     </div>
-                                    <div class="picap-tt-row">
-                                        <span>dont buffer (20%)</span>
-                                        <strong style="color:#7c3aed">− ${td.totalBuf} SP</strong>
-                                    </div>
-                                    <div class="picap-tt-row picap-tt-row--total">
-                                        <span>Capacité nette</span>
-                                        <strong>${td.totalSpEst - td.totalBuf} SP</strong>
-                                    </div>
                                 </div>
-                            </span>
-
-                            <!-- Chip buffer -->
-                            <span class="picap-total-buf picap-has-tt">
-                                ${td.totalBuf} buffer
-                                <div class="picap-tt picap-tt--totals">
-                                    <div class="picap-tt-row picap-tt-row--head"><span>Buffer de capacité (20%)</span></div>
-                                    ${td.sprints.filter(s => !s.isIP).map(s => `
-                                    <div class="picap-tt-row">
-                                        <span>Sprint ${s.label}</span>
-                                        <strong style="color:#7c3aed">${s.spBuf} SP</strong>
-                                    </div>`).join('')}
-                                    <div class="picap-tt-sep"></div>
-                                    <div class="picap-tt-row picap-tt-row--buf">
-                                        <span>Total buffer</span>
-                                        <strong>${td.totalBuf} SP</strong>
-                                    </div>
-                                    <div class="picap-tt-row">
-                                        <span>Capacité brute</span>
-                                        <strong>${td.totalSpEst} SP</strong>
-                                    </div>
-                                    <div class="picap-tt-row picap-tt-row--total">
-                                        <span>Capacité nette</span>
-                                        <strong>${td.totalSpEst - td.totalBuf} SP</strong>
-                                    </div>
-                                </div>
-                            </span>
+                            </div>
 
                             <!-- Chip réalisé -->
                             ${td.closedCount > 0 ? (() => {
@@ -1625,7 +1899,15 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects }) {
     </div>`;
 
     // ── Interactions ──────────────────────────────────────────────────────────
-    const _rerender = () => renderCapacity(el, { piInfo, absences, teams, teamObjects });
+    const _rerender = () => {
+        // Recalcule capByTeam et propage dans _tabData avant de re-rendre
+        if (_computeCapByTeam && _capByTeamRef) {
+            const fresh = _computeCapByTeam();
+            Object.keys(_capByTeamRef).forEach(k => delete _capByTeamRef[k]);
+            Object.assign(_capByTeamRef, fresh);
+        }
+        renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapByTeam, capByTeam: _capByTeamRef });
+    };
 
     el.querySelector('#cap-history-mode')?.addEventListener('change', e => {
         localStorage.setItem(CAP_HISTORY_MODE_KEY, e.target.value);
@@ -1847,10 +2129,18 @@ function renderSupportRota(el, { teams, teamObjects }) {
             })();
             const panelPiNum = targetPiNum;
             const teamMembers = allMembers.filter(m => _matchTeam(m.team, teamName));
-            const sortedMembers = _sortSupportMembers(teamMembers.map(m => m.name));
+            // N'afficher que les membres actifs (support activé)
+            const activeMemberNames = teamMembers.map(m => m.name).filter(n => isMemberSupportActive(n));
+            const sortedMembers = _sortSupportMembers(activeMemberNames);
             if (!teamMembers.length) return '';
             const teamSupport = support.filter(s => _matchTeam(s.team, teamName));
             const mpw = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
+
+            // Compteur global de passages en support par membre (tous PIs)
+            const supportCounts = {};
+            for (const s of teamSupport) {
+                for (const n of (s.members || [])) supportCounts[n] = (supportCounts[n] || 0) + 1;
+            }
 
             // Résumé
             const filledWeeks = allWeeks.filter(w => {
@@ -1872,7 +2162,6 @@ function renderSupportRota(el, { teams, teamObjects }) {
             // Lignes membres — cellules en lecture seule (triées actifs > prénom > nom)
             const memberRows = sortedMembers.map(name => {
                 const m = { name };
-                const active = isMemberSupportActive(m.name);
                 const cells = allWeeks.map(w => {
                     const entry  = teamSupport.find(s => s.weekStart === w.weekStart);
                     const sel    = entry && (entry.members || []).includes(m.name);
@@ -1902,11 +2191,14 @@ function renderSupportRota(el, { teams, teamObjects }) {
                         </span>
                     </td>`;
                 }).join('');
-                return `<tr class="${active ? '' : 'rot-row-inactive'}">
+                const count = supportCounts[m.name] || 0;
+                const countBadge = count > 0 ? `<span class="rot-pass-count" title="${count} passage${count > 1 ? 's' : ''} en support">×${count}</span>` : '';
+                return `<tr>
                     <td class="rot-member-td">
-                        <span class="rot-member-name${active ? '' : ' is-inactive'}" title="${esc(m.name)}">${esc(_fmtMemberName(m.name))}</span>
+                        <span class="rot-member-name" title="${esc(m.name)}">${esc(_fmtMemberName(m.name))}</span>
                     </td>
                     ${cells}
+                    <td class="rot-count-col">${countBadge}</td>
                 </tr>`;
             }).join('');
 
@@ -1924,6 +2216,9 @@ function renderSupportRota(el, { teams, teamObjects }) {
                     <span class="rot-dot" style="background:${color}"></span>
                     <span class="rot-name">${esc(teamName)}</span>
                     <span class="rot-sum">${memberCount} membres · <span style="color:${summaryColor}">${filledWeeks}/${allWeeks.length} sem.</span></span>
+                    <div class="rot-panel-actions" onclick="event.stopPropagation()">
+                        <button class="btn btn-sm btn-secondary rot-btn" data-rot-copy="${esc(teamName)}" title="Copier un message de rotation prêt à coller (Slack/Teams). Clic droit = personnaliser le libellé.">📋 Copier</button>
+                    </div>
                 </div>
                 <div class="rot-panel-body">
                     <div class="table-wrap">
@@ -1932,6 +2227,7 @@ function renderSupportRota(el, { teams, teamObjects }) {
                                 <tr>
                                     <th class="rot-member-th" rowspan="2">Membre</th>
                                     <th colspan="${allWeeks.length}" class="rot-pi-group-th${showNext ? ' rot-pi-group-next' : ''}">PI ${panelPiNum || '?'}</th>
+                                    <th class="rot-count-col-th" rowspan="2" title="Nombre total de passages en support"></th>
                                 </tr>
                                 <tr>${weekRow}</tr>
                             </thead>
@@ -1940,6 +2236,7 @@ function renderSupportRota(el, { teams, teamObjects }) {
                                 <tr class="rot-count-row">
                                     <td class="rot-member-th">Total</td>
                                     ${countRow}
+                                    <td class="rot-count-col"></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1982,6 +2279,52 @@ function renderSupportRota(el, { teams, teamObjects }) {
             e.preventDefault();
             window.__squadBoard?.store.set('settingsSection', 'rotation');
             window.__squadBoard?.store.set('view', 'settings');
+        });
+
+        el.querySelectorAll('[data-rot-copy]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                const teamName = btn.dataset.rotCopy;
+                const piOffset = store.get('piOffset') || 0;
+                const sprintCnt = piInfo?.sprintsPerPI || 5;
+                const sprintDur = piInfo?.sprintDuration || 14;
+                const targetPiNum = basePiNum ? Math.max(1, basePiNum + piOffset) : 0;
+                const piStart = (() => {
+                    const { curWeeks } = buildSupportPiWeeks(piInfo, sprintInfo, getSupportWeekMode(teamName));
+                    const base = curWeeks[0]?.weekStart || new Date().toISOString().slice(0, 10);
+                    const d = new Date(base + 'T00:00:00');
+                    d.setDate(d.getDate() + piOffset * sprintCnt * sprintDur);
+                    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                })();
+                const wps = Math.max(1, Math.floor(sprintDur / 7));
+                const piWeeks = (() => {
+                    const ws = [];
+                    for (let s = 0; s < sprintCnt; s++) {
+                        const d = new Date(piStart + 'T00:00:00');
+                        d.setDate(d.getDate() + s * sprintDur);
+                        for (let w = 0; w < wps; w++) {
+                            const wStart = new Date(d); wStart.setDate(d.getDate() + w * 7);
+                            const wEnd   = new Date(wStart); wEnd.setDate(wStart.getDate() + 6);
+                            const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+                            ws.push({ label: `${targetPiNum}.${s + 1}.${w + 1}`, weekStart: fmt(wStart), weekEnd: fmt(wEnd) });
+                        }
+                    }
+                    return ws;
+                })();
+                const teamSup = (store.get('support') || []).filter(s => _matchTeam(s.team, teamName));
+                const roleLabel = localStorage.getItem(`rot-label-${teamName}`) || 'Support N3 OPS';
+                const _fmtD = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
+                const lines = [`🟣 ${roleLabel} [PI${targetPiNum || '?'}]`, ''];
+                for (const w of piWeeks) {
+                    const entry = teamSup.find(s => s.weekStart === w.weekStart);
+                    const members = (entry?.members || []).map(n => `@${_fmtMemberName(n)}`).join(' ');
+                    lines.push(`* 🟦 Itération ${w.label} (${_fmtD(w.weekStart)} au ${_fmtD(w.weekEnd)})`);
+                    lines.push(`    * ${members || '—'}`);
+                }
+                navigator.clipboard.writeText(lines.join('\n'))
+                    .then(() => { btn.textContent = '✓ Copié !'; setTimeout(() => { btn.textContent = '📋 Copier'; }, 1500); })
+                    .catch(() => toast('Copie impossible', 'error'));
+            });
         });
     };
 
@@ -2152,10 +2495,9 @@ function renderBurnup(el, { piInfo, teams, teamObjects }) {
     });
 }
 
+// Wrapper local sur extractPiNum (utils) — conserve la sémantique null pour les call sites pi.js.
 function _extractPi(name) {
-    if (!name) return null;
-    const m = String(name).match(/(\d+)\.\d+/) || String(name).match(/PI\s*#?\s*(\d+)/i);
-    return m ? parseInt(m[1], 10) : null;
+    return extractPiNum(name) || null;
 }
 function _sprintInPi(sprintName, piNumber) {
     if (!sprintName || !piNumber) return false;
@@ -2170,6 +2512,54 @@ function _sprintOrder(name) {
     return m ? parseInt(m[1], 10) : 999;
 }
 
+// ── Confettis consensus parfait (#11) ─────────────────────────────────────────
+function _launchConfetti(anchor) {
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const rect = anchor?.getBoundingClientRect?.() || { left: canvas.width / 2, top: canvas.height / 2, width: 0, height: 0 };
+    const ox = rect.left + rect.width / 2;
+    const oy = rect.top + rect.height / 2;
+
+    const COLORS = ['#f59e0b', '#22c55e', '#6366f1', '#ec4899', '#38bdf8', '#a855f7'];
+    const particles = Array.from({ length: 80 }, () => ({
+        x: ox, y: oy,
+        vx: (Math.random() - 0.5) * 10,
+        vy: -(Math.random() * 8 + 4),
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        r: Math.random() * 5 + 3,
+        rot: Math.random() * Math.PI * 2,
+        rotV: (Math.random() - 0.5) * 0.2,
+        gravity: 0.25,
+        alpha: 1,
+    }));
+
+    const start = performance.now();
+    function frame(now) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const elapsed = now - start;
+        for (const p of particles) {
+            p.x  += p.vx;  p.y += p.vy;  p.vy += p.gravity;
+            p.rot += p.rotV;
+            p.alpha = Math.max(0, 1 - elapsed / 2200);
+            ctx.save();
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 0.6);
+            ctx.restore();
+        }
+        if (elapsed < 2500) requestAnimationFrame(frame);
+        else canvas.remove();
+    }
+    requestAnimationFrame(frame);
+}
+
 // ── Mood / ROTI tab ──────────────────────────────────────────────────────────
 function renderMood(el, { teams }) {
     renderVotingPanel(el, 'mood', 'Mood / ROTI', teams, [
@@ -2182,17 +2572,130 @@ function renderMood(el, { teams }) {
 }
 
 // ── Fist of Five tab ─────────────────────────────────────────────────────────
-function renderFist(el, { teams }) {
+function renderFist(el, { teams, objectives = [] }) {
     renderVotingPanel(el, 'fist', 'Fist of Five (confiance)', teams, [
         { value: 1, label: '✊', desc: 'Pas du tout' },
         { value: 2, label: '✌️', desc: 'Peu confiant' },
         { value: 3, label: '🤟', desc: 'Moyen' },
         { value: 4, label: '🖖', desc: 'Confiant' },
         { value: 5, label: '🖐️', desc: 'Tres confiant' },
-    ]);
+    ], objectives);
 }
 
-async function renderVotingPanel(el, type, title, teams, scale) {
+// ── Vote de confiance par objectif (#4) ───────────────────────────────────────
+async function _renderConfidenceByObjective(el, objectives) {
+    if (!objectives.length) return;
+
+    const SCALE = [
+        { value: 1, label: '✊', color: 'var(--danger)' },
+        { value: 2, label: '✌️', color: '#f97316' },
+        { value: 3, label: '🤟', color: 'var(--warning)' },
+        { value: 4, label: '🖖', color: '#22c55e' },
+        { value: 5, label: '🖐️', color: 'var(--success)' },
+    ];
+
+    const sprintInfo = store.get('sprintInfo');
+    const piInfo     = store.get('piInfo');
+    const piNum      = piInfo?.number || 0;
+    const piOff      = store.get('piOffset') || 0;
+    const piNumEff   = piNum ? Math.max(1, piNum + piOff) : 0;
+    const piCfg      = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNumEff}`) || 'null'); } catch { return null; } })();
+    const sprintsCnt = piCfg?.sprintsPerPI || piInfo?.sprintsPerPI || 0;
+    const defaultSpr = (sprintInfo?.name || '').match(/(\d+\.\d+)/)?.[1] || '';
+    const piSprints  = sprintsCnt > 0
+        ? [...Array(sprintsCnt)].map((_, i) => piNumEff ? `${piNumEff}.${i + 1}` : `S${i + 1}`)
+        : [];
+
+    const wrap = document.createElement('div');
+    wrap.className = 'card mt-4';
+    wrap.innerHTML = `
+        <div class="card-header">
+            <span class="card-title">🎯 Confiance par objectif</span>
+            <div class="flex gap-2 items-center">
+                ${piSprints.length
+                    ? `<select class="select select-sm" id="conf-sprint">
+                          <option value="">- Sprint -</option>
+                          ${piSprints.map(s => `<option value="${esc(s)}"${s === defaultSpr ? ' selected' : ''}>${esc(s)}</option>`).join('')}
+                       </select>`
+                    : `<input class="input input-sm" id="conf-sprint" value="${esc(defaultSpr)}" placeholder="Sprint…" style="width:90px">`
+                }
+                <select class="select select-sm" id="conf-team">
+                    ${(store.get('teams') || []).map(t => `<option value="${esc(t)}"${t === store.get('team') ? ' selected' : ''}>${esc(t)}</option>`).join('')}
+                </select>
+            </div>
+        </div>
+        <div id="conf-obj-list" class="conf-obj-list"></div>
+    `;
+    el.appendChild(wrap);
+
+    async function refreshConf() {
+        const sprint  = wrap.querySelector('#conf-sprint')?.value.trim() || '';
+        const allVotes = await api.getMood({ type: 'confidence' });
+        const filtered = sprint ? allVotes.filter(v => (v.piSprint || '') === sprint) : allVotes;
+        // group by objective (note field) + team if selected
+        const selTeam = wrap.querySelector('#conf-team')?.value || '';
+        const votesForTeam = selTeam ? filtered.filter(v => v.team === selTeam) : filtered;
+        const byObj = {};
+        for (const v of votesForTeam) {
+            const key = v.note || '—';
+            if (!byObj[key]) byObj[key] = [];
+            byObj[key].push(v);
+        }
+        const listEl = wrap.querySelector('#conf-obj-list');
+        if (!listEl) return;
+
+        listEl.innerHTML = objectives.map(o => {
+            const key    = (o.text || '').trim() || o.title || '—';
+            const votes  = byObj[key] || [];
+            const avg    = votes.length ? Math.round(votes.reduce((s, v) => s + v.value, 0) / votes.length * 10) / 10 : 0;
+            const color  = avg >= 4 ? 'var(--success)' : avg >= 3 ? 'var(--warning)' : avg ? 'var(--danger)' : 'var(--text-muted)';
+            const bars   = SCALE.map(s => {
+                const cnt = votes.filter(v => v.value === s.value).length;
+                const flex = votes.length ? cnt / votes.length : 0;
+                return flex ? `<span class="vr-seg" style="flex:${flex};background:${s.color}" title="${esc(s.label)}: ${cnt}"></span>` : '';
+            }).join('');
+            return `
+            <div class="conf-obj-row" data-obj="${esc(key)}">
+                <div class="conf-obj-info">
+                    <span class="conf-obj-text">${esc(o.text || o.title || '—')}</span>
+                    ${o.team ? `<span class="conf-obj-team">${esc(o.team)}</span>` : ''}
+                </div>
+                <div class="conf-vote-btns">
+                    ${SCALE.map(s => `<button class="conf-vote-btn" data-val="${s.value}" title="${s.desc || s.value}" style="--cc:${s.color}">${s.label}</button>`).join('')}
+                </div>
+                <div class="conf-obj-result">
+                    ${avg ? `<span class="conf-avg" style="color:${color}">${avg}<span class="conf-avg-unit">/5</span></span>` : '<span class="conf-no-vote">—</span>'}
+                    <div class="vr-distrib conf-distrib">${bars || '<span class="vr-distrib-empty"></span>'}</div>
+                    <span class="conf-count">${votes.length ? `${votes.length}v` : ''}</span>
+                </div>
+            </div>`;
+        }).join('');
+
+        // Wire vote buttons
+        listEl.querySelectorAll('.conf-obj-row').forEach(row => {
+            row.querySelectorAll('.conf-vote-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const sprint  = wrap.querySelector('#conf-sprint')?.value.trim() || '';
+                    const teamVal = wrap.querySelector('#conf-team')?.value;
+                    if (!sprint) { toast('Sélectionnez un sprint pour voter', 'warning'); return; }
+                    if (!teamVal) { toast('Sélectionnez une équipe', 'warning'); return; }
+                    btn.disabled = true;
+                    try {
+                        await api.createMood({ type: 'confidence', team: teamVal, value: parseInt(btn.dataset.val), piSprint: sprint, note: row.dataset.obj });
+                        toast('Vote enregistré', 'success');
+                        await refreshConf();
+                    } catch { toast('Erreur lors du vote', 'error'); btn.disabled = false; }
+                });
+            });
+        });
+    }
+
+    await refreshConf();
+    wrap.querySelector('#conf-sprint')?.addEventListener('change', refreshConf);
+    wrap.querySelector('#conf-team')?.addEventListener('change', refreshConf);
+}
+
+async function renderVotingPanel(el, type, title, teams, scale, objectives = []) {
     // ── Config centralisée Sprint + PI (voir <!-- ═══ Sprint + PI Config ═══ -->) ──
     const sprintInfo    = store.get('sprintInfo');
     const piInfo        = store.get('piInfo');
@@ -2338,6 +2841,14 @@ async function renderVotingPanel(el, type, title, teams, scale) {
                 refreshResults();
             });
         });
+
+        // Confettis sur consensus parfait (#11)
+        if (globalVotes >= 2 && filtered.length >= 2) {
+            const vals = filtered.map(v => v.value);
+            const allSame = vals.every(v => v === vals[0]);
+            const isPositive = vals[0] >= 4;
+            if (allSame && isPositive) _launchConfetti(resultsEl);
+        }
     }
 
     // Active / désactive les boutons de vote selon le sprint sélectionné
@@ -2399,4 +2910,9 @@ async function renderVotingPanel(el, type, title, teams, scale) {
     // État initial
     syncVoteBtns();
     await refreshResults();
+
+    // Après le Fist of Five, ajouter le panel de confiance par objectif (#4)
+    if (type === 'fist' && objectives.length) {
+        await _renderConfidenceByObjective(el, objectives);
+    }
 }

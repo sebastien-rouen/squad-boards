@@ -77,17 +77,17 @@ export function renderReports(container) {
     const dLeft = _dLeft(sprintInfo?.endDate);
 
     const sections = [
-        { id: 'sprint', title: 'Sprint' },
-        { id: 'kanban', title: 'Kanban / Flow' },
-        { id: 'support', title: 'Support' },
-        { id: 'roadmap', title: 'Roadmap / PI' },
-        { id: 'epicburn', title: 'Epic Burndown',     noExport: true },
-        { id: 'sondage',  title: 'Mood Meter / ROTI', noExport: true },
-        { id: 'pifist',   title: 'Vote de confiance PI', noExport: true, dLeft },
-        { id: 'calendar', title: 'Calendrier', noExport: true },
-        { id: 'teams', title: 'Equipes' },
-        { id: 'pi', title: 'PI Planning' },
-        { id: 'full', title: 'Rapport complet' },
+        { id: 'sprint',   title: 'Sprint',               icon: '📋' },
+        { id: 'kanban',   title: 'Kanban / Flow',         icon: '🗂️' },
+        { id: 'support',  title: 'Support',               icon: '🛡️' },
+        { id: 'roadmap',  title: 'Roadmap / PI',          icon: '🗺️' },
+        { id: 'epicburn', title: 'Epic Burndown',         icon: '📉', noExport: true },
+        { id: 'sondage',  title: 'Mood Meter / ROTI',     icon: '😊', noExport: true },
+        { id: 'pifist',   title: 'Vote de confiance PI',  icon: '✊', noExport: true, dLeft },
+        { id: 'calendar', title: 'Calendrier',            icon: '📅', noExport: true },
+        { id: 'teams',    title: 'Équipes',               icon: '👥' },
+        { id: 'pi',       title: 'PI Planning',           icon: '🗓️' },
+        { id: 'full',     title: 'Rapport complet',       icon: '📄' },
     ];
 
     container.innerHTML = `
@@ -97,7 +97,13 @@ export function renderReports(container) {
                 <button class="board-mode-btn${_format === 'slack' ? ' active' : ''}" data-fmt="slack">Slack</button>
                 <button class="board-mode-btn${_format === 'confluence' ? ' active' : ''}" data-fmt="confluence">Confluence</button>
             </div>
-            <span class="text-xs text-muted">${team === 'all' ? 'Toutes equipes' : team} | ${total} tickets | ${fmtDate(new Date())}</span>
+            <div class="rpt-ctrl-meta">
+                <span class="rpt-ctrl-team">${team === 'all' ? 'Toutes équipes' : esc(team)}</span>
+                <span class="rpt-ctrl-sep">·</span>
+                <span class="rpt-ctrl-count">${total} ticket${total > 1 ? 's' : ''}</span>
+                <span class="rpt-ctrl-sep">·</span>
+                <span class="rpt-ctrl-date">${fmtDate(new Date())}</span>
+            </div>
             <button class="btn btn-secondary btn-sm btn-print" title="Exporter en PDF">
                 <svg class="icon icon-sm"><use href="#i-download"/></svg> PDF
             </button>
@@ -109,15 +115,22 @@ export function renderReports(container) {
 
             <!-- KPI row -->
             <div class="rpt-kpi-row mb-4">
+                ${(() => {
+                    const ticketPct = pct(done, total);
+                    const ptsPct2   = pct(donePts, totalPts);
+                    const _barClr   = p => p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--warning)' : 'var(--danger)';
+                    return `
                 <div class="rpt-kpi-chip">
                     <span class="rpt-kpi-label">Complétion</span>
-                    <span class="rpt-kpi-value">${pct(done, total)}%</span>
+                    <span class="rpt-kpi-value">${ticketPct}%</span>
+                    <div class="rpt-kpi-bar"><div style="width:${ticketPct}%;background:${_barClr(ticketPct)}"></div></div>
                     <span class="rpt-kpi-sub">${done}/${total} tickets</span>
                 </div>
                 <div class="rpt-kpi-chip">
                     <span class="rpt-kpi-label">Points</span>
                     <span class="rpt-kpi-value">${donePts}<span class="rpt-kpi-denom">/${totalPts}</span></span>
-                    <span class="rpt-kpi-sub">${pct(donePts, totalPts)}% réalisés</span>
+                    <div class="rpt-kpi-bar"><div style="width:${ptsPct2}%;background:${_barClr(ptsPct2)}"></div></div>
+                    <span class="rpt-kpi-sub">${ptsPct2}% réalisés</span>
                 </div>
                 <div class="rpt-kpi-chip${blocked > 0 ? ' rpt-kpi-chip--danger' : ''}">
                     <span class="rpt-kpi-label">Bloqués</span>
@@ -127,6 +140,7 @@ export function renderReports(container) {
                 <div class="rpt-kpi-chip">
                     <span class="rpt-kpi-label">Buffer</span>
                     <span class="rpt-kpi-value">${bufPct}%</span>
+                    <div class="rpt-kpi-bar"><div style="width:${Math.min(bufPct, 100)}%;background:var(--primary)"></div></div>
                     <span class="rpt-kpi-sub">${bufferPts} pts</span>
                 </div>
                 ${daysLeft !== null ? `
@@ -134,7 +148,8 @@ export function renderReports(container) {
                     <span class="rpt-kpi-label">Jours restants</span>
                     <span class="rpt-kpi-value">${daysLeft}</span>
                     <span class="rpt-kpi-sub">${daysLeft === 0 ? 'Sprint terminé' : daysLeft === 1 ? 'Dernier jour' : 'jours'}</span>
-                </div>` : ''}
+                </div>` : ''}`;
+                })()}
             </div>
 
             <!-- Row 1: Statuts + Types -->
@@ -186,18 +201,23 @@ export function renderReports(container) {
         </details>
 
         ${sections.map(s => {
-            const urgentBadge = s.id === 'pifist' && s.dLeft !== null && s.dLeft <= 1
+            const isUrgent = s.id === 'pifist' && s.dLeft !== null && s.dLeft <= 1;
+            const urgentBadge = isUrgent
                 ? `<span class="report-section-badge report-section-badge--urgent">${s.dLeft === 0 ? '⏰ Aujourd\'hui' : '🔔 Demain'}</span>`
                 : s.id === 'pifist' && s.dLeft !== null && s.dLeft <= 3
                     ? `<span class="report-section-badge">J-${s.dLeft}</span>`
                     : '';
+            const noExportBadge = s.noExport ? `<span class="report-section-badge report-section-badge--noexport">Interactif</span>` : '';
             return `
-            <div class="report-section">
+            <div class="report-section${isUrgent ? ' report-section--urgent' : ''} is-open">
                 <div class="report-section-header" data-section="${s.id}">
-                    <span class="report-section-title">${s.title}${urgentBadge}</span>
-                    <div style="display:flex;align-items:center;gap:var(--sp-2)">
+                    <span class="report-section-title">
+                        ${s.icon ? `<span class="report-section-icon">${s.icon}</span>` : ''}
+                        ${s.title}${urgentBadge}${noExportBadge}
+                    </span>
+                    <div class="report-section-actions">
                         ${!s.noExport ? `<button class="btn btn-secondary btn-sm btn-copy-section" data-section="${s.id}" title="Copier"><svg class="icon icon-sm"><use href="#i-copy"/></svg></button>` : ''}
-                        <svg class="icon icon-sm"><use href="#i-chevron-down"/></svg>
+                        <svg class="icon icon-sm report-section-chevron"><use href="#i-chevron-down"/></svg>
                     </div>
                 </div>
                 <div class="report-section-body" data-body="${s.id}">
@@ -230,7 +250,10 @@ export function renderReports(container) {
     container.querySelectorAll('.report-section-header').forEach(h => {
         h.addEventListener('click', e => {
             if (e.target.closest('.btn-copy-section')) return;
-            container.querySelector(`[data-body="${h.dataset.section}"]`)?.classList.toggle('collapsed');
+            const body = container.querySelector(`[data-body="${h.dataset.section}"]`);
+            const section = h.closest('.report-section');
+            body?.classList.toggle('collapsed');
+            section?.classList.toggle('is-open', !body?.classList.contains('collapsed'));
         });
     });
     container.querySelectorAll('.btn-copy-section').forEach(btn => {
@@ -243,6 +266,16 @@ export function renderReports(container) {
                 setTimeout(() => { btn.innerHTML = '<svg class="icon icon-sm"><use href="#i-copy"/></svg>'; }, 1500);
             } catch {}
         });
+    });
+
+    container.querySelectorAll('.vel-history-row[data-sprint]:not(.vel-history-row--current)').forEach(row => {
+        const validate = () => {
+            const est = parseInt(row.querySelector('[name=estimated]')?.value) || 0;
+            const rea = parseInt(row.querySelector('[name=realized]')?.value)  || 0;
+            row.classList.toggle('vel-row--over', rea > est && est > 0);
+        };
+        row.querySelectorAll('.vel-input').forEach(inp => inp.addEventListener('input', validate));
+        validate();
     });
 
     container.querySelector('#vel-save-btn')?.addEventListener('click', async () => {
@@ -416,7 +449,7 @@ function _moodSparkline(allVotes, teams) {
         count: votes.length,
     }));
 
-    const W = 240, H = 44, PAD = 16;
+    const W = 260, H = 48, PAD = 16;
     const stepX = (W - PAD * 2) / Math.max(points.length - 1, 1);
     const pts = points.map((p, i) => ({
         ...p,
@@ -442,7 +475,7 @@ function _moodSparkline(allVotes, teams) {
     return `
     <div class="mood-sparkline">
         <span class="mood-sparkline-label">Tendance</span>
-        <svg width="${W}" height="${H + 14}" class="mood-spark-svg">
+        <svg width="${W}" height="${H + 18}" class="mood-spark-svg">
             <line x1="${PAD}" y1="${midY.toFixed(1)}" x2="${W - PAD}" y2="${midY.toFixed(1)}"
                   stroke="var(--border)" stroke-dasharray="3,3" stroke-width="1"/>
             <path d="${area}" fill="var(--primary-bg)" opacity="0.4"/>
@@ -452,8 +485,8 @@ function _moodSparkline(allVotes, teams) {
             ${pts.map((p, i) => {
                 const short = p.label.replace(/PI#?/i, 'PI');
                 const anchor = i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle';
-                return `<text x="${p.x.toFixed(1)}" y="${H + 11}" text-anchor="${anchor}"
-                    fill="var(--text-muted)" font-size="7">${esc(short)}</text>`;
+                return `<text x="${p.x.toFixed(1)}" y="${H + 14}" text-anchor="${anchor}"
+                    fill="var(--text-muted)" font-size="9">${esc(short)}</text>`;
             }).join('')}
         </svg>
         <span class="mood-sparkline-arrow" style="color:${arrowColor}">${arrow}</span>
@@ -837,15 +870,18 @@ function _renderPiFist(outerContainer, dLeft) {
     </div>`;
 
     // ── Guide visuel (échelle) ────────────────────────────────────────────
+    const _fistColors = ['#ef444418', '#f97316'+'18', '#eab308'+'18', '#22c55e18', '#10b98118'];
+    const _fistBorders = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981'];
     const scaleHtml = `
     <div class="fist-scale-guide">
-        ${FIST_SCALE.map(r => `
-        <div class="fist-scale-row">
+        ${FIST_SCALE.map((r, i) => `
+        <div class="fist-scale-row" style="background:${_fistColors[i]};border-left:3px solid ${_fistBorders[i]}">
             <span class="fist-scale-emoji">${r.emoji}</span>
             <div class="fist-scale-text">
-                <span class="fist-scale-label">${esc(r.label)}</span>
+                <span class="fist-scale-label" style="color:${_fistBorders[i]}">${esc(r.label)}</span>
                 <span class="fist-scale-desc">${esc(r.text)}</span>
             </div>
+            <span class="fist-scale-num" style="color:${_fistBorders[i]}">${i + 1}</span>
         </div>`).join('')}
     </div>`;
 
@@ -909,14 +945,20 @@ function renderEpicBurndown({ tickets, team }) {
         ${rows.map(r => `
         <div class="epic-burn-row">
             <div class="epic-burn-meta">
-                <span class="epic-burn-title">${esc(r.epic.title)}</span>
-                <span class="text-xs text-muted">${esc(r.epic.team || '-')}</span>
+                <span class="epic-burn-title" title="${esc(r.epic.title)}">${esc(r.epic.title)}</span>
+                <div class="epic-burn-badges">
+                    ${r.epic.team ? `<span class="epic-burn-team">${esc(r.epic.team)}</span>` : ''}
+                    <span class="epic-burn-pct" style="color:${r.color}">${r.pctDone}%</span>
+                </div>
             </div>
             <div class="epic-burn-bar-wrap">
                 <div class="epic-burn-bar-track">
                     <div class="epic-burn-bar-fill" style="width:${r.pctDone}%;background:${r.color}"></div>
                 </div>
-                <span class="epic-burn-stat">${r.done}/${r.total} tickets · ${r.donePts}/${r.pts} pts (${r.pctDone}%)</span>
+            </div>
+            <div class="epic-burn-stat-row">
+                <span class="epic-burn-stat-chip">🎫 ${r.done}/${r.total} tickets</span>
+                <span class="epic-burn-stat-chip">💎 ${r.donePts}/${r.pts} pts</span>
             </div>
         </div>`).join('')}
     </div>`;

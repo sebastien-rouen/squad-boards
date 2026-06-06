@@ -247,49 +247,74 @@ body { display: flex; }
 .sync-dialog {
     background: var(--surface);
     border-radius: var(--r-xl);
-    box-shadow: var(--shadow-xl);
+    box-shadow: var(--shadow-xl), 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent);
     padding: var(--sp-8) var(--sp-10);
     text-align: center;
-    width: 420px;
-    max-width: 90vw;
+    width: 440px;
+    max-width: 92vw;
 }
 .sync-dialog-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 48px; height: 48px;
+    width: 52px; height: 52px;
     border-radius: 50%;
-    background: var(--primary-bg);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
     color: var(--primary);
     margin-bottom: var(--sp-4);
     animation: spin 1.5s linear infinite;
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 6%, transparent);
 }
 .sync-dialog-title {
     font-size: var(--fs-lg);
     font-weight: var(--fw-semibold);
     margin-bottom: var(--sp-4);
 }
+/* Barre + timer côte à côte */
+.sync-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
+}
 .sync-progress-bar {
+    flex: 1;
     height: 6px;
     background: var(--bg-alt);
     border-radius: var(--r-full);
     overflow: hidden;
-    margin-bottom: var(--sp-3);
 }
 .sync-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 70%, #818cf8));
     border-radius: var(--r-full);
     width: 0%;
     transition: width 0.4s ease;
 }
+.sync-dialog-timer {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+    border-radius: 999px;
+    padding: 1px 8px;
+    min-width: 36px;
+    text-align: center;
+    transition: color 0.3s;
+}
 .sync-dialog-label {
     font-size: var(--fs-sm);
-    color: var(--text-secondary);
+    font-weight: var(--fw-medium);
+    color: var(--text);
     margin-bottom: var(--sp-1);
 }
 .sync-dialog-detail {
     min-height: 1.2em;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
 }
 
 /* ── App / Main ────────────────────────────────────────────────────────────── */
@@ -1518,22 +1543,34 @@ tr:hover td { background: var(--surface-hover); }
     gap: 1px;
     position: absolute;
     left: 0;
-    top: calc(100% + 4px);
+    bottom: calc(100% + 4px);
+    top: auto;
     z-index: 200;
     background: var(--surface, #fff);
     border: 1px solid var(--border, #e2e8f0);
     border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    box-shadow: 0 -4px 24px rgba(0,0,0,.12);
     min-width: 150px;
     padding: 4px;
     /* Fermé par défaut */
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transform: translateY(-4px);
+    transform: translateY(4px);
     transition: opacity .15s, visibility .15s, transform .15s;
     /* Délai à la fermeture pour laisser le temps de glisser vers le dropdown */
     transition-delay: 0s;
+}
+/* Pont invisible qui comble le gap de 4px entre le bouton et le picker —
+   garde :hover actif pendant que la souris traverse vers le dropdown */
+.team-btn-picker::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    top: auto;
+    height: 6px;
 }
 .team-btn-all-wrap.has-picker:hover .team-btn-picker,
 .team-btn-all-wrap.has-picker:focus-within .team-btn-picker {
@@ -1543,9 +1580,9 @@ tr:hover td { background: var(--surface-hover); }
     transform: translateY(0);
     transition-delay: 0s;
 }
-/* Délai de 200ms à la fermeture — laisse le temps de glisser vers le dropdown */
+/* Délai de 350ms à la fermeture — laisse le temps de glisser vers le dropdown */
 .team-btn-all-wrap.has-picker:not(:hover):not(:focus-within) .team-btn-picker {
-    transition-delay: 200ms;
+    transition-delay: 350ms;
 }
 .team-btn-picker-item {
     display: flex;

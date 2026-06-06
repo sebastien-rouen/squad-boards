@@ -1,3 +1,54 @@
+## [3.15.0] - 2026-06-06
+
+### Refactor : Assainissement de la gestion du « PI courant » (maintenabilité)
+
+#### Niveau 1 — Source unique du PI courant
+- **`getCurrentPi({ sprintInfo, piInfo })` + `extractPiNum(name)`** ([utils.js](squad-board/static/js/utils.js)) : une seule fonction calcule « quel est le PI courant » (sprint actif JIRA > `piInfo.number`). Remplace les 3 réimplémentations divergentes de la regex dans [topbar.js](squad-board/static/js/components/topbar.js), [settings.js](squad-board/static/js/views/settings.js) et [dashboard.js](squad-board/static/js/views/dashboard.js). `pi.js` route son `_extractPi` local vers `extractPiNum`. **Plus aucune divergence possible.**
+
+#### Niveau 2 — Config carrée + alerte désync
+- **Bandeau d'alerte désync** dans Settings → Sprint & PI : si le N° de PI configuré (`piInfo.number`) ne correspond pas au PI du sprint actif, un bandeau ⚠️ s'affiche avec un bouton **« Recaler sur PI#xx »** qui aligne la config en un clic. Évite les cas où une vue lisant `piInfo.number` brut affiche le mauvais PI (ex: config `number=29` / `name="PI#30"`). Le champ « Nom du PI » reste libre.
+
+#### Niveau 3 — Objectifs historisés par PI
+- **`PIConfig.pi_objectives`** (JSON keyé par PI, comme `pi_members`) ([main.py](squad-board/main.py)) : les objectifs de chaque PI sont désormais conservés au lieu d'être écrasés à la transition de PI. Migration SQLite `ALTER TABLE piconfig ADD COLUMN pi_objectives`.
+- **Snapshot automatique** : `PUT /api/pi` historise les objectifs du PI courant dans `pi_objectives[number]` à chaque save (pas de dépendance frontend).
+- **Endpoint dédié** `PUT /api/pi/objectives/{pi_number}` : saisir/corriger les objectifs d'un PI passé/futur sans toucher au courant (symétrique à `/api/pi/members/{pi_number}`).
+- **Dashboard & PI Planning** lisent le snapshot `pi_objectives[displayPiNum]` pour les PI ≠ courant → **les objectifs d'un PI passé sont enfin affichables via le sélecteur PI**. L'onglet Objectifs de PI Planning migre du `localStorage` (par-navigateur) vers la base (partagé). Message « non disponibles » remplacé par « aucun objectif enregistré, saisissez-les dans PI Planning → Objectifs ».
+- **Import/Export** : `/api/import` restaure désormais l'intégralité de l'état PI (`sprintsPerPI`, `startDate`, `pi_members`, `pi_objectives`…) au lieu des seuls `number/name/objectives`.
+
+---
+
+## [3.14.0] - 2026-06-05
+
+### Feat : Sélecteur PI sur le Dashboard
+- **Sélecteur PI (PI-2..PI+2) sur `/#dashboard/`** : ajout de `dashboard` au set `PI_VIEWS` ([topbar.js](squad-board/static/js/components/topbar.js)). Le titre, les objectifs et la carte « sprint en cours » suivent désormais le PI sélectionné.
+- **Carte sprint adaptée au PI** : à l'offset 0, carte du sprint actif inchangée ; sur un autre PI, bandeau `sprint-header--other-pi` (🗓️ PI #N) avec la bande des sprints concernés (`_renderPiSprintsStrip` reçoit `displayPiNum`).
+
+### Fix : Objectifs « non disponibles » à tort sur le Dashboard
+- **Cause** : `displayPiNum` était ancré sur le sprint actif alors que `_objsAreForDisplayedPi` comparait à `piInfo.number`. Quand les deux divergent (sprint actif `28.x` mais `piInfo.number=29`, ou config désynchronisée `number=29`/`name="PI#30"`), le message « Les objectifs ne sont disponibles que pour le PI courant » s'affichait même sur le PI courant.
+- **Fix** : `_basePiNum` ancré sur le PI du sprint actif (fallback `piInfo.number`), cohérent avec topbar.js et settings.js. Les objectifs (un seul jeu en base, pas d'historique par PI) ne s'appliquent qu'à l'offset 0. Message d'erreur corrigé pour pointer le vrai PI courant.
+
+---
+
+## [3.13.0] - 2026-06-04
+
+### Feat : PI Planning & Atlas — 10 améliorations ergonomie / UX
+
+#### PI Planning
+- **#3 — Raccourcis clavier onglets** : touches `1`-`9` basculent entre les onglets PI (Objectifs / Features / Capacité / Burnup / ROAM / Équipes / Support / Mood / Fist). Désactivé si le focus est sur un champ de saisie.
+- **#5 — Progression objectifs rollup** : barre de progression par objectif dérivée des features de l'équipe (done/total), couleur verte/orange/rouge. Jauge globale en haut de l'onglet Objectifs.
+- **#4 — Vote de confiance par objectif** : panneau `🎯 Confiance par objectif` ajouté sous le Fist of Five. Vote 1-5 par objectif (stocké via `type='confidence'` dans l'API Mood), affichage de la moyenne et distribution par barres.
+- **#6 — États vides illustrés** : onglet Features → message guidant avec lien vers la sync JIRA ; onglet Capacité → tooltip hint sur les équipes sans membres importés.
+- **#11 — Confettis consensus parfait** : si tous les votes Fist of Five ou Mood ont la même valeur ≥ 4, une animation canvas de confettis apparaît (2,5 s, sans librairie externe).
+- **#2 — Mini-heatmap capacité** : strip compact entre les onglets et le contenu PI — une pastille colorée (vert/orange/rouge) par équipe indiquant SP planifiés vs capacité nette. Clic → bascule sur l'onglet Capacité avec filtre équipe.
+- **#10 — Mode présentation PI Planning** : bouton `⊞` dans l'en-tête du PI ouvre le plein écran navigateur (fallback position:fixed). Les metric-cards sont agrandies en présentation.
+
+#### Atlas
+- **#8 — Recherche de compétence "qui sait faire X ?"** : barre de recherche dans la carte unFIX. Saisir un nom de compétence → highlight des membres avec niveau ≥ 2 (pulsation verte + compteur), fade des autres. Persisté en localStorage.
+- **#7 — Simulation staffing drag & drop** : bouton `🔄` active le mode simulation. Glisser une pastille membre vers une autre équipe → recalcul de la hiérarchie live. Bandeau récapitulant les déplacements. Bouton `Annuler` réinitialise.
+- **#1 — Comparateur d'équipes** : bouton `⚖️` ouvre une modal de comparaison. Sélectionner 2-3 équipes → radar Chart.js superposé + tableau skill par skill avec mise en avant de l'équipe la plus performante.
+
+---
+
 ## [3.12.0] - 2026-06-04
 
 ### Feat : Planning Poker (estimation collective des Story Points)

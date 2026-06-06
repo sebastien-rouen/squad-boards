@@ -152,6 +152,10 @@ function _makeEpicPicker(allEpics, currentId, onCommit, onCancel) {
     return { wrap, input };
 }
 
+export function makePersonPicker(allNames, currentName, onCommit, onCancel) {
+    return _makePersonPicker(allNames, currentName, onCommit, onCancel);
+}
+
 function _makePersonPicker(allNames, currentName, onCommit, onCancel) {
     const _initials = (n) => n ? n.split(/[\s,]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') : '?';
     const _color = (n) => {
@@ -172,6 +176,9 @@ function _makePersonPicker(allNames, currentName, onCommit, onCancel) {
     const list = document.createElement('div');
     list.className = 'person-picker-list'; list.role = 'listbox';
 
+    // Normalise les entrées : string "Nom" OU objet { name, sub } (sub = équipe affichée à droite)
+    const _entries = (allNames || []).map(n => typeof n === 'string' ? { name: n, sub: '' } : { name: n.name, sub: n.sub || '' });
+
     const _buildList = (q = '') => {
         const lq = q.toLowerCase();
         const items = [];
@@ -182,10 +189,11 @@ function _makePersonPicker(allNames, currentName, onCommit, onCancel) {
                 <span class="person-picker-name">Non assigné</span>
             </div>`);
         }
-        allNames.filter(n => !lq || n.toLowerCase().includes(lq)).forEach(n => {
-            items.push(`<div class="person-picker-opt${n === currentName ? ' is-current' : ''}" data-name="${esc(n)}" role="option">
-                ${_avatarHtml(n)}
-                <span class="person-picker-name">${esc(n)}</span>
+        _entries.filter(e => !lq || e.name.toLowerCase().includes(lq) || (e.sub && e.sub.toLowerCase().includes(lq))).forEach(e => {
+            items.push(`<div class="person-picker-opt${e.name === currentName ? ' is-current' : ''}" data-name="${esc(e.name)}" role="option">
+                ${_avatarHtml(e.name)}
+                <span class="person-picker-name">${esc(e.name)}</span>
+                ${e.sub ? `<span class="person-picker-sub">${esc(e.sub)}</span>` : ''}
             </div>`);
         });
         list.innerHTML = items.join('');
@@ -211,12 +219,21 @@ function _makePersonPicker(allNames, currentName, onCommit, onCancel) {
         if (opt) { _allOpts().forEach(o => o.classList.remove('is-hover')); opt.classList.add('is-hover'); }
     });
 
+    // Options réelles = hors "Non assigné" (data-name vide)
+    const _realOpts = () => _allOpts().filter(o => o.dataset.name !== '');
+
     input.addEventListener('keydown', e => {
         if (e.key === 'Escape') { e.stopPropagation(); onCancel(); return; }
         if (e.key === 'Enter') {
             e.preventDefault();
-            const hovered = list.querySelector('.is-hover') || list.querySelector('.is-current');
-            if (hovered) onCommit(hovered.dataset.name);
+            const real = _realOpts();
+            // Priorité : option survolée. Sinon, si la recherche est filtrée à 1 résultat (ou texte
+            // saisi → on prend le 1er), on le valide. Sinon l'option courante.
+            const hovered = list.querySelector('.is-hover');
+            const target = hovered
+                || (input.value.trim() && real.length ? real[0] : null)
+                || list.querySelector('.is-current');
+            if (target) onCommit(target.dataset.name);
             return;
         }
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -1147,13 +1164,15 @@ function _bindInlineEditors(container, ticket) {
             await saveC();
         });
 
-        // Bouton + Ajouter → ouvre le person picker
+        // Bouton + Ajouter → ouvre le person picker. Se rouvre après chaque ajout
+        // pour enchaîner la saisie de plusieurs contributeurs (comme la rotation support).
         const addBtn = contribWrap.querySelector('#contrib-add-btn');
         if (addBtn) {
-            addBtn.addEventListener('click', () => {
+            const _openContribPicker = () => {
                 if (contribWrap.querySelector('.person-picker')) return;
                 const current = getNames();
                 const allNames = getMemberNames().filter(m => !current.includes(m) && m !== (ticket.leader || ticket.assignee));
+                if (!allNames.length) return;
                 const onCommit = async (name) => {
                     cleanup();
                     if (!name) return;
@@ -1162,6 +1181,7 @@ function _bindInlineEditors(container, ticket) {
                     chip.innerHTML = `${avatar(name, false, 18)} ${esc(name)} <button type="button" class="contrib-rm" data-name="${esc(name)}" title="Retirer">×</button>`;
                     contribWrap.insertBefore(chip, addBtn);
                     await saveC();
+                    requestAnimationFrame(() => _openContribPicker());  // enchaîne
                 };
                 const onCancel = () => { cleanup(); pickerWrap.remove(); };
                 const { wrap: pickerWrap, input } = _makePersonPicker(allNames, '', onCommit, onCancel);
@@ -1171,7 +1191,8 @@ function _bindInlineEditors(container, ticket) {
                 const onDocClick = (ev) => { if (!pickerWrap.contains(ev.target) && ev.target !== addBtn) onCancel(); };
                 const cleanup = () => document.removeEventListener('mousedown', onDocClick, true);
                 setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
-            });
+            };
+            addBtn.addEventListener('click', _openContribPicker);
         }
     }
 
@@ -1219,12 +1240,22 @@ function _bindInlineEditors(container, ticket) {
 // ══════════════════════════════════════════════════════════════════════════════
 // Planning Poker — vote collectif Story Points
 // ══════════════════════════════════════════════════════════════════════════════
-const POKER_KEY = (ticketId) => `sb-poker-${ticketId}`;
-const POKER_FIB = [1, 2, 3, 5, 8, 13, 21, '?'];
+const POKER_KEY  = (id) => `sb-poker-${id}`;
+const POKER_FIB  = [1, 2, 3, 5, 8, 13, 21, '?'];
+const POKER_FIBS = [1, 2, 3, 5, 8, 13, 21];
+
+// Génère une couleur HSL stable à partir d'un nom
+const _pokerColor = (name) => {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xFFFFFF;
+    return `hsl(${h % 360}, 60%, 48%)`;
+};
+const _initials = (name) => name.trim().split(/\s+/).map(w => w[0]?.toUpperCase() || '').slice(0, 2).join('');
+const _getVotes = (id) => { try { return JSON.parse(localStorage.getItem(POKER_KEY(id)) || '[]'); } catch { return []; } };
+const _saveVotes = (id, v) => localStorage.setItem(POKER_KEY(id), JSON.stringify(v));
 
 function _openPokerModal(ticket, apiSave, openTicketModal) {
     document.getElementById('poker-overlay')?.remove();
-    const saved = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
 
     const ov = document.createElement('div');
     ov.id = 'poker-overlay';
@@ -1233,74 +1264,139 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
     requestAnimationFrame(() => ov.classList.add('visible'));
 
     const close = () => {
-        // Retire /poker du hash à la fermeture
-        if (location.hash.endsWith('/poker')) {
+        if (location.hash.endsWith('/poker'))
             history.replaceState(null, '', location.hash.replace(/\/poker$/, ''));
-        }
         ov.classList.remove('visible');
         ov.addEventListener('transitionend', () => ov.remove(), { once: true });
     };
 
     const render = () => {
-        const votes = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
-        const numVotes = votes.filter(v => typeof v.val === 'number');
-        const avg  = numVotes.length ? numVotes.reduce((s, v) => s + v.val, 0) / numVotes.length : null;
-        const min  = numVotes.length ? Math.min(...numVotes.map(v => v.val)) : null;
-        const max  = numVotes.length ? Math.max(...numVotes.map(v => v.val)) : null;
-        const std  = numVotes.length > 1
-            ? Math.sqrt(numVotes.reduce((s, v) => s + Math.pow(v.val - avg, 2), 0) / numVotes.length)
-            : 0;
-        // Fibonacci la plus proche de la moyenne
-        const fibs = [1,2,3,5,8,13,21];
-        const nearest = avg !== null ? fibs.reduce((a, b) => Math.abs(b - avg) < Math.abs(a - avg) ? b : a) : null;
+        const votes   = _getVotes(ticket.id);
+        const myName  = localStorage.getItem('sb-poker-myname') || '';
+        const meVote  = votes.find(v => v.me);
+        const hasVoted = votes.filter(v => v.val !== null).length;
         const revealed = votes.length > 0 && votes.every(v => v.revealed);
+        const numVotes = votes.filter(v => typeof v.val === 'number');
+        const avg   = numVotes.length ? numVotes.reduce((s, v) => s + v.val, 0) / numVotes.length : null;
+        const min   = numVotes.length ? Math.min(...numVotes.map(v => v.val)) : null;
+        const max   = numVotes.length ? Math.max(...numVotes.map(v => v.val)) : null;
+        const std   = numVotes.length > 1
+            ? Math.sqrt(numVotes.reduce((s, v) => s + Math.pow(v.val - avg, 2), 0) / numVotes.length) : 0;
+        const nearest = avg !== null
+            ? POKER_FIBS.reduce((a, b) => Math.abs(b - avg) < Math.abs(a - avg) ? b : a) : null;
+
+        // Phase : 'identity' | 'vote' | 'revealed'
+        const phase = !myName ? 'identity' : revealed ? 'revealed' : 'vote';
+
+        // Lien de partage
+        const shareUrl = location.href.replace(/\/poker$/, '') + (location.href.includes('/poker') ? '' : '/poker');
 
         ov.innerHTML = `
-        <div class="poker-modal">
+        <div class="poker-modal poker-phase--${phase}">
+
+            <!-- Header -->
             <div class="poker-hdr">
-                <div class="poker-hdr-title">
-                    <span class="poker-card-icon">🃏</span>
+                <div class="poker-hdr-left">
+                    <span class="poker-hdr-icon">🃏</span>
                     <div>
-                        <div class="poker-ticket-id">${esc(ticket.id)}</div>
+                        <div class="poker-ticket-ref">${esc(ticket.id)}</div>
                         <div class="poker-ticket-title">${esc(ticket.title)}</div>
                     </div>
                 </div>
-                <button class="btn-icon" id="poker-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                <div class="poker-hdr-right">
+                    <button class="poker-share-btn" id="poker-share" title="Copier le lien pour inviter des collègues">
+                        <svg class="icon icon-sm"><use href="#i-copy"/></svg>
+                        Partager
+                    </button>
+                    <button class="btn-icon" id="poker-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                </div>
             </div>
 
+            <!-- Bandeau identité -->
+            <div class="poker-identity-bar">
+                ${myName ? `
+                <div class="poker-identity-me">
+                    <span class="poker-avatar" style="background:${_pokerColor(myName)}">${_initials(myName)}</span>
+                    <span class="poker-identity-name">${esc(myName)}</span>
+                    <button class="poker-identity-change" id="poker-change-name" title="Changer de nom">✏️</button>
+                </div>` : `
+                <form class="poker-identity-form" id="poker-identity-form">
+                    <span class="poker-identity-prompt">Qui êtes-vous ?</span>
+                    <input class="input input-sm poker-name-input" id="poker-voter-name"
+                           placeholder="Votre prénom…" autocomplete="off"
+                           value="${esc(myName)}" autofocus>
+                    <button class="btn btn-sm btn-primary" type="submit">Rejoindre →</button>
+                </form>`}
+            </div>
+
+            <!-- Corps -->
             <div class="poker-body">
-                <!-- Zone de vote -->
+
+                <!-- Colonne gauche : cartes -->
                 <div class="poker-vote-section">
                     <div class="poker-vote-label">Votre estimation</div>
                     <div class="poker-cards">
                         ${POKER_FIB.map(v => {
-                            const myVote = votes.find(x => x.me);
-                            const isSelected = myVote?.val === v;
-                            return `<button class="poker-card${isSelected ? ' poker-card--selected' : ''}" data-val="${v}">
+                            const isSelected = meVote?.val === v;
+                            const disabled   = !myName || phase === 'revealed';
+                            return `<button class="poker-card${isSelected ? ' poker-card--selected' : ''}${disabled ? ' poker-card--disabled' : ''}"
+                                        data-val="${v}" ${disabled ? 'disabled' : ''}
+                                        title="${v} SP${v === '?' ? ' — valeur inconnue' : ''}">
                                 <span class="poker-card-val">${v}</span>
+                                ${isSelected ? '<span class="poker-card-check">✓</span>' : ''}
                             </button>`;
                         }).join('')}
                     </div>
+
+                    <!-- Compteur + actions -->
+                    <div class="poker-progress-row">
+                        <div class="poker-progress-bar-wrap">
+                            <div class="poker-progress-bar" style="width:${votes.length ? Math.round(hasVoted / votes.length * 100) : 0}%"></div>
+                        </div>
+                        <span class="poker-progress-label">${hasVoted}/${votes.length} ont voté</span>
+                    </div>
+
                     <div class="poker-actions-row">
-                        <button class="btn btn-sm btn-secondary" id="poker-reveal" ${votes.length === 0 ? 'disabled' : ''}>
-                            ${revealed ? '🔄 Revote' : '👁 Révéler les votes'}
+                        <button class="btn btn-sm ${revealed ? 'btn-secondary' : 'btn-primary'}" id="poker-reveal"
+                                ${votes.length === 0 ? 'disabled' : ''}
+                                title="${revealed ? 'Relancer un tour' : hasVoted < votes.length ? 'Tout le monde n\'a pas voté — révéler quand même ?' : 'Révéler tous les votes'}">
+                            ${revealed ? '🔄 Nouveau tour' : '👁 Révéler'}
+                            ${!revealed && hasVoted > 0 && hasVoted < votes.length ? `<span class="poker-reveal-warn">⚠ ${votes.length - hasVoted} manquant${votes.length - hasVoted > 1 ? 's' : ''}</span>` : ''}
                         </button>
-                        <button class="btn btn-sm btn-danger-outline" id="poker-reset">🗑 Reset</button>
+                        <button class="btn btn-sm btn-ghost" id="poker-reset" title="Remettre à zéro">🗑</button>
                     </div>
                 </div>
 
-                <!-- Votes collectés -->
+                <!-- Colonne droite : participants + résultats -->
                 <div class="poker-results-section">
-                    <div class="poker-votes-list">
-                        ${votes.length === 0 ? '<div class="poker-empty">Aucun vote pour l\'instant…</div>' :
-                            votes.map(v => `
-                            <div class="poker-vote-chip${v.revealed ? '' : ' poker-vote-chip--hidden'}">
-                                <span class="poker-vote-name">${esc(v.name)}</span>
-                                <span class="poker-vote-val">${v.revealed ? v.val : '🂠'}</span>
-                                ${v.me ? `<button class="poker-vote-rm" data-name="${esc(v.name)}" title="Supprimer mon vote">×</button>` : ''}
-                            </div>`).join('')}
+                    <div class="poker-voters-label">
+                        Participants
+                        ${votes.length === 0 ? '' : `<span class="poker-voters-count">${votes.length}</span>`}
                     </div>
 
+                    <!-- Avatars participants -->
+                    <div class="poker-avatars">
+                        ${votes.length === 0
+                            ? `<div class="poker-empty">Personne n'a encore rejoint…</div>`
+                            : votes.map(v => {
+                                const hasVal = v.val !== null;
+                                const color  = _pokerColor(v.name);
+                                const showVal = revealed && hasVal;
+                                return `<div class="poker-voter${v.me ? ' poker-voter--me' : ''}${!hasVal ? ' poker-voter--waiting' : ''}">
+                                    <div class="poker-voter-avatar" style="background:${color}">
+                                        ${showVal
+                                            ? `<span class="poker-voter-val">${v.val}</span>`
+                                            : hasVal
+                                                ? `<span class="poker-voter-voted">✓</span>`
+                                                : `<span class="poker-voter-waiting">…</span>`}
+                                    </div>
+                                    <span class="poker-voter-name">${esc(v.name)}${v.me ? ' (moi)' : ''}</span>
+                                    ${v.me ? `<button class="poker-vote-rm" title="Quitter">×</button>` : ''}
+                                </div>`;
+                            }).join('')}
+                    </div>
+
+                    <!-- Stats + distribution + consensus (après révélation) -->
                     ${revealed && numVotes.length >= 2 ? `
                     <div class="poker-stats">
                         <div class="poker-stat">
@@ -1315,124 +1411,152 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
                             <span class="poker-stat-lbl">Max</span>
                             <span class="poker-stat-val poker-stat--high">${max}</span>
                         </div>
-                        <div class="poker-stat">
-                            <span class="poker-stat-lbl">σ</span>
-                            <span class="poker-stat-val${std >= 4 ? ' poker-stat--warn' : ''}" title="Écart-type${std >= 4 ? ' — fort désaccord, discussion recommandée !' : ''}">${std.toFixed(1)}${std >= 4 ? ' ⚠️' : ''}</span>
+                        <div class="poker-stat${std >= 4 ? ' poker-stat-block--warn' : ''}">
+                            <span class="poker-stat-lbl">Écart</span>
+                            <span class="poker-stat-val${std >= 4 ? ' poker-stat--warn' : ''}"
+                                  title="${std >= 4 ? 'Fort désaccord — discussion recommandée !' : 'Écart-type'}">
+                                ${std.toFixed(1)}${std >= 4 ? '⚠️' : ''}
+                            </span>
                         </div>
                     </div>
-                    <!-- Distribution visuelle -->
                     <div class="poker-distrib">
-                        ${fibs.filter(f => numVotes.some(v => v.val === f)).map(f => {
+                        ${POKER_FIBS.filter(f => numVotes.some(v => v.val === f)).map(f => {
                             const count = numVotes.filter(v => v.val === f).length;
                             const pct   = Math.round(count / numVotes.length * 100);
-                            return `<div class="poker-distrib-row">
+                            const isNearest = f === nearest;
+                            return `<div class="poker-distrib-row${isNearest ? ' poker-distrib-row--nearest' : ''}">
                                 <span class="poker-distrib-lbl">${f}</span>
                                 <div class="poker-distrib-bar-wrap">
                                     <div class="poker-distrib-bar" style="width:${pct}%"></div>
                                 </div>
                                 <span class="poker-distrib-n">${count}×</span>
+                                ${isNearest ? '<span class="poker-distrib-star">★</span>' : ''}
                             </div>`;
                         }).join('')}
-                    </div>
-                    ${nearest !== null ? `
-                    <div class="poker-consensus">
-                        <span>Fibonacci la plus proche :</span>
-                        <strong class="poker-consensus-val">${nearest} SP</strong>
-                        <button class="btn btn-primary btn-sm" id="poker-save" data-pts="${nearest}">
-                            ✓ Enregistrer ${nearest} SP
-                        </button>
-                    </div>` : ''}
-                    ` : revealed && numVotes.length === 1 ? '<div class="poker-empty">1 seul vote numérique — attendez les autres.</div>' : ''}
+                    </div>` : revealed && numVotes.length === 1 ? `
+                    <div class="poker-empty">1 seul vote numérique — attendez les autres.</div>` : ''}
                 </div>
             </div>
 
-            <!-- Ajout d'un votant -->
-            <div class="poker-add-voter">
-                <input class="input input-sm" id="poker-voter-name" placeholder="Votre prénom…" autocomplete="off">
-                <button class="btn btn-sm btn-secondary" id="poker-add-voter">+ Participer</button>
-            </div>
+            <!-- Footer : sauvegarde -->
+            ${revealed && nearest !== null ? `
+            <div class="poker-footer">
+                <div class="poker-save-row">
+                    <span class="poker-save-label">Valeur à enregistrer</span>
+                    <div class="poker-save-input-wrap">
+                        <input class="input poker-save-input" id="poker-save-pts"
+                               type="number" min="0" max="99" value="${nearest}">
+                        <span class="poker-save-unit">SP</span>
+                    </div>
+                    <button class="btn btn-primary poker-save-btn" id="poker-save">
+                        <svg class="icon icon-sm"><use href="#i-check"/></svg>
+                        Enregistrer
+                    </button>
+                </div>
+                ${std >= 4 ? `<div class="poker-save-warn">⚠️ Fort désaccord (σ ${std.toFixed(1)}) — pensez à en discuter d'abord.</div>` : ''}
+            </div>` : ''}
         </div>`;
 
-        // Listeners
+        // ── Listeners ───────────────────────────────────────────────────────
         ov.querySelector('#poker-close').addEventListener('click', close);
         ov.addEventListener('click', e => { if (e.target === ov) close(); });
 
-        ov.querySelectorAll('.poker-card').forEach(card => {
+        // Partager le lien
+        ov.querySelector('#poker-share')?.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(shareUrl);
+                const btn = ov.querySelector('#poker-share');
+                btn.innerHTML = `<svg class="icon icon-sm"><use href="#i-check"/></svg> Copié !`;
+                setTimeout(() => {
+                    btn.innerHTML = `<svg class="icon icon-sm"><use href="#i-copy"/></svg> Partager`;
+                }, 1800);
+            } catch { toast('Copie impossible', 'error'); }
+        });
+
+        // Formulaire identité
+        ov.querySelector('#poker-identity-form')?.addEventListener('submit', e => {
+            e.preventDefault();
+            const name = ov.querySelector('#poker-voter-name')?.value.trim();
+            if (!name) return;
+            localStorage.setItem('sb-poker-myname', name);
+            const cur = _getVotes(ticket.id);
+            if (!cur.find(v => v.me)) {
+                cur.push({ name, val: null, me: true, revealed: false });
+                _saveVotes(ticket.id, cur);
+            }
+            render();
+        });
+
+        // Changer de nom
+        ov.querySelector('#poker-change-name')?.addEventListener('click', () => {
+            localStorage.removeItem('sb-poker-myname');
+            render();
+        });
+
+        // Sélection carte
+        ov.querySelectorAll('.poker-card:not([disabled])').forEach(card => {
             card.addEventListener('click', () => {
                 const val = card.dataset.val === '?' ? '?' : parseInt(card.dataset.val);
-                const cur = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
-                const meVote = cur.find(v => v.me);
-                if (!meVote) {
+                const cur = _getVotes(ticket.id);
+                const me  = cur.find(v => v.me);
+                if (!me) {
                     const name = localStorage.getItem('sb-poker-myname') || 'Moi';
                     cur.push({ name, val, me: true, revealed: false });
                 } else {
-                    meVote.val = val;
-                    meVote.revealed = false;
+                    me.val = val;
+                    me.revealed = false;
                 }
-                localStorage.setItem(POKER_KEY(ticket.id), JSON.stringify(cur));
+                _saveVotes(ticket.id, cur);
                 render();
             });
         });
 
+        // Révéler / Nouveau tour
         ov.querySelector('#poker-reveal')?.addEventListener('click', () => {
-            const cur = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
-            if (cur.every(v => v.revealed)) {
-                // Revote : masquer
-                cur.forEach(v => { v.revealed = false; });
+            const cur = _getVotes(ticket.id);
+            const allRevealed = cur.every(v => v.revealed);
+            if (allRevealed) {
+                // Nouveau tour : reset les valeurs, garder les participants
+                cur.forEach(v => { v.val = null; v.revealed = false; });
             } else {
                 cur.forEach(v => { v.revealed = true; });
             }
-            localStorage.setItem(POKER_KEY(ticket.id), JSON.stringify(cur));
+            _saveVotes(ticket.id, cur);
             render();
         });
 
+        // Reset complet
         ov.querySelector('#poker-reset')?.addEventListener('click', () => {
             localStorage.removeItem(POKER_KEY(ticket.id));
             render();
         });
 
+        // Quitter (remove me)
         ov.querySelectorAll('.poker-vote-rm').forEach(btn => {
             btn.addEventListener('click', () => {
-                const cur = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
-                const updated = cur.filter(v => !v.me);
-                localStorage.setItem(POKER_KEY(ticket.id), JSON.stringify(updated));
+                _saveVotes(ticket.id, _getVotes(ticket.id).filter(v => !v.me));
                 render();
             });
         });
 
+        // Sauvegarder
         ov.querySelector('#poker-save')?.addEventListener('click', async () => {
-            const pts = parseInt(ov.querySelector('#poker-save').dataset.pts);
-            if (isNaN(pts)) return;
+            const input = ov.querySelector('#poker-save-pts');
+            const pts   = parseInt(input?.value);
+            if (isNaN(pts) || pts < 0) { input?.focus(); return; }
+            const btn = ov.querySelector('#poker-save');
+            btn.disabled = true;
             try {
                 await apiSave({ points: pts });
                 localStorage.removeItem(POKER_KEY(ticket.id));
-                close();
-                openTicketModal(ticket.id);
+                btn.innerHTML = `<svg class="icon icon-sm"><use href="#i-check"/></svg> Enregistré !`;
+                setTimeout(() => { close(); openTicketModal(ticket.id); }, 700);
                 toast(`Story Points mis à jour : ${pts} SP`, 'success');
-            } catch (e) { toast(e.message, 'error'); }
-        });
-
-        ov.querySelector('#poker-add-voter')?.addEventListener('click', () => {
-            const name = ov.querySelector('#poker-voter-name').value.trim();
-            if (!name) return;
-            localStorage.setItem('sb-poker-myname', name);
-            const cur = (() => { try { return JSON.parse(localStorage.getItem(POKER_KEY(ticket.id)) || '[]'); } catch { return []; } })();
-            if (!cur.find(v => v.me)) {
-                cur.push({ name, val: null, me: true, revealed: false });
-                localStorage.setItem(POKER_KEY(ticket.id), JSON.stringify(cur));
-            } else {
-                cur.find(v => v.me).name = name;
-                localStorage.setItem(POKER_KEY(ticket.id), JSON.stringify(cur));
+            } catch (e) {
+                toast(e.message, 'error');
+                btn.disabled = false;
             }
-            render();
         });
-
-        // Pré-remplir le nom si connu
-        const nameInput = ov.querySelector('#poker-voter-name');
-        if (nameInput) {
-            const myName = localStorage.getItem('sb-poker-myname') || '';
-            nameInput.value = myName;
-        }
     };
 
     render();

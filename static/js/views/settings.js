@@ -8,7 +8,9 @@ import {
     esc, fmtDate, fmtRelative, toast, deriveMembersFromAbsences, generateSupportRotation,
     buildSupportPiWeeks, SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
     isMemberSupportActive, setMemberSupportActive, getInactiveSupportMembers,
+    friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi,
 } from '../utils.js';
+import { makePersonPicker } from '../components/modal.js';
 
 // ── Reminder configuration ────────────────────────────────────────────────────
 const _LS_REMINDERS = 'sb-reminders';
@@ -54,7 +56,7 @@ function _saveReminders(data) {
 // avec l'entité — sans ça, l'entité du CSV était silencieusement perdue.
 //
 // Retourne null si le format ne ressemble pas à un pivot (→ fallback ligne).
-function _parsePivotAbsencesCsv(raw, year) {
+function _parsePivotAbsencesCsv(raw, year, pipDays = 2) {
     const lines = raw.split('\n').filter(l => l.trim());
     if (lines.length < 2) return null;
     const splitLine = (l) => l.split(/[\t;]/).map(c => c.trim());
@@ -126,7 +128,21 @@ function _parsePivotAbsencesCsv(raw, year) {
     if (!absences.length && memberByKey.size === 0) return null;
     // Consolidation : regroupe les jours consécutifs en UNE absence avec days = somme.
     // Convention RH : vendredi → lundi est considéré contigu (gap calendaire 3j = week-end).
-    return { absences: _consolidateConsecutive(absences), members: [...memberByKey.values()] };
+    // Les colonnes date de l'en-tête = jours ouvrés du PI + PIP du PI suivant.
+    // Les `pipDays` dernières colonnes = PIP (PI Planning du prochain PI) → exclues du calcul
+    // de la fin du PI courant (mais leurs absences restent importées).
+    const sortedDates = dateCols.map(dc => dc.iso).sort();
+    const nPip = Math.max(0, Math.min(pipDays, sortedDates.length - 1));
+    const piDates = nPip > 0 ? sortedDates.slice(0, -nPip) : sortedDates;
+    const pipDates = nPip > 0 ? sortedDates.slice(-nPip) : [];
+    return {
+        absences: _consolidateConsecutive(absences),
+        members: [...memberByKey.values()],
+        piStartDate: piDates[0] || null,
+        piEndDate:   piDates[piDates.length - 1] || null,   // fin du PI courant (hors PIP)
+        dayCount:    piDates.length,
+        pipDates,                                            // jours PIP du prochain PI
+    };
 }
 
 // Regroupe les absences journalières d'un même membre+équipe quand elles sont contiguës.
@@ -301,7 +317,7 @@ export function renderSettings(container) {
         <!-- ═══ Groups (Lignes produit) ═══ -->
         <div class="settings-section">
             <div class="settings-section-header" data-stg-toggle>
-                <div><h3>Lignes produit / Groupes (${groups.length})</h3><p>Regroupez des equipes pour filtrer par ligne produit</p></div>
+                <div><h3>Lignes produit / Groupes (${groups.length})</h3><p>Regroupez des équipes pour filtrer par ligne produit</p></div>
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
             </div>
             <div class="settings-section-body">
@@ -351,7 +367,7 @@ export function renderSettings(container) {
         <!-- ═══ Teams ═══ -->
         <div class="settings-section">
             <div class="settings-section-header" data-stg-toggle>
-                <h3>Equipes (${teams.length})</h3>
+                <h3>Équipes (${teams.length})</h3>
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
             </div>
             <div class="settings-section-body">
@@ -369,21 +385,69 @@ export function renderSettings(container) {
                     <input class="input" id="new-team-name" placeholder="Nom de l'equipe">
                     <button class="btn btn-primary btn-sm" id="btn-add-team">Ajouter</button>
                 </div>
+
+                <!-- ── Import objectifs PI ── -->
+                <div class="obj-import-card">
+                    <div class="obj-import-card-header">
+                        <span class="obj-import-card-title">📋 Import d'objectifs PI</span>
+                    </div>
+                    <p class="text-xs text-muted mb-2">
+                        Format : <code>Equipe;Objectif;BV;Committed;Statut</code> — une ligne par objectif.<br>
+                        <span style="font-size:10px">BV = Business Value 0–10 (défaut : 5) · Committed : <code>oui</code> / <code>non</code> (défaut : oui) · Statut : <code>a faire</code> / <code>en cours</code> / <code>terminé</code> (défaut : à faire)</span>
+                    </p>
+                    <div class="flex gap-3 mb-2 items-center flex-wrap">
+                        <label class="text-xs text-muted" style="white-space:nowrap">PI cible :</label>
+                        <div class="obj-pi-btns" id="obj-pi-btns">
+                            ${(() => {
+                                const base = getCurrentPi({ sprintInfo, piInfo }) || 0;
+                                return [-1, 0, 1].map(o => {
+                                    const piNum = base + o;
+                                    if (piNum < 1) return '';
+                                    const label = o === 0 ? 'PI ' + piNum + ' ★' : 'PI ' + piNum;
+                                    const active = o === 0 ? ' is-active' : '';
+                                    return '<button class="obj-pi-btn' + active + '" data-pi="' + piNum + '">' + esc(label) + '</button>';
+                                }).join('');
+                            })()}
+                        </div>
+                        <input class="input" type="number" id="obj-csv-pi"
+                            value="${getCurrentPi({ sprintInfo, piInfo }) || ''}"
+                            placeholder="PI#" min="1" max="99" style="width:72px"
+                            title="Numéro du PI cible (modifiable manuellement)">
+                    </div>
+                    <div class="obj-preset-bar">
+                        <span class="text-xs text-muted">Preset :</span>
+                        <button class="obj-preset-btn" id="btn-obj-preset-teams" title="4 objectifs par équipe (BV 10/9/8/5, committed sauf le 4e)">
+                            🗂 Toutes les équipes
+                        </button>
+                    </div>
+                    <textarea class="input" id="obj-csv-input" rows="6"
+                        placeholder="Fuego;Livrer la feature Auth;8;oui&#10;Gabbiano;Stabiliser la prod;6;oui;en cours&#10;Fuego;Réduire la dette technique;4;non;terminé"></textarea>
+                    <div class="obj-csv-preview" id="obj-csv-preview" hidden></div>
+                    <div class="flex gap-2 mt-2">
+                        <button class="btn btn-secondary btn-sm" id="btn-preview-obj-csv">👁 Aperçu</button>
+                        <button class="btn btn-primary btn-sm" id="btn-import-obj-csv">📥 Importer</button>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- ═══ Members ═══ -->
         <div class="settings-section collapsed">
             <div class="settings-section-header" data-stg-toggle>
-                <div><h3>Membres (${members.length})</h3><p>Le CSV fait foi. L'equipe peut etre modifiee directement dans la liste.</p></div>
+                <div><h3>Membres (${members.length})</h3><p>Le CSV fait foi. L'équipe peut être modifiée directement dans la liste.</p></div>
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
             </div>
             <div class="settings-section-body">
+                <div class="abs-filter-row mb-2">
+                    <input class="input input-sm abs-filter-input" id="member-filter" placeholder="Filtrer par nom, équipe, rôle…" autocomplete="off">
+                    <span class="abs-filter-count" id="member-filter-count"></span>
+                </div>
                 <div class="item-list" id="member-list">
                     ${members.map(m => {
                         const memberAbs = _memberAbsenceInfo(m.name, absences);
                         return `
-                        <div class="item-row${memberAbs.todayCount > 0 ? ' item-row--absent-today' : ''}" data-id="${esc(m.id)}">
+                        <div class="item-row${memberAbs.todayCount > 0 ? ' item-row--absent-today' : ''}" data-id="${esc(m.id)}"
+                             data-search="${esc((m.name + ' ' + (m.team || '') + ' ' + (m.role || '') + ' ' + (m.entity || '')).toLowerCase())}">
                             <span class="item-name">
                                 ${esc(m.name)}
                                 ${memberAbs.todayCount > 0 ? `<span class="member-abs-chip member-abs-chip--today" title="En congé aujourd'hui">🌴 Aujourd'hui</span>` : ''}
@@ -414,7 +478,7 @@ export function renderSettings(container) {
                 </div>
 
                 <h4 class="text-sm font-semibold mt-4 mb-1">Import CSV membres</h4>
-                <p class="text-xs text-muted mb-2">Format : <code>Nom;Equipe;Entite;Role</code> - une ligne par membre. Colonnes supplementaires ignorees. Ecrase toute la liste existante.</p>
+                <p class="text-xs text-muted mb-2">Format : <code>Nom;Equipe;Entite;Role</code> — une ligne par membre. Colonnes supplémentaires ignorées. Écrase toute la liste existante.</p>
                 <textarea class="input" id="member-csv-input" rows="5" placeholder="Alice;Fuego;Accenture;Dev&#10;Bob;Gabbiano;Capgemini;PO&#10;Claire;Fuego;Accenture;SM"></textarea>
                 <div class="flex gap-2 mt-2">
                     <button class="btn btn-primary btn-sm" id="btn-import-member-csv">Importer le CSV</button>
@@ -474,35 +538,43 @@ export function renderSettings(container) {
         <!-- ═══ Absences / Conges ═══ -->
         <div class="settings-section collapsed">
             <div class="settings-section-header" data-stg-toggle>
-                <div><h3>Absences / Conges (${absences.length})</h3><p>Gerez les conges et absences. Import en masse via CSV.</p></div>
+                <div><h3>Absences / Congés (${absences.length})</h3><p>Gérez les congés et absences. Import en masse via CSV.</p></div>
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
             </div>
             <div class="settings-section-body">
                 ${absences.length ? `
-                    <div class="table-wrap mb-4 abs-table-wrap">
-                        <table class="abs-table">
-                            <thead><tr>
-                                <th>Membre</th><th>Entite</th><th>Equipe</th>
-                                <th>Debut</th><th>Fin</th><th>Type</th><th>Jours</th><th></th>
-                            </tr></thead>
-                            <tbody>
-                                ${absences.slice(0, 100).map(a => {
-                                    const mbr = members.find(x => x.name === a.memberName);
-                                    return `<tr>
-                                        <td class="abs-td-name">${esc(a.memberName)}</td>
-                                        <td>${mbr?.entity ? `<span class="abs-entity-chip">${esc(mbr.entity)}</span>` : '<span class="text-muted">-</span>'}</td>
-                                        <td>${esc(a.team)}</td>
-                                        <td>${fmtDate(a.startDate)}</td>
-                                        <td>${fmtDate(a.endDate)}</td>
-                                        <td><span class="chip chip-abs-${esc(a.type)}">${esc(a.type)}</span></td>
-                                        <td class="abs-td-days">${a.days}j</td>
-                                        <td><button class="btn-icon btn-del-abs" data-id="${esc(a.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button></td>
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    ${absences.length > 100 ? `<p class="text-xs text-muted mb-3">... et ${absences.length - 100} autres</p>` : ''}
+                    <details class="abs-list-details" id="abs-list-details">
+                        <summary class="abs-list-summary">
+                            <span class="abs-list-summary-label">Liste des absences</span>
+                            <span class="abs-list-summary-count">${absences.length} entrée${absences.length > 1 ? 's' : ''}</span>
+                        </summary>
+                        <div class="abs-list-body">
+                            <div class="abs-filter-row">
+                                <input class="input input-sm abs-filter-input" id="abs-filter" placeholder="Filtrer par membre, équipe, type…" autocomplete="off">
+                                <span class="abs-filter-count" id="abs-filter-count"></span>
+                            </div>
+                            <div class="table-wrap abs-table-wrap">
+                                <table class="abs-table" id="abs-table">
+                                    <thead><tr>
+                                        <th>Membre</th><th>Équipe</th>
+                                        <th>Début</th><th>Fin</th><th>Type</th><th>Jours</th><th></th>
+                                    </tr></thead>
+                                    <tbody id="abs-tbody">
+                                        ${absences.map(a => `<tr class="abs-row"
+                                            data-search="${esc((a.memberName + ' ' + a.team + ' ' + a.type).toLowerCase())}">
+                                            <td class="abs-td-name">${esc(a.memberName)}</td>
+                                            <td>${esc(a.team)}</td>
+                                            <td>${fmtDate(a.startDate)}</td>
+                                            <td>${fmtDate(a.endDate)}</td>
+                                            <td><span class="chip chip-abs-${esc(a.type)}">${esc(a.type)}</span></td>
+                                            <td class="abs-td-days">${a.days}j</td>
+                                            <td><button class="btn-icon btn-del-abs" data-id="${esc(a.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button></td>
+                                        </tr>`).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </details>
                 ` : '<p class="text-muted text-sm mb-4">Aucune absence enregistree</p>'}
 
                 <div class="abs-add-card">
@@ -520,11 +592,11 @@ export function renderSettings(container) {
                         </div>
                         <div class="abs-add-field">
                             <label class="abs-label">Du</label>
-                            <input class="input" type="date" id="abs-start">
+                            ${friendlyDateField({ id: 'abs-start', name: 'abs-start', placeholder: 'Début' })}
                         </div>
                         <div class="abs-add-field">
                             <label class="abs-label">Au</label>
-                            <input class="input" type="date" id="abs-end">
+                            ${friendlyDateField({ id: 'abs-end', name: 'abs-end', placeholder: 'Fin' })}
                         </div>
                         <div class="abs-add-field">
                             <label class="abs-label">Type</label>
@@ -552,14 +624,30 @@ export function renderSettings(container) {
                     <strong>① Pivot RH</strong> (header avec dates <code>dd/mm</code>) : <code>NOMS, Prénom	Équipes	Entité	Rôles	03/04	06/04	…</code><br>
                     <strong>② Ligne par absence</strong> : <code>Nom;Equipe;Debut;Fin;Type;Jours</code>
                 </p>
-                <div class="flex gap-2 mb-2 items-center">
-                    <label class="text-xs text-muted">Année pour format pivot (dates dd/mm sans année) :</label>
-                    <input class="input" type="number" id="abs-csv-year" value="${new Date().getFullYear()}" min="2000" max="2100" style="width:90px">
+                <div class="flex gap-3 mb-2 items-center flex-wrap">
+                    <div class="flex gap-2 items-center">
+                        <label class="text-xs text-muted">Année (format pivot) :</label>
+                        <input class="input" type="number" id="abs-csv-year" value="${new Date().getFullYear()}" min="2000" max="2100" style="width:90px">
+                    </div>
+                    <div class="flex gap-2 items-center">
+                        <label class="text-xs text-muted" title="Les membres importés seront associés à ce PI (snapshot — gère le turnover)">PI cible 👥 :</label>
+                        <input class="input" type="number" id="abs-csv-pi" placeholder="${(() => {
+                            const m = String(sprintInfo?.name || '').match(/(\d+)\.\d+/); return m ? m[1] : (piInfo?.number || '');
+                        })()}" min="1" max="99" style="width:80px"
+                            value="${(() => { const m = String(sprintInfo?.name || '').match(/(\d+)\.\d+/); return m ? m[1] : (piInfo?.number || ''); })()}">
+                    </div>
+                    <div class="flex gap-2 items-center">
+                        <label class="text-xs text-muted" title="Nb de dernières colonnes du CSV correspondant au PIP du prochain PI (exclues du calcul des dates de fin du PI courant)">Jours PIP exclus :</label>
+                        <input class="input" type="number" id="abs-csv-pip" value="2" min="0" max="10" style="width:64px">
+                    </div>
                 </div>
                 <textarea class="input" id="abs-csv-input" rows="6" placeholder="Collez ici les donnees CSV (TAB ou ; entre colonnes)..."></textarea>
+                <div class="abs-csv-preview" id="abs-csv-preview" hidden></div>
                 <div class="flex gap-2 mt-2">
-                    <button class="btn btn-secondary btn-sm" id="btn-import-abs-csv">Importer le CSV</button>
+                    <button class="btn btn-secondary btn-sm" id="btn-preview-abs-csv">👁 Aperçu</button>
+                    <button class="btn btn-primary btn-sm" id="btn-import-abs-csv">Importer le CSV</button>
                     <button class="btn btn-danger btn-sm" id="btn-clear-abs">Tout supprimer</button>
+                    <button class="btn btn-ghost btn-sm" id="btn-repair-abs-encoding" title="Corrige les noms corrompus (caractères accentués cassés) dans la base">🔧 Réparer l'encodage</button>
                 </div>
             </div>
         </div>
@@ -567,27 +655,58 @@ export function renderSettings(container) {
         <!-- ═══ Faits marquants (Events) ═══ -->
         <div class="settings-section collapsed">
             <div class="settings-section-header" data-stg-toggle>
-                <div><h3>Faits marquants (${events.length})</h3><p>Incidents, gels de code, jalons, periodes cles</p></div>
+                <div><h3>Faits marquants (${events.length})</h3><p>Incidents, gels de code, jalons, périodes clés</p></div>
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
             </div>
             <div class="settings-section-body">
-                ${events.length ? `
-                    <div class="item-list mb-4">
-                        ${events.map(ev => {
-                            const et = EVENT_TYPES[ev.type] || EVENT_TYPES.other;
-                            return `<div class="item-row">
-                                <span class="text-lg">${et.icon}</span>
+                ${events.length ? (() => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const upcoming = events.filter(ev => (ev.endDate || ev.startDate) >= today).sort((a, b) => a.startDate.localeCompare(b.startDate));
+                    const past     = events.filter(ev => (ev.endDate || ev.startDate) <  today).sort((a, b) => b.startDate.localeCompare(a.startDate));
+
+                    const _evRow = ev => {
+                        const et = EVENT_TYPES[ev.type] || EVENT_TYPES.other;
+                        const hasDesc = ev.description && ev.description.trim();
+                        const dateStr = fmtDate(ev.startDate) + (ev.endDate && ev.endDate !== ev.startDate ? ' → ' + fmtDate(ev.endDate) : '');
+                        const teamsStr = (ev.teams || []).length ? ev.teams.map(t => esc(t)).join(', ') : '';
+                        return `<div class="item-row evt-item-row${hasDesc ? ' evt-has-desc' : ''}">
+                            <span class="text-lg">${et.icon}</span>
+                            <div class="evt-item-main">
+                                ${hasDesc ? `
+                                <details class="evt-details">
+                                    <summary class="evt-summary">
+                                        <span class="item-name">${esc(ev.title)}</span>
+                                        <span class="item-meta">${esc(et.label)}</span>
+                                        <span class="item-meta">${esc(dateStr)}</span>
+                                        ${teamsStr ? `<span class="item-meta">${teamsStr}</span>` : ''}
+                                    </summary>
+                                    <div class="evt-desc-body">${esc(ev.description)}</div>
+                                </details>` : `
                                 <span class="item-name">${esc(ev.title)}</span>
                                 <span class="item-meta">${esc(et.label)}</span>
-                                <span class="item-meta">${fmtDate(ev.startDate)}${ev.endDate && ev.endDate !== ev.startDate ? ' → ' + fmtDate(ev.endDate) : ''}</span>
-                                ${(ev.teams || []).length ? `<span class="item-meta">${ev.teams.map(t => esc(t)).join(', ')}</span>` : ''}
-                                <div class="item-actions">
-                                    <button class="btn-icon btn-del-event" data-id="${esc(ev.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
-                                </div>
-                            </div>`;
-                        }).join('')}
-                    </div>
-                ` : '<p class="text-muted text-sm mb-4">Aucun fait marquant</p>'}
+                                <span class="item-meta">${esc(dateStr)}</span>
+                                ${teamsStr ? `<span class="item-meta">${teamsStr}</span>` : ''}`}
+                            </div>
+                            <div class="item-actions">
+                                <button class="btn-icon btn-del-event" data-id="${esc(ev.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
+                            </div>
+                        </div>`;
+                    };
+
+                    const _section = (label, items, collapsed = false) => items.length ? `
+                        <details class="evt-group-details"${collapsed ? '' : ' open'}>
+                            <summary class="evt-group-label">
+                                <span>${label}</span>
+                                <span class="evt-group-count">${items.length}</span>
+                            </summary>
+                            <div class="item-list mb-3 mt-2">${items.map(_evRow).join('')}</div>
+                        </details>` : '';
+
+                    return `<div class="mb-4">
+                        ${_section('À venir', upcoming)}
+                        ${_section('Passés',  past, true)}
+                    </div>`;
+                })() : '<p class="text-muted text-sm mb-4">Aucun fait marquant</p>'}
 
                 <h4 class="text-sm font-semibold mb-2">Ajouter un fait marquant</h4>
                 <div class="form-row mb-2">
@@ -604,12 +723,12 @@ export function renderSettings(container) {
                 </div>
                 <div class="form-row mb-2">
                     <div class="form-group">
-                        <label class="label">Date debut *</label>
-                        <input class="input" type="date" id="evt-start">
+                        <label class="label">Date début *</label>
+                        ${friendlyDateField({ id: 'evt-start', name: 'evt-start', placeholder: 'Début' })}
                     </div>
                     <div class="form-group">
                         <label class="label">Date fin (optionnelle)</label>
-                        <input class="input" type="date" id="evt-end">
+                        ${friendlyDateField({ id: 'evt-end', name: 'evt-end', placeholder: 'Fin (optionnel)' })}
                     </div>
                 </div>
                 <div class="form-row mb-2">
@@ -629,47 +748,64 @@ export function renderSettings(container) {
         <!-- ═══ Support Rotation ═══ -->
         <div class="settings-section collapsed" id="section-rotation">
             <div class="settings-section-header" data-stg-toggle>
-                <div><h3>Rotation Support (${support.length} semaines)</h3><p>Grille par equipe - cliquez pour affecter les membres semaine par semaine</p></div>
+                <div><h3>Rotation Support (${support.length} semaines)</h3><p>Grille par équipe — cliquez pour affecter les membres semaine par semaine</p></div>
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
             </div>
             <div class="settings-section-body">
 
-                <!-- Per-team rotation grid panels -->
-                <div id="rot-panels" class="mb-4">
-                    ${_rotPanelsHtml(teamNames, teams, support, rotMembers, absences)}
+                <!-- Affectation rapide — placée en haut pour que le picker déborde librement -->
+                <h4 class="text-sm font-semibold mb-2">Affecter rapidement des membres à une semaine</h4>
+                <div class="sup-add-card">
+                    <div class="sup-add-members">
+                        <label class="label">Membres <span class="sup-add-team-badge" id="sup-team-badge" hidden></span></label>
+                        <div class="sup-member-input-wrap" id="sup-member-wrap">
+                            <div class="sup-member-chips" id="sup-member-chips"></div>
+                            <button type="button" class="sup-member-add-btn" id="sup-member-add">+ Ajouter</button>
+                        </div>
+                        <span class="sup-add-hint">L'entrée sera rattachée à l'équipe du 1er membre. Tous les membres restent disponibles.</span>
+                    </div>
+                    <div class="sup-add-grid">
+                        <div class="sup-add-field">
+                            <label class="label">Semaine</label>
+                            <select class="select" id="sup-week" disabled>
+                                <option value="">Ajoutez d'abord un membre</option>
+                            </select>
+                        </div>
+                        <div class="sup-add-field sup-add-field--sm">
+                            <label class="label">Dates</label>
+                            <span class="sup-add-dates" id="sup-dates">—</span>
+                        </div>
+                        <div class="sup-add-field sup-add-field--xs">
+                            <label class="label">Eff./sem</label>
+                            <input class="input" type="number" id="sup-mpw" value="2" min="1" max="10">
+                        </div>
+                        <div class="sup-add-field sup-add-field--action">
+                            <label class="label">&nbsp;</label>
+                            <button class="btn btn-primary" id="btn-add-sup">✓ Enregistrer</button>
+                        </div>
+                    </div>
                 </div>
 
                 <hr class="hr-section">
 
-                <h4 class="text-sm font-semibold mb-2">Ajouter une semaine manuellement</h4>
-                <div class="flex gap-2 mb-2 flex-wrap items-end">
-                    <div class="form-group form-group-inline"><label class="label">Equipe</label>
-                        <select class="select" id="sup-team"><option value="">Equipe</option>${teamNames.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}</select>
-                    </div>
-                    <div class="form-group form-group-inline"><label class="label">Semaine</label>
-                        <input class="input input-narrow" id="sup-label" placeholder="S15">
-                    </div>
-                    <div class="form-group form-group-inline"><label class="label">Debut</label>
-                        <input class="input input-date" type="date" id="sup-start">
-                    </div>
-                    <div class="form-group form-group-inline"><label class="label">Fin</label>
-                        <input class="input input-date" type="date" id="sup-end">
-                    </div>
-                    <div class="form-group form-group-inline"><label class="label">Eff./sem</label>
-                        <input class="input input-xs" type="number" id="sup-mpw" value="2" min="1" max="10">
-                    </div>
-                </div>
-                <div class="flex gap-2 mb-2 flex-wrap" id="sup-members-checkboxes"></div>
-                <div class="flex gap-2">
-                    <button class="btn btn-primary btn-sm" id="btn-add-sup">Ajouter</button>
+                <!-- Per-team rotation grid panels -->
+                <div id="rot-panels" class="mb-4">
+                    ${_rotPanelsHtml(teamNames, teams, support, rotMembers, absences)}
                 </div>
             </div>
         </div>
 
         <!-- ═══ Sprint + PI Config ═══ -->
         <div class="settings-section settings-section--wide collapsed">${(() => {
-            const piNum       = piInfo?.number      || '';
+            // PI courant = source unique getCurrentPi (sprint actif JIRA > piInfo.number).
+            // Évite d'afficher PI30 quand piInfo.number=30 mais le sprint courant est "Fuego - Ité 29.5".
+            const piNum       = getCurrentPi({ sprintInfo, piInfo }) || '';
             const piName      = piInfo?.name        || '';
+            // Détection désync : le PI déduit du sprint actif ≠ N° configuré en base.
+            // Si oui, on propose de recaler — sinon les vues lisant piInfo.number brut mentent.
+            const _sprintPi   = getCurrentPi({ sprintInfo, piInfo: null }) || 0;  // sprint seul, sans fallback config
+            const _cfgPi      = piInfo?.number || 0;
+            const _piDesync   = _sprintPi && _cfgPi && _sprintPi !== _cfgPi ? { sprintPi: _sprintPi, cfgPi: _cfgPi } : null;
             // Nombre de sprints : détecté depuis teamSprints JIRA (gère le 6e sprint exceptionnel)
             // puis localStorage pi-cfg, puis piInfo. On prend le max pour ne jamais masquer un sprint réel.
             const _cfgLocal   = piNum ? (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNum}`) || 'null'); } catch { return null; } })() : null;
@@ -747,7 +883,7 @@ export function renderSettings(container) {
 
             return `
             <div class="settings-section-header" data-stg-toggle>
-                <div><h3>Sprint & PI</h3><p>Programme Increment et sprint en cours</p></div>
+                <div><h3>Sprint & PI</h3><p>Programme Incrément et sprint en cours</p></div>
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
             </div>
             <div class="settings-section-body">
@@ -761,6 +897,19 @@ export function renderSettings(container) {
                             <span class="pi-cfg-meta">${sprintsCnt}&thinsp;sprints &middot; ${sprintDur}&thinsp;j &middot; ${totalDays}&thinsp;j</span>
                             <button type="submit" class="pi-cfg-save-btn">Enregistrer PI</button>
                         </div>
+
+                        ${_piDesync ? `
+                        <div class="pi-cfg-desync" role="alert">
+                            <span class="pi-cfg-desync-icon">⚠️</span>
+                            <span class="pi-cfg-desync-msg">
+                                Le N° de PI configuré (<strong>PI#${_piDesync.cfgPi}</strong>) ne correspond pas au sprint actif
+                                JIRA (<strong>PI#${_piDesync.sprintPi}</strong>${sprintInfo?.name ? ` — ${esc(sprintInfo.name)}` : ''}).
+                                Les vues qui lisent le N° brut peuvent afficher le mauvais PI.
+                            </span>
+                            <button type="button" class="pi-cfg-desync-btn" id="pi-desync-realign" data-pi="${_piDesync.sprintPi}">
+                                Recaler sur PI#${_piDesync.sprintPi}
+                            </button>
+                        </div>` : ''}
 
                         <!-- Navigation inter-PI + pills -->
                         <div class="pi-track-nav">
@@ -795,12 +944,19 @@ export function renderSettings(container) {
                                     <label class="pi-cfg-label">Durée sprint (j)</label>
                                     <input class="pi-cfg-input" name="sprintDuration" type="number" value="${sprintDur}" min="7" max="28">
                                 </div>
-                                <div class="pi-cfg-field" title="1er jour du PI. Si vide, calculé depuis le sprint actif.">
-                                    <label class="pi-cfg-label pi-cfg-label--date" for="pi-start-date">
+                                <div class="pi-cfg-field pi-cfg-field--date" title="1er jour du PI. Si vide, calculé depuis le sprint actif.">
+                                    <label class="pi-cfg-label pi-cfg-label--date">
                                         <svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="2" width="14" height="13" rx="2"/><path d="M1 6h14M5 1v2M11 1v2"/></svg>
                                         Début du PI
                                     </label>
-                                    <input class="pi-cfg-input pi-cfg-input--date" id="pi-start-date" name="startDate" type="date" value="${esc(piInfo?.startDate || '')}">
+                                    ${friendlyDateField({ name: 'startDate', value: piInfo?.startDate || _cfgLocal?.startDate || '', placeholder: 'Calculé auto' })}
+                                </div>
+                                <div class="pi-cfg-field pi-cfg-field--pip" title="Jours de PI Planning (PIP) qui clôturent ce PI — préparation du PI suivant. Déduits automatiquement de l'import CSV.">
+                                    <label class="pi-cfg-label pi-cfg-label--date">🗓️ PIP (PI suivant)</label>
+                                    <div class="pi-pip-pickers">
+                                        ${friendlyDateField({ name: 'pipDate1', value: (_cfgLocal?.pipDates || [])[0] || '', placeholder: 'Jour 1' })}
+                                        ${friendlyDateField({ name: 'pipDate2', value: (_cfgLocal?.pipDates || [])[1] || '', placeholder: 'Jour 2' })}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -825,19 +981,19 @@ export function renderSettings(container) {
                                         <label class="pi-cfg-label" for="spr-name">Nom du sprint</label>
                                         <input id="spr-name" class="pi-cfg-input" name="name" placeholder="Sprint${piNum ? ' #' + piNum + '.1' : ''}">
                                     </div>
-                                    <div class="pi-cfg-field">
-                                        <label class="pi-cfg-label pi-cfg-label--date" for="spr-start">
+                                    <div class="pi-cfg-field pi-cfg-field--date">
+                                        <label class="pi-cfg-label pi-cfg-label--date">
                                             <svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="2" width="14" height="13" rx="2"/><path d="M1 6h14M5 1v2M11 1v2"/></svg>
                                             Début
                                         </label>
-                                        <input id="spr-start" class="pi-cfg-input pi-cfg-input--date" type="date" name="startDate" value="${sprintInfo?.startDate?.slice(0,10) || ''}">
+                                        ${friendlyDateField({ id: 'spr-start', name: 'startDate', value: sprintInfo?.startDate?.slice(0,10) || '', placeholder: 'Début sprint' })}
                                     </div>
-                                    <div class="pi-cfg-field">
-                                        <label class="pi-cfg-label pi-cfg-label--date" for="spr-end">
+                                    <div class="pi-cfg-field pi-cfg-field--date">
+                                        <label class="pi-cfg-label pi-cfg-label--date">
                                             <svg class="icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="2" width="14" height="13" rx="2"/><path d="M1 6h14M5 1v2M11 1v2"/></svg>
                                             Fin
                                         </label>
-                                        <input id="spr-end" class="pi-cfg-input pi-cfg-input--date" type="date" name="endDate" value="${sprintInfo?.endDate?.slice(0,10) || ''}" ${sprintInfo?.startDate ? `min="${sprintInfo.startDate.slice(0,10)}"` : ''}>
+                                        ${friendlyDateField({ id: 'spr-end', name: 'endDate', value: sprintInfo?.endDate?.slice(0,10) || '', placeholder: 'Fin sprint', min: sprintInfo?.startDate?.slice(0,10) || '' })}
                                     </div>
                                     <div class="pi-cfg-field pi-cfg-field--full">
                                         <label class="pi-cfg-label" for="spr-goal">Objectif du sprint</label>
@@ -910,7 +1066,7 @@ export function renderSettings(container) {
         <!-- ═══ Calendriers ICS ═══ -->
         <div class="settings-section collapsed">
             <div class="settings-section-header" data-stg-toggle>
-                <div><h3>Calendriers ICS (${calendars.length})</h3><p>Liens publics Google Calendar ou ICS par equipe — affichage dans la banniere Sprint/Kanban</p></div>
+                <div><h3>Calendriers ICS (${calendars.length})</h3><p>Liens publics Google Calendar ou ICS par équipe — affichage dans la bannière Sprint/Kanban</p></div>
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
             </div>
             <div class="settings-section-body">
@@ -1052,6 +1208,21 @@ export function renderSettings(container) {
                         </div>
                     </div>
 
+                    <div class="sync-cfg-row">
+                        <div class="sync-cfg-label">
+                            <span class="sync-cfg-icon">📅</span>
+                            <div>
+                                <div class="sync-cfg-name">Sprints récents à conserver</div>
+                                <div class="sync-cfg-desc">Nombre de sprints clôturés récents récupérés par board pour la vélocité historique. Utile pour les équipes avec beaucoup de sprints (défaut : 20)</div>
+                            </div>
+                        </div>
+                        <div class="sync-cfg-input-wrap">
+                            <input type="number" id="sync-closed-keep" class="input sync-cfg-input" min="5" max="100" step="5" placeholder="20"
+                                value="${esc(localStorage.getItem('sb-sync-closedKeep') || '')}">
+                            <span class="sync-cfg-unit">sprints</span>
+                        </div>
+                    </div>
+
                     <div class="sync-cfg-actions">
                         <button class="btn btn-primary btn-sm" id="btn-save-sync-config">Enregistrer</button>
                     </div>
@@ -1062,7 +1233,7 @@ export function renderSettings(container) {
 
         <!-- ═══ Data ═══ -->
         <div class="settings-section">
-            <div class="settings-section-header" data-stg-toggle><h3>Donnees</h3><svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg></div>
+            <div class="settings-section-header" data-stg-toggle><h3>Données</h3><svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg></div>
             <div class="settings-section-body">
                 <span class="text-sm">${tickets.length} tickets, ${(store.get('features') || []).length} features, ${members.length} membres, ${absences.length} absences</span>
                 <div class="flex gap-3 mt-4 flex-wrap">
@@ -1109,6 +1280,7 @@ export function renderSettings(container) {
         _saveCap('sync-max-features', 'sb-sync-maxFeatures');
         _saveCap('sync-max-boards',   'sb-sync-maxBoards');
         _saveCap('sync-quick-days',   'sb-sync-quickDays');
+        _saveCap('sync-closed-keep',  'sb-sync-closedKeep');
         _saveStr('sync-sprint-field', 'sb-sync-sprintField');
         _saveStr('sync-team-field',   'sb-sync-teamField');
         toast('Configuration sync JIRA enregistree', 'success');
@@ -1193,6 +1365,191 @@ export function renderSettings(container) {
         });
     });
 
+    // ── Import objectifs PI ───────────────────────────────────────────────────
+    const _parseObjCsv = () => {
+        const raw = container.querySelector('#obj-csv-input')?.value.trim();
+        if (!raw) return null;
+        const _parseStatus = s => {
+            const v = (s || '').toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            if (['inprog', 'en cours', 'encours', 'wip', 'in progress'].includes(v)) return 'inprog';
+            if (['done', 'termine', 'fini', 'fait', 'closed', 'close'].includes(v)) return 'done';
+            return 'todo';
+        };
+        const objectives = [];
+        for (const line of raw.split('\n').filter(l => l.trim())) {
+            const cols = line.split(/[;\t]/).map(c => c.trim());
+            if (!cols[0] || !cols[1]) continue;
+            const bvRaw = parseFloat((cols[2] || '').replace(',', '.'));
+            const bv = isNaN(bvRaw) ? 5 : Math.min(10, Math.max(0, bvRaw));
+            const committedStr = (cols[3] || '').toLowerCase().trim();
+            const committed = !['non', 'no', 'false', '0'].includes(committedStr);
+            const status = _parseStatus(cols[4]);
+            objectives.push({ team: cols[0], text: cols[1], bv, committed, status });
+        }
+        return objectives.length ? objectives : null;
+    };
+
+    container.querySelector('#btn-obj-preset-teams')?.addEventListener('click', () => {
+        const teamList = (store.get('teamObjects') || []).map(t => t.name);
+        if (!teamList.length) { toast('Aucune équipe configurée', 'warning'); return; }
+        const bvs = [10, 9, 8, 5];
+        const committed = ['oui', 'oui', 'oui', 'non'];
+        const lines = teamList.flatMap(team =>
+            bvs.map((bv, i) => team + ';Objectif ' + (i + 1) + ';' + bv + ';' + committed[i] + ';a faire')
+        );
+        const ta = container.querySelector('#obj-csv-input');
+        if (ta) { ta.value = lines.join('\n'); ta.focus(); }
+    });
+
+    container.querySelectorAll('#obj-pi-btns .obj-pi-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            container.querySelectorAll('#obj-pi-btns .obj-pi-btn').forEach(b => b.classList.remove('is-active'));
+            btn.classList.add('is-active');
+            const piInput = container.querySelector('#obj-csv-pi');
+            if (piInput) piInput.value = btn.dataset.pi;
+        });
+    });
+    container.querySelector('#obj-csv-pi')?.addEventListener('input', () => {
+        const val = container.querySelector('#obj-csv-pi')?.value;
+        container.querySelectorAll('#obj-pi-btns .obj-pi-btn').forEach(b => {
+            b.classList.toggle('is-active', b.dataset.pi === val);
+        });
+    });
+
+    container.querySelector('#btn-preview-obj-csv')?.addEventListener('click', () => {
+        const box = container.querySelector('#obj-csv-preview');
+        const parsed = _parseObjCsv();
+        if (!parsed) {
+            if (box) { box.hidden = false; box.innerHTML = '<span class="text-danger text-xs">Aucune donnée valide (format : Equipe;Objectif;BV;Committed).</span>'; }
+            return;
+        }
+        const piNum = parseInt(container.querySelector('#obj-csv-pi')?.value) || 0;
+        const currentPiNum = getCurrentPi({ sprintInfo, piInfo }) || 0;
+        const isCurrentPi = piNum === currentPiNum;
+        const existingObjs = isCurrentPi
+            ? (piInfo?.objectives || [])
+            : (piInfo?.piObjectives?.[String(piNum)] || []);
+        const existingTeams = new Set(existingObjs.map(o => o.team).filter(Boolean));
+
+        const byTeam = {};
+        for (const obj of parsed) {
+            if (!byTeam[obj.team]) byTeam[obj.team] = [];
+            byTeam[obj.team].push(obj);
+        }
+        const teamColorMap = Object.fromEntries((store.get('teamObjects') || []).map(t => [t.name, t.color]));
+        const conflictTeams = Object.keys(byTeam).filter(t => existingTeams.has(t));
+
+        const teamCards = Object.entries(byTeam).map(([team, objs]) => {
+            const color = teamColorMap[team] || '#6366f1';
+            const hasConflict = existingTeams.has(team);
+            const existingCount = existingObjs.filter(o => o.team === team).length;
+            const _statusLabel = s => s === 'inprog' ? { icon: '⏳', label: 'En cours', cls: 'inprog' } : s === 'done' ? { icon: '✅', label: 'Terminé', cls: 'done' } : { icon: '○', label: 'À faire', cls: 'todo' };
+            const objRows = objs.map(o => {
+                const st = _statusLabel(o.status);
+                return '<div class="obj-preview-obj-row">'
+                + '<span class="obj-preview-bv">BV ' + o.bv + '</span>'
+                + '<span class="obj-preview-committed' + (o.committed ? ' is-committed' : '') + '">' + (o.committed ? '✦' : '◇') + '</span>'
+                + '<span class="obj-preview-status obj-preview-status--' + st.cls + '">' + st.icon + ' ' + st.label + '</span>'
+                + '<span class="obj-preview-text">' + esc(o.text) + '</span>'
+                + '</div>';
+            }).join('');
+            const conflictChip = hasConflict
+                ? '<span class="obj-conflict-chip">⚠ ' + existingCount + ' existant' + (existingCount > 1 ? 's' : '') + '</span>'
+                : '';
+            return '<div class="obj-preview-team-card' + (hasConflict ? ' has-conflict' : '') + '">'
+                + '<div class="obj-preview-team-header">'
+                + '<span class="team-dot" style="background:' + esc(color) + '"></span>'
+                + '<strong>' + esc(team) + '</strong>'
+                + '<span class="obj-preview-team-count">' + objs.length + ' objectif' + (objs.length > 1 ? 's' : '') + '</span>'
+                + conflictChip
+                + '</div>'
+                + '<div class="obj-preview-obj-list">' + objRows + '</div>'
+                + '</div>';
+        }).join('');
+
+        const conflictNote = conflictTeams.length
+            ? '<span class="obj-preview-conflict-note">⚠ ' + conflictTeams.length + ' équipe(s) avec objectifs existants</span>'
+            : '';
+
+        if (box) {
+            box.hidden = false;
+            box.innerHTML = '<div class="obj-csv-preview-hdr">'
+                + '<span class="abs-csv-preview-badge">PI ' + (piNum || '?') + '</span>'
+                + '<span>' + parsed.length + ' objectif' + (parsed.length > 1 ? 's' : '') + ' · ' + Object.keys(byTeam).length + ' équipe' + (Object.keys(byTeam).length > 1 ? 's' : '') + '</span>'
+                + conflictNote
+                + '</div>'
+                + '<div class="obj-preview-teams">' + teamCards + '</div>';
+        }
+    });
+
+    container.querySelector('#btn-import-obj-csv')?.addEventListener('click', async () => {
+        const parsed = _parseObjCsv();
+        if (!parsed) { toast('Collez des données CSV d\'abord', 'warning'); return; }
+
+        const piNum = parseInt(container.querySelector('#obj-csv-pi')?.value) || 0;
+        if (!piNum) { toast('Sélectionnez un PI cible', 'warning'); return; }
+
+        const currentPiNum = getCurrentPi({ sprintInfo, piInfo }) || 0;
+        const isCurrentPi = piNum === currentPiNum;
+        const existingObjs = isCurrentPi
+            ? (piInfo?.objectives || [])
+            : (piInfo?.piObjectives?.[String(piNum)] || []);
+
+        const importedByTeam = {};
+        for (const obj of parsed) {
+            if (!importedByTeam[obj.team]) importedByTeam[obj.team] = [];
+            importedByTeam[obj.team].push(obj);
+        }
+        const existingTeams = new Set(existingObjs.map(o => o.team).filter(Boolean));
+        const conflictTeams = Object.keys(importedByTeam).filter(t => existingTeams.has(t));
+
+        let replaceConflicts = false;
+        if (conflictTeams.length) {
+            const conflictDetails = conflictTeams.map(t => {
+                const n = existingObjs.filter(o => o.team === t).length;
+                return '  · ' + t + ' (' + n + ' existant' + (n > 1 ? 's' : '') + ')';
+            }).join('\n');
+            const allConflict = Object.keys(importedByTeam).length === conflictTeams.length;
+            const choice = confirm(
+                '⚠️ ' + conflictTeams.length + ' équipe(s) ont déjà des objectifs pour PI ' + piNum + ' :\n' + conflictDetails + '\n\n'
+                + 'OK → Remplacer leurs objectifs existants\n'
+                + 'Annuler → ' + (allConflict ? 'Annuler l\'import' : 'Ignorer ces équipes (n\'importer que les nouvelles)')
+            );
+            replaceConflicts = choice;
+            if (!choice && allConflict) {
+                toast('Import annulé — choisissez OK pour remplacer les objectifs existants', 'info');
+                return;
+            }
+        } else {
+            const teamList = Object.keys(importedByTeam).join(', ');
+            if (!confirm('Importer ' + parsed.length + ' objectif(s) pour PI ' + piNum + ' ?\n' + Object.keys(importedByTeam).length + ' équipe(s) : ' + teamList)) return;
+        }
+
+        let finalObjs;
+        if (conflictTeams.length && replaceConflicts) {
+            const toReplace = new Set(Object.keys(importedByTeam));
+            finalObjs = [...existingObjs.filter(o => !toReplace.has(o.team)), ...parsed];
+        } else if (conflictTeams.length && !replaceConflicts) {
+            const conflictSet = new Set(conflictTeams);
+            finalObjs = [...existingObjs, ...parsed.filter(o => !conflictSet.has(o.team))];
+        } else {
+            finalObjs = [...existingObjs, ...parsed];
+        }
+
+        try {
+            await api.setPiObjectives(piNum, finalObjs);
+            // Rafraîchir piInfo dans le store pour que Dashboard et PI Planning lisent les nouveaux objectifs
+            const freshPi = await api.getPI();
+            store.set('piInfo', freshPi);
+            const added = finalObjs.length - existingObjs.length;
+            const replaced = replaceConflicts ? conflictTeams.reduce((acc, t) => acc + importedByTeam[t].length, 0) : 0;
+            const parts = [];
+            if (added > 0) parts.push('+' + added + ' objectif' + (added > 1 ? 's' : ''));
+            if (replaced > 0) parts.push(replaced + ' remplacé' + (replaced > 1 ? 's' : ''));
+            toast((parts.join(' · ') || 'Objectifs mis à jour') + ' · PI ' + piNum, 'success');
+        } catch (e) { toast(e.message, 'error'); }
+    });
+
     // ── Members ───────────────────────────────────────────────────────────────
     container.querySelector('#btn-add-member')?.addEventListener('click', async () => {
         const name   = container.querySelector('#new-member-name')?.value.trim();
@@ -1265,59 +1622,160 @@ export function renderSettings(container) {
         });
     });
 
-    container.querySelector('#btn-import-abs-csv')?.addEventListener('click', async () => {
+    // Filtre live sur la liste des absences
+    const absFilterInput  = container.querySelector('#abs-filter');
+    const absFilterCount  = container.querySelector('#abs-filter-count');
+    const _absFilterRows  = () => {
+        const q = absFilterInput?.value.trim().toLowerCase() || '';
+        let visible = 0;
+        container.querySelectorAll('#abs-tbody .abs-row').forEach(row => {
+            const match = !q || row.dataset.search.includes(q);
+            row.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+        if (absFilterCount) absFilterCount.textContent = q ? `${visible} résultat${visible > 1 ? 's' : ''}` : '';
+    };
+    absFilterInput?.addEventListener('input', _absFilterRows);
+
+    container.querySelector('#btn-repair-abs-encoding')?.addEventListener('click', async () => {
+        const btn = container.querySelector('#btn-repair-abs-encoding');
+        btn.disabled = true;
+        try {
+            const res = await fetch('/api/absences/repair-encoding', { method: 'POST' });
+            const data = await res.json();
+            toast(`Encodage réparé : ${data.fixed} ligne${data.fixed > 1 ? 's' : ''} corrigée${data.fixed > 1 ? 's' : ''}`, 'success');
+            await reloadAndRender(container);
+        } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
+    });
+
+    // Parse le CSV courant → { absencesPayload, membersPayload, mode, piStartDate, piEndDate } (partagé Aperçu + Import)
+    const _parseAbsCsv = () => {
         const raw = container.querySelector('#abs-csv-input')?.value.trim();
-        if (!raw) { toast('Collez des donnees CSV d\'abord', 'warning'); return; }
+        if (!raw) return null;
         const year = parseInt(container.querySelector('#abs-csv-year')?.value) || new Date().getFullYear();
-        // 1. Auto-détection : format pivot (header dd/mm) prioritaire
-        const pivot = _parsePivotAbsencesCsv(raw, year);
-        let absencesPayload, membersPayload, mode;
-        if (pivot) {
-            absencesPayload = pivot.absences;
-            membersPayload  = pivot.members;
-            mode = 'pivot';
-        } else {
-            // 2. Fallback : format ligne. NB on split sur ; ou tab — JAMAIS sur virgule
-            absencesPayload = [];
-            const lines = raw.split('\n').filter(l => l.trim());
-            for (const line of lines) {
-                const cols = line.split(/[;\t]/).map(c => c.trim());
-                if (!cols[0] || !cols[2]) continue;
-                absencesPayload.push({
-                    memberName: cols[0],
-                    team: cols[1] || '',
-                    startDate: cols[2] || '',
-                    endDate: cols[3] || cols[2] || '',
-                    type: cols[4] || 'conge',
-                    days: parseFloat((cols[5] || '').replace(',', '.')) || 1,
-                });
-            }
-            membersPayload = [];   // format ligne n'a pas d'entité ni de rôle
-            mode = 'ligne';
+        const pipDays = Math.max(0, parseInt(container.querySelector('#abs-csv-pip')?.value) ?? 2);
+        const pivot = _parsePivotAbsencesCsv(raw, year, pipDays);
+        if (pivot) return {
+            absencesPayload: pivot.absences, membersPayload: pivot.members, mode: 'pivot',
+            piStartDate: pivot.piStartDate, piEndDate: pivot.piEndDate, dayCount: pivot.dayCount,
+            pipDates: pivot.pipDates,
+        };
+        // Fallback ligne (split ; ou tab — jamais virgule) — pas de dates PI déductibles
+        const absencesPayload = [];
+        for (const line of raw.split('\n').filter(l => l.trim())) {
+            const cols = line.split(/[;\t]/).map(c => c.trim());
+            if (!cols[0] || !cols[2]) continue;
+            absencesPayload.push({
+                memberName: cols[0], team: cols[1] || '',
+                startDate: cols[2] || '', endDate: cols[3] || cols[2] || '',
+                type: cols[4] || 'conge', days: parseFloat((cols[5] || '').replace(',', '.')) || 1,
+            });
         }
+        return { absencesPayload, membersPayload: [], mode: 'ligne', piStartDate: null, piEndDate: null };
+    };
+
+    // Aperçu partiel : montre les 1ères lignes parsées pour valider avant import
+    container.querySelector('#btn-preview-abs-csv')?.addEventListener('click', () => {
+        const box = container.querySelector('#abs-csv-preview');
+        const parsed = _parseAbsCsv();
+        if (!parsed || !parsed.absencesPayload.length) {
+            if (box) { box.hidden = false; box.innerHTML = '<span class="text-danger text-xs">Aucune donnée valide détectée.</span>'; }
+            return;
+        }
+        const { absencesPayload, membersPayload, mode, piStartDate, piEndDate, dayCount, pipDates } = parsed;
+        const pi = container.querySelector('#abs-csv-pi')?.value || '?';
+        const teams = [...new Set(absencesPayload.map(p => p.team).filter(Boolean))];
+        const membersForPi = membersPayload.length ? membersPayload : [...new Map(absencesPayload.filter(a => a.memberName && a.team).map(a => [`${a.memberName}|${a.team}`, { name: a.memberName, team: a.team }])).values()];
+        const previewMembers = membersForPi.slice(0, 8);
+        const _fmtFr = iso => { if (!iso) return '?'; const [y,m,d] = iso.split('-'); const mn = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc']; return `${parseInt(d)} ${mn[parseInt(m)-1]} ${y}`; };
+        const _fmtShort = iso => { if (!iso) return '?'; const [,m,d] = iso.split('-'); return `${parseInt(d)}/${m}`; };
+        const pipNote = (pipDates && pipDates.length)
+            ? ` <span class="text-muted">· PIP exclu : ${pipDates.map(_fmtShort).join(', ')}</span>`
+            : '';
+        const datesBlock = (piStartDate && piEndDate)
+            ? `<div class="abs-csv-preview-dates">📅 Dates PI déduites : <strong>${_fmtFr(piStartDate)}</strong> → <strong>${_fmtFr(piEndDate)}</strong> <span class="text-muted">(${dayCount} jours ouvrés)</span>${pipNote}</div>`
+            : '';
+        if (box) {
+            box.hidden = false;
+            box.innerHTML = `
+                <div class="abs-csv-preview-hdr">
+                    <span class="abs-csv-preview-badge">Format ${mode}</span>
+                    <span>${absencesPayload.length} absence(s) · ${membersForPi.length} membre(s) → snapshot <strong>PI ${esc(pi)}</strong></span>
+                </div>
+                ${datesBlock}
+                <div class="abs-csv-preview-teams">${teams.slice(0, 10).map(t => `<span class="abs-csv-preview-team">${esc(t)}</span>`).join('')}${teams.length > 10 ? `<span class="text-muted text-xs">+${teams.length - 10}</span>` : ''}</div>
+                <div class="abs-csv-preview-members">
+                    ${previewMembers.map(m => `<span class="abs-csv-preview-member">${esc(m.name)} <em>${esc(m.team || '')}</em></span>`).join('')}
+                    ${membersForPi.length > 8 ? `<span class="text-muted text-xs">… +${membersForPi.length - 8} autres</span>` : ''}
+                </div>`;
+        }
+    });
+
+    container.querySelector('#btn-import-abs-csv')?.addEventListener('click', async () => {
+        const parsed = _parseAbsCsv();
+        if (!parsed) { toast('Collez des donnees CSV d\'abord', 'warning'); return; }
+        const { absencesPayload, membersPayload, mode, piStartDate, piEndDate, pipDates = [] } = parsed;
         if (!absencesPayload.length) {
             toast('Aucune donnée valide dans le CSV (formats supportés : pivot dd/mm ou ligne Nom;Equipe;Debut;Fin;Type;Jours)', 'warning');
             return;
         }
+        // PI cible pour le snapshot des membres
+        const piTarget = parseInt(container.querySelector('#abs-csv-pi')?.value) || 0;
+        // Membres du snapshot : payload pivot si dispo, sinon dérivé des absences (nom+équipe)
+        const snapshotMembers = membersPayload.length
+            ? membersPayload
+            : [...new Map(absencesPayload.filter(a => a.memberName && a.team).map(a => [`${a.memberName}|${a.team}`, { name: a.memberName, team: a.team, role: '', entity: '' }])).values()];
+
+        // Dates du PI déduites de la plage CSV (1er → dernier jour ouvré listé)
+        const _fmtFr = iso => { if (!iso) return '?'; const [y,m,d] = iso.split('-'); return `${parseInt(d)}/${m}/${y}`; };
+        const sprintDur = piInfo?.sprintDuration || 14;
+        // Snap le début au vendredi précédent (1er jour de sprint typique) pour aligner les semaines.
+        const _snapFriday = iso => { const d = new Date(iso + 'T00:00:00'); const back = (d.getDay() - 5 + 7) % 7; d.setDate(d.getDate() - back); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+        const piStartSnapped = piStartDate ? _snapFriday(piStartDate) : null;
+        // Nombre de sprints = durée totale (jours calendaires) / durée d'un sprint, arrondi.
+        const sprintsDeduced = (piStartSnapped && piEndDate)
+            ? Math.max(1, Math.round((new Date(piEndDate + 'T00:00:00') - new Date(piStartSnapped + 'T00:00:00')) / 86400000 / sprintDur))
+            : null;
+
         const transverseCount = absencesPayload.filter(p => _isTransverseTeam(p.team)).length;
         const teamsDetected = [...new Set(absencesPayload.map(p => p.team).filter(Boolean))];
         const xtraInfo = transverseCount
-            ? `\n\n${transverseCount} absence(s) sur des équipes transverses (Team X / TRV / …) — enregistrées telles quelles, non comptabilisées dans les équipes agiles.`
+            ? `\n\n${transverseCount} absence(s) sur des équipes transverses (Team X / TRV / …) — enregistrées telles quelles.`
             : '';
-        const teamsLine = teamsDetected.length ? `\nÉquipes détectées : ${teamsDetected.slice(0, 8).join(', ')}${teamsDetected.length > 8 ? '…' : ''}` : '';
-        const membersLine = membersPayload.length ? `\nMembres synchronisés (avec entité + rôle) : ${membersPayload.length}` : '';
-        if (!confirm(`Format détecté : ${mode}\nAjouter ${absencesPayload.length} absence(s) ?${teamsLine}${membersLine}${xtraInfo}\n\nLes doublons (même nom + même jour) seront ignorés.`)) return;
+        const teamsLine = teamsDetected.length ? `\nÉquipes : ${teamsDetected.slice(0, 8).join(', ')}${teamsDetected.length > 8 ? '…' : ''}` : '';
+        const piLine = piTarget ? `\n👥 Snapshot membres → PI ${piTarget} (${snapshotMembers.length} membres)` : '\n⚠ Aucun PI cible — pas de snapshot membres.';
+        const datesLine = (piTarget && piStartSnapped)
+            ? `\n📅 Dates PI ${piTarget} : ${_fmtFr(piStartSnapped)} → ${_fmtFr(piEndDate)}${sprintsDeduced ? ` (~${sprintsDeduced} sprints)` : ''}`
+            : '';
+        const pipLine = pipDates.length
+            ? `\n🗓️ PIP (PI Planning du PI suivant) : ${pipDates.map(_fmtFr).join(', ')}`
+            : '';
+        if (!confirm(`Format : ${mode}\nAjouter ${absencesPayload.length} absence(s) ?${teamsLine}${piLine}${datesLine}${pipLine}${xtraInfo}\n\nDoublons (même nom + jour) ignorés.`)) return;
         try {
             const res = await api.bulkCreateAbsences(absencesPayload, false);
-            // Synchronisation Members en upsert : ajoute les nouveaux + enrichit team/entity/role
-            // sur ceux qui existent déjà (cas : la sync JIRA a créé un Member avec entity vide).
             let memSync = null;
-            if (membersPayload.length) {
-                memSync = await api.bulkMergeMembers(membersPayload, false);
+            if (membersPayload.length) memSync = await api.bulkMergeMembers(membersPayload, false);
+            // Enregistre le snapshot des membres pour le PI cible
+            if (piTarget && snapshotMembers.length) {
+                await api.setPiMembers(piTarget, snapshotMembers);
+            }
+            // Enregistre les dates déduites du PI dans pi-cfg-<N> (source des semaines rotation/PI calendar)
+            if (piTarget && piStartSnapped) {
+                const key = `pi-cfg-${piTarget}`;
+                let cfg = {}; try { cfg = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+                cfg.number = piTarget;
+                cfg.startDate = piStartSnapped;
+                if (sprintsDeduced) cfg.sprintsPerPI = sprintsDeduced;
+                cfg.sprintDuration = cfg.sprintDuration || sprintDur;
+                // Jours PIP (PI Planning) qui clôturent ce PI — réutilisables par le PI calendrier
+                if (pipDates.length) cfg.pipDates = pipDates;
+                localStorage.setItem(key, JSON.stringify(cfg));
             }
             const parts = [`${res.created} absence(s) ajoutee(s)`];
             if (res.skipped) parts.push(`${res.skipped} doublon(s)`);
-            if (memSync) parts.push(`${memSync.created || 0} membres crees, ${memSync.updated || 0} maj`);
+            if (memSync) parts.push(`${memSync.created || 0} créés, ${memSync.updated || 0} maj`);
+            if (piTarget) parts.push(`snapshot PI ${piTarget}`);
+            if (piTarget && piStartSnapped) parts.push(`dates PI`);
             toast(parts.join(' · '), 'success');
             await reloadAndRender(container);
         } catch (e) { toast(e.message, 'error'); }
@@ -1491,30 +1949,189 @@ export function renderSettings(container) {
 
     // (delete + refresh sont gérés par la délégation sur #cal-list ci-dessus)
 
+    // ── Filtre live Membres ───────────────────────────────────────────────────
+    const memberFilterInput = container.querySelector('#member-filter');
+    const memberFilterCount = container.querySelector('#member-filter-count');
+    const _memberFilterRows = () => {
+        const q = memberFilterInput?.value.trim().toLowerCase() || '';
+        let visible = 0;
+        container.querySelectorAll('#member-list .item-row').forEach(row => {
+            const match = !q || (row.dataset.search || '').includes(q);
+            row.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+        if (memberFilterCount) memberFilterCount.textContent = q ? `${visible} résultat${visible > 1 ? 's' : ''}` : '';
+    };
+    memberFilterInput?.addEventListener('input', _memberFilterRows);
+
     // ── Rotation grid - délégué à _rotWirePanelEvents ────────────────────────
     _rotWirePanelEvents(container);
 
-    // ── Support - ajout manuel ────────────────────────────────────────────────
-    container.querySelector('#sup-team')?.addEventListener('change', () => {
-        const team = container.querySelector('#sup-team')?.value;
-        const teamMembers = rotMembers.filter(m => m.team === team);
-        const box = container.querySelector('#sup-members-checkboxes');
-        if (box) box.innerHTML = teamMembers.map(m => `
-            <label class="chip" style="cursor:pointer;gap:4px;"><input type="checkbox" value="${esc(m.name)}" checked> ${esc(m.name)}</label>
-        `).join('');
+    // ── Support - affectation rapide (équipe déduite du 1er membre) ───────────
+    const _supMembers = [];          // noms des membres sélectionnés (chips)
+    let   _supTeam    = null;         // équipe déduite (verrouillée par le 1er membre)
+
+    const _norm = s => (s || '').toLowerCase().trim();
+
+    const _supRenderChips = () => {
+        const box = container.querySelector('#sup-member-chips');
+        if (!box) return;
+        box.innerHTML = _supMembers.map(m => `
+            <span class="sup-member-chip">
+                ${esc(m)}
+                <button class="sup-member-chip-rm" data-rm="${esc(m)}" title="Retirer">×</button>
+            </span>`).join('');
+        box.querySelectorAll('.sup-member-chip-rm').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const i = _supMembers.indexOf(btn.dataset.rm);
+                if (i >= 0) _supMembers.splice(i, 1);
+                if (!_supMembers.length) _supTeam = null;  // libère l'équipe si plus de membre
+                _supSync();
+            });
+        });
+    };
+
+    // Affiche le badge équipe déduite
+    const _supRenderTeamBadge = () => {
+        const badge = container.querySelector('#sup-team-badge');
+        if (!badge) return;
+        if (_supTeam) { badge.textContent = `· ${_supTeam}`; badge.hidden = false; }
+        else { badge.hidden = true; }
+    };
+
+    // Peuple le sélecteur de semaines (PI précédent + courant + suivant) pour l'équipe déduite.
+    const _supRefreshWeeks = () => {
+        const sel  = container.querySelector('#sup-week');
+        const datesEl = container.querySelector('#sup-dates');
+        if (!sel) return;
+        if (!_supTeam) {
+            sel.disabled = true;
+            sel.innerHTML = `<option value="">Ajoutez d'abord un membre</option>`;
+            if (datesEl) datesEl.textContent = '—';
+            return;
+        }
+        const built = (() => { try { return _rotBuildPiWeeks(_supTeam); } catch { return {}; } })();
+        const curWeeks  = built.selectedWeeks || built.curWeeks || [];
+        const nextWeeks = built.nextWeeks || [];
+        const curPi     = built.selectedPiNum || built.curPiNum;
+
+        const _addD = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+        const _piSpan = curWeeks.length ? (() => {
+            const first = curWeeks[0].weekStart, last = curWeeks[curWeeks.length-1].weekEnd;
+            return Math.round((new Date(last+'T00:00:00') - new Date(first+'T00:00:00')) / 86400000) + 1;
+        })() : 0;
+        const prevWeeks = (curPi && _piSpan && curWeeks.length) ? curWeeks.map(w => ({
+            label: w.label.replace(new RegExp(`^${curPi}\\.`), `${curPi - 1}.`),
+            weekStart: _addD(w.weekStart, -_piSpan),
+            weekEnd:   _addD(w.weekEnd, -_piSpan),
+        })) : [];
+
+        const all = [...prevWeeks, ...curWeeks, ...nextWeeks];
+        const seen = new Set();
+        const uniqueWeeks = all.filter(w => { if (seen.has(w.weekStart)) return false; seen.add(w.weekStart); return true; })
+                               .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+
+        const today = new Date().toISOString().slice(0, 10);
+        const _fmtD = iso => { const [y,m,d] = iso.split('-'); const mn = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc']; return `${parseInt(d)} ${mn[parseInt(m)-1]}`; };
+        sel.disabled = false;
+        sel.innerHTML = `<option value="">— choisir une semaine —</option>` + uniqueWeeks.map(w => {
+            const isPast = w.weekEnd < today;
+            const isCur  = w.weekStart <= today && w.weekEnd >= today;
+            const tag = isCur ? ' ⏺' : isPast ? ' ✓' : '';
+            return `<option value="${w.weekStart}" data-end="${w.weekEnd}" data-label="${esc(w.label)}">${esc(w.label)} — ${_fmtD(w.weekStart)}${tag}</option>`;
+        }).join('');
+        const curOpt = uniqueWeeks.find(w => w.weekStart <= today && w.weekEnd >= today);
+        if (curOpt) { sel.value = curOpt.weekStart; sel.dispatchEvent(new Event('change')); }
+        else if (datesEl) datesEl.textContent = '—';
+    };
+
+    // Resync complet de l'UI (chips, badge, semaines)
+    const _supSync = () => { _supRenderChips(); _supRenderTeamBadge(); _supRefreshWeeks(); };
+
+    // Affiche les dates au choix d'une semaine
+    container.querySelector('#sup-week')?.addEventListener('change', e => {
+        const opt = e.target.selectedOptions[0];
+        const datesEl = container.querySelector('#sup-dates');
+        if (!opt?.value) { if (datesEl) datesEl.textContent = '—'; return; }
+        const _fmtD = iso => { const [y,m,d] = iso.split('-'); return `${parseInt(d)}/${m}`; };
+        if (datesEl) datesEl.textContent = `${_fmtD(opt.value)} → ${_fmtD(opt.dataset.end)}`;
     });
 
+    // Ajoute un membre — l'équipe de l'entrée est déduite du 1er membre, sans rejeter les autres.
+    const _supAddMember = (name) => {
+        if (!name) return;
+        const member = rotMembers.find(m => _norm(m.name) === _norm(name));
+        if (!member) return;
+        if (_supMembers.includes(member.name)) return;
+        if (!_supTeam) _supTeam = member.team;   // équipe de l'entrée = celle du 1er membre
+        _supMembers.push(member.name);
+        _supSync();
+    };
+
+    // Bouton "+ Ajouter" → ouvre le même person picker que la modal ticket (reporter/contributors).
+    // Attaché au body en position fixed pour échapper à l'overflow:hidden de la section.
+    // Après chaque ajout, le picker se rouvre pour enchaîner la saisie des membres suivants.
+    const supAddBtn = container.querySelector('#sup-member-add');
+    const _openSupPicker = () => {
+        if (document.querySelector('.sup-member-picker')) return;
+        // Pool : TOUS les membres (pas de filtre par équipe), équipe affichée en badge.
+        const pool = rotMembers
+            .filter(m => !_supMembers.includes(m.name))
+            .map(m => ({ name: m.name, sub: m.team || '' }));
+        if (!pool.length) { toast('Tous les membres sont déjà ajoutés', 'info'); return; }
+        const onCommit = (name) => {
+            cleanup();
+            _supAddMember(name);
+            // Rouvre le picker pour enchaîner — focus immédiat sur la recherche
+            requestAnimationFrame(() => _openSupPicker());
+        };
+        const onCancel = () => { cleanup(); };
+        const { wrap, input } = makePersonPicker(pool, '', onCommit, onCancel);
+        wrap.classList.add('person-picker--no-clear', 'sup-member-picker');
+        // Positionne en fixed sous le bouton
+        const r = supAddBtn.getBoundingClientRect();
+        wrap.style.position = 'fixed';
+        wrap.style.top  = `${r.bottom + 4}px`;
+        wrap.style.left = `${r.left}px`;
+        document.body.appendChild(wrap);
+        supAddBtn.hidden = true;
+        requestAnimationFrame(() => input.focus());
+        const onDocClick = (ev) => { if (!wrap.contains(ev.target) && ev.target !== supAddBtn) onCancel(); };
+        const cleanup = () => {
+            wrap.remove();
+            supAddBtn.hidden = false;
+            document.removeEventListener('mousedown', onDocClick, true);
+        };
+        setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+    };
+    supAddBtn?.addEventListener('click', _openSupPicker);
+
     container.querySelector('#btn-add-sup')?.addEventListener('click', async () => {
-        const team  = container.querySelector('#sup-team')?.value;
-        const label = container.querySelector('#sup-label')?.value.trim();
-        const start = container.querySelector('#sup-start')?.value;
-        const end   = container.querySelector('#sup-end')?.value;
-        const mpw   = parseInt(container.querySelector('#sup-mpw')?.value) || 2;
-        const checked = [...container.querySelectorAll('#sup-members-checkboxes input:checked')].map(c => c.value);
-        if (!team || !start) { toast('Equipe et date de debut requises', 'warning'); return; }
+        const weekSel = container.querySelector('#sup-week');
+        const opt    = weekSel?.selectedOptions[0];
+        const mpw    = parseInt(container.querySelector('#sup-mpw')?.value) || 2;
+        if (!_supMembers.length) { toast('Ajoutez au moins un membre', 'warning'); return; }
+        if (!opt?.value)         { toast('Choisissez une semaine', 'warning'); return; }
+        const team  = _supTeam;
+        const start = opt.value;
+        const end   = opt.dataset.end;
+        const label = opt.dataset.label;
         try {
-            await api.createSupport({ team, weekLabel: label, weekStart: start, weekEnd: end || start, members: checked, weekMode: getSupportWeekMode(team), membersPerWeek: mpw });
-            toast('Rotation ajoutee', 'success');
+            // Fusion si la semaine existe déjà
+            const existing = (store.get('support') || []).find(s =>
+                _norm(s.team) === _norm(team) && s.weekStart === start);
+            if (existing) {
+                const merged = [...new Set([...(existing.members || []), ..._supMembers])];
+                await api.updateSupport(existing.id, { members: merged });
+                toast(`${label} mis à jour — ${merged.length} membre${merged.length > 1 ? 's' : ''}`, 'success');
+            } else {
+                await api.createSupport({ team, weekLabel: label, weekStart: start, weekEnd: end, members: [..._supMembers], weekMode: getSupportWeekMode(team), membersPerWeek: mpw });
+                toast(`${label} — ${_supMembers.length} membre${_supMembers.length > 1 ? 's' : ''} affecté${_supMembers.length > 1 ? 's' : ''}`, 'success');
+            }
+            // Reset complet
+            _supMembers.length = 0;
+            _supTeam = null;
+            _supSync();
             await _rotRefreshPanels(container);
         } catch (e) { toast(e.message, 'error'); }
     });
@@ -1682,12 +2299,18 @@ export function renderSettings(container) {
     const _piFormRead = () => {
         const f = container.querySelector('#pi-form');
         if (!f) return null;
+        // Jours PIP : 2 date-pickers → array (ordre chronologique, vides ignorés)
+        const pipDates = [
+            f.querySelector('[name="pipDate1"]')?.value || '',
+            f.querySelector('[name="pipDate2"]')?.value || '',
+        ].filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s)).sort();
         return {
             number:        parseInt(f.querySelector('[name="number"]')?.value) || 0,
             name:          f.querySelector('[name="piName"]')?.value || '',
             sprintsPerPI:  parseInt(f.querySelector('[name="sprintsPerPI"]')?.value) || 5,
             sprintDuration:parseInt(f.querySelector('[name="sprintDuration"]')?.value) || 14,
             startDate:     f.querySelector('[name="startDate"]')?.value || '',
+            pipDates,
         };
     };
 
@@ -1699,12 +2322,27 @@ export function renderSettings(container) {
     const _piFormFill = (cfg) => {
         const f = container.querySelector('#pi-form');
         if (!f || !cfg) return;
-        const _set = (name, val) => { const el = f.querySelector(`[name="${name}"]`); if (el && val != null) el.value = val; };
+        const _set = (name, val) => {
+            const el = f.querySelector(`[name="${name}"]`);
+            if (el && val != null) {
+                el.value = val;
+                // Si c'est un champ date "friendly", resynchronise l'overlay texte
+                const wrap = el.closest('[data-fdate]');
+                if (wrap) {
+                    const disp = wrap.querySelector('.fdate-display');
+                    if (disp) { const long = fmtDateFriendly(val); disp.textContent = long || disp.dataset.ph || ''; disp.classList.toggle('is-empty', !long); }
+                }
+            }
+        };
         _set('number',         cfg.number ?? '');
         _set('piName',         cfg.name ?? '');
         _set('sprintsPerPI',   cfg.sprintsPerPI ?? '');
         _set('sprintDuration', cfg.sprintDuration ?? '');
         _set('startDate',      cfg.startDate ?? '');
+        // PIP : 2 date-pickers friendly
+        const pip = Array.isArray(cfg.pipDates) ? cfg.pipDates : [];
+        _set('pipDate1', pip[0] || '');
+        _set('pipDate2', pip[1] || '');
         const badge   = container.querySelector('.pi-cfg-badge');
         const titleEl = container.querySelector('.pi-cfg-title');
         const meta    = container.querySelector('.pi-cfg-meta');
@@ -1716,17 +2354,7 @@ export function renderSettings(container) {
 
     // Cherche la date de début du sprint 1 d'un PI dans teamSprints
     // Utilise la même regex que _capSprintIdx : /\b\d{2,}\.(\d+)/
-    const _findSprint1Start = (piNum) => {
-        const all = store.get('sprintInfo')?.teamSprints || [];
-        const matched = all.filter(s => {
-            const mPi  = String(s.name || '').match(/\b(\d{2,})\.\d+/);
-            const mIdx = String(s.name || '').match(/\b\d{2,}\.(\d+)/);
-            return mPi && parseInt(mPi[1]) === piNum && mIdx && parseInt(mIdx[1]) === 1 && s.startDate;
-        });
-        if (!matched.length) return '';
-        matched.sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)));
-        return String(matched[0].startDate).slice(0, 10);
-    };
+    const _findSprint1Start = (piNum) => _jiraSprint1Start(piNum);
 
     // Compte le nombre de sprints d'un PI depuis teamSprints
     const _detectSprintCount = (piNum) => {
@@ -1745,8 +2373,10 @@ export function renderSettings(container) {
     const _fromSprint = (() => { const m = String(sprintInfo?.name || '').match(/(\d+)\.\d+/) || String(sprintInfo?.name || '').match(/PI\s*#?\s*(\d+)/i); return m ? parseInt(m[1], 10) : 0; })();
     const _basePiNum = _fromSprint || piInfo?.number || (_allKnownPis.length ? _allKnownPis[_allKnownPis.length - 1] : 0);
     if (_basePiNum) {
-        const existing = _piCfgLoad(_basePiNum);
-        const startDate = piInfo?.startDate || _findSprint1Start(_basePiNum);
+        const existing  = _piCfgLoad(_basePiNum);
+        // JIRA prime toujours (source de vérité) ; localStorage en fallback si JIRA ne sait pas
+        const jiraStart = _findSprint1Start(_basePiNum);
+        const startDate = jiraStart || piInfo?.startDate || existing?.startDate || '';
         const cfg = existing || {
             number: _basePiNum,
             name: piInfo?.name || '',
@@ -1754,8 +2384,8 @@ export function renderSettings(container) {
             sprintDuration: piInfo?.sprintDuration || 14,
             startDate,
         };
-        // Si startDate manquait dans localStorage, on le complète
-        if (existing && !existing.startDate && startDate) cfg.startDate = startDate;
+        // Toujours mettre à jour la startDate depuis JIRA si disponible
+        if (startDate) cfg.startDate = startDate;
         _piCfgSave(_basePiNum, cfg);
         // Pré-remplit le champ si vide dans le formulaire
         const dateEl = container.querySelector('#pi-start-date');
@@ -1820,21 +2450,26 @@ export function renderSettings(container) {
     // Charge la config d'un PI (localStorage en priorité) et switch le track
     const _loadPiAndSwitch = (targetPi) => {
         const saved = _piCfgLoad(targetPi);
-        const startDate = (saved?.startDate) || _findSprint1Start(targetPi);
+        // JIRA prime toujours sur localStorage pour la startDate (source de vérité des dates réelles)
+        const jiraStart    = _findSprint1Start(targetPi);
+        const startDate    = jiraStart || saved?.startDate || '';
         const sprintsPerPI = saved?.sprintsPerPI || _detectSprintCount(targetPi) || piInfo?.sprintsPerPI || 5;
 
         const cfg = saved
-            ? { ...saved, startDate: startDate || saved.startDate || '', sprintsPerPI }
+            ? { ...saved, startDate, sprintsPerPI }
             : {
                 number: targetPi,
                 name: targetPi === _basePiNum ? (piInfo?.name || '') : `PI#${targetPi}`,
                 sprintsPerPI,
                 sprintDuration: piInfo?.sprintDuration || 14,
-                startDate: startDate || '',
+                startDate,
             };
         _piFormFill(cfg);
         _switchPiTrack(targetPi, cfg.sprintsPerPI);
         _piFormBaseline = _piFormSnapshot();
+        // Synchronise le sélecteur PI topbar
+        const offset = Math.max(-2, Math.min(2, targetPi - _basePiNum));
+        if ((store.get('piOffset') || 0) !== offset) store.set('piOffset', offset);
     };
 
     container.querySelector('#pi-track-prev')?.addEventListener('click', (e) => {
@@ -1844,6 +2479,21 @@ export function renderSettings(container) {
     container.querySelector('#pi-track-next')?.addEventListener('click', (e) => {
         const pi = parseInt(e.currentTarget.dataset.pi);
         if (pi) _navToPi(pi);
+    });
+
+    // Synchronisation topbar → navigation Settings
+    // Quand le sélecteur PI topbar change (après le chargement initial), met à jour la nav Settings
+    let _piOffsetInitDone = false;
+    requestAnimationFrame(() => { _piOffsetInitDone = true; }); // ignore le fire initial
+    const _unsubPiOffset = store.on('piOffset', (offset) => {
+        if (!_piOffsetInitDone) return; // ignore le déclenchement au chargement
+        const track = container.querySelector('#pi-sprint-track');
+        if (!track || !container.isConnected) { _unsubPiOffset?.(); return; }
+        const targetPi = _basePiNum + (offset || 0);
+        const currentDisplayPi = parseInt(track.dataset.displayPi || '0');
+        if (targetPi > 0 && targetPi !== currentDisplayPi) {
+            _loadPiAndSwitch(targetPi);
+        }
     });
 
     // ── Mise à jour live des pills quand "Sprints / PI" change ───────────────
@@ -1900,6 +2550,9 @@ export function renderSettings(container) {
         const meta = container.querySelector('.pi-cfg-meta');
         if (meta && dur > 0) meta.textContent = `${cnt} sprints · ${dur} j · ${cnt * dur} j`;
     });
+
+    // Champs date "friendly" — câblage centralisé (sync overlay + clic ouvre calendrier)
+    wireFriendlyDates(container);
 
     container.querySelector('#sprint-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1998,6 +2651,19 @@ export function renderSettings(container) {
     });
 
 
+    // ── Recaler le N° PI sur le sprint actif (résout la désync config/sprint) ──
+    container.querySelector('#pi-desync-realign')?.addEventListener('click', async (e) => {
+        const target = parseInt(e.currentTarget.dataset.pi) || 0;
+        if (!target) return;
+        try {
+            const current = store.get('piInfo') || {};
+            await api.updatePI({ ...current, number: target });
+            const fresh = await api.getPI();
+            store.set('piInfo', fresh);
+            toast(`PI recalé sur PI#${target}`, 'success');
+        } catch (err) { toast(err.message, 'error'); }
+    });
+
     // ── Reminders ─────────────────────────────────────────────────────────────
     container.querySelectorAll('.reminder-toggle').forEach(toggle => {
         toggle.addEventListener('change', () => {
@@ -2048,9 +2714,46 @@ export function renderSettings(container) {
         try {
             await api.importAll({ tickets: [], features: [], epics: [], members: [], teams: [], groups: [], absences: [], support: [], sprint: [], pi: [] }, 'replace');
             await reloadAndRender(container);
-            toast('Donnees supprimees', 'info');
+            toast('Données supprimées', 'info');
         } catch (e) { toast(e.message, 'error'); }
     });
+
+    // Préremplissage selon l'équipe active selon la section cible
+    const _incomingSection = store.get('settingsSection') ||
+        (location.hash.startsWith('#settings/') ? location.hash.slice(10) : null);
+    const _activeTeam = store.get('team');
+    const _hasTeam = _activeTeam && _activeTeam !== 'all';
+
+    if (_incomingSection === 'rotation' && _hasTeam) {
+        // Dépiler le panneau rotation de l'équipe
+        _rotSetCollapsed(_activeTeam, false);
+        requestAnimationFrame(() => {
+            const panel = container.querySelector(`#rot-panel-${CSS.escape(_activeTeam)}`);
+            panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+
+    if (_incomingSection === 'membres' && _hasTeam) {
+        const mf = container.querySelector('#member-filter');
+        if (mf) { mf.value = _activeTeam; _memberFilterRows(); }
+    }
+
+    if ((_incomingSection === 'absences-conges' || _incomingSection?.startsWith('absences')) && _hasTeam) {
+        const af = container.querySelector('#abs-filter');
+        const afc = container.querySelector('#abs-filter-count');
+        if (af) {
+            af.value = _activeTeam;
+            // Ouvrir le details et déclencher le filtre
+            container.querySelector('#abs-list-details')?.setAttribute('open', '');
+            let visible = 0;
+            container.querySelectorAll('#abs-tbody .abs-row').forEach(row => {
+                const match = (row.dataset.search || '').includes(_activeTeam.toLowerCase());
+                row.style.display = match ? '' : 'none';
+                if (match) visible++;
+            });
+            if (afc) afc.textContent = `${visible} résultat${visible > 1 ? 's' : ''}`;
+        }
+    }
 
     // Activation du système de tabs (post-render — slugify titres + nav + display switch)
     _settingsApplyTabs(container);
@@ -2083,12 +2786,40 @@ function _settingsApplyTabs(container) {
 
     const nav = container.querySelector('#settings-tabs');
     if (!nav) return;
-    nav.innerHTML = tabs.map(t =>
+
+    // Groupes de tabs — l'ordre et les slugs doivent correspondre aux titres h3 des sections
+    const TAB_GROUPS = [
+        { label: 'Équipe',        slugs: ['lignes-produit-groupes', 'equipes', 'membres', 'capacite-dev-de-travail-par-role', 'absences-conges'] },
+        { label: 'Planning',      slugs: ['sprint-pi', 'rotation-support', 'faits-marquants', 'rappels-ceremonies'] },
+        { label: 'Intégrations',  slugs: ['calendriers-ics', 'plugin-jira-optionnel'] },
+        { label: 'Système',       slugs: ['donnees', 'a-propos'] },
+    ];
+
+    const _tabBtn = t =>
         `<button class="stg-tab" data-stg-tab="${esc(t.slug)}" style="--tab-color:${t.color}" title="${esc(t.title)}">
             <span class="stg-tab-icon">${t.icon}</span>
             <span class="stg-tab-label">${esc(t.title)}</span>
-        </button>`
-    ).join('');
+        </button>`;
+
+    // Construit les groupes — les tabs non matchées tombent dans "Autres"
+    const assignedSlugs = new Set(TAB_GROUPS.flatMap(g => g.slugs));
+    const unassigned = tabs.filter(t => !assignedSlugs.has(t.slug));
+
+    const groupsHtml = TAB_GROUPS.map(g => {
+        const groupTabs = tabs.filter(t => g.slugs.includes(t.slug))
+            .sort((a, b) => g.slugs.indexOf(a.slug) - g.slugs.indexOf(b.slug));
+        if (!groupTabs.length) return '';
+        return `<div class="stg-tab-group">
+            <span class="stg-tab-group-label">${esc(g.label)}</span>
+            <div class="stg-tab-group-items">${groupTabs.map(_tabBtn).join('')}</div>
+        </div>`;
+    }).join('');
+
+    const othersHtml = unassigned.length
+        ? `<div class="stg-tab-group"><span class="stg-tab-group-label">Autres</span><div class="stg-tab-group-items">${unassigned.map(_tabBtn).join('')}</div></div>`
+        : '';
+
+    nav.innerHTML = groupsHtml + othersHtml;
 
     const activate = (slug, { syncHash = true } = {}) => {
         const found = tabs.find(t => t.slug === slug) || tabs[0];
@@ -2215,8 +2946,50 @@ function _rotWirePanelEvents(container) {
         });
     });
 
+    // Toggle verrouillage manuel d'une semaine (future) — préservée lors d'un shuffle
+    container.querySelectorAll('[data-rot-lock]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const { rotLock: team, weekStart, weekEnd } = btn.dataset;
+            const support  = store.get('support') || [];
+            const existing = support.find(s => s.team === team && s.weekStart === weekStart);
+            try {
+                if (existing) {
+                    await api.updateSupport(existing.id, { locked: !existing.locked });
+                } else {
+                    // Verrouille une semaine vide : crée l'entrée avec locked: true
+                    const mpw = parseInt(localStorage.getItem(`rot-mpw-${team}`)) || 2;
+                    const label = btn.closest('.rot-wk-th')?.querySelector('.rot-wk-label')?.textContent || '';
+                    await api.createSupport({ team, weekLabel: label, weekStart, weekEnd, members: [], weekMode: getSupportWeekMode(team), membersPerWeek: mpw, locked: true });
+                }
+                await _rotRefreshPanels(container);
+            } catch (err) { toast(err.message, 'error'); }
+        });
+    });
+
+    // Toggle déverrouillage EXCEPTIONNEL d'une semaine passée — la rend modifiable
+    container.querySelectorAll('[data-rot-unlock]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const { rotUnlock: team, weekStart, weekEnd } = btn.dataset;
+            const support  = store.get('support') || [];
+            const existing = support.find(s => s.team === team && s.weekStart === weekStart);
+            try {
+                if (existing) {
+                    await api.updateSupport(existing.id, { unlocked: !existing.unlocked });
+                } else {
+                    // Crée une entrée vide déverrouillée pour permettre l'édition d'une semaine passée vide
+                    const mpw = parseInt(localStorage.getItem(`rot-mpw-${team}`)) || 2;
+                    const label = btn.closest('.rot-wk-th')?.querySelector('.rot-wk-label')?.textContent || '';
+                    await api.createSupport({ team, weekLabel: label, weekStart, weekEnd, members: [], weekMode: getSupportWeekMode(team), membersPerWeek: mpw, unlocked: true });
+                }
+                await _rotRefreshPanels(container);
+            } catch (err) { toast(err.message, 'error'); }
+        });
+    });
+
     // Toggle cellule membre ↔ semaine
-    container.querySelectorAll('[data-rot-cell]').forEach(btn => {
+    container.querySelectorAll('[data-rot-cell]:not([disabled])').forEach(btn => {
         btn.addEventListener('click', async () => {
             const { rotCell: team, member, weekStart, weekEnd, weekLabel } = btn.dataset;
             const support  = store.get('support') || [];
@@ -2441,6 +3214,26 @@ function _detectSprintsPerPI(piNum, fallback) {
     return maxIdx > 0 ? Math.max(maxIdx, fallback) : fallback;
 }
 
+/** Date de début du sprint .1 d'un PI = date MAJORITAIRE parmi les équipes.
+ *  Évite qu'un sprint JIRA mal daté d'1 jour (ex: jeudi au lieu de vendredi) décale
+ *  le snap d'une semaine entière. Retourne 'YYYY-MM-DD' ou '' si aucun sprint trouvé. */
+function _jiraSprint1Start(piNum) {
+    if (!piNum) return '';
+    const all = store.get('sprintInfo')?.teamSprints || [];
+    const counts = {};
+    for (const s of all) {
+        const m = String(s.name || '').match(/\b(\d{2,})\.(\d+)/);
+        if (m && parseInt(m[1]) === piNum && parseInt(m[2]) === 1 && s.startDate) {
+            const d = String(s.startDate).slice(0, 10);
+            counts[d] = (counts[d] || 0) + 1;
+        }
+    }
+    const entries = Object.entries(counts);
+    if (!entries.length) return '';
+    // Plus fréquent d'abord ; à égalité, la date la plus tardive (souvent le vrai vendredi vs jeudi mal daté)
+    return entries.sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0]))[0][0];
+}
+
 /** Génère les semaines du PI courant et suivant pour une équipe.
  *  Si pas d'équipe, utilise le mode par défaut. */
 function _rotBuildPiWeeks(team = null) {
@@ -2456,12 +3249,14 @@ function _rotBuildPiWeeks(team = null) {
     const localCfg  = basePiNum ? (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${basePiNum}`) || 'null'); } catch { return null; } })() : null;
     // Nombre de sprints : localStorage > détecté depuis JIRA (gère le 6e sprint) > piInfo > 5
     const baseSprintsCnt = _detectSprintsPerPI(basePiNum, localCfg?.sprintsPerPI || piInfoRaw?.sprintsPerPI || 5);
-    // Toujours corriger number avec basePiNum (dérivé du sprint actif) + startDate locale si disponible
+    // startDate : JIRA (date majoritaire du sprint .1) prime sur localStorage périmé.
+    const _resolvedStart = _jiraSprint1Start(basePiNum) || localCfg?.startDate || piInfoRaw?.startDate;
+    // Toujours corriger number avec basePiNum (dérivé du sprint actif) + startDate résolue
     const piInfo = {
         ...piInfoRaw,
         number: basePiNum || piInfoRaw?.number,
         sprintsPerPI: baseSprintsCnt,
-        ...(localCfg?.startDate ? { startDate: localCfg.startDate } : {}),
+        ...(_resolvedStart ? { startDate: _resolvedStart } : {}),
     };
 
     const base      = buildSupportPiWeeks(piInfo, sprintInfo, mode);
@@ -2474,17 +3269,18 @@ function _rotBuildPiWeeks(team = null) {
     const targetPiNum = basePiNum ? Math.max(1, basePiNum + _rotPiOff()) : base.curPiNum;
     const wps = Math.max(1, Math.floor(sprintDur / 7));
 
-    // Pour les PI précédents, cherche leur startDate dans localStorage
+    // startDate du PI cible : JIRA (date majoritaire du sprint .1) prime sur localStorage périmé.
     const targetCfg = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${targetPiNum}`) || 'null'); } catch { return null; } })();
+    const _targetStart = _jiraSprint1Start(targetPiNum) || targetCfg?.startDate || '';
     let curStart = base.curWeeks[0]?.weekStart;
 
-    // Si le PI cible a sa propre startDate, l'utilise directement
-    if (targetCfg?.startDate) {
+    // Si le PI cible a sa propre startDate (JIRA ou locale), l'utilise directement
+    if (_targetStart) {
         // Calcule les semaines depuis la startDate du PI cible
         const selectedWeeks = [];
         for (let s = 0; s < sprintCnt; s++) {
             for (let w = 0; w < wps; w++) {
-                const d = new Date(targetCfg.startDate + 'T00:00:00');
+                const d = new Date(_targetStart + 'T00:00:00');
                 d.setDate(d.getDate() + s * sprintDur + w * 7);
                 const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
                 const wStart = fmt(d);
@@ -2544,6 +3340,13 @@ function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
     const today    = new Date().toISOString().slice(0, 10);
     const showNext = _rotPiOff() > 0; // pour les classes CSS existantes
 
+    // Snapshot des membres du PI affiché (gère le turnover PI à PI). Si présent → prime sur la
+    // dérivation absences ; sinon fallback sur `members` (dérivé du CSV courant).
+    const piMembersMap = store.get('piInfo')?.piMembers || {};
+    const piSnapshot   = piMembersMap[String(_sp || curPiNum)] || null;
+    const effectiveMembers = (piSnapshot && piSnapshot.length) ? piSnapshot : members;
+    const _usingSnapshot = !!(piSnapshot && piSnapshot.length);
+
     // Match tolérant entre équipes config app et équipes du CSV RH (cf. piège #5 agent debugger)
     const _norm = s => (s || '').toLowerCase().trim();
     const _matchTeam = (memberTeam, target) => {
@@ -2555,7 +3358,7 @@ function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
     const panels = teamNames.map(teamName => {
         const teamObj   = teamObjects.find(t => (typeof t === 'string' ? t : t.name) === teamName);
         const teamColor = (typeof teamObj === 'object' ? teamObj?.color : null) || '#64748b';
-        const teamMembers = _sortSupportMembers(members.filter(m => _matchTeam(m.team, teamName)).map(m => m.name));
+        const teamMembers = _sortSupportMembers(effectiveMembers.filter(m => _matchTeam(m.team, teamName)).map(m => m.name));
         if (!teamMembers.length) return '';
         const teamSupport = support.filter(s => _matchTeam(s.team, teamName));
         const { selectedWeeks, selectedPiNum } = _rotBuildPiWeeks(teamName);
@@ -2576,7 +3379,10 @@ function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
             : '<p class="text-muted text-sm">Ajoutez des membres aux équipes (ou importez le CSV congés) pour configurer la rotation.</p>';
     }
 
-    return panels || emptyHint;
+    const snapshotBanner = _usingSnapshot
+        ? `<div class="rot-snapshot-banner">👥 Membres du <strong>snapshot PI ${esc(String(_sp || curPiNum))}</strong> (figés à l'import CSV). <span class="text-muted">Le turnover d'autres PI n'affecte pas cette vue.</span></div>`
+        : '';
+    return snapshotBanner + (panels || emptyHint);
 }
 
 /** Rend le panneau d'une équipe avec sa grille membre×semaine. Le switch PI sélectionne
@@ -2620,12 +3426,39 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
         </div>`;
     }
 
+    // Détermine l'état de verrou d'une semaine
+    // - Passé : verrouillé par défaut, déverrouillable exceptionnellement via `unlocked: true`
+    // - Futur : déverrouillé par défaut, verrouillable manuellement via `locked: true`
+    const _weekLockState = (w) => {
+        const entry = teamSupport.find(s => s.weekStart === w.weekStart);
+        const isPast = w.weekEnd < today;
+        const isManualLocked   = !!entry?.locked;     // verrou manuel (futur)
+        const isPastUnlocked   = !!entry?.unlocked;   // déverrou exceptionnel (passé)
+        // Verrouillé si : (passé ET non déverrouillé exceptionnellement) OU verrou manuel
+        const isLocked = (isPast && !isPastUnlocked) || isManualLocked;
+        return { isPast, isManualLocked, isPastUnlocked, isLocked, entry };
+    };
+
     // ── Helpers cellule ────────────────────────────────────────────────────────
     const mkWeekTh = (w, isNext) => {
         const isCur = today >= w.weekStart && today <= w.weekEnd;
-        return `<th class="rot-wk-th${isCur ? ' rot-wk-current' : ''}${isNext ? ' rot-wk-next-pi' : ''}">
+        const { isPast, isManualLocked, isPastUnlocked } = _weekLockState(w);
+        let lockBtn;
+        if (isPast) {
+            // Passé : cadenas cliquable pour déverrouiller/reverrouiller exceptionnellement
+            lockBtn = `<button class="rot-wk-lock rot-wk-lock--past${isPastUnlocked ? ' is-unlocked' : ''}"
+                    data-rot-unlock="${esc(teamName)}" data-week-start="${w.weekStart}" data-week-end="${w.weekEnd}"
+                    title="${isPastUnlocked ? 'Semaine passée déverrouillée exceptionnellement — clic pour reverrouiller' : 'Semaine passée verrouillée — clic pour déverrouiller exceptionnellement'}">${isPastUnlocked ? '🔓' : '🔒'}</button>`;
+        } else {
+            // Futur : verrouillage manuel
+            lockBtn = `<button class="rot-wk-lock rot-wk-lock--manual${isManualLocked ? ' is-locked' : ''}"
+                    data-rot-lock="${esc(teamName)}" data-week-start="${w.weekStart}" data-week-end="${w.weekEnd}"
+                    title="${isManualLocked ? 'Verrouillée manuellement — clic pour déverrouiller' : 'Cliquer pour verrouiller (préservée lors d’un shuffle)'}">${isManualLocked ? '🔒' : '🔓'}</button>`;
+        }
+        return `<th class="rot-wk-th${isCur ? ' rot-wk-current' : ''}${isNext ? ' rot-wk-next-pi' : ''}${isPast ? ' rot-wk-past' : ''}${isManualLocked ? ' rot-wk-locked' : ''}${isPastUnlocked ? ' rot-wk-unlocked' : ''}">
             <span class="rot-wk-label">${w.label}</span>
             <span class="rot-wk-dates">${_rotFmtShort(w.weekStart)}</span>
+            ${lockBtn}
         </th>`;
     };
 
@@ -2636,6 +3469,7 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
         const absent  = absDays >= 2.5;
         const partial = absDays > 0 && !absent;
         const isCur   = today >= w.weekStart && today <= w.weekEnd;
+        const { isLocked, isPast } = _weekLockState(w);
         const absBadge = absDays > 0
             ? `<span class="rot-abs-badge${absent ? ' rot-abs-full' : ''}" title="${absDays}j congé">${absDays % 1 ? absDays.toFixed(1) : absDays}j</span>`
             : '';
@@ -2645,17 +3479,21 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
             partial ? 'rot-cell-partial' : '',
             isCur   ? 'rot-cell-current' : '',
             isNext  ? 'rot-cell-next-pi' : '',
+            isLocked ? 'rot-cell-locked' : '',
         ].filter(Boolean).join(' ');
+        // Semaine verrouillée (passée ou manuelle) → cellule non éditable
+        const lockTitle = isPast ? 'Semaine passée — verrouillée' : 'Semaine verrouillée';
         return `<td class="${cls}">
             ${absBadge}
-            <button class="rot-chip${sel ? ' rot-chip-on' : ''}"
+            <button class="rot-chip${sel ? ' rot-chip-on' : ''}${isLocked ? ' rot-chip-locked' : ''}"
                 style="${sel ? `background:${teamColor}22;color:${teamColor};border-color:${teamColor}` : ''}"
+                ${isLocked ? `disabled title="${lockTitle}"` : ''}
                 data-rot-cell="${esc(teamName)}"
                 data-member="${esc(member)}"
                 data-week-start="${w.weekStart}"
                 data-week-end="${w.weekEnd}"
                 data-week-label="${w.label}"
-            >${sel ? '✓' : '+'}</button>
+            >${sel ? '✓' : isLocked ? '·' : '+'}</button>
         </td>`;
     };
 

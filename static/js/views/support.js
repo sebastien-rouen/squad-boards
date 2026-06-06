@@ -41,6 +41,102 @@ function _slaCss(days) {
     return 'success';
 }
 
+// ── Hero-cards rotation : vue par équipe ou par ligne produit (groupe) ────────
+function _supHeroView() {
+    const v = localStorage.getItem('sup-hero-view');
+    return v === 'group' ? 'group' : 'team';
+}
+
+/** Rend une carte de rotation pour une équipe (couleur de l'équipe). */
+function _heroCard(rot, teamObjects, absences) {
+    const tObj   = teamObjects.find(o => o.name === rot.team);
+    const color  = tObj?.color || '#6366f1';
+    const wStart = rot.weekStart || '';
+    const wEnd   = rot.weekEnd   || '';
+    const sMs = wStart ? new Date(wStart + 'T00:00:00').getTime() : 0;
+    const eMs = wEnd   ? new Date(wEnd   + 'T23:59:59').getTime() : 0;
+    const now = Date.now();
+    const total = eMs - sMs;
+    const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((now - sMs) / total * 100))) : 0;
+    const remaining = eMs > now ? Math.ceil((eMs - now) / 86400000) : 0;
+    const remainTxt = remaining === 0 ? 'Dernier jour' : remaining === 1 ? '1j restant' : `${remaining}j restants`;
+    const memberChips = (rot.members || []).map(m => {
+        const absent = supportAbsenceDays(m, wStart, wEnd, absences) >= 3;
+        return `<div class="sup-hero-member${absent ? ' is-absent' : ''}" title="${esc(m)}${absent ? ' · absent ≥ 3j' : ''}">
+            ${_avatar(m, 36)}
+            <div class="sup-hero-member-info">
+                <span class="sup-hero-member-name">${esc(m)}</span>
+                ${absent ? '<span class="sup-hero-member-tag sup-hero-member-tag--absent">Absent</span>'
+                          : '<span class="sup-hero-member-tag sup-hero-member-tag--avail">Disponible</span>'}
+            </div>
+        </div>`;
+    }).join('');
+    return `
+    <div class="sup-hero-card" style="--team-color:${color}">
+        <div class="sup-hero-card-hdr">
+            <div class="sup-hero-card-team">
+                <span class="team-dot" style="background:${color}"></span>
+                <strong>${esc(rot.team)}</strong>
+            </div>
+            <span class="sup-hero-card-badge">EN COURS</span>
+        </div>
+        <div class="sup-hero-card-meta">
+            <span class="sup-hero-card-week">📆 ${esc(rot.weekLabel || '')}</span>
+            <span class="sup-hero-card-dates">${_fmtDay(wStart)} → ${_fmtDay(wEnd)}</span>
+            <span class="sup-hero-card-remain ${remaining <= 1 ? 'is-urgent' : ''}">${remainTxt}</span>
+        </div>
+        <div class="sup-hero-card-progress" title="Progression de la semaine : ${pct}%">
+            <div class="sup-hero-card-progress-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="sup-hero-card-members">
+            ${memberChips || '<span class="text-muted text-xs">Aucun membre assigné</span>'}
+        </div>
+    </div>`;
+}
+
+/** Rend la rotation : grille à plat (vue équipe) ou groupée par ligne produit (vue groupe). */
+function _renderHeroRotation(curRot, teamObjects, groups, absences) {
+    const _norm = s => (s || '').toLowerCase().trim();
+
+    // Vue par équipe (défaut) ou pas de groupes configurés
+    if (_supHeroView() === 'team' || !groups.length) {
+        return `<div class="sup-hero-grid">${curRot.map(r => _heroCard(r, teamObjects, absences)).join('')}</div>`;
+    }
+
+    // Vue par ligne produit : regroupe les rotations sous chaque groupe
+    const assigned = new Set();
+    const groupBlocks = groups.map(g => {
+        const groupTeams = (g.teams || []).map(_norm);
+        const rotInGroup = curRot.filter(r => groupTeams.includes(_norm(r.team)));
+        rotInGroup.forEach(r => assigned.add(r));
+        if (!rotInGroup.length) return '';
+        const gColor = g.color || '#64748b';
+        return `
+        <div class="sup-hero-group" style="--group-color:${gColor}">
+            <div class="sup-hero-group-hdr">
+                <span class="sup-hero-group-dot" style="background:${gColor}"></span>
+                <span class="sup-hero-group-name">${esc(g.name)}</span>
+                <span class="sup-hero-group-count">${rotInGroup.length} équipe${rotInGroup.length > 1 ? 's' : ''}</span>
+            </div>
+            <div class="sup-hero-grid">${rotInGroup.map(r => _heroCard(r, teamObjects, absences)).join('')}</div>
+        </div>`;
+    }).join('');
+
+    // Équipes hors de tout groupe → bloc "Autres"
+    const orphans = curRot.filter(r => !assigned.has(r));
+    const orphanBlock = orphans.length ? `
+        <div class="sup-hero-group sup-hero-group--other">
+            <div class="sup-hero-group-hdr">
+                <span class="sup-hero-group-dot" style="background:var(--text-muted)"></span>
+                <span class="sup-hero-group-name">Autres équipes</span>
+                <span class="sup-hero-group-count">${orphans.length}</span>
+            </div>
+            <div class="sup-hero-grid">${orphans.map(r => _heroCard(r, teamObjects, absences)).join('')}</div>
+        </div>` : '';
+
+    return `<div class="sup-hero-groups">${groupBlocks}${orphanBlock}</div>`;
+}
+
 export function renderSupport(container) {
     const team      = store.get('team');
     const allTickets = store.get('tickets') || [];
@@ -100,59 +196,17 @@ export function renderSupport(container) {
 
         <!-- Rotation actuelle (hero-cards) -->
         <div class="pi-section mb-4">
-            <h3 class="pi-section-title">🛎️ Rotation cette semaine</h3>
-            ${curRot.length ? `
-            <div class="sup-hero-grid">
-                ${curRot.map(rot => {
-                    const tObj = teamObjects.find(o => o.name === rot.team);
-                    const color = tObj?.color || '#6366f1';
-                    const _today = new Date().toISOString().slice(0, 10);
-                    const wStart = rot.weekStart || '';
-                    const wEnd   = rot.weekEnd   || '';
-                    // Progression dans la semaine
-                    const sMs = wStart ? new Date(wStart + 'T00:00:00').getTime() : 0;
-                    const eMs = wEnd   ? new Date(wEnd   + 'T23:59:59').getTime() : 0;
-                    const now = Date.now();
-                    const total = eMs - sMs;
-                    const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((now - sMs) / total * 100))) : 0;
-                    const remaining = eMs > now ? Math.ceil((eMs - now) / 86400000) : 0;
-                    const remainTxt = remaining === 0 ? 'Dernier jour' : remaining === 1 ? '1j restant' : `${remaining}j restants`;
-                    // Membres + état absence
-                    const absences = store.get('absences') || [];
-                    const memberChips = (rot.members || []).map(m => {
-                        const absent = supportAbsenceDays(m, wStart, wEnd, absences) >= 3;
-                        return `<div class="sup-hero-member${absent ? ' is-absent' : ''}" title="${esc(m)}${absent ? ' · absent ≥ 3j' : ''}">
-                            ${_avatar(m, 36)}
-                            <div class="sup-hero-member-info">
-                                <span class="sup-hero-member-name">${esc(m)}</span>
-                                ${absent ? '<span class="sup-hero-member-tag sup-hero-member-tag--absent">Absent</span>'
-                                          : '<span class="sup-hero-member-tag sup-hero-member-tag--avail">Disponible</span>'}
-                            </div>
-                        </div>`;
-                    }).join('');
-                    return `
-                    <div class="sup-hero-card" style="--team-color:${color}">
-                        <div class="sup-hero-card-hdr">
-                            <div class="sup-hero-card-team">
-                                <span class="team-dot" style="background:${color}"></span>
-                                <strong>${esc(rot.team)}</strong>
-                            </div>
-                            <span class="sup-hero-card-badge">EN COURS</span>
-                        </div>
-                        <div class="sup-hero-card-meta">
-                            <span class="sup-hero-card-week">📆 ${esc(rot.weekLabel || '')}</span>
-                            <span class="sup-hero-card-dates">${_fmtDay(wStart)} → ${_fmtDay(wEnd)}</span>
-                            <span class="sup-hero-card-remain ${remaining <= 1 ? 'is-urgent' : ''}">${remainTxt}</span>
-                        </div>
-                        <div class="sup-hero-card-progress" title="Progression de la semaine : ${pct}%">
-                            <div class="sup-hero-card-progress-fill" style="width:${pct}%;background:${color}"></div>
-                        </div>
-                        <div class="sup-hero-card-members">
-                            ${memberChips || '<span class="text-muted text-xs">Aucun membre assigné</span>'}
-                        </div>
-                    </div>`;
-                }).join('')}
-            </div>` : `<div class="empty-state"><p>🪂 Aucune rotation définie pour cette semaine. Génère depuis la timeline ci-dessous.</p></div>`}
+            <div class="sup-hero-hdr">
+                <h3 class="pi-section-title">🛎️ Rotation cette semaine</h3>
+                ${curRot.length && (store.get('groups') || []).length ? `
+                <div class="sup-hero-view-toggle" role="tablist" aria-label="Mode d'affichage">
+                    <button class="sup-hero-view-btn${_supHeroView() === 'team' ? ' is-active' : ''}" data-hero-view="team" role="tab" title="Vue par équipe">👥 Équipes</button>
+                    <button class="sup-hero-view-btn${_supHeroView() === 'group' ? ' is-active' : ''}" data-hero-view="group" role="tab" title="Vue par ligne produit">🌳 Lignes produit</button>
+                </div>` : ''}
+            </div>
+            ${curRot.length
+                ? _renderHeroRotation(curRot, teamObjects, store.get('groups') || [], store.get('absences') || [])
+                : `<div class="empty-state"><p>🪂 Aucune rotation définie pour cette semaine. Génère depuis la timeline ci-dessous.</p></div>`}
         </div>
 
         <!-- Timeline rotation PI + génération -->
@@ -183,34 +237,57 @@ export function renderSupport(container) {
 
         <!-- Liste tickets ouverts -->
         <div class="pi-section">
-            <h3 class="pi-section-title">Tickets ouverts${open.length ? ` (${open.length})` : ''}</h3>
+            <div class="sup-tickets-hdr">
+                <h3 class="pi-section-title">Tickets ouverts${open.length ? ` (${open.length})` : ''}</h3>
+                ${critical > 0 ? `<span class="sup-tickets-crit-badge">🚨 ${critical} critique${critical > 1 ? 's' : ''}</span>` : ''}
+            </div>
             ${sortedOpen.length ? `
-            <div class="card card-flush">
-                <table class="support-table">
-                    <thead><tr>
-                        <th>Ticket</th><th>Priorite</th><th>Equipe</th><th>Responsable</th><th>Age</th><th>Statut</th>
-                    </tr></thead>
-                    <tbody>
-                        ${sortedOpen.map(t => {
-                            const days = _daysOpen(t.createdAt);
-                            return `
-                            <tr class="support-ticket-row" data-ticket-id="${esc(t.id)}">
-                                <td class="support-ticket-title">${esc(t.title)}</td>
-                                <td><span class="badge badge-${PRIORITY_CSS[t.priority] || 'info'}">${PRIORITY_LABELS[t.priority] || t.priority}</span></td>
-                                <td class="text-sm">${esc(t.team || '-')}</td>
-                                <td class="text-sm">${esc(t.leader || '-')}</td>
-                                <td><span class="sla-badge sla-${_slaCss(days)}">${days}j</span></td>
-                                <td><span class="badge badge-${t.status}">${esc(t.status)}</span></td>
-                            </tr>`;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>` : `<div class="empty-state"><p>Aucun ticket support ouvert</p></div>`}
+            <div class="sup-ticket-list">
+                ${sortedOpen.map(t => {
+                    const days = _daysOpen(t.createdAt);
+                    const tObj = teamObjects.find(o => o.name === t.team);
+                    const color = tObj?.color || '#64748b';
+                    const STATUS_ICON = { todo: '○', inprog: '●', review: '◑', test: '◕', blocked: '✗' };
+                    const STATUS_COLOR = { todo: 'var(--text-muted)', inprog: 'var(--primary)', review: '#6366f1', test: 'var(--warning)', blocked: 'var(--danger)' };
+                    const stIcon  = STATUS_ICON[t.status]  || '○';
+                    const stColor = STATUS_COLOR[t.status] || 'var(--text-muted)';
+                    const prioColors = { critical: '#dc2626', high: '#f59e0b', medium: '#3b82f6', low: '#10b981' };
+                    const prioColor = prioColors[t.priority] || '#94a3b8';
+                    return `
+                    <div class="sup-ticket-card" data-ticket-id="${esc(t.id)}" style="--prio-color:${prioColor};--team-color:${color}">
+                        <div class="sup-ticket-left">
+                            <span class="sup-ticket-status-icon" style="color:${stColor}" title="${esc(t.status)}">${stIcon}</span>
+                        </div>
+                        <div class="sup-ticket-body">
+                            <div class="sup-ticket-title-row">
+                                <span class="sup-ticket-id">${esc(t.id)}</span>
+                                <span class="sup-ticket-title">${esc(t.title)}</span>
+                            </div>
+                            <div class="sup-ticket-meta">
+                                ${t.team ? `<span class="sup-ticket-team" style="--team-color:${color}"><span class="sup-ticket-team-dot"></span>${esc(t.team)}</span>` : ''}
+                                ${t.leader ? `<span class="sup-ticket-leader">👤 ${esc(t.leader)}</span>` : ''}
+                                ${t.priority ? `<span class="sup-ticket-prio" style="color:${prioColor};background:${prioColor}18;border-color:${prioColor}44">${PRIORITY_LABELS[t.priority] || t.priority}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="sup-ticket-right">
+                            <span class="sla-badge sla-${_slaCss(days)}" title="${days} jours ouvert">${days}j</span>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>` : `<div class="empty-state"><p>✅ Aucun ticket support ouvert</p></div>`}
         </div>
     `;
 
     container.querySelectorAll('.support-ticket-row').forEach(row => {
         row.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(row.dataset.ticketId));
+    });
+
+    // Toggle vue équipe / ligne produit pour les hero-cards
+    container.querySelectorAll('[data-hero-view]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            localStorage.setItem('sup-hero-view', btn.dataset.heroView);
+            if (typeof window.__squadBoard?.rerenderView === 'function') window.__squadBoard.rerenderView();
+        });
     });
 
     // Wiring boutons de génération de la timeline
@@ -219,20 +296,66 @@ export function renderSupport(container) {
 
 // ── Timeline PI + génération ─────────────────────────────────────────────────
 function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, members, piInfo, sprintInfo) {
-    const { curWeeks, nextWeeks, curPiNum, nextPiNum } = buildSupportPiWeeks(piInfo, sprintInfo);
-    if (!curWeeks.length) {
+    const piOffset = store.get('piOffset') || 0;
+
+    // Calcule les semaines du PI cible en suivant exactement la même logique que
+    // _rotBuildPiWeeks (settings.js) : priorité localStorage pi-cfg-<N>, offset arbitraire.
+    // Priorité : PI dérivé du sprint JIRA actif (ex: "Fuego - Ité 29.3" → 29)
+    // Évite le décalage quand piInfo.number pointe déjà vers le PI suivant
+    const _piFromSprint = parseInt((sprintInfo?.name?.match(/(\d+)\.\d+/) || sprintInfo?.name?.match(/PI\s*#?\s*(\d+)/i) || [])[1] || 0);
+    const _basePiNum = _piFromSprint || piInfo?.number || 0;
+    const _lsCfg = n => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${n}`) || 'null'); } catch { return null; } };
+    const _baseCfg    = _lsCfg(_basePiNum);
+    const _sprintDur  = _baseCfg?.sprintDuration  || piInfo?.sprintDuration  || 14;
+    const _sprintCnt  = _baseCfg?.sprintsPerPI     || piInfo?.sprintsPerPI    || 5;
+    const _baseStart  = _baseCfg?.startDate        || piInfo?.startDate       || null;
+
+    // Résout les semaines du PI courant via buildSupportPiWeeks (gère le snap + dérivation)
+    const _piInfoBase = { ...piInfo, number: _basePiNum, sprintsPerPI: _sprintCnt, sprintDuration: _sprintDur, ...(_baseStart ? { startDate: _baseStart } : {}) };
+    const _base = buildSupportPiWeeks(_piInfoBase, sprintInfo);
+    if (!_base.curWeeks.length) {
         return `<div class="pi-section mb-4">
             <h3 class="pi-section-title">Rotation du PI</h3>
             <p class="text-muted text-sm">Configure d'abord le PI (numéro + dates) dans <strong>Paramètres → PI</strong>.</p>
         </div>`;
     }
+
+    const _fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    const _addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _fmt(d); };
+    const wps = Math.max(1, Math.floor(_sprintDur / 7));
+
+    const _weeksForOffset = (off) => {
+        const targetPiNum = Math.max(1, _basePiNum + off);
+        const targetCfg   = _lsCfg(targetPiNum);
+        const targetStart = targetCfg?.startDate
+            ? targetCfg.startDate
+            : _addDays(_base.curWeeks[0].weekStart, off * _sprintCnt * _sprintDur);
+        const targetCnt   = targetCfg?.sprintsPerPI || _sprintCnt;
+        const weeks = [];
+        for (let s = 0; s < targetCnt; s++) {
+            for (let w = 0; w < wps; w++) {
+                const wStart = _addDays(targetStart, s * _sprintDur + w * 7);
+                const wEnd   = _addDays(wStart, 6);
+                weeks.push({ label: `${targetPiNum}.${s+1}.${w+1}`, weekStart: wStart, weekEnd: wEnd });
+            }
+        }
+        return { weeks, piNum: targetPiNum };
+    };
+
+    const { weeks: displayWeeks, piNum: displayPiNum } = _weeksForOffset(piOffset);
+
+    // piInfoResolved pour le recalcul par équipe (mode semaine spécifique)
+    const piInfoResolved = _piInfoBase;
+    const curWeeks  = _base.curWeeks;
+    const nextWeeks = _base.nextWeeks;
+    const curPiNum  = _base.curPiNum;
+
     // Quelles équipes afficher ?
     const targetTeams = (teamFilter && teamFilter !== 'all')
         ? [teamFilter]
         : teams.slice();
-    const showNext = localStorage.getItem('sup-show-next-pi') === 'true';
     const showPast = localStorage.getItem('sup-show-past') === 'true';   // OFF par défaut
-    const allWeeks = showNext ? [...curWeeks, ...nextWeeks] : curWeeks;
+    const allWeeks = displayWeeks;
     const today = new Date().toISOString().slice(0, 10);
     // Filtrage du passé : on garde uniquement les semaines en cours + futures, sauf si l'utilisateur a explicitement demandé l'historique.
     const visibleWeeks = showPast ? allWeeks : allWeeks.filter(w => w.weekEnd >= today);
@@ -253,10 +376,18 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
         // Mode semaine par équipe (vendredi par défaut = 1er jour de sprint typique).
         // Si différent du mode global utilisé pour le calcul des semaines, on recalcule POUR cette équipe.
         const teamMode = getSupportWeekMode(team);
-        const { curWeeks: teamCurWeeks, nextWeeks: teamNextWeeks } = (teamMode === SUPPORT_WEEK_MODE_DEFAULT)
-            ? { curWeeks, nextWeeks }
-            : buildSupportPiWeeks(piInfo, sprintInfo, teamMode);
-        const teamAllWeeks = showNext ? [...teamCurWeeks, ...teamNextWeeks] : teamCurWeeks;
+        // Recalcule les semaines pour le mode de cette équipe si différent du défaut
+        const teamAllWeeks = (teamMode === SUPPORT_WEEK_MODE_DEFAULT)
+            ? displayWeeks
+            : (() => {
+                const modeSnap = (SUPPORT_WEEK_MODES[teamMode] || SUPPORT_WEEK_MODES[SUPPORT_WEEK_MODE_DEFAULT]).dow;
+                const _snapDow = iso => { const d = new Date(iso + 'T00:00:00'); const back = (d.getDay() - modeSnap + 7) % 7; d.setDate(d.getDate() - back); return _fmt(d); };
+                return displayWeeks.map(w => {
+                    const wStart = _snapDow(w.weekStart);
+                    const wEnd   = _addDays(wStart, 6);
+                    return { ...w, weekStart: wStart, weekEnd: wEnd };
+                });
+            })();
         const teamVisibleWeeks = showPast ? teamAllWeeks : teamAllWeeks.filter(w => w.weekEnd >= today);
         const modeLabel = SUPPORT_WEEK_MODES[teamMode]?.label || teamMode;
 
@@ -268,7 +399,7 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
         }
 
         // Détection PI-frontière pour l'affichage de séparateurs (PI courant vs suivant)
-        const curWeekKeys = new Set(teamCurWeeks.map(w => `${w.weekStart}|${w.weekEnd}`));
+        const curWeekKeys = new Set(curWeeks.map(w => `${w.weekStart}|${w.weekEnd}`));
 
         const rows = teamVisibleWeeks.map(w => {
             const rot = teamSupport.find(s => s.weekStart === w.weekStart && s.weekEnd === w.weekEnd);
@@ -346,8 +477,8 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
                     </label>
                 </div>
                 <div class="sup-table-panel-actions">
-                    <button class="btn btn-sm btn-primary" data-sup-shuffle="${esc(team)}" title="Génère la rotation PI ${curPiNum} (passé préservé)">🎲 Générer PI${curPiNum}</button>
-                    ${nextPiNum ? `<button class="btn btn-sm btn-secondary" data-sup-shuffle-next="${esc(team)}" title="Génère la rotation PI ${nextPiNum}">🎲 PI${nextPiNum}</button>` : ''}
+                    <button class="btn btn-sm btn-primary" data-sup-shuffle="${esc(team)}" title="Génère la rotation PI ${displayPiNum} (passé préservé)">🎲 Générer PI${displayPiNum}</button>
+                    ${_base.nextPiNum ? `<button class="btn btn-sm btn-secondary" data-sup-shuffle-next="${esc(team)}" title="Génère la rotation PI ${_base.nextPiNum}">🎲 PI${_base.nextPiNum}</button>` : ''}
                     <a class="btn btn-sm btn-secondary" href="#settings/rotation" title="Éditer finement dans Paramètres > Rotation Support">⚙ Édition</a>
                 </div>
             </div>
@@ -382,18 +513,8 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
 
     return `<div class="pi-section mb-4">
         <div class="sup-tl-hdr">
-            <h3 class="pi-section-title">Rotation du PI ${curPiNum || ''}${showNext && nextPiNum ? ` + PI ${nextPiNum}` : ''}</h3>
+            <h3 class="pi-section-title">Rotation du PI ${displayPiNum || ''}</h3>
             <div class="sup-tl-hdr-actions">
-                <div class="rot-pi-switch" role="tablist" aria-label="Périmètre PI affiché">
-                    <button class="rot-pi-switch-btn${!showNext ? ' is-active' : ''}" id="sup-pi-switch-cur" role="tab" aria-selected="${!showNext}" title="Afficher uniquement le PI courant">
-                        <span class="rot-pi-switch-icon">📆</span>
-                        <span>PI ${curPiNum || '?'} <small>courant</small></span>
-                    </button>
-                    <button class="rot-pi-switch-btn${showNext ? ' is-active' : ''}" id="sup-toggle-next" role="tab" aria-selected="${showNext}" title="Inclure le PI suivant">
-                        <span class="rot-pi-switch-icon">➕</span>
-                        <span>PI ${nextPiNum || '?'} <small>suivant</small></span>
-                    </button>
-                </div>
                 ${hiddenPastCount > 0 || showPast ? `
                 <button class="btn btn-sm btn-ghost sup-show-past-btn${showPast ? ' is-on' : ''}" id="sup-toggle-past"
                         title="${showPast ? 'Masquer les semaines passées' : `Afficher les ${hiddenPastCount} semaine(s) passée(s)`}">
@@ -407,16 +528,7 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
 }
 
 function _wirePiTimeline(container) {
-    // Switch 2 segments : chaque bouton ACTIVE son mode (pas un toggle aveugle)
     const _rerender = () => { if (typeof window.__squadBoard?.rerenderView === 'function') window.__squadBoard.rerenderView(); };
-    container.querySelector('#sup-pi-switch-cur')?.addEventListener('click', () => {
-        localStorage.setItem('sup-show-next-pi', 'false');
-        _rerender();
-    });
-    container.querySelector('#sup-toggle-next')?.addEventListener('click', () => {
-        localStorage.setItem('sup-show-next-pi', 'true');
-        _rerender();
-    });
     container.querySelector('#sup-toggle-past')?.addEventListener('click', () => {
         const cur = localStorage.getItem('sup-show-past') === 'true';
         localStorage.setItem('sup-show-past', String(!cur));
@@ -454,7 +566,12 @@ function _wirePiTimeline(container) {
             return;
         }
         const teamMode = getSupportWeekMode(team);
-        const { curWeeks, nextWeeks } = buildSupportPiWeeks(store.get('piInfo'), store.get('sprintInfo'), teamMode);
+        const _rawPiInfo = store.get('piInfo');
+        const _spi = store.get('sprintInfo');
+        const _pn = _rawPiInfo?.number || (_spi?.name?.match(/(\d+)\.\d+/) || [])[1] | 0;
+        const _lc = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${_pn}`) || 'null'); } catch { return null; } })();
+        const _piResolved = _lc ? { ..._rawPiInfo, ...(_lc.startDate ? { startDate: _lc.startDate } : {}), ...(_lc.sprintsPerPI ? { sprintsPerPI: _lc.sprintsPerPI } : {}), ...(_lc.sprintDuration ? { sprintDuration: _lc.sprintDuration } : {}) } : _rawPiInfo;
+        const { curWeeks, nextWeeks } = buildSupportPiWeeks(_piResolved, _spi, teamMode);
         const weeks = includeNext ? nextWeeks : curWeeks;
         const mpw = parseInt(localStorage.getItem(`rot-mpw-${team}`)) || 2;
         const existingSupport = (store.get('support') || []).filter(s => s.team === team);

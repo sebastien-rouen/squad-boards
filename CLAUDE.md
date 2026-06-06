@@ -22,7 +22,7 @@
 - **absence** : id, member_name, team, start_date, end_date, type, days, note
 - **supportrotation** : id, team, week_label, week_start, week_end, members[]
 - **sprintconfig** : name, start_date, end_date, goal
-- **piconfig** : number, name, objectives[]
+- **piconfig** : number, name, objectives[] (PI courant), pi_objectives{} (snapshot par PI), pi_members{} (snapshot par PI)
 
 ## Conventions
 - `leader` = responsable principal (anciennement "assignee")
@@ -41,11 +41,19 @@
   (current + next PI cards/list) et pi.js (onglet Features). Le tooltip explique l'origine.
 
 ## Convention PI (sélecteur topbar + matching features)
-- **Sélecteur PI topbar** (`piOffset` dans le store, valeurs -2..+2) — visible uniquement sur vues `pi`, `picalendar`, `roadmap`
-  (set `PI_VIEWS` dans [topbar.js](static/js/components/topbar.js)). `0 = courant`, `>0 = futur`, `<0 = passé`.
-- **Détection du PI courant (`basePi`)** = `piInfo.number` (configuré dans Settings) > fallback extraction du nom du sprint
-  actif (`piInfo.name` ou `sprintInfo.name`) via regex `(\d+)\.\d+` ou `PI\s*#?\s*(\d+)`. Le sélecteur écoute donc
-  `store.on('sprintInfo')` pour se rafraîchir après sync JIRA. Le sélecteur est masqué si `basePi = 0` (aucun PI dérivable).
+- **Sélecteur PI topbar** (`piOffset` dans le store, valeurs -2..+2) — visible sur les vues du set `PI_VIEWS`
+  (`pi`, `picalendar`, `roadmap`, `settings`, `support`, `dashboard`) dans [topbar.js](static/js/components/topbar.js).
+  `0 = courant`, `>0 = futur`, `<0 = passé`.
+- **⚠ SOURCE UNIQUE du PI courant** = `getCurrentPi({ sprintInfo, piInfo })` ([utils.js](static/js/utils.js)). **Toujours l'utiliser**,
+  ne jamais réimplémenter la regex localement (cause historique de bugs d'affichage entre vues). Règle : **PI du sprint actif JIRA
+  en priorité** (`extractPiNum(sprintInfo.name)` via `(\d+)\.\d+` ou `PI\s*#?\s*(\d+)`) **> fallback `piInfo.number`** (la config
+  Settings peut être obsolète). `extractPiNum(name)` est le helper bas niveau d'extraction. Le sélecteur écoute `store.on('sprintInfo')`
+  pour se rafraîchir après sync JIRA ; masqué si PI = 0.
+- **Désync config/sprint** : si `piInfo.number` ≠ PI du sprint actif, un bandeau ⚠️ « Recaler sur PI#xx » s'affiche dans
+  Settings → Sprint & PI (bouton `#pi-desync-realign`). Le N° est la source de vérité de la config ; le champ « Nom du PI » reste libre.
+- **Objectifs PI historisés** : `piInfo.objectives` = jeu VIVANT du PI courant ; `piInfo.piObjectives` = `{ "29": [...], "30": [...] }`
+  snapshot par PI (backend `PIConfig.pi_objectives`). `PUT /api/pi` snapshot auto sous `[number]` à chaque save ;
+  `PUT /api/pi/objectives/{pi}` pour un PI passé/futur sans toucher au courant. Dashboard/PI Planning lisent le snapshot pour les PI ≠ courant.
 - **Matching feature ↔ PI** : utiliser `_matchFeaturePi(f, piTag)` (roadmap.js) — tolérant multi-source dans cet ordre :
   `f.piSprint` (priorité, format `PI#NN`) > `f.sprintName` > chaque label de `f.labels` > pattern `NN.x` (sprint `Fuego - Ite 29.3` → PI 29).
   Normalisation casse + espaces. **Règle métier** : une feature sans `piSprint` (champ Sprint JIRA absent) n'apparaît dans
@@ -100,8 +108,8 @@ Centralisées dans `utils.generateSupportRotation` ([utils.js](static/js/utils.j
 
 1. **Absence ≥ 3 jours dans la semaine → exclu** (source = table `absences` = CSV RH, cf. `supportAbsenceDays`).
 2. **Pas 2 semaines consécutives** : un membre affecté en semaine N est exclu en N+1. Contrainte **relâchée** si pool insuffisant (`pool.length < membersPerWeek`) — mieux vaut quelqu'un que personne.
-3. **Verrouillage auto du passé** : toute semaine dont `weekEnd < today` est préservée intacte (jamais réécrite). Marquée `_autoLocked: true` côté UI (cadenas).
-4. **Verrouillage manuel** : `rotation.locked === true` → préservée même si dans le futur.
+3. **Verrouillage DUR du passé** : toute semaine dont `weekEnd < today` n'est **JAMAIS** shuffle/réécrite, **même sans entrée existante** (une semaine passée vide est émise vide + `_autoLocked: true`). Garantie au niveau algorithme → s'applique à TOUS les points de shuffle (Settings, Support, et toute page future). Cadenas 🔒 non cliquable dans l'UI ; cellules `disabled`.
+4. **Verrouillage manuel** : `rotation.locked === true` → préservée même dans le futur. Toggle 🔓/🔒 par semaine dans la grille Settings ([data-rot-lock]) — crée une entrée vide `locked:true` si la semaine n'existait pas. Backend : champ `SupportRotation.locked` (main.py), modifiable via `update_support` / `create_support`.
 5. **Équité** : compteur d'affectations cumulées (passé inclus). Tri ascendant, tirage aléatoire pour les ex-aequos.
 6. **membersPerWeek** : configurable via `localStorage.rot-mpw-<team>` (défaut 2).
 
@@ -206,13 +214,43 @@ Chaîne de fallback dans `transformIssue` : nom du sprint (regex `\d+\.\d+` ou `
 - `sb-sync-sprintField` — nom JQL ou customfield (auto-détecté si vide)
 - `sb-sync-teamField` — idem
 
-### Page de debug `/tests/jira-explorer.html`
+### Pages de debug dans `/tests/`
+
+#### `/tests/jira-explorer.html`
 Outil standalone (zéro dépendance sur le bundle principal) :
 - **Inspection** : compare une issue JIRA brute vs base locale (champs, chaîne hiérarchique, PI détecté avec source)
 - **Snapshot** : counts/distributions par projet/PI/équipe/type ; détection des orphelins
 - **JQL** : exécution directe ; bannière de comparaison local/JIRA avec bouton **Synchro** qui upsert dans la base via `/api/import mode=merge`
 - **Hash routing** : `#tab=jql&jql=...`, `#tab=inspect&key=GCOM-1234&chain=1` — back/forward navigateur supporté
 - **Presets chips** : Fuego·PI#30, Features GCOM, Epics sans parent, etc.
+
+#### `/tests/pi-weeks-debug.html`
+Calculatrice des semaines de rotation PI (même logique que Paramètres → Rotation Support).
+Utile pour diagnostiquer les décalages de dates entre vues.
+
+**Utilisation UI** : ouvrir dans le navigateur, renseigner PI number + date de début + config.
+
+**Utilisation curl / JSON** — ajouter `?fmt=json` aux paramètres :
+```bash
+# Retourne le JSON brut des semaines pour tous les offsets (-2..+2)
+curl "http://localhost:3000/tests/pi-weeks-debug.html?pi=29&start=2025-06-19&sprints=6&dur=14&mode=friday&fmt=json"
+
+# Formater avec python
+curl "...&fmt=json" | python -m json.tool
+
+# Paramètres disponibles :
+#   pi      — numéro du PI courant (ex: 29)
+#   start   — date de début du PI courant (YYYY-MM-DD)
+#   sprints — nombre de sprints par PI (défaut: 5)
+#   dur     — durée d'un sprint en jours (défaut: 14)
+#   mode    — jour de début semaine : friday | wednesday | monday (défaut: friday)
+#   fmt     — json pour retour brut sans HTML
+```
+La page se pré-remplit automatiquement depuis `localStorage.pi-cfg-*` si des configs PI sont sauvegardées.
+Le JSON retourné contient `{ "-2": {...}, "-1": {...}, "0": {...}, "1": {...}, "2": {...} }` avec `piNum` et `weeks[]` par offset.
+
+#### `/tests/cap-debug.html`
+Debug de la capacité PI par équipe.
 
 ## Commandes
 ```bash

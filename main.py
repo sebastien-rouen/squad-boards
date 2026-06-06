@@ -181,6 +181,13 @@ class PIConfig(SQLModel, table=True):
     objectives: list[dict] = Field(default=[], sa_column=Column(JSON))
     sprint_velocities: list[dict] = Field(default=[], sa_column=Column(JSON))
     role_capacity: dict = Field(default={}, sa_column=Column(JSON))
+    # Snapshot des membres par PI au moment de l'import CSV (gère le turnover PI à PI).
+    # Forme : { "29": [{name, team, role, entity}, …], "30": […] }
+    pi_members: dict = Field(default={}, sa_column=Column(JSON))
+    # Snapshot des objectifs par PI (historisation — `objectives` ne contient que le PI courant).
+    # Forme : { "29": [{text, team, status, bv, committed}, …], "30": […] }
+    # Permet d'afficher les objectifs d'un PI passé/futur sur le dashboard via le sélecteur PI.
+    pi_objectives: dict = Field(default={}, sa_column=Column(JSON))
     updated_at: str = Field(default_factory=_now)
 
 
@@ -219,7 +226,8 @@ class SupportRotation(SQLModel, table=True):
     week_start: str = ""
     week_end: str = ""
     members: list[str] = Field(default=[], sa_column=Column(JSON))
-    locked: bool = False
+    locked: bool = False          # verrou manuel (futur) — préservé lors d'un shuffle
+    unlocked: bool = False        # déverrou exceptionnel d'une semaine passée — la rend modifiable
     members_per_week: int = 2
     week_mode: str = "monday"    # monday | friday | wednesday
     updated_at: str = Field(default_factory=_now)
@@ -399,6 +407,10 @@ def _run_migrations():
         ("sprintconfig", "jira_id",       "ALTER TABLE sprintconfig ADD COLUMN jira_id TEXT"),
         ("sprintconfig", "jira_board_id", "ALTER TABLE sprintconfig ADD COLUMN jira_board_id TEXT"),
         ("sprintconfig", "team_sprints",  "ALTER TABLE sprintconfig ADD COLUMN team_sprints JSON DEFAULT '[]'"),
+        ("supportrotation", "locked",     "ALTER TABLE supportrotation ADD COLUMN locked BOOLEAN DEFAULT 0"),
+        ("supportrotation", "unlocked",   "ALTER TABLE supportrotation ADD COLUMN unlocked BOOLEAN DEFAULT 0"),
+        ("piconfig", "pi_members",        "ALTER TABLE piconfig ADD COLUMN pi_members JSON DEFAULT '{}'"),
+        ("piconfig", "pi_objectives",     "ALTER TABLE piconfig ADD COLUMN pi_objectives JSON DEFAULT '{}'"),
     ]
     with engine.connect() as conn:
         from sqlalchemy import inspect as sa_inspect
@@ -733,6 +745,8 @@ def _pi_dict(p: PIConfig) -> dict | None:
         "objectives": p.objectives or [],
         "sprintVelocities": p.sprint_velocities or [],
         "roleCapacity": p.role_capacity or {},
+        "piMembers": p.pi_members or {},
+        "piObjectives": p.pi_objectives or {},
         "updatedAt": p.updated_at,
     }
 
@@ -759,7 +773,7 @@ def _support_dict(s: SupportRotation) -> dict:
         "id": s.id, "team": s.team, "weekLabel": s.week_label,
         "weekStart": s.week_start, "weekEnd": s.week_end,
         "members": s.members or [],
-        "locked": s.locked, "membersPerWeek": s.members_per_week,
+        "locked": s.locked, "unlocked": s.unlocked, "membersPerWeek": s.members_per_week,
         "weekMode": s.week_mode,
         "updatedAt": s.updated_at,
     }
@@ -1501,11 +1515,63 @@ async def update_pi(request: Request, session: Session = Depends(get_session)):
     p.sprint_velocities  = body.get("sprintVelocities", p.sprint_velocities)
     if "roleCapacity" in body:
         p.role_capacity  = body.get("roleCapacity") or {}
+    if "piMembers" in body:
+        p.pi_members     = body.get("piMembers") or {}
+    if "piObjectives" in body:
+        p.pi_objectives  = body.get("piObjectives") or {}
+    # Historisation auto : à chaque save des objectifs du PI courant, on snapshot dans
+    # pi_objectives[number] pour que les PI passés restent consultables (dashboard / sélecteur).
+    # Le snapshot ne s'écrase qu'à la clé du PI courant — les autres PI sont préservés.
+    if "objectives" in body and p.number:
+        snap = dict(p.pi_objectives or {})
+        snap[str(p.number)] = p.objectives or []
+        p.pi_objectives = snap
     p.updated_at = _now()
     session.add(p)
     session.commit()
     session.refresh(p)
     return _pi_dict(p)
+
+
+@app.put("/api/pi/members/{pi_number}")
+async def set_pi_members(pi_number: int, request: Request, session: Session = Depends(get_session)):
+    """Enregistre le snapshot des membres d'UN PI (fusion — n'écrase pas les autres PI)."""
+    body = await request.json()
+    members = body.get("members", [])
+    p = session.get(PIConfig, "pi-1")
+    if not p:
+        p = PIConfig(id="pi-1")
+    current = dict(p.pi_members or {})
+    current[str(pi_number)] = members
+    p.pi_members = current
+    p.updated_at = _now()
+    session.add(p)
+    session.commit()
+    session.refresh(p)
+    return {"ok": True, "piNumber": pi_number, "count": len(members)}
+
+
+@app.put("/api/pi/objectives/{pi_number}")
+async def set_pi_objectives(pi_number: int, request: Request, session: Session = Depends(get_session)):
+    """Enregistre le snapshot des objectifs d'UN PI (fusion — n'écrase pas les autres PI).
+
+    Si pi_number == PI courant, met aussi à jour `objectives` (le jeu vivant) pour rester cohérent.
+    """
+    body = await request.json()
+    objectives = body.get("objectives", [])
+    p = session.get(PIConfig, "pi-1")
+    if not p:
+        p = PIConfig(id="pi-1")
+    current = dict(p.pi_objectives or {})
+    current[str(pi_number)] = objectives
+    p.pi_objectives = current
+    if p.number and pi_number == p.number:
+        p.objectives = objectives
+    p.updated_at = _now()
+    session.add(p)
+    session.commit()
+    session.refresh(p)
+    return {"ok": True, "piNumber": pi_number, "count": len(objectives)}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1592,6 +1658,31 @@ async def create_absence(request: Request, session: Session = Depends(get_sessio
     session.refresh(a)
     return _absence_dict(a)
 
+
+@app.post("/api/absences/repair-encoding")
+async def repair_absence_encoding(session: Session = Depends(get_session)):
+    """Corrige les noms d'équipe et de membre encodés en mojibake (Windows-1252 lu comme UTF-8).
+    Ex: 'CamÃ©lÃ©on' -> 'Caméléon'. Idempotent : ne modifie que les lignes effectivement corrompues."""
+    def _fix(s: str) -> str:
+        if not s:
+            return s
+        try:
+            fixed = s.encode('latin-1').decode('utf-8')
+            return fixed if fixed != s else s
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            return s
+
+    fixed_count = 0
+    for a in session.exec(select(Absence)).all():
+        new_team = _normalize_team(_fix(a.team or ""))
+        new_name = _fix(a.member_name or "")
+        if new_team != a.team or new_name != a.member_name:
+            a.team = new_team
+            a.member_name = new_name
+            session.add(a)
+            fixed_count += 1
+    session.commit()
+    return {"ok": True, "fixed": fixed_count}
 
 @app.post("/api/absences/bulk")
 async def bulk_create_absences(request: Request, session: Session = Depends(get_session)):
@@ -1682,6 +1773,7 @@ async def create_support(request: Request, session: Session = Depends(get_sessio
         week_end=body.get("weekEnd", ""),
         members=body.get("members", []),
         locked=body.get("locked", False),
+        unlocked=body.get("unlocked", False),
         members_per_week=body.get("membersPerWeek", 2),
         week_mode=body.get("weekMode", "monday"),
     )
@@ -1708,6 +1800,7 @@ async def bulk_create_support(request: Request, session: Session = Depends(get_s
             week_end=d.get("weekEnd", ""),
             members=d.get("members", []),
             locked=d.get("locked", False),
+            unlocked=d.get("unlocked", False),
             members_per_week=d.get("membersPerWeek", 2),
             week_mode=d.get("weekMode", "monday"),
         )
@@ -2170,7 +2263,20 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
         p = session.get(PIConfig, "pi-1") or PIConfig(id="pi-1")
         p.number = pd.get("number", 0)
         p.name = pd.get("name", "")
-        p.objectives = pd.get("objectives", [])
+        p.sprints_per_pi   = pd.get("sprintsPerPI", p.sprints_per_pi)
+        p.sprint_duration  = pd.get("sprintDuration", p.sprint_duration)
+        p.start_date       = pd.get("startDate", p.start_date)
+        p.velocity_target  = pd.get("velocityTarget", p.velocity_target)
+        p.objectives       = pd.get("objectives", [])
+        p.sprint_velocities = pd.get("sprintVelocities", p.sprint_velocities or [])
+        p.role_capacity    = pd.get("roleCapacity", p.role_capacity or {})
+        p.pi_members       = pd.get("piMembers", p.pi_members or {})
+        p.pi_objectives    = pd.get("piObjectives", p.pi_objectives or {})
+        # Historise les objectifs importés sous la clé du PI courant si pas déjà couverts.
+        if p.number and str(p.number) not in (p.pi_objectives or {}):
+            snap = dict(p.pi_objectives or {})
+            snap[str(p.number)] = p.objectives or []
+            p.pi_objectives = snap
         p.updated_at = _now()
         session.add(p)
 

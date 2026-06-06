@@ -1,7 +1,33 @@
 # BACKLOG — Squad Board
 
 > Document de reprise pour une nouvelle conversation Claude. Lire en premier : [CLAUDE.md](CLAUDE.md) (conventions codebase) puis ce fichier.
-> Dernière mise à jour : 2026-06-03 — version courante `3.11.7` (cf. [CHANGELOG.md](CHANGELOG.md)).
+> Dernière mise à jour : 2026-06-04 — version courante `3.13.0` (cf. [CHANGELOG.md](CHANGELOG.md)).
+
+---
+
+## 💡 PISTES D'AMÉLIORATION — PI Planning & Atlas (à arbitrer)
+
+> Idées discutées le 2026-06-04 pour améliorer **ergonomie / navigation / UI**. Non priorisées définitivement — à reprendre avec l'utilisateur. Classées par axe, avec impact estimé.
+> **Recommandations top 3** (fort impact) : #8 recherche compétence · #7 drag&drop staffing · #4 vote de confiance PI.
+
+### 🧭 Navigation rapide
+- [x] **#1 — Comparateur d'équipes (Atlas, split view)** · ✅ 3.13.0 — bouton ⚖️ : radar superposé + tableau comparatif 2-3 équipes.
+- [x] **#2 — Mini-heatmap capacité en topbar (PI)** · ✅ 3.13.0 — strip compact entre tabs et contenu, pastille vert/orange/rouge par équipe, clic → onglet capacité.
+- [x] **#3 — Raccourcis onglets PI (touches 1-9)** · ✅ 3.13.0 — keydown 1-9 → onglets PI, désactivé si focus sur un champ.
+
+### 📊 Lisibilité PI Planning
+- [x] **#4 — Vote de confiance PI (commit/confidence)** · ✅ 3.13.0 — panneau "Confiance par objectif" sous le Fist of Five, vote 1-5 par objectif stocké (`type=confidence`), moyennes et distributions.
+- [x] **#5 — Progression des objectifs PI (rollup)** · ✅ 3.13.0 — barre de progression par objectif (features done/total de l'équipe), jauge globale en haut.
+- [x] **#6 — États vides illustrés** · ✅ 3.13.0 — empty state illustré dans Features (hint JIRA), hint dans Capacité (hint CSV absences).
+
+### 🗺️ Atlas interactif
+- [x] **#7 — Drag & drop membre entre équipes (simulation staffing)** · ✅ 3.13.0 — bouton 🔄, mode simulation, glisser pastille → crew cible, bandeau récap, Annuler.
+- [x] **#8 — Recherche de compétence "qui sait faire X ?"** · ✅ 3.13.0 — barre dans la map bar, highlight pulsant des membres niveau ≥ 2, compteur, effacement via Échap ou ✕.
+- [x] **#9 — Heatmap de couverture des compétences requises** · ⭐ déjà implémenté en 3.12.0.
+
+### 🎉 Moments d'équipe
+- [x] **#10 — Mode présentation PI Planning plein écran** · ✅ 3.13.0 — bouton ⊞ dans l'en-tête PI, fullscreen navigateur avec fallback position:fixed.
+- [x] **#11 — Animations de révélation (poker & confiance)** · ✅ 3.13.0 — confettis canvas sur consensus parfait (valeur identique pour tous, ≥ 4), 2,5 s sans librairie externe.
 
 ---
 

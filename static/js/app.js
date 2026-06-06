@@ -107,8 +107,12 @@ function pushHash() {
 }
 
 function applyHash() {
-    const raw = location.hash.replace(/^#/, '');
+    let raw = location.hash.replace(/^#/, '');
     if (!raw) return;
+
+    // Détecte et retire le suffixe ~cal (modal calendrier), l'ouvre après routing
+    const openCal = raw.endsWith('~cal');
+    if (openCal) raw = raw.slice(0, -4); // retire "~cal"
 
     // Extract optional alert fragment: #view[/team[/tab]]/alert/<actionable>
     const am = raw.match(/^(.*?)\/alert\/([^/]+)$/);
@@ -123,6 +127,9 @@ function applyHash() {
 
     if (h) {
         const parts = h.split('/');
+        // Redirections legacy → nouvelles vues unifiées
+        if (parts[0] === 'kanban')     { parts[0] = 'sprint'; store.set('boardMode', 'kanban'); }
+        if (parts[0] === 'picalendar') { parts[0] = 'pi';     store.set('piTab', 'calendar'); }
         const view = parts[0];
         if (view && VIEW_RENDERERS[view]) {
             _applyingHash = true;
@@ -188,17 +195,30 @@ function applyHash() {
         const ao = document.getElementById('alert-modal-overlay');
         if (ao) ao.remove();
     }
+
+    // Modal calendrier — rouvrir si ~cal présent dans le hash (ex: refresh sur /#sprint/Fuego~cal)
+    if (openCal) {
+        requestAnimationFrame(() => {
+            import('./components/cal_banner.js').then(m => m.openCalWeekModal?.());
+        });
+    }
 }
 
 // ── Render active view ────────────────────────────────────────────────────────
 function renderView() {
     const view = store.get('view');
     destroyAllCharts();
-    const renderer = VIEW_RENDERERS[view];
-    if (renderer) {
-        renderer(content);
+    if (view === 'sprint') {
+        // Board = Scrum (défaut) ou Kanban selon le toggle topbar
+        const mode = store.get('boardMode') || 'scrum';
+        (mode === 'kanban' ? renderKanban : renderSprint)(content);
     } else {
-        content.innerHTML = `<div class="empty-state"><h3>Vue inconnue</h3></div>`;
+        const renderer = VIEW_RENDERERS[view];
+        if (renderer) {
+            renderer(content);
+        } else {
+            content.innerHTML = `<div class="empty-state"><h3>Vue inconnue</h3></div>`;
+        }
     }
     updateInfoPanel();
     checkSyncStale();
@@ -486,6 +506,7 @@ async function init() {
 
     // Navigation listeners : re-render + mise à jour du hash
     // Reset du piOffset au changement de vue (pour repartir sur le PI courant à chaque navigation)
+    store.on('boardMode', () => { if (store.get('view') === 'sprint') { renderView(); pushHash(); } });
     store.on('view',  () => { if (!_applyingHash) store.set('piOffset', 0); renderView(); pushHash(); });
     store.on('team',  () => { renderView(); pushHash(); });
     store.on('group', () => { renderView(); pushHash(); });

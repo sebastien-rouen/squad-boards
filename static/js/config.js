@@ -90,18 +90,16 @@ export const WIP_LIMITS = {
 
 export const NAV_ITEMS = [
     { id: 'dashboard',  label: 'Dashboard',    icon: 'i-grid',       shortcut: '1' },
-    { id: 'sprint',     label: 'Sprint',       icon: 'i-zap',        shortcut: '2' },
-    { id: 'kanban',     label: 'Kanban',       icon: 'i-columns',    shortcut: '3' },
+    { id: 'sprint',     label: 'Board',        icon: 'i-columns',    shortcut: '2' },
     { id: 'pi',         label: 'PI Planning',  icon: 'i-calendar',   shortcut: '4' },
-    { id: 'picalendar', label: 'PI Calendrier',icon: 'i-clock',      shortcut: '5' },
     { id: 'roadmap',    label: 'Roadmap',      icon: 'i-map',        shortcut: '6' },
-    { id: 'health',     label: 'Health',       icon: 'i-shield',     shortcut: 'H' },
-    { id: 'retro',      label: 'Amelioration', icon: 'i-refresh',    shortcut: '7' },
+    { id: 'health',     label: 'Santé',        icon: 'i-shield',     shortcut: 'H' },
+    { id: 'retro',      label: 'Amélioration', icon: 'i-refresh',    shortcut: '7' },
     { id: 'support',    label: 'Support',      icon: 'i-users',      shortcut: 'S' },
     { id: 'atlas',      label: 'Atlas',        icon: 'i-network',    shortcut: 'A' },
     { id: 'agenda',     label: 'Agenda',       icon: 'i-agenda',     shortcut: 'G' },
     { id: 'reports',    label: 'Rapports',     icon: 'i-chart',      shortcut: '8' },
-    { id: 'settings',   label: 'Parametres',   icon: 'i-settings',   shortcut: '9' },
+    { id: 'settings',   label: 'Paramètres',   icon: 'i-settings',   shortcut: '9' },
 ];
 
 export const SYNC_CONFIG = {

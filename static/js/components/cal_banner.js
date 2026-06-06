@@ -77,6 +77,30 @@ function _duration(start, end) {
     return m ? `${h}h${m}` : `${h}h`;
 }
 
+// Domaines de visioconférence reconnus (premier lien trouvé = lien de réunion)
+const _VISIO_DOMAINS = /https?:\/\/(?:[\w-]+\.)*(?:meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|zoom\.us|whereby\.com|webex\.com|chime\.aws|bluejeans\.com|visio\.[\w.-]+|gotomeeting\.com|jit\.si|meet\.jit\.si)\/\S+/i;
+
+// Cherche un lien visio dans url > location > description (les invitations Meet/Teams
+// mettent souvent le lien dans le corps de la description, pas dans LOCATION).
+function _extractVisioLink(ev) {
+    // 1. champ url s'il pointe vers un domaine visio reconnu
+    if (ev.url) { const m = ev.url.match(_VISIO_DOMAINS); if (m) return m[0]; }
+    // 2. location : URL complète ou domaine visio
+    const loc = (ev.location || '').trim();
+    if (loc) {
+        const m = loc.match(_VISIO_DOMAINS);
+        if (m) return m[0];
+        if (/^https?:\/\//i.test(loc)) return loc;
+        // domaine nu type "meet.google.com/xxx"
+        if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}\/\S+/i.test(loc)) return `https://${loc}`;
+    }
+    // 3. description : 1er lien visio reconnu
+    const desc = (ev.description || '').replace(/&nbsp;/g, ' ');
+    const dm = desc.match(_VISIO_DOMAINS);
+    if (dm) return dm[0].replace(/[)\].,;]+$/, ''); // nettoie ponctuation de fin
+    return null;
+}
+
 // ── Chip HTML (bannière aujourd'hui) ─────────────────────────────────────────
 // Identifie les absences. Accepte "OFF" et les variantes demi-journée "1/2 OFF", "½ OFF",
 // "AM OFF", "PM OFF" — toujours en fin de titre, après un tiret.
@@ -211,16 +235,30 @@ export function renderCalBanner(wrap) {
     const offEvs     = todayEvs.filter(e => _isOff(e.title));
     const regularEvs = todayEvs.filter(e => !_isOff(e.title));
 
+    const matinEvs = regularEvs.filter(e => new Date(e.start).getHours() < 12);
+    const apremEvs = regularEvs.filter(e => new Date(e.start).getHours() >= 12);
+
     const offLine = offEvs.length
         ? `<div class="cal-banner-line cal-banner-line--off">
                ${offEvs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')}
            </div>`
         : '';
 
-    const regularLine = regularEvs.length
-        ? `<div class="cal-banner-line">
-               ${regularEvs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')}
+    const _halfGroup = (evs, label) => evs.length
+        ? `<div class="cal-banner-half">
+               <span class="cal-banner-half-lbl">${label}</span>
+               <div class="cal-banner-half-chips">${evs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')}</div>
            </div>`
+        : '';
+
+    const regularLine = regularEvs.length
+        ? (matinEvs.length && apremEvs.length
+            ? `<div class="cal-banner-split">
+                   ${_halfGroup(matinEvs, '🌅')}
+                   <span class="cal-banner-split-sep"></span>
+                   ${_halfGroup(apremEvs, '☀️')}
+               </div>`
+            : `<div class="cal-banner-line">${regularEvs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')}</div>`)
         : '';
 
     const emptyMsg = !todayEvs.length
@@ -409,6 +447,8 @@ function _openWeekModal(allEvents, highlightEv = null, initialTeamSelection = nu
     overlay.innerHTML = `<div class="cal-week-modal" id="cal-week-modal-inner"></div>`;
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visible'));
+    overlay.dataset.prevHash = location.hash || '#';
+    history.pushState({ calModal: true }, '', (location.hash || '#') + '~cal');
 
     let weekOffset = 0;
     // Sélection multi-équipes propre à la modal (Set d'équipes). Vide = montre tout.
@@ -440,7 +480,18 @@ function _openWeekModal(allEvents, highlightEv = null, initialTeamSelection = nu
         if (initialHighlight) {
             requestAnimationFrame(() => {
                 const hl = inner.querySelector('.cal-ev-hl');
-                if (hl) hl.closest('.cal-week-grid-wrap')?.scrollTo({ top: hl.offsetTop - 60, behavior: 'smooth' });
+                const wrap = inner.querySelector('.cal-week-grid-wrap');
+                if (hl && wrap) {
+                    const hlRect   = hl.getBoundingClientRect();
+                    const wrapRect = wrap.getBoundingClientRect();
+                    const scrollTop = wrap.scrollTop + (hlRect.top - wrapRect.top) - 60;
+                    wrap.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
+                }
+                // Si l'event highlighté a une description, afficher la tooltip automatiquement
+                if (initialHighlight.description) {
+                    const descBtn = hl?.querySelector('.cal-ev-desc-btn');
+                    if (descBtn) setTimeout(() => _showDescTt(descBtn), 350);
+                }
             });
         }
     };
@@ -523,18 +574,28 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
                             <span aria-hidden="true">${scrum.icon}</span>
                         </span>`
                     : '';
+                const descBtn = ev.description
+                    ? `<button class="cal-ev-desc-btn" data-desc="${esc(ev.description)}" title="Description">ℹ️</button>`
+                    : '';
                 return `<div class="cal-ev-row${isHL ? ' cal-ev-hl' : ''}${isPast ? ' cal-ev-past' : ''}${scrumClass}" style="border-left-color:${color}">
+                    ${descBtn}
                     <div class="cal-ev-time">${timeStr}${scrumBadge}${recurMark}</div>
                     <div class="cal-ev-body">
                         <div class="cal-ev-title">${esc(ev.title)}</div>
-                        ${ev.location ? (() => {
-                            const isUrl = /^https?:\/\//i.test(ev.location);
-                            return isUrl
-                                ? `<div class="cal-ev-meta"><a class="cal-ev-link cal-ev-link--visio" href="${esc(ev.location)}" target="_blank" rel="noopener" title="${esc(ev.location)}">🎥 Visio</a></div>`
-                                : `<div class="cal-ev-meta cal-ev-meta--loc">📍 ${esc(ev.location)}</div>`;
-                        })() : ''}
+                        ${(() => {
+                            const visio = _extractVisioLink(ev);
+                            // Location physique = la valeur location SI ce n'est pas elle-même le lien visio
+                            const locIsVisio = ev.location && visio && (esc(visio).includes(esc((ev.location || '').trim())) || (ev.location || '').trim() === visio);
+                            const physLoc = (ev.location && !locIsVisio && !/^https?:\/\//i.test(ev.location)) ? ev.location.trim() : '';
+                            // Lien url générique (non-visio) → "Rejoindre" classique
+                            const otherUrl = (ev.url && !visio && /^https?:\/\//i.test(ev.url)) ? ev.url : '';
+                            return [
+                                visio ? `<div class="cal-ev-meta"><a class="cal-ev-link cal-ev-link--visio" href="${esc(visio)}" target="_blank" rel="noopener" title="${esc(visio)}">🎥 Visio</a></div>` : '',
+                                physLoc ? `<div class="cal-ev-meta cal-ev-meta--loc">📍 ${esc(physLoc)}</div>` : '',
+                                otherUrl ? `<div class="cal-ev-meta"><a class="cal-ev-link" href="${esc(otherUrl)}" target="_blank" rel="noopener">🔗 Rejoindre</a></div>` : '',
+                            ].join('');
+                        })()}
                         ${metaLine ? `<div class="cal-ev-meta">${metaLine}</div>` : ''}
-                        ${ev.url ? `<div class="cal-ev-meta"><a class="cal-ev-link" href="${esc(ev.url)}" target="_blank" rel="noopener">🔗 Rejoindre</a></div>` : ''}
                     </div>
                 </div>`;
             }).join('');
@@ -565,8 +626,12 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
                 ${isSprintStart ? '▶' : '◀'}
             </span>` : '';
 
+        const hasCopyable = regularEvs.length > 0;
         return `<div class="${dayCls}">
-            <div class="cal-day-hdr">${_fmtDay(day)}${sprintMark}</div>
+            <div class="cal-day-hdr">
+                <span class="cal-day-hdr-label">${_fmtDay(day)}${sprintMark}</span>
+                ${hasCopyable ? `<button class="cal-day-copy-btn" data-dk="${dk}" title="Copier l'agenda du jour (Slack)">📋</button>` : ''}
+            </div>
             <div class="cal-day-events">${holidayBadge}${evRows}</div>
         </div>`;
     }).join('');
@@ -600,6 +665,7 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
                     <button class="btn-icon cal-week-nav-today${weekOffset === 0 ? ' cal-week-nav-today--current' : ''}" id="cal-week-today" title="Aujourd'hui (T)" ${weekOffset === 0 ? 'disabled' : ''}>•</button>
                     <button class="btn-icon cal-week-nav-btn" id="cal-week-next" title="Semaine suivante (→)">›</button>
                 </div>
+                <button class="btn-icon" id="cal-week-copy" data-week-offset="${weekOffset}" title="Copier la semaine (Slack)">📋</button>
                 ${_renderTeamPickerToggle(teamSelection)}
                 <button class="btn-icon" id="cal-week-sync" title="${esc(syncTip)}">
                     <svg class="icon"><use href="#i-sync"/></svg>
@@ -703,6 +769,81 @@ function _wireTeamPickerPopover(overlay, currentSelection, onChange) {
     toggle.addEventListener('click', (e) => { e.stopPropagation(); open(); });
 }
 
+/** Formate un event pour Slack : "  • HH:mm–HH:mm : Titre lien" */
+function _fmtEvSlack(ev) {
+    const s = new Date(ev.start), e = new Date(ev.end);
+    const time = `${_h(s)}–${_h(e)}`;
+    // Lien visio (url > location > description) — sinon url générique éventuelle
+    const link = _extractVisioLink(ev) || (ev.url && /^https?:\/\//i.test(ev.url) ? ev.url : null);
+    return link ? `  • ${time} : ${ev.title} ${link}` : `  • ${time} : ${ev.title}`;
+}
+
+/** Extrait le nom depuis un titre OFF : "NOM, Prénom - OFF" → "NOM, Prénom" */
+function _nameFromOff(title) {
+    return title.replace(/-\s*[^-]*\bOFF\s*$/i, '').trim();
+}
+
+/** Construit le message Slack pour un seul jour. */
+function _buildDaySlack(evs, day) {
+    const DAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+    const _fmtD = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const regular = evs.filter(e => !_isOff(e.title) && !e.allDay).sort((a, b) => a.start.localeCompare(b.start));
+    const offEvs  = evs.filter(e => _isOff(e.title));
+
+    if (!regular.length && !offEvs.length) return '_(Aucun événement)_';
+
+    const dow = (day.getDay() + 6) % 7;
+    const lines = [`:date: AGENDA DU JOUR — *${DAY_LABELS[dow]} ${_fmtD(day)}*`, ''];
+
+    const matin = regular.filter(e => new Date(e.start).getHours() < 12);
+    const aprem  = regular.filter(e => new Date(e.start).getHours() >= 12);
+
+    if (matin.length) { lines.push('  🌅 Matin');  matin.forEach(ev => lines.push(_fmtEvSlack(ev))); }
+    if (aprem.length) { lines.push('  ☀️ Après-midi'); aprem.forEach(ev => lines.push(_fmtEvSlack(ev))); }
+
+    if (offEvs.length) {
+        const names = offEvs.map(ev => {
+            const name = _nameFromOff(ev.title);
+            return _isHalfOff(ev.title) ? `${name} (½)` : name;
+        }).join(', ');
+        lines.push(`🏖️ Absents : ${names}`);
+    }
+
+    return lines.join('\n');
+}
+
+/** Construit le message Slack de la semaine : un bloc par jour (lun→dim). */
+function _buildWeekSlack(allEvents, days) {
+    const DAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+    const _fmtD = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const lines = [];
+
+    for (const day of days) {
+        const dk = _dayKey(day);
+        const allDay = allEvents.filter(e => _dayKey(e.start) === dk);
+        const evs    = allDay.filter(e => !_isOff(e.title) && !e.allDay).sort((a, b) => a.start.localeCompare(b.start));
+        const offEvs = allDay.filter(e => _isOff(e.title));
+        if (!evs.length && !offEvs.length) continue;
+
+        const dow = (day.getDay() + 6) % 7;
+        lines.push(`*${DAY_LABELS[dow]} ${_fmtD(day)}*`);
+
+        const matin = evs.filter(e => new Date(e.start).getHours() < 12);
+        const aprem  = evs.filter(e => new Date(e.start).getHours() >= 12);
+
+        if (matin.length) { lines.push('  🌅 Matin');  matin.forEach(ev => lines.push(_fmtEvSlack(ev))); }
+        if (aprem.length) { lines.push('  ☀️ Après-midi'); aprem.forEach(ev => lines.push(_fmtEvSlack(ev))); }
+        if (offEvs.length) {
+            const names = offEvs.map(ev => _isHalfOff(ev.title) ? `${_nameFromOff(ev.title)} (½)` : _nameFromOff(ev.title)).join(', ');
+            lines.push(`🏖️ Absents : ${names}`);
+        }
+        lines.push('');
+    }
+
+    if (!lines.length) return '_(Aucun événement cette semaine)_';
+    return lines.join('\n').trimEnd();
+}
+
 /** Câble les boutons (close, sync, navigation) après chaque render. */
 function _wireWeekContent(overlay, allEvents, refresh, navigate, resetToToday) {
     overlay.querySelector('#cal-week-close')?.addEventListener('click', _closeWeekModal);
@@ -710,6 +851,41 @@ function _wireWeekContent(overlay, allEvents, refresh, navigate, resetToToday) {
     overlay.querySelector('#cal-week-prev')?.addEventListener('click', () => navigate(-1));
     overlay.querySelector('#cal-week-next')?.addEventListener('click', () => navigate(+1));
     overlay.querySelector('#cal-week-today')?.addEventListener('click', resetToToday);
+
+    overlay.querySelectorAll('.cal-day-copy-btn').forEach(btn => {
+        btn.addEventListener('click', async e => {
+            e.stopPropagation();
+            const dk = btn.dataset.dk;
+            const day = new Date(dk + 'T00:00:00');
+            const dayEvs = allEvents.filter(ev => _dayKey(ev.start) === dk);
+            const msg = _buildDaySlack(dayEvs, day);
+            try {
+                await navigator.clipboard.writeText(msg);
+                btn.textContent = '✓';
+                setTimeout(() => { btn.textContent = '📋'; }, 1800);
+            } catch {
+                toast('Copie impossible', 'error');
+            }
+        });
+    });
+
+    const copyBtn = overlay.querySelector('#cal-week-copy');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+            const weekOffset = parseInt(copyBtn.dataset.weekOffset ?? '0', 10);
+            const mon = _mondayOf(new Date(), weekOffset);
+            const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
+            const msg = _buildWeekSlack(allEvents, days);
+            try {
+                await navigator.clipboard.writeText(msg);
+                copyBtn.textContent = '✓';
+                copyBtn.title = 'Copié !';
+                setTimeout(() => { copyBtn.textContent = '📋'; copyBtn.title = 'Copier la semaine (Slack)'; }, 1800);
+            } catch {
+                toast('Copie impossible', 'error');
+            }
+        });
+    }
 }
 
 // ── Tooltip Scrum globale (singleton attaché au body, position: fixed) ──────
@@ -796,6 +972,85 @@ document.addEventListener('focusout', (e) => {
     if (badge) _hideScrumTt();
 });
 
+// ── Tooltip description événement (singleton body, position fixed) ──────────
+let _descTtEl = null;
+let _descTtHideT = null;
+
+function _descTooltipEl() {
+    if (_descTtEl) return _descTtEl;
+    _descTtEl = document.createElement('div');
+    _descTtEl.id = 'cal-desc-tt-global';
+    _descTtEl.className = 'cal-desc-tt';
+    document.body.appendChild(_descTtEl);
+    _descTtEl.addEventListener('mouseenter', () => clearTimeout(_descTtHideT));
+    _descTtEl.addEventListener('mouseleave', _hideDescTt);
+    return _descTtEl;
+}
+
+function _cleanDescHtml(raw) {
+    return raw
+        .replace(/<(u|b|i|strong|em|span|a)[^>]*>\s*<\/\1>/gi, '') // balises vides
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<\/?(?:ul|ol)[^>]*>/gi, '\n')  // ul/ol → saut de ligne
+        .replace(/<\/li>/gi, '')                  // fermeture li : rien
+        .replace(/<li[^>]*>/gi, '\n• ')           // ouverture li : saut + puce
+        // Conserve <b> et <strong> → <b>, retire tout le reste
+        .replace(/<(b|strong)(\s[^>]*)?>/gi, '<b>')
+        .replace(/<\/(b|strong)>/gi, '</b>')
+        .replace(/<(?!\/?(b)[ >])[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+        .replace(/\n[ \t]+\n/g, '\n\n')          // lignes vides avec espaces
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function _showDescTt(btn) {
+    const raw = btn.dataset.desc;
+    if (!raw) return;
+    const html = _cleanDescHtml(raw);
+    if (!html) return;
+    const tt = _descTooltipEl();
+    tt.innerHTML = html;
+    tt.classList.add('visible');
+
+    const r = btn.getBoundingClientRect();
+    const W = 280;
+    let left = Math.min(r.left, window.innerWidth - W - 8);
+    left = Math.max(8, left);
+    const below = r.bottom + 8 + 120 < window.innerHeight;
+    tt.style.left = `${left}px`;
+    tt.style.top  = below ? `${r.bottom + 6}px` : `${r.top - 6}px`;
+    tt.style.transform = below ? 'translateY(0)' : 'translateY(-100%)';
+    clearTimeout(_descTtHideT);
+}
+
+function _hideDescTt() {
+    clearTimeout(_descTtHideT);
+    _descTtHideT = setTimeout(() => _descTtEl?.classList.remove('visible'), 120);
+}
+
+// Délégation globale sur les boutons description
+document.addEventListener('mouseover', e => {
+    const btn = e.target.closest?.('.cal-ev-desc-btn');
+    if (btn) _showDescTt(btn);
+});
+document.addEventListener('mouseout', e => {
+    const btn = e.target.closest?.('.cal-ev-desc-btn');
+    if (btn && !btn.contains(e.relatedTarget)) _hideDescTt();
+});
+// Clic sur le bouton : empêche la propagation (évite d'ouvrir la modal)
+document.addEventListener('click', e => {
+    const btn = e.target.closest?.('.cal-ev-desc-btn');
+    if (btn) { e.stopPropagation(); _showDescTt(btn); return; }
+    // clic ailleurs → ferme
+    if (_descTtEl?.classList.contains('visible') && !_descTtEl.contains(e.target)) {
+        _descTtEl.classList.remove('visible');
+    }
+});
+
 /** Ouverture publique de la modal semaine. La modal a son propre picker d'équipes
  *  (popover dans le header) — par défaut pré-coche l'équipe topbar si elle est spécifique. */
 export function openCalWeekModal() {
@@ -810,7 +1065,16 @@ function _closeWeekModal() {
     if (!ov) return;
     ov.classList.remove('visible');
     ov.addEventListener('transitionend', () => ov.remove(), { once: true });
+    if (location.hash.endsWith('~cal')) history.back();
 }
+
+// Ferme la modal si l'utilisateur navigue en arrière (popstate retire ~cal)
+window.addEventListener('popstate', () => {
+    if (!location.hash.endsWith('~cal')) {
+        const ov = document.getElementById('cal-week-overlay');
+        if (ov) { ov.classList.remove('visible'); ov.addEventListener('transitionend', () => ov.remove(), { once: true }); }
+    }
+});
 
 /**
  * Synchronise les calendriers ICS pertinents pour l'équipe courante, puis rafraîchit la modal.

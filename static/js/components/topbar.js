@@ -5,7 +5,7 @@
 
 import { store } from '../state.js';
 import { NAV_ITEMS } from '../config.js';
-import { esc, debounce, getStatusLabel } from '../utils.js';
+import { esc, debounce, getStatusLabel, getCurrentPi } from '../utils.js';
 import { toggleFavoritesDropdown } from './favorites.js';
 
 let _topbarInited = false;
@@ -40,7 +40,7 @@ export function initTopbar() {
         }
 
         // 3. Sprint name (uniquement sur Sprint/Kanban/Dashboard avec team spécifique)
-        if (sprintInfo?.name && ['sprint','kanban','dashboard'].includes(view) && team && team !== 'all') {
+        if (sprintInfo?.name && ['sprint', 'dashboard'].includes(view) && team && team !== 'all') {
             segments.push(`<span class="bc-seg bc-seg--ctx" title="Sprint actif">📌 ${esc(sprintInfo.name)}</span>`);
         }
 
@@ -63,23 +63,38 @@ export function initTopbar() {
     store.on('sprintInfo', updateTitle);
     updateTitle();
 
-    // ── Sélecteur PI dans le topbar (PI-2..PI+2) — visible uniquement sur pi/picalendar/roadmap
-    const PI_VIEWS = new Set(['pi', 'picalendar', 'roadmap', 'settings']);
+    // ── Toggle Scrum / Kanban — visible uniquement sur la vue Board (sprint) ─────
+    const boardModeHost = document.getElementById('board-mode-host');
+    function updateBoardModeToggle() {
+        if (!boardModeHost) return;
+        const view = store.get('view');
+        if (view !== 'sprint') { boardModeHost.hidden = true; boardModeHost.innerHTML = ''; return; }
+        const mode = store.get('boardMode') || 'scrum';
+        boardModeHost.hidden = false;
+        boardModeHost.innerHTML = `<div class="board-mode-toggle" role="group" aria-label="Vue Board">
+            <button class="board-mode-btn${mode === 'scrum' ? ' is-active' : ''}" data-mode="scrum" title="Vue Scrum — liste par sprint">
+                <svg class="icon icon-sm"><use href="#i-zap"/></svg> Scrum
+            </button>
+            <button class="board-mode-btn${mode === 'kanban' ? ' is-active' : ''}" data-mode="kanban" title="Vue Kanban — colonnes par statut">
+                <svg class="icon icon-sm"><use href="#i-columns"/></svg> Kanban
+            </button>
+        </div>`;
+        boardModeHost.querySelectorAll('[data-mode]').forEach(btn => {
+            btn.addEventListener('click', () => store.set('boardMode', btn.dataset.mode));
+        });
+    }
+    store.on('view',      updateBoardModeToggle);
+    store.on('boardMode', updateBoardModeToggle);
+    updateBoardModeToggle();
+
+    // ── Sélecteur PI dans le topbar (PI-2..PI+2) — visible uniquement sur pi/roadmap/…
+    const PI_VIEWS = new Set(['pi', 'roadmap', 'settings', 'support', 'dashboard']);
     const piHost = document.getElementById('pi-selector-host');
-    const _extractPiNum = (name) => {
-        if (!name) return 0;
-        const m = String(name).match(/(\d+)\.\d+/) || String(name).match(/PI\s*#?\s*(\d+)/i);
-        return m ? parseInt(m[1], 10) : 0;
-    };
     function updatePiSelector() {
         if (!piHost) return;
         const view = store.get('view');
-        const piInfo = store.get('piInfo');
-        const sprintInfo = store.get('sprintInfo');
-        // PI courant = dérivé du sprint actif JIRA en priorité (ex: "Fuego - Ite 29.3" → 29)
-        // Fallback sur piInfo.number si aucun sprint actif n'est connu
-        const fromSprint = _extractPiNum(sprintInfo?.name);
-        const basePi = fromSprint || piInfo?.number;
+        // PI courant = source unique getCurrentPi (sprint actif > piInfo.number)
+        const basePi = getCurrentPi();
         const visible = PI_VIEWS.has(view) && basePi;
         piHost.hidden = !visible;
         if (!visible) { piHost.innerHTML = ''; return; }

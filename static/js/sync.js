@@ -9,10 +9,25 @@ import { mapStatus, mapType, extractTeam, toast, parseWikiMarkup } from './utils
 import { SYNC_CONFIG } from './config.js';
 
 // ── Progress UI ───────────────────────────────────────────────────────────────
+let _syncTimerStart = 0;
+let _syncTimerInterval = null;
+
 function showProgress() {
     document.getElementById('sync-overlay')?.classList.remove('hidden');
+    _syncTimerStart = Date.now();
+    const timerEl = document.getElementById('sync-timer');
+    if (timerEl) timerEl.textContent = '0s';
+    clearInterval(_syncTimerInterval);
+    _syncTimerInterval = setInterval(() => {
+        const el = document.getElementById('sync-timer');
+        if (!el) return;
+        const s = Math.floor((Date.now() - _syncTimerStart) / 1000);
+        el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
+    }, 1000);
 }
 function hideProgress() {
+    clearInterval(_syncTimerInterval);
+    _syncTimerInterval = null;
     document.getElementById('sync-overlay')?.classList.add('hidden');
 }
 function setProgress(pct, label, detail = '') {
@@ -216,23 +231,36 @@ async function _doImport(projects, sinceDays = null) {
         let boardConfig = null;
         let velocityById = {};
         if (board.type !== 'scrum') return { allBoardSprints, boardConfig, velocityById };
-        // Sprints + config en parallèle
+        // Sprints + config en parallèle.
+        // Stratégie : on fetche active+future séparément (garantit de ne pas les rater si >50 sprints closed)
+        // puis on complète avec les 50 derniers closed pour l'historique de vélocité.
         const [sprintsResult, configResult] = await Promise.allSettled([
             (async () => {
-                try {
-                    const resp = await api.jiraGet(`rest/agile/1.0/board/${board.id}/sprint`, { state: 'closed,active,future', maxResults: 50 });
-                    const values = resp.values || [];
-                    if (values.length) return values;
-                } catch { /* fallback below */ }
-                // Fallback: 3 appels séparés
-                const result = [];
-                for (const st of ['active', 'future', 'closed']) {
+                const byId = new Map();
+                const _add = arr => arr.forEach(s => { if (!byId.has(s.id)) byId.set(s.id, s); });
+                // 1. Active + future en priorité (peu nombreux, jamais paginés)
+                for (const st of ['active', 'future']) {
                     try {
-                        const r = await api.jiraGet(`rest/agile/1.0/board/${board.id}/sprint`, { state: st, maxResults: 50 });
-                        if (r?.values?.length) result.push(...r.values.map(s => ({ ...s, state: s.state || st })));
+                        const r = await api.jiraGet(`rest/agile/1.0/board/${board.id}/sprint`, { state: st, maxResults: 10 });
+                        if (r?.values?.length) _add(r.values.map(s => ({ ...s, state: s.state || st })));
                     } catch { /* ignore */ }
                 }
-                return result;
+                // 2. Closed récents pour la vélocité historique — pagine jusqu'au bout et garde les N derniers
+                try {
+                    const CLOSED_KEEP = parseInt(localStorage.getItem('sb-sync-closedKeep') || '20') || 20;
+                    let startAt = 0, total = Infinity, allClosed = [];
+                    while (startAt < total) {
+                        const r = await api.jiraGet(`rest/agile/1.0/board/${board.id}/sprint`, { state: 'closed', maxResults: 50, startAt });
+                        const vals = r?.values || [];
+                        allClosed.push(...vals.map(s => ({ ...s, state: 'closed' })));
+                        total = r?.total ?? allClosed.length;
+                        if (vals.length < 50 || r?.isLast) break;
+                        startAt += vals.length;
+                    }
+                    // Ne garder que les plus récents (en fin de liste, ordre JIRA croissant)
+                    _add(allClosed.slice(-CLOSED_KEEP));
+                } catch { /* ignore */ }
+                return [...byId.values()];
             })(),
             api.jiraGet(`rest/agile/1.0/board/${board.id}/configuration`).catch(() => null),
         ]);
@@ -319,8 +347,17 @@ async function _doImport(projects, sinceDays = null) {
             if (!s.startDate || !s.endDate) continue;  // skip sprints sans dates (rare)
             const sid = String(s.id || '');
             const vd = velocityById[sid] || {};
+            // Si le board name donne un nom court ("I", "G"…), tenter de récupérer
+            // le vrai nom depuis le sprint ("Initiale - Ité 29.5" → "Initiale").
+            // On ne remplace que si le nom extrait du sprint est PLUS LONG que celui du board
+            // (heuristique : un nom plus long = plus spécifique, moins susceptible d'être un alias court).
+            const teamFromSprintName = extractTeam(s.name);
+            const effectiveTeam = (teamFromSprintName && teamFromSprintName !== 'Autre'
+                && teamFromSprintName !== teamName && teamFromSprintName.length > teamName.length)
+                ? teamFromSprintName
+                : teamName;
             teamSprints.push({
-                team: teamName,
+                team: effectiveTeam,
                 name: s.name,
                 startDate: s.startDate,
                 endDate: s.endDate,
@@ -615,6 +652,56 @@ async function _doImport(projects, sinceDays = null) {
                 console.log(`[Squad-Board] Sprints PI nommes (${piNames.join(', ')}): ${seen.size} uniques scannes — +${added.features} features, +${added.epics} epics, +${added.tickets} tickets`);
             } catch (e) {
                 console.warn('[Squad-Board] PI-named sprint fetch:', e?.message || e);
+            }
+        }
+    }
+
+    // 5c. Children of PI-current + PI-next features — Stories/Tasks linked via parent=
+    //     pour la projection et l'estimation PI+1. Ciblé sur PI courant + PI suivant uniquement
+    //     pour éviter d'importer l'historique complet de tous les PIs passés.
+    if (allFeatures.length && sprintInfo) {
+        const piMatch = sprintInfo.name.match(/(\d+)\.\d+/) || sprintInfo.name.match(/PI\s*#?\s*(\d+)/i);
+        if (piMatch) {
+            const curPi  = parseInt(piMatch[1]);
+            const nextPi = curPi + 1;
+            const nextPi2 = curPi + 2;
+            // Tags acceptés : "PI#30", "PI30", "30.x" (piSprint de la feature)
+            const _matchesPi = (f, piNum) => {
+                const ps = (f.piSprint || '').toUpperCase();
+                return ps === `PI#${piNum}` || ps === `PI${piNum}` || ps.startsWith(`${piNum}.`);
+            };
+            const piFeatures = allFeatures.filter(f => _matchesPi(f, curPi) || _matchesPi(f, nextPi) || _matchesPi(f, nextPi2));
+
+            if (piFeatures.length) {
+                const FEAT_CHILD_BATCH = 50;
+                const childFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,${sprintFieldId}` +
+                    (teamFieldId ? `,${teamFieldId}` : '') + (piSprintField ? `,${piSprintField}` : '');
+                let childrenAdded = 0;
+                for (let i = 0; i < piFeatures.length; i += FEAT_CHILD_BATCH) {
+                    const ids = piFeatures.slice(i, i + FEAT_CHILD_BATCH).map(f => f.id).join(',');
+                    setProgress(82, `Enfants features PI${curPi}+PI${nextPi}+PI${nextPi2}...`,
+                        `batch ${Math.floor(i / FEAT_CHILD_BATCH) + 1}/${Math.ceil(piFeatures.length / FEAT_CHILD_BATCH)}`);
+                    try {
+                        await _paginateJql({
+                            jql: `parent IN (${ids}) AND issuetype NOT IN (Feature, "Fonctionnalite", Epic) ORDER BY updated DESC`,
+                            fields: childFields,
+                            pageSize: 100,
+                            cap: maxFeaturesPerJql,
+                            onPage: (issues) => {
+                                for (const issue of issues) {
+                                    if (allTickets.find(t => t.id === issue.key)) continue;
+                                    const tr = transformIssue(issue, null, null, storyPointsField, null, sprintFieldId, piSprintField || null, teamFieldId);
+                                    tr.team = _normalizeTeamName(tr.team, knownBoardTeams);
+                                    allTickets.push(tr);
+                                    childrenAdded++;
+                                }
+                            },
+                        });
+                    } catch (e) {
+                        console.warn('[Squad-Board] Feature children fetch batch:', e?.message || e);
+                    }
+                }
+                console.log(`[Squad-Board] Enfants features PI${curPi}+PI${nextPi}+PI${nextPi2}: +${childrenAdded} tickets (${piFeatures.length} features ciblées)`);
             }
         }
     }

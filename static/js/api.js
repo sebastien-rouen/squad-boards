@@ -81,6 +81,10 @@ export const updateSprint    = data => request('/api/sprint', { method: 'PUT', b
 // ── PI ────────────────────────────────────────────────────────────────────────
 export const getPI           = ()   => request('/api/pi');
 export const updatePI        = data => request('/api/pi', { method: 'PUT', body: JSON.stringify(data) });
+// Snapshot des membres d'un PI (fusion — n'écrase pas les autres PI)
+export const setPiMembers    = (piNumber, members) => request(`/api/pi/members/${piNumber}`, { method: 'PUT', body: JSON.stringify({ members }) });
+// Snapshot des objectifs d'un PI (fusion — n'écrase pas les autres PI ; synchronise `objectives` si PI courant)
+export const setPiObjectives = (piNumber, objectives) => request(`/api/pi/objectives/${piNumber}`, { method: 'PUT', body: JSON.stringify({ objectives }) });
 
 // ── Groups (lignes produit) ───────────────────────────────────────────────────
 export const getGroups       = ()   => request('/api/groups');

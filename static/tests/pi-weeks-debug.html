@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Debug — PI Weeks Calculator</title>
+<style>
+  body { font-family: system-ui, sans-serif; font-size: 13px; padding: 16px; background: #f8fafc; color: #1e293b; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .subtitle { color: #64748b; margin-bottom: 16px; font-size: 12px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
+  label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600; color: #475569; }
+  input, select { border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 8px; font-size: 13px; width: 160px; }
+  .btn-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  button { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 8px 18px; font-size: 13px; cursor: pointer; }
+  button:hover { background: #4f46e5; }
+  button.btn-sec { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+  button.btn-sec:hover { background: #f1f5f9; }
+  .curl-box { background: #1e293b; color: #7dd3fc; padding: 10px 14px; border-radius: 6px; font-family: monospace; font-size: 11px; margin-bottom: 16px; overflow-x: auto; white-space: nowrap; cursor: pointer; }
+  .curl-box:hover { background: #0f172a; }
+  .curl-copy-hint { font-size: 10px; color: #64748b; margin-top: 4px; }
+  .pi-block { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .pi-title { font-weight: 700; font-size: 14px; margin-bottom: 10px; color: #4f46e5; display: flex; align-items: center; gap: 8px; }
+  .badge { font-size: 10px; background: #ede9fe; color: #6d28d9; border-radius: 999px; padding: 1px 8px; }
+  .badge-green { background: #dcfce7; color: #16a34a; }
+  .badge-blue  { background: #dbeafe; color: #1d4ed8; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #f1f5f9; font-size: 11px; text-align: left; padding: 5px 8px; color: #64748b; }
+  td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; font-size: 12px; font-variant-numeric: tabular-nums; }
+  tr.current td { background: #eff6ff; font-weight: 600; }
+  tr.past td    { color: #94a3b8; }
+  .error { background: #fee2e2; color: #dc2626; padding: 10px; border-radius: 6px; margin-bottom: 12px; }
+  pre.json { background: #1e293b; color: #e2e8f0; padding: 12px; border-radius: 6px; font-size: 11px; overflow: auto; max-height: 300px; cursor: pointer; }
+  pre.json:hover { background: #0f172a; }
+  .section-hdr { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .05em; margin: 16px 0 6px; }
+</style>
+</head>
+<body>
+<h1>🗓️ Debug — PI Weeks Calculator</h1>
+<p class="subtitle">
+  Calcule les semaines de rotation support pour tous les offsets PI (-2..+2).<br>
+  Supporte les paramètres URL : <code>?pi=29&amp;start=2025-01-10&amp;sprints=5&amp;dur=14&amp;mode=friday&amp;fmt=json</code><br>
+  Mode <code>fmt=json</code> : retourne directement le JSON brut (utilisable avec curl).
+</p>
+
+<div class="controls">
+  <label>PI courant (number)
+    <input id="in-pinum" type="number" value="" placeholder="ex: 29">
+  </label>
+  <label>Date début PI
+    <input id="in-start" type="date">
+  </label>
+  <label>Sprints / PI
+    <input id="in-sprints" type="number" value="5" min="1" max="10">
+  </label>
+  <label>Durée sprint (jours)
+    <input id="in-dur" type="number" value="14" min="7" max="28">
+  </label>
+  <label>Mode semaine
+    <select id="in-mode">
+      <option value="friday">Vendredi (défaut)</option>
+      <option value="wednesday">Mercredi</option>
+      <option value="monday">Lundi</option>
+    </select>
+  </label>
+</div>
+
+<div class="btn-row">
+  <button onclick="run()">Calculer</button>
+  <button class="btn-sec" onclick="copyJson()">📋 Copier JSON</button>
+  <button class="btn-sec" onclick="copyCurl()">📋 Copier curl</button>
+  <button class="btn-sec" onclick="diagnose()">🔍 Diagnostic source (store + localStorage)</button>
+</div>
+
+<div id="diag"></div>
+<div id="curl-hint"></div>
+<div id="output"></div>
+
+<script>
+const MODES = {
+  friday:    { dow: 5, label: 'Vendredi' },
+  wednesday: { dow: 3, label: 'Mercredi' },
+  monday:    { dow: 1, label: 'Lundi' },
+};
+
+function buildWeeks(piNum, startDate, sprintCnt, sprintDur, weekMode) {
+  const mode = MODES[weekMode] || MODES.friday;
+  const targetDow = mode.dow;
+  const wps = Math.max(1, Math.floor(sprintDur / 7));
+
+  const _fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  const _add = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _fmt(d); };
+  const _snap = iso => { const d = new Date(iso + 'T00:00:00'); const back = (d.getDay() - targetDow + 7) % 7; d.setDate(d.getDate() - back); return _fmt(d); };
+  const _lsCfg = n => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${n}`) || 'null'); } catch { return null; } };
+
+  const curStart = _snap(startDate);
+
+  const makeWeeks = (pn, ps, cnt) => {
+    const ws = [];
+    for (let s = 0; s < cnt; s++)
+      for (let w = 0; w < wps; w++) {
+        const wStart = _add(ps, s * sprintDur + w * 7);
+        const wEnd   = _add(wStart, 6);
+        ws.push({ label: `${pn}.${s+1}.${w+1}`, weekStart: wStart, weekEnd: wEnd });
+      }
+    return ws;
+  };
+
+  const results = {};
+  for (let off = -2; off <= 2; off++) {
+    const targetPi  = Math.max(1, piNum + off);
+    const targetCfg = _lsCfg(targetPi);
+    let ps, cnt;
+    if (targetCfg?.startDate) {
+      ps  = _snap(targetCfg.startDate);
+      cnt = targetCfg.sprintsPerPI || sprintCnt;
+    } else {
+      ps  = _add(curStart, off * sprintCnt * sprintDur);
+      cnt = sprintCnt;
+    }
+    results[off] = { piNum: targetPi, weeks: makeWeeks(targetPi, ps, cnt), lsCfg: targetCfg || null };
+  }
+  return { results, curStart };
+}
+
+function fmtDate(iso) {
+  if (!iso) return '?';
+  const [, m, d] = iso.split('-');
+  const months = ['jan.','fév.','mar.','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
+  return `${parseInt(d)} ${months[parseInt(m)-1]}`;
+}
+
+let _lastResult = null;
+
+function getParams() {
+  return {
+    pi:      parseInt(document.getElementById('in-pinum').value) || 0,
+    start:   document.getElementById('in-start').value,
+    sprints: parseInt(document.getElementById('in-sprints').value) || 5,
+    dur:     parseInt(document.getElementById('in-dur').value) || 14,
+    mode:    document.getElementById('in-mode').value,
+  };
+}
+
+function buildCurlUrl(p = getParams()) {
+  const base = `${location.origin}/tests/pi-weeks-debug.html`;
+  return `${base}?pi=${p.pi}&start=${p.start}&sprints=${p.sprints}&dur=${p.dur}&mode=${p.mode}&fmt=json`;
+}
+
+function run() {
+  const { pi: piNum, start: startDate, sprints, dur, mode } = getParams();
+  const out = document.getElementById('output');
+
+  if (!piNum || !startDate) {
+    out.innerHTML = '<div class="error">⚠️ Remplis le numéro de PI et la date de début.</div>';
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { results } = buildWeeks(piNum, startDate, sprints, dur, mode);
+  _lastResult = results;
+
+  // Affiche le curl
+  document.getElementById('curl-hint').innerHTML = `
+    <div class="section-hdr">URL JSON (curl)</div>
+    <div class="curl-box" onclick="copyCurl()" title="Cliquer pour copier">${buildCurlUrl()}</div>
+    <div class="curl-copy-hint">↑ Cliquer pour copier · curl "URL" | python -m json.tool</div>`;
+
+  let html = '';
+
+  // LocalStorage configs détectées
+  const lsCfgs = Object.values(results).filter(r => r.lsCfg).map(r => ({ pi: r.piNum, cfg: r.lsCfg }));
+  if (lsCfgs.length) {
+    html += '<div class="section-hdr">💾 Config localStorage détectée</div>';
+    html += `<pre class="json" onclick="copyText(this.textContent)">${JSON.stringify(Object.fromEntries(lsCfgs.map(x => [x.pi, x.cfg])), null, 2)}</pre>`;
+  }
+
+  html += '<div class="section-hdr">Semaines par offset</div>';
+  for (let off = -2; off <= 2; off++) {
+    const { piNum: pn, weeks, lsCfg } = results[off];
+    const isSelected = off === 0;
+    const label = off === 0 ? 'courant' : off > 0 ? `+${off}` : `${off}`;
+
+    html += `<div class="pi-block" style="border-left:3px solid ${isSelected ? '#6366f1' : '#e2e8f0'}">`;
+    html += `<div class="pi-title">PI ${pn}
+      <span class="badge${isSelected ? ' badge-green' : ''}">offset ${label}</span>
+      ${lsCfg ? '<span class="badge badge-blue">localStorage</span>' : ''}
+    </div>`;
+    html += `<table><thead><tr><th>Label</th><th>Début</th><th>Fin</th><th>Statut</th></tr></thead><tbody>`;
+    for (const w of weeks) {
+      const isCur = today >= w.weekStart && today <= w.weekEnd;
+      const isPast = w.weekEnd < today;
+      const cls = isCur ? 'current' : isPast ? 'past' : '';
+      const status = isCur ? '▶ EN COURS' : isPast ? '✓ Passé' : '→ À venir';
+      html += `<tr class="${cls}"><td>${w.label}</td><td>${fmtDate(w.weekStart)}</td><td>${fmtDate(w.weekEnd)}</td><td>${status}</td></tr>`;
+    }
+    html += `</tbody></table></div>`;
+  }
+
+  // JSON brut cliquable
+  html += '<div class="section-hdr">JSON brut <small>(cliquer pour copier)</small></div>';
+  html += `<pre class="json" onclick="copyText(this.textContent)">${JSON.stringify(results, null, 2)}</pre>`;
+
+  out.innerHTML = html;
+}
+
+// ── Diagnostic : compare la date JIRA (sprint .1) vs localStorage pi-cfg-* ─────
+window.diagnose = function() {
+  const sb = window.opener?.__squadBoard || window.parent?.__squadBoard || window.__squadBoard;
+  const diag = document.getElementById('diag');
+  if (!sb) {
+    diag.innerHTML = '<div class="error">⚠️ Store Squad-Board non accessible. Ouvre cette page depuis l\'app (même onglet/origine).</div>';
+    return;
+  }
+  const pi = sb.store.get('piInfo');
+  const sp = sb.store.get('sprintInfo');
+  const all = sp?.teamSprints || [];
+
+  // Pour chaque PI proche, compare JIRA (.1) vs localStorage
+  const piFromSprint = (() => { const m = String(sp?.name||'').match(/(\d+)\.\d+/); return m ? parseInt(m[1]) : (pi?.number||0); })();
+  const rows = [];
+  for (let off = -2; off <= 2; off++) {
+    const pn = piFromSprint + off;
+    if (pn < 1) continue;
+    // JIRA: date majoritaire des sprints pn.1 (comme _jiraSprint1Start côté app)
+    const s1all = all.filter(s => { const m = String(s.name||'').match(/\b(\d{2,})\.(\d+)/); return m && parseInt(m[1])===pn && parseInt(m[2])===1 && s.startDate; });
+    const dateCounts = {};
+    for (const s of s1all) { const d = String(s.startDate).slice(0,10); dateCounts[d] = (dateCounts[d]||0)+1; }
+    const topEntry = Object.entries(dateCounts).sort((a,b) => b[1]-a[1] || b[0].localeCompare(a[0]))[0];
+    const jiraStart = topEntry ? topEntry[0] : '—';
+    const jiraName  = topEntry ? `${s1all.length} sprint(s) · ${topEntry[1]}× cette date` : '—';
+    // localStorage
+    let lsCfg = null; try { lsCfg = JSON.parse(localStorage.getItem(`pi-cfg-${pn}`)||'null'); } catch {}
+    const lsStart = lsCfg?.startDate || '—';
+    const mismatch = jiraStart !== '—' && lsStart !== '—' && jiraStart !== lsStart;
+    rows.push({ pn, off, jiraName, jiraStart, lsStart, mismatch });
+  }
+
+  let html = '<div class="section-hdr">🔍 Source des dates (JIRA sprint .1 vs localStorage)</div>';
+  html += `<div class="pi-block"><table><thead><tr><th>PI</th><th>Sprint JIRA .1</th><th>Date JIRA</th><th>Date localStorage</th><th>État</th></tr></thead><tbody>`;
+  for (const r of rows) {
+    const stateCol = r.mismatch
+      ? `<span class="badge" style="background:#fee2e2;color:#dc2626">⚠ DÉCALAGE</span>`
+      : (r.jiraStart !== '—' ? `<span class="badge badge-green">OK</span>` : `<span class="badge">pas de sprint JIRA</span>`);
+    html += `<tr${r.mismatch?' style="background:#fef2f2"':''}><td>PI${r.pn}${r.off===0?' (courant)':''}</td><td>${r.jiraName}</td><td>${r.jiraStart}</td><td>${r.lsStart}</td><td>${stateCol}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  const mism = rows.filter(r => r.mismatch);
+  if (mism.length) {
+    html += `<div style="margin-top:10px;padding:10px;background:#fef2f2;border-radius:6px;font-size:12px">
+      <strong>⚠ ${mism.length} décalage(s) détecté(s).</strong> La date localStorage diffère de JIRA.<br>
+      <button onclick="fixMismatch()" style="margin-top:8px;background:#dc2626">🔧 Corriger localStorage avec les dates JIRA</button>
+    </div>`;
+    window._diagMismatch = mism;
+  } else {
+    html += `<div style="margin-top:10px;padding:10px;background:#f0fdf4;border-radius:6px;font-size:12px;color:#16a34a">✓ Aucun décalage — localStorage aligné sur JIRA.</div>`;
+  }
+  html += '</div>';
+  diag.innerHTML = html;
+};
+
+window.fixMismatch = function() {
+  if (!window._diagMismatch) return;
+  for (const r of window._diagMismatch) {
+    let cfg = {}; try { cfg = JSON.parse(localStorage.getItem(`pi-cfg-${r.pn}`)||'{}'); } catch {}
+    cfg.startDate = r.jiraStart;
+    localStorage.setItem(`pi-cfg-${r.pn}`, JSON.stringify(cfg));
+  }
+  showToast(`${window._diagMismatch.length} config(s) corrigée(s) — recharge l'app`);
+  diagnose();
+};
+
+function copyText(txt) {
+  navigator.clipboard.writeText(txt).then(() => showToast('Copié !')).catch(() => {});
+}
+function copyJson() {
+  if (!_lastResult) return;
+  copyText(JSON.stringify(_lastResult, null, 2));
+}
+function copyCurl() {
+  copyText(`curl "${buildCurlUrl()}"`);
+}
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, { position:'fixed', bottom:'20px', right:'20px', background:'#6366f1', color:'#fff', padding:'8px 16px', borderRadius:'6px', fontSize:'13px', zIndex:9999 });
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1800);
+}
+
+// ── Lecture paramètres URL ────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  const p = new URLSearchParams(location.search);
+
+  // Auto-remplissage depuis URL
+  if (p.get('pi'))      document.getElementById('in-pinum').value   = p.get('pi');
+  if (p.get('start'))   document.getElementById('in-start').value    = p.get('start');
+  if (p.get('sprints')) document.getElementById('in-sprints').value  = p.get('sprints');
+  if (p.get('dur'))     document.getElementById('in-dur').value      = p.get('dur');
+  if (p.get('mode'))    document.getElementById('in-mode').value     = p.get('mode');
+
+  // Mode JSON : retourne le JSON brut directement (pour curl)
+  if (p.get('fmt') === 'json' && p.get('pi') && p.get('start')) {
+    document.body.innerHTML = '';
+    const piNum  = parseInt(p.get('pi'));
+    const start  = p.get('start');
+    const sprints = parseInt(p.get('sprints') || '5');
+    const dur    = parseInt(p.get('dur') || '14');
+    const mode   = p.get('mode') || 'friday';
+    const { results } = buildWeeks(piNum, start, sprints, dur, mode);
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(results, null, 2);
+    pre.style.cssText = 'margin:0;font-family:monospace;font-size:12px;';
+    document.body.style.margin = '0';
+    document.body.appendChild(pre);
+    return;
+  }
+
+  // Auto-remplissage depuis localStorage pi-cfg-*
+  if (!p.get('pi')) {
+    const pis = [27,28,29,30,31,32].map(n => {
+      try { const c = JSON.parse(localStorage.getItem(`pi-cfg-${n}`) || 'null'); return c?.startDate ? { n, c } : null; } catch { return null; }
+    }).filter(Boolean);
+    if (pis.length) {
+      const latest = pis[pis.length - 1];
+      document.getElementById('in-pinum').value   = latest.n;
+      document.getElementById('in-start').value   = latest.c.startDate;
+      if (latest.c.sprintsPerPI)  document.getElementById('in-sprints').value = latest.c.sprintsPerPI;
+      if (latest.c.sprintDuration) document.getElementById('in-dur').value    = latest.c.sprintDuration;
+    }
+  }
+
+  // Lance le calcul auto si tous les params sont présents
+  if (document.getElementById('in-pinum').value && document.getElementById('in-start').value) run();
+});
+</script>
+</body>
+</html>

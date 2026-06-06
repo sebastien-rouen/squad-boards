@@ -77,7 +77,7 @@ export function extractTeam(name) {
     if (!name) return 'Autre';
     return (name || '')
         .replace(/^(?:Sprint|Équipe|Equipe|Team|Board|Kanban)\s+/i, '')
-        .replace(/\s+-\s+(?:Ite|Iter|Sprint|S)\s*[\d.]+.*/i, '')
+        .replace(/\s+-\s+(?:It[eé]|Iter|Sprint|S)\s*[\d.]+.*/i, '')
         .trim() || name.trim();
 }
 
@@ -98,6 +98,60 @@ export function fmtDateLong(d) {
     // Capitalise le mois (juin → Juin) — replace insensitive sur les mois
     return s.replace(/\b(jan(?:vier)?|f[éeè]v(?:rier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sep(?:tembre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?)\b/i,
         m => m.charAt(0).toUpperCase() + m.slice(1));
+}
+
+/** Format ISO "YYYY-MM-DD" → "mer. 26 août 2026" (vide si invalide). Utilisé par les champs date. */
+export function fmtDateFriendly(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return '';
+    const dt = new Date(iso.slice(0, 10) + 'T00:00:00');
+    if (isNaN(dt)) return '';
+    return dt.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
+ * Champ date "friendly" RÉUTILISABLE : input natif (clic = calendrier OS) + overlay texte lisible.
+ * Tout le champ est cliquable. À coupler avec `wireFriendlyDates(container)` après insertion DOM.
+ *
+ * @param {object} o
+ *   - name        {string}  attribut name de l'input (pour FormData / querySelector)
+ *   - value       {string}  date ISO "YYYY-MM-DD" initiale
+ *   - placeholder {string}  texte affiché quand vide (défaut "Choisir une date")
+ *   - min/max     {string}  bornes ISO optionnelles
+ *   - id          {string}  id optionnel sur l'input
+ * @returns {string} HTML
+ */
+export function friendlyDateField({ name = '', value = '', placeholder = 'Choisir une date', min = '', max = '', id = '' } = {}) {
+    const long = fmtDateFriendly(value);
+    return `<div class="fdate" data-fdate>
+        <input class="fdate-input" type="date" ${id ? `id="${esc(id)}"` : ''} name="${esc(name)}" value="${esc(value)}"${min ? ` min="${esc(min)}"` : ''}${max ? ` max="${esc(max)}"` : ''}>
+        <span class="fdate-display${long ? '' : ' is-empty'}" data-ph="${esc(placeholder)}">${long ? esc(long) : esc(placeholder)}</span>
+        <svg class="fdate-icon icon icon-xs" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="2.5" width="13" height="12" rx="2"/><path d="M1.5 6h13M5 1v3M11 1v3"/></svg>
+    </div>`;
+}
+
+/** Câble tous les champs `[data-fdate]` d'un conteneur : sync de l'overlay + clic ouvre le calendrier.
+ *  Idempotent (ne recâble pas un champ déjà initialisé). */
+export function wireFriendlyDates(container = document) {
+    container.querySelectorAll('[data-fdate]').forEach(wrap => {
+        if (wrap._fdateWired) return;
+        wrap._fdateWired = true;
+        const input   = wrap.querySelector('.fdate-input');
+        const display = wrap.querySelector('.fdate-display');
+        if (!input || !display) return;
+        const ph = display.dataset.ph || display.textContent;
+        const sync = () => {
+            const long = fmtDateFriendly(input.value);
+            display.textContent = long || ph;
+            display.classList.toggle('is-empty', !long);
+        };
+        input.addEventListener('change', sync);
+        input.addEventListener('input', sync);
+        // Clic n'importe où sur le champ → ouvre le calendrier natif (showPicker si dispo)
+        wrap.addEventListener('click', (e) => {
+            if (e.target === input) return; // l'input gère déjà son clic
+            try { input.showPicker?.(); } catch { input.focus(); }
+        });
+    });
 }
 
 /** Format a date as relative time (e.g., "il y a 2h"). */
@@ -487,15 +541,50 @@ export function confirmDanger(title, message, options = {}) {
  * @param {string|null} team  Nom de l'équipe ou 'all'/null (renvoie le sprint legacy).
  * @returns {object|null}     `{name, startDate, endDate, goal, jiraId, jiraBoardId, team}` ou null.
  */
+/**
+ * Extrait le numéro de PI d'un nom de sprint/PI.
+ * Règles (dans l'ordre) : `NN.x` (ex: "Fuego - Ité 29.3" → 29) > `PI #NN` / `PINN`.
+ * @returns {number} le numéro de PI, ou 0 si non extractible.
+ */
+export function extractPiNum(name) {
+    if (!name) return 0;
+    const m = String(name).match(/(\d+)\.\d+/) || String(name).match(/PI\s*#?\s*(\d+)/i);
+    return m ? parseInt(m[1], 10) : 0;
+}
+
+/**
+ * SOURCE UNIQUE du "PI courant". À utiliser partout (topbar, settings, dashboard, …)
+ * au lieu de réimplémenter la regex localement — sinon divergences et bugs d'affichage.
+ *
+ * Règle métier : le PI courant = PI du SPRINT ACTIF JIRA en priorité (la réalité terrain),
+ * fallback sur `piInfo.number` (config Settings). Le sprint prime car la config peut être
+ * obsolète (ex: number=29 alors que le sprint actif est déjà en 30.x).
+ *
+ * @param {object} [opts] — { sprintInfo, piInfo }. Si omis, lus depuis window.__squadBoard.store.
+ * @returns {number} numéro de PI courant, ou 0 si indéterminable.
+ */
+export function getCurrentPi({ sprintInfo, piInfo } = {}) {
+    const store = (typeof window !== 'undefined') ? window.__squadBoard?.store : null;
+    const si = sprintInfo !== undefined ? sprintInfo : store?.get('sprintInfo');
+    const pi = piInfo     !== undefined ? piInfo     : store?.get('piInfo');
+    return extractPiNum(si?.name) || pi?.number || 0;
+}
+
 export function getSprintForTeam(team, sprintInfo = null, targetDate = null) {
     const si = sprintInfo || (typeof window !== 'undefined' && window.__squadBoard?.store?.get('sprintInfo'));
     if (!si) return null;
     const arr = Array.isArray(si.teamSprints) ? si.teamSprints : [];
 
     // Filtre par équipe (si spécifique) — sinon on prend tous les sprints connus
-    const candidates = (team && team !== 'all')
+    // Fallback : si aucun sprint ne matche s.team === team, on tente via le nom du sprint
+    // (ex: "Initiale - Ité 29.5" → extractTeam → "Initiale") pour couvrir les boards
+    // JIRA mal nommés ("Team I", "I", etc.) dont l'alias ne correspond pas au nom équipe UI.
+    let candidates = (team && team !== 'all')
         ? arr.filter(s => s.team === team)
         : arr;
+    if (team && team !== 'all' && !candidates.length) {
+        candidates = arr.filter(s => extractTeam(s.name) === team);
+    }
 
     // Si targetDate fournie, on cherche le sprint qui contient cette date
     if (targetDate && candidates.length) {
@@ -998,14 +1087,25 @@ export function generateSupportRotation(opts) {
         const existing = _findExisting(w);
         const isPast = w.weekEnd < today;
         const isLocked = !!existing?.locked;
+        const isPastUnlocked = !!existing?.unlocked;  // déverrou exceptionnel du passé
 
-        // Règles 3 & 4 : préserver passé et locked
-        if (existing && (isPast || isLocked)) {
-            result.push({
-                ...existing,
-                // On marque le passé comme `locked` côté UI pour clarté (mais sans toucher la base)
-                _autoLocked: isPast && !isLocked,
-            });
+        // Règle 3 : VERROUILLAGE DUR du passé — une semaine dont weekEnd < today
+        // n'est JAMAIS shuffle/réécrite, même si elle n'a pas d'entrée existante.
+        // EXCEPTION : si `unlocked: true`, l'utilisateur a déverrouillé exceptionnellement → shuffle autorisé.
+        if (isPast && !isPastUnlocked) {
+            const preserved = existing || {
+                team, weekLabel: w.label, weekStart: w.weekStart, weekEnd: w.weekEnd,
+                members: [], weekMode, membersPerWeek,
+            };
+            result.push({ ...preserved, _autoLocked: true, locked: existing?.locked || false });
+            (preserved.members || []).forEach(m => { if (m in counts) counts[m]++; });
+            lastPicks = preserved.members || [];
+            continue;
+        }
+
+        // Règle 4 : verrouillage manuel (locked: true) — préservé même dans le futur
+        if (existing && isLocked) {
+            result.push({ ...existing, _autoLocked: false });
             (existing.members || []).forEach(m => { if (m in counts) counts[m]++; });
             lastPicks = existing.members || [];
             continue;

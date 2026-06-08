@@ -587,6 +587,15 @@ body { display: flex; }
     transition: background var(--tr-fast), color var(--tr-fast);
 }
 .btn-icon:hover { background: var(--surface-active); color: var(--text); }
+/* Superscript checkmark sur les boutons toggle actifs (cal modal) */
+.cal-toggle-check {
+    font-size: 8px;
+    font-weight: var(--fw-bold);
+    color: var(--success);
+    margin-left: 1px;
+    vertical-align: super;
+    line-height: 1;
+}
 
 .btn.syncing .icon { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

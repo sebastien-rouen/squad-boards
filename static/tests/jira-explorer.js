@@ -702,6 +702,106 @@ $$('.tab').forEach(t => {
     });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Inspecteur de sprints — dates brutes JIRA par board scrum
+// startDate / endDate (planifiée) / completeDate (clôture réelle)
+// ─────────────────────────────────────────────────────────────────────────────
+let _sprintsCache = null;
+
+function _fmtSprintDate(iso) {
+    if (!iso) return '<span class="empty">—</span>';
+    const d = new Date(iso);
+    if (isNaN(d)) return esc(String(iso));
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+async function loadSprints() {
+    const box = $('#sprints-result');
+    box.innerHTML = '<div class="empty">Chargement des boards…</div>';
+    try {
+        // 1. Lister tous les boards (paginé)
+        const boards = [];
+        let startAt = 0;
+        while (true) {
+            const r = await jiraGet('rest/agile/1.0/board', { maxResults: 50, startAt });
+            const vals = r?.values || [];
+            boards.push(...vals);
+            if (vals.length < 50 || r?.isLast) break;
+            startAt += vals.length;
+            if (startAt > 500) break; // garde-fou
+        }
+        const scrum = boards.filter(b => b.type === 'scrum');
+        if (!scrum.length) { box.innerHTML = '<div class="empty">Aucun board scrum trouvé.</div>'; return; }
+
+        // 2. Tous les sprints de chaque board scrum
+        box.innerHTML = `<div class="empty">Récupération des sprints de ${scrum.length} board(s)…</div>`;
+        const rows = [];
+        for (const b of scrum) {
+            let sAt = 0;
+            while (true) {
+                let r;
+                try { r = await jiraGet(`rest/agile/1.0/board/${b.id}/sprint`, { maxResults: 50, startAt: sAt }); }
+                catch { break; }
+                const vals = r?.values || [];
+                for (const s of vals) rows.push({ board: b.name, ...s });
+                if (vals.length < 50 || r?.isLast) break;
+                sAt += vals.length;
+                if (sAt > 300) break; // garde-fou
+            }
+        }
+        _sprintsCache = rows;
+        renderSprints();
+    } catch (e) {
+        box.innerHTML = `<div class="empty" style="color:var(--danger)">Erreur : ${esc(e.message)}</div>`;
+    }
+}
+
+function renderSprints() {
+    const box = $('#sprints-result');
+    if (!_sprintsCache) return;
+    const filter   = ($('#sprints-filter').value || '').toLowerCase().trim();
+    const diffOnly = $('#sprints-diff-only').checked;
+    const _isDiff = r => r.state === 'closed' && r.completeDate && r.endDate
+        && r.completeDate.slice(0, 10) !== r.endDate.slice(0, 10);
+
+    let rows = _sprintsCache.slice();
+    if (filter)   rows = rows.filter(r => `${r.name} ${r.board}`.toLowerCase().includes(filter));
+    if (diffOnly) rows = rows.filter(_isDiff);
+    rows.sort((a, b) => (a.board || '').localeCompare(b.board || '') || (a.startDate || '').localeCompare(b.startDate || ''));
+
+    if (!rows.length) { box.innerHTML = '<div class="empty">Aucun sprint ne correspond.</div>'; return; }
+
+    const stateBadge = s => `<span class="badge ${s === 'active' ? 'ok' : s === 'closed' ? 'muted' : 'info'}">${esc(s || '?')}</span>`;
+    const body = rows.map(r => {
+        const diff = _isDiff(r);
+        return `<tr class="${diff ? 'row-missing' : ''}">
+            <td>${esc(r.board)}</td>
+            <td><strong>${esc(r.name)}</strong></td>
+            <td>${stateBadge(r.state)}</td>
+            <td>${_fmtSprintDate(r.startDate)}</td>
+            <td>${_fmtSprintDate(r.endDate)}</td>
+            <td>${_fmtSprintDate(r.completeDate)}${diff ? ' <span class="badge warn">écart</span>' : ''}</td>
+            <td class="mono">${esc(String(r.id))}</td>
+        </tr>`;
+    }).join('');
+    const diffCount = _sprintsCache.filter(_isDiff).length;
+    box.innerHTML = `
+        <div style="color:var(--text-soft); font-size:12px; margin-bottom:8px">
+            ${rows.length} sprint(s) affiché(s) · ${diffCount} avec écart endDate↔completeDate (surlignés)
+        </div>
+        <table class="tbl">
+            <thead><tr>
+                <th>Board</th><th>Sprint</th><th>État</th>
+                <th>startDate</th><th>endDate (planifiée)</th><th>completeDate (réelle)</th><th>ID</th>
+            </tr></thead>
+            <tbody>${body}</tbody>
+        </table>`;
+}
+
+$('#btn-sprints-load')?.addEventListener('click', loadSprints);
+$('#sprints-filter')?.addEventListener('input', () => { if (_sprintsCache) renderSprints(); });
+$('#sprints-diff-only')?.addEventListener('change', () => { if (_sprintsCache) renderSprints(); });
+
 $('#btn-lookup').addEventListener('click', () => {
     const k = $('#lookup-key').value.trim();
     if (k) { writeParams({ tab: 'inspect', key: k }); inspectIssue(k, false); }

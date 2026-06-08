@@ -223,6 +223,289 @@
 }
 .health-row-total-col { width: 50px; text-align: center !important; }
 
+/* Colonnes Vélocité / Buffer réalisés */
+.health-metric-col {
+    min-width: 60px;
+    text-align: center !important;
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    cursor: help;
+    border-left: 2px solid var(--border);
+}
+.health-metric-col--velo { color: var(--success); }
+.health-metric-col--buf  { color: var(--warning); }
+/* Sous-label "sprint courant / PI#xx" sous l'en-tête de colonne */
+.health-metric-sub {
+    display: block;
+    font-size: 8.5px;
+    font-weight: var(--fw-normal);
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 1px;
+}
+.health-metric-cell {
+    border-left: 2px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+    cursor: default;
+}
+.health-metric-cell.has-val { cursor: pointer; }
+.health-metric-cell.has-val:hover { transform: scale(1.15); font-weight: 800; }
+.health-metric-cell--velo.has-val { color: var(--success); }
+.health-metric-cell--buf.has-val  { color: var(--warning); }
+.health-metric-unit { font-size: 9px; font-weight: normal; opacity: .7; margin-left: 1px; }
+
+/* ── Modal sprint Vélocité / Buffer ─────────────────────────────────────────── */
+.htl-modal {
+    min-width: min(900px, 95vw);
+    max-width: 960px;
+    transform: translateY(-8px);
+    opacity: 0;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+    overflow: hidden;
+}
+.alert-modal-overlay.visible .htl-modal { transform: translateY(0); opacity: 1; }
+.htl-muted { color: var(--text-muted); font-size: 11px; }
+.htl-modal-body { padding: var(--sp-4); overflow-y: auto; max-height: calc(90vh - 100px); }
+
+/* Header */
+.htl-modal-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border);
+    gap: var(--sp-3);
+}
+.htl-modal-hdr-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.htl-modal-swatch {
+    flex-shrink: 0;
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 14px; font-weight: var(--fw-bold);
+}
+.htl-modal-hdr-text { min-width: 0; }
+.htl-modal-hdr-title { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--text); }
+.htl-modal-hdr-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.htl-modal-close { flex-shrink: 0; }
+
+/* Labels de section */
+.htl-section-lbl {
+    font-size: 10px; font-weight: var(--fw-bold);
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+}
+.htl-badge {
+    font-size: 10px; font-weight: var(--fw-semibold);
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 1px 7px;
+    color: var(--text-secondary); margin-left: auto;
+}
+
+/* Tableau sprints du PI */
+.htl-sprint-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-md); }
+.htl-sprint-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); white-space: nowrap; }
+.htl-sprint-table thead th {
+    padding: 7px 10px; text-align: left;
+    color: var(--text-muted); font-weight: var(--fw-semibold);
+    background: var(--surface-2);
+    border-bottom: 2px solid var(--border);
+    cursor: help;
+}
+.htl-sprint-table tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    color: var(--text-secondary);
+}
+.htl-sprint-table tbody tr:last-child td { border-bottom: none; }
+.htl-sprint-table tbody tr:hover td { background: var(--surface-2); }
+.htl-sprint-row--ref td {
+    background: color-mix(in srgb, #3b82f6 9%, var(--surface));
+    color: var(--text);
+    font-weight: var(--fw-medium);
+}
+.htl-sprint-row--ref:hover td { background: color-mix(in srgb, #3b82f6 14%, var(--surface)); }
+.htl-spr-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.htl-spr-num  { text-align: right !important; font-variant-numeric: tabular-nums; }
+.htl-sprint-table thead th.htl-th-num { text-align: right !important; }
+.htl-velo-col { color: var(--success); font-weight: var(--fw-semibold); }
+/* Cellules Vélo/Buffer cliquables (sprint table) → ouvrent le détail tickets */
+.htl-cell-clickable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.htl-cell-clickable:hover { filter: brightness(.9); background: color-mix(in srgb, currentColor 10%, transparent) !important; }
+.htl-cell-active { outline: 2px solid currentColor; outline-offset: -2px; border-radius: 3px; }
+/* Indice au-dessus de la section tickets */
+.htl-tickets-hint { font-weight: var(--fw-normal) !important; text-transform: none !important; letter-spacing: 0 !important; color: var(--text-muted); margin: 14px 0 6px; }
+/* État de chargement (lazy-fetch JIRA des sprints clos) */
+.htl-loading { padding: 18px; text-align: center; color: var(--text-secondary); font-size: var(--fs-xs); }
+/* Colonne Buffer mise en avant en violet (header + cellules) — specificité renforcée
+   pour rester violette même sur la ligne du sprint courant (.htl-sprint-row--ref td) */
+.htl-sprint-table td.htl-buf-col,
+.htl-sprint-table th.htl-buf-col {
+    color: #7c3aed;
+    font-weight: var(--fw-semibold);
+    background: color-mix(in srgb, #7c3aed 8%, transparent);
+}
+.htl-sprint-table thead th.htl-buf-col { background: color-mix(in srgb, #7c3aed 14%, var(--surface-2)); }
+
+/* Badge état du sprint */
+.htl-state {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+}
+.htl-state--active { color: #2563eb; background: color-mix(in srgb, #2563eb 12%, transparent); }
+.htl-state--closed { color: var(--success); background: color-mix(in srgb, var(--success) 13%, transparent); }
+.htl-state--future { color: var(--text-muted); background: var(--surface-2); }
+
+/* Section tickets Done */
+.htl-tickets-section {
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-3);
+    border-top: 2px solid var(--border);
+}
+.htl-tickets-hdr {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.htl-tickets-hdr-title {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-secondary);
+}
+.htl-tickets-hdr-sprint {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 1px 6px;
+}
+.htl-tickets-hdr-badge {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+    border-radius: 999px;
+    padding: 2px 10px;
+}
+
+/* Mood picker inline */
+.htl-mood-picker {
+    display: inline-flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 3px 5px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+.htl-mood-btn {
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: var(--r-sm);
+    padding: 2px 4px;
+    transition: background .1s, transform .1s;
+    line-height: 1;
+}
+.htl-mood-btn:hover { background: var(--surface-2); transform: scale(1.2); }
+.htl-mood-btn.is-selected { background: color-mix(in srgb, var(--primary) 15%, var(--surface)); }
+
+/* Charge prévue éditable */
+.htl-charge-input {
+    width: 56px;
+    text-align: right;
+    font-size: var(--fs-xs);
+    font-variant-numeric: tabular-nums;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    background: transparent;
+    padding: 1px 4px;
+    color: inherit;
+    font-weight: inherit;
+    transition: border-color .1s, background .1s;
+}
+.htl-charge-input:hover, .htl-charge-input:focus {
+    border-color: var(--primary);
+    background: var(--surface);
+    outline: none;
+}
+
+/* Mood coloré selon la note (0-5) */
+.htl-mood-val { font-weight: var(--fw-semibold); white-space: nowrap; cursor: pointer; }
+.htl-mood-count { font-weight: var(--fw-normal); color: var(--text-muted); font-size: 10px; }
+.htl-mood-empty { cursor: pointer; }
+.htl-mood-empty:hover { color: var(--primary); text-decoration: underline; }
+.htl-mood--good { color: var(--success); }
+.htl-mood--ok   { color: var(--warning); }
+.htl-mood--bad  { color: var(--danger);  }
+
+/* Table tickets */
+.htl-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.htl-table thead th { text-align: left; padding: 6px 10px; color: var(--text-muted); font-weight: var(--fw-semibold); border-bottom: 2px solid var(--border); }
+.htl-table tbody td { padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); vertical-align: top; }
+.htl-table tbody tr:last-child td { border-bottom: none; }
+.htl-table tfoot td { padding: 6px 10px; font-weight: var(--fw-bold); border-top: 2px solid var(--border); }
+.htl-id    { color: var(--text-muted); white-space: nowrap; width: 80px; font-family: var(--font-mono); font-size: 11px; }
+.htl-title { }
+.htl-parent { width: 220px; max-width: 220px; }
+.htl-buf-flag { width: 32px; text-align: center; }
+.htl-pts   { text-align: right; white-space: nowrap; width: 50px; }
+.htl-who   { white-space: nowrap; width: 140px; color: var(--text-secondary); }
+
+/* Ligne ticket entièrement cliquable → ouvre le détail */
+.htl-ticket-row { cursor: pointer; transition: background .1s; }
+.htl-ticket-row:hover td { background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+
+/* Chip parent (epic) — 1 couleur par parent via --pc */
+.htl-parent-chip {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    color: var(--pc, var(--primary));
+    background: color-mix(in srgb, var(--pc, var(--primary)) 13%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--pc, var(--primary)) 30%, transparent);
+    cursor: pointer;
+    transition: background .1s;
+}
+.htl-parent-chip:hover {
+    background: color-mix(in srgb, var(--pc, var(--primary)) 24%, var(--surface));
+    text-decoration: underline;
+}
+/* Points en chip */
+.htl-pts-chip {
+    display: inline-block;
+    min-width: 22px;
+    text-align: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+}
+.htl-total-lbl { color: var(--text-muted); text-align: right !important; }
+.htl-total-val { text-align: right; font-weight: var(--fw-bold); }
+
 .health-matrix tbody td {
     padding: 7px 4px;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
@@ -233,7 +516,7 @@
 }
 .health-matrix tbody tr:last-child td { border-bottom: none; }
 .health-matrix tbody tr:hover td { background: color-mix(in srgb, var(--primary) 3%, transparent); }
-.health-cell.has-val { transition: transform 0.1s ease; }
+.health-cell.has-val { transition: transform 0.1s ease; cursor: pointer; }
 .health-cell.has-val:hover { transform: scale(1.15); font-weight: 800; }
 .health-cell-zero { color: var(--text-muted); opacity: 0.4; }
 .health-team {
@@ -6848,11 +7131,12 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
     background: rgba(0,0,0,0.5);
     z-index: 1200;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     opacity: 0;
     transition: opacity 0.2s;
     padding: var(--sp-4);
+    overflow-y: auto;
 }
 .cal-week-overlay.visible {
     opacity: 1;
@@ -7110,6 +7394,50 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
 .cal-week-sprint-state--active { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 10%, transparent); }
 .cal-week-sprint-state--closed { color: var(--text-muted); border-color: var(--border); background: var(--surface-2); }
 .cal-week-sprint-state--future { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, transparent); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+/* Grille sprint alignée sur les colonnes jour (nom + goal par sprint visible) */
+.cal-sprint-col-labels {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    margin-top: 5px;
+    min-height: 32px;
+}
+.cal-sprint-col-item {
+    grid-row: 1;                 /* tous sur la même ligne → côte à côte */
+    overflow: hidden;
+    padding: 3px 7px;
+    border-radius: var(--r-sm);
+    border-left: 3px solid var(--team-color, var(--primary));
+    background: color-mix(in srgb, var(--team-color, var(--primary)) 8%, var(--surface));
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+/* Sprint dominant de la semaine = pleine intensité ; les autres (passé/futur) atténués */
+.cal-sprint-col-item--main {
+    background: color-mix(in srgb, var(--team-color, var(--primary)) 13%, var(--surface));
+}
+.cal-sprint-col-item:not(.cal-sprint-col-item--main) {
+    border-left-color: color-mix(in srgb, var(--team-color, var(--primary)) 50%, var(--text-muted));
+    opacity: .72;
+}
+.cal-sprint-col-item--closed { opacity: .6; }
+.cal-sprint-col-name {
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+}
+.cal-sprint-col-goal {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Variantes de la barre selon l'état — sprints clos un peu désaturés */
 .cal-week-sprint-bar--closed .cal-week-sprint-name,
 .cal-week-sprint-bar--closed .cal-week-sprint-goal { opacity: 0.75; }
@@ -7252,6 +7580,382 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
 .cal-day-sprint-mark--start { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
 .cal-day-sprint-mark--end   { color: var(--warning); background: color-mix(in srgb, var(--warning) 16%, transparent); border-color: color-mix(in srgb, var(--warning) 32%, transparent); }
 
+/* ── Split AM/PM : deux sections à hauteur égale + gouttière latérale ────── */
+.cal-week-grid-wrap.cal-week-split-active {
+    display: flex;
+    flex-direction: row;
+    overflow: hidden; /* scroll délégué aux sections */
+}
+
+/* Gouttière gauche avec labels verticaux */
+.cal-time-gutter {
+    display: flex;
+    flex-direction: column;
+    width: 30px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+}
+.cal-time-label {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 9px;
+    font-weight: var(--fw-bold);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    user-select: none;
+    padding: var(--sp-2) 0;
+    gap: 4px;
+}
+.cal-time-label--am {
+    color: #d97706;
+    border-bottom: 1px solid var(--border);
+}
+.cal-time-label--pm { color: #0891b2; }
+
+/* Corps splitté (AM + séparateur + PM) */
+.cal-split-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.cal-week-section {
+    flex: 1;
+    min-height: 0;
+    overflow-y: scroll;   /* toujours visible = signal immédiat de scrollabilité */
+    overflow-x: auto;
+    /* Gradient fade en bas : indique visuellement que du contenu continue */
+    --sec-bg: var(--surface);
+    background-image:
+        linear-gradient(to top,
+            color-mix(in srgb, var(--sec-bg) 85%, transparent) 0%,
+            transparent 52px) !important;
+    background-repeat: no-repeat !important;
+    background-position: bottom !important;
+    background-attachment: local !important;
+    /* Scrollbar fine et visible */
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-muted) transparent;
+}
+.cal-week-section::-webkit-scrollbar       { width: 6px; }
+.cal-week-section::-webkit-scrollbar-track { background: transparent; }
+.cal-week-section::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 3px;
+    opacity: .6;
+}
+.cal-week-section::-webkit-scrollbar-thumb:hover { background: var(--text); }
+
+.cal-week-section--am {
+    --sec-bg: color-mix(in srgb, #d97706 4%, var(--surface));
+    background-color: var(--sec-bg);
+}
+.cal-week-section--pm {
+    --sec-bg: color-mix(in srgb, #0891b2 4%, var(--surface));
+    background-color: var(--sec-bg);
+}
+
+/* Boutons toggle de la modal calendrier (🌗 AM/PM, ≡ compact) */
+.cal-week-toggle-btn.is-active {
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    color: var(--primary);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+.cal-week-toggle-btn.is-active:hover {
+    background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+}
+
+/* Barre pleine largeur matin / après-midi (span sur toute la semaine) */
+.cal-week-pm-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 var(--sp-2);
+    margin: 4px 0;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.cal-week-pm-bar::before,
+.cal-week-pm-bar::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+.cal-week-grid--pm .cal-day-col--pm {
+    border-top: none;
+}
+.cal-day-col--pm .cal-day-events {
+    min-height: 2rem;
+}
+
+/* Événement multi-jours sur un jour de continuation (pas le jour de début) */
+.cal-ev-row--multiday-cont {
+    opacity: .88;
+}
+.cal-ev-row--multiday-cont .cal-ev-time {
+    font-style: italic;
+    letter-spacing: .01em;
+}
+
+/* Mode compact : event = une seule ligne titre */
+.cal-ev-row--compact {
+    padding: 3px var(--sp-2) 3px var(--sp-3);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: default;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.cal-ev-compact-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+}
+.cal-ev-row--compact:hover { background: color-mix(in srgb, var(--primary) 6%, var(--surface)) !important; }
+
+/* ── Popup détail événement (style Google Calendar) ──────────────────────── */
+#cal-ev-popup {
+    z-index: 10100;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: 0 8px 30px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.10);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    transform: scale(.96) translateY(-4px);
+    transition: opacity .15s, transform .15s;
+    pointer-events: none;
+}
+#cal-ev-popup.visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
+}
+.cal-ev-popup-accent {
+    height: 4px;
+    flex-shrink: 0;
+}
+.cal-ev-popup-hdr {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-2) var(--sp-2) var(--sp-3);
+}
+.cal-ev-popup-title {
+    flex: 1;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    line-height: 1.35;
+    color: var(--text);
+    word-break: break-word;
+}
+.cal-ev-popup-close {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    border-radius: var(--r-md);
+    color: var(--text-muted);
+    transition: background .1s, color .1s;
+    margin-top: -2px;
+}
+.cal-ev-popup-close:hover { background: var(--surface-active); color: var(--text); }
+.cal-ev-popup-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 var(--sp-3) var(--sp-3);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+.cal-ev-popup-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: var(--fs-xs);
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+.cal-ev-popup-row--muted { color: var(--text-muted); }
+.cal-ev-popup-icon {
+    flex-shrink: 0;
+    font-size: 13px;
+    line-height: 1.3;
+    width: 16px;
+    text-align: center;
+}
+.cal-ev-popup-dot {
+    flex-shrink: 0;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-top: 3px;
+}
+/* Bouton d'action (Visio, URL) */
+.cal-ev-popup-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--r-md);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    transition: background .1s;
+    margin-top: 2px;
+    align-self: flex-start;
+}
+.cal-ev-popup-btn:hover { background: var(--surface-active); }
+.cal-ev-popup-btn--visio {
+    background: color-mix(in srgb, #2563eb 10%, var(--surface));
+    border-color: color-mix(in srgb, #2563eb 25%, var(--border));
+    color: #2563eb;
+}
+.cal-ev-popup-btn--visio:hover { background: color-mix(in srgb, #2563eb 16%, var(--surface)); }
+/* Durée en muted dans la ligne heure */
+.cal-ev-popup-dur { color: var(--text-muted); font-weight: normal; font-size: 10px; }
+/* Muted inline */
+.cal-ev-popup-muted { color: var(--text-muted); font-size: 10px; }
+/* Location wrap */
+.cal-ev-popup-loc { word-break: break-word; }
+/* Cérémonie Scrum */
+.cal-ev-popup-row--scrum { color: var(--text); }
+/* Section (contacts, meeting ID) avec séparateur */
+.cal-ev-popup-section {
+    border-top: 1px solid var(--border);
+    padding-top: 7px;
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.cal-ev-popup-section-hdr {
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+.cal-ev-popup-contact {
+    font-size: var(--fs-xs);
+}
+.cal-ev-popup-contact a {
+    color: var(--primary);
+    text-decoration: none;
+}
+.cal-ev-popup-contact a:hover { text-decoration: underline; }
+/* Code meeting ID / passcode */
+.cal-ev-popup-code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: .04em;
+    user-select: all;
+}
+/* Description */
+.cal-ev-popup-desc {
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    max-height: 220px;
+    overflow-y: auto;
+    line-height: 1.6;
+    scrollbar-width: thin;
+}
+/* Icône visio dans la carte (petit badge discret) */
+.cal-ev-visio-badge {
+    font-size: 10px;
+    opacity: .65;
+    margin-left: 2px;
+    cursor: default;
+}
+
+/* Tooltip événement compact (singleton body, position fixed) */
+.cal-compact-tt {
+    position: fixed;
+    z-index: 10002;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: var(--sp-3);
+    width: 280px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.14);
+    font-size: var(--fs-xs);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity .12s;
+}
+.cal-compact-tt.visible { opacity: 1; }
+.cal-compact-tt-time {
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
+    font-size: 11px;
+}
+.cal-compact-tt-row { color: var(--text-secondary); }
+.cal-compact-tt-visio {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--primary);
+    font-weight: var(--fw-medium);
+    text-decoration: none;
+}
+.cal-compact-tt-visio:hover { text-decoration: underline; }
+.cal-compact-tt-desc {
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    max-height: 120px;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 5px;
+    margin-top: 2px;
+}
+
+/* Indicateur jour PIP (PI Planning récupérable) */
+.cal-day-pip-mark {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: var(--fw-bold);
+    color: #7c3aed;
+    background: color-mix(in srgb, #7c3aed 12%, transparent);
+    border: 1px solid color-mix(in srgb, #7c3aed 28%, transparent);
+    line-height: 1.5;
+    vertical-align: middle;
+    cursor: help;
+    letter-spacing: .02em;
+}
+
 /* Variante Visio du lien event (URL location) */
 .cal-ev-link--visio {
     background: color-mix(in srgb, var(--primary) 10%, transparent);
@@ -7353,7 +8057,7 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
 .cal-day-events {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-2);
+    gap: 5px;
 }
 
 /* Week-end */
@@ -7462,14 +8166,15 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
 }
 .cal-ev-row {
     position: relative;
-    padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+    padding: 4px 6px 4px 9px;
     border: 1px solid var(--border);
     border-left: 3px solid var(--primary);
-    border-radius: 0 var(--r-md) var(--r-md) 0;
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
     background: var(--surface);
     font-size: var(--fs-xs);
     transition: box-shadow 0.12s, background 0.1s;
 }
+.cal-ev-row[data-ev-start] { cursor: pointer; }
 .cal-ev-row:hover {
     background: var(--surface-2);
     box-shadow: 0 2px 8px rgba(0,0,0,0.07);
@@ -7489,7 +8194,7 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
     font-weight: var(--fw-bold);
     color: var(--text-muted);
     letter-spacing: 0.03em;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     min-width: 0;
 }
 /* L'horaire seul reste nowrap pour ne pas casser "10h00 – 10h30" */

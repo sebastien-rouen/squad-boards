@@ -2027,10 +2027,14 @@ def list_mood(type: Optional[str] = None, team: Optional[str] = None,
 @app.post("/api/mood")
 async def create_mood(request: Request, session: Session = Depends(get_session)):
     body = await request.json()
+    try:
+        _val = int(body.get("value", 3))
+    except (TypeError, ValueError):
+        _val = 3
     m = MoodVote(
         type=body.get("type", "mood"),
         team=body.get("team", ""),
-        value=max(1, min(5, body.get("value", 3))),
+        value=max(1, min(5, _val)),
         pi_sprint=body.get("piSprint"),
         author=body.get("author"),
         note=body.get("note", ""),

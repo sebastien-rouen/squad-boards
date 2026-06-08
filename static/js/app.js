@@ -114,6 +114,17 @@ function applyHash() {
     const openCal = raw.endsWith('~cal');
     if (openCal) raw = raw.slice(0, -4); // retire "~cal"
 
+    // Détecte et retire le marqueur ~sprint=<metric>:<team> (modale vélocité/buffer Health).
+    // On capture les params pour rouvrir la modale APRÈS le render de la vue.
+    let sprintModal = null;
+    const spIdx = raw.indexOf('~sprint=');
+    if (spIdx >= 0) {
+        const dec = decodeURIComponent(raw.slice(spIdx + '~sprint='.length));
+        const ci  = dec.indexOf(':');
+        if (ci > 0) sprintModal = { metric: dec.slice(0, ci), team: dec.slice(ci + 1) };
+        raw = raw.slice(0, spIdx);
+    }
+
     // Extract optional alert fragment: #view[/team[/tab]]/alert/<actionable>
     const am = raw.match(/^(.*?)\/alert\/([^/]+)$/);
     const alertId = am ? decodeURIComponent(am[2]) : null;
@@ -201,6 +212,17 @@ function applyHash() {
         requestAnimationFrame(() => {
             import('./components/cal_banner.js').then(m => m.openCalWeekModal?.());
         });
+    }
+
+    // Modale vélocité/buffer Health — rouvrir si ~sprint=<metric>:<team> présent dans le hash.
+    // Double rAF : laisse renderHealth peupler _sprintMetaStore avant la réouverture.
+    if (sprintModal) {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            import('./views/health.js').then(m => m.reopenSprintModalFromHash?.(sprintModal.team, sprintModal.metric));
+        }));
+    } else {
+        // Navigation arrière : marqueur retiré → ferme la modale si ouverte
+        document.getElementById('health-sprint-modal')?.remove();
     }
 }
 

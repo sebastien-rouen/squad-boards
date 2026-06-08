@@ -213,6 +213,8 @@ Chaîne de fallback dans `transformIssue` : nom du sprint (regex `\d+\.\d+` ou `
 - `sb-sync-maxBoards` — cap total boards scannés (vide = illimité)
 - `sb-sync-sprintField` — nom JQL ou customfield (auto-détecté si vide)
 - `sb-sync-teamField` — idem
+- `sb-sync-closedKeep` — nb de sprints clos conservés par board pour l'historique vélocité (défaut 20)
+- `sb-sync-closedTicketSprints` — nb de sprints clos récents (par board) dont on **importe les tickets** en local, pour l'historique vélocité/buffer de la vue Health (défaut 6 ≈ 1 PI ; `0` = désactivé). Sans ça, les tickets des sprints clos ne sont pas synchronisés (seuls sprint actif + futurs + features/epics le sont) → la modale Health devait les lazy-fetch depuis JIRA.
 
 ### Pages de debug dans `/tests/`
 

@@ -5,7 +5,7 @@
 
 import { store } from '../state.js';
 import { NAV_ITEMS } from '../config.js';
-import { esc, debounce, getStatusLabel, getCurrentPi } from '../utils.js';
+import { esc, debounce, getStatusLabel, getCurrentPi, getSprintForTeam } from '../utils.js';
 import { toggleFavoritesDropdown } from './favorites.js';
 
 let _topbarInited = false;
@@ -40,8 +40,13 @@ export function initTopbar() {
         }
 
         // 3. Sprint name (uniquement sur Sprint/Kanban/Dashboard avec team spécifique)
-        if (sprintInfo?.name && ['sprint', 'dashboard'].includes(view) && team && team !== 'all') {
-            segments.push(`<span class="bc-seg bc-seg--ctx" title="Sprint actif">📌 ${esc(sprintInfo.name)}</span>`);
+        //    → sprint DE L'ÉQUIPE sélectionnée, pas le sprint global (= 1er actif trouvé à la sync,
+        //      qui peut appartenir à une autre équipe — cf. bug "Sprint Design" pour team Fuego).
+        if (['sprint', 'dashboard'].includes(view) && team && team !== 'all') {
+            const teamSprint = getSprintForTeam(team, sprintInfo);
+            if (teamSprint?.name) {
+                segments.push(`<span class="bc-seg bc-seg--ctx" title="Sprint actif de l'équipe ${esc(team)}">📌 ${esc(teamSprint.name)}</span>`);
+            }
         }
 
         viewTitle.innerHTML = segments.join('<span class="bc-sep" aria-hidden="true">›</span>');
@@ -88,7 +93,7 @@ export function initTopbar() {
     updateBoardModeToggle();
 
     // ── Sélecteur PI dans le topbar (PI-2..PI+2) — visible uniquement sur pi/roadmap/…
-    const PI_VIEWS = new Set(['pi', 'roadmap', 'settings', 'support', 'dashboard']);
+    const PI_VIEWS = new Set(['pi', 'roadmap', 'settings', 'support', 'dashboard', 'health']);
     const piHost = document.getElementById('pi-selector-host');
     function updatePiSelector() {
         if (!piHost) return;

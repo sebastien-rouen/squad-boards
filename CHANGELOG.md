@@ -1,3 +1,35 @@
+## [3.17.0] - 2026-06-08
+
+### Feat : Tickets des sprints clos synchronisés en local (Health)
+- **Nouvelle passe de sync** ([sync.js](squad-board/static/js/sync.js)) : pour chaque board, import des tickets des **N derniers sprints clos** (cap `sb-sync-closedTicketSprints`, défaut 6 ≈ 1 PI, `0` = off). Avant, seuls le sprint actif + sprints futurs + features/epics étaient importés → l'historique des tickets de sprints passés était absent en local. Dédoublonnage via `seenTicketIds` (le sprint actif et les sprints clos plus récents priment). La passe tourne même pour les boards sans sprint actif.
+- **Conséquence** : dans la modale Health (clic Vélo/Buffer d'un sprint passé), les tickets s'affichent **directement depuis le local** sans lazy-fetch JIRA. Le lazy-fetch reste en filet de sécurité si un sprint plus ancien que le cap est consulté.
+
+### Fix : Cohérence « vélocité/buffer réalisé » (cellule vs liste)
+- La cellule Vélo./Buffer du tableau des sprints affichait la vélocité JIRA (greenhopper) tandis que la section tickets sommait les Story Points Done → valeurs incohérentes. Désormais, quand les tickets Done locaux existent, **la cellule = somme des SP Done** (= total de la section). La vélocité JIRA ne sert plus que de fallback quand aucun ticket local n'est disponible. Conforme à l'intitulé de colonne « Vélocité réalisée (Done SP) ».
+
+---
+
+## [3.16.0] - 2026-06-08
+
+### Fix : Dates de fin de sprint clos = clôture réelle (completeDate)
+- **Cause** : la synchro JIRA ne conservait que `endDate` (date de fin **planifiée**). Or JIRA distingue `endDate` (planifiée) et `completeDate` (clôture **réelle**, souvent décalée de quelques jours pour un sprint fermé en retard). La barre calendrier / la modale Health affichaient donc une date planifiée (ex: `→ 14/05`) alors que le sprint a réellement tourné jusqu'au `18/05`.
+- **Fix** ([sync.js](squad-board/static/js/sync.js)) : `teamSprints[]` capture désormais `completeDate` et `plannedEndDate`. Pour un sprint **clos**, `endDate` effective = `completeDate` (réelle) ; la date planifiée reste disponible via `plannedEndDate`. Les sprints actifs/futurs sont inchangés. Aucun changement de schéma backend : `team_sprints` est une colonne JSON, les nouveaux champs round-trip automatiquement.
+
+### Feat : Inspecteur de sprints dans `/tests/jira-explorer.html`
+- Nouvel onglet **Sprints** : liste tous les sprints des boards scrum avec leurs dates **brutes** JIRA (`startDate` / `endDate` planifiée / `completeDate` réelle) + état + ID. Filtre par nom et option « écarts uniquement » qui surligne les sprints dont `completeDate ≠ endDate`. Outil de diagnostic pour vérifier ce que JIRA renvoie réellement.
+
+### Feat : Vue Health enrichie (colonnes Vélocité / Buffer + modale sprint)
+- **Sélecteur PI** sur `/#health` (ajout de `health` à `PI_VIEWS`) : anomalies et métriques suivent le PI sélectionné.
+- **Colonnes ⚡ Vélocité réalisée et 🛡 Buffer réalisé** par équipe dans la matrice (tooltip détaillé, clic → modale).
+- **Modale sprint** : tableau des sprints du PI (début, état, mood coloré éditable au clic, capacité estimée, charge prévue éditable, vélocité, buffer) + liste des tickets Done. Sprint courant surligné bleu pastel.
+
+### Feat : Modale calendrier (cal-week-grid) — nombreuses améliorations
+- Jours **PIP** récupérables marqués, events **multi-jours** affichés sur tous leurs jours, **bgcolor par calendrier**, drapeau 🏁 fin de sprint, flocon ❄️ sur events GEL/Freeze.
+- **Séparation matin / après-midi** (14h) pleine largeur avec gouttière latérale, **mode compact** (titres seuls + popup détail), **popup détail d'événement** au clic (style Google Agenda : visio, contacts, ID réunion…).
+- **Barre sprint** : nom + goal alignés sur les colonnes jours, affichage de **tous les sprints chevauchant la semaine** (précédent + courant + suivant).
+
+---
+
 ## [3.15.0] - 2026-06-06
 
 ### Refactor : Assainissement de la gestion du « PI courant » (maintenabilité)

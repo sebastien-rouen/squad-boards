@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, hashColor, toast, getSprintForTeam } from '../utils.js';
+import { esc, hashColor, toast, getSprintForTeam, getCurrentPi, extractTeam } from '../utils.js';
 import * as api from '../api.js';
 
 // ── Jours fériés France ───────────────────────────────────────────────────────
@@ -66,6 +66,19 @@ function _fmtDay(d) {
 function _todayKey() {
     return _dayKey(new Date());
 }
+// Retourne true si l'événement couvre le jour dk.
+// Pour les events allDay, DTEND est exclusif (spec iCal) → on utilise > dk.
+// Pour les events avec heure, la fin est inclusive → on utilise >= dk.
+function _eventCoversDay(ev, dk) {
+    const sk = _dayKey(ev.start);
+    if (sk > dk) return false;
+    const ek = _dayKey(ev.end);
+    return ev.allDay ? ek > dk : ek >= dk;
+}
+// Couleur dérivée de l'ID du calendrier (stable, unique par agenda).
+function _calColor(ev) {
+    return hashColor(ev.calendarId || ev.calendarName || ev.team || '');
+}
 function _teamColor(team) {
     return team ? hashColor(team) : 'var(--primary)';
 }
@@ -106,6 +119,7 @@ function _extractVisioLink(ev) {
 // "AM OFF", "PM OFF" — toujours en fin de titre, après un tiret.
 function _isOff(title)     { return /-\s*[^-]*\bOFF\s*$/i.test(title || ''); }
 function _isHalfOff(title) { return /-\s*(?:1\s*\/\s*2|½|AM|PM|matin|après[- ]?midi)\s*OFF\s*$/i.test(title || ''); }
+function _isFreeze(title)  { return /\b(gel|freeze)\b/i.test(title || ''); }
 
 // Détecte une cérémonie Scrum/Agile depuis le titre — retourne {key, icon, label, details} ou null
 // L'ordre des règles compte : plus spécifique d'abord (sprint review/planning avant "review"/"planning" seul).
@@ -405,19 +419,51 @@ function _renderSprintBar(mon, sun) {
     const weekLenDays = Math.min(7, wEndDay - wStartDay + 1);
     const elapsedPctInSprint = Math.round(((wStartDay + weekLenDays / 2) / sTotalDays) * 100);
 
+    // ── Grille colonnes : nom + goal alignés sur les jours ─────────────────
+    // Convertit une date en colonne (1=lun … 7=dim) dans la semaine affichée
+    const dayToCol = d => Math.max(1, Math.min(7, Math.floor((d - mon) / DAY) + 1));
+
+    // TOUS les sprints de l'équipe qui chevauchent la semaine affichée [mon, sun].
+    // → permet d'afficher le sprint précédent (ex: lun→jeu) ET le suivant (ex: ven→dim)
+    //   côte à côte, chacun positionné sur ses propres colonnes.
+    const _teamMatch = s => (team && team !== 'all')
+        ? (s.team === team || extractTeam(s.name) === team)
+        : (sprint.team ? s.team === sprint.team : true);
+    const weekSprints = teamSprintsArr
+        .filter(s => s.startDate && s.endDate && _teamMatch(s))
+        .map(s => ({ s, start: _parseDate(s.startDate), end: _parseDate(s.endDate, true) }))
+        .filter(({ start, end }) => !isNaN(start) && !isNaN(end) && end >= mon && start <= sun)
+        .sort((a, b) => a.start - b.start);
+
+    const colItem = (s, start, end) => {
+        const colStart = start >= mon ? dayToCol(start) : 1;
+        const colEnd   = end   <= sun ? dayToCol(end)   : 7;
+        const isMain   = s.name === sprint.name;
+        return `<div class="cal-sprint-col-item cal-sprint-col-item--${s.state || 'unknown'}${isMain ? ' cal-sprint-col-item--main' : ''}" style="grid-column:${colStart}/${colEnd + 1}" title="${esc(s.name || 'Sprint')}${s.goal ? ' — ' + esc(s.goal) : ''}">
+            <span class="cal-sprint-col-name">📌 ${esc(s.name || 'Sprint')}</span>
+            ${s.goal ? `<span class="cal-sprint-col-goal">${esc(s.goal.slice(0, 80))}</span>` : ''}
+        </div>`;
+    };
+
+    // Fallback : si aucun sprint ne chevauche réellement la semaine (sprint "proche"
+    // renvoyé par getSprintForTeam), on affiche au moins le sprint principal pleine largeur.
+    const colInner = weekSprints.length
+        ? weekSprints.map(({ s, start, end }) => colItem(s, start, end)).join('')
+        : colItem(sprint, sStart, sEnd);
+
+    const colLabels = `<div class="cal-sprint-col-labels">${colInner}</div>`;
+
     return `
     <div class="cal-week-sprint-bar cal-week-sprint-bar--${sprint.state || 'unknown'}" style="--sprint-color:var(--primary); --team-color:${teamColor}">
         <div class="cal-week-sprint-head">
             <div class="cal-week-sprint-info">
-                <span class="cal-week-sprint-name">📌 ${esc(sprint.name || 'Sprint')}</span>
+                <span class="cal-week-sprint-chip cal-week-sprint-chip--dates">${_fmtDay(sStart)} → ${_fmtDay(sEnd)}</span>
                 ${stateBadge}
             </div>
             <div class="cal-week-sprint-stats">
-                <span class="cal-week-sprint-chip cal-week-sprint-chip--dates">${_fmtDay(sStart)} → ${_fmtDay(sEnd)}</span>
                 <span class="cal-week-sprint-chip cal-week-sprint-chip--jl">${esc(jlLabel)}</span>
             </div>
         </div>
-        ${goalLine}
         <div class="cal-week-sprint-track-wrap">
             <div class="cal-week-sprint-track" title="Position de la semaine affichée dans le sprint (${elapsedPctInSprint}% du sprint)">
                 ${ticksHtml}
@@ -426,6 +472,7 @@ function _renderSprintBar(mon, sun) {
             </div>
             ${labelsHtml}
         </div>
+        ${colLabels}
     </div>`;
 }
 
@@ -454,6 +501,9 @@ function _openWeekModal(allEvents, highlightEv = null, initialTeamSelection = nu
     // Sélection multi-équipes propre à la modal (Set d'équipes). Vide = montre tout.
     // initialisé via initialTeamSelection (pré-coche l'équipe topbar si spécifique).
     let teamSelection = initialTeamSelection instanceof Set ? new Set(initialTeamSelection) : new Set();
+    // Séparateur matin / après-midi — persisté en localStorage
+    let showPmSplit  = localStorage.getItem('sb-cal-split-pm')  === '1';
+    let showCompact  = localStorage.getItem('sb-cal-compact')   === '1';
 
     // Helper match CSV (e.team peut être "Fuego,Caméléon")
     const _matchTeam = (et, t) => !et || et === t || et.split(',').map(s => s.trim()).includes(t);
@@ -471,8 +521,14 @@ function _openWeekModal(allEvents, highlightEv = null, initialTeamSelection = nu
         const inner = overlay.querySelector('#cal-week-modal-inner');
         if (!inner) return;
         const filtered = _filterEvents();
-        inner.innerHTML = _renderWeekContent(filtered, weekOffset, initialHighlight, teamSelection);
-        _wireWeekContent(overlay, filtered, () => _renderForOffset(null), (delta) => { weekOffset += delta; _renderForOffset(null); }, () => { weekOffset = 0; _renderForOffset(null); });
+        inner.innerHTML = _renderWeekContent(filtered, weekOffset, initialHighlight, teamSelection, showPmSplit, showCompact);
+        _wireWeekContent(overlay, filtered,
+            () => _renderForOffset(null),
+            (delta) => { weekOffset += delta; _renderForOffset(null); },
+            () => { weekOffset = 0; _renderForOffset(null); },
+            () => { showPmSplit = !showPmSplit; localStorage.setItem('sb-cal-split-pm', showPmSplit ? '1' : '0'); _renderForOffset(null); },
+            () => { showCompact = !showCompact; localStorage.setItem('sb-cal-compact',  showCompact  ? '1' : '0'); _renderForOffset(null); }
+        );
         _wireTeamPickerPopover(overlay, teamSelection, (newSel) => {
             teamSelection = newSel;
             _renderForOffset(null);
@@ -508,7 +564,7 @@ function _openWeekModal(allEvents, highlightEv = null, initialTeamSelection = nu
 }
 
 /** Construit le HTML interne de la modal pour un offset semaine donné. */
-function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = new Set()) {
+function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = new Set(), showPmSplit = false, showCompact = false) {
     const mon = _mondayOf(new Date(), weekOffset);
     const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
 
@@ -519,6 +575,11 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
     const todayK = _todayKey();
     const highlightUid = highlightEv?.uid;
 
+    // Jours PIP (PI Planning récupérables) — stockés dans localStorage pi-cfg-N
+    const _piNum = getCurrentPi({ sprintInfo: store.get('sprintInfo'), piInfo: store.get('piInfo') });
+    const _piCfgPip = _piNum ? JSON.parse(localStorage.getItem(`pi-cfg-${_piNum}`) || 'null') : null;
+    const _pipDates = new Set(Array.isArray(_piCfgPip?.pipDates) ? _piCfgPip.pipDates : []);
+
     // Repère les jours start/end du sprint courant (pour indicateur dans cal-day-hdr)
     const _currentTeam = store.get('team');
     const _teamFilterActive = _currentTeam && _currentTeam !== 'all';
@@ -527,13 +588,13 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
     const sprintStartKey = _sprint?.startDate ? String(_sprint.startDate).slice(0, 10) : null;
     const sprintEndKey   = _sprint?.endDate   ? String(_sprint.endDate).slice(0, 10)   : null;
 
-    const daysHtml = days.map(day => {
+    const dayParts = days.map(day => {
         const dk = _dayKey(day);
         const isToday = dk === todayK;
         const isPast  = dk < todayK;
         const isFuture = dk > todayK;
         const evs = allEvents
-            .filter(e => _dayKey(e.start) === dk)
+            .filter(e => _eventCoversDay(e, dk))
             .sort((a, b) => a.start.localeCompare(b.start));
 
         const offEvs     = evs.filter(ev => _isOff(ev.title));
@@ -551,10 +612,17 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
                </div>`
             : '';
 
-        const evCards = regularEvs.map(ev => {
+        const _card = ev => {
                 const s = new Date(ev.start), e = new Date(ev.end);
-                const timeStr = ev.allDay ? 'Journée entière' : `${_h(s)} – ${_h(e)}`;
-                const color = _teamColor(ev.team);
+                const isStartDay = _dayKey(ev.start) === dk;
+                const isEndDay   = ev.allDay ? false : _dayKey(ev.end) === dk;
+                const timeStr = ev.allDay
+                    ? 'Journée entière'
+                    : (isStartDay && isEndDay) ? `${_h(s)} – ${_h(e)}`
+                    : isStartDay ? `${_h(s)} →`
+                    : isEndDay   ? `← ${_h(e)}`
+                    : '← →';
+                const color = _calColor(ev);
                 const isHL = ev.uid && ev.uid === highlightUid;
                 // Si une équipe est filtrée → on n'affiche pas l'équipe de l'event (redondant)
                 const showTeam = !_teamFilterActive && ev.team;
@@ -566,6 +634,7 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
                 // Détection cérémonie Scrum → ajoute classe + badge + icône préfixe titre
                 const scrum = _detectScrumType(ev.title);
                 const scrumClass = scrum ? ` cal-ev-row--scrum cal-ev-row--scrum-${scrum.key}` : '';
+                const multidayCls = !isStartDay ? ' cal-ev-row--multiday-cont' : '';
                 // Badge léger : juste l'emoji + data-attrs ; la tooltip est rendue
                 // par un singleton attaché au body (évite tout clip parent overflow/scroll).
                 const scrumBadge = scrum
@@ -574,34 +643,54 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
                             <span aria-hidden="true">${scrum.icon}</span>
                         </span>`
                     : '';
-                const descBtn = ev.description
-                    ? `<button class="cal-ev-desc-btn" data-desc="${esc(ev.description)}" title="Description">ℹ️</button>`
-                    : '';
-                return `<div class="cal-ev-row${isHL ? ' cal-ev-hl' : ''}${isPast ? ' cal-ev-past' : ''}${scrumClass}" style="border-left-color:${color}">
-                    ${descBtn}
-                    <div class="cal-ev-time">${timeStr}${scrumBadge}${recurMark}</div>
-                    <div class="cal-ev-body">
-                        <div class="cal-ev-title">${esc(ev.title)}</div>
-                        ${(() => {
-                            const visio = _extractVisioLink(ev);
-                            // Location physique = la valeur location SI ce n'est pas elle-même le lien visio
-                            const locIsVisio = ev.location && visio && (esc(visio).includes(esc((ev.location || '').trim())) || (ev.location || '').trim() === visio);
-                            const physLoc = (ev.location && !locIsVisio && !/^https?:\/\//i.test(ev.location)) ? ev.location.trim() : '';
-                            // Lien url générique (non-visio) → "Rejoindre" classique
-                            const otherUrl = (ev.url && !visio && /^https?:\/\//i.test(ev.url)) ? ev.url : '';
-                            return [
-                                visio ? `<div class="cal-ev-meta"><a class="cal-ev-link cal-ev-link--visio" href="${esc(visio)}" target="_blank" rel="noopener" title="${esc(visio)}">🎥 Visio</a></div>` : '',
-                                physLoc ? `<div class="cal-ev-meta cal-ev-meta--loc">📍 ${esc(physLoc)}</div>` : '',
-                                otherUrl ? `<div class="cal-ev-meta"><a class="cal-ev-link" href="${esc(otherUrl)}" target="_blank" rel="noopener">🔗 Rejoindre</a></div>` : '',
-                            ].join('');
-                        })()}
-                        ${metaLine ? `<div class="cal-ev-meta">${metaLine}</div>` : ''}
-                    </div>
-                </div>`;
-            }).join('');
+                // Visio/loc calculés ici pour être réutilisés en mode compact
+                const visio    = _extractVisioLink(ev);
+                const locIsVisio = ev.location && visio && (esc(visio).includes(esc((ev.location || '').trim())) || (ev.location || '').trim() === visio);
+                const physLoc  = (ev.location && !locIsVisio && !/^https?:\/\//i.test(ev.location)) ? ev.location.trim() : '';
+                const otherUrl = (ev.url && !visio && /^https?:\/\//i.test(ev.url)) ? ev.url : '';
+                const titleHtml  = `${_isFreeze(ev.title) ? '❄️ ' : ''}${esc(ev.title)}`;
+                const compactCls = showCompact ? ' cal-ev-row--compact' : '';
+                const rowBase    = `class="cal-ev-row${isHL ? ' cal-ev-hl' : ''}${isPast ? ' cal-ev-past' : ''}${scrumClass}${multidayCls}${compactCls}" style="border-left-color:${color};background:color-mix(in srgb,${color} 9%,var(--surface))"`;
 
-        const evRows = (offBlock || evCards)
-            ? offBlock + evCards
+                // data-* individuels — pas de JSON.parse, pas de risque de parsing
+                const dataAttrs = [
+                    `data-ev-title="${esc(ev.title)}"`,
+                    `data-ev-start="${esc(ev.start)}"`,
+                    `data-ev-end="${esc(ev.end)}"`,
+                    `data-ev-allday="${ev.allDay ? '1' : ''}"`,
+                    `data-ev-calname="${esc(ev.calendarName || '')}"`,
+                    `data-ev-team="${esc(ev.team || '')}"`,
+                    `data-ev-color="${esc(color)}"`,
+                    `data-ev-visio="${esc(visio || '')}"`,
+                    `data-ev-url="${esc(otherUrl || '')}"`,
+                    `data-ev-loc="${esc(physLoc)}"`,
+                    `data-ev-rawloc="${esc(ev.location || '')}"`,
+                    `data-ev-desc="${esc(ev.description || '')}"`,
+                    `data-ev-recur="${ev.recurring ? '1' : ''}"`,
+                    `data-ev-scrum="${esc(scrum ? scrum.key : '')}"`,
+                ].join(' ');
+
+                if (showCompact) {
+                    return `<div ${rowBase} ${dataAttrs} role="button" tabindex="0">
+                        <span class="cal-ev-compact-title">${titleHtml}</span>${recurMark}
+                    </div>`;
+                }
+
+                // Icône discrète si visio présente (scannable sans texte)
+                const visioBadge = visio ? `<span class="cal-ev-visio-badge" title="Visio disponible">🎥</span>` : '';
+                return `<div ${rowBase} ${dataAttrs} role="button" tabindex="0">
+                    <div class="cal-ev-time">${timeStr}${visioBadge}${scrumBadge}${recurMark}</div>
+                    <div class="cal-ev-title">${titleHtml}</div>
+                </div>`;
+        };
+
+        const maEvs = showPmSplit ? regularEvs.filter(ev => ev.allDay || new Date(ev.start).getHours() < 14) : regularEvs;
+        const pmEvs = showPmSplit ? regularEvs.filter(ev => !ev.allDay && new Date(ev.start).getHours() >= 14) : [];
+        const maCards = maEvs.map(_card).join('');
+        const pmCards = pmEvs.map(_card).join('');
+
+        const evRows = (offBlock || maCards)
+            ? offBlock + maCards
             : `<div class="cal-ev-none">—</div>`;
 
         const holiday  = _getHoliday(dk);
@@ -623,18 +712,30 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
         const sprintMark = (isSprintStart || isSprintEnd) ? `
             <span class="cal-day-sprint-mark cal-day-sprint-mark--${isSprintStart ? 'start' : 'end'}"
                   title="${isSprintStart ? 'Premier' : 'Dernier'} jour du sprint">
-                ${isSprintStart ? '▶' : '◀'}
+                ${isSprintStart ? '▶' : '🏁'}
             </span>` : '';
 
+        // Indicateur jour PIP (PI Planning récupérable)
+        const isPip = _pipDates.has(dk);
+        const pipMark = isPip
+            ? `<span class="cal-day-pip-mark" title="Jour de PI Planning — récupérable">🗓️ PIP</span>`
+            : '';
+
         const hasCopyable = regularEvs.length > 0;
-        return `<div class="${dayCls}">
+        const maCol = `<div class="${dayCls}">
             <div class="cal-day-hdr">
-                <span class="cal-day-hdr-label">${_fmtDay(day)}${sprintMark}</span>
+                <span class="cal-day-hdr-label">${_fmtDay(day)}${sprintMark}${pipMark}</span>
                 ${hasCopyable ? `<button class="cal-day-copy-btn" data-dk="${dk}" title="Copier l'agenda du jour (Slack)">📋</button>` : ''}
             </div>
             <div class="cal-day-events">${holidayBadge}${evRows}</div>
         </div>`;
-    }).join('');
+        const pmCol = `<div class="${dayCls} cal-day-col--pm">
+            <div class="cal-day-events">${pmCards}</div>
+        </div>`;
+        return { ma: maCol, pm: pmCol };
+    });
+    const daysHtml   = dayParts.map(p => p.ma).join('');
+    const pmDaysHtml = showPmSplit ? dayParts.map(p => p.pm).join('') : '';
 
     // Dernière synchro la plus récente parmi les calendriers pertinents
     const team0 = store.get('team');
@@ -666,6 +767,8 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
                     <button class="btn-icon cal-week-nav-btn" id="cal-week-next" title="Semaine suivante (→)">›</button>
                 </div>
                 <button class="btn-icon" id="cal-week-copy" data-week-offset="${weekOffset}" title="Copier la semaine (Slack)">📋</button>
+                <button class="btn-icon cal-week-toggle-btn${showPmSplit ? ' is-active' : ''}" id="cal-week-pm-split" title="Séparer matin / après-midi (14h)">🌗${showPmSplit ? '<sup class="cal-toggle-check">✓</sup>' : ''}</button>
+                <button class="btn-icon cal-week-toggle-btn${showCompact ? ' is-active' : ''}" id="cal-week-compact" title="Mode compact — titres seulement (survol pour détails)">≡${showCompact ? '<sup class="cal-toggle-check">✓</sup>' : ''}</button>
                 ${_renderTeamPickerToggle(teamSelection)}
                 <button class="btn-icon" id="cal-week-sync" title="${esc(syncTip)}">
                     <svg class="icon"><use href="#i-sync"/></svg>
@@ -674,7 +777,23 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
             </div>
         </div>
         ${_renderSprintBar(mon, sun)}
-        <div class="cal-week-grid-wrap"><div class="cal-week-grid">${daysHtml}</div></div>`;
+        <div class="cal-week-grid-wrap${showPmSplit ? ' cal-week-split-active' : ''}">
+            ${showPmSplit ? `
+                <div class="cal-time-gutter" aria-hidden="true">
+                    <div class="cal-time-label cal-time-label--am">🌅 Matin</div>
+                    <div class="cal-time-label cal-time-label--pm">☀️ Après-midi</div>
+                </div>
+                <div class="cal-split-body">
+                    <div class="cal-week-section cal-week-section--am">
+                        <div class="cal-week-grid">${daysHtml}</div>
+                    </div>
+                    <div class="cal-week-pm-bar" aria-hidden="true"><span class="cal-week-pm-bar-lbl">☀️ Après-midi</span></div>
+                    <div class="cal-week-section cal-week-section--pm">
+                        <div class="cal-week-grid cal-week-grid--pm">${pmDaysHtml}</div>
+                    </div>
+                </div>
+            ` : `<div class="cal-week-grid">${daysHtml}</div>`}
+        </div>`;
 }
 
 // ── Picker équipes dans le header de la modal (toggle + popover) ──────────
@@ -713,15 +832,19 @@ function _wireTeamPickerPopover(overlay, currentSelection, onChange) {
 
     const open = () => {
         if (popover) { close(); return; }
-        // Récupère la liste d'équipes triée alpha, en s'appuyant sur les events
-        // (équipes qui ont au moins un calendrier dispo) + équipes connues du store
-        const fromCalendars = new Set();
+        // Sources cumulées pour la liste d'équipes :
+        // 1. champ team des calendriers configurés (peut être multi-valeur "A,B")
+        // 2. champ team de chaque event (source de vérité du backend, toujours à jour)
+        // 3. sélection courante (garantit que l'équipe topbar est toujours listée)
+        const teamSet = new Set();
         (store.get('calendars') || []).forEach(c => {
-            if (c.team) c.team.split(',').map(s => s.trim()).filter(Boolean).forEach(t => fromCalendars.add(t));
+            if (c.team) c.team.split(',').map(s => s.trim()).filter(Boolean).forEach(t => teamSet.add(t));
         });
-        const storeTeams = (store.get('teams') || []).filter(t => fromCalendars.has(t));
-        const allTeams = [...new Set([...storeTeams, ...fromCalendars])]
-            .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+        (store.get('calendarEvents') || []).forEach(e => {
+            if (e.team) e.team.split(',').map(s => s.trim()).filter(Boolean).forEach(t => teamSet.add(t));
+        });
+        currentSelection.forEach(t => teamSet.add(t));
+        const allTeams = [...teamSet].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
 
         popover = document.createElement('div');
         popover.className = 'cal-week-team-popover';
@@ -820,7 +943,7 @@ function _buildWeekSlack(allEvents, days) {
 
     for (const day of days) {
         const dk = _dayKey(day);
-        const allDay = allEvents.filter(e => _dayKey(e.start) === dk);
+        const allDay = allEvents.filter(e => _eventCoversDay(e, dk));
         const evs    = allDay.filter(e => !_isOff(e.title) && !e.allDay).sort((a, b) => a.start.localeCompare(b.start));
         const offEvs = allDay.filter(e => _isOff(e.title));
         if (!evs.length && !offEvs.length) continue;
@@ -845,12 +968,14 @@ function _buildWeekSlack(allEvents, days) {
 }
 
 /** Câble les boutons (close, sync, navigation) après chaque render. */
-function _wireWeekContent(overlay, allEvents, refresh, navigate, resetToToday) {
+function _wireWeekContent(overlay, allEvents, refresh, navigate, resetToToday, togglePmSplit, toggleCompact) {
     overlay.querySelector('#cal-week-close')?.addEventListener('click', _closeWeekModal);
     overlay.querySelector('#cal-week-sync')?.addEventListener('click', _syncCalendarsFromModal);
     overlay.querySelector('#cal-week-prev')?.addEventListener('click', () => navigate(-1));
     overlay.querySelector('#cal-week-next')?.addEventListener('click', () => navigate(+1));
     overlay.querySelector('#cal-week-today')?.addEventListener('click', resetToToday);
+    overlay.querySelector('#cal-week-pm-split')?.addEventListener('click', () => togglePmSplit?.());
+    overlay.querySelector('#cal-week-compact')?.addEventListener('click', () => toggleCompact?.());
 
     overlay.querySelectorAll('.cal-day-copy-btn').forEach(btn => {
         btn.addEventListener('click', async e => {
@@ -887,6 +1012,210 @@ function _wireWeekContent(overlay, allEvents, refresh, navigate, resetToToday) {
         });
     }
 }
+
+// ── Popup détail événement au clic — style Google Calendar ───────────────────
+let _evPopEl = null;
+
+function _evPopup() {
+    if (_evPopEl) return _evPopEl;
+    _evPopEl = document.createElement('div');
+    _evPopEl.id = 'cal-ev-popup';
+    _evPopEl.className = 'cal-ev-popup';
+    _evPopEl.setAttribute('role', 'dialog');
+    document.body.appendChild(_evPopEl);
+    // Fermeture via bouton ×
+    _evPopEl.addEventListener('click', e => {
+        if (e.target.closest('.cal-ev-popup-close')) _hideEvPopup();
+    });
+    return _evPopEl;
+}
+
+function _hideEvPopup() {
+    _evPopEl?.classList.remove('visible');
+}
+
+function _showEvPopup(card) {
+    const d = card.dataset;
+    if (!d.evTitle && !d.evStart) return;
+
+    const ev = {
+        title:   d.evTitle   || '',
+        start:   d.evStart   || '',
+        end:     d.evEnd     || '',
+        allDay:  d.evAllday  === '1',
+        calName: d.evCalname || '',
+        team:    d.evTeam    || '',
+        color:   d.evColor   || 'var(--primary)',
+        visio:   d.evVisio   || '',
+        url:     d.evUrl     || '',
+        loc:     d.evLoc     || '',
+        rawLoc:  d.evRawloc  || '',
+        desc:    d.evDesc    || '',
+        recur:   d.evRecur   === '1',
+        scrum:   d.evScrum   || '',
+    };
+
+    // ── Formatage heure ──────────────────────────────────────────────────────
+    const s = new Date(ev.start), e = new Date(ev.end);
+    const fmtDate = dt => dt.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' });
+    const fmtTime = dt => `${String(dt.getHours()).padStart(2,'0')}h${String(dt.getMinutes()).padStart(2,'0')}`;
+    const dur = ev.allDay ? '' : _duration(ev.start, ev.end);
+
+    let timeHtml;
+    if (ev.allDay) {
+        const endDay = new Date(e.getTime() - 1);
+        timeHtml = fmtDate(s) === fmtDate(endDay)
+            ? `${fmtDate(s)} · Journée entière`
+            : `${fmtDate(s)} → ${fmtDate(endDay)} · Journée entière`;
+    } else {
+        const sd = fmtDate(s), ed = fmtDate(e);
+        timeHtml = sd === ed
+            ? `${sd} · ${fmtTime(s)} – ${fmtTime(e)}${dur ? ` <span class="cal-ev-popup-dur">(${dur})</span>` : ''}`
+            : `${sd} ${fmtTime(s)} → ${ed} ${fmtTime(e)}`;
+    }
+
+    // ── Extraction contacts depuis la description brute ──────────────────────
+    const rawDesc = ev.desc;
+    const emails = rawDesc
+        ? [...new Set(rawDesc.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) || [])].slice(0, 5)
+        : [];
+    const phones = rawDesc
+        ? [...new Set((rawDesc.match(/(?:\+\d{1,3}[\s.]?)?\(?\d{2,4}\)?[\s.\-]?\d{2,4}[\s.\-]?\d{4}/g) || [])
+            .map(p => p.trim()).filter(p => p.replace(/\D/g, '').length >= 8))].slice(0, 3)
+        : [];
+
+    // Réunion : ID + passcode (Teams, Zoom, Meet)
+    const meetIdMatch  = rawDesc.match(/(?:ID[^\d]*|Meeting ID|R.union ID|ID de la r.union)\s*[:\-]?\s*([\d\s]{8,})/i);
+    const passcodeMatch = rawDesc.match(/(?:code|passcode|mot de passe|password)\s*[:\-]?\s*(\d{4,10})/i);
+    const meetId   = meetIdMatch  ? meetIdMatch[1].trim()  : '';
+    const passcode = passcodeMatch ? passcodeMatch[1]       : '';
+
+    // ── Cérémonie Scrum ──────────────────────────────────────────────────────
+    const scrumMeta = ev.scrum ? ({ daily: { icon: '🌅', label: 'Daily Scrum', detail: '15 min · toute l\'équipe' },
+        planning: { icon: '🎯', label: 'Sprint Planning', detail: 'Début de sprint · équipe + PO' },
+        refinement: { icon: '🔍', label: 'Backlog Refinement', detail: 'Estimation + clarification des US' },
+        retro: { icon: '🔁', label: 'Rétrospective', detail: 'Fin de sprint · amélioration continue' },
+        review: { icon: '🎤', label: 'Sprint Review', detail: 'Démonstration · parties prenantes invitées' },
+    })[ev.scrum] : null;
+
+    // ── Description nettoyée ─────────────────────────────────────────────────
+    const desc = rawDesc ? _cleanDescHtml(rawDesc) : '';
+
+    // ── Localisation : on affiche la brute si elle apporte plus que physLoc ──
+    const displayLoc = ev.rawLoc && ev.rawLoc !== ev.loc && ev.rawLoc.length > (ev.loc.length + 3)
+        ? ev.rawLoc : ev.loc;
+
+    // ── Titre ────────────────────────────────────────────────────────────────
+    const title = `${_isFreeze(ev.title) ? '❄️ ' : ''}${esc(ev.title)}`;
+
+    const pop = _evPopup();
+    pop.innerHTML = `
+        <div class="cal-ev-popup-accent" style="background:${esc(ev.color)}"></div>
+        <div class="cal-ev-popup-hdr">
+            <div class="cal-ev-popup-title">${title}</div>
+            <button class="cal-ev-popup-close" aria-label="Fermer">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
+            </button>
+        </div>
+        <div class="cal-ev-popup-body">
+            <div class="cal-ev-popup-row"><span class="cal-ev-popup-icon">🕐</span><span>${timeHtml}</span></div>
+            ${ev.calName ? `<div class="cal-ev-popup-row">
+                <span class="cal-ev-popup-dot" style="background:${esc(ev.color)}"></span>
+                <span>${esc(ev.calName)}${ev.team && ev.team !== ev.calName ? ` · <em>${esc(ev.team)}</em>` : ''}</span>
+            </div>` : ''}
+            ${displayLoc ? `<div class="cal-ev-popup-row"><span class="cal-ev-popup-icon">📍</span><span class="cal-ev-popup-loc">${esc(displayLoc)}</span></div>` : ''}
+            ${ev.recur   ? `<div class="cal-ev-popup-row cal-ev-popup-row--muted"><span class="cal-ev-popup-icon">🔄</span><span>Événement récurrent</span></div>` : ''}
+            ${scrumMeta  ? `<div class="cal-ev-popup-row cal-ev-popup-row--scrum"><span class="cal-ev-popup-icon">${scrumMeta.icon}</span><span><strong>${esc(scrumMeta.label)}</strong> <span class="cal-ev-popup-muted">— ${esc(scrumMeta.detail)}</span></span></div>` : ''}
+            ${ev.visio   ? `<a class="cal-ev-popup-btn cal-ev-popup-btn--visio" href="${esc(ev.visio)}" target="_blank" rel="noopener">🎥 Rejoindre la visio</a>` : ''}
+            ${ev.url     ? `<a class="cal-ev-popup-btn" href="${esc(ev.url)}" target="_blank" rel="noopener">🔗 Rejoindre</a>` : ''}
+            ${(meetId || passcode) ? `<div class="cal-ev-popup-section">
+                ${meetId   ? `<div class="cal-ev-popup-row cal-ev-popup-row--muted"><span class="cal-ev-popup-icon">🔑</span><span>ID : <code class="cal-ev-popup-code">${esc(meetId)}</code></span></div>` : ''}
+                ${passcode ? `<div class="cal-ev-popup-row cal-ev-popup-row--muted"><span class="cal-ev-popup-icon">🔒</span><span>Code : <code class="cal-ev-popup-code">${esc(passcode)}</code></span></div>` : ''}
+            </div>` : ''}
+            ${(emails.length || phones.length) ? `<div class="cal-ev-popup-section">
+                <div class="cal-ev-popup-section-hdr">👤 Contacts</div>
+                ${emails.map(e => `<div class="cal-ev-popup-contact"><a href="mailto:${esc(e)}">${esc(e)}</a></div>`).join('')}
+                ${phones.map(p => `<div class="cal-ev-popup-contact"><a href="tel:${esc(p.replace(/\s/g,''))}">${esc(p)}</a></div>`).join('')}
+            </div>` : ''}
+            ${desc ? `<div class="cal-ev-popup-desc">${desc}</div>` : ''}
+        </div>`;
+
+    // Positionnement : à droite de la carte, flip si débord
+    const POP_W = 340, MARGIN = 8, Z = 10100;
+    pop.style.cssText = `position:fixed;z-index:${Z};visibility:hidden`;
+    const r   = card.getBoundingClientRect();
+    const ww  = window.innerWidth, wh = window.innerHeight;
+    const popH = Math.min(pop.scrollHeight || 320, wh - 2 * MARGIN);
+    let left = r.right + MARGIN;
+    if (left + POP_W > ww - MARGIN) left = r.left - POP_W - MARGIN;
+    left = Math.max(MARGIN, left);
+    let top = r.top;
+    if (top + popH > wh - MARGIN) top = wh - MARGIN - popH;
+    top = Math.max(MARGIN, top);
+    pop.style.cssText = `position:fixed;z-index:${Z};left:${left}px;top:${top}px;width:${POP_W}px;max-height:${popH}px`;
+    requestAnimationFrame(() => pop.classList.add('visible'));
+}
+
+// Délégation clic globale sur toutes les cartes event
+document.addEventListener('click', e => {
+    const card = e.target.closest?.('.cal-ev-row[data-ev-start]');
+    if (card) { e.stopPropagation(); _showEvPopup(card); return; }
+    // Clic ailleurs (hors popup) → ferme
+    if (_evPopEl?.classList.contains('visible') && !_evPopEl.contains(e.target)) _hideEvPopup();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') _hideEvPopup();
+});
+
+// ── Tooltip mode compact (singleton body, position fixed) ────────────────────
+let _compactTtEl = null;
+let _compactTtHideT = null;
+function _compactTooltipEl() {
+    if (_compactTtEl) return _compactTtEl;
+    _compactTtEl = document.createElement('div');
+    _compactTtEl.className = 'cal-compact-tt';
+    document.body.appendChild(_compactTtEl);
+    _compactTtEl.addEventListener('mouseenter', () => clearTimeout(_compactTtHideT));
+    _compactTtEl.addEventListener('mouseleave', _hideCompactTt);
+    return _compactTtEl;
+}
+function _showCompactTt(card) {
+    const time    = card.dataset.time  || '';
+    const visio   = card.dataset.visio || '';
+    const descRaw = card.dataset.desc  || '';
+    const loc     = card.dataset.loc   || '';
+    const desc    = descRaw ? _cleanDescHtml(descRaw) : '';
+    if (!time && !visio && !desc && !loc) return;
+    const tt = _compactTooltipEl();
+    tt.innerHTML = [
+        time  ? `<div class="cal-compact-tt-time">${esc(time)}</div>` : '',
+        loc   ? `<div class="cal-compact-tt-row">📍 ${esc(loc)}</div>` : '',
+        visio ? `<div class="cal-compact-tt-row"><a class="cal-compact-tt-visio" href="${esc(visio)}" target="_blank" rel="noopener">🎥 Rejoindre la visio</a></div>` : '',
+        desc  ? `<div class="cal-compact-tt-desc">${desc}</div>` : '',
+    ].join('');
+    tt.classList.add('visible');
+    const r = card.getBoundingClientRect();
+    const W = 280;
+    let left = Math.min(r.left, window.innerWidth - W - 8);
+    left = Math.max(8, left);
+    const below = r.bottom + 8 + 160 < window.innerHeight;
+    tt.style.left = `${left}px`;
+    tt.style.top  = below ? `${r.bottom + 4}px` : `${r.top - 4}px`;
+    tt.style.transform = below ? 'translateY(0)' : 'translateY(-100%)';
+    clearTimeout(_compactTtHideT);
+}
+function _hideCompactTt() {
+    clearTimeout(_compactTtHideT);
+    _compactTtHideT = setTimeout(() => _compactTtEl?.classList.remove('visible'), 120);
+}
+document.addEventListener('mouseover', e => {
+    const card = e.target.closest?.('.cal-ev-row--compact');
+    if (card) _showCompactTt(card);
+});
+document.addEventListener('mouseout', e => {
+    const card = e.target.closest?.('.cal-ev-row--compact');
+    if (card && !card.contains(e.relatedTarget)) _hideCompactTt();
+});
 
 // ── Tooltip Scrum globale (singleton attaché au body, position: fixed) ──────
 // Évite tout clip parent (overflow:hidden, scroll de la modal, etc.).

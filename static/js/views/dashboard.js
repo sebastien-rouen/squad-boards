@@ -615,7 +615,10 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, d
 
     const _fmtShort = iso => {
         if (!iso) return '';
-        const d = new Date(iso + 'T00:00:00');
+        // iso peut être 'YYYY-MM-DD' OU un ISO complet JIRA ('...T08:00:00+02:00',
+        // ex. completeDate des sprints clos) → on ne garde que la partie date.
+        const d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
+        if (isNaN(d)) return '';
         return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace(/\./g, '');
     };
     const today = new Date().toISOString().slice(0, 10);

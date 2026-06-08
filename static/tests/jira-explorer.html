@@ -349,6 +349,7 @@
             <nav class="tabs" id="tabs">
                 <button class="tab" data-tab="inspect">Inspection</button>
                 <button class="tab" data-tab="snapshot">Snapshot</button>
+                <button class="tab" data-tab="sprints">Sprints</button>
                 <button class="tab" data-tab="jql">JQL</button>
             </nav>
             <div class="top-actions">
@@ -394,6 +395,28 @@
                     </div>
                     <div id="snapshot-result" style="margin-top: 16px">
                         <div class="empty">Clique sur Charger pour analyser la base.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Panel: Sprints ───────────────────────────────────────── -->
+        <div class="panel" data-panel="sprints">
+            <div class="card">
+                <div class="card-hd">
+                    <h2>Inspecteur de sprints</h2>
+                    <span class="desc">dates brutes JIRA par board · startDate / endDate (planifiée) / completeDate (clôture réelle)</span>
+                </div>
+                <div class="card-bd">
+                    <div class="row">
+                        <button class="btn" id="btn-sprints-load">Charger les sprints</button>
+                        <input type="text" id="sprints-filter" class="input" placeholder="filtrer par nom de board/sprint…" style="flex:1; min-width:260px" autocomplete="off">
+                        <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text-soft)">
+                            <input type="checkbox" id="sprints-diff-only"> écarts uniquement (endDate ≠ completeDate)
+                        </label>
+                    </div>
+                    <div id="sprints-result" style="margin-top: 16px">
+                        <div class="empty">Clique « Charger les sprints » pour interroger JIRA (boards scrum).</div>
                     </div>
                 </div>
             </div>

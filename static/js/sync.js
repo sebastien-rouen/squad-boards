@@ -219,6 +219,7 @@ async function _doImport(projects, sinceDays = null) {
     const membersMap = new Map();
     let sprintInfo = null;
     const teamSprints = [];  // sprint actif par équipe (collecté pendant le scan des boards)
+    const seenTicketIds = new Set();  // dédoublonnage tickets (actif + sprints clos)
     const teamColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
     let teamIdx = 0;
     const boardColumns = {}; // { teamName: { [internal_status]: column_label } }
@@ -356,11 +357,17 @@ async function _doImport(projects, sinceDays = null) {
                 && teamFromSprintName !== teamName && teamFromSprintName.length > teamName.length)
                 ? teamFromSprintName
                 : teamName;
+            // Date de fin EFFECTIVE : pour un sprint clos, JIRA distingue endDate (planifiée)
+            // et completeDate (clôture réelle, souvent décalée de quelques jours). On affiche
+            // la date réelle pour les sprints clos, en conservant la planifiée pour référence.
+            const _effEnd = (s.state === 'closed' && s.completeDate) ? s.completeDate : s.endDate;
             teamSprints.push({
                 team: effectiveTeam,
                 name: s.name,
                 startDate: s.startDate,
-                endDate: s.endDate,
+                endDate: _effEnd,                  // réelle si close (completeDate), sinon planifiée
+                plannedEndDate: s.endDate,         // toujours la date planifiée JIRA
+                completeDate: s.completeDate || null,
                 goal: s.goal || '',
                 state: s.state || 'unknown',  // 'closed' | 'active' | 'future'
                 jiraId: sid,
@@ -381,14 +388,11 @@ async function _doImport(projects, sinceDays = null) {
             };
         }
 
-        // Only fetch issues if we have an active sprint (scrum boards)
-        // Skip kanban boards without sprint - they can have 10k+ issues in backlog
-        if (!activeSprint) {
-            console.log(`Board ${board.name} (${board.type}): pas de sprint actif, skip`);
-            continue;
-        }
-
-        try {
+        // Only fetch active-sprint issues if we have an active sprint (scrum boards).
+        // Skip kanban boards without sprint - they can have 10k+ issues in backlog.
+        // ⚠ On NE skippe PLUS tout le board : la passe « sprints clos » ci-dessous doit
+        // tourner même sans sprint actif (un board peut n'avoir que des sprints clos).
+        if (activeSprint) try {
             let issueStart = 0;
             let issueHasMore = true;
             const maxIssues = maxFeaturesPerJql; // user-configurable cap (Parametres → Max tickets/features/epics)
@@ -407,6 +411,7 @@ async function _doImport(projects, sinceDays = null) {
                     const ticket = transformIssue(issue, teamName, activeSprint, storyPointsField, boardStatusMap);
                     if (ticket.leader) membersMap.set(ticket.leader, { name: ticket.leader, team: teamName });
                     if (ticket.reporter) membersMap.set(ticket.reporter, { name: ticket.reporter, team: teamName });
+                    seenTicketIds.add(issue.key);
                     if (ticket.type === 'feature') allFeatures.push(ticket);
                     else if (ticket.type === 'epic') allEpics.push(ticket);
                     else allTickets.push(ticket);
@@ -416,6 +421,39 @@ async function _doImport(projects, sinceDays = null) {
             }
         } catch (e) {
             console.warn(`Erreur issues board ${board.name}:`, e);
+        }
+
+        // 3a-bis. Tickets des sprints CLOS récents → disponibles en local pour l'historique
+        // vélocité/buffer (Health). Cap configurable (Paramètres) ; 0 = désactivé.
+        // Par défaut on couvre ~1 PI (6 sprints). Dédoublonnage via seenTicketIds.
+        const CLOSED_TICKET_SPRINTS = parseInt(localStorage.getItem('sb-sync-closedTicketSprints') || '6', 10);
+        if (CLOSED_TICKET_SPRINTS > 0) {
+            const closedSprints = allBoardSprints
+                .filter(s => s.state === 'closed' && s.id)
+                .sort((a, b) => (b.endDate || '').localeCompare(a.endDate || ''))
+                .slice(0, CLOSED_TICKET_SPRINTS);
+            for (const cs of closedSprints) {
+                try {
+                    let cStart = 0;
+                    while (cStart < 1000) {
+                        const r = await api.jiraGet(`rest/agile/1.0/sprint/${cs.id}/issue`, {
+                            maxResults: 100, startAt: cStart,
+                            fields: `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,flagged,updated,created`,
+                        });
+                        const issues = r?.issues || [];
+                        for (const issue of issues) {
+                            if (seenTicketIds.has(issue.key)) continue;  // déjà pris (sprint actif ou clos plus récent)
+                            seenTicketIds.add(issue.key);
+                            const tk = transformIssue(issue, teamName, cs, storyPointsField, boardStatusMap);
+                            // Features/epics sont gérés par leurs passes JQL dédiées → on n'ajoute que les tickets
+                            if (tk.type === 'feature' || tk.type === 'epic') continue;
+                            allTickets.push(tk);
+                        }
+                        if (issues.length < 100 || (r.total && cStart + issues.length >= r.total)) break;
+                        cStart += issues.length;
+                    }
+                } catch { /* sprint clos en échec → on continue */ }
+            }
         }
     }
 

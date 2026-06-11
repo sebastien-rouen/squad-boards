@@ -40,11 +40,13 @@ import { renderPICalendar } from './views/picalendar.js';
 import { renderAgenda } from './views/agenda.js';
 import { renderHealth } from './views/health.js';
 import { renderAtlas } from './views/atlas.js';
+import { renderBacklog } from './views/backlog.js';
 
 const VIEW_RENDERERS = {
     dashboard: renderDashboard,
     sprint: renderSprint,
     kanban: renderKanban,
+    backlog: renderBacklog,
     pi: renderPI,
     picalendar: renderPICalendar,
     roadmap: renderRoadmap,
@@ -137,7 +139,15 @@ function applyHash() {
     const h = tm ? tm[1] : rest;
 
     if (h) {
-        const parts = h.split('/');
+        // Décoder les éventuels %7E (%3F pour rétrocompat) encodés par certains navigateurs dans les fragments
+        let hd;
+        try { hd = decodeURIComponent(h); } catch { hd = h; }
+        // Séparateur ~ (nouveau) ou ? (ancien) pour les paramètres de filtre backlog
+        const _sep   = hd.indexOf('~') >= 0 ? '~' : (hd.indexOf('?') >= 0 ? '?' : null);
+        const _bqPos = _sep ? hd.indexOf(_sep) : -1;
+        const _hClean = _bqPos >= 0 ? hd.slice(0, _bqPos) : hd;
+        if (_bqPos >= 0) store.set('backlogHashQuery', hd.slice(_bqPos + 1));
+        const parts = _hClean.split('/');
         // Redirections legacy → nouvelles vues unifiées
         if (parts[0] === 'kanban')     { parts[0] = 'sprint'; store.set('boardMode', 'kanban'); }
         if (parts[0] === 'picalendar') { parts[0] = 'pi';     store.set('piTab', 'calendar'); }

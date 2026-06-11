@@ -1,3 +1,58 @@
+## [3.21.0] - 2026-06-11
+
+### Feat : Hash URL + hiérarchie Epic/Feature dans le Backlog ([backlog.js](squad-board/static/js/views/backlog.js), [app.js](squad-board/static/js/app.js), [backlog.css](squad-board/static/css/backlog.css))
+- **Synchronisation URL** : l'état des filtres backlog est encodé dans le fragment (`#backlog?s=todo&p=high&q=foo&pi=PI30&g=epic&h=epic`). Partager/bookmarker l'URL restaure les filtres exactement. `app.js` extrait le query string du fragment avant le routage.
+- **Affichage hiérarchique** : nouveau bouton de filtre **Hiérarchie** (Plat / Épics / Complet). En mode *Épics* les tickets sont groupés sous leur Epic parent (⚡) avec indentation ; en mode *Complet* les Features (🚀) s'ajoutent au-dessus des Épics. Orphelins (tickets sans epic, epics sans feature) affichés en tête.
+- **Lignes parents** (`.bl-parent-row`) : affichent le total SP des enfants, le nombre de tickets, l'équipe et le statut de l'epic/feature.
+- **Indentation visuelle** : `padding-left` proportionnel à la profondeur (22px/niveau) sur les lignes de tickets comme de parents.
+
+## [3.20.0] - 2026-06-10
+
+### Feat : 12 améliorations visuelles et navigation Backlog ([backlog.js](squad-board/static/js/views/backlog.js), [backlog.css](squad-board/static/css/backlog.css))
+- **Barre de progression** dans chaque en-tête de groupe : jauge verte indiquant % de tickets `done` (tooltop `X/Y terminés`).
+- **Point coloré d'équipe** dans la colonne Équipe : couleur issue de `teamObjects` (Settings → Lignes produit/groupes).
+- **Densité d'affichage** : bouton bascule Compact / Confort dans la sous-barre. Persisté dans `sb-backlog-density`.
+- **Masquer les tickets terminés** : bouton bascule ⊡/⊠. Persisté dans `sb-backlog-hidedone`.
+- **Mise en surbrillance du terme recherché** dans le titre et l'ID (`<mark class="bl-hl">`), insensible à la casse.
+- **SP vide mieux distingué** : tiret sans badge de fond (`.bl-pts--empty`).
+- **En-têtes de colonnes triables** (ID, Titre, Statut, SP, Priorité, Sprint, Màj) : 1er clic = asc, 2e = desc, 3e = reset. Sort state module-level `_sortKey`/`_sortDir` préservé entre re-renders.
+- **En-têtes de groupes sticky** : collent sous le `thead` lors du défilement (`top: 30px; z-index: 2`).
+- **Raccourci `/`** pour focaliser la recherche (depuis n'importe où hors champ de saisie), avec cleanup propre à chaque re-render.
+- **Compteurs dans les chips de filtres** : badge indiquant le nombre de tickets disponibles dans `base` (avant filtrage backlog).
+- **Navigation clavier dans le tableau** : ↑/↓ déplace le focus entre lignes, Entrée ouvre la modal, Espace coche/décoche la sélection. Lignes avec `tabindex="0"`.
+- **Sélecteur "Aller à un groupe"** : menu déroulant listant les groupes avec leur nb de tickets, scroll vers le groupe + déplie si replié.
+
+## [3.19.0] - 2026-06-10
+
+### Feat : Page Backlog ([backlog.js](squad-board/static/js/views/backlog.js))
+- Nouvelle vue accessible via le menu (raccourci **B**) : tableau de tous les tickets avec filtres, regroupement, sélection en masse et drag & drop.
+- **Filtres** : recherche texte (ID ou titre), chips multi-select par type / priorité / statut, dropdown PI, bouton réinitialiser. État persisté en localStorage (`sb-backlog-filters`).
+- **Regroupement** : Sprint (actif en tête), PI, ou plat. Persistence via `sb-backlog-groupby`. Accordéon par groupe, expand/collapse tout.
+- **Séparateur tickets périmés** : dans chaque groupe, un séparateur ⚠️ sépare les tickets non mis à jour depuis plus de X mois (défaut 3, configurable dans Paramètres → Rappels & Cérémonies). Bouton masquer/afficher la section stale.
+- **Sélection multi-tickets** : checkbox par ligne + sélectionner tout. Barre d'actions flottante affichant le nombre sélectionné, avec selects "déplacer vers sprint" et "déplacer vers PI" + bouton Appliquer.
+- **Drag & drop** : glisser une (ou plusieurs si sélection active) ligne vers un groupe header pour déplacer vers ce sprint/PI.
+- **Export CSV** : bouton ⬇ CSV génère un `.csv` (BOM UTF-8) de tous les tickets visibles.
+- Architecture modulaire : styles dans `backlog.css`, logique de filtres dans `backlog-filters.js`, BulkManager dans `backlog-bulk.js`.
+
+### Feat : Paramètre seuil tickets périmés (Settings → Rappels & Cérémonies)
+- Nouveau champ numérique dans la section Rappels & Cérémonies pour configurer le seuil en mois des tickets considérés comme périmés dans le Backlog. Persiste dans `localStorage.sb-backlog-stale-months`.
+
+## [3.18.0] - 2026-06-09
+
+### Fix : Navigation prev/next dans la modale ticket (histoire stacking)
+- Les boutons ← → de navigation entre tickets utilisaient `history.pushState` à chaque clic, empilant des entrées d'historique. Fermer la modale nécessitait autant de retours que de navigations. Fix : `history.replaceState` quand la modale est déjà ouverte (navigation en cours), `pushState` uniquement à l'ouverture initiale. ([modal.js](squad-board/static/js/components/modal.js))
+
+### Feat : Jeu de données démo complet (Paramètres > Données)
+- Bouton « 🎬 Charger la démo complète » dans Settings > Données : charge un scénario SAFe fictif (4 équipes Vega/Lyra/Orion/Sirius, PI#5 sprint 3, 56 tickets, 10 epics, 6 features, objectifs PI, risques ROAM, absences, rotations support, compétences Atlas). Tous les noms sont 100% fictifs. ([demo.js](squad-board/static/js/demo.js), [settings.js](squad-board/static/js/views/settings.js))
+
+### UX : Modale create/edit ticket redessinée (chips ergonomiques)
+- **Type, Priorité, Points, Statut** : sélecteurs visuels en chips colorés (radio), fini les `<select>` sans couleur.
+- **Labels** : chips prédéfinis cliquables (tech-debt, retro, postmortem…) + champ pour ajouter un label custom (↵).
+- **Filtrage leader par équipe** : changer l'équipe filtre automatiquement la liste des leaders disponibles.
+- Même traitement appliqué à la modale d'édition pour cohérence. ([modal.js](squad-board/static/js/components/modal.js), [views.css](squad-board/static/css/views.css))
+
+---
+
 ## [3.17.0] - 2026-06-08
 
 ### Feat : Tickets des sprints clos synchronisés en local (Health)

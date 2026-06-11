@@ -151,6 +151,59 @@ J'ai revert tout.
 
 ---
 
+## 🗂️ Juin 2026 — Le backlog comme vraie interface
+
+Après la partie Health & Calendrier (mai), je reviens sur une vue que j'utilisais depuis le début sans vraiment l'avoir terminée : **le backlog**.
+
+Au départ c'était une liste de tickets filtrée par sprint. Fonctionnel, mais plat. En juin, j'ai décidé de la traiter comme une vraie interface de pilotage.
+
+### 🔗 Les filtres deviennent partageables (v3.20)
+
+Premier problème : je configure mes filtres (statut "bloqué", type "Bug", sprint courant), je partage le lien avec le RTE — il arrive sur la vue par défaut, sans rien. L'URL ne reflétait pas l'état des filtres.
+
+Solution évidente : sérialiser les filtres dans le hash URL. Mais là, piège classique.
+
+Mon premier séparateur était `?`. Résultat : `#backlog/MonEquipe?h=full` devient `#backlog/MonEquipe%3Fh%3Dfull` après un rechargement navigateur, parce que les navigateurs encodent certains caractères dans les fragments. Les filtres ne se restauraient plus.
+
+J'ai cherché la spécification RFC 3986. Le séparateur `~` est **unreserved** — les navigateurs ne l'encodent jamais dans les fragments. Deux lignes de fix, mais il fallait savoir chercher dans la bonne spec.
+
+```
+#backlog/MonEquipe~h=epic~s=blocked,inprog
+```
+
+Ce lien se partage, se met en favori, s'ouvre dans un nouvel onglet. L'état se restaure à la virgule près.
+
+> 💡 **Leçon** : avant d'utiliser un caractère comme séparateur dans une URL, vérifier sa classification RFC 3986. Un `?` ou `=` à l'intérieur d'un fragment peut sembler marcher localement et péter en prod.
+
+### 🏗️ Trois modes de hiérarchie (v3.20)
+
+La vue "liste plate" de tickets cachait le contexte. Je voulais voir les Épics qui chapeautent les stories, les Features qui regroupent les épics — sans perdre la densité d'information.
+
+J'ai ajouté un toggle **Plat / Épics / Complet** dans la toolbar :
+- **Plat** : comportement historique, tickets seuls.
+- **Épics** : les épics apparaissent comme des sous-en-têtes bleutés. Les stories se regroupent sous leur épic.
+- **Complet** : Features → Épics → Stories. Trois niveaux imbriqués, indentés visuellement.
+
+Le challenge : ce mode devait coexister avec le groupBy existant (par sprint, équipe, type...). La solution : la hiérarchie s'applique **à l'intérieur** de chaque groupe. On peut donc avoir "groupé par sprint, hiérarchie complète" — ce qui donne par sprint, la liste des Features avec leurs épics et stories dedans.
+
+### 🔮 Sprints futurs dans le backlog (v3.21)
+
+Le backlog n'affichait que les tickets existants. Problème : un sprint futur vide n'apparaissait pas du tout, alors que je voulais pouvoir anticiper sa constitution, voir qu'il n'est pas encore alimenté, visualiser ses dates et son objectif.
+
+J'ai injecté les sprints futurs connus comme **groupes vides** dans le rendu backlog. Visuellement : une fine barre ambre sur la gauche du groupe, le nom en légèrement teinté, le compte à 0. Discret, mais présent.
+
+Subtilité : ces sprints futurs doivent se filtrer selon l'équipe sélectionnée en topbar — sinon je vois les sprints futurs de toutes les squads du programme, ce qui est du bruit pur.
+
+### 📅 Dates et goal sprint éditables inline (v3.21)
+
+Sur chaque en-tête de groupe sprint, j'ai ajouté une pill dates (`◷ 14 — 27 juin`) et un bouton crayon à côté du goal sprint. En cliquant : une zone de texte qui glisse en dessous avec deux champs date (début, fin) et le textarea du goal. `Sauvegarder` → `PUT /api/sprint`. Aucune modale, aucun rechargement.
+
+Le placement était délicat : l'éditeur devait être à l'intérieur de la row d'en-tête pour ne pas être masqué par le CSS de collapse des groupes. Une heure à débugger des `display: none` récalcitrants avant de trouver l'explication dans les règles CSS de `.bl-group-body[data-collapsed="true"] tr:not(.bl-group-hdr-row)`.
+
+> 💡 **Leçon** : quand un élément disparaît de façon inexpliquée, chercher en remontant le DOM les règles CSS qui portent sur les ancêtres — pas seulement sur l'élément lui-même.
+
+---
+
 ## 🧰 Les outils
 
 | Outil | Rôle | Mon ressenti |
@@ -222,4 +275,4 @@ Si tu veux faire pareil pour ton équipe — fork, ouvre `python main.py`, et co
 ---
 
 ✍️ *Sébastien Rouen — Scrum Master @ Octo, en appui du RTE sur le programme expérimentations.*
-📅 *Squad Board, du 9 avril au 24 mai 2026. 100+ versions. Et la suite arrive.*
+📅 *Squad Board, du 9 avril au 11 juin 2026. 100+ versions. Et la suite arrive.*

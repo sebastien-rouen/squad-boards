@@ -60,6 +60,14 @@ app = FastAPI(title="Squad Board", version="3.0.0", lifespan=lifespan)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Routers (modules par domaine — migration progressive depuis main.py)
+# ══════════════════════════════════════════════════════════════════════════════
+from app.routers import teams as _r_teams
+
+app.include_router(_r_teams.router)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # CRUD: Tickets
 # ══════════════════════════════════════════════════════════════════════════════
 @app.get("/api/tickets")
@@ -645,56 +653,6 @@ def delete_mobility(mobility_id: str, session: Session = Depends(get_session)):
     if not m:
         raise HTTPException(404, "Ligne non trouvée")
     session.delete(m); session.commit()
-    return {"ok": True}
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# CRUD: Teams
-# ══════════════════════════════════════════════════════════════════════════════
-@app.get("/api/teams")
-def list_teams(session: Session = Depends(get_session)):
-    return [_team_dict(t) for t in session.exec(select(Team)).all()]
-
-
-@app.post("/api/teams")
-async def create_team(request: Request, session: Session = Depends(get_session)):
-    body = await request.json()
-    if not body.get("name"):
-        raise HTTPException(400, "Le nom est requis")
-    t = Team(
-        id=body.get("id") or _gen_id(),
-        name=body["name"],
-        color=body.get("color", "#3b82f6"),
-    )
-    session.add(t)
-    session.commit()
-    session.refresh(t)
-    return _team_dict(t)
-
-
-@app.put("/api/teams/{team_id}")
-async def update_team(team_id: str, request: Request, session: Session = Depends(get_session)):
-    t = session.get(Team, team_id)
-    if not t:
-        raise HTTPException(404, "Equipe non trouvee")
-    body = await request.json()
-    for key, val in body.items():
-        if hasattr(t, key):
-            setattr(t, key, val)
-    t.updated_at = _now()
-    session.add(t)
-    session.commit()
-    session.refresh(t)
-    return _team_dict(t)
-
-
-@app.delete("/api/teams/{team_id}")
-def delete_team(team_id: str, session: Session = Depends(get_session)):
-    t = session.get(Team, team_id)
-    if not t:
-        raise HTTPException(404, "Equipe non trouvee")
-    session.delete(t)
-    session.commit()
     return {"ok": True}
 
 

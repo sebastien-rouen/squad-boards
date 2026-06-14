@@ -1,17 +1,6 @@
 """Squad Board - Self-contained project board with SQLite + optional JIRA sync."""
 import json
 import os
-import uuid
-from datetime import datetime, timezone, date as _date, timedelta, time as _time
-
-try:
-    from icalendar import Calendar as _ICalendar
-    from dateutil import rrule as _drule
-    from dateutil.relativedelta import relativedelta as _relativedelta
-    _ICAL_OK = True
-except ImportError:
-    _ICAL_OK = False
-from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -19,46 +8,21 @@ from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import httpx
-from dotenv import load_dotenv
-from sqlmodel import SQLModel, Field, Session, create_engine, select, JSON, Column
+from sqlmodel import SQLModel, Field, Session, select, JSON, Column
 from sqlalchemy import Index as _SAIndex
 
-load_dotenv()
-
-DATA_DIR = Path(__file__).parent / "data"
-DATA_DIR.mkdir(exist_ok=True)
-STATIC_DIR = Path(__file__).parent / "static"
-DB_PATH = DATA_DIR / "board.db"
-
-JIRA_URL = os.getenv("JIRA_URL", "").rstrip("/")
-JIRA_USER = os.getenv("JIRA_USER", "")
-JIRA_TOKEN = os.getenv("JIRA_TOKEN", "")
-JIRA_PROJECT = os.getenv("JIRA_PROJECT", "")
+from app.config import STATIC_DIR, JIRA_URL, JIRA_USER, JIRA_TOKEN, JIRA_PROJECT
+from app.common import _gen_id, _now, _normalize_team, _TA
+from app.db import engine, get_session
+from app.migrations import run_migrations
+from app.services.ics import _parse_ics_events
 
 _client: httpx.AsyncClient | None = None
-
-
-def _gen_id() -> str:
-    return uuid.uuid4().hex[:12].upper()
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-import re as _re
-def _normalize_team(name: str) -> str:
-    """Strip CSV prefixes like 'Team Fuego' → 'Fuego', 'Equipe Alpha' → 'Alpha'.
-    Mirrors extractTeam() in utils.js so member.team aligns with JIRA board names."""
-    if not name:
-        return name
-    return _re.sub(r'^(?:Sprint|Équipe|Equipe|Team|Board|Kanban)\s+', '', name, flags=_re.IGNORECASE).strip() or name
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Models
 # ══════════════════════════════════════════════════════════════════════════════
-_TA = {"extend_existing": True}
 
 
 class Team(SQLModel, table=True):
@@ -376,67 +340,10 @@ class TeamCalendar(SQLModel, table=True):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Database engine
+# Database bootstrap (engine importé depuis app.db, migrations depuis app.migrations)
 # ══════════════════════════════════════════════════════════════════════════════
-engine = create_engine(
-    f"sqlite:///{DB_PATH}",
-    echo=False,
-    connect_args={"check_same_thread": False},
-)
 SQLModel.metadata.create_all(engine)
-
-
-def _run_migrations():
-    """Add new columns to existing tables (SQLite ALTER TABLE)."""
-    from sqlalchemy import text
-    migrations = [
-        ("feature", "rank",             "ALTER TABLE feature ADD COLUMN rank INTEGER DEFAULT 0"),
-        ("feature", "points",           "ALTER TABLE feature ADD COLUMN points INTEGER DEFAULT 0"),
-        ("feature", "dependencies",     "ALTER TABLE feature ADD COLUMN dependencies JSON DEFAULT '[]'"),
-        ("ticket",  "started_date",     "ALTER TABLE ticket ADD COLUMN started_date TEXT"),
-        ("ticket",  "resolved_date",    "ALTER TABLE ticket ADD COLUMN resolved_date TEXT"),
-        ("ticket",  "cycle_time_days",  "ALTER TABLE ticket ADD COLUMN cycle_time_days INTEGER DEFAULT 0"),
-        ("ticket",  "lead_time_days",   "ALTER TABLE ticket ADD COLUMN lead_time_days INTEGER DEFAULT 0"),
-        ("ticket",  "jira_status",      "ALTER TABLE ticket ADD COLUMN jira_status TEXT DEFAULT ''"),
-        ("piconfig", "sprints_per_pi",  "ALTER TABLE piconfig ADD COLUMN sprints_per_pi INTEGER DEFAULT 5"),
-        ("piconfig", "sprint_duration", "ALTER TABLE piconfig ADD COLUMN sprint_duration INTEGER DEFAULT 14"),
-        ("piconfig", "velocity_target",    "ALTER TABLE piconfig ADD COLUMN velocity_target INTEGER"),
-        ("piconfig", "sprint_velocities", "ALTER TABLE piconfig ADD COLUMN sprint_velocities JSON DEFAULT '[]'"),
-        ("piconfig", "start_date",        "ALTER TABLE piconfig ADD COLUMN start_date TEXT"),
-        ("member",   "entity",          "ALTER TABLE member ADD COLUMN entity TEXT DEFAULT ''"),
-        ("sprintconfig", "jira_id",       "ALTER TABLE sprintconfig ADD COLUMN jira_id TEXT"),
-        ("sprintconfig", "jira_board_id", "ALTER TABLE sprintconfig ADD COLUMN jira_board_id TEXT"),
-        ("sprintconfig", "team_sprints",  "ALTER TABLE sprintconfig ADD COLUMN team_sprints JSON DEFAULT '[]'"),
-        ("supportrotation", "locked",     "ALTER TABLE supportrotation ADD COLUMN locked BOOLEAN DEFAULT 0"),
-        ("supportrotation", "unlocked",   "ALTER TABLE supportrotation ADD COLUMN unlocked BOOLEAN DEFAULT 0"),
-        ("piconfig", "pi_members",        "ALTER TABLE piconfig ADD COLUMN pi_members JSON DEFAULT '{}'"),
-        ("piconfig", "pi_objectives",     "ALTER TABLE piconfig ADD COLUMN pi_objectives JSON DEFAULT '{}'"),
-    ]
-    with engine.connect() as conn:
-        from sqlalchemy import inspect as sa_inspect
-        insp = sa_inspect(engine)
-        for tbl, col, sql in migrations:
-            try:
-                existing = [c["name"] for c in insp.get_columns(tbl)]
-                if col not in existing:
-                    conn.execute(text(sql))
-                    conn.commit()
-            except Exception:
-                pass
-        # Composite indexes for existing databases (CREATE INDEX IF NOT EXISTS is idempotent)
-        for idx_sql in [
-            "CREATE INDEX IF NOT EXISTS ix_ticket_team_status ON ticket (team, status)",
-            "CREATE INDEX IF NOT EXISTS ix_ticket_team_pi ON ticket (team, pi_sprint)",
-            "CREATE INDEX IF NOT EXISTS ix_epic_feature_team ON epic (feature_id, team)",
-        ]:
-            try:
-                conn.execute(text(idx_sql))
-                conn.commit()
-            except Exception:
-                pass
-
-
-_run_migrations()
+run_migrations(engine)
 
 
 def _seed_atlas_catalog():
@@ -468,164 +375,9 @@ def _seed_atlas_catalog():
 _seed_atlas_catalog()
 
 
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 # ══════════════════════════════════════════════════════════════════════════════
-# ICS / iCalendar parser
+# ICS / iCalendar parser (déplacé vers app.services.ics)
 # ══════════════════════════════════════════════════════════════════════════════
-def _dt_to_utc(dt) -> datetime:
-    """Normalise date ou datetime en datetime UTC-aware."""
-    if isinstance(dt, datetime):
-        return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
-    if isinstance(dt, _date):
-        return datetime(dt.year, dt.month, dt.day, tzinfo=timezone.utc)
-    return datetime.now(timezone.utc)
-
-
-def _parse_ics_events(ics_text: str) -> list[dict]:
-    """
-    Parse un flux ICS et développe les événements récurrents (RRULE) dans une
-    fenêtre de -1 mois à +4 mois autour d'aujourd'hui.
-
-    Corrections fuseau horaire (DST) :
-    - Les RRULE étaient générées en datetime NAÏF puis re-taggées UTC arbitrairement,
-      ce qui causait un décalage de +/- 1h lors des transitions été/hiver.
-    - Désormais on passe `dtstart` AWARE (avec sa tzinfo originelle) à `rrulestr`,
-      et dateutil gère correctement les transitions DST. Les occurrences sont
-      converties en UTC pour le payload JSON (le navigateur fait le rendu local).
-
-    Dédoublonnage RECURRENCE-ID :
-    - Un VEVENT avec `RECURRENCE-ID` est une instance MODIFIÉE d'une récurrence,
-      elle doit remplacer l'occurrence générée par la RRULE master pour cette date.
-    - On fait un 1er passage pour collecter les overrides par (uid, date),
-      puis on les exclut des occurrences RRULE générées et on les ajoute en standalone.
-    """
-    if not _ICAL_OK:
-        raise RuntimeError("icalendar non installé — lancez : pip install icalendar python-dateutil")
-    try:
-        cal = _ICalendar.from_ical(ics_text)
-    except Exception as e:
-        raise ValueError(f"ICS invalide : {e}")
-
-    now = datetime.now(timezone.utc)
-    win_start = now - _relativedelta(months=1)
-    win_end   = now + _relativedelta(months=4)
-
-    vevents = [c for c in cal.walk() if c.name == "VEVENT"]
-
-    # ── Pass 1 : collecte des overrides RECURRENCE-ID par UID ──────────────────
-    # Pour chaque UID, on note les dates des instances modifiées → à exclure
-    # lors de la génération des occurrences RRULE master.
-    overrides_by_uid: dict[str, set] = {}
-    for comp in vevents:
-        recid = comp.get("RECURRENCE-ID")
-        if not recid:
-            continue
-        uid = str(comp.get("UID", "") or "")
-        if not uid:
-            continue
-        try:
-            rec_utc = _dt_to_utc(recid.dt)
-            overrides_by_uid.setdefault(uid, set()).add(rec_utc)
-        except Exception:
-            continue
-
-    events: list[dict] = []
-    seen_keys: set = set()  # (uid, start_iso) — dernière barrière anti-doublons
-
-    def _push(ev: dict):
-        k = (ev["uid"], ev["start"])
-        if k in seen_keys:
-            return
-        seen_keys.add(k)
-        events.append(ev)
-
-    for comp in vevents:
-        try:
-            uid   = str(comp.get("UID",         "") or "")
-            title = str(comp.get("SUMMARY",     "") or "").strip() or "(Sans titre)"
-            desc  = str(comp.get("DESCRIPTION", "") or "")[:500]
-            loc   = str(comp.get("LOCATION",    "") or "")
-            url   = str(comp.get("URL",         "") or "")
-
-            dtstart = comp.get("DTSTART")
-            if not dtstart:
-                continue
-            raw_s = dtstart.dt
-            is_all_day = isinstance(raw_s, _date) and not isinstance(raw_s, datetime)
-            start = _dt_to_utc(raw_s)
-
-            dtend = comp.get("DTEND")
-            dur_p = comp.get("DURATION")
-            if dtend:
-                end = _dt_to_utc(dtend.dt)
-            elif dur_p:
-                end = start + dur_p.dt
-            else:
-                end = start + (timedelta(days=1) if is_all_day else timedelta(hours=1))
-            if end <= start:
-                end = start + timedelta(hours=1)
-            duration = end - start
-
-            # EXDATEs (exceptions de récurrence) — gardées AWARE pour matcher dtstart
-            exdates_aware: list[datetime] = []
-            exdate_prop = comp.get("EXDATE")
-            if exdate_prop:
-                if not isinstance(exdate_prop, list):
-                    exdate_prop = [exdate_prop]
-                for ex_item in exdate_prop:
-                    ex_dts = ex_item.dts if hasattr(ex_item, "dts") else [ex_item]
-                    for exdt in ex_dts:
-                        exdates_aware.append(_dt_to_utc(exdt.dt))
-
-            # Instance modifiée (RECURRENCE-ID) — ajoutée standalone (= override).
-            # Pas de RRULE expansion sur ce comp.
-            is_override = comp.get("RECURRENCE-ID") is not None
-
-            def _ev(s: datetime, r: bool) -> dict:
-                # s doit être aware (UTC) — isoformat produit ".../+00:00" parsable JS
-                return {
-                    "uid": uid, "title": title, "description": desc, "location": loc,
-                    "url": url,
-                    "start": s.isoformat(), "end": (s + duration).isoformat(),
-                    "allDay": is_all_day, "recurring": r,
-                }
-
-            rrule_prop = comp.get("RRULE")
-            if rrule_prop and not is_override:
-                rule_str = rrule_prop.to_ical().decode("utf-8")
-                # Préserve la tz source pour respecter DST : si dtstart a une tzinfo,
-                # on l'utilise telle quelle ; sinon on assume UTC (RFC 5545 "Z"-less
-                # est interprété "floating" mais on choisit UTC par défaut).
-                dtstart_for_rule = raw_s if (isinstance(raw_s, datetime) and raw_s.tzinfo) else start
-                try:
-                    rset = _drule.rruleset()
-                    rset.rrule(_drule.rrulestr(f"RRULE:{rule_str}", dtstart=dtstart_for_rule))
-                    for exdt in exdates_aware:
-                        # Les exdates doivent être convertibles à la tz de dtstart_for_rule
-                        rset.exdate(exdt.astimezone(dtstart_for_rule.tzinfo) if dtstart_for_rule.tzinfo else exdt.replace(tzinfo=None))
-                    # Les RECURRENCE-ID overrides sont aussi à exclure des occurrences générées
-                    for ov in overrides_by_uid.get(uid, ()):
-                        rset.exdate(ov.astimezone(dtstart_for_rule.tzinfo) if dtstart_for_rule.tzinfo else ov.replace(tzinfo=None))
-                    for occ in rset.between(win_start, win_end, inc=True):
-                        _push(_ev(occ.astimezone(timezone.utc), True))
-                except Exception:
-                    if win_start <= start <= win_end:
-                        _push(_ev(start, True))
-            else:
-                if start <= win_end and end >= win_start:
-                    # Pour un override, on le marque recurring=True (visible dans l'UI)
-                    _push(_ev(start, bool(rrule_prop) or is_override))
-        except Exception:
-            continue
-
-    events.sort(key=lambda e: e["start"])
-    return events
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Serialization helpers
 # ══════════════════════════════════════════════════════════════════════════════

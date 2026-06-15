@@ -1,10 +1,34 @@
 # Squad Board - Contexte developpeur
 
 ## Stack
-- Backend: FastAPI + SQLModel/SQLite - fichier unique `main.py`
+- Backend: FastAPI + SQLModel/SQLite — package `app/` (routeurs par domaine), `main.py` = composition seule
 - Frontend: Vanilla JS ES modules, CSS custom properties, Chart.js
 - Stockage: `data/board.db` (SQLite, 10 tables)
 - Pas de build, pas de framework JS
+
+### Architecture backend (`app/`)
+`main.py` ne fait que composer : bootstrap DB (`create_all` + `run_migrations` + `seed`),
+cycle de vie du client HTTP, et `include_router` de tous les routeurs. Lancement inchangé : `python main.py`.
+```
+app/
+├── common.py          # _gen_id, _now, _normalize_team, _TA
+├── config.py          # env JIRA_*, DATA_DIR, STATIC_DIR, DB_PATH
+├── db.py              # engine, get_session
+├── migrations.py      # run_migrations(engine) — ALTER/INDEX idempotents
+├── seed.py            # seed_atlas_catalog(engine)
+├── http_client.py     # client httpx partagé (lifespan)
+├── serializers.py     # ⚠ SOURCE UNIQUE du contrat camelCase (_xxx_dict)
+├── crud.py            # make_crud_router() — list/get/update/delete génériques
+├── models/            # core, planning, people, agile, atlas, calendar (19 modèles)
+├── services/ics.py    # parser ICS/RRULE (DST) + expand_calendar_events
+└── routers/           # 1 module par domaine ; create/logique propre à la main
+    teams, groups, epics, members, absences, support, agile (events/retro/risks/mood),
+    tickets, features, planning (sprint+pi), atlas, calendars, jira, data (export/all/import/config)
+```
+- **Factory CRUD** (`crud.py`) : génère les endpoints mécaniques. `create` et toute logique
+  spécifique (filtres de liste, field_map, bulk, upsert) restent écrits à la main dans le routeur.
+- **Contrat camelCase gelé** : `serializers.py` est la seule source. Vérif de non-régression =
+  `GET /api/export` & `/api/all` (golden test).
 
 ## Principes
 - **Autoporteur** : tout fonctionne sans JIRA ni service externe

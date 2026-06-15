@@ -1,3 +1,13 @@
+## [3.22.0] - 2026-06-15
+
+### Refactor : éclatement du backend `main.py` en package `app/` (sans changement fonctionnel)
+- **`main.py` 2591 → 63 lignes** : ne fait plus que composer (bootstrap DB, lifespan client HTTP, `include_router`, static). Lancement **inchangé** (`python main.py`, PM2/`ecosystem.config.cjs` intact).
+- **Nouveau package `app/`** : `common`, `config`, `db`, `migrations`, `seed`, `http_client`, `serializers`, `crud` (factory), `models/` (19 modèles répartis par domaine), `services/ics.py`, et `routers/` (1 module par domaine).
+- **Factory CRUD** (`app/crud.py`) : `make_crud_router()` génère les endpoints mécaniques (list/get/update/delete) ; `create` et la logique spécifique (filtres, field_map, bulk, upsert) restent explicites par routeur.
+- **Sérialiseurs centralisés** (`app/serializers.py`) = source unique du contrat camelCase consommé par le front.
+- **`expand_calendar_events`** factorisé (partagé entre `/api/all` et `/api/calendars/events`).
+- **Non-régression** validée à chaque étape via golden test `GET /api/export` & `/api/all` (sortie byte-identique). Plan détaillé : [docs/refactor-plan-backend.md](docs/refactor-plan-backend.md).
+
 ## [3.21.0] - 2026-06-11
 
 ### Feat : Hash URL + hiérarchie Epic/Feature dans le Backlog ([backlog.js](squad-board/static/js/views/backlog.js), [app.js](squad-board/static/js/app.js), [backlog.css](squad-board/static/css/backlog.css))

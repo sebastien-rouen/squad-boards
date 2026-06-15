@@ -65,6 +65,37 @@ Le selecteur topbar permet de choisir une equipe ou un groupe :
 
 Le filtre est applique dans `utils.js:filterByTeam()` qui lit `store.group` et resout les equipes du groupe.
 
+## Backend
+
+### Modules (`app/`)
+
+`main.py` ne contient que la composition (bootstrap DB, lifespan, `include_router`, static).
+Toute la logique est dans le package `app/`. Lancement : `python main.py`.
+
+```
+main.py              Composition : create_all + migrations + seed, lifespan, routers, static
+app/
+├── common.py        _gen_id, _now, _normalize_team, _TA
+├── config.py        env JIRA_*, chemins (DATA_DIR, STATIC_DIR, DB_PATH)
+├── db.py            engine SQLite, get_session
+├── migrations.py    run_migrations(engine) (ALTER TABLE / CREATE INDEX idempotents)
+├── seed.py          seed_atlas_catalog(engine)
+├── http_client.py   client httpx partagé (calendriers ICS + proxy JIRA)
+├── serializers.py   _xxx_dict — SOURCE UNIQUE du contrat camelCase
+├── crud.py          make_crud_router() : list/get/update/delete génériques
+├── models/          core, planning, people, agile, atlas, calendar (19 modèles SQLModel)
+├── services/
+│   └── ics.py       parser ICS/RRULE (DST-safe) + expand_calendar_events
+└── routers/         1 module par domaine (CRUD via factory + logique propre)
+    ├── teams, groups, epics, members, absences, support
+    ├── agile        events / retro / risks / mood
+    ├── tickets, features, planning (sprint + pi), atlas
+    └── calendars, jira (proxy), data (export / all / import / config)
+```
+
+Garde-fou de refactor : `GET /api/export` et `GET /api/all` servent de test de
+non-régression (golden) — leur sortie doit rester stable.
+
 ## Frontend
 
 ### Modules

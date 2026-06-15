@@ -1,5 +1,8 @@
 # Plan de refactor backend — `main.py` → package `app/`
 
+> ✅ **TERMINÉ le 2026-06-15** — `main.py` 2591 → 63 lignes. Toutes les étapes livrées et
+> validées par golden test (`/api/export` & `/api/all` byte-identiques). Voir CHANGELOG 3.22.0.
+>
 > **But** : éclater le monofichier `main.py` (2591 lignes) en un package `app/` par
 > domaine, avec une factory CRUD générique. Objectif : maintenabilité.
 > **Contrainte absolue** : zéro changement fonctionnel, contrat API (camelCase) figé.

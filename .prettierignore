@@ -1,0 +1,4 @@
+static/js/vendor/
+static/tests/
+node_modules/
+data/

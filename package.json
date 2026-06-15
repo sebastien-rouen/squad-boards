@@ -1,0 +1,22 @@
+{
+  "name": "squad-board",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Board de projet autoporteur — outillage qualité front (dev uniquement, aucun build runtime).",
+  "type": "module",
+  "scripts": {
+    "lint": "npm run lint:js && npm run lint:css",
+    "lint:js": "eslint static/js",
+    "lint:css": "stylelint \"static/css/**/*.css\"",
+    "format": "prettier --write \"static/**/*.{js,css,html}\"",
+    "format:check": "prettier --check \"static/**/*.{js,css,html}\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "stylelint": "^16.12.0",
+    "stylelint-config-standard": "^36.0.1"
+  }
+}

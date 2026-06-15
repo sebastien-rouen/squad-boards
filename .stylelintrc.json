@@ -1,0 +1,31 @@
+{
+  "extends": "stylelint-config-standard",
+  "ignoreFiles": ["static/js/vendor/**", "node_modules/**"],
+  "rules": {
+    "declaration-block-single-line-max-declarations": null,
+    "at-rule-empty-line-before": null,
+    "selector-not-notation": null,
+    "no-descending-specificity": null,
+    "selector-class-pattern": null,
+    "color-function-notation": null,
+    "alpha-value-notation": null,
+    "media-feature-range-notation": null,
+    "custom-property-empty-line-before": null,
+    "declaration-empty-line-before": null,
+    "comment-empty-line-before": null,
+    "rule-empty-line-before": null,
+    "value-keyword-case": null,
+    "declaration-block-no-redundant-longhand-properties": null,
+    "keyframes-name-pattern": null,
+    "selector-attribute-quotes": null,
+    "font-family-name-quotes": null,
+
+    "no-duplicate-selectors": [true, { "severity": "warning" }],
+    "shorthand-property-no-redundant-values": [true, { "severity": "warning" }],
+    "declaration-block-no-duplicate-properties": [true, { "severity": "warning" }],
+    "color-hex-length": ["long", { "severity": "warning" }],
+    "property-no-vendor-prefix": [true, { "severity": "warning" }],
+    "block-no-empty": [true, { "severity": "warning" }],
+    "font-family-no-missing-generic-family-keyword": [true, { "severity": "warning" }]
+  }
+}

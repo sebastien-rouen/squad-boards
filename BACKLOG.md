@@ -1,7 +1,91 @@
 # BACKLOG — Squad Board
 
 > Document de reprise pour une nouvelle conversation Claude. Lire en premier : [CLAUDE.md](CLAUDE.md) (conventions codebase) puis ce fichier.
-> Dernière mise à jour : 2026-06-04 — version courante `3.13.0` (cf. [CHANGELOG.md](CHANGELOG.md)).
+> Dernière mise à jour : 2026-06-08 — version courante `3.17.0` (cf. [CHANGELOG.md](CHANGELOG.md)).
+
+---
+
+## TODO :
+- [x] Optimiser sur les modal des détails des tickets. Si on passe d'un ticket à l'autre via la navigation précédente et suivante (<button class="mdl-nav-btn" id="mdl-prev" title="Precedent (←)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>) il ne faut pas que cela crée plusieurs modal (car si je clique 5x sur pagination précédentes, donc 5 tickets, le hash change aussi ce qui est normal, mais si je veux sortir de la modal, cela retire la modal du dernier ticket, puis je vois la modal du 4e ticket, etc...).
+- [x] Permet de compléter un jeu de données pour une démo un peu complète dans la page "Paramètres" et "Données".
+- [x] Optimiser au mieux la modale de création de ticket de façon ergonomique, colorée, et intuitive et simple (utilise chip, liste déroulante si besoin, ...).
+- [x] Créer une page Backlog : afin de pouvoir visualiser de manière ergonomique et intuitive tous les tickets via des filtres, regrouper par sprint si existant, et/ou par PI. Propose-moi avant, comment tu comptes l'afficher et développer avant.
+- [ ] Ajouter le moyen de mettre le TOKEN et URL de JIRA dans la page Paramètres au lieu du .env pour le rendre plus facilement modifiable par l'utilisateur.
+- [ ] Dans la modal Calendrier, ajouter un séparateur aussi pour les évènements qui sont sur la journée, et les afficher en haut sur une petite ligne, tronquée mais avec du détail lors du hover.
+
+## 🔐 PROPOSITION — Export / Import de configuration locale (`.local`)
+
+> Idée discutée le 2026-06-08. **Verdict : utile, mais à cadrer** (P2). À arbitrer avec l'utilisateur avant implémentation.
+
+### Pourquoi (problème réel)
+- `/api/export` existe déjà mais c'est un **dump complet** : il mélange les données **re-synchronisables depuis JIRA** (tickets/features/epics, volumineux) avec la config curée, **n'inclut pas les calendriers** (`TeamCalendar`) et **rien du localStorage**.
+- Beaucoup de config **fragile vit uniquement en localStorage** et n'est aujourd'hui ni sauvegardable ni portable :
+  `pi-cfg-<N>` (date début PI + `pipDates`), `rot-mode-<team>` / `rot-mpw-<team>` (rotation support), `sb-charge-<sprint>` (charge prévue PI Planning), `sb-sync-*` (réglages sync JIRA), `sb-cal-*` (prefs modale calendrier), `sb-favorites`, historique commandes.
+- Le repo est **public (GitHub) + synchronisé OneDrive** et les **absences = vrais noms RH** → ces données ne doivent pas être versionnées. D'où l'intérêt de fichiers **`.local` gitignorés**.
+
+### Ce qui est proposé
+Un **bundle de configuration curée** (≠ dump complet), exportable/importable **par domaine** (cases à cocher) :
+| Domaine | Source | Contenu |
+|---------|--------|---------|
+| Équipes & groupes | DB | `Team`, `TeamGroup` (noms, couleurs) |
+| Sprint & PI | DB + localStorage | `SprintConfig`, `PIConfig` (objectifs, snapshots), `pi-cfg-<N>` (startDate, pipDates, sprintsPerPI…) |
+| Absences / Congés | DB | `Absence` (⚠ données perso → justifie le `.local`) |
+| Calendriers | DB | `TeamCalendar` (URL ICS + équipe — ⚠ URLs parfois tokenisées) |
+| Faits marquants | DB | `Event` (incident/gel/jalon/période) |
+| Rotation support | DB + localStorage | `SupportRotation` + `rot-mode-*`, `rot-mpw-*` |
+| Atlas | DB | catalogue `Skill`/`Appetence`, `MemberSkill/Appetence`, `MemberMobility` |
+| Préférences locales | localStorage | `sb-sync-*`, `sb-cal-*`, `sb-charge-*`, `sb-favorites`… |
+
+- **Exclu volontairement** : tickets / features / epics (re-fetchables via sync JIRA → garde le bundle léger et sans gros volume de données perso).
+- **Backend** : `GET /api/config/export?domains=teams,pi,absences…` (sous-ensemble curé) + `POST /api/config/import` (merge sélectif, réutilise les `_xxx_dict` et la logique merge existante). `TeamCalendar` à ajouter à l'export (manque aujourd'hui).
+- **Frontend** : section Settings « 💾 Sauvegarde & restauration » → cases à cocher par domaine, bouton Exporter (télécharge `squad-config.local.json`) / Importer (upload + preview + merge). Le **localStorage est dumpé/restauré côté client** (le backend ne le voit pas).
+- **`.gitignore`** : ajouter `*.local`, `*.local.json`, `config/*.local*` (le `.gitignore` ignore déjà `data/*.json`, mais pas un `config/` ni la racine).
+
+### Risques / points de vigilance (à ne pas sous-estimer)
+- **Drift de schéma** : chaque nouvelle table/clé localStorage devra être ajoutée à la liste des domaines → centraliser cette liste (un seul endroit `CONFIG_DOMAINS`).
+- **Doublon avec `/api/export`** : garder les deux mais documenter clairement « snapshot complet » vs « bundle config ». Ne pas dupliquer la logique merge.
+- **URLs ICS tokenisées** dans les calendriers = quasi-secrets → raison de plus pour `.local` + ne jamais committer.
+- _(non concerné : le `.local` n'a pas vocation à être synchronisé, juste un export/sauvegarde manuel local.)_
+
+### 🚀 MVP à implémenter (validé 2026-06-08)
+
+**Objectif** : pouvoir exporter toute la config curée dans un fichier `.local` et la réimporter (reprise après reset / changement de poste). Le format prévoit déjà tous les domaines ; le MVP les couvre tous, l'UI reste simple (un bouton export, un bouton import).
+
+**Format du bundle** — `squad-config.local.json` :
+```jsonc
+{
+  "_meta": { "app": "squad-board", "version": "1", "exportedAt": "<iso>" },
+  "db": {            // sous-ensemble curé (PAS de tickets/features/epics)
+    "teams": [...], "groups": [...],
+    "sprint": {...}, "pi": {...},
+    "absences": [...], "support": [...],
+    "events": [...], "calendars": [...],
+    "skills": [...], "appetences": [...],
+    "memberSkills": [...], "memberAppetences": [...], "mobility": [...]
+  },
+  "local": {         // snapshot localStorage (clés ciblées par préfixe)
+    "pi-cfg-29": "…", "rot-mode-Fuego": "…", "sb-charge-…": "…",
+    "sb-sync-…": "…", "sb-cal-…": "…", "sb-favorites": "…"
+  }
+}
+```
+
+**Backend** ([main.py](main.py))
+- [ ] `GET /api/config/export` → renvoie le bloc `db` (réutilise les `_xxx_dict`). **Ajouter `calendars`** (`TeamCalendar` → inclure `icalUrl`, `team`, `name` ; absent de `/api/export` aujourd'hui).
+- [ ] `POST /api/config/import` (body = bloc `db`, mode `merge` par défaut) → upsert par domaine en réutilisant la logique de `import_all` ; **ne touche pas** tickets/features/epics. Renvoie un récap `{domaine: nb importés}`.
+- [ ] Constante `CONFIG_DOMAINS` centralisée (liste des tables/clés) pour éviter le drift — source unique pour export + import.
+
+**Frontend** — section Settings « 💾 Sauvegarde & restauration »
+- [ ] Bouton **Exporter** : `GET /api/config/export` + dump des clés localStorage matchant les préfixes (`pi-cfg-`, `rot-mode-`, `rot-mpw-`, `sb-charge-`, `sb-sync-`, `sb-cal-`, `sb-favorites`) → fusionne en un seul JSON → `download` `squad-config.local.json`.
+- [ ] Bouton **Importer** : `<input type=file>` → lit le JSON → **preview** (compte par domaine) → confirm → `POST /api/config/import` (bloc `db`) **puis** restaure le bloc `local` dans `localStorage` → `toast` récap + reload de l'état (`loadAllData` / `renderView`).
+- [ ] Helper `_localConfigSnapshot()` / `_restoreLocalConfig(obj)` (filtre par préfixes — liste centralisée côté front aussi).
+
+**Divers**
+- [ ] `.gitignore` : ajouter `*.local`, `*.local.json` (la racine ; `data/*.json` ne couvre pas un export hors `data/`).
+- [ ] CHANGELOG : entrée dédiée (feat `settings`), bump mineur.
+- [ ] Doc CLAUDE.md : noter la distinction `/api/export` (snapshot complet) vs `/api/config/*` (bundle config curée).
+
+**Critère de done** : reset `data/board.db` + vider le localStorage → import du `.local` → l'app retrouve équipes, PI/sprint (dates + pipDates), absences, calendriers, faits marquants, rotation et préférences, **sans re-saisie** (tickets re-synchronisés via JIRA séparément).
 
 ---
 

@@ -1,3 +1,42 @@
+## [3.25.0] - 2026-06-16
+
+### Feat : lot d'améliorations UX/UI (accessibilité, mobile, tooltips, topbar)
+- **Accessibilité** ([base.css](squad-board/static/css/base.css)) : garde `prefers-reduced-motion` (neutralise les 240 transitions pour les utilisateurs sensibles au mouvement) + anneau `:focus-visible` global (focus clavier toujours visible sur les éléments interactifs sans indicateur dédié ; souris/tactile non affectés).
+- **`promptModal()`** ([utils.js](squad-board/static/js/utils.js)) : saisie modale thémée (validation, Échap/Entrée) remplaçant les **5 `prompt()` natifs** (nom utilisateur, favori, URL lien/image WYSIWYG avec sauvegarde/restauration de sélection, libellé support). CSS `.confirm-modal--prompt`.
+- **Tooltips stylisés** ([components/tooltip.js](squad-board/static/js/components/tooltip.js)) : composant global léger sur `[data-tooltip]` (délégué sur document → marche pour le contenu dynamique). Chrome topbar/sidebar/modal converti de `title=` natif → `data-tooltip` (avec `aria-label` sur les boutons icône). Attribut distinct du `data-tip` riche du calendrier.
+- **Mode mobile « cartes » (< 768px)** pour les 3 vues data-denses : Backlog ([backlog.css](squad-board/static/css/backlog.css)), Rotation Support ([support.css](squad-board/static/css/views/support.css)), Agenda (colonne Membre figée + compactage, [agenda.css](squad-board/static/css/views/agenda.css)). CSS-only, aucune refonte JS.
+- **Désencombrement topbar** : menu kebab `⋯` (< 1024px) regroupant Favoris + Mes tickets (relais vers les boutons d'origine ; Favoris ancré sur le kebab car le bouton est masqué), et **recherche conservée** sur tablette/mobile (auparavant masquée avec `.topbar-center`). [index.html](squad-board/static/index.html), [base.css](squad-board/static/css/base.css), [app.js](squad-board/static/js/app.js).
+- **hex → tokens** : remplacement des **84 couleurs hex** mappant **sans ambiguïté** vers un design token (iso-rendu en clair, cohérence dark mode). Les 207 hex ambigus (ex. `#ffffff`, `#3b82f6` → plusieurs tokens) et 352 one-off restent inchangés (jugement contextuel requis — pass dédié à prévoir).
+
+## [3.24.1] - 2026-06-15
+
+### Fix : sélecteur PI du topbar invisible quand le sprint actif s'appelle « PI Design #30 »
+- **Cause** : `extractPiNum()` ([utils.js](squad-board/static/js/utils.js)) — source unique du N° de PI — ne savait extraire le numéro que s'il suivait *immédiatement* « PI » (`/PI\s*#?\s*(\d+)/i`) ou via la notation décimale `30.1`. Le sprint actif JIRA réel **« PI Design #30 »** (texte entre « PI » et le numéro) renvoyait donc `0` → `getCurrentPi()` = 0 → `updatePiSelector()` cachait le sélecteur sur **toutes** les vues. Idem `health.js` (filtrage par PI).
+- **Correctif additif** : 3ᵉ regex en dernier recours `/(?<![A-Za-z])PI(?![A-Za-z])[^\d]{0,15}?(\d+)/i` qui capte « PI \<texte\> #\<num\> ». Les 2 regex existantes restent **inchangées** (zéro régression sur l'existant). Lookbehind/lookahead pour ne pas matcher « PI » au milieu d'un mot (`API`, `shipping`…).
+- **Validé** sur 100 % des noms de sprints réels de l'instance (PI Design #27/28/30, `Caméléon - 29.1`, `Team B - ité 18.4`…) + 12 cas de non-régression (`Cadrage_PI30`→30, `shipping 30`→0, `API v2 plan 14`→0).
+- ⚠️ Dette connexe repérée (non corrigée ici) : [picalendar.js](squad-board/static/js/views/picalendar.js) et [roadmap.js](squad-board/static/js/views/roadmap.js) **réimplémentent** la regex localement (`_extractPiNum`) — anti-pattern interdit par CLAUDE.md, à faire converger vers `extractPiNum`.
+
+## [3.24.0] - 2026-06-15
+
+### Refactor : éclatement de `views.css` (12 682 lignes) en 23 fichiers par vue/composant (rendu identique)
+- **`static/css/views.css` (12 682 lignes) supprimé**, remplacé par `static/css/views/` (23 fichiers de 11 à 1680 lignes) : `health`, `dashboard`, `sprint`, `pi-planning`, `reports`, `velocity`, `sprint-tickets-modal`, `settings`, `forms`, `modal-detail`, `calendar-banner`, `print`, `pi-config`, `support-rotation`, `pi-import`, `support`, `roam`, `pi-calendar`, `reports-epic`, `settings-pi-objectives`, `roadmap`, `agenda`, `poker`.
+- **Cascade strictement préservée** : découpe uniquement aux séparateurs de section `══`, **sans réordonnancement**. La concaténation des fichiers dans l'ordre des `<link>` reproduit l'ancien `views.css` **byte-pour-byte** (vérifié par script avant suppression de l'original). Aucun changement visuel.
+- **[index.html](squad-board/static/index.html)** : `<link>` unique remplacé par les 23 fichiers dans l'ordre de cascade (commentaire « ne pas réordonner »). `atlas.css`/`backlog.css` restent chargés après.
+- **0 coupure mid-bloc** (validé par stylelint : aucune `CssSyntaxError`). `StaticFiles` sert le sous-dossier `views/` de façon récursive (aucun changement backend).
+- ⚠️ Certaines vues restent sur 2 fichiers (Settings, Reports) car leurs règles sont non-contigües dans la source — les regrouper aurait réordonné la cascade. À consolider seulement avec une validation visuelle.
+
+## [3.23.0] - 2026-06-15
+
+### Chore : outillage qualité front (ESLint + Stylelint + Prettier, sans build runtime)
+- **Nouveau `package.json` dev-only** : `eslint`, `@eslint/js`, `globals`, `stylelint`, `stylelint-config-standard`, `prettier`. Aucun build, aucune dépendance runtime — uniquement des vérifications. `node_modules/` déjà ignoré.
+- **Scripts** : `npm run lint` (JS + CSS), `npm run lint:js`, `npm run lint:css`, `npm run format` (Prettier `--write`), `npm run format:check`.
+- **ESLint** ([eslint.config.js](squad-board/eslint.config.js)) — flat config, ES modules navigateur. Correctness en erreur (`no-undef`, `no-dupe-keys`…), hygiène en warning (`no-unused-vars`…). Espace fine insécable FR (U+202F) autorisé dans strings/templates. Ignore `vendor/` et `tests/`. **Baseline : 0 erreur, 114 warnings** (legacy à nettoyer progressivement).
+- **Stylelint** ([.stylelintrc.json](squad-board/.stylelintrc.json)) — `stylelint-config-standard`. Philosophie : **Prettier possède le formatage, stylelint la qualité** → règles de mise en forme neutralisées (style compact volontaire préservé), signaux qualité en warning (sélecteurs dupliqués, vendor-prefix, blocs vides, hex courts…). **Baseline : 0 erreur, 101 warnings**.
+- **Prettier** ([.prettierrc.json](squad-board/.prettierrc.json)) — 4 espaces, single quotes (double en CSS), `printWidth` 100. Config posée ; reformatage non appliqué (à lancer via `npm run format` au moment choisi).
+- **2 bugs réels détectés et corrigés par l'outillage** :
+  - [topbar.js](squad-board/static/js/components/topbar.js) — `searchInput` hors scope dans `renderSearchResults()` (`ReferenceError` au clic sur un résultat de recherche).
+  - [views.css](squad-board/static/css/views.css) — `.demo-goal-card` : `flex: 0 1 650Rpx` (unité invalide, `flex-basis` ignorée) → `650px`.
+
 ## [3.22.0] - 2026-06-15
 
 ### Refactor : éclatement du backend `main.py` en package `app/` (sans changement fonctionnel)

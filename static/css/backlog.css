@@ -219,15 +219,15 @@
     position: relative;
     display: flex; align-items: center; gap: 8px;
     padding: 6px 12px 6px 10px;
-    background: color-mix(in srgb, var(--bg-alt, #f8fafc) 85%, transparent);
+    background: color-mix(in srgb, var(--bg-alt, var(--surface-hover)) 85%, transparent);
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     cursor: pointer; user-select: none;
     transition: background .08s;
 }
-.bl-group-hdr:hover   { background: color-mix(in srgb, var(--primary) 5%, var(--bg-alt, #f8fafc)); }
+.bl-group-hdr:hover   { background: color-mix(in srgb, var(--primary) 5%, var(--bg-alt, var(--surface-hover))); }
 .bl-group-hdr.drag-over {
-    background: color-mix(in srgb, var(--primary) 10%, var(--bg-alt, #f8fafc));
+    background: color-mix(in srgb, var(--primary) 10%, var(--bg-alt, var(--surface-hover)));
     outline: 2px dashed var(--primary);
     outline-offset: -2px;
 }
@@ -387,7 +387,7 @@
     border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
     transition: background .06s;
 }
-.bl-row:hover                               { background: var(--bg-alt, #f8fafc); }
+.bl-row:hover                               { background: var(--bg-alt, var(--surface-hover)); }
 .bl-row.is-selected                         { background: color-mix(in srgb, var(--primary) 7%, transparent); }
 .bl-row.is-selected:hover                   { background: color-mix(in srgb, var(--primary) 11%, transparent); }
 .bl-row.is-done > td:not(.td-check)         { opacity: .6; }
@@ -628,3 +628,87 @@ mark.bl-hl {
 
 /* Compact: reduce parent row padding too */
 .bl-table.is-compact .bl-parent-row td { padding-top: 3px; padding-bottom: 3px; }
+
+/* ══ Mobile — cartes empilées (< 768px) ════════════════════════════════════ */
+@media (max-width: 768px) {
+    .bl-body { overflow-x: hidden; }
+
+    /* Neutralise la grille tabulaire */
+    .bl-table { min-width: 0; table-layout: auto; display: block; }
+    .bl-table thead { display: none; }
+    .bl-table tbody.bl-group-body { display: block; }
+
+    /* En-tête de groupe : pleine largeur */
+    .bl-group-hdr-row,
+    .bl-group-hdr-row td { display: block; width: 100%; position: static; }
+    .bl-group-hdr-row td { padding: 0 !important; }
+
+    /* Chaque ligne ticket devient une carte */
+    .bl-row,
+    .bl-parent-row {
+        display: grid;
+        grid-template-columns: auto auto 1fr auto;  /* check | type | titre | avatar */
+        grid-template-areas:
+            "check type   title  avatar"
+            "check meta   meta   meta"
+            "check status status status";
+        align-items: center;
+        gap: 2px var(--sp-2);
+        padding: var(--sp-3);
+        margin: var(--sp-2);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        box-shadow: var(--shadow-xs);
+    }
+    .bl-row td,
+    .bl-parent-row td {
+        display: block;
+        max-width: none;
+        padding: 0;
+        white-space: normal;
+        overflow: visible;
+    }
+
+    .bl-row .td-check,  .bl-parent-row .td-check  { grid-area: check; align-self: start; }
+    .bl-row .td-type,   .bl-parent-row .td-type   { grid-area: type; }
+    .bl-row .td-title,  .bl-parent-row .td-title  { grid-area: title; }
+    .bl-row td:nth-child(7),
+    .bl-parent-row td:nth-child(7) { grid-area: avatar; justify-self: end; }  /* Leader */
+    .bl-row td:nth-child(5),
+    .bl-parent-row td:nth-child(5) { grid-area: status; }                      /* Statut */
+
+    /* Ligne meta = ID + SP + priorité regroupés */
+    .bl-row .bl-id-cell { grid-area: meta; }
+    .bl-row td:nth-child(8),                          /* SP */
+    .bl-row td:nth-child(9) {                          /* Priorité */
+        display: inline-block;
+        margin-right: var(--sp-3);
+        grid-area: meta;
+    }
+
+    .bl-title-text { white-space: normal; font-size: var(--fs-base); }
+
+    /* Cibles tactiles */
+    .bl-check { width: 18px; height: 18px; }
+    .bl-row .td-check { padding: var(--sp-1) 0; min-width: 28px; }
+    .bl-status { font-size: var(--fs-sm); padding: 3px 10px; }
+    .bl-avatar { width: 30px; height: 30px; font-size: 12px; }
+
+    /* Colonnes secondaires masquées sur mobile */
+    .bl-row .td-team,
+    .bl-parent-row .td-team,
+    .bl-row td:nth-child(10),                          /* Sprint */
+    .bl-row td:nth-child(11) { display: none; }        /* Màj */
+
+    .bl-stale-sep-row, .bl-stale-sep-row td { display: block; }
+
+    /* Toolbar : wrap au lieu de scroll horizontal */
+    .bl-toolbar { flex-wrap: wrap; gap: var(--sp-2); }
+    .bl-search { flex: 1 1 100%; }
+    .bl-search input { width: 100%; }
+
+    /* Barre bulk pleine largeur en bas */
+    .bl-bulk-bar { left: var(--sp-3); right: var(--sp-3); transform: none; bottom: var(--sp-3); }
+    .bl-bulk-bar.is-hidden { transform: translateY(10px); }
+}

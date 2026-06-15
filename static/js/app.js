@@ -5,7 +5,7 @@
 
 import { store } from './state.js';
 import * as api from './api.js';
-import { toast } from './utils.js';
+import { toast, promptModal } from './utils.js';
 import { seedDemoData } from './demo.js';
 import { importFromJira } from './sync.js';
 
@@ -21,6 +21,8 @@ import { initSidebar } from './components/sidebar.js';
 import { initTopbar } from './components/topbar.js';
 import { initModal } from './components/modal.js';
 import { initCmdPalette } from './components/cmdpalette.js';
+import { initTooltips } from './components/tooltip.js';
+import { toggleFavoritesDropdown } from './components/favorites.js';
 import { initTeamSwitcher, openTeamSwitcher } from './components/team_switcher.js';
 import { openCurrentSprintReview, openCurrentSprintDemo } from './components/sprint_tickets_modal.js';
 import { destroyAllCharts } from './components/charts.js';
@@ -421,6 +423,7 @@ async function init() {
     initModal();
     initCmdPalette();
     initTeamSwitcher();
+    initTooltips();
     window.__squadBoard = window.__squadBoard || {};
     window.__squadBoard.openTeamSwitcher = openTeamSwitcher;
 
@@ -439,7 +442,7 @@ async function init() {
         const lbl = document.querySelector('#btn-sync .btn-label');
         if (lbl) lbl.innerHTML = `JIRA <small>${days}j</small>`;
         const btn = document.getElementById('btn-sync');
-        if (btn) btn.title = `Sync rapide depuis JIRA (derniers ${days} jours, merge)`;
+        if (btn) btn.dataset.tooltip = `Sync rapide depuis JIRA (derniers ${days} jours, merge)`;
         // Highlight l'item courant si présent dans le menu, sinon marque le 14 par défaut
         document.querySelectorAll('#sync-menu .sync-menu-item').forEach(i => {
             i.classList.toggle('sync-menu-item--current', i.dataset.sync === String(days));
@@ -476,6 +479,32 @@ async function init() {
         handleJiraImport(v === 'full' ? 'full' : parseInt(v, 10));
     });
 
+    // Menu kebab topbar (actions secondaires < 1024px) — relaie vers les boutons d'origine
+    const moreBtn = document.getElementById('btn-topbar-more');
+    const moreMenu = document.getElementById('topbar-more-menu');
+    moreBtn?.addEventListener('click', e => {
+        e.stopPropagation();
+        const open = !moreMenu.hidden;
+        moreMenu.hidden = open;
+        moreBtn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+    document.addEventListener('click', e => {
+        if (!moreMenu || moreMenu.hidden) return;
+        if (!e.target.closest('.topbar-kebab')) {
+            moreMenu.hidden = true;
+            moreBtn?.setAttribute('aria-expanded', 'false');
+        }
+    });
+    moreMenu?.addEventListener('click', e => {
+        const item = e.target.closest('button');
+        if (!item) return;
+        moreMenu.hidden = true;
+        moreBtn?.setAttribute('aria-expanded', 'false');
+        // Favoris : on ancre le dropdown sur le kebab (le bouton d'origine est masqué < 1024px)
+        if (item.id === 'more-favorites')  toggleFavoritesDropdown(moreBtn);
+        if (item.id === 'more-my-tickets') document.getElementById('btn-my-tickets')?.click();
+    });
+
     // "Mes tickets" toggle — filtre global par leader === currentUser
     const _MY_KEY = 'sb-my-tickets-on';
     const _USER_KEY = 'sb-my-name';
@@ -488,17 +517,22 @@ async function init() {
         if (myBtn) {
             myBtn.classList.toggle('btn-toggle--on', on);
             myBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-            myBtn.title = name
+            myBtn.dataset.tooltip = name
                 ? (on ? `Filtre actif : tickets de ${name}` : `Voir uniquement mes tickets (${name})`)
                 : 'Définir votre nom dans Paramètres → À propos';
             myBtn.style.display = name ? '' : 'none';  // caché si pas configuré
         }
     };
-    myBtn?.addEventListener('click', () => {
+    myBtn?.addEventListener('click', async () => {
         if (!localStorage.getItem(_USER_KEY)) {
-            const name = prompt('Votre nom (tel qu\'il apparaît dans JIRA comme assignee) :');
+            const name = await promptModal('Votre nom', {
+                message: 'Tel qu\'il apparaît dans JIRA comme assignee.',
+                placeholder: 'Prénom Nom',
+                confirmLabel: 'Enregistrer',
+                required: true,
+            });
             if (!name) return;
-            localStorage.setItem(_USER_KEY, name.trim());
+            localStorage.setItem(_USER_KEY, name);
         }
         const on = localStorage.getItem(_MY_KEY) === '1';
         localStorage.setItem(_MY_KEY, on ? '0' : '1');

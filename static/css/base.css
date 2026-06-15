@@ -25,7 +25,7 @@ body { display: flex; }
     position: fixed;
     top: 0; left: 0; bottom: 0;
     width: var(--sidebar-w);
-    background: #0f172a;
+    background: var(--text);
     color: #e2e8f0;
     display: flex;
     flex-direction: column;
@@ -94,7 +94,7 @@ body { display: flex; }
 .sidebar-nav .nav-item .nav-shortcut {
     margin-left: auto;
     font-size: var(--fs-xs);
-    color: #475569;
+    color: var(--text-secondary);
     font-family: var(--font-mono);
 }
 
@@ -358,6 +358,7 @@ body { display: flex; }
     gap: var(--sp-3);
     flex-shrink: 0;
 }
+.topbar-kebab { display: none; }   /* visible uniquement < 1024px (voir media query) */
 
 /* ── Search ────────────────────────────────────────────────────────────────── */
 .search-box {
@@ -709,6 +710,23 @@ body { display: flex; }
     margin-top: var(--sp-1);
 }
 
+/* ── Collapsible card (<details>/<summary>) ─────────────────────────────────── */
+.card-collapsible > summary {
+    list-style: none;
+    cursor: pointer;
+    margin-bottom: 0;
+    user-select: none;
+}
+.card-collapsible > summary::-webkit-details-marker { display: none; }
+.card-collapsible[open] > summary { margin-bottom: var(--sp-3); }
+.card-collapse-icon {
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform var(--tr-fast);
+    display: inline-block;
+}
+.card-collapsible[open] .card-collapse-icon { transform: rotate(90deg); }
+
 /* ── Modal ─────────────────────────────────────────────────────────────────── */
 .modal-overlay {
     position: fixed;
@@ -756,7 +774,7 @@ body { display: flex; }
 }
 .modal[data-status="done"]    { border-left-color: var(--status-done); }
 .modal[data-status="inprog"]  { border-left-color: var(--status-inprog); }
-.modal[data-status="review"]  { border-left-color: var(--status-review, #6366f1); }
+.modal[data-status="review"]  { border-left-color: var(--status-review, var(--type-epic)); }
 .modal[data-status="test"]    { border-left-color: var(--status-test, var(--warning)); }
 .modal[data-status="blocked"] { border-left-color: var(--status-blocked); }
 .modal[data-status="todo"]    { border-left-color: var(--border); }
@@ -1281,6 +1299,13 @@ body { display: flex; }
     padding-top: var(--sp-2);
     border-top: 1px solid var(--border-soft, var(--border));
 }
+/* Variante prompt (saisie texte) — sans icône, une seule colonne */
+.confirm-modal--prompt { grid-template-columns: 1fr; }
+.confirm-input { width: 100%; margin-top: var(--sp-3); }
+.confirm-input--error {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
 
 /* ── Copy button (clé JIRA + titre) ────────────────────────────────────── */
 .copy-btn {
@@ -1540,7 +1565,7 @@ tr:hover td { background: var(--surface-hover); }
 .assignee-avatar-extra { background: var(--bg-alt); color: var(--text-secondary); font-size: 0.5rem; }
 
 /* Team button "All" */
-.team-btn-all { background: #475569; font-size: 9px; letter-spacing: 0.02em; }
+.team-btn-all { background: var(--text-secondary); font-size: 9px; letter-spacing: 0.02em; }
 
 /* Picker groupe au hover sur "Tous" */
 .team-btn-all-wrap {
@@ -1604,7 +1629,7 @@ tr:hover td { background: var(--surface-hover); }
     border-radius: 5px;
     font-size: 12px;
     font-weight: 500;
-    color: var(--text, #0f172a);
+    color: var(--text, var(--text));
     cursor: pointer;
     text-align: left;
     font-family: inherit;
@@ -1614,7 +1639,7 @@ tr:hover td { background: var(--surface-hover); }
 .team-btn-picker-item.active { background: var(--primary-bg, #eff6ff); color: var(--primary, #2563eb); font-weight: 600; }
 .team-btn-picker-dot {
     width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-    background: var(--pc, #6366f1);
+    background: var(--pc, var(--type-epic));
 }
 
 /* Kanban metric border accents */
@@ -2328,9 +2353,15 @@ summary { cursor: pointer; }
     }
     .mobile-only { display: flex; }
     .topbar { padding: 0 var(--sp-4); }
-    .topbar-center { display: none; }
+    /* Recherche conservée sur tablette/mobile ; board/PI repliés (déjà cachés) */
+    .topbar-center { display: flex; flex: 1; justify-content: flex-start; }
+    .topbar-center .search-box { max-width: none; flex: 1; }
+    #board-mode-host, #pi-selector-host { display: none; }
     .content { padding: var(--sp-4); }
     .btn-label { display: none; }
+    /* Le kebab prend le relais des actions secondaires */
+    .topbar-kebab { display: inline-flex; }
+    #btn-favorites, #btn-my-tickets { display: none; }
 }
 
 @media (max-width: 640px) {
@@ -2567,3 +2598,44 @@ textarea.input {
         width: 95vw;
     }
 }
+
+/* ── Accessibilité ──────────────────────────────────────────────────────────── */
+/* Mouvement réduit : neutralise animations/transitions pour les utilisateurs
+   sensibles au mouvement (troubles vestibulaires, prefers-reduced-motion). */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Focus clavier toujours visible. :focus-visible n'apparaît PAS au clic souris /
+   tactile, donc on garde une UI propre tout en couvrant les éléments interactifs
+   (boutons-icônes, cartes cliquables, role=button) sans indicateur dédié.
+   Les champs de formulaire gardent leur propre signal (border-color). */
+:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+}
+
+/* ── Tooltip global léger ([data-tooltip], voir components/tooltip.js) ───────── */
+.app-tooltip {
+    position: fixed;
+    z-index: 10000;                 /* au-dessus des modals */
+    left: -9999px; top: -9999px;    /* hors écran tant que non positionné */
+    max-width: 260px;
+    padding: 5px 9px;
+    background: var(--text);
+    color: var(--surface);
+    font-size: var(--fs-xs);
+    line-height: 1.4;
+    border-radius: var(--r-sm);
+    box-shadow: var(--shadow-md);
+    pointer-events: none;
+    white-space: normal;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+.app-tooltip.visible { opacity: 1; }

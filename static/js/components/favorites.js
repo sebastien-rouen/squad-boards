@@ -11,7 +11,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, toast } from '../utils.js';
+import { esc, toast, promptModal } from '../utils.js';
 
 const KEY = 'sb-favorites';
 const MAX = 12;
@@ -105,7 +105,7 @@ export function toggleFavoritesDropdown(anchor) {
     _dropdown.style.right = `${window.innerWidth - r.right}px`;
     _dropdown.style.zIndex = '9000';
 
-    _dropdown.addEventListener('click', (e) => {
+    _dropdown.addEventListener('click', async (e) => {
         const del = e.target.closest('.fav-item-del');
         if (del) { e.stopPropagation(); deleteFavorite(del.dataset.id); _closeDropdown(); toggleFavoritesDropdown(anchor); return; }
         const item = e.target.closest('.fav-item');
@@ -115,9 +115,14 @@ export function toggleFavoritesDropdown(anchor) {
             return;
         }
         if (e.target.closest('#fav-add')) {
-            const name = prompt('Nom du favori :', _suggestName());
-            if (name && name.trim()) {
-                addCurrentAsFavorite(name.trim());
+            const name = await promptModal('Nom du favori', {
+                value: _suggestName(),
+                placeholder: 'Ma vue',
+                confirmLabel: 'Ajouter ★',
+                required: true,
+            });
+            if (name) {
+                addCurrentAsFavorite(name);
                 toast('Favori ajouté ★', 'success', 1500);
                 _closeDropdown(); toggleFavoritesDropdown(anchor);
             }

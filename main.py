@@ -5,17 +5,15 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException, Depends
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-import httpx
 from sqlmodel import SQLModel, Session, select
 
+from app import http_client
 from app.config import STATIC_DIR, JIRA_URL, JIRA_USER, JIRA_TOKEN, JIRA_PROJECT
-from app.common import _gen_id, _now, _normalize_team
+from app.common import _gen_id, _now
 from app.db import engine, get_session
 from app.migrations import run_migrations
 from app.seed import seed_atlas_catalog
-from app.services.ics import _parse_ics_events
 from app.models import (
     Team, Member, Ticket, Feature, Epic,
     SprintConfig, PIConfig, TeamGroup,
@@ -32,9 +30,6 @@ from app.serializers import (
     _retro_dict, _cal_dict,
 )
 
-_client: httpx.AsyncClient | None = None
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Database bootstrap (engine importé depuis app.db, migrations depuis app.migrations)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -50,10 +45,9 @@ seed_atlas_catalog(engine)
 # ══════════════════════════════════════════════════════════════════════════════
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _client
-    _client = httpx.AsyncClient(timeout=30.0)
+    await http_client.startup()
     yield
-    await _client.aclose()
+    await http_client.shutdown()
 
 
 app = FastAPI(title="Squad Board", version="3.0.0", lifespan=lifespan)
@@ -74,6 +68,8 @@ from app.routers import (
     features as _r_features,
     planning as _r_planning,
     atlas as _r_atlas,
+    calendars as _r_calendars,
+    jira as _r_jira,
 )
 
 app.include_router(_r_teams.router)
@@ -90,6 +86,8 @@ app.include_router(_r_tickets.router)
 app.include_router(_r_features.router)
 app.include_router(_r_planning.router)
 app.include_router(_r_atlas.router)
+app.include_router(_r_calendars.router)
+app.include_router(_r_jira.router)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -464,102 +462,6 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ══════════════════════════════════════════════════════════════════════════════
-# Calendriers ICS
-# ══════════════════════════════════════════════════════════════════════════════
-
-
-@app.get("/api/calendars")
-def list_calendars(session: Session = Depends(get_session)):
-    return [_cal_dict(c) for c in session.exec(select(TeamCalendar)).all()]
-
-
-@app.post("/api/calendars")
-async def create_calendar(request: Request, session: Session = Depends(get_session)):
-    body = await request.json()
-    if not body.get("icalUrl"):
-        raise HTTPException(400, "icalUrl est requis")
-    c = TeamCalendar(
-        team=body.get("team", ""),
-        name=body.get("name", "Calendrier"),
-        ical_url=body["icalUrl"],
-    )
-    session.add(c); session.commit(); session.refresh(c)
-    return _cal_dict(c)
-
-
-@app.put("/api/calendars/{cal_id}")
-async def update_calendar(cal_id: str, request: Request, session: Session = Depends(get_session)):
-    c = session.get(TeamCalendar, cal_id)
-    if not c:
-        raise HTTPException(404, "Calendrier introuvable")
-    body = await request.json()
-    if "team" in body: c.team = body["team"]
-    if "name" in body: c.name = body["name"]
-    if "icalUrl" in body: c.ical_url = body["icalUrl"]
-    c.updated_at = _now()
-    session.add(c); session.commit(); session.refresh(c)
-    return _cal_dict(c)
-
-
-@app.delete("/api/calendars/{cal_id}")
-def delete_calendar(cal_id: str, session: Session = Depends(get_session)):
-    c = session.get(TeamCalendar, cal_id)
-    if not c:
-        raise HTTPException(404, "Calendrier introuvable")
-    session.delete(c); session.commit()
-    return {"ok": True}
-
-
-@app.post("/api/calendars/{cal_id}/refresh")
-async def refresh_calendar(cal_id: str, session: Session = Depends(get_session)):
-    c = session.get(TeamCalendar, cal_id)
-    if not c:
-        raise HTTPException(404, "Calendrier introuvable")
-    if not c.ical_url:
-        raise HTTPException(400, "Aucune URL configurée")
-    try:
-        resp = await _client.get(c.ical_url, follow_redirects=True, timeout=30)
-        resp.raise_for_status()
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Erreur réseau : {e}")
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(502, f"Erreur HTTP {e.response.status_code}")
-    try:
-        evs = _parse_ics_events(resp.text)
-    except Exception as e:
-        raise HTTPException(422, str(e))
-    c.events_json = json.dumps(evs, ensure_ascii=False)
-    c.last_fetched = _now()
-    c.updated_at = _now()
-    session.add(c); session.commit(); session.refresh(c)
-    return {"ok": True, "count": len(evs), "lastFetched": c.last_fetched}
-
-
-@app.get("/api/calendars/events")
-def get_calendar_events(team: Optional[str] = None, session: Session = Depends(get_session)):
-    all_events: list[dict] = []
-    for cal in session.exec(select(TeamCalendar)).all():
-        # cal.team peut être vide (toutes équipes) ou CSV "Fuego,Caméléon"
-        if team and cal.team:
-            cal_teams = [t.strip() for t in cal.team.split(',') if t.strip()]
-            if cal_teams and team not in cal_teams:
-                continue
-        if not cal.events_json:
-            continue
-        try:
-            for ev in json.loads(cal.events_json):
-                ev["calendarId"]   = cal.id
-                ev["calendarName"] = cal.name
-                ev["team"]         = cal.team
-                all_events.append(ev)
-        except Exception:
-            pass
-    all_events.sort(key=lambda e: e.get("start", ""))
-    return all_events
-
-
-# ══════════════════════════════════════════════════════════════════════════════
 # Config
 # ══════════════════════════════════════════════════════════════════════════════
 @app.get("/api/config")
@@ -569,46 +471,6 @@ def get_config():
         "project": JIRA_PROJECT,
         "jiraUrl": JIRA_URL if JIRA_URL else None,
     }
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# JIRA Proxy (optional plugin)
-# ══════════════════════════════════════════════════════════════════════════════
-@app.api_route("/jira/{path:path}", methods=["GET", "POST", "PUT"])
-async def jira_proxy(path: str, request: Request):
-    if not all([JIRA_URL, JIRA_USER, JIRA_TOKEN]):
-        raise HTTPException(503, "JIRA non configure")
-    allowed = ("rest/api/", "rest/agile/", "rest/greenhopper/")
-    if not path.startswith(allowed) or ".." in path:
-        raise HTTPException(403, "Chemin interdit")
-
-    url = f"{JIRA_URL}/{path}"
-    params = dict(request.query_params)
-    auth = (JIRA_USER, JIRA_TOKEN)
-    headers = {"Accept": "application/json"}
-    body = await request.body() if request.method != "GET" else None
-    if body:
-        headers["Content-Type"] = "application/json"
-
-    try:
-        resp = await _client.request(
-            request.method, url, params=params, auth=auth, headers=headers, content=body
-        )
-    except httpx.RequestError as e:
-        raise HTTPException(502, f"Connexion JIRA: {e}")
-
-    # 204 No Content / corps vide = réponse OK sans payload (cas PUT sprint update)
-    if not resp.content:
-        return JSONResponse(content=None, status_code=resp.status_code)
-    try:
-        data = resp.json()
-    except Exception:
-        # JIRA peut renvoyer du texte d'erreur HTML/plain — propage le code + message brut
-        if resp.is_success:
-            return JSONResponse(content=None, status_code=resp.status_code)
-        raise HTTPException(resp.status_code, resp.text[:300] or "Reponse JIRA invalide")
-
-    return JSONResponse(content=data, status_code=resp.status_code)
 
 
 # ── Static Files ──────────────────────────────────────────────────────────────

@@ -1,0 +1,179 @@
+/* Composant: Import Objectifs PI — extrait de views.css (ordre cascade préservé) */
+/* ══════════════════════════════════════════════════════════════════════════════
+   IMPORT OBJECTIFS PI
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.obj-import-card {
+    margin-top: var(--sp-4);
+    padding: var(--sp-4);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 5%, transparent), transparent 70%);
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+    border-left: 3px solid var(--primary);
+    border-radius: var(--r-md);
+}
+.obj-import-card-header {
+    display: flex; align-items: center; gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
+}
+.obj-import-card-title {
+    font-size: var(--fs-sm); font-weight: var(--fw-semibold);
+    color: var(--primary);
+}
+
+/* Preset bar */
+.obj-preset-bar {
+    display: flex; align-items: center; gap: var(--sp-2);
+    margin-bottom: var(--sp-1);
+}
+.obj-preset-btn {
+    font-size: 11px; padding: 2px 10px;
+    border: 1px dashed color-mix(in srgb, var(--primary) 40%, var(--border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
+    color: var(--primary); cursor: pointer;
+    transition: background .12s, border-color .12s;
+}
+.obj-preset-btn:hover {
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border-color: var(--primary);
+}
+
+/* PI selector buttons */
+.obj-pi-btns { display: flex; gap: 4px; }
+.obj-pi-btn {
+    padding: 2px 10px; font-size: var(--fs-xs);
+    border: 1px solid var(--border); border-radius: 999px;
+    background: var(--surface); color: var(--text-muted);
+    cursor: pointer; transition: border-color .12s, color .12s, background .12s;
+    font-weight: var(--fw-medium);
+}
+.obj-pi-btn:hover { border-color: var(--primary); color: var(--primary); }
+.obj-pi-btn.is-active {
+    background: var(--primary); color: #fff;
+    border-color: var(--primary); font-weight: var(--fw-semibold);
+}
+
+/* Preview container */
+.obj-csv-preview {
+    margin-top: var(--sp-3);
+    padding: var(--sp-3);
+    background: var(--surface-alt, var(--surface-hover));
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.obj-csv-preview-hdr {
+    display: flex; align-items: center; gap: var(--sp-2);
+    font-size: var(--fs-xs); flex-wrap: wrap;
+}
+.obj-preview-conflict-note {
+    font-size: 11px; font-weight: var(--fw-semibold);
+    color: color-mix(in srgb, var(--warning, #f59e0b) 85%, var(--text));
+    background: color-mix(in srgb, var(--warning, #f59e0b) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 28%, transparent);
+    border-radius: 999px; padding: 1px 8px; margin-left: auto;
+}
+
+/* Team cards grid */
+.obj-preview-teams {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--sp-2);
+}
+.obj-preview-team-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+}
+.obj-preview-team-card.has-conflict {
+    border-color: color-mix(in srgb, var(--warning, #f59e0b) 45%, var(--border));
+    background: color-mix(in srgb, var(--warning, #f59e0b) 4%, var(--surface));
+}
+.obj-preview-team-header {
+    display: flex; align-items: center; gap: var(--sp-1);
+    padding: 5px var(--sp-2);
+    background: color-mix(in srgb, var(--text) 5%, transparent);
+    font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+}
+.obj-preview-team-count {
+    margin-left: auto; font-weight: normal;
+    color: var(--text-muted); font-size: 10px;
+}
+.obj-conflict-chip {
+    font-size: 10px; font-weight: var(--fw-semibold);
+    background: color-mix(in srgb, var(--warning, #f59e0b) 14%, transparent);
+    color: color-mix(in srgb, var(--warning, #f59e0b) 80%, var(--text));
+    border: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 32%, transparent);
+    border-radius: 999px; padding: 0 6px; margin-left: 4px;
+}
+.obj-preview-obj-list {
+    padding: var(--sp-1) var(--sp-2) var(--sp-2);
+    display: flex; flex-direction: column; gap: 4px;
+}
+.obj-preview-obj-row {
+    display: flex; align-items: baseline; gap: var(--sp-1);
+    font-size: 11px; color: var(--text);
+}
+.obj-preview-bv {
+    font-size: 9px; font-weight: var(--fw-semibold);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary); border-radius: 3px;
+    padding: 1px 4px; flex-shrink: 0;
+}
+.obj-preview-committed {
+    font-size: 10px; color: var(--text-muted);
+    flex-shrink: 0;
+}
+.obj-preview-committed.is-committed { color: color-mix(in srgb, var(--success, var(--status-done)) 70%, var(--text)); }
+.obj-preview-status {
+    font-size: 9px; font-weight: var(--fw-semibold);
+    border-radius: 3px; padding: 1px 5px; flex-shrink: 0; white-space: nowrap;
+}
+.obj-preview-status--todo { background: color-mix(in srgb, var(--text-muted) 10%, transparent); color: var(--text-muted); }
+.obj-preview-status--inprog { background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--primary); }
+.obj-preview-status--done { background: color-mix(in srgb, var(--success, var(--status-done)) 12%, transparent); color: color-mix(in srgb, var(--success, var(--status-done)) 70%, var(--text)); }
+.obj-preview-text {
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text);
+}
+
+.rot-empty-hint {
+    padding: var(--sp-4);
+    background: var(--warning-bg);
+    border: 1px dashed color-mix(in srgb, var(--warning) 50%, transparent);
+    border-radius: var(--r-md);
+    color: var(--text);
+}
+.rot-empty-hint p { margin: 0 0 var(--sp-2); }
+.rot-empty-hint p:last-child { margin-bottom: 0; }
+.rot-empty-hint code {
+    background: var(--surface);
+    padding: 2px 6px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-xs);
+    margin: 0 2px;
+    border: 1px solid var(--border);
+}
+
+/* En-tête groupe PI (ligne colspan) */
+.rot-pi-group-th {
+    background: var(--primary-bg);
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-xs);
+    text-align: center;
+    padding: 4px 8px;
+    border-bottom: 2px solid var(--primary);
+}
+.rot-pi-group-next {
+    background: color-mix(in srgb, var(--text-muted) 10%, transparent);
+    color: var(--text-muted);
+    border-bottom-color: var(--border);
+}
+
+/* Colonnes PI suivant */
+.rot-wk-next-pi { background: color-mix(in srgb, var(--text-muted) 6%, transparent); opacity: 0.85; }
+.rot-cell-next-pi { opacity: 0.75; }
+.rot-cell-next-pi .rot-chip { border-style: dashed; }
+

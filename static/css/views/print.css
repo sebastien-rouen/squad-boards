@@ -1,0 +1,11 @@
+/* @media print (global) — extrait de views.css (ordre cascade préservé) */
+/* ══════════════════════════════════════════════════════════════════════════════
+   Print
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media print {
+    .sidebar, .topbar, .toast-container { display: none !important; }
+    .app { margin-left: 0 !important; }
+    .content { padding: 0; overflow: visible; }
+    body { overflow: visible; height: auto; }
+}
+

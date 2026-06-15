@@ -1,0 +1,59 @@
+/* VIEW: ROAM Board — extrait de views.css (ordre cascade préservé) */
+/* ══════════════════════════════════════════════════════════════════════════════
+   VIEW: ROAM Board
+   ══════════════════════════════════════════════════════════════════════════════ */
+.roam-form { display: flex; flex-direction: column; gap: var(--sp-2); }
+.roam-board {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--sp-4);
+    align-items: start;
+}
+.roam-col {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+.roam-col-hdr {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+}
+.roam-col-icon { font-size: var(--fs-lg); }
+.roam-col-title { flex: 1; }
+.roam-col-count {
+    background: var(--bg);
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    padding: 1px 6px;
+    border-radius: 9999px;
+}
+.roam-col-body { padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); min-height: 60px; }
+.roam-empty { text-align: center; color: var(--text-muted); font-size: var(--fs-xs); padding: var(--sp-4); }
+
+.roam-open     .roam-col-hdr { background: var(--danger-bg, #fee2e2); color: var(--danger); }
+.roam-owned    .roam-col-hdr { background: var(--primary-bg); color: var(--primary); }
+.roam-accepted .roam-col-hdr { background: var(--warning-bg, #fef9c3); color: var(--warning); }
+.roam-mitigated .roam-col-hdr { background: #f3e8ff; color: #7c3aed; }
+.roam-resolved .roam-col-hdr { background: var(--success-bg, #dcfce7); color: var(--success); }
+
+.roam-card {
+    background: var(--card-bg, var(--bg));
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+.roam-card-title { font-weight: var(--fw-semibold); font-size: var(--fs-sm); }
+.roam-card-desc, .roam-card-mit { font-size: 12px; color: var(--text-muted); }
+.roam-card-meta { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.roam-card-actions { display: flex; align-items: center; justify-content: space-between; }
+.roam-move-menu { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+.btn-xs { font-size: 11px; padding: 2px 6px; }
+

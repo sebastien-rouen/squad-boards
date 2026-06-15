@@ -1,0 +1,428 @@
+/* Composant: Sprint & PI Config (carte hiérarchique) — extrait de views.css (ordre cascade préservé) */
+/* ══════════════════════════════════════════════════════════════════════════════
+   Sprint & PI Config - carte hiérarchique PI ⊃ Sprints
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Conteneur principal */
+/* ── Bannière modifications PI non sauvegardées ── */
+.pi-dirty-banner {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 6px var(--sp-4);
+    background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+    border-bottom: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
+    font-size: 12px;
+    animation: pi-dirty-in 0.15s ease;
+}
+@keyframes pi-dirty-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.pi-dirty-msg { flex: 1; min-width: 0; color: var(--warning); font-weight: var(--fw-semibold); }
+.pi-dirty-btn {
+    flex-shrink: 0; padding: 3px 10px; border-radius: var(--r-sm);
+    font-size: 11px; font-weight: var(--fw-semibold); font-family: inherit;
+    cursor: pointer; border: 1.5px solid; transition: background var(--tr-fast);
+}
+.pi-dirty-btn--save {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+}
+.pi-dirty-btn--save:hover { background: var(--primary-dark, var(--primary)); filter: brightness(1.1); }
+.pi-dirty-btn--discard {
+    background: transparent; color: var(--text-muted); border-color: var(--border);
+}
+.pi-dirty-btn--discard:hover { background: var(--bg-alt); color: var(--text); }
+.pi-dirty-btn--cancel {
+    background: transparent; color: var(--text-muted); border-color: transparent;
+    padding: 3px 6px;
+}
+.pi-dirty-btn--cancel:hover { color: var(--text); }
+
+.pi-cfg-card {
+    border: 1.5px solid var(--primary);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+/* ── Header PI (bandeau coloré) ── */
+.pi-cfg-hdr {
+    background: linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 75%, #1e3a8a) 100%);
+    color: #fff;
+    padding: var(--sp-2) var(--sp-4);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    min-height: 44px;
+}
+.pi-cfg-badge {
+    background: rgba(255,255,255,.18);
+    color: #fff;
+    font-weight: var(--fw-bold);
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: var(--r-full);
+    border: 1px solid rgba(255,255,255,.3);
+    white-space: nowrap;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+.pi-cfg-title {
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+    flex: 1;
+    min-width: 80px;
+    opacity: .95;
+}
+.pi-cfg-meta {
+    font-size: 10.5px;
+    opacity: .65;
+    white-space: nowrap;
+}
+.pi-cfg-save-btn {
+    background: rgba(255,255,255,.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.35);
+    padding: 3px 12px;
+    border-radius: var(--r-sm);
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--tr-fast), box-shadow var(--tr-fast);
+    white-space: nowrap;
+    margin-left: auto;
+}
+.pi-cfg-save-btn:hover { background: rgba(255,255,255,.28); box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+
+/* ── Bandeau désync N° PI / sprint actif ── */
+.pi-cfg-desync {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    background: color-mix(in srgb, var(--warning, #d97706) 12%, var(--surface));
+    border-bottom: 1px solid color-mix(in srgb, var(--warning, #d97706) 40%, transparent);
+    font-size: 12px;
+    line-height: 1.4;
+}
+.pi-cfg-desync-icon { flex: 0 0 auto; font-size: 14px; }
+.pi-cfg-desync-msg { flex: 1 1 auto; color: var(--text); }
+.pi-cfg-desync-msg strong { color: var(--warning, #d97706); white-space: nowrap; }
+.pi-cfg-desync-btn {
+    flex: 0 0 auto;
+    background: var(--warning, #d97706);
+    color: #fff;
+    border: none;
+    padding: 4px 12px;
+    border-radius: var(--r-sm);
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: filter var(--tr-fast);
+}
+.pi-cfg-desync-btn:hover { filter: brightness(1.08); }
+
+/* ── Track de sprints ── */
+/* Navigation inter-PI */
+.pi-track-nav {
+    display: flex; align-items: center;
+    padding: var(--sp-2) var(--sp-3);
+    gap: var(--sp-2);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+}
+.pi-track-nav-btn {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px;
+    font-size: 11px; font-weight: var(--fw-semibold); font-family: inherit;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-full);
+    cursor: pointer;
+    transition: border-color var(--tr-fast), color var(--tr-fast), background var(--tr-fast);
+    white-space: nowrap;
+}
+.pi-track-nav-btn:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-bg);
+}
+.pi-track-nav-btn:disabled { opacity: 0.3; cursor: default; }
+.pi-track-nav-btn .icon { flex-shrink: 0; }
+
+.pi-sprint-track {
+    background: transparent;
+    padding: 0 var(--sp-2);
+    display: flex;
+    gap: var(--sp-2);
+    align-items: center;
+    flex-wrap: wrap;
+    flex: 1;
+    position: relative;
+}
+.pi-sprint-track::before {
+    content: '';
+    position: absolute;
+    left: var(--sp-2);
+    right: var(--sp-2);
+    top: 50%;
+    height: 1.5px;
+    background: var(--border);
+    z-index: 0;
+}
+.pi-sprint-pill {
+    position: relative;
+    z-index: 1;
+    padding: 5px 14px;
+    border-radius: var(--r-full);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    white-space: nowrap;
+    transition: transform var(--tr-fast), box-shadow var(--tr-fast), border-color var(--tr-fast), color var(--tr-fast);
+}
+.pi-sprint-pill[data-sprint-idx] {
+    cursor: pointer;
+}
+.pi-sprint-pill[data-sprint-idx]:hover {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+    transform: scale(1.06);
+}
+.pi-sprint-pill.done {
+    background: var(--success-bg);
+    color: var(--success);
+    border-color: var(--success-border);
+}
+.pi-sprint-pill.current {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+    transform: scale(1.1);
+    box-shadow: 0 2px 10px rgba(37,99,235,.35);
+}
+.pi-sprint-pill.ip {
+    background: var(--warning-bg);
+    color: var(--warning);
+    border-color: var(--warning-border);
+    font-style: italic;
+}
+.pi-sprint-pill.has-data::after {
+    content: ''; display: block;
+    position: absolute; top: 4px; right: 5px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--success);
+}
+/* Jours ouvrés sous le label de la pill */
+.pi-sprint-pill {
+    display: inline-flex; flex-direction: column; align-items: center; gap: 1px;
+    padding: 4px 12px 3px;
+}
+.pi-pill-wd {
+    font-size: 9px; font-weight: 400;
+    opacity: .5; letter-spacing: .01em;
+    line-height: 1;
+}
+.pi-sprint-pill.selected {
+    outline: 2px solid var(--primary); outline-offset: 2px;
+}
+
+/* ── Champs PI — nouvelle grille compacte ── */
+.pi-cfg-body {
+    background: var(--surface);
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--border);
+}
+/* Grille compacte : champs sur une ligne, wrap responsive, chacun à sa largeur naturelle */
+.pi-cfg-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    align-items: end;
+}
+.pi-cfg-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+/* Largeurs cibles par type de champ (compactes) */
+.pi-cfg-field:has(input[name="number"])         { flex: 0 0 64px; }
+.pi-cfg-field:has(input[name="piName"])         { flex: 1 1 180px; }
+.pi-cfg-field:has(input[name="sprintsPerPI"])   { flex: 0 0 76px; }
+.pi-cfg-field:has(input[name="sprintDuration"]) { flex: 0 0 88px; }
+.pi-cfg-field--date { flex: 0 0 168px; }
+.pi-cfg-field--pip  { flex: 0 0 auto; }
+.pi-cfg-field--wide { flex: 1 1 280px; }
+.pi-cfg-field--full { flex: 1 1 100%; }
+.pi-cfg-label {
+    font-size: 10px; font-weight: var(--fw-semibold);
+    color: var(--text-muted); white-space: nowrap;
+    display: flex; align-items: center; gap: 3px;
+    text-transform: uppercase; letter-spacing: .03em;
+}
+.pi-cfg-label .icon { opacity: .6; flex-shrink: 0; }
+.pi-cfg-label--date {
+    cursor: pointer;
+    color: var(--primary);
+    opacity: .85;
+    transition: opacity var(--tr-fast);
+    user-select: none;
+}
+.pi-cfg-label--date:hover { opacity: 1; }
+.pi-cfg-label--date .icon { opacity: 1; }
+.pi-cfg-input {
+    width: 100%; min-width: 0;
+    padding: 4px 7px;
+    height: 30px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--text);
+    font-size: var(--fs-xs);
+    font-family: inherit;
+    transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
+    box-sizing: border-box;
+}
+.pi-cfg-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.pi-cfg-input--date { cursor: pointer; }
+
+/* ── Champ date "friendly" : input natif + overlay texte lisible ──────────── */
+/* Tout le champ est cliquable : l'input transparent couvre toute la surface (inset:0)
+   et le wireFriendlyDates() rappelle showPicker() au clic n'importe où. */
+.fdate {
+    position: relative;
+    display: inline-flex; align-items: center;
+    min-width: 150px; width: 100%;
+    cursor: pointer;
+}
+/* L'input natif transparent par-dessus tout → capte le clic sur toute la surface */
+.fdate-input {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    opacity: 0; cursor: pointer; z-index: 2;
+    border: none; padding: 0; margin: 0;
+}
+/* Affichage visible : la date formatée lisible */
+.fdate-display {
+    flex: 1;
+    height: 30px; line-height: 28px;
+    padding: 0 26px 0 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    font-size: var(--fs-xs); color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    text-transform: capitalize;
+    transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
+}
+.fdate-display.is-empty { color: var(--text-muted); font-style: italic; text-transform: none; }
+.fdate:hover .fdate-display { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+.fdate-input:focus + .fdate-display {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.fdate-icon {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    color: var(--text-muted); pointer-events: none; z-index: 3;
+}
+
+/* PIP : 2 champs date côte à côte */
+.pi-pip-pickers { display: flex; gap: 6px; }
+.pi-pip-pickers .fdate { min-width: 132px; }
+.pi-cfg-input--textarea {
+    resize: vertical; min-height: 56px; line-height: 1.45;
+}
+.pi-cfg-input-wrap { position: relative; display: flex; align-items: center; }
+.pi-cfg-input-wrap .pi-cfg-input { padding-right: 28px; }
+.pi-cfg-unit {
+    position: absolute; right: 8px;
+    font-size: 10px; color: var(--text-muted); font-weight: var(--fw-semibold);
+    pointer-events: none;
+}
+
+/* ── Sprint niché dans la carte PI ── */
+.sprint-nested-card {
+    margin: 0 var(--sp-4) var(--sp-4);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    overflow: hidden;
+}
+.sprint-nested-hdr {
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 6px var(--sp-3);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+.sprint-nested-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    flex-shrink: 0;
+    box-shadow: 0 0 0 3px var(--primary-bg);
+}
+.sprint-nested-label {
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.sprint-nested-name {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sprint-nested-bar {
+    width: 72px; height: 4px;
+    border-radius: var(--r-full);
+    background: var(--border);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.sprint-nested-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: var(--r-full);
+}
+.sprint-nested-pct {
+    font-size: 10px;
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+    flex-shrink: 0;
+    min-width: 26px;
+}
+.sprint-nested-body { padding: var(--sp-3); }
+.sprint-nested-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: end;
+}
+.sprint-nested-actions {
+    display: flex; align-items: center; gap: var(--sp-2);
+    flex-wrap: wrap; margin-top: var(--sp-3);
+    padding-top: var(--sp-2); border-top: 1px solid var(--border);
+}
+
+/* ── Responsive PI cfg ── */
+@media (max-width: 900px) {
+    .pi-cfg-grid { grid-template-columns: 70px 1fr 80px 80px; }
+    .pi-cfg-grid .pi-cfg-field:nth-child(5) { grid-column: span 2; }
+}
+@media (max-width: 640px) {
+    .pi-cfg-grid { grid-template-columns: 1fr 1fr; }
+    .pi-cfg-field--full { grid-column: 1 / -1; }
+    .sprint-nested-grid { grid-template-columns: 1fr 1fr; }
+    .sprint-nested-grid .pi-cfg-field--full { grid-column: 1 / -1; }
+}
+

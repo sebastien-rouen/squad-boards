@@ -7,8 +7,32 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
     <link rel="stylesheet" href="/css/tokens.css">
     <link rel="stylesheet" href="/css/base.css">
-    <link rel="stylesheet" href="/css/views.css">
+    <!-- views.css éclaté par vue/composant — ORDRE = ordre de cascade (ne pas réordonner) -->
+    <link rel="stylesheet" href="/css/views/health.css">
+    <link rel="stylesheet" href="/css/views/dashboard.css">
+    <link rel="stylesheet" href="/css/views/sprint.css">
+    <link rel="stylesheet" href="/css/views/pi-planning.css">
+    <link rel="stylesheet" href="/css/views/reports.css">
+    <link rel="stylesheet" href="/css/views/velocity.css">
+    <link rel="stylesheet" href="/css/views/sprint-tickets-modal.css">
+    <link rel="stylesheet" href="/css/views/settings.css">
+    <link rel="stylesheet" href="/css/views/forms.css">
+    <link rel="stylesheet" href="/css/views/modal-detail.css">
+    <link rel="stylesheet" href="/css/views/calendar-banner.css">
+    <link rel="stylesheet" href="/css/views/print.css">
+    <link rel="stylesheet" href="/css/views/pi-config.css">
+    <link rel="stylesheet" href="/css/views/support-rotation.css">
+    <link rel="stylesheet" href="/css/views/pi-import.css">
+    <link rel="stylesheet" href="/css/views/support.css">
+    <link rel="stylesheet" href="/css/views/roam.css">
+    <link rel="stylesheet" href="/css/views/pi-calendar.css">
+    <link rel="stylesheet" href="/css/views/reports-epic.css">
+    <link rel="stylesheet" href="/css/views/settings-pi-objectives.css">
+    <link rel="stylesheet" href="/css/views/roadmap.css">
+    <link rel="stylesheet" href="/css/views/agenda.css">
+    <link rel="stylesheet" href="/css/views/poker.css">
     <link rel="stylesheet" href="/css/atlas.css">
+    <link rel="stylesheet" href="/css/backlog.css">
     <script src="/js/vendor/chart.umd.min.js" defer></script>
 </head>
 <body>
@@ -60,11 +84,11 @@
             <div class="team-btns" id="team-btns"></div>
         </div>
         <div class="sidebar-footer">
-            <button id="btn-team-search" class="sidebar-btn" title="Rechercher une équipe (Ctrl+E)" onclick="window.__squadBoard?.openTeamSwitcher?.()">
+            <button id="btn-team-search" class="sidebar-btn" data-tooltip="Rechercher une équipe (Ctrl+E)" onclick="window.__squadBoard?.openTeamSwitcher?.()">
                 <svg class="icon"><use href="#i-search"/></svg>
                 <span>Équipe</span>
             </button>
-            <button id="btn-theme" class="sidebar-btn" title="Changer le theme">
+            <button id="btn-theme" class="sidebar-btn" data-tooltip="Changer le thème">
                 <svg class="icon"><use href="#i-moon"/></svg>
                 <span>Thème</span>
             </button>
@@ -75,7 +99,7 @@
     <main id="app" class="app">
         <header id="topbar" class="topbar">
             <div class="topbar-left">
-                <button id="btn-menu" class="btn-icon mobile-only" title="Menu">
+                <button id="btn-menu" class="btn-icon mobile-only" data-tooltip="Menu" aria-label="Menu">
                     <svg class="icon"><use href="#i-menu"/></svg>
                 </button>
                 <h1 id="view-title" class="topbar-title">Dashboard</h1>
@@ -91,19 +115,19 @@
                 <div id="pi-selector-host" class="pi-selector-host" hidden></div>
             </div>
             <div class="topbar-right">
-                <button id="btn-my-tickets" class="btn btn-secondary btn-toggle" title="Voir uniquement mes tickets" aria-pressed="false">
+                <button id="btn-my-tickets" class="btn btn-secondary btn-toggle" data-tooltip="Voir uniquement mes tickets" aria-pressed="false">
                     <span class="btn-label">Mes tickets</span>
                 </button>
-                <button id="btn-favorites" class="btn-icon btn-fav" title="Vues favorites (★)" aria-label="Favoris">★</button>
-                <button id="btn-create" class="btn btn-primary" title="Nouveau ticket (N)">
+                <button id="btn-favorites" class="btn-icon btn-fav" data-tooltip="Vues favorites (★)" aria-label="Favoris">★</button>
+                <button id="btn-create" class="btn btn-primary" data-tooltip="Nouveau ticket (N)">
                     + Nouveau
                 </button>
                 <div class="btn-split">
-                    <button id="btn-sync" class="btn btn-secondary btn-split-main" title="Sync rapide depuis JIRA (derniers 14 jours, merge)">
+                    <button id="btn-sync" class="btn btn-secondary btn-split-main" data-tooltip="Sync rapide depuis JIRA (derniers 14 jours, merge)">
                         <svg class="icon"><use href="#i-sync"/></svg>
                         <span class="btn-label">JIRA <small>14j</small></span>
                     </button>
-                    <button id="btn-sync-menu" class="btn btn-secondary btn-split-arrow" title="Options de synchronisation" aria-haspopup="true" aria-expanded="false">
+                    <button id="btn-sync-menu" class="btn btn-secondary btn-split-arrow" data-tooltip="Options de synchronisation" aria-label="Options de synchronisation" aria-haspopup="true" aria-expanded="false">
                         <svg class="icon icon-xs"><use href="#i-chevron-down"/></svg>
                     </button>
                     <div id="sync-menu" class="sync-menu" hidden>
@@ -112,6 +136,16 @@
                         <button class="sync-menu-item" data-sync="30">↻ Sync rapide · 30 jours</button>
                         <hr class="sync-menu-sep">
                         <button class="sync-menu-item sync-menu-item--danger" data-sync="full">⟳ Sync complète (replace)</button>
+                    </div>
+                </div>
+                <!-- Menu kebab — actions secondaires (visible < 1024px) -->
+                <div class="btn-split topbar-kebab">
+                    <button id="btn-topbar-more" class="btn-icon" data-tooltip="Plus d'actions" aria-label="Plus d'actions" aria-haspopup="true" aria-expanded="false">
+                        <svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                    </button>
+                    <div id="topbar-more-menu" class="sync-menu topbar-more-menu" hidden>
+                        <button class="sync-menu-item" id="more-favorites">★&nbsp; Favoris</button>
+                        <button class="sync-menu-item" id="more-my-tickets">◉&nbsp; Mes tickets</button>
                     </div>
                 </div>
             </div>
@@ -128,10 +162,10 @@
             <div class="modal-header">
                 <h2 id="modal-title"></h2>
                 <div class="modal-header-actions">
-                    <button class="modal-action-btn" id="modal-fullpage" title="Pleine page">
+                    <button class="modal-action-btn" id="modal-fullpage" data-tooltip="Pleine page" aria-label="Pleine page">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                     </button>
-                    <button class="modal-action-btn modal-action-btn--close" id="modal-close" title="Fermer">
+                    <button class="modal-action-btn modal-action-btn--close" id="modal-close" data-tooltip="Fermer" aria-label="Fermer">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>

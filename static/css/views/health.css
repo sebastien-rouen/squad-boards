@@ -1,0 +1,547 @@
+/* VIEW: Health Check — extrait de views.css (ordre cascade préservé) */
+/* ══════════════════════════════════════════════════════════════════════════════
+   VIEW: Health Check — agrégation des anomalies par équipe
+   ══════════════════════════════════════════════════════════════════════════════ */
+.health-view { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+.health-hero {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sp-5);
+    align-items: center;
+    padding: var(--sp-5);
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+}
+.health-score-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    --health-color: var(--text-muted);
+}
+.health-score-wrap.health-score--good { --health-color: var(--success); }
+.health-score-wrap.health-score--ok   { --health-color: var(--info); }
+.health-score-wrap.health-score--warn { --health-color: var(--warning); }
+.health-score-wrap.health-score--bad  { --health-color: var(--danger); }
+.health-score-circle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 6px solid var(--health-color);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--health-color) 14%, transparent),
+                0 6px 16px rgb(0 0 0 / 0.08);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    line-height: 1;
+}
+.health-score-val {
+    font-size: 44px;
+    font-weight: 800;
+    color: var(--health-color);
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+.health-score-max {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+    line-height: 1;
+    margin-top: 2px;
+}
+.health-score-label {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--health-color);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.health-score-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.health-intro h2 { margin: 0 0 4px; font-size: 18px; }
+.health-intro p { margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.health-intro strong { color: var(--primary); }
+
+@media (max-width: 720px) {
+    .health-hero { grid-template-columns: 1fr; text-align: center; }
+    .health-score-wrap { justify-content: center; }
+}
+
+/* Cards anomalie en grid */
+.health-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: var(--sp-3);
+}
+.health-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    font-family: inherit;
+}
+.health-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: color-mix(in srgb, currentColor 35%, var(--border));
+}
+.health-card--danger  { --c: var(--danger);  }
+.health-card--warning { --c: var(--warning); }
+.health-card--info    { --c: var(--info);    }
+.health-card-hdr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.health-card-icon { font-size: 14px; }
+.health-card-val {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--c, var(--text));
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+.health-card-mid {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+}
+.health-card-spark { opacity: 0.75; transition: opacity 0.15s ease; }
+.health-card:hover .health-card-spark { opacity: 1; }
+.health-card-foot { font-size: 10.5px; color: var(--text-muted); line-height: 1.35; }
+.health-card-val:empty::before { content: '0'; opacity: 0.35; }
+
+/* Sparkline du score Health (sous le label) */
+.health-score-spark { margin-top: 6px; line-height: 0; }
+
+/* Capacity card — capacité prévisionnelle du prochain sprint */
+.capacity-card {
+    padding: var(--sp-3) var(--sp-4);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--surface)), var(--surface));
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+    border-radius: var(--r-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    box-shadow: var(--shadow-sm);
+}
+.capacity-hdr { display: flex; align-items: center; gap: 12px; }
+.capacity-icon { font-size: 24px; }
+.capacity-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.capacity-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.capacity-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--sp-3);
+    padding-top: var(--sp-2);
+    border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+}
+.capacity-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-variant-numeric: tabular-nums;
+}
+.capacity-metric-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+}
+.capacity-metric-val small { font-size: 11px; font-weight: 500; color: var(--text-muted); margin-left: 2px; }
+.capacity-metric-lbl {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.capacity-metric--main .capacity-metric-val { color: var(--primary); font-size: 28px; }
+
+/* Matrice équipes × anomalies */
+.health-matrix-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-3);
+}
+.health-matrix-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: 0 0 var(--sp-2);
+    padding-left: 4px;
+}
+.health-matrix {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-variant-numeric: tabular-nums;
+}
+.health-matrix thead th {
+    padding: 8px 4px;
+    background: var(--surface-2);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--border);
+    text-align: center;
+    vertical-align: middle;
+}
+.health-team-col { text-align: left !important; padding-left: 12px !important; }
+.health-anomaly-col {
+    min-width: 70px;
+    line-height: 1.1;
+    cursor: help;
+}
+.health-anomaly-icon { display: block; font-size: 16px; margin-bottom: 2px; }
+.health-anomaly-label {
+    display: block;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    max-width: 70px;
+    margin: 0 auto;
+}
+.health-row-total-col { width: 50px; text-align: center !important; }
+
+/* Colonnes Vélocité / Buffer réalisés */
+.health-metric-col {
+    min-width: 60px;
+    text-align: center !important;
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    cursor: help;
+    border-left: 2px solid var(--border);
+}
+.health-metric-col--velo { color: var(--success); }
+.health-metric-col--buf  { color: var(--warning); }
+/* Sous-label "sprint courant / PI#xx" sous l'en-tête de colonne */
+.health-metric-sub {
+    display: block;
+    font-size: 8.5px;
+    font-weight: var(--fw-normal);
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-top: 1px;
+}
+.health-metric-cell {
+    border-left: 2px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+    cursor: default;
+}
+.health-metric-cell.has-val { cursor: pointer; }
+.health-metric-cell.has-val:hover { transform: scale(1.15); font-weight: 800; }
+.health-metric-cell--velo.has-val { color: var(--success); }
+.health-metric-cell--buf.has-val  { color: var(--warning); }
+.health-metric-unit { font-size: 9px; font-weight: normal; opacity: .7; margin-left: 1px; }
+
+/* ── Modal sprint Vélocité / Buffer ─────────────────────────────────────────── */
+.htl-modal {
+    min-width: min(900px, 95vw);
+    max-width: 960px;
+    transform: translateY(-8px);
+    opacity: 0;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+    overflow: hidden;
+}
+.alert-modal-overlay.visible .htl-modal { transform: translateY(0); opacity: 1; }
+.htl-muted { color: var(--text-muted); font-size: 11px; }
+.htl-modal-body { padding: var(--sp-4); overflow-y: auto; max-height: calc(90vh - 100px); }
+
+/* Header */
+.htl-modal-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border);
+    gap: var(--sp-3);
+}
+.htl-modal-hdr-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.htl-modal-swatch {
+    flex-shrink: 0;
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 14px; font-weight: var(--fw-bold);
+}
+.htl-modal-hdr-text { min-width: 0; }
+.htl-modal-hdr-title { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--text); }
+.htl-modal-hdr-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.htl-modal-close { flex-shrink: 0; }
+
+/* Labels de section */
+.htl-section-lbl {
+    font-size: 10px; font-weight: var(--fw-bold);
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+}
+.htl-badge {
+    font-size: 10px; font-weight: var(--fw-semibold);
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 1px 7px;
+    color: var(--text-secondary); margin-left: auto;
+}
+
+/* Tableau sprints du PI */
+.htl-sprint-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-md); }
+.htl-sprint-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); white-space: nowrap; }
+.htl-sprint-table thead th {
+    padding: 7px 10px; text-align: left;
+    color: var(--text-muted); font-weight: var(--fw-semibold);
+    background: var(--surface-2);
+    border-bottom: 2px solid var(--border);
+    cursor: help;
+}
+.htl-sprint-table tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    color: var(--text-secondary);
+}
+.htl-sprint-table tbody tr:last-child td { border-bottom: none; }
+.htl-sprint-table tbody tr:hover td { background: var(--surface-2); }
+.htl-sprint-row--ref td {
+    background: color-mix(in srgb, #3b82f6 9%, var(--surface));
+    color: var(--text);
+    font-weight: var(--fw-medium);
+}
+.htl-sprint-row--ref:hover td { background: color-mix(in srgb, #3b82f6 14%, var(--surface)); }
+.htl-spr-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.htl-spr-num  { text-align: right !important; font-variant-numeric: tabular-nums; }
+.htl-sprint-table thead th.htl-th-num { text-align: right !important; }
+.htl-velo-col { color: var(--success); font-weight: var(--fw-semibold); }
+/* Cellules Vélo/Buffer cliquables (sprint table) → ouvrent le détail tickets */
+.htl-cell-clickable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.htl-cell-clickable:hover { filter: brightness(.9); background: color-mix(in srgb, currentColor 10%, transparent) !important; }
+.htl-cell-active { outline: 2px solid currentColor; outline-offset: -2px; border-radius: 3px; }
+/* Indice au-dessus de la section tickets */
+.htl-tickets-hint { font-weight: var(--fw-normal) !important; text-transform: none !important; letter-spacing: 0 !important; color: var(--text-muted); margin: 14px 0 6px; }
+/* État de chargement (lazy-fetch JIRA des sprints clos) */
+.htl-loading { padding: 18px; text-align: center; color: var(--text-secondary); font-size: var(--fs-xs); }
+/* Colonne Buffer mise en avant en violet (header + cellules) — specificité renforcée
+   pour rester violette même sur la ligne du sprint courant (.htl-sprint-row--ref td) */
+.htl-sprint-table td.htl-buf-col,
+.htl-sprint-table th.htl-buf-col {
+    color: #7c3aed;
+    font-weight: var(--fw-semibold);
+    background: color-mix(in srgb, #7c3aed 8%, transparent);
+}
+.htl-sprint-table thead th.htl-buf-col { background: color-mix(in srgb, #7c3aed 14%, var(--surface-2)); }
+
+/* Badge état du sprint */
+.htl-state {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+}
+.htl-state--active { color: #2563eb; background: color-mix(in srgb, #2563eb 12%, transparent); }
+.htl-state--closed { color: var(--success); background: color-mix(in srgb, var(--success) 13%, transparent); }
+.htl-state--future { color: var(--text-muted); background: var(--surface-2); }
+
+/* Section tickets Done */
+.htl-tickets-section {
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-3);
+    border-top: 2px solid var(--border);
+}
+.htl-tickets-hdr {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.htl-tickets-hdr-title {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-secondary);
+}
+.htl-tickets-hdr-sprint {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 1px 6px;
+}
+.htl-tickets-hdr-badge {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+    border-radius: 999px;
+    padding: 2px 10px;
+}
+
+/* Mood picker inline */
+.htl-mood-picker {
+    display: inline-flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 3px 5px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+.htl-mood-btn {
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: var(--r-sm);
+    padding: 2px 4px;
+    transition: background .1s, transform .1s;
+    line-height: 1;
+}
+.htl-mood-btn:hover { background: var(--surface-2); transform: scale(1.2); }
+.htl-mood-btn.is-selected { background: color-mix(in srgb, var(--primary) 15%, var(--surface)); }
+
+/* Charge prévue éditable */
+.htl-charge-input {
+    width: 56px;
+    text-align: right;
+    font-size: var(--fs-xs);
+    font-variant-numeric: tabular-nums;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    background: transparent;
+    padding: 1px 4px;
+    color: inherit;
+    font-weight: inherit;
+    transition: border-color .1s, background .1s;
+}
+.htl-charge-input:hover, .htl-charge-input:focus {
+    border-color: var(--primary);
+    background: var(--surface);
+    outline: none;
+}
+
+/* Mood coloré selon la note (0-5) */
+.htl-mood-val { font-weight: var(--fw-semibold); white-space: nowrap; cursor: pointer; }
+.htl-mood-count { font-weight: var(--fw-normal); color: var(--text-muted); font-size: 10px; }
+.htl-mood-empty { cursor: pointer; }
+.htl-mood-empty:hover { color: var(--primary); text-decoration: underline; }
+.htl-mood--good { color: var(--success); }
+.htl-mood--ok   { color: var(--warning); }
+.htl-mood--bad  { color: var(--danger);  }
+
+/* Table tickets */
+.htl-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.htl-table thead th { text-align: left; padding: 6px 10px; color: var(--text-muted); font-weight: var(--fw-semibold); border-bottom: 2px solid var(--border); }
+.htl-table tbody td { padding: 6px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); vertical-align: top; }
+.htl-table tbody tr:last-child td { border-bottom: none; }
+.htl-table tfoot td { padding: 6px 10px; font-weight: var(--fw-bold); border-top: 2px solid var(--border); }
+.htl-id    { color: var(--text-muted); white-space: nowrap; width: 80px; font-family: var(--font-mono); font-size: 11px; }
+.htl-title { }
+.htl-parent { width: 220px; max-width: 220px; }
+.htl-buf-flag { width: 32px; text-align: center; }
+.htl-pts   { text-align: right; white-space: nowrap; width: 50px; }
+.htl-who   { white-space: nowrap; width: 140px; color: var(--text-secondary); }
+
+/* Ligne ticket entièrement cliquable → ouvre le détail */
+.htl-ticket-row { cursor: pointer; transition: background .1s; }
+.htl-ticket-row:hover td { background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+
+/* Chip parent (epic) — 1 couleur par parent via --pc */
+.htl-parent-chip {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    color: var(--pc, var(--primary));
+    background: color-mix(in srgb, var(--pc, var(--primary)) 13%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--pc, var(--primary)) 30%, transparent);
+    cursor: pointer;
+    transition: background .1s;
+}
+.htl-parent-chip:hover {
+    background: color-mix(in srgb, var(--pc, var(--primary)) 24%, var(--surface));
+    text-decoration: underline;
+}
+/* Points en chip */
+.htl-pts-chip {
+    display: inline-block;
+    min-width: 22px;
+    text-align: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+}
+.htl-total-lbl { color: var(--text-muted); text-align: right !important; }
+.htl-total-val { text-align: right; font-weight: var(--fw-bold); }
+
+.health-matrix tbody td {
+    padding: 7px 4px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+.health-matrix tbody tr:last-child td { border-bottom: none; }
+.health-matrix tbody tr:hover td { background: color-mix(in srgb, var(--primary) 3%, transparent); }
+.health-cell.has-val { transition: transform 0.1s ease; cursor: pointer; }
+.health-cell.has-val:hover { transform: scale(1.15); font-weight: 800; }
+.health-cell-zero { color: var(--text-muted); opacity: 0.4; }
+.health-team {
+    padding: 7px 12px !important;
+    text-align: left !important;
+    min-width: 180px;
+}
+.health-team-swatch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    color: #fff;
+    font-size: 9.5px;
+    font-weight: 700;
+    margin-right: 8px;
+    vertical-align: middle;
+    text-shadow: 0 1px 0 rgb(0 0 0 / 0.15);
+}
+.health-team-name { font-size: 13px; font-weight: 500; vertical-align: middle; }
+.health-row-total {
+    background: var(--surface-2);
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+

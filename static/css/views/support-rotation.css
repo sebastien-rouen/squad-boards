@@ -1,0 +1,282 @@
+/* Composant: Rotation Support (grille membre × semaine) — extrait de views.css (ordre cascade préservé) */
+/* ══════════════════════════════════════════════════════════════════════════════
+   Rotation Support - Grille membre × semaine
+   ══════════════════════════════════════════════════════════════════════════════ */
+.rot-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    margin-bottom: var(--sp-2);
+    overflow: hidden;
+}
+.rot-panel-hdr {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    cursor: pointer;
+    user-select: none;
+    min-height: 40px;
+}
+.rot-panel-hdr:hover { background: var(--surface-hover); }
+.rot-chevron { font-size: 10px; color: var(--text-muted); min-width: 12px; }
+.rot-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.rot-name { font-weight: var(--fw-semibold); font-size: var(--fs-sm); }
+.rot-sum { font-size: var(--fs-xs); color: var(--text-muted); margin-left: var(--sp-1); }
+.rot-panel-actions { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+.rot-mpw-label { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.rot-mpw-input { width: 44px !important; padding: 2px 4px !important; font-size: var(--fs-xs) !important; height: 26px !important; }
+.rot-btn { padding: 2px 8px !important; font-size: var(--fs-xs) !important; }
+.rot-panel-body { padding: 0 var(--sp-2) var(--sp-3); }
+
+/* Grille — s'étire sur toute la largeur dispo, cellules semaine compactes */
+.rot-grid { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.rot-grid th,
+.rot-grid td {
+    border: 1px solid var(--border);
+    padding: 3px 3px;
+    text-align: center;
+    min-width: 44px;
+    vertical-align: middle;
+}
+.rot-member-th { width: 110px; min-width: 110px; text-align: left; padding-left: var(--sp-2); font-weight: var(--fw-medium); background: var(--bg); }
+.rot-member-td {
+    text-align: left;
+    padding-left: var(--sp-2);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.rot-active-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    transition: all var(--tr-fast);
+    flex-shrink: 0;
+}
+.rot-active-toggle:hover { transform: scale(1.08); border-color: var(--primary); }
+.rot-active-toggle.is-on {
+    background: color-mix(in srgb, var(--success) 18%, transparent);
+    border-color: var(--success);
+}
+.rot-active-toggle:not(.is-on) {
+    background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+    opacity: 0.7;
+}
+.rot-member-name.is-inactive {
+    text-decoration: line-through;
+    color: var(--text-muted);
+    font-style: italic;
+}
+.rot-row-inactive .rot-cell {
+    background: color-mix(in srgb, var(--text-muted) 5%, transparent) !important;
+    opacity: 0.6;
+}
+.rot-sum-inactive { color: var(--warning); margin-left: 3px; font-style: italic; }
+
+/* En-têtes semaines */
+.rot-wk-th { padding: 4px 6px; position: relative; }
+.rot-wk-label { display: block; font-weight: var(--fw-semibold); font-size: var(--fs-xs); }
+.rot-wk-dates { display: block; color: var(--text-muted); font-size: 9px; margin-top: 1px; }
+.rot-wk-current { background: var(--primary-bg) !important; }
+/* Verrouillage des semaines */
+.rot-wk-past { background: var(--surface-alt, var(--surface-hover)); }
+.rot-wk-locked { background: color-mix(in srgb, var(--warning) 8%, transparent) !important; }
+.rot-wk-lock {
+    display: block; margin: 2px auto 0;
+    font-size: 11px; line-height: 1;
+    background: none; border: none; padding: 1px 3px;
+    border-radius: var(--r-sm); cursor: pointer;
+    opacity: 0.5; transition: opacity .15s, background .15s;
+}
+.rot-wk-lock--manual:hover { opacity: 1; background: var(--surface-hover); }
+.rot-wk-lock--manual.is-locked { opacity: 1; }
+/* Cadenas semaine passée — cliquable pour déverrouiller exceptionnellement */
+.rot-wk-lock--past:hover { opacity: 1; background: var(--surface-hover); }
+.rot-wk-lock--past.is-unlocked { opacity: 1; }
+/* Semaine passée déverrouillée exceptionnellement → fond ambre clair */
+.rot-wk-unlocked { background: color-mix(in srgb, var(--warning) 6%, transparent) !important; }
+
+/* Cellules */
+.rot-cell { position: relative; }
+.rot-cell-current { background: var(--primary-bg); }
+.rot-cell-locked { background: var(--surface-alt, var(--surface-hover)); }
+.rot-cell-locked .rot-chip-locked {
+    opacity: 0.4; cursor: not-allowed;
+    border-style: dashed;
+}
+.rot-cell-absent  { background: var(--danger-bg); }
+.rot-cell-partial { background: var(--warning-bg); }
+
+/* Badge absence */
+.rot-abs-badge {
+    display: block;
+    font-size: 9px;
+    color: var(--warning);
+    line-height: 1;
+    margin-bottom: 2px;
+}
+.rot-abs-badge.rot-abs-full { color: var(--danger); }
+
+/* Chip toggle */
+.rot-chip {
+    width: 28px;
+    height: 22px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--bg);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    transition: border-color var(--tr-fast), background var(--tr-fast), color var(--tr-fast);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.rot-chip:hover { border-color: var(--primary); color: var(--primary); }
+.rot-chip-on { font-weight: var(--fw-bold); }
+
+/* Ligne totaux */
+.rot-count-row td { font-size: 10px; font-weight: var(--fw-semibold); color: var(--text-muted); background: var(--bg); }
+.rot-count-cell.rot-count-ok      { color: var(--success) !important; }
+.rot-count-cell.rot-count-partial { color: var(--warning) !important; }
+
+/* Toggle PI suivant — switch à 2 segments façon tab-bar */
+/* Support rotation — tab PI Planning (lecture seule) */
+.pi-support-rota { display: flex; flex-direction: column; gap: var(--sp-3); }
+.pi-support-rota-hdr {
+    display: flex; align-items: center; gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+.pi-support-rota .rot-panel-hdr { cursor: default; }
+.pi-support-rota .rot-panel-hdr:hover { background: none; }
+/* Corrige la cellule membre : display:flex casse la hauteur uniforme des lignes */
+.pi-support-rota .rot-member-td {
+    display: table-cell;
+    vertical-align: middle;
+    padding: 4px var(--sp-2);
+    border: none;
+    white-space: nowrap;
+}
+.pi-support-rota .rot-chip {
+    min-width: 22px; min-height: 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm); border: 1px solid var(--border);
+    font-size: 11px; pointer-events: none; background: transparent;
+}
+.pi-support-rota .rot-chip.rot-chip-on { font-weight: var(--fw-bold); }
+.rot-count-col-th, .rot-count-col {
+    width: 32px; min-width: 32px; max-width: 40px;
+    text-align: center; vertical-align: middle;
+    padding: 2px 4px;
+    border-left: 1px solid var(--border);
+}
+.rot-pass-count {
+    font-size: 10px; color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+}
+
+.rot-pi-switch {
+    display: inline-flex;
+    align-items: stretch;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 3px;
+    margin-bottom: var(--sp-3);
+    gap: 2px;
+}
+.rot-pi-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    border-radius: calc(var(--r-md) - 3px);
+    cursor: pointer;
+    transition: all var(--tr-fast);
+    white-space: nowrap;
+}
+.rot-pi-switch-btn:hover { color: var(--text); background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.rot-pi-switch-btn.is-active {
+    background: var(--surface);
+    color: var(--primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    font-weight: var(--fw-semibold);
+}
+.rot-pi-switch-icon { font-size: 14px; line-height: 1; }
+.rot-pi-switch-btn small { color: var(--text-muted); font-weight: var(--fw-normal); margin-left: 3px; }
+.rot-pi-switch-btn.is-active small { color: color-mix(in srgb, var(--primary) 70%, var(--text-muted)); }
+
+/* Hint quand aucune équipe ne matche les membres CSV */
+/* Bannière snapshot membres par PI */
+.rot-snapshot-banner {
+    font-size: var(--fs-xs);
+    padding: var(--sp-2) var(--sp-3);
+    margin-bottom: var(--sp-3);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+    border-radius: var(--r-md);
+    color: var(--text);
+}
+
+.rot-group-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-3);
+    margin-bottom: var(--sp-3);
+    background: color-mix(in srgb, var(--warning, #f59e0b) 7%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 30%, transparent);
+    border-radius: var(--r-md);
+}
+
+/* Aperçu import CSV absences */
+.abs-csv-preview {
+    margin-top: var(--sp-2);
+    padding: var(--sp-3);
+    background: var(--surface-alt, var(--surface-hover));
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.abs-csv-preview-hdr { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); }
+.abs-csv-preview-badge {
+    font-size: 10px; font-weight: var(--fw-semibold);
+    background: var(--primary); color: #fff;
+    border-radius: 999px; padding: 1px 8px; text-transform: uppercase;
+}
+.abs-csv-preview-dates {
+    font-size: var(--fs-xs); color: var(--text);
+    padding: var(--sp-2);
+    background: color-mix(in srgb, var(--success) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--success) 25%, transparent);
+    border-radius: var(--r-sm);
+}
+.abs-csv-preview-teams, .abs-csv-preview-members { display: flex; flex-wrap: wrap; gap: 4px; }
+.abs-csv-preview-team {
+    font-size: 10px; color: var(--text-muted);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 1px 7px;
+}
+.abs-csv-preview-member {
+    font-size: 11px; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-sm); padding: 1px 7px;
+}
+.abs-csv-preview-member em { color: var(--text-muted); font-style: normal; font-size: 9px; margin-left: 3px; }
+

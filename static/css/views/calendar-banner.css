@@ -1,0 +1,1680 @@
+/* Composant: Calendar Banner & Week Modal + Calendar Reports — extrait de views.css (ordre cascade préservé) */
+/* ══════════════════════════════════════════════════════════════════════════════
+   Calendar Banner & Week Modal
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.cal-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: nowrap;  /* on garde tout sur 1 ligne — la zone events scroll horizontalement */
+    min-height: 40px;
+}
+.cal-banner-icon {
+    font-size: var(--fs-sm);
+    flex-shrink: 0;
+    align-self: flex-start;
+    padding-top: 2px;
+}
+.cal-banner-events {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* scrollbar fine */
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--border) 70%, transparent) transparent;
+}
+.cal-banner-events::-webkit-scrollbar { height: 6px; }
+.cal-banner-events::-webkit-scrollbar-track { background: transparent; }
+.cal-banner-events::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--border) 70%, transparent);
+    border-radius: 3px;
+}
+.cal-banner-events::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--border) 100%, transparent);
+}
+/* Layout split matin/aprem — plus de scroll horizontal */
+.cal-banner-events--rows {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    padding: 0;
+    flex-wrap: nowrap;
+    overflow: visible;
+}
+.cal-banner-line {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-shrink: 0;
+}
+.cal-banner-line--off {
+    /* Séparateur visuel à droite (au lieu d'une bordure en bas — on est en ligne maintenant) */
+    padding-right: var(--sp-2);
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+}
+.cal-banner-empty {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+/* Split matin / après-midi */
+.cal-banner-split {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+.cal-banner-half {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+}
+.cal-banner-half-lbl {
+    font-size: 9px;
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    line-height: 1;
+}
+.cal-banner-half-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    min-width: 0;
+}
+.cal-banner-split-sep {
+    width: 1px;
+    background: var(--border);
+    margin: 0 var(--sp-2);
+    flex-shrink: 0;
+    align-self: stretch;
+}
+.cal-banner-week-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px 4px 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    color: var(--text);
+    font-family: inherit;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.cal-banner-week-btn:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+    box-shadow:
+        0 4px 12px rgb(0 0 0 / 0.08),
+        0 0 0 3px color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.cal-banner-week-btn:active { transform: translateY(0); }
+
+/* Mini-calendrier (style page d'éphéméride) — header rouge + numéro du jour */
+.cal-mini {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    min-height: 38px;
+    border-radius: 5px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.5),
+        0 1px 2px rgb(0 0 0 / 0.08);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.cal-mini-hdr {
+    display: block;
+    width: 100%;
+    padding: 2px 0;
+    background: linear-gradient(180deg, #ef4444, var(--danger));
+    color: #fff;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-align: center;
+    text-shadow: 0 1px 0 rgb(0 0 0 / 0.15);
+}
+.cal-mini-day {
+    display: block;
+    padding: 2px 0 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.02em;
+}
+.cal-mini-wday {
+    display: block;
+    padding: 0 0 2px;
+    font-size: 7px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+}
+
+.cal-mini-label {
+    display: inline-flex;
+    flex-direction: column;
+    text-align: left;
+    line-height: 1.2;
+}
+.cal-mini-label-main {
+    font-size: 12px;
+    font-weight: var(--fw-semibold);
+    color: var(--text);
+}
+.cal-mini-label-sub {
+    font-size: 9.5px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Chips bannière */
+.cal-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px 3px 8px;
+    border-radius: 0 var(--r-full) var(--r-full) 0;
+    border: none;
+    border-left: 3px solid var(--cal-color, var(--primary));
+    background: color-mix(in srgb, var(--cal-color, var(--primary)) 10%, var(--surface));
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.cal-chip:hover {
+    background: color-mix(in srgb, var(--cal-color, var(--primary)) 18%, var(--surface));
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+.cal-chip-time {
+    color: var(--cal-color, var(--primary));
+    font-weight: var(--fw-bold);
+    font-size: 10px;
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+}
+.cal-chip-title {
+    color: var(--text-primary);
+    font-weight: var(--fw-medium);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cal-chip-team {
+    color: var(--text-muted);
+    font-size: 10px;
+    flex-shrink: 0;
+    padding-left: 3px;
+    border-left: 1px solid var(--border);
+}
+.cal-chip--off {
+    background: #fff7ed;
+    border-left-color: #fb923c;
+    border-left-style: solid;
+    box-shadow: none;
+}
+.cal-chip--off:hover {
+    background: #ffedd5;
+    box-shadow: none;
+}
+.cal-chip--off .cal-chip-time {
+    color: #ea580c;
+}
+.cal-chip--off .cal-chip-title {
+    color: #9a3412;
+    font-style: italic;
+}
+
+/* Overlay semaine */
+.cal-week-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1200;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+    padding: var(--sp-4);
+    overflow-y: auto;
+}
+.cal-week-overlay.visible {
+    opacity: 1;
+}
+.cal-week-modal {
+    background: var(--surface);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--border);
+    width: 100%;
+    max-width: 1320px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+    transform: translateY(10px);
+    transition: transform 0.2s;
+}
+.cal-week-overlay.visible .cal-week-modal {
+    transform: translateY(0);
+}
+.cal-week-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-3) var(--sp-5);
+    border-bottom: 1px solid var(--border);
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+    flex-shrink: 0;
+    background: var(--surface-2);
+}
+.cal-week-hdr-left {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+.cal-week-offset-chip {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+.cal-week-offset-chip--today {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.cal-week-hdr-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+.cal-week-nav {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    overflow: hidden;
+}
+.cal-week-nav-btn,
+.cal-week-nav-today {
+    width: 26px; height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    color: var(--text-muted);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--tr-fast), color var(--tr-fast);
+}
+.cal-week-nav-btn:hover,
+.cal-week-nav-today:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: var(--primary);
+}
+.cal-week-nav-today { border-left: 1px solid var(--border); border-right: 1px solid var(--border); font-size: 20px; }
+.cal-week-nav-today--current { color: var(--primary); }
+.cal-week-nav-today:disabled { cursor: default; opacity: 0.4; }
+
+/* Picker équipes dans le header de la modal semaine */
+.cal-week-team-picker-wrap { position: relative; }
+.cal-week-team-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: auto;
+    padding: 4px 9px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.cal-week-team-toggle:hover {
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+    color: var(--text);
+}
+.cal-week-team-toggle.is-active {
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+}
+.cal-week-team-toggle-icon { font-size: 13px; line-height: 1; }
+.cal-week-team-toggle-lbl {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cal-week-team-toggle-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 22%, transparent);
+    color: var(--primary);
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+}
+
+.cal-week-team-popover {
+    width: 280px;
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 10px 12px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: 0 8px 28px rgb(0 0 0 / 0.18), 0 0 0 4px color-mix(in srgb, var(--primary) 6%, transparent);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-muted) 30%, transparent) transparent;
+}
+.cal-week-team-popover::-webkit-scrollbar { width: 5px; }
+.cal-week-team-popover::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--text-muted) 30%, transparent);
+    border-radius: 3px;
+}
+.cal-week-team-popover-hdr {
+    font-size: 10.5px;
+    font-weight: var(--fw-bold);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+}
+.cal-week-team-popover-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.cal-week-team-popover-empty {
+    margin: 6px 0 0;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+/* Barre support — membres de garde cette semaine */
+.cal-support-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px var(--sp-5);
+    background: #fefce8;
+    border-bottom: 1px solid var(--warning-border);
+    font-size: var(--fs-xs);
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+.cal-support-bar-icon { font-size: 13px; flex-shrink: 0; }
+.cal-support-bar-label { color: var(--text-muted); font-weight: var(--fw-medium); flex-shrink: 0; }
+.cal-support-bar-chip {
+    padding: 1px 8px;
+    border-radius: var(--r-full);
+    background: #fef9c3;
+    color: #92400e;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    border: 1px solid var(--warning-border);
+}
+
+/* Barre sprint sous le header — refonte esthétique cohérente avec sprint-header dashboard */
+.cal-week-sprint-bar {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px var(--sp-5) 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.cal-week-sprint-bar::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, var(--sprint-color), color-mix(in srgb, var(--sprint-color) 50%, transparent));
+}
+.cal-week-sprint-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding-left: 8px;
+}
+.cal-week-sprint-info {
+    display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+}
+.cal-week-sprint-stats {
+    display: flex; gap: 6px; flex-wrap: wrap;
+}
+.cal-week-sprint-chip {
+    display: inline-flex; align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    font-size: 11px;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.cal-week-sprint-chip--dates { color: var(--text-muted); }
+.cal-week-sprint-chip--jl {
+    background: color-mix(in srgb, var(--sprint-color) 12%, transparent);
+    color: var(--sprint-color);
+    border: 1px solid color-mix(in srgb, var(--sprint-color) 30%, transparent);
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+}
+.cal-week-sprint-goal {
+    font-size: var(--fs-xs);
+    color: var(--text);
+    background: color-mix(in srgb, var(--sprint-color) 6%, transparent);
+    border-left: 3px solid color-mix(in srgb, var(--sprint-color) 60%, transparent);
+    padding: 6px 12px;
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.5;
+    margin-left: 8px;
+}
+/* Badge état du sprint (clos / actif / à venir) */
+.cal-week-sprint-state {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid;
+    line-height: 1.3;
+}
+.cal-week-sprint-state--active { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 10%, transparent); }
+.cal-week-sprint-state--closed { color: var(--text-muted); border-color: var(--border); background: var(--surface-2); }
+.cal-week-sprint-state--future { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, transparent); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+/* Grille sprint alignée sur les colonnes jour (nom + goal par sprint visible) */
+.cal-sprint-col-labels {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    margin-top: 5px;
+    min-height: 32px;
+}
+.cal-sprint-col-item {
+    grid-row: 1;                 /* tous sur la même ligne → côte à côte */
+    overflow: hidden;
+    padding: 3px 7px;
+    border-radius: var(--r-sm);
+    border-left: 3px solid var(--team-color, var(--primary));
+    background: color-mix(in srgb, var(--team-color, var(--primary)) 8%, var(--surface));
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+/* Sprint dominant de la semaine = pleine intensité ; les autres (passé/futur) atténués */
+.cal-sprint-col-item--main {
+    background: color-mix(in srgb, var(--team-color, var(--primary)) 13%, var(--surface));
+}
+.cal-sprint-col-item:not(.cal-sprint-col-item--main) {
+    border-left-color: color-mix(in srgb, var(--team-color, var(--primary)) 50%, var(--text-muted));
+    opacity: .72;
+}
+.cal-sprint-col-item--closed { opacity: .6; }
+.cal-sprint-col-name {
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+}
+.cal-sprint-col-goal {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Variantes de la barre selon l'état — sprints clos un peu désaturés */
+.cal-week-sprint-bar--closed .cal-week-sprint-name,
+.cal-week-sprint-bar--closed .cal-week-sprint-goal { opacity: 0.75; }
+.cal-week-sprint-bar--closed .cal-week-sprint-fill { opacity: 0.6; }
+/* Cas pas de sprint trouvé pour l'équipe sélectionnée — placeholder informatif */
+.cal-week-sprint-bar--missing {
+    padding: 10px var(--sp-5);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+.cal-week-sprint-missing {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    font-style: italic;
+}
+.cal-week-sprint-info {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    flex-shrink: 0;
+    min-width: 0;
+}
+.cal-week-sprint-name {
+    font-size: var(--fs-base);
+    font-weight: var(--fw-semibold);
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 380px;
+}
+.cal-week-sprint-track-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-left: 8px;
+}
+.cal-week-sprint-track {
+    position: relative;
+    height: 12px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    overflow: visible;
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.04);
+}
+/* Ticks (graduation) toutes les semaines dans le track */
+.cal-week-sprint-tick {
+    position: absolute;
+    top: -3px; bottom: -3px;
+    width: 1px;
+    background: var(--border);
+    opacity: 0.7;
+}
+/* Échelle dates sous le track (start / semaines / end) */
+.cal-week-sprint-scale {
+    position: relative;
+    height: 13px;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+}
+.cal-week-sprint-scale-start,
+.cal-week-sprint-scale-end {
+    position: absolute;
+    font-weight: var(--fw-medium);
+}
+.cal-week-sprint-scale-start { left: 0; }
+.cal-week-sprint-scale-end   { right: 0; }
+.cal-week-sprint-scale-mid {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    padding: 0 4px;
+    background: var(--surface);
+}
+.cal-week-sprint-fill {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: linear-gradient(90deg, var(--sprint-color), color-mix(in srgb, var(--sprint-color) 75%, white));
+    border-radius: 6px;
+    box-shadow: 0 1px 4px color-mix(in srgb, var(--sprint-color) 35%, transparent);
+    transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1), width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cal-week-sprint-today {
+    position: absolute;
+    top: -3px; bottom: -3px;
+    width: 2px;
+    background: var(--danger);
+    border-radius: 1px;
+    transform: translateX(-1px);
+    z-index: 2;
+    box-shadow: 0 0 0 1px var(--surface);
+}
+.cal-week-sprint-today::before {
+    content: '';
+    position: absolute;
+    top: -5px; left: -4px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--danger);
+    box-shadow: 0 0 0 2px var(--surface), 0 1px 4px color-mix(in srgb, var(--danger) 50%, transparent);
+}
+
+/* Ticks d'extrémité (début/fin sprint) plus marqués que les ticks hebdo */
+.cal-week-sprint-tick--edge {
+    width: 2px;
+    background: color-mix(in srgb, var(--sprint-color) 70%, transparent);
+    opacity: 1;
+    top: -4px; bottom: -4px;
+    transform: translateX(-1px);
+    border-radius: 1px;
+}
+.cal-week-sprint-tick--edge:first-of-type { /* début */ }
+.cal-week-sprint-tick--edge::after {
+    content: '';
+    position: absolute;
+    top: -4px; left: -2px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--sprint-color);
+    box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* Indicateur premier/dernier jour de sprint dans le header de jour */
+.cal-day-sprint-mark {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 5px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: var(--fw-bold);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    line-height: 1.5;
+    vertical-align: middle;
+    cursor: help;
+}
+.cal-day-sprint-mark--start { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); border-color: color-mix(in srgb, var(--success) 30%, transparent); }
+.cal-day-sprint-mark--end   { color: var(--warning); background: color-mix(in srgb, var(--warning) 16%, transparent); border-color: color-mix(in srgb, var(--warning) 32%, transparent); }
+
+/* ── Split AM/PM : deux sections à hauteur égale + gouttière latérale ────── */
+.cal-week-grid-wrap.cal-week-split-active {
+    display: flex;
+    flex-direction: row;
+    overflow: hidden; /* scroll délégué aux sections */
+}
+
+/* Gouttière gauche avec labels verticaux */
+.cal-time-gutter {
+    display: flex;
+    flex-direction: column;
+    width: 30px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+}
+.cal-time-label {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 9px;
+    font-weight: var(--fw-bold);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    user-select: none;
+    padding: var(--sp-2) 0;
+    gap: 4px;
+}
+.cal-time-label--am {
+    color: #d97706;
+    border-bottom: 1px solid var(--border);
+}
+.cal-time-label--pm { color: #0891b2; }
+
+/* Corps splitté (AM + séparateur + PM) */
+.cal-split-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.cal-week-section {
+    flex: 1;
+    min-height: 0;
+    overflow-y: scroll;   /* toujours visible = signal immédiat de scrollabilité */
+    overflow-x: auto;
+    /* Gradient fade en bas : indique visuellement que du contenu continue */
+    --sec-bg: var(--surface);
+    background-image:
+        linear-gradient(to top,
+            color-mix(in srgb, var(--sec-bg) 85%, transparent) 0%,
+            transparent 52px) !important;
+    background-repeat: no-repeat !important;
+    background-position: bottom !important;
+    background-attachment: local !important;
+    /* Scrollbar fine et visible */
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-muted) transparent;
+}
+.cal-week-section::-webkit-scrollbar       { width: 6px; }
+.cal-week-section::-webkit-scrollbar-track { background: transparent; }
+.cal-week-section::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 3px;
+    opacity: .6;
+}
+.cal-week-section::-webkit-scrollbar-thumb:hover { background: var(--text); }
+
+.cal-week-section--am {
+    --sec-bg: color-mix(in srgb, #d97706 4%, var(--surface));
+    background-color: var(--sec-bg);
+}
+.cal-week-section--pm {
+    --sec-bg: color-mix(in srgb, #0891b2 4%, var(--surface));
+    background-color: var(--sec-bg);
+}
+
+/* Boutons toggle de la modal calendrier (🌗 AM/PM, ≡ compact) */
+.cal-week-toggle-btn.is-active {
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    color: var(--primary);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+.cal-week-toggle-btn.is-active:hover {
+    background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+}
+
+/* Barre pleine largeur matin / après-midi (span sur toute la semaine) */
+.cal-week-pm-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 var(--sp-2);
+    margin: 4px 0;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.cal-week-pm-bar::before,
+.cal-week-pm-bar::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+.cal-week-grid--pm .cal-day-col--pm {
+    border-top: none;
+}
+.cal-day-col--pm .cal-day-events {
+    min-height: 2rem;
+}
+
+/* Événement multi-jours sur un jour de continuation (pas le jour de début) */
+.cal-ev-row--multiday-cont {
+    opacity: .88;
+}
+.cal-ev-row--multiday-cont .cal-ev-time {
+    font-style: italic;
+    letter-spacing: .01em;
+}
+
+/* Mode compact : event = une seule ligne titre */
+.cal-ev-row--compact {
+    padding: 3px var(--sp-2) 3px var(--sp-3);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: default;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.cal-ev-compact-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+}
+.cal-ev-row--compact:hover { background: color-mix(in srgb, var(--primary) 6%, var(--surface)) !important; }
+
+/* ── Popup détail événement (style Google Calendar) ──────────────────────── */
+#cal-ev-popup {
+    z-index: 10100;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: 0 8px 30px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.10);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    transform: scale(.96) translateY(-4px);
+    transition: opacity .15s, transform .15s;
+    pointer-events: none;
+}
+#cal-ev-popup.visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
+}
+.cal-ev-popup-accent {
+    height: 4px;
+    flex-shrink: 0;
+}
+.cal-ev-popup-hdr {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-2) var(--sp-2) var(--sp-3);
+}
+.cal-ev-popup-title {
+    flex: 1;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    line-height: 1.35;
+    color: var(--text);
+    word-break: break-word;
+}
+.cal-ev-popup-close {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    border-radius: var(--r-md);
+    color: var(--text-muted);
+    transition: background .1s, color .1s;
+    margin-top: -2px;
+}
+.cal-ev-popup-close:hover { background: var(--surface-active); color: var(--text); }
+.cal-ev-popup-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 var(--sp-3) var(--sp-3);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+.cal-ev-popup-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: var(--fs-xs);
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+.cal-ev-popup-row--muted { color: var(--text-muted); }
+.cal-ev-popup-icon {
+    flex-shrink: 0;
+    font-size: 13px;
+    line-height: 1.3;
+    width: 16px;
+    text-align: center;
+}
+.cal-ev-popup-dot {
+    flex-shrink: 0;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-top: 3px;
+}
+/* Bouton d'action (Visio, URL) */
+.cal-ev-popup-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--r-md);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    transition: background .1s;
+    margin-top: 2px;
+    align-self: flex-start;
+}
+.cal-ev-popup-btn:hover { background: var(--surface-active); }
+.cal-ev-popup-btn--visio {
+    background: color-mix(in srgb, #2563eb 10%, var(--surface));
+    border-color: color-mix(in srgb, #2563eb 25%, var(--border));
+    color: #2563eb;
+}
+.cal-ev-popup-btn--visio:hover { background: color-mix(in srgb, #2563eb 16%, var(--surface)); }
+/* Durée en muted dans la ligne heure */
+.cal-ev-popup-dur { color: var(--text-muted); font-weight: normal; font-size: 10px; }
+/* Muted inline */
+.cal-ev-popup-muted { color: var(--text-muted); font-size: 10px; }
+/* Location wrap */
+.cal-ev-popup-loc { word-break: break-word; }
+/* Cérémonie Scrum */
+.cal-ev-popup-row--scrum { color: var(--text); }
+/* Section (contacts, meeting ID) avec séparateur */
+.cal-ev-popup-section {
+    border-top: 1px solid var(--border);
+    padding-top: 7px;
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.cal-ev-popup-section-hdr {
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+.cal-ev-popup-contact {
+    font-size: var(--fs-xs);
+}
+.cal-ev-popup-contact a {
+    color: var(--primary);
+    text-decoration: none;
+}
+.cal-ev-popup-contact a:hover { text-decoration: underline; }
+/* Code meeting ID / passcode */
+.cal-ev-popup-code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: .04em;
+    user-select: all;
+}
+/* Description */
+.cal-ev-popup-desc {
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    max-height: 220px;
+    overflow-y: auto;
+    line-height: 1.6;
+    scrollbar-width: thin;
+}
+/* Icône visio dans la carte (petit badge discret) */
+.cal-ev-visio-badge {
+    font-size: 10px;
+    opacity: .65;
+    margin-left: 2px;
+    cursor: default;
+}
+
+/* Tooltip événement compact (singleton body, position fixed) */
+.cal-compact-tt {
+    position: fixed;
+    z-index: 10002;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: var(--sp-3);
+    width: 280px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.14);
+    font-size: var(--fs-xs);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity .12s;
+}
+.cal-compact-tt.visible { opacity: 1; }
+.cal-compact-tt-time {
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
+    font-size: 11px;
+}
+.cal-compact-tt-row { color: var(--text-secondary); }
+.cal-compact-tt-visio {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--primary);
+    font-weight: var(--fw-medium);
+    text-decoration: none;
+}
+.cal-compact-tt-visio:hover { text-decoration: underline; }
+.cal-compact-tt-desc {
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    max-height: 120px;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 5px;
+    margin-top: 2px;
+}
+
+/* Indicateur jour PIP (PI Planning récupérable) */
+.cal-day-pip-mark {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: var(--fw-bold);
+    color: #7c3aed;
+    background: color-mix(in srgb, #7c3aed 12%, transparent);
+    border: 1px solid color-mix(in srgb, #7c3aed 28%, transparent);
+    line-height: 1.5;
+    vertical-align: middle;
+    cursor: help;
+    letter-spacing: .02em;
+}
+
+/* Variante Visio du lien event (URL location) */
+.cal-ev-link--visio {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--primary);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: var(--fw-semibold);
+    text-decoration: none;
+    font-size: 11px;
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    transition: background 0.15s ease;
+}
+.cal-ev-link--visio:hover { background: color-mix(in srgb, var(--primary) 22%, transparent); text-decoration: none; }
+#cal-week-sync { color: var(--text-muted); transition: color var(--tr-fast); }
+#cal-week-sync:hover:not(:disabled) { color: var(--primary); }
+#cal-week-sync:disabled { opacity: 0.6; cursor: progress; }
+#cal-week-sync.cal-sync-spin .icon { animation: cal-sync-rot 800ms linear infinite; }
+@keyframes cal-sync-rot { to { transform: rotate(360deg); } }
+.cal-week-grid-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    flex: 1;
+}
+.cal-week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(170px, 1fr));
+    min-width: 1190px;
+    border-top: none;
+}
+.cal-day-col {
+    background: var(--surface);
+    padding: var(--sp-3);
+    border-right: 1px solid var(--border);
+    transition: background 0.1s;
+}
+.cal-day-col:last-child { border-right: none; }
+
+/* Passé : légèrement assombri, désaturé */
+.cal-day-col.cal-day-past {
+    background: var(--surface-2, var(--surface-hover));
+}
+.cal-day-past .cal-day-hdr {
+    color: var(--text-muted);
+    opacity: 0.6;
+    border-bottom-color: var(--border);
+}
+.cal-day-past .cal-ev-row {
+    opacity: 0.55;
+    filter: grayscale(0.3);
+}
+
+/* Aujourd'hui : accent primaire */
+.cal-day-col.cal-day-today {
+    background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+}
+.cal-day-today .cal-day-hdr {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+/* Futur : fond légèrement plus chaud, hdr plus visible */
+.cal-day-col.cal-day-future {
+    background: var(--surface);
+}
+.cal-day-future .cal-day-hdr {
+    color: var(--text-secondary, var(--text-primary));
+    opacity: 1;
+}
+
+.cal-day-hdr {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-bottom: var(--sp-2);
+    margin-bottom: var(--sp-2);
+    border-bottom: 2px solid var(--border);
+    color: var(--text-muted);
+}
+.cal-day-hdr-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-day-copy-btn {
+    flex-shrink: 0;
+    font-size: 11px;
+    line-height: 1;
+    padding: 1px 4px;
+    border-radius: var(--r-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+}
+.cal-day-col:hover .cal-day-copy-btn { opacity: 1; }
+.cal-day-copy-btn:hover { background: var(--surface-hover); border-color: var(--border); }
+.cal-day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Week-end */
+.cal-day-col.cal-day-weekend {
+    background: var(--surface-2, var(--surface-hover));
+}
+.cal-day-weekend .cal-day-hdr {
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+.cal-day-weekend .cal-ev-row,
+.cal-day-weekend .cal-ev-off-group,
+.cal-day-weekend .cal-ev-none {
+    opacity: 0.45;
+    filter: grayscale(0.4);
+}
+
+/* Jour férié */
+.cal-day-col.cal-day-holiday {
+    background: #fff5f5;
+}
+.cal-day-col.cal-day-holiday.cal-day-past {
+    background: #fef2f2;
+}
+.cal-day-holiday .cal-day-hdr {
+    color: var(--danger);
+    border-bottom-color: #fca5a5;
+    opacity: 1;
+}
+.cal-ev-holiday-badge {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    color: #b91c1c;
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    border-radius: var(--r-md);
+    padding: 3px 8px;
+    margin-bottom: var(--sp-2);
+    text-align: center;
+    letter-spacing: 0.02em;
+}
+
+/* Groupe OFF compact dans la modal */
+.cal-ev-off-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 5px 6px;
+    margin-bottom: var(--sp-2);
+    background: #fff7ed;
+    border-left: 3px solid #fb923c;
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.cal-ev-off-chip {
+    font-size: 10px;
+    font-weight: var(--fw-medium);
+    color: #9a3412;
+    background: #ffedd5;
+    border: 1px solid #fdba74;
+    border-radius: var(--r-full);
+    padding: 1px 7px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+/* Demi-journée — fond légèrement plus pâle + bordure pointillée pour distinguer */
+.cal-ev-off-chip--half {
+    background: #fffaf0;
+    border-style: dashed;
+    color: #b45309;
+}
+.cal-ev-off-half {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: #fb923c;
+    color: #fff;
+    font-size: 9px;
+    font-weight: var(--fw-bold);
+    line-height: 1;
+    flex-shrink: 0;
+}
+/* Chip "aujourd'hui" demi-journée (bannière) — même logique de distinction */
+.cal-chip--off.cal-chip--half { border-style: dashed; }
+
+/* Lien dans un event */
+.cal-ev-link {
+    color: var(--primary);
+    font-size: 10px;
+    font-weight: var(--fw-medium);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--primary);
+    transition: background 0.12s;
+}
+.cal-ev-link:hover {
+    background: var(--primary-bg, #eff6ff);
+    text-decoration: none;
+}
+.cal-ev-row {
+    position: relative;
+    padding: 4px 6px 4px 9px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    background: var(--surface);
+    font-size: var(--fs-xs);
+    transition: box-shadow 0.12s, background 0.1s;
+}
+.cal-ev-row[data-ev-start] { cursor: pointer; }
+.cal-ev-row:hover {
+    background: var(--surface-2);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.cal-ev-row.cal-ev-hl {
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+    border-left-width: 4px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.cal-ev-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;          /* permet au badge cérémonie de passer dessous si étroit */
+    row-gap: 3px;
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+    margin-bottom: 2px;
+    min-width: 0;
+}
+/* L'horaire seul reste nowrap pour ne pas casser "10h00 – 10h30" */
+.cal-ev-time > :first-child { white-space: nowrap; }
+.cal-ev-dur {
+    font-size: 10px;
+    font-weight: normal;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+.cal-ev-recur {
+    margin-left: auto;        /* pousse à droite de la ligne horaire */
+    font-size: 11px;
+    cursor: help;
+    opacity: 0.75;
+    line-height: 1;
+}
+.cal-ev-recur:hover { opacity: 1; }
+
+/* Badge cérémonie Scrum — à droite de l'horaire, juste avant l'icône récurrence */
+.cal-ev-scrum-badge {
+    position: relative;             /* ancre pour la tooltip */
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 11px;
+    line-height: 1.55;
+    cursor: help;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Tooltip riche pédagogique (singleton attaché au body, position fixed) ── */
+.cal-scrum-tt {
+    position: fixed;
+    width: 320px;
+    padding: 10px 14px 12px;
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--scrum-color, var(--primary)) 14%, var(--surface)),
+        var(--surface) 38%);
+    border: 1px solid color-mix(in srgb, var(--scrum-color, var(--primary)) 35%, var(--border));
+    border-radius: var(--r-md);
+    box-shadow:
+        0 8px 28px color-mix(in srgb, var(--scrum-color, var(--primary)) 22%, rgba(0,0,0,0.20)),
+        0 0 0 4px color-mix(in srgb, var(--scrum-color, var(--primary)) 5%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+    z-index: 10000;            /* au-dessus de toute modal */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    white-space: normal;
+    left: -9999px;              /* hors écran tant que pas positionné */
+    top: -9999px;
+}
+.cal-scrum-tt.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+/* Couleurs par cérémonie (sur le singleton via classe data-set en JS) */
+.cal-scrum-tt--daily      { --scrum-color: var(--status-done); }
+.cal-scrum-tt--planning   { --scrum-color: #3b82f6; }
+.cal-scrum-tt--refinement { --scrum-color: #f59e0b; }
+.cal-scrum-tt--retro      { --scrum-color: #8b5cf6; }
+.cal-scrum-tt--review     { --scrum-color: #06b6d4; }
+
+.cal-scrum-tt-hdr {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed color-mix(in srgb, var(--scrum-color, var(--primary)) 30%, transparent);
+}
+.cal-scrum-tt-icon { font-size: 22px; line-height: 1; }
+.cal-scrum-tt-title {
+    font-size: 14px;
+    font-weight: var(--fw-bold);
+    color: color-mix(in srgb, var(--scrum-color, var(--primary)) 85%, var(--text));
+    text-transform: none;
+}
+.cal-scrum-tt-row {
+    display: block;
+    color: var(--text);
+}
+.cal-scrum-tt-row b {
+    color: color-mix(in srgb, var(--scrum-color, var(--primary)) 75%, var(--text));
+    font-weight: var(--fw-semibold);
+    margin-right: 2px;
+}
+.cal-scrum-tt-row--ex {
+    margin-top: 4px;
+    padding: 6px 10px;
+    background: color-mix(in srgb, var(--scrum-color, var(--primary)) 8%, transparent);
+    border-left: 3px solid color-mix(in srgb, var(--scrum-color, var(--primary)) 50%, transparent);
+    border-radius: 0 6px 6px 0;
+    font-size: 11px;
+}
+.cal-scrum-tt-row em { color: var(--text-secondary); font-style: italic; }
+/* Quand badge présent ET récurrence : la récurrence se cale juste après (pas margin-left auto) */
+.cal-ev-scrum-badge + .cal-ev-recur { margin-left: 4px; }
+
+/* Variantes cérémonie : couleur par type — bordure gauche renforcée + fond très léger */
+.cal-ev-row--scrum {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--scrum-color, var(--primary)) 8%, var(--surface)), var(--surface) 70%);
+}
+.cal-ev-row--scrum .cal-ev-scrum-badge {
+    background: color-mix(in srgb, var(--scrum-color, var(--primary)) 16%, transparent);
+    color: var(--scrum-color, var(--primary));
+    border: 1px solid color-mix(in srgb, var(--scrum-color, var(--primary)) 30%, transparent);
+}
+.cal-ev-row--scrum-daily      { --scrum-color: var(--status-done); }  /* vert — action quotidienne */
+.cal-ev-row--scrum-planning   { --scrum-color: #3b82f6; }  /* bleu — projection */
+.cal-ev-row--scrum-refinement { --scrum-color: #f59e0b; }  /* ambre — analyse */
+.cal-ev-row--scrum-retro      { --scrum-color: #8b5cf6; }  /* violet — réflexion */
+.cal-ev-row--scrum-review     { --scrum-color: #06b6d4; }  /* cyan — démo */
+.cal-ev-title {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-primary);
+    line-height: 1.35;
+    word-break: break-word;
+}
+.cal-ev-desc-btn {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    font-size: 11px;
+    line-height: 1;
+    padding: 1px 3px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.cal-ev-row:hover .cal-ev-desc-btn,
+.cal-ev-desc-btn:focus { opacity: 0.6; }
+.cal-ev-desc-btn:hover { opacity: 1 !important; }
+
+/* Tooltip description événement */
+.cal-desc-tt {
+    position: fixed;
+    width: 280px;
+    max-width: calc(100vw - 16px);
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.14);
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    z-index: 10001;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    left: -9999px;
+    top: -9999px;
+}
+.cal-desc-tt.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+.cal-desc-tt b { font-weight: var(--fw-semibold); color: var(--text); }
+.cal-ev-meta {
+    color: var(--text-muted);
+    margin-top: 3px;
+    font-size: 10px;
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cal-ev-meta--loc {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+.cal-ev-none {
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    text-align: center;
+    padding: var(--sp-4) 0;
+    opacity: 0.4;
+    letter-spacing: 0.05em;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Calendar Reports Section
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.cal-rpt-kpis {
+    display: flex;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-4);
+}
+.cal-rpt-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-2);
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    min-width: 120px;
+}
+.cal-rpt-kpi-label {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+.cal-rpt-kpi-value {
+    font-size: var(--fs-xl);
+    font-weight: var(--fw-bold);
+    color: var(--text-primary);
+}
+.cal-rpt-kpi-sub {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+.cal-rpt-sub-title {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-2);
+}
+.cal-rpt-team-breakdown {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    margin-bottom: var(--sp-4);
+}
+.cal-rpt-team-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-sm);
+}
+.cal-rpt-team-row:last-child {
+    border-bottom: none;
+}
+.cal-rpt-team-name {
+    flex: 1;
+    font-weight: var(--fw-medium);
+}
+.cal-rpt-team-count {
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+}
+.cal-rpt-team-time {
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-xs);
+    min-width: 36px;
+    text-align: right;
+}
+.cal-rpt-week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: var(--sp-2);
+    overflow-x: auto;
+}
+.cal-rpt-day {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-2);
+    background: var(--surface);
+    min-width: 110px;
+}
+.cal-rpt-day--today {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+}
+.cal-rpt-day-hdr {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
+    margin-bottom: var(--sp-2);
+    white-space: nowrap;
+}
+.cal-rpt-day--today .cal-rpt-day-hdr {
+    color: var(--primary);
+}
+.cal-rpt-ev {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: var(--sp-1) var(--sp-2);
+    border-left: 2px solid var(--primary);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    background: var(--surface-2);
+    margin-bottom: var(--sp-1);
+    font-size: var(--fs-xs);
+}
+.cal-rpt-ev-time {
+    color: var(--text-muted);
+}
+.cal-rpt-ev-title {
+    font-weight: var(--fw-semibold);
+    color: var(--text-primary);
+    word-break: break-word;
+}
+.cal-rpt-ev-meta {
+    color: var(--text-muted);
+    font-size: 10px;
+}
+.cal-rpt-ev-none {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    text-align: center;
+    padding: var(--sp-2) 0;
+}
+

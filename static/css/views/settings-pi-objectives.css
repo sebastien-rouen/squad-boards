@@ -1,0 +1,239 @@
+/* VIEW: Settings — PI Objectives BV — extrait de views.css (ordre cascade préservé) */
+/* ══════════════════════════════════════════════════════════════════════════════
+   VIEW: Settings - PI Objectives BV
+   ══════════════════════════════════════════════════════════════════════════════ */
+.pi-obj-section { display: flex; flex-direction: column; gap: var(--sp-2); }
+.pi-obj-hdr { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-1); }
+.pi-obj-title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); margin: 0; }
+
+/* Toolbar (équipe active + bouton save) */
+.pi-offset-notice {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 12px; margin-bottom: var(--sp-3);
+    font-size: 12.5px; color: var(--text-muted);
+    background: color-mix(in srgb, var(--info) 7%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--info) 20%, var(--border));
+    border-radius: var(--r-md);
+}
+.pi-offset-notice--unlocked {
+    background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+    border-color: color-mix(in srgb, var(--warning) 25%, var(--border));
+    color: var(--text);
+}
+.pi-offset-notice strong { color: var(--text); }
+.pi-offset-notice .pi-obj-unlock-btn { margin-left: auto; flex-shrink: 0; }
+.pi-obj-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
+}
+
+/* Liste des lignes */
+#pi-obj-list { display: flex; flex-direction: column; gap: 0; }
+
+/* Groupes par équipe (mode "toutes les équipes") */
+.pi-obj-group { margin-bottom: var(--sp-4); }
+.pi-obj-group:last-child { margin-bottom: 0; }
+.pi-obj-group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-1) var(--sp-2) var(--sp-1) 0;
+    margin-bottom: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.pi-obj-group-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.pi-obj-group-name { flex: 1; }
+.pi-obj-group-count {
+    background: var(--surface-alt, var(--border));
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* Empty state */
+.pi-obj-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-8) var(--sp-4);
+    text-align: center;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface-2, rgba(0,0,0,0.02));
+}
+.pi-obj-empty-icon {
+    width: 32px; height: 32px;
+    color: var(--text-muted);
+    opacity: 0.45;
+}
+.pi-obj-empty-title {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    color: var(--text-secondary);
+    margin: 0;
+}
+.pi-obj-empty-hint {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.pi-obj-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top-width: 0;
+    transition: border-color 0.15s;
+}
+.pi-obj-row:first-child { border-top-width: 1px; border-radius: var(--r-md) var(--r-md) 0 0; }
+.pi-obj-row:last-child  { border-radius: 0 0 var(--r-md) var(--r-md); }
+.pi-obj-row:first-child:last-child { border-top-width: 1px; border-radius: var(--r-md); }
+.pi-obj-row:hover { border-color: var(--primary); z-index: 1; position: relative; }
+.pi-obj-row--new { border-style: dashed; border-color: var(--primary); background: var(--primary-bg); }
+.pi-obj-row--ro { cursor: default; }
+.pi-obj-row--ro:hover { border-color: var(--border); }
+.pi-obj-ro-text { flex: 1; font-size: var(--fs-sm); color: var(--text); }
+.pi-obj-ro-team { font-size: 11px; padding: 1px 6px; }
+.pi-obj-ro-bv { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.pi-obj-ro-committed { font-size: 11px; color: var(--success); font-weight: var(--fw-semibold); }
+.pi-obj-ro-status { font-size: 11px; white-space: nowrap; font-weight: var(--fw-semibold); }
+
+/* Dot de statut */
+.pi-obj-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.pi-obj-text { flex: 1; min-width: 200px; }
+.pi-obj-bv-wrap {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--surface-alt, var(--hover-bg, rgba(0,0,0,.04)));
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 3px 8px;
+    cursor: default;
+}
+.pi-obj-bv {
+    width: 36px !important;
+    padding: 0 2px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text);
+    border: none;
+    background: transparent;
+    -moz-appearance: textfield;
+}
+.pi-obj-bv::-webkit-inner-spin-button,
+.pi-obj-bv::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.pi-obj-committed-wrap { display: flex; align-items: center; gap: 4px; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
+.pi-obj-committed { display: flex; align-items: center; gap: 4px; font-size: var(--fs-xs); white-space: nowrap; }
+
+/* Mini-heatmap capacité PI (#2) */
+.pi-cap-strip {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 6px 0; border-bottom: 1px solid var(--border); margin-bottom: 6px;
+}
+.pi-cap-dot {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 10px 3px 6px;
+    cursor: pointer; font-size: 11px; font-family: inherit;
+    transition: all var(--tr-fast);
+}
+.pi-cap-dot:hover { border-color: var(--tc, var(--primary)); background: var(--bg); transform: translateY(-1px); }
+.pi-cap-dot--active { border-color: var(--tc, var(--primary)); background: color-mix(in srgb, var(--tc, var(--primary)) 8%, var(--surface)); }
+.pi-cap-dot-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.pi-cap-dot-name { font-weight: var(--fw-medium); color: var(--text); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pi-cap-dot-val { color: var(--dot, var(--text-muted)); font-size: 10px; white-space: nowrap; }
+
+/* État vide illustré PI Planning (#6) */
+.pi-empty-state {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 48px 24px; text-align: center;
+    background: var(--surface); border: 1px dashed var(--border); border-radius: var(--r-xl);
+    margin-top: var(--sp-3);
+}
+.pi-empty-icon { font-size: 40px; line-height: 1; }
+.pi-empty-title { margin: 0; font-size: var(--fs-base); font-weight: var(--fw-semibold); color: var(--text); }
+.pi-empty-hint { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); max-width: 420px; }
+
+/* Jauge globale objectifs (#5) */
+.pi-obj-gauge {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: 8px 14px; margin-bottom: var(--sp-2);
+}
+.pi-obj-gauge-lbl { font-size: var(--fs-xs); color: var(--text-muted); white-space: nowrap; }
+.pi-obj-gauge-bar {
+    flex: 1; height: 8px; background: var(--bg-alt);
+    border-radius: 99px; overflow: hidden;
+}
+.pi-obj-gauge-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+.pi-obj-gauge-pct { font-size: var(--fs-xs); font-weight: var(--fw-semibold); white-space: nowrap; }
+
+/* Barre de progression rollup par objectif (#5) */
+.pi-obj-prog {
+    display: flex; align-items: center; gap: 5px;
+    flex-shrink: 0; min-width: 90px;
+}
+.pi-obj-prog-bar {
+    flex: 1; height: 5px; background: var(--bg-alt);
+    border-radius: 99px; overflow: hidden; min-width: 50px;
+}
+.pi-obj-prog-bar span { display: block; height: 100%; border-radius: 99px; transition: width 0.3s; }
+.pi-obj-prog-val { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+
+/* Barre compacte dans l'en-tête de groupe (#5) */
+.pi-obj-team-prog { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+.pi-obj-prog-bar--sm { min-width: 36px; height: 4px; }
+.pi-obj-prog-val--sm { font-size: 10px; color: var(--text-muted); }
+
+/* Header groupe objectifs enrichi */
+.pi-obj-group-header { display: flex; align-items: center; gap: 8px; }
+
+.pi-obj-add-row {
+    display: flex;
+    margin-top: var(--sp-3);
+}
+#pi-obj-add {
+    width: 100%;
+    padding: var(--sp-2) var(--sp-3);
+    font-size: var(--fs-sm);
+    border: 2px dashed var(--border);
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+#pi-obj-add:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-bg);
+}
+

@@ -8,7 +8,7 @@ import {
     esc, fmtDate, fmtRelative, toast, deriveMembersFromAbsences, generateSupportRotation,
     buildSupportPiWeeks, SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
     isMemberSupportActive, setMemberSupportActive, getInactiveSupportMembers,
-    friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi,
+    friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi, promptModal,
 } from '../utils.js';
 import { makePersonPicker } from '../components/modal.js';
 
@@ -254,6 +254,12 @@ export function renderSettings(container) {
     const absences = store.get('absences') || [];
     // Pour la rotation support : on dérive depuis les absences (CSV RH = vérité)
     const rotMembers = deriveMembersFromAbsences(absences, members);
+    // Si un groupe est sélectionné dans le topbar, restreindre la rotation à ses équipes
+    const _selGroupId  = store.get('group') || null;
+    const _selGroup    = _selGroupId ? groups.find(g => g.id === _selGroupId) : null;
+    const rotTeamNames = (_selGroup?.teams?.length)
+        ? teamNames.filter(t => _selGroup.teams.includes(t))
+        : teamNames;
     const support = store.get('support') || [];
     const tickets = store.get('tickets') || [];
     const events = store.get('events') || [];
@@ -343,22 +349,43 @@ export function renderSettings(container) {
                         <button class="btn btn-sm btn-primary" id="btn-create-groups-from-jira">Creer les groupes</button>
                     </div>`;
                 })()}
-                <div class="item-list" id="group-list">
-                    ${groups.length ? groups.map(g => `
-                        <div class="item-row" data-id="${esc(g.id)}">
-                            <span class="team-dot" style="background:${g.color}"></span>
-                            <span class="item-name">${esc(g.name)}</span>
-                            <span class="item-meta">${(g.teams || []).map(t => esc(t)).join(', ') || 'aucune equipe'}</span>
-                            <div class="item-actions">
-                                <button class="btn-icon btn-edit-group" data-id="${esc(g.id)}" title="Modifier"><svg class="icon icon-sm"><use href="#i-settings"/></svg></button>
-                                <button class="btn-icon btn-del-group" data-id="${esc(g.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
+                <div class="grp-cards" id="group-list">
+                    ${groups.length ? groups.map(g => {
+                        const n = (g.teams || []).length;
+                        const avail = teamNames.filter(t => !(g.teams || []).includes(t));
+                        return `
+                        <div class="grp-card" data-gid="${esc(g.id)}">
+                            <div class="grp-card-hdr">
+                                <input type="color" value="${esc(g.color || '#64748b')}" class="input-color-swatch grp-color-input" data-gid="${esc(g.id)}" title="Couleur du groupe">
+                                <input type="text" class="grp-name-input" value="${esc(g.name)}" data-gid="${esc(g.id)}" data-orig="${esc(g.name)}" title="Cliquer pour renommer — Entrée ou perte de focus pour sauvegarder">
+                                <span class="grp-count text-xs text-muted">${n} équipe${n !== 1 ? 's' : ''}</span>
+                                <button class="btn-icon btn-del-group" data-id="${esc(g.id)}" title="Supprimer ce groupe" style="margin-left:auto">
+                                    <svg class="icon icon-sm text-danger"><use href="#i-x"/></svg>
+                                </button>
                             </div>
-                        </div>
-                    `).join('') : `<p class="text-muted" style="font-size:var(--fs-sm);padding:var(--sp-2) 0">Aucun groupe — utilisez la suggestion ci-dessus ou ajoutez manuellement.</p>`}
+                            <div class="grp-chips-row">
+                                ${(g.teams || []).map(t => `
+                                    <span class="grp-team-chip">
+                                        <span class="grp-chip-name">${esc(t)}</span>
+                                        <span class="grp-chip-btns">
+                                            <button type="button" class="grp-chip-move" data-team="${esc(t)}" data-from="${esc(g.id)}" title="Déplacer vers un autre groupe">⇄</button>
+                                            <button type="button" class="grp-chip-rm" data-team="${esc(t)}" data-gid="${esc(g.id)}" title="Retirer de ce groupe">✕</button>
+                                        </span>
+                                    </span>
+                                `).join('')}
+                                ${avail.length ? `
+                                <select class="grp-add-sel" data-gid="${esc(g.id)}" title="Ajouter une équipe dans ce groupe">
+                                    <option value="">+ Ajouter une équipe…</option>
+                                    ${avail.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}
+                                </select>` : ''}
+                                ${!n ? `<span class="text-xs text-muted" style="font-style:italic">Aucune équipe</span>` : ''}
+                            </div>
+                        </div>`;
+                    }).join('') : `<p class="text-muted" style="font-size:var(--fs-sm);padding:var(--sp-2) 0">Aucun groupe — utilisez la suggestion ci-dessus ou ajoutez manuellement.</p>`}
                 </div>
                 <div class="add-inline mt-2">
-                    <input class="input" id="new-group-name" placeholder="Nom du groupe">
-                    <input class="input" id="new-group-teams" placeholder="Equipes (Alpha, Beta)" style="flex:2;">
+                    <input class="input" id="new-group-name" placeholder="Nom du nouveau groupe">
+                    <input class="input" id="new-group-teams" placeholder="Équipes (Alpha, Beta)" style="flex:2;">
                     <button class="btn btn-primary btn-sm" id="btn-add-group">Ajouter</button>
                 </div>
             </div>
@@ -788,9 +815,19 @@ export function renderSettings(container) {
 
                 <hr class="hr-section">
 
+                ${_selGroup ? `
+                <div class="rot-group-bar" id="rot-group-bar">
+                    <span class="text-xs text-muted">Groupe <strong>${esc(_selGroup.name)}</strong> — ${rotTeamNames.length} équipe${rotTeamNames.length !== 1 ? 's' : ''}</span>
+                    <button type="button" class="btn btn-sm btn-secondary" id="btn-shuffle-group"
+                            title="Génère automatiquement la rotation pour toutes les équipes du groupe en une seule fois">
+                        🎲 Shuffle toutes les équipes du groupe
+                    </button>
+                </div>
+                ` : ''}
+
                 <!-- Per-team rotation grid panels -->
                 <div id="rot-panels" class="mb-4">
-                    ${_rotPanelsHtml(teamNames, teams, support, rotMembers, absences)}
+                    ${_rotPanelsHtml(rotTeamNames, teams, support, rotMembers, absences)}
                 </div>
             </div>
         </div>
@@ -1059,6 +1096,16 @@ export function renderSettings(container) {
                         </div>`;
                     }).join('')}
                 </div>
+                <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
+                <p class="text-sm font-semibold mb-1">Backlog — tickets potentiellement périmés</p>
+                <p class="text-xs text-muted mb-3">Affiche un séparateur dans le Backlog pour les tickets non mis à jour depuis plus de X mois, pour se poser la question de leur pertinence.</p>
+                <div class="flex gap-2 items-center">
+                    <label class="label" style="margin:0;white-space:nowrap">Seuil :</label>
+                    <input type="number" class="input" id="bl-stale-months-input"
+                           value="${parseInt(localStorage.getItem('sb-backlog-stale-months') || '3', 10) || 3}"
+                           min="1" max="24" step="1" style="width:72px">
+                    <span class="text-xs text-muted">mois</span>
+                </div>
             </div>
         </div>`;
         })()}
@@ -1241,6 +1288,13 @@ export function renderSettings(container) {
                     <label class="btn btn-secondary" style="cursor:pointer;display:inline-flex;">Importer (JSON)<input type="file" accept=".json" id="btn-import-file" style="display:none;"></label>
                     <button class="btn btn-danger" id="btn-clear">Tout supprimer</button>
                 </div>
+                <hr class="mt-4 mb-4" style="border-color:var(--border)">
+                <div>
+                    <p class="text-sm font-semibold mb-1">Jeu de données démo</p>
+                    <p class="text-xs text-muted mb-3">Charge un scénario SAFe complet : 4 équipes fictives (Vega, Lyra, Orion, Sirius), PI#5 sprint 3 en cours, 56 tickets, features, epics, objectifs PI, rotations support, absences, risques ROAM, compétences Atlas. <strong>Remplace toutes les données existantes.</strong></p>
+                    <button class="btn btn-primary" id="btn-seed-demo">🎬 Charger la démo complète</button>
+                    <span id="seed-demo-status" class="text-xs text-muted ml-3" style="display:none"></span>
+                </div>
             </div>
         </div>
 
@@ -1319,31 +1373,174 @@ export function renderSettings(container) {
         } catch (e) { toast(e.message, 'error'); }
     });
 
-    container.querySelectorAll('.btn-edit-group').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const g = groups.find(x => x.id === btn.dataset.id);
+    // ── Groups : helper loader par carte ────────────────────────────────────
+    const _grpSetSaving = (card, on) => {
+        if (!card) return;
+        card.classList.toggle('grp-card--saving', on);
+    };
+
+    // ── Groups : renommer inline ─────────────────────────────────────────────
+    container.querySelectorAll('.grp-name-input').forEach(inp => {
+        const save = async () => {
+            const newName = inp.value.trim();
+            if (!newName || newName === inp.dataset.orig) return;
+            const g    = (store.get('groups') || []).find(x => x.id === inp.dataset.gid);
             if (!g) return;
-            const name = prompt('Nom:', g.name);
-            if (name === null) return;
-            const teamsStr = prompt('Equipes (separees par virgule):', (g.teams || []).join(', '));
-            if (teamsStr === null) return;
-            const color = prompt('Couleur (hex):', g.color);
+            const card = inp.closest('.grp-card');
+            _grpSetSaving(card, true);
             try {
-                await api.updateGroup(g.id, {
-                    name: name || g.name,
-                    teams: teamsStr.split(',').map(t => t.trim()).filter(Boolean),
-                    color: color || g.color,
-                });
-                toast('Groupe mis a jour', 'success');
+                await api.updateGroup(g.id, { name: newName, teams: g.teams, color: g.color });
+                inp.dataset.orig = newName;
+                toast('Groupe renommé', 'success');
                 await reloadAndRender(container);
-            } catch (e) { toast(e.message, 'error'); }
+            } catch (e) {
+                inp.value = inp.dataset.orig;
+                toast(e.message, 'error');
+            } finally { _grpSetSaving(card, false); }
+        };
+        inp.addEventListener('blur', save);
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+    });
+
+    // ── Groups : couleur inline ──────────────────────────────────────────────
+    container.querySelectorAll('.grp-color-input').forEach(inp => {
+        inp.addEventListener('change', async () => {
+            const g    = (store.get('groups') || []).find(x => x.id === inp.dataset.gid);
+            if (!g) return;
+            const card = inp.closest('.grp-card');
+            _grpSetSaving(card, true);
+            try {
+                await api.updateGroup(g.id, { name: g.name, teams: g.teams, color: inp.value });
+                await reloadAndRender(container);
+            } catch (e) {
+                toast(e.message, 'error');
+            } finally { _grpSetSaving(card, false); }
         });
     });
+
+    // ── Groups : retirer une équipe ──────────────────────────────────────────
+    container.querySelectorAll('.grp-chip-rm').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const team = btn.dataset.team;
+            const g    = (store.get('groups') || []).find(x => x.id === btn.dataset.gid);
+            if (!g) return;
+            const card = btn.closest('.grp-card');
+            _grpSetSaving(card, true);
+            try {
+                await api.updateGroup(g.id, { name: g.name, color: g.color, teams: (g.teams || []).filter(t => t !== team) });
+                await reloadAndRender(container);
+            } catch (e) {
+                toast(e.message, 'error');
+            } finally { _grpSetSaving(card, false); }
+        });
+    });
+
+    // ── Groups : ajouter une équipe ──────────────────────────────────────────
+    container.querySelectorAll('.grp-add-sel').forEach(sel => {
+        sel.addEventListener('change', async () => {
+            const team = sel.value;
+            if (!team) return;
+            sel.value = '';
+            const g    = (store.get('groups') || []).find(x => x.id === sel.dataset.gid);
+            if (!g) return;
+            const card = sel.closest('.grp-card');
+            _grpSetSaving(card, true);
+            try {
+                await api.updateGroup(g.id, { name: g.name, color: g.color, teams: [...(g.teams || []), team] });
+                await reloadAndRender(container);
+            } catch (e) {
+                toast(e.message, 'error');
+            } finally { _grpSetSaving(card, false); }
+        });
+    });
+
+    // ── Groups : déplacer une équipe (popover) ───────────────────────────────
+    {
+        const pop = document.createElement('div');
+        pop.className = 'grp-move-popover';
+        pop.style.display = 'none';
+        pop.style.position = 'fixed';
+        document.body.appendChild(pop);
+
+        let _activeMoveBtn = null;
+        const closePopover = () => {
+            pop.style.display = 'none';
+            _activeMoveBtn = null;
+        };
+        document.addEventListener('mousedown', e => {
+            if (!pop.contains(e.target) && e.target !== _activeMoveBtn) closePopover();
+        }, true);
+
+        container.querySelectorAll('.grp-chip-move').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                if (_activeMoveBtn === btn) { closePopover(); return; }
+                _activeMoveBtn = btn;
+
+                const team    = btn.dataset.team;
+                const fromId  = btn.dataset.from;
+                const allGrps = store.get('groups') || [];
+                const targets = allGrps.filter(g => g.id !== fromId);
+
+                pop.innerHTML = targets.length
+                    ? `<div class="grp-move-popover-label">Déplacer <strong>${esc(team)}</strong> vers :</div>
+                       ${targets.map(g => `
+                           <button type="button" class="grp-move-popover-item" data-target="${esc(g.id)}" data-team="${esc(team)}" data-from="${esc(fromId)}">
+                               <span style="width:8px;height:8px;border-radius:50%;background:${g.color};display:inline-block;flex-shrink:0"></span>
+                               ${esc(g.name)}
+                           </button>`).join('')}`
+                    : `<span class="grp-move-popover-empty">Aucun autre groupe disponible.</span>`;
+
+                const rect = btn.getBoundingClientRect();
+                pop.style.top  = `${rect.bottom + 4}px`;
+                pop.style.left = `${rect.left}px`;
+                pop.style.display = 'flex';
+
+                pop.querySelectorAll('.grp-move-popover-item').forEach(item => {
+                    item.addEventListener('click', async () => {
+                        closePopover();
+                        const tTeam   = item.dataset.team;
+                        const fromGrp = allGrps.find(g => g.id === item.dataset.from);
+                        const toGrp   = allGrps.find(g => g.id === item.dataset.target);
+                        if (!fromGrp || !toGrp) return;
+                        // Loader sur la carte source
+                        const srcCard = container.querySelector(`.grp-card[data-gid="${CSS.escape(fromGrp.id)}"]`);
+                        const dstCard = container.querySelector(`.grp-card[data-gid="${CSS.escape(toGrp.id)}"]`);
+                        _grpSetSaving(srcCard, true);
+                        _grpSetSaving(dstCard, true);
+                        try {
+                            await api.updateGroup(fromGrp.id, { name: fromGrp.name, color: fromGrp.color, teams: (fromGrp.teams || []).filter(t => t !== tTeam) });
+                            await api.updateGroup(toGrp.id,   { name: toGrp.name,   color: toGrp.color,   teams: [...(toGrp.teams || []), tTeam] });
+                            toast(`${tTeam} déplacée vers ${toGrp.name}`, 'success');
+                            await reloadAndRender(container);
+                        } catch (err) {
+                            toast(err.message, 'error');
+                        } finally {
+                            _grpSetSaving(srcCard, false);
+                            _grpSetSaving(dstCard, false);
+                        }
+                    });
+                });
+
+                requestAnimationFrame(() => {
+                    const pr = pop.getBoundingClientRect();
+                    if (pr.right > window.innerWidth) pop.style.left = `${window.innerWidth - pr.width - 8}px`;
+                });
+            });
+        });
+    }
 
     container.querySelectorAll('.btn-del-group').forEach(btn => {
         btn.addEventListener('click', async () => {
             if (!confirm('Supprimer ce groupe ?')) return;
-            try { await api.deleteGroup(btn.dataset.id); await reloadAndRender(container); } catch (e) { toast(e.message, 'error'); }
+            const card = btn.closest('.grp-card');
+            _grpSetSaving(card, true);
+            try {
+                await api.deleteGroup(btn.dataset.id);
+                await reloadAndRender(container);
+            } catch (e) {
+                toast(e.message, 'error');
+            } finally { _grpSetSaving(card, false); }
         });
     });
 
@@ -2136,6 +2333,37 @@ export function renderSettings(container) {
         } catch (e) { toast(e.message, 'error'); }
     });
 
+    // Shuffle groupe — apparaît uniquement si un groupe est sélectionné dans le topbar
+    container.querySelector('#btn-shuffle-group')?.addEventListener('click', async () => {
+        const btn        = container.querySelector('#btn-shuffle-group');
+        const selGroupId = store.get('group') || null;
+        const selGroup   = selGroupId ? (store.get('groups') || []).find(g => g.id === selGroupId) : null;
+        const allTeams   = store.get('teams') || [];
+        const teamsInGrp = (selGroup?.teams?.length)
+            ? allTeams.filter(t => selGroup.teams.includes(t))
+            : [];
+        if (!teamsInGrp.length) { toast('Aucune équipe dans ce groupe', 'warning'); return; }
+
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Génération…'; }
+        let ok = 0, skipped = 0, totalPreserved = 0;
+        for (const teamName of teamsInGrp) {
+            try {
+                const result = await _shuffleOneTeam(teamName);
+                if (result.ok) { ok++; totalPreserved += result.preserved || 0; }
+                else           { skipped++; toast(`${teamName} : ${result.reason}`, 'warning'); }
+            } catch (e) { skipped++; toast(`${teamName} : ${e.message}`, 'error'); }
+        }
+        if (btn) { btn.disabled = false; btn.textContent = '🎲 Shuffle toutes les équipes du groupe'; }
+
+        if (ok > 0) {
+            const msg = totalPreserved
+                ? `Rotation générée pour ${ok} équipe${ok > 1 ? 's' : ''} (${totalPreserved} semaine${totalPreserved > 1 ? 's' : ''} préservée${totalPreserved > 1 ? 's' : ''})`
+                : `Rotation générée pour ${ok} équipe${ok > 1 ? 's' : ''}`;
+            toast(msg + (skipped ? ` — ${skipped} ignorée${skipped > 1 ? 's' : ''}` : ''), 'success');
+            await _rotRefreshPanels(container);
+        }
+    });
+
     // ── Sprint ────────────────────────────────────────────────────────────────
     // Helper : remplit le formulaire sprint depuis une pill
     const _fillSprintForm = (pill) => {
@@ -2686,6 +2914,14 @@ export function renderSettings(container) {
         });
     });
 
+    // Backlog stale threshold
+    container.querySelector('#bl-stale-months-input')?.addEventListener('change', e => {
+        const val = Math.max(1, parseInt(e.target.value) || 3);
+        e.target.value = val;
+        localStorage.setItem('sb-backlog-stale-months', String(val));
+        toast('Seuil périmés sauvegardé', 'success');
+    });
+
     // ── Data ──────────────────────────────────────────────────────────────────
     container.querySelector('#btn-export')?.addEventListener('click', async () => {
         try {
@@ -2716,6 +2952,25 @@ export function renderSettings(container) {
             await reloadAndRender(container);
             toast('Données supprimées', 'info');
         } catch (e) { toast(e.message, 'error'); }
+    });
+
+    container.querySelector('#btn-seed-demo')?.addEventListener('click', async () => {
+        if (!confirm('Charger la démo complète ? Toutes les données actuelles seront remplacées.')) return;
+        const btn    = container.querySelector('#btn-seed-demo');
+        const status = container.querySelector('#seed-demo-status');
+        btn.disabled = true;
+        status.style.display = '';
+        try {
+            const { seedFullDemoData } = await import('../demo.js');
+            await seedFullDemoData((msg) => { status.textContent = msg; });
+            await reloadAndRender(container);
+            toast('Démo chargée avec succès !', 'success', 4000);
+        } catch (e) {
+            toast(`Erreur : ${e.message}`, 'error');
+        } finally {
+            btn.disabled = false;
+            status.style.display = 'none';
+        }
     });
 
     // Préremplissage selon l'équipe active selon la section cible
@@ -2756,8 +3011,8 @@ export function renderSettings(container) {
     }
 
     // Activation du système de tabs (post-render — slugify titres + nav + display switch)
+    store.set('settingsSection', null);   // consommé par _settingsApplyTabs (lit depuis location.hash ensuite)
     _settingsApplyTabs(container);
-    store.set('settingsSection', null);   // consommé par _settingsApplyTabs
 }
 
 // ── Système de tabs Settings ────────────────────────────────────────────────
@@ -2901,13 +3156,51 @@ async function _rotRefreshPanels(container) {
 function _rotRenderPanels(container, support) {
     const panelsEl = container.querySelector('#rot-panels');
     if (!panelsEl) return;
-    const teamNames   = store.get('teams') || [];
-    const teamObjects = store.get('teamObjects') || [];
-    const absences    = store.get('absences') || [];
-    // Rotation support → membres dérivés des absences (source de vérité CSV RH)
-    const rotMembers  = deriveMembersFromAbsences(absences, store.get('members') || []);
+    const allTeamNames = store.get('teams') || [];
+    const teamObjects  = store.get('teamObjects') || [];
+    const absences     = store.get('absences') || [];
+    const rotMembers   = deriveMembersFromAbsences(absences, store.get('members') || []);
+    // Respecter le filtre groupe du topbar
+    const selGroupId  = store.get('group') || null;
+    const selGroup    = selGroupId ? (store.get('groups') || []).find(g => g.id === selGroupId) : null;
+    const teamNames   = (selGroup?.teams?.length)
+        ? allTeamNames.filter(t => selGroup.teams.includes(t))
+        : allTeamNames;
     panelsEl.innerHTML = _rotPanelsHtml(teamNames, teamObjects, support, rotMembers, absences);
     _rotWirePanelEvents(container);
+}
+
+/**
+ * Génère et enregistre la rotation pour une équipe.
+ * Renvoie { ok, weeks, preserved } ou { ok: false, reason }.
+ * Partagé entre le shuffle par équipe et le shuffle de groupe.
+ */
+async function _shuffleOneTeam(teamName) {
+    const absences    = store.get('absences') || [];
+    const allMembers  = deriveMembersFromAbsences(absences, store.get('members') || []);
+    const _norm = s => (s || '').toLowerCase().trim();
+    const target = _norm(teamName);
+    const teamMembers = allMembers
+        .filter(m => { const t = _norm(m.team); return t === target || (target && t && (t.includes(target) || target.includes(t))); })
+        .map(m => m.name);
+    if (!teamMembers.length) return { ok: false, reason: `Aucun membre rattaché à "${teamName}"` };
+    const activeMembers = teamMembers.filter(isMemberSupportActive);
+    if (!activeMembers.length) return { ok: false, reason: `Tous les membres de "${teamName}" sont inactifs pour le support` };
+    const mpw      = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
+    const teamMode = getSupportWeekMode(teamName);
+    const { curWeeks, nextWeeks } = _rotBuildPiWeeks(teamName);
+    const weeks = _rotPiOff() > 0 ? nextWeeks : curWeeks;
+    const existingSupport = (store.get('support') || []).filter(s => s.team === teamName);
+    const rotations = generateSupportRotation({
+        team: teamName, weeks, memberNames: activeMembers, absences, existingSupport,
+        membersPerWeek: mpw, weekMode: teamMode,
+    });
+    await api.bulkCreateSupport(teamName, rotations);
+    return {
+        ok: true,
+        weeks: weeks.length,
+        preserved: rotations.filter(r => r._autoLocked || r.locked).length,
+    };
 }
 
 /** Câble tous les handlers data-rot-* sur les panneaux dans container */
@@ -3014,51 +3307,18 @@ function _rotWirePanelEvents(container) {
     // Shuffle (génération automatique) — règles métier centralisées dans utils.generateSupportRotation
     container.querySelectorAll('[data-rot-shuffle]').forEach(btn => {
         btn.addEventListener('click', async () => {
-            const team        = btn.dataset.rotShuffle;
-            const mpw         = parseInt(localStorage.getItem(`rot-mpw-${team}`)) || 2;
-            const absences    = store.get('absences') || [];
-            const allMembers  = deriveMembersFromAbsences(absences, store.get('members') || []);
-            // Match tolérant (gère "Fuego" vs "GCOM - Fuego" / casse / espace) — cohérent avec support.js
-            const _norm = s => (s || '').toLowerCase().trim();
-            const target = _norm(team);
-            const teamMembers = allMembers
-                .filter(m => {
-                    const t = _norm(m.team);
-                    return t === target || (target && t && (t.includes(target) || target.includes(t)));
-                })
-                .map(m => m.name);
-            if (!teamMembers.length) {
-                const known = [...new Set(allMembers.map(m => m.team).filter(Boolean))].sort();
-                const hint = known.length
-                    ? `Équipes vues en base : ${known.slice(0, 6).join(', ')}${known.length > 6 ? '…' : ''}`
-                    : 'Importe d\'abord le CSV RH.';
-                toast(`Aucun membre rattaché à "${team}". ${hint}`, 'warning');
-                return;
-            }
-            // Filtrage des membres marqués inactifs (rôles non éligibles support)
-            const activeMembers = teamMembers.filter(isMemberSupportActive);
-            if (!activeMembers.length) {
-                toast(`Tous les membres de ${team} sont marqués inactifs pour le support.`, 'warning');
-                return;
-            }
-            const teamMode = getSupportWeekMode(team);
-            const { curWeeks, nextWeeks } = _rotBuildPiWeeks(team);
-            // Le shuffle régénère le PI affiché (courant par défaut, suivant si switch activé pour la session)
-            const weeks  = _rotShowNext ? nextWeeks : curWeeks;
-            const existingSupport = (store.get('support') || []).filter(s => s.team === team);
-            const rotations = generateSupportRotation({
-                team, weeks, memberNames: activeMembers, absences, existingSupport,
-                membersPerWeek: mpw, weekMode: teamMode,
-            });
+            const team = btn.dataset.rotShuffle;
+            btn.disabled = true;
             try {
-                await api.bulkCreateSupport(team, rotations);
-                const preserved = rotations.filter(r => r._autoLocked || r.locked).length;
-                const msg = preserved
-                    ? `Rotation generee pour ${team} (${weeks.length} sem., ${preserved} preservees)`
-                    : `Rotation generee pour ${team} (${weeks.length} semaines)`;
+                const result = await _shuffleOneTeam(team);
+                if (!result.ok) { toast(result.reason, 'warning'); return; }
+                const msg = result.preserved
+                    ? `Rotation générée pour ${team} (${result.weeks} sem., ${result.preserved} préservées)`
+                    : `Rotation générée pour ${team} (${result.weeks} semaines)`;
                 toast(msg, 'success');
                 await _rotRefreshPanels(container);
             } catch (e) { toast(e.message, 'error'); }
+            finally { btn.disabled = false; }
         });
     });
 
@@ -3088,13 +3348,17 @@ function _rotWirePanelEvents(container) {
                 .catch(() => toast('Copie impossible', 'error'));
         });
         // Clic droit → personnaliser le libellé du rôle (ex: "Support N3 OPS")
-        btn.addEventListener('contextmenu', e => {
+        btn.addEventListener('contextmenu', async e => {
             e.preventDefault(); e.stopPropagation();
             const team = btn.dataset.rotCopy;
             const cur = localStorage.getItem(`rot-label-${team}`) || 'Support N3 OPS';
-            const next = prompt(`Libellé du support pour ${team} :`, cur);
+            const next = await promptModal(`Libellé du support — ${team}`, {
+                value: cur,
+                placeholder: 'Support N3 OPS',
+                confirmLabel: 'Enregistrer',
+            });
             if (next !== null) {
-                localStorage.setItem(`rot-label-${team}`, next.trim() || 'Support N3 OPS');
+                localStorage.setItem(`rot-label-${team}`, next || 'Support N3 OPS');
                 toast('Libellé mis à jour — utilisé dans le message copié', 'success');
             }
         });
@@ -3169,12 +3433,14 @@ function _rotBuildCopyMessage(teamName) {
         return `${d}/${m}/${y}`;
     };
 
-    const lines = [`🟣 ${roleLabel} [PI${selectedPiNum || '?'}]`, ''];
+    // "@Prenom NOM" — premier mot tel quel, reste en MAJUSCULES
+    const _sn = n => { const nm = _fmtMemberName(n); const p = nm.trim().split(/\s+/); return p.length < 2 ? `@${nm}` : `@${p[0]} ${p.slice(1).join(' ').toUpperCase()}`; };
+
+    const lines = [`🎧 *${roleLabel} — PI${selectedPiNum || '?'}*`, ''];
     for (const w of selectedWeeks) {
         const entry = support.find(s => s.weekStart === w.weekStart);
-        const members = (entry?.members || []).map(m => `@${_fmtMemberName(m)}`).join(' ');
-        lines.push(`* 🟦 Itération ${w.label} (${_fmtDate(w.weekStart)} au ${_fmtDate(w.weekEnd)})`);
-        lines.push(`    * ${members || '—'}`);
+        const members = (entry?.members || []).map(_sn).join(', ');
+        lines.push(`  • ${w.label} (${_fmtDate(w.weekStart)} → ${_fmtDate(w.weekEnd)}) : ${members || '—'}`);
     }
     return lines.join('\n');
 }
@@ -3260,6 +3526,29 @@ function _rotBuildPiWeeks(team = null) {
     };
 
     const base      = buildSupportPiWeeks(piInfo, sprintInfo, mode);
+
+    // buildSupportPiWeeks uses a single sprintCnt for both curWeeks and nextWeeks.
+    // If the next PI has more sprints (e.g. PI 30 has 6 vs PI 29's 5), nextWeeks is
+    // truncated. Detect and fix before returning or using nextWeeks.
+    {
+        const _nextPi = base.nextPiNum;
+        const nextSprintCnt = _nextPi ? _detectSprintsPerPI(_nextPi, baseSprintsCnt) : baseSprintsCnt;
+        if (_nextPi && nextSprintCnt > baseSprintsCnt && base.nextWeeks.length > 0) {
+            const _sdur = piInfo?.sprintDuration || 14;
+            const _wps  = Math.max(1, Math.floor(_sdur / 7));
+            const _fmt  = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+            const _ad   = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _fmt(d); };
+            const nextStart = base.nextWeeks[0].weekStart;
+            const fixed = [];
+            for (let s = 0; s < nextSprintCnt; s++)
+                for (let w = 0; w < _wps; w++) {
+                    const ws = _ad(nextStart, s * _sdur + w * 7);
+                    fixed.push({ label: `${_nextPi}.${s+1}.${w+1}`, weekStart: ws, weekEnd: _ad(ws, 6) });
+                }
+            base.nextWeeks = fixed;
+        }
+    }
+
     if (_rotPiOff() === 0) return { ...base, selectedWeeks: base.curWeeks, selectedPiNum: base.curPiNum };
 
     // Calcule les semaines pour le PI sélectionné via l'offset

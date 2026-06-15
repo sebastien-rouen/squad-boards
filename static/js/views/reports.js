@@ -3,7 +3,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast } from '../utils.js';
+import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 import { renderPIVelocityChart, renderStatusChart, renderTypeChart, renderBurndown, renderBurnup, renderCycleTime, renderWIPAge } from '../components/charts.js';
 import { FIST_SCALE, slackToEmoji, buildMoodSlackRaw, buildFistSlackRaw } from '../components/sondage.js';
@@ -23,14 +23,29 @@ export function renderReports(container) {
     const absences = store.get('absences') || [];
     const support = store.get('support') || [];
 
-    const total = tickets.length;
-    const done = tickets.filter(t => t.status === 'done').length;
-    const totalPts = sumBy(tickets, t => t.points);
-    const donePts = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
-    const statusCounts = {};
-    for (const t of tickets) statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
+    const piOffset = store.get('piOffset') || 0;
+    const _basePiNum = getCurrentPi({ sprintInfo, piInfo });
+    const displayPiNum = _basePiNum ? Math.max(1, _basePiNum + piOffset) : (piInfo?.number || 0);
+    const _isCurrentPi = piOffset === 0;
 
-    const _piNum      = piInfo?.number || '';
+    // Scope des tickets selon le PI sélectionné
+    const _piNumFilter = t => {
+        const s = String(t.sprintName || t.piSprint || '');
+        const m = s.match(/(\d+)\.\d+/) || s.match(/PI\s*#?\s*(\d+)/i);
+        return m ? parseInt(m[1], 10) : 0;
+    };
+    const displayTickets = (_isCurrentPi || !displayPiNum)
+        ? tickets
+        : tickets.filter(t => _piNumFilter(t) === displayPiNum);
+
+    const total = displayTickets.length;
+    const done = displayTickets.filter(t => t.status === 'done').length;
+    const totalPts = sumBy(displayTickets, t => t.points);
+    const donePts = sumBy(displayTickets.filter(t => t.status === 'done'), t => t.points);
+    const statusCounts = {};
+    for (const t of displayTickets) statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
+
+    const _piNum      = String(displayPiNum || piInfo?.number || '');
     const _sprintsCnt = piInfo?.sprintsPerPI || 5;
     const _piLabels   = _piNum ? Array.from({ length: _sprintsCnt }, (_, i) => `${_piNum}.${i + 1}`) : [];
     const _curPiSprint = _parseSprintName(sprintInfo?.name || '').piSprint;
@@ -65,15 +80,15 @@ export function renderReports(container) {
     });
 
     const typeCounts  = {};
-    for (const t of tickets) typeCounts[t.type] = (typeCounts[t.type] || 0) + 1;
+    for (const t of displayTickets) typeCounts[t.type] = (typeCounts[t.type] || 0) + 1;
     const sprintCtx   = { startDate: sprintInfo?.startDate || new Date(Date.now() - 8 * 86400000).toISOString(), durationDays: sprintInfo?.durationDays || 14 };
     const events      = store.get('events') || [];
-    const blocked     = tickets.filter(t => t.status === 'blocked').length;
-    const bufferPts   = sumBy(tickets.filter(_isBuffer), t => t.points);
+    const blocked     = displayTickets.filter(t => t.status === 'blocked').length;
+    const bufferPts   = sumBy(displayTickets.filter(_isBuffer), t => t.points);
     const bufPct      = pct(bufferPts, totalPts);
     const daysLeft    = sprintInfo?.endDate ? Math.max(0, Math.round((new Date(sprintInfo.endDate) - Date.now()) / 86_400_000)) : null;
 
-    const ctx = { tickets, features, sprintInfo, teams, team, piInfo, absences, support, statusCounts, total, done, totalPts, donePts };
+    const ctx = { tickets: displayTickets, features, sprintInfo, teams, team, piInfo, absences, support, statusCounts, total, done, totalPts, donePts };
     const dLeft = _dLeft(sprintInfo?.endDate);
 
     const sections = [

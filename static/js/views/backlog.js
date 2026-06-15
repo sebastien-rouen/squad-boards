@@ -266,9 +266,18 @@ export function renderBacklog(container) {
     const epicMap     = new Map(allEpics.map(e => [e.id, e]));
     const featureMap  = new Map(allFeatures.map(f => [f.id, f]));
 
-    // Sprints futurs connus (peuvent être vides de tickets)
-    const futureSprints  = (sprintInfo.teamSprints || [])
-        .filter(s => s.state === 'future' && s.name)
+    // Sprints futurs connus — filtrés par la même sélection d'équipe que les tickets
+    const _groupId      = store.get('group');
+    const _groupTeams   = _groupId
+        ? ((store.get('groups') || []).find(g => g.id === _groupId)?.teams || [])
+        : [];
+    const futureSprints = (sprintInfo.teamSprints || [])
+        .filter(s => {
+            if (s.state !== 'future' || !s.name) return false;
+            if (teamFilter && teamFilter !== 'all') return s.team === teamFilter;
+            if (_groupTeams.length)                return _groupTeams.includes(s.team);
+            return true;
+        })
         .map(s => s.name);
     const sprintMetaMap  = new Map((sprintInfo.teamSprints || []).map(s => [s.name, s]));
 

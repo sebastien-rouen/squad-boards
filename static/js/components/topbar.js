@@ -93,7 +93,7 @@ export function initTopbar() {
     updateBoardModeToggle();
 
     // ── Sélecteur PI dans le topbar (PI-2..PI+2) — visible uniquement sur pi/roadmap/…
-    const PI_VIEWS = new Set(['pi', 'roadmap', 'settings', 'support', 'dashboard', 'health']);
+    const PI_VIEWS = new Set(['pi', 'roadmap', 'settings', 'support', 'dashboard', 'health', 'reports', 'agenda']);
     const piHost = document.getElementById('pi-selector-host');
     function updatePiSelector() {
         if (!piHost) return;
@@ -219,7 +219,8 @@ function renderSearchResults(query) {
         el.addEventListener('click', () => {
             window.__squadBoard?.openTicketModal?.(el.dataset.id);
             panel.remove();
-            searchInput.value = '';
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) searchInput.value = '';
         });
     });
 }

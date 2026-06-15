@@ -2314,12 +2314,12 @@ function renderSupportRota(el, { teams, teamObjects }) {
                 const teamSup = (store.get('support') || []).filter(s => _matchTeam(s.team, teamName));
                 const roleLabel = localStorage.getItem(`rot-label-${teamName}`) || 'Support N3 OPS';
                 const _fmtD = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
-                const lines = [`🟣 ${roleLabel} [PI${targetPiNum || '?'}]`, ''];
+                const _sn = n => { const nm = _fmtMemberName(n); const p = nm.trim().split(/\s+/); return p.length < 2 ? `@${nm}` : `@${p[0]} ${p.slice(1).join(' ').toUpperCase()}`; };
+                const lines = [`🎧 *${roleLabel} — PI${targetPiNum || '?'}*`, ''];
                 for (const w of piWeeks) {
                     const entry = teamSup.find(s => s.weekStart === w.weekStart);
-                    const members = (entry?.members || []).map(n => `@${_fmtMemberName(n)}`).join(' ');
-                    lines.push(`* 🟦 Itération ${w.label} (${_fmtD(w.weekStart)} au ${_fmtD(w.weekEnd)})`);
-                    lines.push(`    * ${members || '—'}`);
+                    const members = (entry?.members || []).map(_sn).join(', ');
+                    lines.push(`  • ${w.label} (${_fmtD(w.weekStart)} → ${_fmtD(w.weekEnd)}) : ${members || '—'}`);
                 }
                 navigator.clipboard.writeText(lines.join('\n'))
                     .then(() => { btn.textContent = '✓ Copié !'; setTimeout(() => { btn.textContent = '📋 Copier'; }, 1500); })

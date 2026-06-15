@@ -345,6 +345,7 @@ export function parseWikiMarkup(text) {
     }
 
     let result = out.join('');
+    // eslint-disable-next-line no-control-regex -- \x02 = sentinelle interne (placeholders de blocs)
     result = result.replace(/\x02B(\d+)\x02/g, (_, n) => blocks[+n] || '');
     return result;
 }
@@ -533,6 +534,62 @@ export function confirmDanger(title, message, options = {}) {
 }
 
 /**
+ * Saisie texte modale (remplace `prompt()` natif : thémée, dark-mode, validation, Échap/Entrée).
+ * @param {string} title
+ * @param {object} [opts] { message?, value?, placeholder?, confirmLabel?, cancelLabel?, type?, required? }
+ * @returns {Promise<string|null>} valeur saisie (trim) ou `null` si annulé.
+ */
+export function promptModal(title, opts = {}) {
+    const {
+        message = '', value = '', placeholder = '',
+        confirmLabel = 'Valider', cancelLabel = 'Annuler',
+        type = 'text', required = false,
+    } = opts;
+    return new Promise(resolve => {
+        const ov = document.createElement('div');
+        ov.className = 'confirm-overlay';
+        ov.innerHTML = `
+            <div class="confirm-modal confirm-modal--prompt" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+                <div class="confirm-body">
+                    <div class="confirm-title">${esc(title)}</div>
+                    ${message ? `<div class="confirm-message">${esc(message).replace(/\n/g, '<br>')}</div>` : ''}
+                    <input class="input confirm-input" type="${esc(type)}" value="${esc(value)}" placeholder="${esc(placeholder)}">
+                </div>
+                <div class="confirm-actions">
+                    <button class="btn btn-ghost btn-sm" data-act="cancel">${esc(cancelLabel)}</button>
+                    <button class="btn btn-primary btn-sm" data-act="ok">${esc(confirmLabel)}</button>
+                </div>
+            </div>`;
+        document.body.appendChild(ov);
+        requestAnimationFrame(() => ov.classList.add('visible'));
+        const input = ov.querySelector('.confirm-input');
+        const cleanup = (val) => {
+            ov.classList.remove('visible');
+            ov.addEventListener('transitionend', () => ov.remove(), { once: true });
+            document.removeEventListener('keydown', onKey);
+            resolve(val);
+        };
+        const submit = () => {
+            const v = input.value.trim();
+            if (required && !v) { input.classList.add('confirm-input--error'); input.focus(); return; }
+            cleanup(v);
+        };
+        const onKey = e => {
+            if (e.key === 'Escape') cleanup(null);
+            else if (e.key === 'Enter') submit();
+        };
+        document.addEventListener('keydown', onKey);
+        ov.addEventListener('click', e => {
+            if (e.target === ov) return cleanup(null);
+            const act = e.target.closest('[data-act]')?.dataset.act;
+            if (act === 'ok') submit();
+            if (act === 'cancel') cleanup(null);
+        });
+        setTimeout(() => { input.focus(); input.select(); }, 50);
+    });
+}
+
+/**
  * Sprint actif pour l'équipe donnée, depuis le store.
  *
  * Source : `sprintInfo.teamSprints[]` (collecté par sync.js, un sprint par board scrum).
@@ -548,7 +605,10 @@ export function confirmDanger(title, message, options = {}) {
  */
 export function extractPiNum(name) {
     if (!name) return 0;
-    const m = String(name).match(/(\d+)\.\d+/) || String(name).match(/PI\s*#?\s*(\d+)/i);
+    const s = String(name);
+    const m = s.match(/(\d+)\.\d+/)                                  // notation sprint "30.1"
+           || s.match(/PI\s*#?\s*(\d+)/i)                            // "PI#30", "PI 30", "PI30"
+           || s.match(/(?<![A-Za-z])PI(?![A-Za-z])[^\d]{0,15}?(\d+)/i); // "PI Design #30" (texte entre PI et n°)
     return m ? parseInt(m[1], 10) : 0;
 }
 

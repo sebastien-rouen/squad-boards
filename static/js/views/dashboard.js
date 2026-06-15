@@ -68,23 +68,42 @@ export function renderDashboard(container) {
                        : piScore >= 80  ? 'mc-warning'
                        : 'mc-danger';
 
-    const total = tickets.length;
-    const done = tickets.filter(t => t.status === 'done').length;
-    const inprog = tickets.filter(t => t.status === 'inprog').length;
-    const blocked = tickets.filter(t => t.status === 'blocked').length;
-    const totalPts = sumBy(tickets, t => t.points);
-    const donePts = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
+    // Extraction du PI depuis le sprint name d'un ticket
+    const _ticketPiNum = t => {
+        const s = String(t.sprintName || t.piSprint || '');
+        const m = s.match(/(\d+)\.\d+/) || s.match(/PI\s*#?\s*(\d+)/i);
+        return m ? parseInt(m[1], 10) : 0;
+    };
+
+    // Scope des métriques : sprint courant (piOffset=0) ou tickets du PI sélectionné
+    const isCurrentPi = piOffset === 0;
+    const _scopeTickets = ts => isCurrentPi
+        ? (sprintInfo
+            ? ts.filter(t => t.sprintName === sprintInfo.name
+                || (Array.isArray(t.allSprints) && t.allSprints.includes(sprintInfo.name)))
+            : ts)
+        : (displayPiNum ? ts.filter(t => _ticketPiNum(t) === displayPiNum) : ts);
+
+    const displayTickets = _scopeTickets(tickets);
+    const metricScope = isCurrentPi ? 'Sprint' : `PI #${displayPiNum}`;
+
+    const total = displayTickets.length;
+    const done = displayTickets.filter(t => t.status === 'done').length;
+    const inprog = displayTickets.filter(t => t.status === 'inprog').length;
+    const blocked = displayTickets.filter(t => t.status === 'blocked').length;
+    const totalPts = sumBy(displayTickets, t => t.points);
+    const donePts = sumBy(displayTickets.filter(t => t.status === 'done'), t => t.points);
     const completion = pct(done, total);
     const ptsPct = pct(donePts, totalPts);
 
-    // Status counts
+    // Status counts (scopés sur le même périmètre)
     const statusCounts = {};
-    for (const t of tickets) statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
+    for (const t of displayTickets) statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
 
     // Recent changes — délégué au composant activity.js
 
-    // Team breakdown
-    const byTeam = groupBy(allTickets, t => t.team);
+    // Team breakdown (scopé sur le même périmètre que les métriques)
+    const byTeam = groupBy(_scopeTickets(allTickets), t => t.team);
 
     // ── Mood + Fist (votes filtrés par sprint actif + équipe) ─────────────
     const _sprintLbl = (String(sprintInfo?.name || '').match(/(\d+\.\d+)/) || [])[1] || '';
@@ -101,45 +120,6 @@ export function renderDashboard(container) {
     const fistSt = _vStats((store.get('fistVotes') || []).filter(_voteOk));
     const _face = n => ({ 1:'😞', 2:'😕', 3:'😐', 4:'🙂', 5:'😄' }[Math.round(n)] || '❓');
     const _vColor = n => n >= 4 ? 'var(--success)' : n >= 3 ? 'var(--warning)' : 'var(--danger)';
-
-    // ── Météo équipe : score global basé sur mood + blockers + scope creep + vélocité vs cible ──
-    const sprintStart = sprintInfo?.startDate ? new Date(sprintInfo.startDate).getTime() : 0;
-    const scopeCreep = tickets.filter(t => t.createdAt && new Date(t.createdAt).getTime() > sprintStart && t.status !== 'done').length;
-    const velRatio = piInfo?.velocityTarget ? donePts / piInfo.velocityTarget : null;
-    let weather = '☀️', weatherLbl = 'Tout va bien', weatherCls = 'mc-done';
-    let score = 100;
-    // Détail du calcul accumulé dans un tableau pour tooltip transparent
-    const weatherBreakdown = [`Score de base : 100`];
-    // Blockers : -25 si > 3, -10 si > 0
-    if (blocked > 3) { score -= 25; weatherBreakdown.push(`🚫 Blockers : ${blocked} (> 3)  →  -25`); }
-    else if (blocked > 0) { score -= 10; weatherBreakdown.push(`🚫 Blockers : ${blocked} (> 0)  →  -10`); }
-    else weatherBreakdown.push(`✅ Blockers : 0  →  ±0`);
-    // Scope creep : -20 si > 5, -10 si > 2 (tickets ajoutés après le début du sprint)
-    if (scopeCreep > 5) { score -= 20; weatherBreakdown.push(`📈 Scope creep : ${scopeCreep} (> 5)  →  -20`); }
-    else if (scopeCreep > 2) { score -= 10; weatherBreakdown.push(`📈 Scope creep : ${scopeCreep} (> 2)  →  -10`); }
-    else weatherBreakdown.push(`✅ Scope creep : ${scopeCreep}  →  ±0`);
-    // Mood : -25 si < 3, -10 si < 3.5
-    if (moodSt && moodSt.avg < 3) { score -= 25; weatherBreakdown.push(`🎭 Mood : ${moodSt.avg}/5 (< 3)  →  -25`); }
-    else if (moodSt && moodSt.avg < 3.5) { score -= 10; weatherBreakdown.push(`🎭 Mood : ${moodSt.avg}/5 (< 3.5)  →  -10`); }
-    else if (moodSt) weatherBreakdown.push(`✅ Mood : ${moodSt.avg}/5  →  ±0`);
-    else weatherBreakdown.push(`🎭 Mood : pas de vote  →  ±0`);
-    // Vélocité vs cible PI : -15 si < 50% de la cible (sprint actif uniquement)
-    if (velRatio != null && velRatio < 0.5) { score -= 15; weatherBreakdown.push(`🎯 Vélocité : ${donePts}/${piInfo.velocityTarget} pts (< 50% cible)  →  -15`); }
-    else if (velRatio != null) weatherBreakdown.push(`✅ Vélocité : ${donePts}/${piInfo.velocityTarget} pts (${Math.round(velRatio * 100)}% cible)  →  ±0`);
-    else weatherBreakdown.push(`🎯 Vélocité : pas de cible PI définie  →  ±0`);
-
-    if (score >= 85) { weather='☀️'; weatherLbl='Tout va bien'; weatherCls='mc-done'; }
-    else if (score >= 65) { weather='⛅'; weatherLbl='Quelques nuages'; weatherCls='mc-info'; }
-    else if (score >= 45) { weather='🌧️'; weatherLbl='Pluie battante'; weatherCls='mc-warning'; }
-    else { weather='⛈️'; weatherLbl='Orage'; weatherCls='mc-danger'; }
-
-    const weatherTooltip = [
-        `MÉTÉO ÉQUIPE — ${score}/100  (${weatherLbl})`,
-        ``,
-        ...weatherBreakdown,
-        ``,
-        `Seuils : ☀️ ≥85  ·  ⛅ ≥65  ·  🌧️ ≥45  ·  ⛈️ <45`,
-    ].join('\n');
 
     // ── "Cette semaine" : activité par jour (J-4 à J0) ─────────────────────
     const today = new Date();
@@ -162,15 +142,15 @@ export function renderDashboard(container) {
         <div class="dashboard-metrics">
             <div class="metric-card mc-primary">
                 <span class="metric-icon">📋</span>
-                <span class="metric-label">Tickets sprint</span>
+                <span class="metric-label">Tickets ${metricScope}</span>
                 <span class="metric-value">${total}</span>
-                <span class="metric-sub">${done} termines (${completion}%)</span>
+                <span class="metric-sub">${done} terminés (${completion}%)</span>
             </div>
             <div class="metric-card ${ptsPct >= 80 ? 'mc-done' : ptsPct >= 50 ? 'mc-warning' : 'mc-danger'}">
                 <span class="metric-icon">🎯</span>
                 <span class="metric-label">Story Points</span>
                 <span class="metric-value">${donePts}<span class="metric-value-sub">/${totalPts}</span></span>
-                <span class="metric-sub">${ptsPct}% realises</span>
+                <span class="metric-sub">${ptsPct}% réalisés · ${metricScope}</span>
             </div>
             <div class="metric-card mc-inprog">
                 <span class="metric-icon">🔄</span>
@@ -180,15 +160,9 @@ export function renderDashboard(container) {
             </div>
             <div class="metric-card ${blocked > 0 ? 'mc-danger' : 'mc-done'}">
                 <span class="metric-icon">${blocked > 0 ? '🚫' : '✅'}</span>
-                <span class="metric-label">Bloques</span>
+                <span class="metric-label">Bloqués</span>
                 <span class="metric-value ${blocked > 0 ? 'text-danger' : 'text-status-done'}">${blocked}</span>
                 <span class="metric-sub">${blocked > 0 ? 'attention requise' : 'aucun impediment'}</span>
-            </div>
-            <div class="metric-card ${weatherCls}" title="${esc(weatherTooltip)}">
-                <span class="metric-icon" style="font-size: 28px;">${weather}</span>
-                <span class="metric-label">Météo équipe</span>
-                <span class="metric-value">${score}<span class="metric-value-sub">/100</span></span>
-                <span class="metric-sub">${weatherLbl}</span>
             </div>
         </div>
 
@@ -551,10 +525,10 @@ export function renderDashboard(container) {
         </div>
 
         <!-- Recent Activity -->
-        <div class="card mt-4">
-            <div class="card-header"><span class="card-title">Activité récente</span></div>
+        <details class="card mt-4 card-collapsible">
+            <summary class="card-header"><span class="card-title">Activité récente</span><span class="card-collapse-icon">▸</span></summary>
             ${renderActivityList(tickets, { max: 15, scope: 'dashboard' })}
-        </div>
+        </details>
     `;
 
     // Render charts after DOM is ready

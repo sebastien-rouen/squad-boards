@@ -36,6 +36,8 @@ function _isoWeekLabel(dateStr) {
     return `S${week}`;
 }
 
+const _DISP_KEY = 'pical-display';
+
 export function renderPICalendar(container) {
     const piInfo      = store.get('piInfo');
     const sprint      = store.get('sprintInfo');
@@ -47,11 +49,14 @@ export function renderPICalendar(container) {
     const absences    = store.get('absences') || [];
     const tickets     = store.get('tickets') || [];
 
+    // ── Display toggle state ───────────────────────────────────────────────────
+    const _dispDef = { absences: true, support: true, tickets: true };
+    const _disp = (() => {
+        try { return { ..._dispDef, ...JSON.parse(localStorage.getItem(_DISP_KEY) || '{}') }; }
+        catch { return { ..._dispDef }; }
+    })();
+
     // ── Build sprint list ──────────────────────────────────────────────────────
-    // Use piInfo to compute sprint dates if sprint config is available
-    const sprintCnt = piInfo?.sprintsPerPI || 5;
-    const sprintDur = piInfo?.sprintDuration || 14;
-    // PI affiché décalé par le sélecteur topbar (piOffset)
     // Fallback : si piInfo.number n'est pas configuré, on déduit depuis le sprint actif
     const _extractPiNum = (name) => {
         if (!name) return 0;
@@ -61,6 +66,12 @@ export function renderPICalendar(container) {
     const _basePi   = _extractPiNum(sprint?.name) || piInfo?.number || 0;
     const _piOff    = store.get('piOffset') || 0;
     const piNum     = _basePi ? Math.max(1, _basePi + _piOff) : '';
+
+    // Per-PI config from localStorage (pi-cfg-<N>) — source of truth for sprint count, duration, start date
+    const _piCfgLocal = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNum}`) || 'null'); } catch { return null; } })();
+
+    const sprintCnt = _piCfgLocal?.sprintsPerPI || piInfo?.sprintsPerPI || 5;
+    const sprintDur = _piCfgLocal?.sprintDuration || piInfo?.sprintDuration || 14;
 
     // Anchor: use current sprint start date if available
     const anchorDate = sprint?.startDate || new Date().toISOString().slice(0, 10);
@@ -72,8 +83,11 @@ export function renderPICalendar(container) {
         if (m && parseInt(m[1]) === piNum) curIdx = parseInt(m[2]) - 1;
     }
 
-    // Compute start of PI (sprint 1 starts at anchorDate - curIdx * sprintDur)
-    const piStartDate = curIdx >= 0 ? _addDays(anchorDate, -curIdx * sprintDur) : anchorDate;
+    // PI start date — prefer stored startDate from pi-cfg (accurate for any PI via piOffset)
+    // fallback: extrapolate from current sprint anchor
+    const piStartDate = _piCfgLocal?.startDate
+        ? _piCfgLocal.startDate
+        : curIdx >= 0 ? _addDays(anchorDate, -curIdx * sprintDur) : anchorDate;
 
     const sprints = Array.from({ length: sprintCnt }, (_, i) => {
         const start = _addDays(piStartDate, i * sprintDur);
@@ -99,15 +113,28 @@ export function renderPICalendar(container) {
     // ── Filtered teams ────────────────────────────────────────────────────────
     const visTeams = (team && team !== 'all') ? [team] : teams;
 
+    // Initial hide classes from persisted state
+    const _hideCls = [
+        !_disp.absences ? 'pical-hide-absences' : '',
+        !_disp.support  ? 'pical-hide-support'  : '',
+        !_disp.tickets  ? 'pical-hide-tickets'  : '',
+    ].filter(Boolean).join(' ');
+
     container.innerHTML = `
-        <div class="pical-container">
+        <div class="pical-container${_hideCls ? ' ' + _hideCls : ''}">
             <!-- Header info -->
             <div class="pical-header">
                 <div>
                     <h2 class="pical-title">PI ${piNum ? `#${piNum}` : 'Planning'}${(() => { const n = piInfo?.name || ''; const clean = n.replace(/^\s*PI\s*#?\s*\d+\s*[-–]?\s*/i, '').trim(); return clean ? ` - ${esc(clean)}` : ''; })()}</h2>
                     <span class="text-sm text-muted">${_fmtShort(piStartDate)} → ${_fmtShort(piEnd)} · ${sprintCnt} sprints · ${totalDays} jours</span>
                 </div>
-                <div class="flex gap-2">
+                <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
+                    <div class="pical-display-bar">
+                        <span class="pical-display-hash">#</span>
+                        <button class="pical-display-chip${_disp.absences ? ' is-active' : ''}" data-layer="absences">Congés</button>
+                        <button class="pical-display-chip${_disp.support ? ' is-active' : ''}" data-layer="support">🎧 Support</button>
+                        <button class="pical-display-chip${_disp.tickets ? ' is-active' : ''}" data-layer="tickets">Tickets</button>
+                    </div>
                     <span class="pi-sprint-pill current">▶ Sprint actuel</span>
                     <span class="pi-sprint-pill done">✓ Terminé</span>
                     <span class="pi-sprint-pill ip">IP</span>
@@ -180,18 +207,35 @@ export function renderPICalendar(container) {
                             return `<span class="pical-obj-badge" style="color:${c}" title="${esc(tip)}">${allDone ? '✅' : objDone > 0 ? '🔄' : '○'} ${objDone}/${teamObjs.length} obj.</span>`;
                         })() : '';
 
-                        // ── Absence strips ────────────────────────────────────
-                        const absStrips = teamAbs.map(a => {
-                            const s0 = _diffDays(piStartDate, a.startDate < piStartDate ? piStartDate : a.startDate);
-                            const e0 = _diffDays(piStartDate, (a.endDate || a.startDate) > piEnd ? piEnd : (a.endDate || a.startDate));
-                            if (e0 < s0) return '';
+                        // ── Absence strips — initials + lane stacking ─────────
+                        const _sortedAbs = [...teamAbs].sort((a, b) => a.startDate.localeCompare(b.startDate));
+                        const _laneEnds  = [];
+                        const _absLaned  = _sortedAbs.map(a => {
+                            const cS = a.startDate < piStartDate ? piStartDate : a.startDate;
+                            const cE = (a.endDate || a.startDate) > piEnd ? piEnd : (a.endDate || a.startDate);
+                            let lane = _laneEnds.findIndex(end => end < cS);
+                            if (lane < 0) { lane = _laneEnds.length; _laneEnds.push(cE); }
+                            else { _laneEnds[lane] = cE; }
+                            return { ...a, _lane: lane, _cS: cS, _cE: cE };
+                        });
+                        const absLanes = _laneEnds.length;
+                        const absH     = absLanes * 20; // 20px per lane
+                        const _blockTop = absH > 0 ? absH + 4 : 6;
+                        const _rowMinH  = Math.max(72, absH + 58);
+
+                        const absStrips = _absLaned.map(a => {
+                            const s0 = _diffDays(piStartDate, a._cS);
+                            const e0 = _diffDays(piStartDate, a._cE);
+                            if (e0 < 0) return '';
                             const left  = Math.round(Math.max(0, s0) / totalDays * 100);
                             const width = Math.round((e0 - Math.max(0, s0) + 1) / totalDays * 100);
-                            const bg = ABS_COL[a.type] || ABS_COL.autre;
-                            return `<div class="pical-abs-strip" style="left:${left}%;width:${Math.max(width, 0.3)}%;background:${bg}" title="${esc(a.memberName)} · ${esc(a.type)}${a.days ? ` (${a.days}j)` : ''}"></div>`;
+                            const bg    = ABS_COL[a.type] || ABS_COL.autre;
+                            const top   = 2 + a._lane * 20;
+                            const tip   = `${a.memberName} · ${a.type}${a.days ? ` (${a.days}j)` : ''}`;
+                            return `<div class="pical-abs-strip" style="left:${left}%;width:${Math.max(width, 0.5)}%;background:${bg};top:${top}px" title="${esc(tip)}">${esc(_initials(a.memberName || '?'))}</div>`;
                         }).join('');
 
-                        // ── Sprint blocks with velocity fill + tooltip ────────
+                        // ── Sprint blocks with velocity + ticket dots ─────────
                         const sprintBlocks = sprints.map(s => {
                             const cls    = s.isIP ? 'pical-block-ip' : s.isCur ? 'pical-block-cur' : s.isDone ? 'pical-block-done' : 'pical-block-future';
                             const offset = _diffDays(piStartDate, s.start);
@@ -208,6 +252,19 @@ export function renderPICalendar(container) {
                             const velBar = velPct >= 0
                                 ? `<div class="pical-block-vel" style="width:${velPct}%;background:${color}"></div>`
                                 : '';
+
+                            // Ticket dots — colored by status
+                            const tkDots = spTk.length ? (() => {
+                                const MAX  = 40;
+                                const dots = spTk.slice(0, MAX).map(tk => {
+                                    const st  = tk.status || 'todo';
+                                    const tip = `${tk.id ? tk.id + ' · ' : ''}${tk.title || ''}${tk.points ? ` (${tk.points}p)` : ''}`;
+                                    return `<span class="pical-tk-dot pical-tk-dot--${st}" title="${esc(tip)}"></span>`;
+                                }).join('');
+                                const more = spTk.length > MAX ? `<span class="pical-tk-dot-more" title="${spTk.length - MAX} tickets supplémentaires">+${spTk.length - MAX}</span>` : '';
+                                return `<div class="pical-tk-dots">${dots}${more}</div>`;
+                            })() : '';
+
                             const tip = [
                                 `<strong>${esc(s.label)}</strong> · ${_fmtShort(s.start)} → ${_fmtShort(s.end)}`,
                                 spTk.length ? `${tkDone}/${spTk.length} tickets · <strong>${ptsDone}/${ptsAll} pts</strong>` : '<em>Aucun ticket</em>',
@@ -215,7 +272,8 @@ export function renderPICalendar(container) {
                                 s.isIP ? '<em>Innovation &amp; Planning</em>' : '',
                             ].filter(Boolean).join('<br>');
 
-                            return `<div class="pical-block ${cls}" style="left:${left}%;width:calc(${width}% - 4px);--team-color:${color}" data-tip="${tip.replace(/"/g, '&quot;')}">
+                            return `<div class="pical-block ${cls}" style="left:${left}%;width:calc(${width}% - 4px);top:${_blockTop}px;--team-color:${color}" data-tip="${tip.replace(/"/g, '&quot;')}">
+                                ${tkDots}
                                 ${velBar}
                             </div>`;
                         }).join('');
@@ -234,7 +292,7 @@ export function renderPICalendar(container) {
                         }).join('');
 
                         return `
-                        <div class="pical-row pical-team-row">
+                        <div class="pical-row pical-team-row" style="min-height:${_rowMinH}px">
                             <div class="pical-row-label pical-row-label-team" style="border-left:3px solid ${color}">
                                 <span class="pical-team-name">${esc(t)}</span>
                                 ${objBadge}
@@ -252,6 +310,21 @@ export function renderPICalendar(container) {
         </div>
     `;
     _bindBlockTooltips(container);
+    _bindDisplayChips(container, _disp);
+}
+
+function _bindDisplayChips(container, _disp) {
+    const picalCont = container.querySelector('.pical-container');
+    if (!picalCont) return;
+    container.querySelectorAll('.pical-display-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const layer = chip.dataset.layer;
+            _disp[layer] = !_disp[layer];
+            chip.classList.toggle('is-active', _disp[layer]);
+            picalCont.classList.toggle(`pical-hide-${layer}`, !_disp[layer]);
+            try { localStorage.setItem(_DISP_KEY, JSON.stringify(_disp)); } catch {}
+        });
+    });
 }
 
 function _bindBlockTooltips(container) {

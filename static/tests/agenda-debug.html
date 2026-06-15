@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Debug — Agenda / Support / Membres</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; font-size: 13px; padding: 16px 20px; background: #f8fafc; color: #1e293b; max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 17px; margin-bottom: 2px; }
+  .subtitle { color: #64748b; margin-bottom: 14px; font-size: 11px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; }
+  label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; font-weight: 600; color: #475569; }
+  input, select { border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 8px; font-size: 13px; }
+  input[type=date] { width: 150px; }
+  select { width: 160px; }
+  .btn-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  button { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 7px 16px; font-size: 12px; cursor: pointer; }
+  button:hover { background: #4f46e5; }
+  button.sec { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+  button.sec:hover { background: #f1f5f9; }
+
+  /* Layout */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .block { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .block-title { font-weight: 700; font-size: 12px; color: #6d28d9; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .block-title .icon { font-size: 14px; }
+
+  /* Tables */
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #f1f5f9; font-size: 11px; text-align: left; padding: 5px 8px; color: #64748b; white-space: nowrap; }
+  td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; font-size: 12px; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr.match td { background: #f0fdf4; }
+  tr.miss  td { background: #fef2f2; }
+  tr.warn  td { background: #fffbeb; }
+  tr.cur   td { background: #eff6ff; font-weight: 600; }
+  tr.past  td { color: #94a3b8; }
+
+  /* Badges */
+  .badge { display: inline-block; font-size: 10px; border-radius: 999px; padding: 1px 8px; font-weight: 600; white-space: nowrap; }
+  .badge-green  { background: #dcfce7; color: #15803d; }
+  .badge-red    { background: #fee2e2; color: #dc2626; }
+  .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+  .badge-purple { background: #ede9fe; color: #6d28d9; }
+  .badge-amber  { background: #fef3c7; color: #92400e; }
+  .badge-gray   { background: #f1f5f9; color: #475569; }
+
+  /* Chips */
+  .chip-support { display: inline-block; background: #fef9c3; color: #713f12; border-radius: 4px; padding: 1px 6px; font-size: 11px; }
+  .chip-absent  { display: inline-block; background: #fee2e2; color: #dc2626; border-radius: 4px; padding: 1px 6px; font-size: 11px; }
+  .chip-present { display: inline-block; background: #dcfce7; color: #15803d; border-radius: 4px; padding: 1px 6px; font-size: 11px; }
+
+  /* JSON */
+  details { margin-top: 8px; }
+  summary { cursor: pointer; font-size: 11px; color: #64748b; font-weight: 600; }
+  pre.json { background: #1e293b; color: #e2e8f0; padding: 12px; border-radius: 6px; font-size: 11px; overflow: auto; max-height: 320px; margin-top: 6px; cursor: pointer; }
+  pre.json:hover { background: #0f172a; }
+
+  /* Misc */
+  .hdr { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 6px; }
+  .kv  { display: flex; gap: 6px; align-items: baseline; margin-bottom: 4px; }
+  .kv-k { font-size: 11px; color: #64748b; min-width: 130px; }
+  .kv-v { font-size: 13px; font-weight: 600; }
+  .error { background: #fee2e2; color: #dc2626; padding: 10px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; }
+  .info  { background: #eff6ff; color: #1d4ed8; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; font-size: 12px; }
+  .warn  { background: #fffbeb; color: #92400e; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; font-size: 12px; }
+  .mono  { font-family: monospace; font-size: 11px; }
+  .curl-box { background: #1e293b; color: #7dd3fc; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 11px; margin-bottom: 8px; overflow-x: auto; white-space: nowrap; cursor: pointer; }
+  .curl-box:hover { background: #0f172a; }
+
+  @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>🔍 Debug — Agenda · Support · Membres · Sprint / PI</h1>
+<p class="subtitle">
+  Analyse les données de l'API pour une semaine donnée. Compare le filtre de l'Agenda vs les rotations en base.<br>
+  URL params : <code>?date=2026-06-09&team=Fuego&fmt=json</code> &nbsp;|&nbsp; Mode <code>fmt=json</code> : retourne le JSON brut (utilisable avec curl).
+</p>
+
+<div class="controls">
+  <label>Date de référence (lundi affiché dans l'agenda)
+    <input id="in-date" type="date">
+  </label>
+  <label>Équipe (vide = toutes)
+    <input id="in-team" type="text" placeholder="ex: Fuego" style="width:140px">
+  </label>
+  <label>Semaines à afficher (avant/après)
+    <input id="in-window" type="number" value="4" min="1" max="8" style="width:80px">
+  </label>
+</div>
+
+<div class="btn-row">
+  <button onclick="run()">▶ Analyser</button>
+  <button class="sec" onclick="copyJson()">📋 Copier JSON</button>
+  <button class="sec" onclick="copyCurl()">📋 Copier curl</button>
+</div>
+
+<div id="curl-hint"></div>
+<div id="output"></div>
+
+<script>
+// ── Date helpers (miroir exact d'agenda.js) ────────────────────────────────
+const _fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+const _add = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _fmt(d); };
+const _monday = d => { const r = new Date(d); const dow = r.getDay(); r.setDate(r.getDate() - (dow === 0 ? 6 : dow - 1)); r.setHours(0,0,0,0); return _fmt(r); };
+const _today = () => _fmt(new Date());
+
+const MONTHS = ['jan.','fév.','mar.','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'];
+const fmtDate = iso => { if (!iso) return '?'; const [,m,d] = iso.split('-'); return `${parseInt(d)} ${MONTHS[parseInt(m)-1]}`; };
+const fmtRange = (s, e) => {
+  if (!s || !e) return '?';
+  const [,sm,sd] = s.split('-'); const [,em,ed] = e.split('-');
+  return sm === em
+    ? `${parseInt(sd)}–${parseInt(ed)} ${MONTHS[parseInt(sm)-1]}`
+    : `${parseInt(sd)} ${MONTHS[parseInt(sm)-1]} – ${parseInt(ed)} ${MONTHS[parseInt(em)-1]}`;
+};
+const dayName = iso => {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('fr-FR', { weekday: 'short' });
+};
+
+// ── API helpers ────────────────────────────────────────────────────────────
+async function fetchAll() {
+  const [support, absences, members, sprint, pi] = await Promise.all([
+    fetch('/api/support').then(r => r.json()),
+    fetch('/api/absences').then(r => r.json()),
+    fetch('/api/members').then(r => r.json()),
+    fetch('/api/sprint').then(r => r.json()),
+    fetch('/api/pi').then(r => r.json()),
+  ]);
+  return { support, absences, members, sprint, pi };
+}
+
+// ── Absence overlap helper ─────────────────────────────────────────────────
+// Returns absences for a member that overlap any day of [wStart, wEnd]
+function absencesInWeek(absences, memberName, wStart, wEnd) {
+  return absences.filter(a => {
+    if (a.memberName !== memberName && a.member_name !== memberName) return false;
+    const as = a.startDate || a.start_date || '';
+    const ae = a.endDate   || a.end_date   || '';
+    return as <= wEnd && ae >= wStart;
+  });
+}
+
+// ── Support filter — EXACT logic from agenda.js ────────────────────────────
+// weekRef = _iso(_weekStart) = Monday of the displayed week
+// Filter: r.weekStart <= weekRef && r.weekEnd >= weekRef
+function supportForWeek(support, weekRef, team) {
+  return support.filter(r => {
+    const ws = r.weekStart || r.week_start || '';
+    const we = r.weekEnd   || r.week_end   || '';
+    if (team && team !== 'all' && r.team !== team) return false;
+    return ws <= weekRef && we >= weekRef;
+  });
+}
+
+// ── Sprint context helpers ────────────────────────────────────────────────
+function extractPiNum(name) {
+  if (!name) return 0;
+  const m = String(name).match(/(\d+)\.\d+/) || String(name).match(/PI\s*#?\s*(\d+)/i);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+// ── Main run ──────────────────────────────────────────────────────────────
+let _lastData = null;
+let _lastResult = null;
+
+function getParams() {
+  return {
+    date:   document.getElementById('in-date').value || _monday(_today()),
+    team:   document.getElementById('in-team').value.trim(),
+    window: parseInt(document.getElementById('in-window').value) || 4,
+  };
+}
+
+async function run() {
+  const out = document.getElementById('output');
+  out.innerHTML = '<div class="info">⏳ Chargement des données…</div>';
+  let raw;
+  try { raw = await fetchAll(); }
+  catch(e) { out.innerHTML = `<div class="error">❌ Erreur API : ${e.message}<br><small>Le serveur est-il lancé ? (python main.py)</small></div>`; return; }
+
+  const p = getParams();
+  // weekRef = Monday of the reference week (exact same logic as agenda.js)
+  const weekRef = _monday(p.date);
+  const team    = p.team || null;
+  const win     = p.window;
+
+  _lastData = raw;
+
+  // ── Normalize API fields (camelCase OR snake_case) ─────────────────────
+  const support = (raw.support || []).map(r => ({
+    ...r,
+    weekStart:  r.weekStart  || r.week_start  || '',
+    weekEnd:    r.weekEnd    || r.week_end    || '',
+    weekLabel:  r.weekLabel  || r.week_label  || '',
+    weekMode:   r.weekMode   || r.week_mode   || 'friday',
+    members:    r.members    || [],
+    team:       r.team       || '',
+    locked:     r.locked     || false,
+  }));
+  const absences = (raw.absences || []).map(a => ({
+    ...a,
+    memberName: a.memberName || a.member_name || '',
+    startDate:  a.startDate  || a.start_date  || '',
+    endDate:    a.endDate    || a.end_date    || '',
+  }));
+  const members = raw.members || [];
+  const sprint  = raw.sprint  || {};
+  const piInfo  = raw.pi      || {};
+
+  // ── Sprint / PI context ───────────────────────────────────────────────
+  const teamSprints = (sprint.teamSprints || sprint.team_sprints || []);
+  const activeSprint = teamSprints.find(s => s.state === 'active') || {};
+  const piNum  = extractPiNum(activeSprint.name) || piInfo.number || 0;
+  const piStart = piInfo.startDate || piInfo.start_date || '';
+
+  // ── Filter support for this weekRef (agenda logic) ────────────────────
+  const matchedRecords = supportForWeek(support, weekRef, team);
+  const supportMembers = new Set(matchedRecords.flatMap(r => r.members));
+
+  // ── Build window of weeks to show in rotation table ──────────────────
+  const winWeeks = [];
+  for (let w = -win; w <= win; w++) {
+    const wStart = _add(weekRef, w * 7);
+    winWeeks.push(wStart);
+  }
+
+  // ── Members presence table ────────────────────────────────────────────
+  const filteredMembers = team
+    ? members.filter(m => m.team === team)
+    : members;
+
+  // Monday–Friday of the reference week
+  const wMon = weekRef;
+  const wFri = _add(weekRef, 4);
+
+  const presence = filteredMembers.map(m => {
+    const onSupport  = supportMembers.has(m.name);
+    const abs        = absencesInWeek(absences, m.name, wMon, wFri);
+    const totalDays  = abs.reduce((s, a) => s + (a.days || 1), 0);
+    const fullyAbsent = totalDays >= 5;
+    const partAbsent  = totalDays > 0 && !fullyAbsent;
+    return { name: m.name, team: m.team, onSupport, abs, totalDays, fullyAbsent, partAbsent };
+  }).sort((a, b) => {
+    if (a.onSupport !== b.onSupport) return a.onSupport ? -1 : 1;
+    return a.name.localeCompare(b.name, 'fr');
+  });
+
+  // ── Rotation records in window ─────────────────────────────────────────
+  const teamFilter = r => !team || r.team === team;
+  const rotInWindow = support.filter(r => {
+    if (!teamFilter(r)) return false;
+    return r.weekStart <= _add(weekRef, win * 7) && r.weekEnd >= _add(weekRef, -win * 7);
+  }).sort((a, b) => (a.weekStart || '').localeCompare(b.weekStart || '') || (a.team || '').localeCompare(b.team || ''));
+
+  // ── Detect field format issues ─────────────────────────────────────────
+  const hasSnakeCase  = support.some(r => r.week_start && !r.weekStart);
+  const hasMixedField = support.some(r => r.week_start && r.weekStart);
+
+  // ── Build result object ───────────────────────────────────────────────
+  _lastResult = {
+    params: { weekRef, team: team || 'all', window: win, today: _today() },
+    sprint: { name: activeSprint.name || sprint.name || '—', state: activeSprint.state, piNum, piStart },
+    piInfo: { number: piInfo.number, name: piInfo.name, startDate: piStart, sprintsPerPI: piInfo.sprintsPerPI },
+    agendaFilter: { weekRef, matchedRecords: matchedRecords.length, supportMembers: [...supportMembers] },
+    matchedRecords,
+    presence,
+    rotInWindow,
+    fieldIssues: { hasSnakeCase, hasMixedField, totalRecords: support.length },
+  };
+
+  // ── JSON mode ─────────────────────────────────────────────────────────
+  if (new URLSearchParams(location.search).get('fmt') === 'json') {
+    document.body.innerHTML = `<pre>${JSON.stringify(_lastResult, null, 2)}</pre>`;
+    return;
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────
+  let html = '';
+
+  // Field format warning
+  if (hasSnakeCase) {
+    html += `<div class="warn">⚠️ L'API retourne <code>week_start</code> (snake_case) au lieu de <code>weekStart</code> (camelCase).
+      Le filtre d'agenda.js utilise <code>r.weekStart</code> → <strong>les rotations ne matchent pas !</strong><br>
+      Cause probable : serialisation backend manquante ou store non normalisé.</div>`;
+  }
+  if (hasMixedField) {
+    html += `<div class="warn">⚠️ Champs mixtes détectés (snake_case ET camelCase sur certains enregistrements). Vérifier la normalisation dans api.js / main.py.</div>`;
+  }
+
+  // ── Bloc 1 : Contexte Sprint / PI ──────────────────────────────────────
+  html += `<div class="block">
+    <div class="block-title"><span class="icon">🗓️</span> Contexte Sprint / PI</div>
+    <div class="grid-3">
+      <div>
+        <div class="hdr">Sprint actif</div>
+        <div class="kv"><span class="kv-k">Nom</span><span class="kv-v">${activeSprint.name || sprint.name || '—'}</span></div>
+        <div class="kv"><span class="kv-k">État</span><span class="kv-v">${activeSprint.state || '—'}</span></div>
+        <div class="kv"><span class="kv-k">Début</span><span class="kv-v">${fmtDate(activeSprint.startDate || sprint.startDate || sprint.start_date || '')}</span></div>
+        <div class="kv"><span class="kv-k">Fin</span><span class="kv-v">${fmtDate(activeSprint.endDate || sprint.endDate || sprint.end_date || '')}</span></div>
+      </div>
+      <div>
+        <div class="hdr">PI</div>
+        <div class="kv"><span class="kv-k">Numéro</span><span class="kv-v">${piNum || '—'}</span></div>
+        <div class="kv"><span class="kv-k">Nom</span><span class="kv-v">${piInfo.name || '—'}</span></div>
+        <div class="kv"><span class="kv-k">Date début PI</span><span class="kv-v">${piStart ? `${piStart} (${fmtDate(piStart)})` : '⚠️ non défini'}</span></div>
+        <div class="kv"><span class="kv-k">Sprints/PI</span><span class="kv-v">${piInfo.sprintsPerPI || piInfo.sprints_per_pi || '—'}</span></div>
+      </div>
+      <div>
+        <div class="hdr">Semaine de référence (Agenda)</div>
+        <div class="kv"><span class="kv-k">Lundi affiché</span><span class="kv-v mono">${weekRef}</span></div>
+        <div class="kv"><span class="kv-k">Plage lun–ven</span><span class="kv-v">${fmtRange(wMon, wFri)}</span></div>
+        <div class="kv"><span class="kv-k">Aujourd'hui</span><span class="kv-v mono">${_today()}</span></div>
+        <div class="kv"><span class="kv-k">weekRef (filtre)</span><span class="kv-v mono" style="color:#6d28d9">${weekRef}</span></div>
+      </div>
+    </div>
+  </div>`;
+
+  // ── Bloc 2 : Support cette semaine (résultat filtre agenda) ────────────
+  html += `<div class="block" style="border-left:3px solid ${supportMembers.size ? '#f59e0b' : '#e2e8f0'}">
+    <div class="block-title"><span class="icon">🎧</span> Support cette semaine (filtre Agenda)
+      <span class="badge ${supportMembers.size ? 'badge-amber' : 'badge-gray'}">${supportMembers.size} membre${supportMembers.size > 1 ? 's' : ''}</span>
+    </div>
+    <div class="kv"><span class="kv-k">weekRef utilisé</span><span class="kv-v mono">${weekRef} (${dayName(weekRef)})</span></div>
+    <div class="kv"><span class="kv-k">Filtre appliqué</span><span class="kv-v mono">r.weekStart ≤ "${weekRef}" ≤ r.weekEnd</span></div>
+    <div class="kv"><span class="kv-k">Enregistrements matchés</span><span class="kv-v">${matchedRecords.length} / ${support.filter(r => !team || r.team === team).length} (équipe ${team || 'all'})</span></div>
+    ${supportMembers.size
+      ? `<div style="margin-top:8px">${[...supportMembers].map(n => `<span class="chip-support" style="margin:2px">${n}</span>`).join(' ')}</div>`
+      : `<div class="warn" style="margin-top:8px">⚠️ Aucun membre de support trouvé pour cette semaine (weekRef = ${weekRef}).</div>`}
+    ${matchedRecords.length ? `
+    <table style="margin-top:10px">
+      <thead><tr><th>Équipe</th><th>Label</th><th>weekStart</th><th>weekEnd</th><th>Mode</th><th>Membres</th><th>Clé weekStart ≤ ref</th><th>Clé weekEnd ≥ ref</th></tr></thead>
+      <tbody>${matchedRecords.map(r => `
+        <tr class="match">
+          <td>${r.team}</td>
+          <td class="mono">${r.weekLabel}</td>
+          <td class="mono">${r.weekStart} <small style="color:#64748b">(${dayName(r.weekStart)})</small></td>
+          <td class="mono">${r.weekEnd} <small style="color:#64748b">(${dayName(r.weekEnd)})</small></td>
+          <td>${r.weekMode || '?'}</td>
+          <td>${(r.members || []).join(', ')}</td>
+          <td><span class="badge badge-green">${r.weekStart} ≤ ${weekRef} ✓</span></td>
+          <td><span class="badge badge-green">${r.weekEnd} ≥ ${weekRef} ✓</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : ''}
+  </div>`;
+
+  // ── Bloc 3 : Toutes les rotations dans la fenêtre ──────────────────────
+  html += `<div class="block">
+    <div class="block-title"><span class="icon">📅</span> Rotations ±${win} semaines autour de ${fmtDate(weekRef)}
+      <span class="badge badge-blue">${rotInWindow.length} enregistrement${rotInWindow.length > 1 ? 's' : ''}</span>
+    </div>`;
+
+  if (!rotInWindow.length) {
+    html += `<div class="warn">⚠️ Aucune rotation en base pour cette période${team ? ` (équipe ${team})` : ''}. Générer les rotations dans Paramètres → Rotation Support.</div>`;
+  } else {
+    html += `<table>
+      <thead><tr><th>Équipe</th><th>Label</th><th>weekStart (${dayName('2026-01-05')?.slice(0,3)} ?)</th><th>weekEnd</th><th>Mode</th><th>Membres</th><th>Couvre weekRef=${weekRef} ?</th><th>Verrouillé</th></tr></thead>
+      <tbody>${rotInWindow.map(r => {
+        const covers = r.weekStart <= weekRef && r.weekEnd >= weekRef;
+        const isCur  = covers;
+        const isPast = r.weekEnd < weekRef;
+        const cls    = isCur ? 'match' : isPast ? 'past' : '';
+        const startDay = dayName(r.weekStart);
+        const endDay   = dayName(r.weekEnd);
+        return `<tr class="${cls}">
+          <td>${r.team}</td>
+          <td class="mono">${r.weekLabel}</td>
+          <td class="mono">${r.weekStart} <small style="color:#64748b">(${startDay})</small></td>
+          <td class="mono">${r.weekEnd} <small style="color:#64748b">(${endDay})</small></td>
+          <td><span class="badge badge-gray">${r.weekMode || '?'}</span></td>
+          <td>${(r.members || []).join(', ') || '—'}</td>
+          <td>${covers
+            ? `<span class="badge badge-green">✓ oui</span>`
+            : `<span class="badge badge-red">✗ non</span> <small style="color:#94a3b8">${r.weekStart > weekRef ? 'future' : 'passée'}</small>`}</td>
+          <td>${r.locked ? '🔒' : ''}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>`;
+  }
+  html += `</div>`;
+
+  // ── Bloc 4 : Présence membres ──────────────────────────────────────────
+  html += `<div class="block">
+    <div class="block-title"><span class="icon">👥</span> Présence membres — semaine ${fmtRange(wMon, wFri)}
+      ${team ? `<span class="badge badge-purple">${team}</span>` : '<span class="badge badge-gray">toutes équipes</span>'}
+    </div>
+    ${!filteredMembers.length
+      ? `<div class="warn">Aucun membre${team ? ` pour l'équipe ${team}` : ''}. Vérifier la table members.</div>`
+      : `<table>
+      <thead><tr><th>Membre</th><th>Équipe</th><th>Statut</th><th>Support</th><th>Absences (jours)</th><th>Type absence</th></tr></thead>
+      <tbody>${presence.map(m => `
+        <tr>
+          <td><strong>${m.name}</strong></td>
+          <td>${m.team || '—'}</td>
+          <td>${m.fullyAbsent
+            ? `<span class="chip-absent">Absent (${m.totalDays}j)</span>`
+            : m.partAbsent
+              ? `<span class="badge badge-amber">Partiel (${m.totalDays}j)</span>`
+              : `<span class="chip-present">Présent</span>`}</td>
+          <td>${m.onSupport ? `<span class="chip-support">🎧 Support</span>` : ''}</td>
+          <td>${m.abs.length ? m.abs.map(a => `${a.startDate}→${a.endDate} (${a.days}j)`).join('<br>') : '—'}</td>
+          <td>${m.abs.length ? [...new Set(m.abs.map(a => a.type))].join(', ') : '—'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`}
+  </div>`;
+
+  // ── Bloc 5 : Diagnostic champs API ────────────────────────────────────
+  if (support.length) {
+    const sample = support[0];
+    const keys = Object.keys(sample);
+    const hasWS = keys.includes('weekStart');
+    const hasWS_snake = keys.includes('week_start');
+    html += `<div class="block">
+      <div class="block-title"><span class="icon">🔬</span> Diagnostic format API (1er enregistrement)</div>
+      <div class="kv"><span class="kv-k">Champs détectés</span><span class="kv-v mono">${keys.join(', ')}</span></div>
+      <div class="kv"><span class="kv-k">weekStart (camelCase)</span>
+        <span class="kv-v">${hasWS ? `<span class="badge badge-green">✓ présent = "${sample.weekStart}"</span>` : '<span class="badge badge-red">✗ absent</span>'}</span></div>
+      <div class="kv"><span class="kv-k">week_start (snake_case)</span>
+        <span class="kv-v">${hasWS_snake ? `<span class="badge badge-amber">présent = "${sample.week_start}"</span>` : '<span class="badge badge-gray">absent</span>'}</span></div>
+      ${!hasWS && hasWS_snake ? `<div class="warn" style="margin-top:8px">❗ L'API retourne <code>week_start</code> mais agenda.js lit <code>r.weekStart</code> → filtre toujours vide → bug confirmé !</div>` : ''}
+      <details><summary>JSON sample (premier enregistrement)</summary>
+        <pre class="json" onclick="copyText(this.textContent)">${JSON.stringify(sample, null, 2)}</pre>
+      </details>
+    </div>`;
+  }
+
+  // ── Bloc 6 : JSON complet ──────────────────────────────────────────────
+  html += `<div class="block">
+    <div class="block-title"><span class="icon">📦</span> JSON brut complet</div>
+    <details>
+      <summary>Résultat calculé (${JSON.stringify(_lastResult).length} octets)</summary>
+      <pre class="json" onclick="copyText(this.textContent)">${JSON.stringify(_lastResult, null, 2)}</pre>
+    </details>
+    <details style="margin-top:6px">
+      <summary>API /api/support (${support.length} enregistrements)</summary>
+      <pre class="json" onclick="copyText(this.textContent)">${JSON.stringify(support.slice(0, 20), null, 2)}${support.length > 20 ? '\n// … ' + (support.length - 20) + ' autres' : ''}</pre>
+    </details>
+    <details style="margin-top:6px">
+      <summary>API /api/sprint</summary>
+      <pre class="json" onclick="copyText(this.textContent)">${JSON.stringify(raw.sprint, null, 2)}</pre>
+    </details>
+    <details style="margin-top:6px">
+      <summary>API /api/pi</summary>
+      <pre class="json" onclick="copyText(this.textContent)">${JSON.stringify(raw.pi, null, 2)}</pre>
+    </details>
+  </div>`;
+
+  out.innerHTML = html;
+
+  // curl hint
+  const curl = buildCurlUrl(p);
+  document.getElementById('curl-hint').innerHTML = `
+    <div class="hdr">URL JSON (curl)</div>
+    <div class="curl-box" onclick="copyText(this.textContent)" title="Cliquer pour copier">${curl}</div>`;
+}
+
+function buildCurlUrl(p = getParams()) {
+  const base = `${location.origin}/tests/agenda-debug.html`;
+  return `${base}?date=${p.date || _monday(_today())}&team=${p.team || ''}&window=${p.window}&fmt=json`;
+}
+
+function copyText(txt) {
+  navigator.clipboard.writeText(txt).catch(() => {});
+}
+function copyJson() {
+  if (_lastResult) copyText(JSON.stringify(_lastResult, null, 2));
+}
+function copyCurl() {
+  copyText(buildCurlUrl());
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(function init() {
+  const sp = new URLSearchParams(location.search);
+  const d  = sp.get('date');
+  const t  = sp.get('team');
+  const w  = sp.get('window');
+
+  document.getElementById('in-date').value = d || _monday(_today());
+  if (t) document.getElementById('in-team').value = t;
+  if (w) document.getElementById('in-window').value = w;
+
+  run(); // auto-run on load
+})();
+</script>
+</body>
+</html>

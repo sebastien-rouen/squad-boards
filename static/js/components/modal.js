@@ -5,7 +5,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr } from '../utils.js';
+import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS } from '../config.js';
 
 const overlay = () => document.getElementById('modal-overlay');
@@ -870,10 +870,14 @@ export function openTicketModal(ticketId) {
         if (_modalIdx < _modalList.length - 1) openTicketModal(_modalList[_modalIdx + 1].id);
     });
 
-    // Sync URL hash
+    // Sync URL hash — replaceState si la modale est déjà ouverte (navigation prev/next)
+    // pour éviter d'empiler des entrées qui forcent plusieurs "retours" à la fermeture.
     const baseHash = location.hash.replace(/^#/, '').replace(/\/ticket\/[^/]+$/, '') || store.get('view') || 'dashboard';
     const targetHash = `#${baseHash}/ticket/${encodeURIComponent(ticketId)}`;
-    if (location.hash !== targetHash) history.pushState(null, '', targetHash);
+    if (location.hash !== targetHash) {
+        if (!overlay().classList.contains('hidden')) history.replaceState(null, '', targetHash);
+        else history.pushState(null, '', targetHash);
+    }
 
     showModal();
 }
@@ -934,20 +938,29 @@ function _bindDescriptionEditor(container, ticket) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); save(); }
         if (e.key === 'Escape') { e.preventDefault(); contentEl.innerHTML = _html; exitEdit(); }
     });
-    toolbar?.addEventListener('mousedown', e => {
+    toolbar?.addEventListener('mousedown', async e => {
         const btn = e.target.closest('.desc-tb-btn');
         if (!btn) return;
         e.preventDefault();
-        if (btn.id === 'desc-tb-link') {
-            const url = prompt('URL du lien :');
-            if (url) document.execCommand('createLink', false, url);
-        } else if (btn.id === 'desc-tb-img') {
-            const url = prompt('URL de l\'image :');
-            if (url) document.execCommand('insertImage', false, url);
-        } else {
-            const cmd = btn.dataset.cmd, val = btn.dataset.val || null;
-            if (cmd) document.execCommand(cmd, false, val);
+        if (btn.id === 'desc-tb-link' || btn.id === 'desc-tb-img') {
+            // La modale (async) prend le focus → on sauve la sélection AVANT, on la restaure APRÈS.
+            const sel = window.getSelection();
+            const savedRange = sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+            const isImg = btn.id === 'desc-tb-img';
+            const url = await promptModal(isImg ? 'URL de l\'image' : 'URL du lien', {
+                type: 'url', placeholder: 'https://…', confirmLabel: 'Insérer', required: true,
+            });
+            contentEl.focus();
+            if (savedRange) {
+                const s = window.getSelection();
+                s.removeAllRanges();
+                s.addRange(savedRange);
+            }
+            if (url) document.execCommand(isImg ? 'insertImage' : 'createLink', false, url);
+            return;
         }
+        const cmd = btn.dataset.cmd, val = btn.dataset.val || null;
+        if (cmd) document.execCommand(cmd, false, val);
         contentEl.focus();
     });
 }
@@ -1621,67 +1634,199 @@ function wireContrib(container) {
 // ══════════════════════════════════════════════════════════════════════════════
 // Create Ticket
 // ══════════════════════════════════════════════════════════════════════════════
+
+const TYPE_ICONS = { story:'✨', bug:'🐛', task:'✅', support:'🎯', ops:'⚙️', debt:'🏚️', epic:'⚡', feature:'🚀' };
+const PRIORITY_CFG = [
+    { val:'low',      label:'↓ Faible'   },
+    { val:'medium',   label:'○ Moyen'    },
+    { val:'high',     label:'↑ Élevé'    },
+    { val:'critical', label:'⚡ Critique' },
+];
+const PRESET_LABELS = ['tech-debt','retro','postmortem','cop','adapt','support','skill-up','urgent'];
+
+function _chipSelGroup(name, items, defaultVal, extra = '') {
+    const chips = items.map(({ val, label, cls }) =>
+        `<button type="button" class="chip-sel ${cls || `chip-sel--${val}`}${val === defaultVal ? ' is-active' : ''}" data-val="${val}">${label}</button>`
+    ).join('');
+    return `<div class="chip-sel-group" data-name="${name}">${chips}</div><input type="hidden" name="${name}" value="${defaultVal}">${extra}`;
+}
+
+function _wireChipGroup(container, name, single = true, onChange) {
+    const group  = container.querySelector(`.chip-sel-group[data-name="${name}"]`);
+    const hidden = container.querySelector(`input[name="${name}"]`);
+    if (!group) return;
+    group.querySelectorAll('.chip-sel').forEach(chip => {
+        chip.addEventListener('click', () => {
+            if (single) { group.querySelectorAll('.chip-sel').forEach(c => c.classList.remove('is-active')); chip.classList.add('is-active'); }
+            else        { chip.classList.toggle('is-active'); }
+            if (hidden && single) hidden.value = chip.dataset.val;
+            if (onChange) onChange(chip.dataset.val, chip.classList.contains('is-active'));
+        });
+    });
+}
+
 export function openCreateModal(defaults = {}) {
-    const teamNames = store.get('teams') || [];
-    const memberNames = getMemberNames();
-    const epics = store.get('epics') || [];
+    const teams   = store.get('teams') || [];
+    const members = store.get('members') || [];
+    const epics   = store.get('epics') || [];
+    const defaultType   = defaults.type   || 'story';
+    const defaultStatus = defaults.status || 'todo';
+    const defaultTeam   = defaults.team   || '';
+
+    const teamNames = teams.map(t => (typeof t === 'string' ? t : t.name));
+    const membersByTeam = (team) => {
+        if (!team) return members.map(m => m.name || m);
+        return members.filter(m => (m.team || '') === team).map(m => m.name || m);
+    };
+    const leaderOpts = (team) => {
+        const names = membersByTeam(team);
+        return `<option value="">Non assigné</option>${names.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('')}`;
+    };
+
+    const typeItems     = Object.entries(TYPE_LABELS).map(([val, label]) => ({ val, label: `${TYPE_ICONS[val] || ''} ${label}` }));
+    const priorityItems = PRIORITY_CFG.map(p => ({ val: p.val, label: p.label }));
+    const pointsItems   = [0,1,2,3,5,8,13,21].map(p => ({ val: String(p), label: p === 0 ? '–' : String(p), cls: 'chip-sel chip-sel--pts' }));
+    const statusItems   = STATUS_ORDER.map(s => ({ val: s, label: STATUS_LABELS[s] }));
+    const labelItems    = PRESET_LABELS.map(l => ({ val: l, label: l, cls: 'chip-sel chip-sel--label' }));
 
     titleEl().textContent = 'Nouveau ticket';
     bodyEl().innerHTML = `
-        <form id="create-form">
-            <div class="edit-section">
-                <div class="edit-section-title">Titre</div>
-                <div class="form-group"><label class="label">Intitulé *</label><input class="input" name="title" required placeholder="Titre du ticket" autofocus></div>
+        <form id="create-form" autocomplete="off">
+
+            <div class="form-group" style="margin-bottom:var(--sp-3)">
+                <input class="input" name="title" required placeholder="Intitulé du ticket…" autofocus
+                       style="font-size:var(--fs-md);font-weight:var(--fw-medium);padding:10px 14px">
             </div>
+
             <div class="edit-section">
-                <div class="edit-section-title">Statut &amp; Type</div>
-                <div class="form-row">
-                    <div class="form-group"><label class="label">Type</label><select class="select w-full" name="type">${Object.entries(TYPE_LABELS).map(([k,v]) => `<option value="${k}"${k===(defaults.type||'story')?' selected':''}>${v}</option>`).join('')}</select></div>
-                    <div class="form-group"><label class="label">Statut</label><select class="select w-full" name="status">${STATUS_ORDER.map(s => `<option value="${s}"${s===(defaults.status||'todo')?' selected':''}>${STATUS_LABELS[s]}</option>`).join('')}</select></div>
+                <div class="edit-section-title">Type</div>
+                ${_chipSelGroup('type', typeItems, defaultType)}
+            </div>
+
+            <div class="form-row" style="gap:var(--sp-3);margin-bottom:var(--sp-3)">
+                <div class="edit-section" style="margin:0">
+                    <div class="edit-section-title">Priorité</div>
+                    ${_chipSelGroup('priority', priorityItems, 'medium')}
                 </div>
-                <div class="form-row">
-                    <div class="form-group"><label class="label">Points</label><select class="select w-full" name="points">${[0,1,2,3,5,8,13,21].map(p => `<option value="${p}">${p||'-'}</option>`).join('')}</select></div>
-                    <div class="form-group"><label class="label">Priorité</label><select class="select w-full" name="priority">${['low','medium','high','critical'].map(p => `<option value="${p}"${p==='medium'?' selected':''}>${p}</option>`).join('')}</select></div>
+                <div class="edit-section" style="margin:0">
+                    <div class="edit-section-title">Points (SP)</div>
+                    ${_chipSelGroup('points', pointsItems, '0')}
                 </div>
             </div>
+
+            <div class="edit-section">
+                <div class="edit-section-title">Statut</div>
+                ${_chipSelGroup('status', statusItems, defaultStatus)}
+            </div>
+
             <div class="edit-section">
                 <div class="edit-section-title">Assignation</div>
                 <div class="form-row">
-                    <div class="form-group"><label class="label">Équipe</label><select class="select w-full" name="team"><option value="">-</option>${teamNames.map(t => `<option value="${esc(t)}"${t===defaults.team?' selected':''}>${esc(t)}</option>`).join('')}</select></div>
-                    <div class="form-group"><label class="label">Leader</label><select class="select w-full" name="leader"><option value="">Non assigné</option>${memberNames.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('')}</select></div>
+                    <div class="form-group">
+                        <label class="label">Équipe</label>
+                        <select class="select w-full" name="team" id="cs-team">
+                            <option value="">—</option>
+                            ${teamNames.map(t => `<option value="${esc(t)}"${t===defaultTeam?' selected':''}>${esc(t)}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Leader</label>
+                        <select class="select w-full" name="leader" id="cs-leader">${leaderOpts(defaultTeam)}</select>
+                    </div>
                 </div>
-                <div class="form-group"><label class="label">Contributors</label>${contribFieldHtml([])}</div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="label">Contributors</label>
+                    ${contribFieldHtml([])}
+                </div>
             </div>
+
             <div class="edit-section">
                 <div class="edit-section-title">Liens</div>
-                <div class="form-group"><label class="label">Epic</label><select class="select w-full" name="epic"><option value="">Aucun</option>${epics.map(e => `<option value="${esc(e.id)}">${esc(e.id)} - ${esc(e.title)}</option>`).join('')}</select></div>
-                <div class="form-group"><label class="label">Labels</label><input class="input" name="labels" placeholder="tech-debt, urgent"></div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="label">Epic</label>
+                    <select class="select w-full" name="epic">
+                        <option value="">Aucun</option>
+                        ${epics.map(e => `<option value="${esc(e.id)}">${esc(e.id)} — ${esc(e.title)}</option>`).join('')}
+                    </select>
+                </div>
             </div>
+
+            <div class="edit-section">
+                <div class="edit-section-title">Labels</div>
+                ${_chipSelGroup('_labels_ui', labelItems, '__none__')}
+                <div style="margin-top:var(--sp-2);display:flex;gap:var(--sp-2);align-items:center">
+                    <input class="input" id="cs-label-input" placeholder="+ Label personnalisé…" style="font-size:var(--fs-xs);flex:1">
+                    <span class="text-xs text-muted">↵ pour ajouter</span>
+                </div>
+            </div>
+
             <div class="edit-section">
                 <div class="edit-section-title">Description</div>
-                <div class="form-group"><textarea class="input" name="description" rows="4" placeholder="Description du ticket..."></textarea></div>
+                <div style="margin:0"><textarea class="input" name="description" rows="3" placeholder="Description optionnelle…"></textarea></div>
             </div>
-            <div class="form-actions"><button type="button" class="btn btn-secondary" id="btn-cancel-create">Annuler</button><button type="submit" class="btn btn-primary">Créer</button></div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="btn-cancel-create">Annuler</button>
+                <button type="submit" class="btn btn-primary">Créer le ticket</button>
+            </div>
         </form>
     `;
+
+    // Wire radio chip groups
+    ['type','priority','points','status'].forEach(name => _wireChipGroup(bodyEl(), name, true));
+
+    // Wire label chips (multi-select, no hidden input — read from DOM at submit)
+    _wireChipGroup(bodyEl(), '_labels_ui', false);
+
+    // Custom label input
+    const labelGroup = bodyEl().querySelector('.chip-sel-group[data-name="_labels_ui"]');
+    bodyEl().querySelector('#cs-label-input')?.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const raw = e.target.value.trim().replace(/\s+/g, '-').toLowerCase();
+        if (!raw) return;
+        const existing = labelGroup?.querySelector(`.chip-sel[data-val="${CSS.escape(raw)}"]`);
+        if (existing) { existing.classList.add('is-active'); }
+        else if (labelGroup) {
+            const btn = document.createElement('button');
+            btn.type = 'button'; btn.className = 'chip-sel chip-sel--label is-active'; btn.dataset.val = raw; btn.textContent = raw;
+            btn.addEventListener('click', () => btn.classList.toggle('is-active'));
+            labelGroup.appendChild(btn);
+        }
+        e.target.value = '';
+    });
+
+    // Team → filter leader
+    const teamSel   = bodyEl().querySelector('#cs-team');
+    const leaderSel = bodyEl().querySelector('#cs-leader');
+    teamSel?.addEventListener('change', () => {
+        leaderSel.innerHTML = leaderOpts(teamSel.value);
+    });
+
     wireContrib(bodyEl());
     bodyEl().querySelector('#btn-cancel-create')?.addEventListener('click', closeModal);
+
     bodyEl().querySelector('#create-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
+        const selectedLabels = [...(labelGroup?.querySelectorAll('.chip-sel.is-active') || [])].map(c => c.dataset.val);
         const data = {
-            title: fd.get('title'), type: fd.get('type'), status: fd.get('status'),
-            team: fd.get('team'), leader: fd.get('leader') || null,
+            title:        fd.get('title'),
+            type:         fd.get('type'),
+            status:       fd.get('status'),
+            team:         fd.get('team'),
+            leader:       fd.get('leader') || null,
             contributors: JSON.parse(fd.get('contributors') || '[]'),
-            points: parseInt(fd.get('points')) || 0, priority: fd.get('priority'),
-            epic: fd.get('epic') || null,
-            labels: (fd.get('labels')||'').split(',').map(l=>l.trim()).filter(Boolean),
-            description: fd.get('description'),
+            points:       parseInt(fd.get('points')) || 0,
+            priority:     fd.get('priority'),
+            epic:         fd.get('epic') || null,
+            labels:       selectedLabels,
+            description:  fd.get('description'),
         };
         try {
             const fn = data.type === 'feature' ? api.createFeature : data.type === 'epic' ? api.createEpic : api.createTicket;
             await fn(data); await refreshData(); closeModal();
-            toast('Cree', 'success'); window.__squadBoard.rerenderView?.();
+            toast('Créé', 'success'); window.__squadBoard.rerenderView?.();
         } catch (err) { toast(err.message, 'error'); }
     });
     showModal();
@@ -1691,69 +1836,165 @@ export function openCreateModal(defaults = {}) {
 // Edit Ticket
 // ══════════════════════════════════════════════════════════════════════════════
 export function openEditModal(ticket) {
-    const teamNames = store.get('teams') || [];
-    const memberNames = getMemberNames();
-    const epics = store.get('epics') || [];
-    const leader = ticket.leader || ticket.assignee || '';
+    const teams        = store.get('teams') || [];
+    const members      = store.get('members') || [];
+    const epics        = store.get('epics') || [];
+    const leader       = ticket.leader || ticket.assignee || '';
     const contributors = (ticket.contributors || []).filter(c => c && c !== leader);
+    const ticketLabels = new Set(ticket.labels || []);
+
+    const teamNames    = teams.map(t => (typeof t === 'string' ? t : t.name));
+    const memberNames  = getMemberNames();
+
+    const typeItems     = Object.entries(TYPE_LABELS).map(([val, label]) => ({ val, label: `${TYPE_ICONS[val] || ''} ${label}` }));
+    const priorityItems = PRIORITY_CFG.map(p => ({ val: p.val, label: p.label }));
+    const pointsItems   = [0,1,2,3,5,8,13,21].map(p => ({ val: String(p), label: p === 0 ? '–' : String(p), cls: 'chip-sel chip-sel--pts' }));
+    const statusItems   = STATUS_ORDER.map(s => ({ val: s, label: STATUS_LABELS[s] }));
+
+    // Build label chips (preset ∪ current ticket labels)
+    const allLabelVals  = [...new Set([...PRESET_LABELS, ...ticketLabels])];
+    const labelChipsHtml = allLabelVals.map(l =>
+        `<button type="button" class="chip-sel chip-sel--label${ticketLabels.has(l) ? ' is-active' : ''}" data-val="${l}">${l}</button>`
+    ).join('');
 
     titleEl().textContent = `Modifier ${ticket.id}`;
     bodyEl().innerHTML = `
-        <form id="edit-form">
-            <div class="edit-section">
-                <div class="edit-section-title">Titre</div>
-                <div class="form-group"><label class="label">Intitulé *</label><input class="input" name="title" required value="${esc(ticket.title)}" autofocus></div>
+        <form id="edit-form" autocomplete="off">
+
+            <div class="form-group" style="margin-bottom:var(--sp-3)">
+                <input class="input" name="title" required value="${esc(ticket.title)}" autofocus
+                       style="font-size:var(--fs-md);font-weight:var(--fw-medium);padding:10px 14px">
             </div>
+
             <div class="edit-section">
-                <div class="edit-section-title">Statut &amp; Type</div>
-                <div class="form-row">
-                    <div class="form-group"><label class="label">Type</label><select class="select w-full" name="type">${Object.entries(TYPE_LABELS).map(([k,v]) => `<option value="${k}"${k===ticket.type?' selected':''}>${v}</option>`).join('')}</select></div>
-                    <div class="form-group"><label class="label">Statut</label><select class="select w-full" name="status">${STATUS_ORDER.map(s => `<option value="${s}"${s===ticket.status?' selected':''}>${STATUS_LABELS[s]}</option>`).join('')}</select></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group"><label class="label">Points</label><select class="select w-full" name="points">${[0,1,2,3,5,8,13,21].map(p => `<option value="${p}"${p===(ticket.points||0)?' selected':''}>${p||'-'}</option>`).join('')}</select></div>
-                    <div class="form-group"><label class="label">Priorité</label><select class="select w-full" name="priority">${['low','medium','high','critical'].map(p => `<option value="${p}"${p===ticket.priority?' selected':''}>${p}</option>`).join('')}</select></div>
-                </div>
-                <label class="edit-checkbox-label"><input type="checkbox" name="flagged" ${ticket.flagged?'checked':''}> 🚫 Bloqué / impédiment</label>
+                <div class="edit-section-title">Type</div>
+                ${_chipSelGroup('type', typeItems, ticket.type || 'story')}
             </div>
+
+            <div class="form-row" style="gap:var(--sp-3);margin-bottom:var(--sp-3)">
+                <div class="edit-section" style="margin:0">
+                    <div class="edit-section-title">Priorité</div>
+                    ${_chipSelGroup('priority', priorityItems, ticket.priority || 'medium')}
+                </div>
+                <div class="edit-section" style="margin:0">
+                    <div class="edit-section-title">Points (SP)</div>
+                    ${_chipSelGroup('points', pointsItems, String(ticket.points || 0))}
+                </div>
+            </div>
+
+            <div class="edit-section">
+                <div class="edit-section-title">Statut</div>
+                ${_chipSelGroup('status', statusItems, ticket.flagged ? 'blocked' : (ticket.status || 'todo'))}
+                <label class="edit-checkbox-label" style="margin-top:var(--sp-2)">
+                    <input type="checkbox" name="flagged" ${ticket.flagged?'checked':''}> 🚫 Marquer comme impédiment (bloqué)
+                </label>
+            </div>
+
             <div class="edit-section">
                 <div class="edit-section-title">Assignation</div>
                 <div class="form-row">
-                    <div class="form-group"><label class="label">Équipe</label><select class="select w-full" name="team"><option value="">-</option>${teamNames.map(t => `<option value="${esc(t)}"${t===ticket.team?' selected':''}>${esc(t)}</option>`).join('')}</select></div>
-                    <div class="form-group"><label class="label">Leader</label><select class="select w-full" name="leader"><option value="">Non assigné</option>${memberNames.map(m => `<option value="${esc(m)}"${m===leader?' selected':''}>${esc(m)}</option>`).join('')}</select></div>
+                    <div class="form-group">
+                        <label class="label">Équipe</label>
+                        <select class="select w-full" name="team">
+                            <option value="">—</option>
+                            ${teamNames.map(t => `<option value="${esc(t)}"${t===ticket.team?' selected':''}>${esc(t)}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="label">Leader</label>
+                        <select class="select w-full" name="leader">
+                            <option value="">Non assigné</option>
+                            ${memberNames.map(m => `<option value="${esc(m)}"${m===leader?' selected':''}>${esc(m)}</option>`).join('')}
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group"><label class="label">Contributors</label>${contribFieldHtml(contributors)}</div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="label">Contributors</label>
+                    ${contribFieldHtml(contributors)}
+                </div>
             </div>
+
             <div class="edit-section">
                 <div class="edit-section-title">Liens</div>
-                <div class="form-group"><label class="label">Epic</label><select class="select w-full" name="epic"><option value="">Aucun</option>${epics.map(e => `<option value="${esc(e.id)}"${e.id===ticket.epic?' selected':''}>${esc(e.id)} - ${esc(e.title)}</option>`).join('')}</select></div>
-                <div class="form-group"><label class="label">Labels</label><input class="input" name="labels" value="${esc((ticket.labels||[]).join(', '))}" placeholder="tech-debt, urgent"></div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="label">Epic</label>
+                    <select class="select w-full" name="epic">
+                        <option value="">Aucun</option>
+                        ${epics.map(e => `<option value="${esc(e.id)}"${e.id===ticket.epic?' selected':''}>${esc(e.id)} — ${esc(e.title)}</option>`).join('')}
+                    </select>
+                </div>
             </div>
+
+            <div class="edit-section">
+                <div class="edit-section-title">Labels</div>
+                <div class="chip-sel-group" data-name="_labels_ui">${labelChipsHtml}</div>
+                <div style="margin-top:var(--sp-2);display:flex;gap:var(--sp-2);align-items:center">
+                    <input class="input" id="es-label-input" placeholder="+ Label personnalisé…" style="font-size:var(--fs-xs);flex:1">
+                    <span class="text-xs text-muted">↵ pour ajouter</span>
+                </div>
+            </div>
+
             <div class="edit-section">
                 <div class="edit-section-title">Description</div>
-                <div class="form-group"><textarea class="input" name="description" rows="5" placeholder="Description du ticket...">${esc(ticket.description||'')}</textarea></div>
+                <div style="margin:0"><textarea class="input" name="description" rows="4" placeholder="Description du ticket...">${esc(ticket.description||'')}</textarea></div>
             </div>
-            <div class="form-actions"><button type="button" class="btn btn-secondary" id="btn-cancel-edit">Annuler</button><button type="submit" class="btn btn-primary">Enregistrer</button></div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="btn-cancel-edit">Annuler</button>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
         </form>
     `;
+
+    // Wire radio chip groups
+    ['type','priority','points','status'].forEach(name => _wireChipGroup(bodyEl(), name, true));
+
+    // Wire label chips (multi-select)
+    _wireChipGroup(bodyEl(), '_labels_ui', false);
+
+    // Custom label input
+    const labelGroup = bodyEl().querySelector('.chip-sel-group[data-name="_labels_ui"]');
+    bodyEl().querySelector('#es-label-input')?.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const raw = e.target.value.trim().replace(/\s+/g, '-').toLowerCase();
+        if (!raw) return;
+        const existing = labelGroup?.querySelector(`.chip-sel[data-val="${CSS.escape(raw)}"]`);
+        if (existing) { existing.classList.add('is-active'); }
+        else if (labelGroup) {
+            const btn = document.createElement('button');
+            btn.type = 'button'; btn.className = 'chip-sel chip-sel--label is-active'; btn.dataset.val = raw; btn.textContent = raw;
+            btn.addEventListener('click', () => btn.classList.toggle('is-active'));
+            labelGroup.appendChild(btn);
+        }
+        e.target.value = '';
+    });
+
     wireContrib(bodyEl());
     bodyEl().querySelector('#btn-cancel-edit')?.addEventListener('click', closeModal);
+
     bodyEl().querySelector('#edit-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
+        const selectedLabels = [...(labelGroup?.querySelectorAll('.chip-sel.is-active') || [])].map(c => c.dataset.val);
         const data = {
-            title: fd.get('title'), type: fd.get('type'), status: fd.get('status'),
-            team: fd.get('team'), leader: fd.get('leader') || null,
+            title:        fd.get('title'),
+            type:         fd.get('type'),
+            status:       fd.get('status'),
+            team:         fd.get('team'),
+            leader:       fd.get('leader') || null,
             contributors: JSON.parse(fd.get('contributors') || '[]'),
-            points: parseInt(fd.get('points')) || 0, priority: fd.get('priority'),
-            epic: fd.get('epic') || null,
-            labels: (fd.get('labels')||'').split(',').map(l=>l.trim()).filter(Boolean),
-            flagged: !!fd.get('flagged'), description: fd.get('description'),
+            points:       parseInt(fd.get('points')) || 0,
+            priority:     fd.get('priority'),
+            epic:         fd.get('epic') || null,
+            labels:       selectedLabels,
+            flagged:      !!fd.get('flagged'),
+            description:  fd.get('description'),
         };
         try {
             const fn = ticket.type === 'feature' ? api.updateFeature : ticket.type === 'epic' ? api.updateEpic : api.updateTicket;
             await fn(ticket.id, data); await refreshData(); closeModal();
-            toast('Mis a jour', 'success'); window.__squadBoard.rerenderView?.();
+            toast('Mis à jour', 'success'); window.__squadBoard.rerenderView?.();
         } catch (err) { toast(err.message, 'error'); }
     });
     showModal();

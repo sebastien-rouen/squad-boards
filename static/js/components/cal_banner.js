@@ -754,6 +754,24 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
         : weekOffset < 0    ? `Il y a ${-weekOffset} semaines`
         : `Dans ${weekOffset} semaines`;
 
+    const _monKey = _dayKey(mon);
+    const _sunKey = _dayKey(sun);
+    const _supportNames = [...new Set(
+        (store.get('support') || [])
+            .filter(r => {
+                if (_currentTeam && _currentTeam !== 'all' && r.team !== _currentTeam) return false;
+                return r.weekStart <= _sunKey && r.weekEnd >= _monKey;
+            })
+            .flatMap(r => r.members || [])
+    )];
+    const _supportBarHtml = _supportNames.length
+        ? `<div class="cal-support-bar">
+               <span class="cal-support-bar-icon">🎧</span>
+               <span class="cal-support-bar-label">Support</span>
+               ${_supportNames.map(n => `<span class="cal-support-bar-chip">${esc(n)}</span>`).join('')}
+           </div>`
+        : '';
+
     return `
         <div class="cal-week-hdr">
             <div class="cal-week-hdr-left">
@@ -777,6 +795,7 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
             </div>
         </div>
         ${_renderSprintBar(mon, sun)}
+        ${_supportBarHtml}
         <div class="cal-week-grid-wrap${showPmSplit ? ' cal-week-split-active' : ''}">
             ${showPmSplit ? `
                 <div class="cal-time-gutter" aria-hidden="true">

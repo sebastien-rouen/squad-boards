@@ -91,6 +91,7 @@ export const WIP_LIMITS = {
 export const NAV_ITEMS = [
     { id: 'dashboard',  label: 'Dashboard',    icon: 'i-grid',       shortcut: '1' },
     { id: 'sprint',     label: 'Board',        icon: 'i-columns',    shortcut: '2' },
+    { id: 'backlog',    label: 'Backlog',       icon: 'i-list',       shortcut: 'B' },
     { id: 'pi',         label: 'PI Planning',  icon: 'i-calendar',   shortcut: '4' },
     { id: 'roadmap',    label: 'Roadmap',      icon: 'i-map',        shortcut: '6' },
     { id: 'health',     label: 'Santé',        icon: 'i-shield',     shortcut: 'H' },

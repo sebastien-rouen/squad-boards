@@ -361,10 +361,10 @@ export function renderSprint(container) {
         <div id="board-container"></div>
 
         <!-- Recent Activity (composant partagé) -->
-        <div class="card mt-4">
-            <div class="card-header"><span class="card-title">Activité récente</span></div>
+        <details class="card mt-4 card-collapsible">
+            <summary class="card-header"><span class="card-title">Activité récente</span><span class="card-collapse-icon">▸</span></summary>
             <div id="sprint-activity-list"></div>
-        </div>
+        </details>
     `;
 
     renderCalBanner(container.querySelector('#cal-banner-wrap'));

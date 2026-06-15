@@ -1,4 +1,5 @@
 """ICS / iCalendar parser — développe les récurrences (RRULE) avec gestion DST."""
+import json
 from datetime import datetime, timezone, date as _date, timedelta
 
 try:
@@ -158,3 +159,28 @@ def _parse_ics_events(ics_text: str) -> list[dict]:
 
     events.sort(key=lambda e: e["start"])
     return events
+
+
+def expand_calendar_events(cals, team=None) -> list[dict]:
+    """Aplatit les events cachés (events_json) de plusieurs TeamCalendar en une liste
+    triée, enrichie de calendarId/calendarName/team. Si `team` est fourni, ne garde que
+    les calendriers dont le champ team (CSV) contient l'équipe (un calendrier sans team
+    = toutes équipes). Source unique partagée par /api/all et /api/calendars/events."""
+    out: list[dict] = []
+    for cal in cals:
+        if team and cal.team:
+            cal_teams = [t.strip() for t in cal.team.split(',') if t.strip()]
+            if cal_teams and team not in cal_teams:
+                continue
+        if not cal.events_json:
+            continue
+        try:
+            for ev in json.loads(cal.events_json):
+                ev["calendarId"]   = cal.id
+                ev["calendarName"] = cal.name
+                ev["team"]         = cal.team
+                out.append(ev)
+        except Exception:
+            pass
+    out.sort(key=lambda e: e.get("start", ""))
+    return out

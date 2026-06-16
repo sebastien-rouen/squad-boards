@@ -615,22 +615,14 @@ export function renderAgenda(container) {
             for (const a of memberAbs) {
                 const emoji = _ABS_EMOJI[a.type] || '📌';
                 const cfg   = ABSENCE_CONFIG[a.type] || ABSENCE_CONFIG.autre;
-                _absLines.push(`${emoji} ${_slackName(m.name)} — ${cfg.label} ${_dayRange(a.from, a.to)}`);
+                _absLines.push(`${emoji} ${_slackName(m.name)} - ${cfg.label} ${_dayRange(a.from, a.to)}`);
             }
         }
         // OFF calendrier — même emoji 🏖️ que cal_banner
         for (const [name, idxs] of _offPeople) {
-            _absLines.push(`🏖️ ${_slackName(name)} — OFF ${_dayRange(idxs[0], idxs[idxs.length - 1])}`);
+            _absLines.push(`🏖️ ${_slackName(name)} - OFF ${_dayRange(idxs[0], idxs[idxs.length - 1])}`);
         }
         if (_absLines.length) { lines.push(..._absLines); lines.push(''); }
-
-        // Disponibles toute la semaine
-        const _absentSet = new Set([
-            ...filteredMembers.filter(m => dayIsos.some(iso => _absOnDay(absences, m.name, iso))).map(m => m.name),
-            ..._offPeople.keys(),
-        ]);
-        const _presentNames = filteredMembers.filter(m => !_absentSet.has(m.name)).map(m => _slackName(m.name));
-        if (_presentNames.length) lines.push(`✅ *Dispo* : ${_presentNames.join(', ')}`);
 
         try {
             await navigator.clipboard.writeText(lines.join('\n').trimEnd());

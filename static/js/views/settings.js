@@ -8,7 +8,7 @@ import {
     esc, fmtDate, fmtRelative, toast, deriveMembersFromAbsences, generateSupportRotation,
     buildSupportPiWeeks, SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
     isMemberSupportActive, setMemberSupportActive, getInactiveSupportMembers,
-    friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi, promptModal,
+    friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi, promptModal, choiceModal,
 } from '../utils.js';
 import { makePersonPicker } from '../components/modal.js';
 
@@ -1947,9 +1947,39 @@ export function renderSettings(container) {
         const pipLine = pipDates.length
             ? `\n🗓️ PIP (PI Planning du PI suivant) : ${pipDates.map(_fmtFr).join(', ')}`
             : '';
-        if (!confirm(`Format : ${mode}\nAjouter ${absencesPayload.length} absence(s) ?${teamsLine}${piLine}${datesLine}${pipLine}${xtraInfo}\n\nDoublons (même nom + jour) ignorés.`)) return;
+        // Fenêtre du PI à écraser : dates déduites du PI si dispo, sinon amplitude des absences importées
+        const _payloadDates = absencesPayload
+            .flatMap(a => [a.startDate, a.endDate || a.startDate]).filter(Boolean).sort();
+        const rangeStart = piStartSnapped || _payloadDates[0] || null;
+        const rangeEnd   = piEndDate     || _payloadDates[_payloadDates.length - 1] || null;
+        const overlapCount = (rangeStart && rangeEnd)
+            ? (store.get('absences') || []).filter(a => {
+                const s = a.startDate || '', e = a.endDate || s;
+                return s <= rangeEnd && e >= rangeStart;
+            }).length
+            : 0;
+
+        const periodLabel = piTarget ? `du PI ${piTarget}` : 'de la période';
+        const rangeTxt = (rangeStart && rangeEnd) ? ` (${_fmtFr(rangeStart)} → ${_fmtFr(rangeEnd)})` : '';
+        const choices = [{ key: 'append', label: `Ajouter (${absencesPayload.length})`, variant: 'primary' }];
+        if (rangeStart && rangeEnd) {
+            choices.push({
+                key: 'replace',
+                label: `Écraser ${periodLabel}${overlapCount ? ` — ${overlapCount} suppr.` : ''}`,
+                variant: 'danger',
+            });
+        }
+        const choice = await choiceModal(
+            'Importer les absences',
+            `Format : ${mode} · ${absencesPayload.length} absence(s) à importer.${teamsLine}${piLine}${datesLine}${pipLine}${xtraInfo}\n\n`
+            + `• Ajouter : conserve l'existant, ignore les doublons (même nom + jour).\n`
+            + `• Écraser ${periodLabel}${rangeTxt} : supprime d'abord les ${overlapCount} absence(s) de cette période, puis importe.`,
+            choices,
+        );
+        if (!choice) return;
+        const replaceRange = choice === 'replace' ? { start: rangeStart, end: rangeEnd } : null;
         try {
-            const res = await api.bulkCreateAbsences(absencesPayload, false);
+            const res = await api.bulkCreateAbsences(absencesPayload, false, replaceRange);
             let memSync = null;
             if (membersPayload.length) memSync = await api.bulkMergeMembers(membersPayload, false);
             // Enregistre le snapshot des membres pour le PI cible
@@ -1969,6 +1999,7 @@ export function renderSettings(container) {
                 localStorage.setItem(key, JSON.stringify(cfg));
             }
             const parts = [`${res.created} absence(s) ajoutee(s)`];
+            if (res.deleted) parts.push(`${res.deleted} ecrasee(s)`);
             if (res.skipped) parts.push(`${res.skipped} doublon(s)`);
             if (memSync) parts.push(`${memSync.created || 0} créés, ${memSync.updated || 0} maj`);
             if (piTarget) parts.push(`snapshot PI ${piTarget}`);

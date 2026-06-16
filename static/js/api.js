@@ -103,8 +103,8 @@ export const bulkMergeMembers = (members, replace = false) => request('/api/memb
     body: JSON.stringify({ members, replace }),
 });
 
-export const bulkCreateAbsences = (absences, replace = false) => request('/api/absences/bulk', {
-    method: 'POST', body: JSON.stringify({ absences, replace }),
+export const bulkCreateAbsences = (absences, replace = false, replaceRange = null) => request('/api/absences/bulk', {
+    method: 'POST', body: JSON.stringify({ absences, replace, replaceRange }),
 });
 export const updateAbsence   = (id, data) => request(`/api/absences/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteAbsence   = id   => request(`/api/absences/${id}`, { method: 'DELETE' });

@@ -534,6 +534,51 @@ export function confirmDanger(title, message, options = {}) {
 }
 
 /**
+ * Modale à choix multiples (≥2 actions + annulation). Réutilise `.confirm-overlay`/`.confirm-modal`.
+ * @param {string} title
+ * @param {string} message  (sauts de ligne `\n` autorisés)
+ * @param {Array<{key:string,label:string,variant?:string}>} buttons  variant: 'primary'|'danger'|'secondary'
+ * @returns {Promise<string|null>} la `key` choisie, ou `null` si annulé (Échap / clic hors modale / Annuler).
+ */
+export function choiceModal(title, message, buttons = []) {
+    return new Promise(resolve => {
+        const ov = document.createElement('div');
+        ov.className = 'confirm-overlay';
+        const btnHtml = buttons.map(b =>
+            `<button class="btn btn-${b.variant || 'primary'} btn-sm" data-key="${esc(b.key)}">${esc(b.label)}</button>`
+        ).join('');
+        ov.innerHTML = `
+            <div class="confirm-modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+                <div class="confirm-body">
+                    <div class="confirm-title">${esc(title)}</div>
+                    ${message ? `<div class="confirm-message">${esc(message).replace(/\n/g, '<br>')}</div>` : ''}
+                </div>
+                <div class="confirm-actions">
+                    <button class="btn btn-ghost btn-sm" data-key="">Annuler</button>
+                    ${btnHtml}
+                </div>
+            </div>`;
+        document.body.appendChild(ov);
+        requestAnimationFrame(() => ov.classList.add('visible'));
+        const cleanup = (val) => {
+            ov.classList.remove('visible');
+            ov.addEventListener('transitionend', () => ov.remove(), { once: true });
+            document.removeEventListener('keydown', onKey);
+            resolve(val || null);
+        };
+        const onKey = e => { if (e.key === 'Escape') cleanup(null); };
+        document.addEventListener('keydown', onKey);
+        ov.addEventListener('click', e => {
+            if (e.target === ov) return cleanup(null);
+            const btn = e.target.closest('[data-key]');
+            if (btn) cleanup(btn.dataset.key);
+        });
+        // Focus la 1re action métier (pas "Annuler")
+        setTimeout(() => ov.querySelector('.confirm-actions [data-key]:not([data-key=""])')?.focus(), 50);
+    });
+}
+
+/**
  * Saisie texte modale (remplace `prompt()` natif : thémée, dark-mode, validation, Échap/Entrée).
  * @param {string} title
  * @param {object} [opts] { message?, value?, placeholder?, confirmLabel?, cancelLabel?, type?, required? }

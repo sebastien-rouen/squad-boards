@@ -1,3 +1,23 @@
+## [3.26.0] - 2026-06-16
+
+### Feat : import CSV absences — choix « Ajouter » ou « Écraser le PI »
+- **Choix au clic sur « Importer le CSV »** ([settings.js](squad-board/static/js/views/settings.js)) : remplace le `confirm()` binaire par une modale à 2 actions — **Ajouter** (append, doublons ignorés, comportement historique) ou **Écraser le PI** (purge d'abord la période avant d'importer). La fenêtre du PI = dates déduites du PI sélectionné si dispo, sinon amplitude des absences du CSV. Le bouton « Écraser » affiche le nombre d'absences existantes qui seront supprimées + la plage de dates.
+- **Backend** ([absences.py](squad-board/app/routers/absences.py)) : `POST /api/absences/bulk` accepte un nouveau paramètre `replaceRange {start,end}` — supprime les absences **chevauchant** cette fenêtre (et non plus toute la table comme `replace:true`) avant insertion. Réponse enrichie d'un compteur `deleted`.
+- **Modale réutilisable** `choiceModal(title, message, buttons)` ([utils.js](squad-board/static/js/utils.js)) : N actions + Annulation, thémée (réutilise `.confirm-overlay`/`.confirm-modal`), Échap/clic-hors = annuler.
+- Toast d'import enrichi : `X ajoutee(s) · Y ecrasee(s) · Z doublon(s)`.
+
+## [3.25.1] - 2026-06-16
+
+### Fix : copie Slack « 📋 Semaine » (Agenda) — absents uniquement, tirets simples
+- **Bloc « Dispo » retiré** ([agenda.js](squad-board/static/js/views/agenda.js)) : la copie de la semaine ne liste plus les membres disponibles, seulement les absents (congé, maladie, formation, OFF).
+- **Séparateur** : `—` (cadratin) remplacé par `-` dans les lignes d'absence pour un rendu Slack plus sobre.
+
+### Style : format Slack « AGENDA DU JOUR » du calendrier (shortcodes + espacement)
+- **Shortcodes Slack** ([cal_banner.js](squad-board/static/js/components/cal_banner.js)) : sections en `:sunrise: Matin` / `:sunny: Après-midi` et absents en `:beach_with_umbrella: Absents` (au lieu des emojis Unicode bruts), plus fiables au collage dans Slack.
+- **Espacement** : ligne vide entre chaque section (Matin / Après-midi / Absents) pour un bloc plus lisible.
+- **Tirets simples** : séparateur d'horaire `09h30-09h45` (`-` au lieu du demi-cadratin) et titre `AGENDA DU JOUR - *…*`.
+- **Demi-journées** : OFF partiel affiché `(matin)` / `(après-midi)` quand détectable dans le titre, sinon `(½)`. Appliqué aussi à la copie hebdo (`_buildWeekSlack`).
+
 ## [3.25.0] - 2026-06-16
 
 ### Feat : lot d'améliorations UX/UI (accessibilité, mobile, tooltips, topbar)

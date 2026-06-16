@@ -78,14 +78,30 @@ async def repair_absence_encoding(session: Session = Depends(get_session)):
 @router.post("/bulk")
 async def bulk_create_absences(request: Request, session: Session = Depends(get_session)):
     """Import multiple absences. Deduplicates by (member_name, start_date, end_date).
-    replace=True clears the table first; replace=False appends without duplicates."""
+    replace=True clears the whole table first ; replaceRange={start,end} ne supprime que
+    les absences chevauchant cette fenetre (periode du PI) ; sinon append sans doublons."""
     body = await request.json()
     items = body.get("absences", [])
     replace = body.get("replace", False)
+    replace_range = body.get("replaceRange") or None
+    deleted = 0
     if replace:
         for row in session.exec(select(Absence)).all():
             session.delete(row)
+            deleted += 1
         session.flush()
+    elif replace_range:
+        rs = (replace_range.get("start") or "").strip()
+        re_ = (replace_range.get("end") or "").strip()
+        if rs and re_:
+            # Chevauchement [rs, re_] : start <= re_ ET end >= rs (dates ISO YYYY-MM-DD, comparaison lexicale OK)
+            for row in session.exec(select(Absence)).all():
+                a_start = row.start_date or ""
+                a_end = row.end_date or a_start
+                if a_start <= re_ and a_end >= rs:
+                    session.delete(row)
+                    deleted += 1
+            session.flush()
 
     # Build a set of existing (member_name, start_date, end_date) to deduplicate
     existing = {
@@ -112,4 +128,4 @@ async def bulk_create_absences(request: Request, session: Session = Depends(get_
         existing.add(key)
         created += 1
     session.commit()
-    return {"ok": True, "created": created, "skipped": skipped}
+    return {"ok": True, "created": created, "skipped": skipped, "deleted": deleted}

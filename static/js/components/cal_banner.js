@@ -914,7 +914,7 @@ function _wireTeamPickerPopover(overlay, currentSelection, onChange) {
 /** Formate un event pour Slack : "  • HH:mm–HH:mm : Titre lien" */
 function _fmtEvSlack(ev) {
     const s = new Date(ev.start), e = new Date(ev.end);
-    const time = `${_h(s)}–${_h(e)}`;
+    const time = `${_h(s)}-${_h(e)}`;
     // Lien visio (url > location > description) — sinon url générique éventuelle
     const link = _extractVisioLink(ev) || (ev.url && /^https?:\/\//i.test(ev.url) ? ev.url : null);
     return link ? `  • ${time} : ${ev.title} ${link}` : `  • ${time} : ${ev.title}`;
@@ -925,33 +925,49 @@ function _nameFromOff(title) {
     return title.replace(/-\s*[^-]*\bOFF\s*$/i, '').trim();
 }
 
+/** Libellé de demi-journée OFF : "matin" / "après-midi" si détectable, sinon "½". */
+function _halfLabel(title) {
+    const t = title || '';
+    if (/\b(?:AM|matin)\b/i.test(t)) return 'matin';
+    if (/\b(?:PM|après[- ]?midi)\b/i.test(t)) return 'après-midi';
+    return '½';
+}
+
 /** Construit le message Slack pour un seul jour. */
 function _buildDaySlack(evs, day) {
     const DAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-    const _fmtD = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const _fmtD = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
     const regular = evs.filter(e => !_isOff(e.title) && !e.allDay).sort((a, b) => a.start.localeCompare(b.start));
     const offEvs  = evs.filter(e => _isOff(e.title));
 
     if (!regular.length && !offEvs.length) return '_(Aucun événement)_';
 
     const dow = (day.getDay() + 6) % 7;
-    const lines = [`:date: AGENDA DU JOUR — *${DAY_LABELS[dow]} ${_fmtD(day)}*`, ''];
+    const lines = [`:date: AGENDA DU JOUR - *${DAY_LABELS[dow]} ${_fmtD(day)}*`, ''];
 
     const matin = regular.filter(e => new Date(e.start).getHours() < 12);
     const aprem  = regular.filter(e => new Date(e.start).getHours() >= 12);
 
-    if (matin.length) { lines.push('  🌅 Matin');  matin.forEach(ev => lines.push(_fmtEvSlack(ev))); }
-    if (aprem.length) { lines.push('  ☀️ Après-midi'); aprem.forEach(ev => lines.push(_fmtEvSlack(ev))); }
+    if (matin.length) {
+        lines.push(':sunrise: Matin');
+        matin.forEach(ev => lines.push(_fmtEvSlack(ev)));
+        lines.push('');
+    }
+    if (aprem.length) {
+        lines.push(':sunny: Après-midi');
+        aprem.forEach(ev => lines.push(_fmtEvSlack(ev)));
+        lines.push('');
+    }
 
     if (offEvs.length) {
         const names = offEvs.map(ev => {
             const name = _nameFromOff(ev.title);
-            return _isHalfOff(ev.title) ? `${name} (½)` : name;
+            return _isHalfOff(ev.title) ? `${name} (${_halfLabel(ev.title)})` : name;
         }).join(', ');
-        lines.push(`🏖️ Absents : ${names}`);
+        lines.push(`:beach_with_umbrella: Absents : ${names}`);
     }
 
-    return lines.join('\n');
+    return lines.join('\n').trimEnd();
 }
 
 /** Construit le message Slack de la semaine : un bloc par jour (lun→dim). */
@@ -973,11 +989,19 @@ function _buildWeekSlack(allEvents, days) {
         const matin = evs.filter(e => new Date(e.start).getHours() < 12);
         const aprem  = evs.filter(e => new Date(e.start).getHours() >= 12);
 
-        if (matin.length) { lines.push('  🌅 Matin');  matin.forEach(ev => lines.push(_fmtEvSlack(ev))); }
-        if (aprem.length) { lines.push('  ☀️ Après-midi'); aprem.forEach(ev => lines.push(_fmtEvSlack(ev))); }
+        if (matin.length) {
+            lines.push(':sunrise: Matin');
+            matin.forEach(ev => lines.push(_fmtEvSlack(ev)));
+            lines.push('');
+        }
+        if (aprem.length) {
+            lines.push(':sunny: Après-midi');
+            aprem.forEach(ev => lines.push(_fmtEvSlack(ev)));
+            lines.push('');
+        }
         if (offEvs.length) {
-            const names = offEvs.map(ev => _isHalfOff(ev.title) ? `${_nameFromOff(ev.title)} (½)` : _nameFromOff(ev.title)).join(', ');
-            lines.push(`🏖️ Absents : ${names}`);
+            const names = offEvs.map(ev => _isHalfOff(ev.title) ? `${_nameFromOff(ev.title)} (${_halfLabel(ev.title)})` : _nameFromOff(ev.title)).join(', ');
+            lines.push(`:beach_with_umbrella: Absents : ${names}`);
         }
         lines.push('');
     }

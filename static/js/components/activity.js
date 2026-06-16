@@ -81,14 +81,15 @@ export function renderActivityList(tickets, opts = {}) {
     }
 
     const filtersHtml = filterable ? _renderFilterBar(fieldCounts, authorCounts, scope) : '';
-    // On rend TOUTES les activités collectées dans le DOM (jusqu'à max*3) pour que
-    // les filtres puissent toujours trouver leurs cibles. Les items au-delà de `max`
-    // sont initialement masqués via `.activity-item--overflow` (état "Tout" filtré).
+    // Regroupe les modifs consécutives d'un même auteur sur un même ticket (1 ligne, nom non répété).
+    const groups = _groupActivities(activities);
+    // On rend TOUS les groupes collectés dans le DOM pour que les filtres trouvent toujours
+    // leurs cibles. Les groupes au-delà de `max` sont masqués via `.activity-item--overflow`.
     return `
         <div class="activity-wrapper" data-activity-scope="${esc(scope)}">
             ${filtersHtml}
             <div class="activity-list" data-activity-list data-default-max="${max}">
-                ${activities.map((a, i) => renderActivityRow(a, i >= max)).join('')}
+                ${groups.map((g, i) => renderActivityRow(g, i >= max)).join('')}
             </div>
         </div>`;
 }
@@ -129,42 +130,119 @@ function _renderFilterBar(fieldCounts, authorCounts, scope) {
         </div>`;
 }
 
-/** HTML d'une ligne d'activité — exposé pour permettre des intégrations sur mesure. */
-export function renderActivityRow(a, overflow = false) {
-    const fieldKey = (a.field || '').toLowerCase().trim();
-    const meta = _ACTIVITY_FIELD_META[fieldKey] || { icon: '◇', cls: 'act-field--generic' };
-    const fieldLbl = fieldLabelFr(a.field);
+/** Chip d'une valeur from/to, coloré selon le type de champ (statut, priorité…). */
+function _valueChip(v, fieldKey) {
+    if (v === null || v === undefined || v === '') {
+        return '<span class="act-value act-value--empty" title="vide">—</span>';
+    }
+    if (fieldKey === 'status') {
+        return `<span class="act-value act-value--status badge-${_statusKeyForBadge(v)}">${esc(v)}</span>`;
+    }
+    if (fieldKey === 'priority') {
+        const cls = String(v).toLowerCase().replace(/[^a-z]/g, '');
+        return `<span class="act-value act-value--priority act-value--prio-${cls}">${esc(v)}</span>`;
+    }
+    return `<span class="act-value">${esc(v)}</span>`;
+}
 
-    const valueChip = (v) => {
-        if (v === null || v === undefined || v === '') {
-            return '<span class="act-value act-value--empty" title="vide">—</span>';
-        }
-        if (fieldKey === 'status') {
-            const cls = _statusKeyForBadge(v);
-            return `<span class="act-value act-value--status badge-${cls}">${esc(v)}</span>`;
-        }
-        if (fieldKey === 'priority') {
-            const cls = String(v).toLowerCase().replace(/[^a-z]/g, '');
-            return `<span class="act-value act-value--priority act-value--prio-${cls}">${esc(v)}</span>`;
-        }
-        return `<span class="act-value">${esc(v)}</span>`;
-    };
+/** Date+heure complète FR pour les tooltips de survol : "mer. 17 juin, 14:32". */
+function _fmtDateTime(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '';
+    return dt.toLocaleString('fr-FR', {
+        weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+}
 
-    return `
-        <div class="activity-item${overflow ? ' activity-item--overflow' : ''}" data-act-field="${esc(fieldKey)}" data-act-author="${esc(a.author || '')}">
-            <span class="activity-time">${fmtRelative(a.date)}</span>
+/** HTML d'un changement isolé : chip de champ + valeurs `from → to`. Survol = heure de modif. */
+function _changeHtml(c) {
+    const fk = (c.field || '').toLowerCase().trim();
+    const meta = _ACTIVITY_FIELD_META[fk] || { icon: '◇', cls: 'act-field--generic' };
+    const fieldLbl = fieldLabelFr(c.field);
+    const when = _fmtDateTime(c.date);
+    return `<span class="act-change" data-act-field="${esc(fk)}"${when ? ` title="${esc(when)}"` : ''}>
+        <span class="act-field-chip ${meta.cls}">
+            <span class="act-field-icon">${meta.icon}</span>
+            <span class="act-field-name">${esc(fieldLbl)}</span>
+        </span>
+        ${_valueChip(c.from, fk)}
+        <span class="act-arrow">→</span>
+        ${_valueChip(c.to, fk)}
+    </span>`;
+}
+
+/**
+ * Regroupe les activités ADJACENTES (la liste est déjà triée par date desc) d'un même
+ * auteur sur un même ticket — typiquement plusieurs champs modifiés en une seule édition.
+ * Conserve l'ordre chronologique (on ne fusionne que des entrées consécutives).
+ * @returns {Array<{author, ticketId, ticketTitle, date, changes:[]}>}
+ */
+function _groupActivities(activities) {
+    const groups = [];
+    for (const a of activities) {
+        const last = groups[groups.length - 1];
+        if (last && last.author === a.author && last.ticketId === a.ticketId) {
+            last.changes.push(a);
+        } else {
+            groups.push({
+                author: a.author, ticketId: a.ticketId, ticketTitle: a.ticketTitle,
+                date: a.date, changes: [a],
+            });
+        }
+    }
+    return groups;
+}
+
+/**
+ * HTML d'une ligne d'activité. Accepte un *groupe* (auteur+ticket, ≥1 changement)
+ * ou, par rétrocompat, une activité simple. Quand un membre a fait plusieurs
+ * modifications sur le même ticket, le nom et le ticket ne sont affichés qu'une fois
+ * et les changements sont listés proprement en dessous.
+ */
+export function renderActivityRow(group, overflow = false) {
+    // Rétrocompat : une activité simple devient un groupe d'un seul changement.
+    const changes = group.changes || [group];
+    const author = group.author;
+    const ticketId = group.ticketId;
+    const ticketTitle = group.ticketTitle || '';
+    const fieldKeys = [...new Set(changes.map(c => (c.field || '').toLowerCase().trim()))];
+
+    // Ticket cliquable + début du titre tronqué (titre complet en tooltip).
+    const titleTrunc = ticketTitle.length > 42 ? ticketTitle.slice(0, 42).trimEnd() + '…' : ticketTitle;
+    const ticketChip = `<span class="act-ticket" data-ticket-id="${esc(ticketId)}"${ticketTitle ? ` title="${esc(ticketTitle)}"` : ''}>${esc(ticketId)}</span>`
+        + (ticketTitle ? `<span class="act-ticket-title" title="${esc(ticketTitle)}">${esc(titleTrunc)}</span>` : '');
+    const overflowCls = overflow ? ' activity-item--overflow' : '';
+    const dataAttrs = `data-act-field="${esc(fieldKeys.join(' '))}" data-act-author="${esc(author || '')}"`;
+    const whenTip = _fmtDateTime(group.date);
+
+    // Un seul changement → ligne inline classique.
+    if (changes.length === 1) {
+        return `
+        <div class="activity-item${overflowCls}" ${dataAttrs}>
+            <span class="activity-time"${whenTip ? ` title="${esc(whenTip)}"` : ''}>${fmtRelative(group.date)}</span>
             <span class="activity-text">
-                <strong class="act-author">${esc(a.author)}</strong>
-                <span class="act-field-chip ${meta.cls}" title="${esc(fieldLbl)}">
-                    <span class="act-field-icon">${meta.icon}</span>
-                    <span class="act-field-name">${esc(fieldLbl)}</span>
-                </span>
+                <strong class="act-author">${esc(author)}</strong>
                 <span class="act-on">sur</span>
-                <span class="act-ticket" data-ticket-id="${esc(a.ticketId)}">${esc(a.ticketId)}</span>
-                ${valueChip(a.from)}
-                <span class="act-arrow">→</span>
-                ${valueChip(a.to)}
+                ${ticketChip}
+                ${_changeHtml(changes[0])}
             </span>
+        </div>`;
+    }
+
+    // Plusieurs changements → en-tête (auteur + ticket une seule fois) puis liste.
+    return `
+        <div class="activity-item activity-item--grouped${overflowCls}" ${dataAttrs}>
+            <span class="activity-time"${whenTip ? ` title="${esc(whenTip)}"` : ''}>${fmtRelative(group.date)}</span>
+            <div class="activity-text activity-text--grouped">
+                <div class="act-head">
+                    <strong class="act-author">${esc(author)}</strong>
+                    <span class="act-on">sur</span>
+                    ${ticketChip}
+                    <span class="act-change-count" title="${changes.length} modifications">${changes.length} modifs</span>
+                </div>
+                <div class="act-changes">${changes.map(_changeHtml).join('')}</div>
+            </div>
         </div>`;
 }
 
@@ -204,9 +282,11 @@ function _applyFilter(list, type, value) {
     let visible = 0;
     let shownInDefault = 0;
     items.forEach(item => {
+        // data-act-field peut contenir plusieurs champs (ligne groupée) → test d'appartenance
+        const itemFields = (item.dataset.actField || '').split(' ').filter(Boolean);
         const matches = type === 'all'
             ? true
-            : type === 'field'  ? item.dataset.actField === value
+            : type === 'field'  ? itemFields.includes(value)
             : type === 'author' ? item.dataset.actAuthor === value
             : true;
         // Si "Tout" : on garde le comportement "limite à defaultMax premiers"
@@ -215,6 +295,13 @@ function _applyFilter(list, type, value) {
         let keep = matches;
         if (type === 'all' && shownInDefault >= defaultMax) keep = false;
         item.style.display = keep ? '' : 'none';
+        // Sur une ligne groupée filtrée par champ, ne montre que les changements concernés
+        const changes = item.querySelectorAll('.act-change');
+        if (changes.length > 1) {
+            changes.forEach(ch => {
+                ch.style.display = (keep && type === 'field' && ch.dataset.actField !== value) ? 'none' : '';
+            });
+        }
         if (keep) { visible++; shownInDefault++; }
     });
     // Marque "vide après filtre" si rien ne reste

@@ -1,3 +1,13 @@
+## [3.27.0] - 2026-06-17
+
+### Feat : activité récente — regroupement des modifs d'un même auteur sur un même ticket
+- **Plus de répétition du nom** ([activity.js](squad-board/static/js/components/activity.js)) : quand un membre modifie plusieurs champs d'un même ticket (typiquement en une seule édition), les changements consécutifs sont regroupés en **une seule entrée**. L'auteur et le ticket ne s'affichent qu'une fois (en-tête + badge « N modifs »), suivis de la liste des changements.
+- **Ordre chronologique préservé** : seules les entrées *consécutives* (même auteur + même ticket) sont fusionnées — pas de réordonnancement.
+- **Filtres conservés** : `data-act-field` peut désormais lister plusieurs champs ; filtrer par champ sur une ligne groupée n'affiche que les changements concernés. Filtre par auteur/Tout inchangé.
+- **Heure de modification au survol** : l'horodatage relatif (« 2h ») expose la date+heure complète en tooltip (`mer. 17 juin, 14:32`) ; sur une ligne groupée, chaque changement porte sa propre heure.
+- **Titre du ticket** : début du titre (tronqué à ~42 car., complet en tooltip) affiché à côté de l'id `.act-ticket` pour situer le ticket sans l'ouvrir.
+- **CSS** ([dashboard.css](squad-board/static/css/views/dashboard.css)) : variante `.activity-item--grouped` (en-tête + sous-liste `.act-changes` avec liseré gauche, badge `.act-change-count`) + `.act-ticket-title`.
+
 ## [3.26.0] - 2026-06-16
 
 ### Feat : import CSV absences — choix « Ajouter » ou « Écraser le PI »

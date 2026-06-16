@@ -515,6 +515,19 @@
 }
 .act-ticket:hover { background: color-mix(in srgb, var(--primary) 18%, transparent); }
 
+/* Début du titre du ticket (tronqué) à côté de l'id — informatif */
+.act-ticket-title {
+    display: inline-block;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 /* Chip pour le nom du champ (Statut / Sprint / Priorité…) — discret coloré par catégorie */
 .act-field-chip {
     display: inline-flex;
@@ -650,6 +663,48 @@
 /* État initial : items au-delà de `max` masqués (visibles seulement quand on
    active un filtre spécifique qui les fait apparaître via _applyFilter) */
 .activity-item--overflow { display: none; }
+
+/* Activité groupée : un même auteur a modifié plusieurs champs du même ticket.
+   Le nom + le ticket s'affichent une seule fois (en-tête), puis la liste des changements. */
+.act-change {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.activity-text--grouped {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    width: 100%;
+}
+.act-head {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.act-changes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-left: 2px;
+    padding-left: var(--sp-2);
+    border-left: 2px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+.act-change-count {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 7px;
+    height: 15px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    font-size: 9.5px;
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
 
 @media (max-width: 1024px) {
     .dashboard-grid { grid-template-columns: 1fr; }

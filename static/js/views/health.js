@@ -12,11 +12,12 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, computeCapacityNextPI, getCurrentPi, extractPiNum, toast, hashColor } from '../utils.js';
+import { esc, filterByTeam, sumBy, computeCapacityNextPI, getCurrentPi, extractPiNum, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
 import { sparkline, trendChip } from '../components/sparkline.js';
+import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
 import { ANOMALY_RULES } from '../business_rules.js';
 
 // Historique local du score Health (snapshot à chaque visite, max 30 entrées)
@@ -118,6 +119,21 @@ export function renderHealth(container) {
         teamsScope = allTeams.filter(t => t === teamFilter);
     }
     teamsScope = teamsScope.slice().sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+
+    // Vélocité (même graphe que le Dashboard) — dérivée des sprints clôturés.
+    // Périmètre large (plusieurs équipes) → on affiche UNE équipe à la fois via un sélecteur,
+    // sinon le graphe agrège les sprints de toutes les équipes et devient illisible.
+    let _veloSel = (teamFilter && teamFilter !== 'all' && teamsScope.includes(teamFilter)) ? teamFilter : null;
+    if (!_veloSel) {
+        const _saved = localStorage.getItem('sb-health-velo-team');
+        _veloSel = (_saved && teamsScope.includes(_saved)) ? _saved : (teamsScope[0] || null);
+    }
+    const _veloMax = 16;   // n'affiche que les derniers sprints (lisibilité)
+    const velocityHistory    = computeVelocityHistory(allTickets, sprintInfo, _veloSel || teamFilter);
+    const currentSprintEntry = computeCurrentSprintEntry(allTickets, sprintInfo, _veloSel || teamFilter);
+    const _veloTeamChips = teamsScope.length > 1
+        ? `<div class="health-velo-teams"><span class="health-velo-teams-lbl">Vélocité par équipe :</span>${teamsScope.map(tm => `<button class="health-velo-team-chip${tm === _veloSel ? ' is-active' : ''}" data-velo-team="${esc(tm)}">${esc(tm)}</button>`).join('')}</div>`
+        : '';
 
     // Compute : pour chaque équipe, pour chaque anomalie, count
     const ctxByTeam = {};
@@ -262,6 +278,18 @@ export function renderHealth(container) {
         const vPts = ref?.velocity     != null ? ref.velocity     : done.reduce((s, t) => s + (t.points||0), 0);
         const bPts = ref?.bufferPoints != null ? ref.bufferPoints : bufDone.reduce((s, t) => s + (t.points||0), 0);
 
+        // Périmètre engagé "au lancement du sprint" : tous les tickets du sprint (done ou non).
+        // Vélocité planifiée = estimation JIRA au démarrage (Greenhopper `estimated`) si dispo,
+        // sinon somme des points du périmètre courant. Le nombre de tickets n'étant pas snapshoté
+        // par JIRA au lancement, on prend le périmètre courant du sprint comme meilleure approximation.
+        const bufPlanned = spTickets.filter(t => (t.labels||[]).some(l => /^buffer$/i.test(l)));
+        const planTk     = spTickets.length;
+        const planPts    = (ref?.estimated != null && ref.estimated > 0)
+            ? ref.estimated
+            : spTickets.reduce((s, t) => s + (t.points||0), 0);
+        const bufPlanTk  = bufPlanned.length;
+        const bufPlanPts = bufPlanned.reduce((s, t) => s + (t.points||0), 0);
+
         // Mood du sprint (piSprint = "29.3" extrait du nom de sprint)
         const spKey   = _spKey(spName);
         const moods   = moodVotes.filter(v => v.team === tm && (!spKey || v.piSprint === spKey)).map(v => parseInt(v.value)||0).filter(Boolean);
@@ -285,9 +313,17 @@ export function renderHealth(container) {
                 return tn === sp.name || (spk && _spKey(tn) === spk);
             });
             const spDone = spTk.filter(t => t.status === 'done');
+            // Périmètre engagé "au lancement" de ce sprint (done ou non) — pour les colonnes Prévu.
+            const spBufAll = spTk.filter(t => (t.labels||[]).some(l => /^buffer$/i.test(l)));
             sprintTickets[sp.name] = {
                 done:    spDone,
                 bufDone: spDone.filter(t => (t.labels||[]).some(l => /^buffer$/i.test(l))),
+                all:     spTk,
+                bufAll:  spBufAll,
+                planTk:     spTk.length,
+                planPts:    (sp.estimated != null && sp.estimated > 0) ? sp.estimated : spTk.reduce((s, t) => s + (t.points||0), 0),
+                bufPlanTk:  spBufAll.length,
+                bufPlanPts: spBufAll.reduce((s, t) => s + (t.points||0), 0),
             };
         }
 
@@ -297,8 +333,10 @@ export function renderHealth(container) {
         const metaObj = {
             ref,
             done, bufDone,
+            all: spTickets, bufAll: bufPlanned,
             spName, spKey,
             vPts, bPts,
+            planTk, planPts, bufPlanTk, bufPlanPts,
             estimated:    ref?.estimated    ?? null,
             velocity:     ref?.velocity     ?? null,
             bufferPoints: ref?.bufferPoints ?? null,
@@ -344,10 +382,28 @@ export function renderHealth(container) {
         const cellMeta = sprintMetaByTeam[tm];
         const vPts = cellMeta.vPts, bPts = cellMeta.bPts;
         const hasSprint = !!cellMeta.spName || cellMeta.done.length > 0;
+        const planTk = cellMeta.planTk, planPts = cellMeta.planPts;
+        const bufPlanTk = cellMeta.bufPlanTk, bufPlanPts = cellMeta.bufPlanPts;
+        const planSrc = (cellMeta.estimated != null && cellMeta.estimated > 0)
+            ? '(vélocité = estimation JIRA au lancement)'
+            : '(estimée depuis le périmètre courant du sprint)';
+
+        const planCell = `<td class="health-cell health-metric-cell${hasSprint ? ' has-val' : ''} health-metric-cell--plan"
+            data-metric="velocity" data-meta-id="${esc(tm)}"
+            title="📋 Périmètre engagé au lancement — ${esc(tm)}${cellMeta.spName ? '\nSprint : ' + cellMeta.spName : ''}\nVélocité planifiée : ${planPts} pts\nTickets engagés : ${planTk}\n${planSrc} — cliquer pour le détail">
+            ${hasSprint ? `${planPts}<span class="health-metric-unit">pts</span><span class="health-metric-count">${planTk} tk</span>` : '<span class="health-cell-zero">—</span>'}
+        </td>`;
+
         const veloCell = `<td class="health-cell health-metric-cell${hasSprint ? ' has-val' : ''} health-metric-cell--velo"
             data-metric="velocity" data-meta-id="${esc(tm)}"
             title="⚡ Vélocité réalisée — ${esc(tm)}${cellMeta.spName ? '\nSprint : ' + cellMeta.spName : ''}${cellMeta.estimated != null ? '\nCharge prévue : ' + cellMeta.estimated + ' pts' : ''}\nDone : ${vPts} pts — cliquer pour le détail">
             ${hasSprint ? `${vPts}<span class="health-metric-unit">pts</span>` : '<span class="health-cell-zero">—</span>'}
+        </td>`;
+
+        const bufPlanCell = `<td class="health-cell health-metric-cell${hasSprint ? ' has-val' : ''} health-metric-cell--bufplan"
+            data-metric="buffer" data-meta-id="${esc(tm)}"
+            title="🛡 Buffer engagé au lancement — ${esc(tm)}${cellMeta.spName ? '\nSprint : ' + cellMeta.spName : ''}\nVélocité Buffer planifiée : ${bufPlanPts} pts\nTickets Buffer engagés : ${bufPlanTk} — cliquer pour le détail">
+            ${hasSprint ? `${bufPlanPts}<span class="health-metric-unit">pts</span><span class="health-metric-count">${bufPlanTk} tk</span>` : '<span class="health-cell-zero">—</span>'}
         </td>`;
 
         const bufCell = `<td class="health-cell health-metric-cell${hasSprint ? ' has-val' : ''} health-metric-cell--buf"
@@ -363,7 +419,9 @@ export function renderHealth(container) {
             </th>
             ${cells}
             <td class="health-row-total">${sumRow}</td>
+            ${planCell}
             ${veloCell}
+            ${bufPlanCell}
             ${bufCell}
         </tr>`;
     }).join('');
@@ -390,32 +448,10 @@ export function renderHealth(container) {
 
             ${capacityCard}
 
-            ${history.length >= 3 ? (() => {
-                const series = history.map(s => s.score);
-                const dates = history.map(s => s.date);
-                const minS = Math.min(...series), maxS = Math.max(...series);
-                const avg  = Math.round(series.reduce((a,b) => a+b, 0) / series.length);
-                const last = series[series.length - 1];
-                const first = series[0];
-                const delta = last - first;
-                const days = history.length;
-                return `<div class="health-history-card">
-                    <div class="health-history-hdr">
-                        <h3 class="health-history-title">📈 Évolution sur ${days} jour${days > 1 ? 's' : ''}</h3>
-                        <div class="health-history-kpis">
-                            <span class="health-history-kpi"><strong>${avg}</strong><small>moy.</small></span>
-                            <span class="health-history-kpi"><strong>${minS}</strong><small>min</small></span>
-                            <span class="health-history-kpi"><strong>${maxS}</strong><small>max</small></span>
-                            <span class="health-history-kpi ${delta >= 0 ? 'is-up' : 'is-down'}">
-                                <strong>${delta >= 0 ? '↗ +' : '↘ '}${delta}</strong><small>vs début</small>
-                            </span>
-                        </div>
-                    </div>
-                    <div class="health-history-chart">
-                        ${_renderHealthHistorySvg(series, dates)}
-                    </div>
-                </div>`;
-            })() : ''}
+            <div class="health-velo-host">
+                ${_veloTeamChips}
+                ${velocityCardHtml({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax })}
+            </div>
 
             <div class="health-cards">${cardsHtml}</div>
 
@@ -430,7 +466,9 @@ export function renderHealth(container) {
                                 <span class="health-anomaly-label">${esc(a.label)}</span>
                             </th>`).join('')}
                             <th class="health-row-total-col">Σ</th>
+                            <th class="health-metric-col health-metric-col--plan" title="Périmètre engagé au lancement du ${esc(_sprintCtxLabel)} : nb de tickets + vélocité planifiée (estimation JIRA au démarrage)">📋 Prévu<span class="health-metric-sub">${esc(_sprintCtxShort)}</span></th>
                             <th class="health-metric-col health-metric-col--velo" title="Points Done du ${esc(_sprintCtxLabel)} de chaque équipe (cliquer pour voir les tickets)">⚡ Vélo.<span class="health-metric-sub">${esc(_sprintCtxShort)}</span></th>
+                            <th class="health-metric-col health-metric-col--bufplan" title="Buffer engagé au lancement du ${esc(_sprintCtxLabel)} : nb de tickets Buffer + vélocité Buffer planifiée">🛡 Buf. prévu<span class="health-metric-sub">${esc(_sprintCtxShort)}</span></th>
                             <th class="health-metric-col health-metric-col--buf"  title="Points Done avec label Buffer du ${esc(_sprintCtxLabel)} (cliquer pour voir les tickets)">🛡 Buffer<span class="health-metric-sub">${esc(_sprintCtxShort)}</span></th>
                         </tr>
                     </thead>
@@ -441,9 +479,20 @@ export function renderHealth(container) {
         </div>
     `;
 
+    // Graphe de vélocité (Chart.js) — monté après insertion du DOM
+    requestAnimationFrame(() => mountVelocityChart({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax }));
+
     // Un seul listener à la fois : on remplace l'ancien pour éviter les stale closures
     if (container._healthClick) container.removeEventListener('click', container._healthClick);
     container._healthClick = e => {
+        // Sélecteur d'équipe du graphe de vélocité (périmètre multi-équipes)
+        const veloChip = e.target.closest('.health-velo-team-chip');
+        if (veloChip?.dataset.veloTeam) {
+            localStorage.setItem('sb-health-velo-team', veloChip.dataset.veloTeam);
+            renderHealth(container);
+            return;
+        }
+
         const card = e.target.closest('.health-card');
         if (card?.dataset.anomaly) { openAlertModal(card.dataset.anomaly); return; }
 
@@ -521,7 +570,7 @@ function _openSprintModal(meta, teamName, metric) {
 
     const isVelo  = metric === 'velocity';
     const icon    = isVelo ? '⚡' : '🛡';
-    const label   = isVelo ? 'Vélocité réalisée' : 'Buffer réalisé';
+    const label   = isVelo ? 'Vélocité' : 'Buffer';
     const color   = meta.teamColor || '#6366f1';
     const initials = teamName.slice(0, 2).toUpperCase();
     const piLabel  = meta.piNum ? `PI#${meta.piNum}` : '';
@@ -531,7 +580,6 @@ function _openSprintModal(meta, teamName, metric) {
         const sk    = _spKey(s.name);
         const moodHtml   = _moodCellHtml(teamName, sk);
         const isRef = s.name === meta.spName;
-        const est        = s.estimated    != null ? s.estimated    : '—';
         const chargeKey  = `sb-charge-${s.name}`;
         const chargeSaved = localStorage.getItem(chargeKey);
         const chargeVal  = chargeSaved != null ? chargeSaved : (s.estimated != null ? String(s.estimated) : '');
@@ -549,14 +597,25 @@ function _openSprintModal(meta, teamName, metric) {
         const bufClickable  = buf !== '—' || spT.bufDone.length > 0;
         const veloAttr = veloClickable ? ` htl-cell-clickable" data-sp-tickets="${esc(s.name)}" data-sp-metric="velocity` : '';
         const bufAttr  = bufClickable  ? ` htl-cell-clickable" data-sp-tickets="${esc(s.name)}" data-sp-metric="buffer`   : '';
+        // Périmètre engagé au lancement : vélocité planifiée (pts) + nb de tickets engagés.
+        const planTk = spT.planTk || 0, planPts = spT.planPts || 0, bufPlanTk = spT.bufPlanTk || 0, bufPlanPts = spT.bufPlanPts || 0;
+        const planClickable = planTk > 0 || planPts > 0, bufPlanClickable = bufPlanTk > 0 || bufPlanPts > 0;
+        const planAttr    = planClickable    ? ` data-sp-tickets="${esc(s.name)}" data-sp-metric="planned"`    : '';
+        const bufPlanAttr = bufPlanClickable ? ` data-sp-tickets="${esc(s.name)}" data-sp-metric="bufplanned"` : '';
+        const planCls = planClickable ? ' htl-cell-clickable' : '', bufPlanCls = bufPlanClickable ? ' htl-cell-clickable' : '';
+        const planHint = planClickable ? ' — cliquer pour la liste' : '', bufPlanHint = bufPlanClickable ? ' — cliquer pour la liste' : '';
+        const dash = '<span class="htl-muted">—</span>';
         return `<tr class="${isRef ? 'htl-sprint-row--ref' : ''}">
             <td class="htl-spr-name">${isRef ? `<strong>${esc(s.name)}</strong>` : esc(s.name)}</td>
             <td class="htl-spr-date">${_fmtD(s.startDate)}</td>
             <td class="htl-spr-state">${_stateBadge(s.state)}</td>
             <td class="htl-spr-mood">${moodHtml}</td>
-            <td class="htl-spr-num">${est}</td>
-            <td class="htl-spr-num"><input class="htl-charge-input" type="number" min="0" value="${esc(chargeVal)}" data-charge-key="${esc(chargeKey)}" title="Charge prévue — éditable (PI Planning)"></td>
+            <td class="htl-spr-num"><input class="htl-charge-input" type="number" min="0" value="${esc(chargeVal)}" data-charge-key="${esc(chargeKey)}" title="Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)"></td>
+            <td class="htl-spr-num htl-grp-start${planCls}"${planAttr} title="Tickets engagés au lancement${planHint}">${planTk || dash}</td>
+            <td class="htl-spr-num${planCls}"${planAttr} title="Vélocité planifiée au lancement (estimation JIRA)${planHint}">${planPts || dash}</td>
             <td class="htl-spr-num htl-velo-col${veloAttr}"${veloClickable ? ' title="Voir les tickets Done de ce sprint"' : ''}>${vel}</td>
+            <td class="htl-spr-num htl-grp-start${bufPlanCls}"${bufPlanAttr} title="Tickets Buffer engagés au lancement${bufPlanHint}">${bufPlanTk || dash}</td>
+            <td class="htl-spr-num htl-bufplan-col${bufPlanCls}"${bufPlanAttr} title="Vélocité Buffer planifiée au lancement${bufPlanHint}">${bufPlanPts || dash}</td>
             <td class="htl-spr-num htl-buf-col${bufAttr}"${bufClickable ? ' title="Voir les tickets Buffer de ce sprint"' : ''}>${buf}</td>
         </tr>`;
     }).join('');
@@ -569,53 +628,86 @@ function _openSprintModal(meta, teamName, metric) {
     for (const f of (store.get('features') || [])) _parentTitleById.set(f.id, f.title);
     for (const tk of (store.get('tickets') || [])) if (!_parentTitleById.has(tk.id)) _parentTitleById.set(tk.id, tk.title);
 
-    // Tickets d'un sprint pour une métrique (done | bufDone), avec fallback sprint de réf.
-    const _ticketsFor = (sprintName, veloFlag) => {
+    // Listes de tickets d'un sprint selon la métrique cliquée :
+    //   velocity = Done · buffer = Buffer Done · planned = engagés au lancement (tous) · bufplanned = Buffer engagés
+    const _METRIC_FIELD = { velocity: 'done', buffer: 'bufDone', planned: 'all', bufplanned: 'bufAll' };
+    const _METRIC_EMPTY = { velocity: 'Done', buffer: 'Buffer Done', planned: 'engagé', bufplanned: 'Buffer engagé' };
+    const _ticketsFor = (sprintName, metric) => {
+        const field = _METRIC_FIELD[metric] || 'done';
         const bucket = meta.sprintTickets?.[sprintName];
-        if (bucket) return veloFlag ? bucket.done : bucket.bufDone;
-        if (sprintName === meta.spName) return veloFlag ? meta.done : meta.bufDone;
+        if (bucket && bucket[field]) return bucket[field];
+        if (sprintName === meta.spName && meta[field]) return meta[field];
         return [];
     };
 
-    const _ticketRowsHtml = (list, veloFlag) => list.length
-        ? list.map(t => {
-            const who = t.leader || t.assignee || '';
-            const isBuf = (t.labels || []).some(l => /^buffer$/i.test(l));
-            const parentKey   = t.epic ? String(t.epic) : '';
+    const _ticketRowsHtml = (list, metric) => {
+        if (!list.length) return `<tr><td colspan="6" class="text-muted text-center" style="padding:16px">Aucun ticket ${_METRIC_EMPTY[metric] || ''}</td></tr>`;
+        // Regroupe les tickets par parent (epic/feature) — un bloc par parent, trié par points décroissants.
+        const groups = new Map();
+        for (const tk of list) {
+            const k = tk.epic ? String(tk.epic) : '';
+            if (!groups.has(k)) groups.set(k, []);
+            groups.get(k).push(tk);
+        }
+        const _gpts = items => items.reduce((s, tk) => s + (tk.points || 0), 0);
+        const ordered = [...groups.entries()].sort((a, b) => {
+            if (!a[0]) return 1;   // "Sans parent" en dernier
+            if (!b[0]) return -1;
+            return _gpts(b[1]) - _gpts(a[1]);
+        });
+        const _ticketRow = tk => {
+            const who = tk.leader || tk.assignee || '';
+            const isBuf = (tk.labels || []).some(l => /^buffer$/i.test(l));
+            return `<tr class="htl-ticket-row" data-open-ticket="${esc(tk.id || '')}" title="Voir le détail du ticket">
+                <td class="htl-id">${esc(tk.id || '—')}</td>
+                <td class="htl-done">${tk.status === 'done' ? '<span class="htl-done-yes" title="Terminé">✓</span>' : '<span class="htl-done-no" title="Non terminé">·</span>'}</td>
+                <td class="htl-title">${esc(tk.title || '')}</td>
+                <td class="htl-buf-flag">${isBuf ? '<span title="Ticket Buffer">🛡️</span>' : ''}</td>
+                <td class="htl-pts">${tk.points ? `<span class="htl-pts-chip${tk.status === 'done' ? ' htl-pts-chip--done' : ''}">${tk.points}</span>` : '<span class="htl-muted">—</span>'}</td>
+                <td class="htl-who">${who ? esc(who) : '<span class="htl-muted">—</span>'}</td>
+            </tr>`;
+        };
+        return ordered.map(([parentKey, items]) => {
             const parentTitle = parentKey ? (_parentTitleById.get(parentKey) || '') : '';
-            const parentLabel = parentTitle
-                ? `${parentKey} — ${parentTitle.length > 26 ? parentTitle.slice(0, 25) + '…' : parentTitle}`
-                : parentKey;
-            const parentChip = parentKey
-                ? `<span class="htl-parent-chip" style="--pc:${hashColor(parentKey)}" data-open-ticket="${esc(parentKey)}" title="Parent : ${esc(parentKey)}${parentTitle ? ' — ' + esc(parentTitle) : ''} — cliquer pour voir le détail">${esc(parentLabel)}</span>`
-                : '<span class="htl-muted">—</span>';
-            return `<tr class="htl-ticket-row" data-open-ticket="${esc(t.id || '')}" title="Voir le détail du ticket">
-            <td class="htl-id">${esc(t.id || '—')}</td>
-            <td class="htl-title">${esc(t.title || '')}</td>
-            <td class="htl-parent">${parentChip}</td>
-            <td class="htl-buf-flag">${isBuf ? '<span title="Ticket Buffer">🛡️</span>' : ''}</td>
-            <td class="htl-pts">${t.points ? `<span class="htl-pts-chip">${t.points}</span>` : '<span class="htl-muted">—</span>'}</td>
-            <td class="htl-who">${who ? esc(who) : '<span class="htl-muted">—</span>'}</td>
-          </tr>`;
-        }).join('')
-        : `<tr><td colspan="6" class="text-muted text-center" style="padding:16px">Aucun ticket ${veloFlag ? 'Done' : 'Buffer Done'}</td></tr>`;
+            const full = parentKey ? `${parentKey}${parentTitle ? ' — ' + parentTitle : ''}` : '';
+            const lbl  = full.length > 64 ? full.slice(0, 63) + '…' : full;
+            const head = parentKey
+                ? `<span class="htl-parent-chip" style="--pc:${hashColor(parentKey)}" data-open-ticket="${esc(parentKey)}" title="Parent : ${esc(parentKey)}${parentTitle ? ' — ' + esc(parentTitle) : ''} — cliquer pour voir le détail">${esc(lbl)}</span>`
+                : '<span class="htl-muted">Sans parent</span>';
+            const groupRow = `<tr class="htl-grp-row"${parentKey ? ` style="--pc:${hashColor(parentKey)}"` : ''}>
+                <td colspan="6" class="htl-grp-cell">${head}<span class="htl-grp-meta">${items.length} ticket${items.length !== 1 ? 's' : ''} · ${items.filter(x => x.status === 'done').length} ✓ · ${_gpts(items)} pts</span></td>
+            </tr>`;
+            // Tri intra-groupe : tickets terminés d'abord, puis points décroissants
+            const sorted = items.slice().sort((a, b) => {
+                const da = a.status === 'done' ? 1 : 0, db = b.status === 'done' ? 1 : 0;
+                return db - da || (b.points || 0) - (a.points || 0);
+            });
+            return groupRow + sorted.map(_ticketRow).join('');
+        }).join('');
+    };
 
     // Contenu de la section tickets pour un sprint + métrique donnés
-    const _ticketsSection = (sprintName, veloFlag) => {
-        const list = _ticketsFor(sprintName, veloFlag);
+    const _METRIC_TITLE = {
+        velocity:   '⚡ Tickets Done',
+        buffer:     '🛡 Buffer Done',
+        planned:    '📋 Tickets engagés au lancement',
+        bufplanned: '🛡 Buffer engagé au lancement',
+    };
+    const _ticketsSection = (sprintName, metric) => {
+        const list = _ticketsFor(sprintName, metric);
         const tot  = list.reduce((s, t) => s + (t.points || 0), 0);
         return `
             <div class="htl-tickets-hdr">
-                <span class="htl-tickets-hdr-title">${veloFlag ? '⚡ Tickets Done' : '🛡 Buffer Done'}</span>
+                <span class="htl-tickets-hdr-title">${_METRIC_TITLE[metric] || _METRIC_TITLE.velocity}</span>
                 ${sprintName ? `<span class="htl-tickets-hdr-sprint">${esc(sprintName)}</span>` : ''}
                 <span class="htl-tickets-hdr-badge">${list.length} ticket${list.length !== 1 ? 's' : ''} · ${tot} pts</span>
             </div>
             <table class="htl-table">
                 <thead><tr>
-                    <th>ID</th><th>Titre</th><th>Parent</th>
+                    <th>ID</th><th title="Terminé">✓</th><th>Titre</th>
                     <th title="Ticket Buffer">🛡️</th><th>Pts</th><th>Responsable</th>
                 </tr></thead>
-                <tbody>${_ticketRowsHtml(list, veloFlag)}</tbody>
+                <tbody>${_ticketRowsHtml(list, metric)}</tbody>
                 ${list.length ? `<tfoot><tr>
                     <td colspan="4" class="htl-total-lbl">Total</td>
                     <td class="htl-total-val">${tot}</td>
@@ -645,21 +737,29 @@ function _openSprintModal(meta, teamName, metric) {
                 <div class="htl-section-lbl">Sprints du PI</div>
                 <div class="htl-sprint-table-wrap">
                     <table class="htl-sprint-table">
-                        <thead><tr>
-                            <th>Sprint</th>
-                            <th>Début</th>
-                            <th>État</th>
-                            <th title="Mood moyen — cliquer pour voter">Mood</th>
-                            <th class="htl-th-num" title="Capacité estimée (JIRA estimated)">Capa. estimée</th>
-                            <th class="htl-th-num" title="Charge positionnée lors du PI Planning — éditable">Charge prévue ✏️</th>
-                            <th class="htl-th-num htl-velo-col" title="Vélocité réalisée (Done SP)">⚡ Vélo. réalisée</th>
-                            <th class="htl-th-num htl-buf-col" title="Points Buffer consommés">🛡 Buffer réalisé</th>
+                        <thead>
+                        <tr>
+                            <th rowspan="2">Sprint</th>
+                            <th rowspan="2">Début</th>
+                            <th rowspan="2">État</th>
+                            <th rowspan="2" title="Mood moyen — cliquer pour voter">Mood</th>
+                            <th rowspan="2" class="htl-th-num" title="Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)">Charge prévue ✏️</th>
+                            <th class="htl-grp htl-grp--velo" colspan="3">⚡ Vélocité</th>
+                            <th class="htl-grp htl-grp--buf" colspan="3">🛡 Buffer</th>
+                        </tr>
+                        <tr>
+                            <th class="htl-th-num htl-sub htl-grp-start" title="Nombre de tickets engagés au lancement">nb</th>
+                            <th class="htl-th-num htl-sub" title="Vélocité planifiée au lancement (estimation JIRA)">planifié</th>
+                            <th class="htl-th-num htl-sub htl-velo-col" title="Vélocité réalisée (Done SP)">réalisée</th>
+                            <th class="htl-th-num htl-sub htl-grp-start" title="Nombre de tickets Buffer engagés au lancement">nb</th>
+                            <th class="htl-th-num htl-sub" title="Vélocité Buffer planifiée">planifié</th>
+                            <th class="htl-th-num htl-sub htl-buf-col" title="Points Buffer consommés">réalisée</th>
                         </tr></thead>
-                        <tbody>${sprintRows || '<tr><td colspan="8" class="htl-muted text-center" style="padding:12px">Aucun sprint trouvé pour ce PI</td></tr>'}</tbody>
+                        <tbody>${sprintRows || '<tr><td colspan="11" class="htl-muted text-center" style="padding:12px">Aucun sprint trouvé pour ce PI</td></tr>'}</tbody>
                     </table>
                 </div>
-                <div class="htl-section-lbl htl-tickets-hint">Détail des tickets — clique une cellule ⚡ Vélo. ou 🛡 Buffer ci-dessus</div>
-                <div class="htl-tickets-section" id="htl-tickets-host">${_ticketsSection(meta.spName, isVelo)}</div>
+                <div class="htl-section-lbl htl-tickets-hint">Détail des tickets — clique une cellule chiffrée (nb · planifié · réalisée) ci-dessus</div>
+                <div class="htl-tickets-section" id="htl-tickets-host">${_ticketsSection(meta.spName, metric)}</div>
             </div>
         </div>`;
     document.body.appendChild(overlay);
@@ -690,13 +790,13 @@ function _openSprintModal(meta, teamName, metric) {
         const host = overlay.querySelector('#htl-tickets-host');
         if (!host) return;
         const sprintName = cell.dataset.spTickets;
-        const veloFlag   = cell.dataset.spMetric === 'velocity';
+        const metric     = cell.dataset.spMetric || 'velocity';
         overlay.querySelectorAll('.htl-cell-active').forEach(c => c.classList.remove('htl-cell-active'));
         cell.classList.add('htl-cell-active');
 
         // Tickets locaux dispo → affichage direct
-        if (_ticketsFor(sprintName, veloFlag).length) {
-            host.innerHTML = _ticketsSection(sprintName, veloFlag);
+        if (_ticketsFor(sprintName, metric).length) {
+            host.innerHTML = _ticketsSection(sprintName, metric);
             host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             return;
         }
@@ -704,7 +804,7 @@ function _openSprintModal(meta, teamName, metric) {
         // Sinon : lazy-fetch depuis JIRA via le jiraId du sprint
         const sp = (meta.piSprints || []).find(s => s.name === sprintName);
         if (!sp?.jiraId) {
-            host.innerHTML = _ticketsSection(sprintName, veloFlag); // "Aucun ticket"
+            host.innerHTML = _ticketsSection(sprintName, metric); // "Aucun ticket"
             host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             return;
         }
@@ -717,8 +817,10 @@ function _openSprintModal(meta, teamName, metric) {
             meta.sprintTickets[sprintName] = {
                 done,
                 bufDone: done.filter(t => (t.labels || []).some(l => /^buffer$/i.test(l))),
+                all: fetched,
+                bufAll: fetched.filter(t => (t.labels || []).some(l => /^buffer$/i.test(l))),
             };
-            host.innerHTML = _ticketsSection(sprintName, veloFlag);
+            host.innerHTML = _ticketsSection(sprintName, metric);
         } catch {
             host.innerHTML = `<div class="htl-loading htl-muted">Impossible de récupérer les tickets de ce sprint (JIRA indisponible ou non configuré).</div>`;
         }
@@ -799,51 +901,4 @@ function _closeSprintModal() {
     ov.classList.remove('visible');
     ov.addEventListener('transitionend', () => ov.remove(), { once: true });
     setTimeout(() => ov.remove(), 300); // filet de sécurité si transitionend ne se déclenche pas
-}
-
-// SVG inline pour la courbe historique du score Health.
-// Petite courbe area + ligne + tick zones de bandes (good/ok/warn/bad).
-function _renderHealthHistorySvg(series, dates) {
-    if (!series.length) return '';
-    const W = 800, H = 160, padL = 28, padR = 10, padT = 12, padB = 22;
-    const innerW = W - padL - padR, innerH = H - padT - padB;
-    const n = series.length;
-    const xOf = (i) => padL + (n > 1 ? (i / (n - 1)) * innerW : 0);
-    const yOf = (v) => padT + innerH - (v / 100) * innerH;
-    // Path ligne + path area (line + base)
-    const pts = series.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
-    const areaPath = `M ${xOf(0).toFixed(1)},${(padT + innerH).toFixed(1)} L ${pts.replace(/ /g, ' L ')} L ${xOf(n - 1).toFixed(1)},${(padT + innerH).toFixed(1)} Z`;
-    const linePath = `M ${pts.split(' ').join(' L ')}`;
-    // Bandes de couleur en arrière-plan (good/ok/warn/bad)
-    const bands = [
-        { from: 80, to: 100, color: 'rgba(16,185,129,0.08)' },
-        { from: 60, to: 80,  color: 'rgba(245,158,11,0.06)' },
-        { from: 40, to: 60,  color: 'rgba(249,115,22,0.06)' },
-        { from: 0,  to: 40,  color: 'rgba(239,68,68,0.08)'  },
-    ].map(b => `<rect x="${padL}" y="${yOf(b.to).toFixed(1)}" width="${innerW}" height="${(yOf(b.from) - yOf(b.to)).toFixed(1)}" fill="${b.color}"/>`).join('');
-    // Axe Y : 0, 50, 100
-    const yTicks = [0, 50, 100].map(v => `
-        <line x1="${padL}" y1="${yOf(v).toFixed(1)}" x2="${W - padR}" y2="${yOf(v).toFixed(1)}" stroke="rgba(148,163,184,0.18)" stroke-dasharray="3,3"/>
-        <text x="${padL - 6}" y="${(yOf(v) + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-muted)" font-family="system-ui">${v}</text>
-    `).join('');
-    // Axe X : 1er et dernier label
-    const xLabels = `
-        <text x="${xOf(0).toFixed(1)}" y="${(H - 6).toFixed(1)}" text-anchor="start" font-size="10" fill="var(--text-muted)" font-family="system-ui">${dates[0]?.slice(5) || ''}</text>
-        <text x="${xOf(n - 1).toFixed(1)}" y="${(H - 6).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-muted)" font-family="system-ui">${dates[n - 1]?.slice(5) || ''}</text>`;
-    // Point final mis en valeur
-    const lastX = xOf(n - 1), lastY = yOf(series[n - 1]);
-    return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-label="Évolution du score Health">
-        ${bands}
-        ${yTicks}
-        <path d="${areaPath}" fill="url(#health-grad)" opacity="0.55"/>
-        <path d="${linePath}" stroke="#3b82f6" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="4" fill="#3b82f6" stroke="#fff" stroke-width="2"/>
-        ${xLabels}
-        <defs>
-            <linearGradient id="health-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.45"/>
-                <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.04"/>
-            </linearGradient>
-        </defs>
-    </svg>`;
 }

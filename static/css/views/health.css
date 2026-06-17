@@ -77,6 +77,40 @@
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: var(--sp-3);
 }
+
+/* Sélecteur d'équipe au-dessus du graphe de vélocité (périmètre multi-équipes) */
+.health-velo-host { display: flex; flex-direction: column; gap: var(--sp-2); }
+.health-velo-teams {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.health-velo-teams-lbl {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-right: 4px;
+}
+.health-velo-team-chip {
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+    transition: background .12s, border-color .12s, color .12s;
+}
+.health-velo-team-chip:hover { background: var(--surface-2); }
+.health-velo-team-chip.is-active {
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+}
 .health-card {
     display: flex;
     flex-direction: column;
@@ -235,6 +269,8 @@
 }
 .health-metric-col--velo { color: var(--success); }
 .health-metric-col--buf  { color: var(--warning); }
+.health-metric-col--plan    { color: var(--info); }
+.health-metric-col--bufplan { color: var(--warning); }
 /* Sous-label "sprint courant / PI#xx" sous l'en-tête de colonne */
 .health-metric-sub {
     display: block;
@@ -253,7 +289,17 @@
 .health-metric-cell.has-val:hover { transform: scale(1.15); font-weight: 800; }
 .health-metric-cell--velo.has-val { color: var(--success); }
 .health-metric-cell--buf.has-val  { color: var(--warning); }
+.health-metric-cell--plan.has-val    { color: var(--info); }
+.health-metric-cell--bufplan.has-val { color: var(--warning); }
 .health-metric-unit { font-size: 9px; font-weight: normal; opacity: .7; margin-left: 1px; }
+/* Sous-ligne "N tk" sous la vélocité planifiée (nombre de tickets engagés) */
+.health-metric-count {
+    display: block;
+    font-size: 8.5px;
+    font-weight: var(--fw-normal);
+    color: var(--text-muted);
+    margin-top: 1px;
+}
 
 /* ── Modal sprint Vélocité / Buffer ─────────────────────────────────────────── */
 .htl-modal {
@@ -308,18 +354,37 @@
 
 /* Tableau sprints du PI */
 .htl-sprint-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-md); }
-.htl-sprint-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); white-space: nowrap; }
+.htl-sprint-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+/* Pas de scroll horizontal : seuls les colonnes courtes restent insécables ; le nom de
+   sprint peut passer à la ligne plutôt que d'élargir la table. */
+.htl-spr-date, .htl-spr-state, .htl-spr-num, .htl-sprint-table thead th { white-space: nowrap; }
 .htl-sprint-table thead th {
-    padding: 7px 10px; text-align: left;
+    padding: 6px; text-align: left;
     color: var(--text-muted); font-weight: var(--fw-semibold);
     background: var(--surface-2);
     border-bottom: 2px solid var(--border);
     cursor: help;
 }
 .htl-sprint-table tbody td {
-    padding: 8px 10px;
+    padding: 7px 6px;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
     color: var(--text-secondary);
+}
+/* En-têtes groupés ⚡ Vélocité / 🛡 Buffer (ligne 1 = groupe, ligne 2 = nb/planifié/réalisée) */
+.htl-sprint-table thead th.htl-grp {
+    text-align: center; font-weight: var(--fw-bold);
+    border-bottom: 1px solid var(--border);
+}
+.htl-grp--velo { color: var(--success); }
+.htl-grp--buf  { color: #7c3aed; }
+.htl-sprint-table thead th.htl-sub {
+    font-size: 9.5px; font-weight: var(--fw-medium);
+    text-transform: none; letter-spacing: 0;
+}
+/* Séparateur visuel entre les 2 groupes : liseré gauche sur leur 1re colonne */
+.htl-sprint-table th.htl-grp-start,
+.htl-sprint-table td.htl-grp-start {
+    border-left: 2px solid color-mix(in srgb, var(--border) 75%, transparent);
 }
 .htl-sprint-table tbody tr:last-child td { border-bottom: none; }
 .htl-sprint-table tbody tr:hover td { background: var(--surface-2); }
@@ -329,10 +394,13 @@
     font-weight: var(--fw-medium);
 }
 .htl-sprint-row--ref:hover td { background: color-mix(in srgb, #3b82f6 14%, var(--surface)); }
-.htl-spr-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.htl-spr-name { max-width: 180px; word-break: break-word; }
 .htl-spr-num  { text-align: right !important; font-variant-numeric: tabular-nums; }
 .htl-sprint-table thead th.htl-th-num { text-align: right !important; }
 .htl-velo-col { color: var(--success); font-weight: var(--fw-semibold); }
+/* Colonnes "Prévu" (périmètre engagé au lancement) — pts + nb de tickets */
+.htl-plan-col    { color: var(--info); font-weight: var(--fw-semibold); }
+.htl-bufplan-col { color: #7c3aed; font-weight: var(--fw-semibold); background: color-mix(in srgb, #7c3aed 5%, transparent); }
 /* Cellules Vélo/Buffer cliquables (sprint table) → ouvrent le détail tickets */
 .htl-cell-clickable { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
 .htl-cell-clickable:hover { filter: brightness(.9); background: color-mix(in srgb, currentColor 10%, transparent) !important; }
@@ -462,12 +530,26 @@
 .htl-title { }
 .htl-parent { width: 220px; max-width: 220px; }
 .htl-buf-flag { width: 32px; text-align: center; }
+.htl-done { width: 28px; text-align: center; }
+.htl-done-yes { color: var(--success); font-weight: var(--fw-bold); }
+.htl-done-no  { color: var(--text-muted); opacity: .6; }
 .htl-pts   { text-align: right; white-space: nowrap; width: 50px; }
 .htl-who   { white-space: nowrap; width: 140px; color: var(--text-secondary); }
 
 /* Ligne ticket entièrement cliquable → ouvre le détail */
 .htl-ticket-row { cursor: pointer; transition: background .1s; }
 .htl-ticket-row:hover td { background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+
+/* En-tête de groupe « parent » : un bloc par epic/feature, coloré via --pc */
+.htl-grp-row td.htl-grp-cell {
+    background: color-mix(in srgb, var(--pc, var(--primary)) 8%, var(--surface-2));
+    border-left: 3px solid var(--pc, var(--border));
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    padding: 5px 10px;
+}
+.htl-grp-meta { margin-left: 8px; font-size: 10px; color: var(--text-muted); font-weight: var(--fw-semibold); }
+/* Tickets d'un groupe : id légèrement en retrait pour la lisibilité hiérarchique */
+.htl-ticket-row td.htl-id { padding-left: 16px; }
 
 /* Chip parent (epic) — 1 couleur par parent via --pc */
 .htl-parent-chip {
@@ -503,6 +585,11 @@
     font-size: 11px;
     font-weight: var(--fw-bold);
     font-variant-numeric: tabular-nums;
+}
+/* Points d'un ticket terminé → chip vert */
+.htl-pts-chip--done {
+    background: color-mix(in srgb, var(--success) 18%, var(--surface));
+    color: var(--success);
 }
 .htl-total-lbl { color: var(--text-muted); text-align: right !important; }
 .htl-total-val { text-align: right; font-weight: var(--fw-bold); }

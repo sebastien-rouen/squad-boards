@@ -87,9 +87,9 @@
 .sprint-header::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; bottom: 0;
-    width: 4px;
-    background: linear-gradient(180deg, var(--primary), color-mix(in srgb, var(--primary) 60%, transparent));
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 50%, transparent));
 }
 .sprint-header-top {
     display: flex;

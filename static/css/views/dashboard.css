@@ -4,25 +4,31 @@
    ══════════════════════════════════════════════════════════════════════════════ */
 .dashboard-metrics {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--sp-4);
-    margin-bottom: var(--sp-6);
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
 }
+/* Carte métrique compacte : icône en ligne avec le label, hauteur réduite */
 .metric-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-left: 4px solid var(--border);
+    border-top: 3px solid var(--border);
     border-radius: var(--r-lg);
-    padding: var(--sp-4) var(--sp-5);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-1);
+    padding: var(--sp-2) var(--sp-4);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: var(--sp-2);
+    row-gap: 2px;
+    align-items: center;
     transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
 }
 .metric-card:hover { box-shadow: var(--shadow-sm); }
 .metric-card .metric-icon {
     font-size: var(--fs-lg);
-    margin-bottom: var(--sp-1);
+    grid-row: 1 / 3;
+    align-self: center;
+    margin: 0;
 }
 .metric-card .metric-label {
     font-size: var(--fs-xs);
@@ -30,15 +36,18 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-muted);
+    line-height: 1.1;
 }
 .metric-card .metric-value {
-    font-size: var(--fs-2xl);
+    font-size: var(--fs-xl);
     font-weight: var(--fw-bold);
     line-height: 1;
 }
 .metric-card .metric-sub {
+    grid-column: 2;
     font-size: var(--fs-xs);
     color: var(--text-muted);
+    line-height: 1.1;
 }
 .metric-card .metric-denom {
     font-size: 0.55em;
@@ -125,16 +134,16 @@
     color: var(--text-muted);
     margin: 0 3px 0 2px;
 }
-/* Color accents */
-.metric-card.mc-primary   { border-left-color: var(--primary); }
-.metric-card.mc-success   { border-left-color: var(--success); }
-.metric-card.mc-warning   { border-left-color: var(--warning); }
-.metric-card.mc-danger    { border-left-color: var(--danger); }
-.metric-card.mc-info      { border-left-color: var(--info); }
-.metric-card.mc-inprog    { border-left-color: var(--status-inprog); }
-.metric-card.mc-done      { border-left-color: var(--status-done); }
-.metric-card.mc-blocked   { border-left-color: var(--status-blocked); }
-.metric-card.mc-todo      { border-left-color: var(--status-todo); }
+/* Color accents (bordure haute) */
+.metric-card.mc-primary   { border-top-color: var(--primary); }
+.metric-card.mc-success   { border-top-color: var(--success); }
+.metric-card.mc-warning   { border-top-color: var(--warning); }
+.metric-card.mc-danger    { border-top-color: var(--danger); }
+.metric-card.mc-info      { border-top-color: var(--info); }
+.metric-card.mc-inprog    { border-top-color: var(--status-inprog); }
+.metric-card.mc-done      { border-top-color: var(--status-done); }
+.metric-card.mc-blocked   { border-top-color: var(--status-blocked); }
+.metric-card.mc-todo      { border-top-color: var(--status-todo); }
 
 .dashboard-grid {
     display: grid;
@@ -151,13 +160,13 @@
     overflow: hidden;
     box-shadow: var(--shadow-sm, 0 1px 2px rgb(0 0 0 / 0.04));
 }
-/* Bordure gauche en gradient à la couleur du score (cohérent sprint-header) */
+/* Bordure haute en gradient à la couleur du score (cohérent sprint-header) */
 .pi-obj-attain::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; bottom: 0;
-    width: 4px;
-    background: linear-gradient(180deg, var(--accent-color, var(--border)), color-mix(in srgb, var(--accent-color, var(--border)) 50%, transparent));
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-color, var(--border)), color-mix(in srgb, var(--accent-color, var(--border)) 50%, transparent));
 }
 .pi-obj-attain.mc-done    { --accent-color: var(--success); }
 .pi-obj-attain.mc-warning { --accent-color: var(--warning); }
@@ -212,10 +221,18 @@
 .pi-obj-attain-bar-track {
     position: relative;
     height: 12px;
-    background: var(--surface-2);
+    /* Fond légèrement rayé + bordure : la barre reste visible même vide à 0%
+       (évite l'effet « blanc sur blanc » sur les thèmes clairs). */
+    background:
+        repeating-linear-gradient(45deg,
+            color-mix(in srgb, var(--border) 22%, transparent) 0,
+            color-mix(in srgb, var(--border) 22%, transparent) 6px,
+            transparent 6px, transparent 12px),
+        var(--surface-2);
+    border: 1px solid var(--border);
     border-radius: 6px;
     overflow: visible;
-    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.04);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.05);
 }
 .pi-obj-attain-bar-fill {
     height: 100%;
@@ -278,18 +295,31 @@
 .pi-obj-attain-bar-scale > span {
     position: absolute;
     font-weight: var(--fw-medium);
+    color: var(--text-secondary);
+    padding-top: 4px;
+}
+/* Petits repères verticaux sous chaque graduation */
+.pi-obj-attain-bar-scale > span::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 1px; height: 4px;
+    background: var(--border);
 }
 .pi-obj-attain-bar-scale > span:nth-child(1) { left: 0; }
+.pi-obj-attain-bar-scale > span:nth-child(1)::before { left: 0; }
 .pi-obj-attain-bar-scale > span:nth-child(2) {
     left: 80%;
     transform: translateX(-50%);
     color: var(--text);
     font-weight: var(--fw-semibold);
-    padding: 0 4px;
+    padding: 4px 5px 0;
     background: var(--surface);
 }
+.pi-obj-attain-bar-scale > span:nth-child(2)::before { left: 50%; background: var(--primary); height: 5px; top: -1px; }
 .pi-obj-attain-bar-scale > span:nth-child(3) { right: 0; }
-.pi-obj-attain-bar-scale small { font-size: 9px; opacity: 0.7; margin-left: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+.pi-obj-attain-bar-scale > span:nth-child(3)::before { right: 0; }
+.pi-obj-attain-bar-scale small { font-size: 9px; opacity: 0.75; margin-left: 2px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--primary); }
 
 /* Liste détaillée des objectifs */
 .pi-obj-attain-list {
@@ -378,7 +408,7 @@
 .team-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--team-card-color, var(--border));
+    border-top: 3px solid var(--team-card-color, var(--border));
     border-radius: var(--r-lg);
     padding: var(--sp-4);
     display: flex;
@@ -704,6 +734,175 @@
     font-weight: var(--fw-semibold);
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
+}
+
+/* ── Rangée d'indicateurs secondaires (flux & hygiène) ───────────────────────── */
+.dashboard-metrics--secondary {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    margin-bottom: var(--sp-5);
+}
+.dashboard-metrics--secondary .metric-card { padding: var(--sp-2) var(--sp-3); }
+.dashboard-metrics--secondary .metric-value { font-size: var(--fs-lg); }
+
+/* ── Schéma Lead time / Cycle time ───────────────────────────────────────────── */
+.lct-schema {
+    margin-bottom: var(--sp-3);
+    padding: var(--sp-3);
+    background: var(--surface-2);
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    border-radius: var(--r-md);
+}
+.lct-flow {
+    display: flex;
+    align-items: stretch;
+    gap: var(--sp-1);
+}
+.lct-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex: 0 0 auto;
+    min-width: 56px;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    line-height: 1.2;
+}
+.lct-node-ico { font-size: var(--fs-lg); }
+.lct-seg {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: var(--r-sm);
+    min-width: 0;
+}
+.lct-seg-lbl { font-size: var(--fs-xs); color: var(--text-secondary); }
+.lct-seg-val { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--text); }
+.lct-seg--wait  { background: color-mix(in srgb, #6366F1 16%, transparent); border: 1px solid color-mix(in srgb, #6366F1 45%, transparent); }
+.lct-seg--cycle { background: color-mix(in srgb, var(--status-inprog, #3B82F6) 18%, transparent); border: 1px solid color-mix(in srgb, var(--status-inprog, #3B82F6) 50%, transparent); }
+.lct-lead {
+    margin-top: var(--sp-1);
+    text-align: center;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+}
+.lct-lead strong { color: var(--text); }
+
+/* ── Champ numérique discret inline (ex: seuil de stagnation) ────────────────── */
+.inline-num-edit {
+    width: 3ch;
+    padding: 0 2px;
+    margin: 0 1px;
+    font: inherit;
+    font-weight: var(--fw-semibold);
+    text-align: center;
+    color: var(--text);
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--text-muted);
+    border-radius: 0;
+    cursor: text;
+    transition: border-color var(--tr-fast), background var(--tr-fast);
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.inline-num-edit::-webkit-inner-spin-button,
+.inline-num-edit::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.inline-num-edit:hover { border-bottom-color: var(--primary); background: var(--surface-2); }
+.inline-num-edit:focus { outline: none; border-bottom-color: var(--primary); background: var(--surface-2); }
+
+/* ── Liste tickets bloqués / stagnants ───────────────────────────────────────── */
+.stuck-list { display: flex; flex-direction: column; gap: 2px; }
+.stuck-row {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto auto auto;
+    align-items: center;
+    gap: var(--sp-2);
+    width: 100%;
+    padding: var(--sp-2) var(--sp-2);
+    background: transparent;
+    border: none;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: var(--text);
+    transition: background var(--tr-fast);
+}
+.stuck-row:hover { background: var(--surface-2); }
+.stuck-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.stuck-id {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.stuck-title {
+    font-size: var(--fs-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.stuck-state {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    padding: 2px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+    background: var(--surface-2);
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+}
+/* Pastilles de statut colorées (jeu complet) */
+.stuck-state--blocked { background: var(--danger-bg); color: var(--danger); }
+.stuck-state--inprog  { background: color-mix(in srgb, var(--status-inprog) 14%, transparent); color: var(--status-inprog); }
+.stuck-state--review  { background: color-mix(in srgb, var(--status-review, #8b5cf6) 14%, transparent); color: var(--status-review, #8b5cf6); }
+.stuck-state--test    { background: color-mix(in srgb, var(--status-test, var(--warning)) 16%, transparent); color: #92400e; }
+.stuck-state--todo    { background: var(--surface-2); color: var(--text-muted); border-color: color-mix(in srgb, var(--border) 70%, transparent); }
+.stuck-lead {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.stuck-lead--none { font-style: italic; opacity: 0.7; }
+/* Âge en pastille teintée selon la criticité */
+.stuck-age {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    min-width: 42px;
+    text-align: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.stuck-age.is-warn {
+    color: #92400e;
+    background: color-mix(in srgb, var(--warning) 16%, transparent);
+    border-color: color-mix(in srgb, var(--warning) 35%, transparent);
+}
+.stuck-age.is-danger {
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
+    border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+@media (max-width: 640px) {
+    .stuck-row { grid-template-columns: auto auto 1fr auto; }
+    .stuck-state, .stuck-lead { display: none; }
 }
 
 @media (max-width: 1024px) {

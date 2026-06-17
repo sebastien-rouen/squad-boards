@@ -1642,12 +1642,12 @@ tr:hover td { background: var(--surface-hover); }
     background: var(--pc, var(--type-epic));
 }
 
-/* Kanban metric border accents */
-.kanban-metric-inprog  { border-left: 4px solid var(--status-inprog); }
-.kanban-metric-danger  { border-left: 4px solid var(--danger); }
-.kanban-metric-success { border-left: 4px solid var(--success); }
-.kanban-metric-done    { border-left: 4px solid var(--status-done); }
-.kanban-metric-primary { border-left: 4px solid var(--primary); }
+/* Kanban metric border accents (bordure haute) */
+.kanban-metric-inprog  { border-top: 3px solid var(--status-inprog); }
+.kanban-metric-danger  { border-top: 3px solid var(--danger); }
+.kanban-metric-success { border-top: 3px solid var(--success); }
+.kanban-metric-done    { border-top: 3px solid var(--status-done); }
+.kanban-metric-primary { border-top: 3px solid var(--primary); }
 
 /* Sprint goal bar */
 .sprint-goal-bar { padding: var(--sp-2) var(--sp-4); border-left: 3px solid var(--primary); background: var(--surface); border-radius: var(--r-md); }

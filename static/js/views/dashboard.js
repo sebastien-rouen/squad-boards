@@ -5,7 +5,7 @@
 import { store } from '../state.js';
 import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
-import { renderStatusChart } from '../components/charts.js';
+import { renderCycleTime } from '../components/charts.js';
 import { renderActivityList, bindActivityClicks } from '../components/activity.js';
 import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
 
@@ -58,13 +58,16 @@ export function renderDashboard(container) {
     // Atteinte des PI Objectives (SAFe predictability score)
     // Score = Σ BV livrés (commits done) / Σ BV planifiés (commits)
     // Stretch livré = bonus au numérateur (peut dépasser 100%)
-    // Objectifs du PI affiché : snapshot pi_objectives[n] en priorité (source d'un import CSV ou
-    // auto-synchro depuis PI Planning), puis jeu vivant piInfo.objectives en fallback si pas de snapshot
-    // (rétrocompat pour les PI sans snapshot — PI Planning écrit `objectives` + auto-snapshot à chaque save).
+    // Objectifs du PI affiché.
+    // PI COURANT (offset 0) : le jeu vivant `objectives` est la source de vérité (préféré dès qu'il
+    // est non vide) ; sinon fallback sur le snapshot pi_objectives[n] (cas import CSV seul).
+    // ⚠ Doit rester cohérent avec pi.js renderObjectives : lire le snapshot en priorité masquait
+    // les objectifs quand `piInfo.number` est faux (snapshot écrit sous une clé ≠ clé de lecture).
+    // PI PASSÉ : uniquement le snapshot pi_objectives[n].
     const _piObjSnap = (piInfo?.piObjectives || {})[String(displayPiNum)];
-    const _rawObjs = _piObjSnap != null
-        ? _piObjSnap
-        : (piOffset === 0 ? (piInfo?.objectives || []) : []);
+    const _rawObjs = piOffset === 0
+        ? ((piInfo?.objectives && piInfo.objectives.length) ? piInfo.objectives : (_piObjSnap || []))
+        : (_piObjSnap || []);
     const piObjs = _rawObjs.filter(o => (o.text || '').trim());
     const teamObjs = (team && team !== 'all') ? piObjs.filter(o => (o.team || '') === team) : piObjs;
     const _bv = o => Math.max(0, Math.min(10, parseInt(o.bv) || 0));
@@ -107,9 +110,59 @@ export function renderDashboard(container) {
     const completion = pct(done, total);
     const ptsPct = pct(donePts, totalPts);
 
-    // Status counts (scopés sur le même périmètre)
-    const statusCounts = {};
-    for (const t of displayTickets) statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
+    // ── Indicateurs de flux (cycle/lead time) — calculés sur l'historique team complet ──
+    // (pas seulement le sprint courant, pour avoir assez de tickets terminés)
+    const _nowMs = Date.now();
+    const DAY_MS = 86400000;
+    const _median = arr => {
+        if (!arr.length) return 0;
+        const s = [...arr].sort((a, b) => a - b);
+        const m = Math.floor(s.length / 2);
+        return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2 * 10) / 10;
+    };
+    const _doneCT = tickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
+    const _ltVals = _doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
+    const ctMedian = _median(_doneCT.map(t => t.cycleTimeDays));
+    const ltMedian = _median(_ltVals);
+    const avgCT = _doneCT.length ? Math.round(_doneCT.reduce((s, t) => s + t.cycleTimeDays, 0) / _doneCT.length * 10) / 10 : 0;
+    const avgLT = _ltVals.length ? Math.round(_ltVals.reduce((s, v) => s + v, 0) / _ltVals.length * 10) / 10 : 0;
+    const avgWait = Math.max(0, Math.round((avgLT - avgCT) * 10) / 10);
+
+    // Débit (throughput) : tickets terminés sur les 7 derniers jours (team complet)
+    const throughput7 = tickets.filter(t => t.status === 'done' && t.resolvedDate
+        && (_nowMs - new Date(t.resolvedDate).getTime()) <= 7 * DAY_MS).length;
+    // Hygiène backlog (périmètre courant) : actifs non estimés / non assignés
+    const noEstimate = displayTickets.filter(t => t.status !== 'done' && !(t.points > 0)).length;
+    const noAssignee = displayTickets.filter(t => t.status !== 'done' && !t.leader).length;
+
+    // ── Tickets bloqués / stagnants (même état depuis longtemps) ──────────────
+    // Seuil de stagnation éditable (champ discret dans la card), persisté en localStorage.
+    const _staleRaw = parseInt(localStorage.getItem('sb-dash-stale-days') || '', 10);
+    const STALE_DAYS = (!isNaN(_staleRaw) && _staleRaw >= 1 && _staleRaw <= 365) ? _staleRaw : 5;
+    const _daysSince = iso => iso ? Math.max(0, Math.round((_nowMs - new Date(iso).getTime()) / DAY_MS)) : null;
+    // ⚠ NE PAS utiliser `updatedAt` : c'est l'horodatage d'écriture en base (= heure de sync),
+    // pas la dernière activité JIRA → vaudrait 0 pour tous les tickets après une sync.
+    // « Sans mouvement » = temps écoulé depuis le dernier mouvement de STATUT connu, soit le plus
+    // récent entre l'entrée en cours (`startedDate`) et le dernier changement de statut du changelog.
+    const _lastStatusChange = t => {
+        let d = null;
+        for (const c of (t.recentChanges || [])) {
+            if (/^status$/i.test(c.field || '') && c.date && (!d || c.date > d)) d = c.date;
+        }
+        return d;
+    };
+    const _stagDays = t => {
+        const dates = [t.startedDate, _lastStatusChange(t)].filter(Boolean);
+        if (!dates.length) return null;
+        const mostRecent = dates.reduce((a, b) => (a > b ? a : b));
+        return _daysSince(mostRecent);
+    };
+    const stuckTickets = tickets
+        .filter(t => t.status !== 'done')
+        .map(t => ({ t, stag: _stagDays(t) }))
+        .filter(({ t, stag }) => t.status === 'blocked' || (stag != null && stag >= STALE_DAYS))
+        .sort((a, b) => (b.stag ?? 0) - (a.stag ?? 0))
+        .slice(0, 12);
 
     // Recent changes — délégué au composant activity.js
 
@@ -149,34 +202,6 @@ export function renderDashboard(container) {
     });
 
     container.innerHTML = `
-        <!-- Metrics row -->
-        <div class="dashboard-metrics">
-            <div class="metric-card mc-primary">
-                <span class="metric-icon">📋</span>
-                <span class="metric-label">Tickets ${metricScope}</span>
-                <span class="metric-value">${total}</span>
-                <span class="metric-sub">${done} terminés (${completion}%)</span>
-            </div>
-            <div class="metric-card ${ptsPct >= 80 ? 'mc-done' : ptsPct >= 50 ? 'mc-warning' : 'mc-danger'}">
-                <span class="metric-icon">🎯</span>
-                <span class="metric-label">Story Points</span>
-                <span class="metric-value">${donePts}<span class="metric-value-sub">/${totalPts}</span></span>
-                <span class="metric-sub">${ptsPct}% réalisés · ${metricScope}</span>
-            </div>
-            <div class="metric-card mc-inprog">
-                <span class="metric-icon">🔄</span>
-                <span class="metric-label">En cours</span>
-                <span class="metric-value text-status-inprog">${inprog}</span>
-                <span class="metric-sub">tickets actifs</span>
-            </div>
-            <div class="metric-card ${blocked > 0 ? 'mc-danger' : 'mc-done'}">
-                <span class="metric-icon">${blocked > 0 ? '🚫' : '✅'}</span>
-                <span class="metric-label">Bloqués</span>
-                <span class="metric-value ${blocked > 0 ? 'text-danger' : 'text-status-done'}">${blocked}</span>
-                <span class="metric-sub">${blocked > 0 ? 'attention requise' : 'aucun impediment'}</span>
-            </div>
-        </div>
-
         ${(sprintInfo && piOffset === 0) ? (() => {
             // Calcul positionnel du sprint : où en est-on dans la durée ?
             const _parse = s => { const d = String(s || '').slice(0,10); return d ? new Date(`${d}T00:00:00`).getTime() : NaN; };
@@ -270,6 +295,62 @@ export function renderDashboard(container) {
             </div>`;
         })() : ''}
 
+        <!-- Metrics row -->
+        <div class="dashboard-metrics">
+            <div class="metric-card mc-primary">
+                <span class="metric-icon">📋</span>
+                <span class="metric-label">Tickets ${metricScope}</span>
+                <span class="metric-value">${total}</span>
+                <span class="metric-sub">${done} terminés (${completion}%)</span>
+            </div>
+            <div class="metric-card ${ptsPct >= 80 ? 'mc-done' : ptsPct >= 50 ? 'mc-warning' : 'mc-danger'}">
+                <span class="metric-icon">🎯</span>
+                <span class="metric-label">Story Points</span>
+                <span class="metric-value">${donePts}<span class="metric-value-sub">/${totalPts}</span></span>
+                <span class="metric-sub">${ptsPct}% réalisés · ${metricScope}</span>
+            </div>
+            <div class="metric-card mc-inprog">
+                <span class="metric-icon">🔄</span>
+                <span class="metric-label">En cours</span>
+                <span class="metric-value text-status-inprog">${inprog}</span>
+                <span class="metric-sub">tickets actifs</span>
+            </div>
+            <div class="metric-card ${blocked > 0 ? 'mc-danger' : 'mc-done'}">
+                <span class="metric-icon">${blocked > 0 ? '🚫' : '✅'}</span>
+                <span class="metric-label">Bloqués</span>
+                <span class="metric-value ${blocked > 0 ? 'text-danger' : 'text-status-done'}">${blocked}</span>
+                <span class="metric-sub">${blocked > 0 ? 'attention requise' : 'aucun impediment'}</span>
+            </div>
+        </div>
+
+        <!-- Secondary indicators row (flux & hygiène) -->
+        <div class="dashboard-metrics dashboard-metrics--secondary">
+            <div class="metric-card mc-info" title="Tickets terminés sur les 7 derniers jours (équipe complète)">
+                <span class="metric-icon">🚀</span>
+                <span class="metric-label">Débit (7j)</span>
+                <span class="metric-value">${throughput7}</span>
+                <span class="metric-sub">tickets terminés / semaine</span>
+            </div>
+            <div class="metric-card mc-inprog" title="Temps médian entre la mise en cours et la clôture d'un ticket">
+                <span class="metric-icon">⏱️</span>
+                <span class="metric-label">Cycle time méd.</span>
+                <span class="metric-value">${ctMedian}<span class="metric-denom"> j</span></span>
+                <span class="metric-sub">lead time méd. ${ltMedian} j</span>
+            </div>
+            <div class="metric-card ${noEstimate > 0 ? 'mc-warning' : 'mc-done'}" title="Tickets actifs sans Story Points (${metricScope})">
+                <span class="metric-icon">📝</span>
+                <span class="metric-label">Sans estimation</span>
+                <span class="metric-value ${noEstimate > 0 ? 'text-warning' : ''}">${noEstimate}</span>
+                <span class="metric-sub">tickets actifs non estimés</span>
+            </div>
+            <div class="metric-card ${noAssignee > 0 ? 'mc-warning' : 'mc-done'}" title="Tickets actifs sans responsable (${metricScope})">
+                <span class="metric-icon">👤</span>
+                <span class="metric-label">Sans assigné</span>
+                <span class="metric-value ${noAssignee > 0 ? 'text-warning' : ''}">${noAssignee}</span>
+                <span class="metric-sub">tickets actifs sans lead</span>
+            </div>
+        </div>
+
         <!-- Team Cards — affiché seulement si >1 équipe -->
         ${teams.length > 1 ? (() => {
             const _isBuf = t => (t.labels || []).some(l => /buffer/i.test(l));
@@ -341,10 +422,13 @@ export function renderDashboard(container) {
         <!-- Aucun objectif enregistré pour ce PI (ni jeu courant, ni snapshot pi_objectives) -->
         <h3 class="section-title">Objectifs PI #${displayPiNum}${team && team !== 'all' ? ` — ${esc(team)}` : ''}</h3>
         <div class="card pi-obj-attain mc-info">
-            <p class="text-sm text-muted" style="padding:var(--sp-3)">
-                Aucun objectif enregistré pour le PI #${displayPiNum}${team && team !== 'all' ? ` (équipe ${esc(team)})` : ''}.
-                Saisissez-les dans <strong>PI Planning → Objectifs</strong>.
-            </p>
+            <div class="pi-obj-empty-cta" style="padding:var(--sp-3)">
+                <p class="text-sm text-muted" style="margin:0 0 var(--sp-2)">
+                    Aucun objectif enregistré pour le PI #${displayPiNum}${team && team !== 'all' ? ` (équipe ${esc(team)})` : ''}.
+                    Saisissez-les dans <strong>PI Planning → Objectifs</strong>.
+                </p>
+                <a class="btn btn-secondary btn-sm" id="pi-obj-add" href="#pi/${groupId ? 'group:' + encodeURIComponent(groupId) : encodeURIComponent(team || 'all')}/objectives">+ Ajouter un objectif</a>
+            </div>
         </div>` : ''}
         ${teamObjs.length ? `
         <!-- PI Objectives — atteinte (Predictability score SAFe) -->
@@ -428,12 +512,55 @@ export function renderDashboard(container) {
         <!-- Charts row -->
         <div class="dashboard-grid">
             <div class="card">
-                <div class="card-header"><span class="card-title">Repartition par statut</span></div>
-                <div class="chart-container chart-h-md"><canvas id="chart-status"></canvas></div>
+                <div class="card-header">
+                    <span class="card-title">Lead time &amp; Cycle time</span>
+                    <span class="card-subtitle">${_doneCT.length} ticket${_doneCT.length !== 1 ? 's' : ''} terminé${_doneCT.length !== 1 ? 's' : ''}</span>
+                </div>
+                <!-- Schéma : Créé → (attente) → Démarré → (cycle time) → Terminé ; Lead time = total -->
+                <div class="lct-schema">
+                    <div class="lct-flow">
+                        <span class="lct-node"><span class="lct-node-ico">📥</span><small>Créé</small></span>
+                        <span class="lct-seg lct-seg--wait"><span class="lct-seg-lbl">Attente</span><span class="lct-seg-val">${avgWait} j</span></span>
+                        <span class="lct-node"><span class="lct-node-ico">▶️</span><small>Démarré</small></span>
+                        <span class="lct-seg lct-seg--cycle"><span class="lct-seg-lbl">Cycle time</span><span class="lct-seg-val">${avgCT} j</span></span>
+                        <span class="lct-node"><span class="lct-node-ico">✅</span><small>Terminé</small></span>
+                    </div>
+                    <div class="lct-lead"><span class="lct-lead-lbl">⟵ Lead time moyen · <strong>${avgLT} j</strong> ⟶</span></div>
+                </div>
+                <div class="chart-container chart-h-md"><canvas id="chart-cycletime"></canvas></div>
             </div>
             <div class="health-velo-host">
                 ${_veloTeamChips}
                 ${velocityCardHtml({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax })}
+            </div>
+        </div>
+
+        <!-- Tickets bloqués ou stagnants (même état depuis longtemps) -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <span class="card-title">Tickets bloqués ou stagnants</span>
+                <span class="card-subtitle">bloqués, ou sans mouvement depuis ≥
+                    <input type="number" id="stuck-stale-days" class="inline-num-edit" min="1" max="365" step="1"
+                        value="${STALE_DAYS}" title="Seuil de stagnation (jours) — modifiable" aria-label="Seuil de stagnation en jours"> j</span>
+            </div>
+            <div class="stuck-list">
+                ${stuckTickets.length ? stuckTickets.map(({ t, stag }) => {
+                    const _STL = { todo: 'À faire', inprog: 'En cours', review: 'Revue', test: 'Test', blocked: 'Bloqué', done: 'Terminé' };
+                    const ageCls = stag == null ? '' : stag >= 14 ? 'is-danger' : stag >= STALE_DAYS ? 'is-warn' : '';
+                    const ageTxt = stag == null ? '—' : `${stag} j`;
+                    const ageTip = stag == null
+                        ? 'Ancienneté inconnue (pas de date de mise en cours)'
+                        : `En l'état depuis ${stag} jour${stag > 1 ? 's' : ''}`;
+                    return `
+                    <button class="stuck-row" data-ticket="${esc(t.id)}" title="Ouvrir ${esc(t.id)} — ${esc(t.jiraStatus || _STL[t.status] || t.status)}">
+                        <span class="stuck-dot" style="background:var(--status-${esc(t.status)}, var(--text-muted))"></span>
+                        <span class="stuck-id">${esc(t.id)}</span>
+                        <span class="stuck-title">${esc(t.title || '')}</span>
+                        <span class="stuck-state stuck-state--${esc(t.status)}">${esc(t.jiraStatus || _STL[t.status] || t.status)}</span>
+                        <span class="stuck-lead${t.leader ? '' : ' stuck-lead--none'}">${esc(t.leader || 'Non assigné')}</span>
+                        <span class="stuck-age ${ageCls}" title="${esc(ageTip)}">${ageTxt}</span>
+                    </button>`;
+                }).join('') : '<p class="text-muted text-sm" style="padding:var(--sp-3)">Aucun ticket bloqué ou stagnant 🎉</p>'}
             </div>
         </div>
 
@@ -446,9 +573,24 @@ export function renderDashboard(container) {
 
     // Render charts after DOM is ready
     requestAnimationFrame(() => {
-        renderStatusChart('chart-status', statusCounts);
+        renderCycleTime('chart-cycletime', tickets);
         mountVelocityChart({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax });
         bindActivityClicks(container);
+    });
+
+    // Liste "bloqués / stagnants" → ouvre le ticket au clic
+    container.querySelectorAll('.stuck-row').forEach(row => {
+        row.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(row.dataset.ticket));
+    });
+
+    // Champ discret : seuil de stagnation (jours) → persiste et re-render
+    const staleInput = container.querySelector('#stuck-stale-days');
+    staleInput?.addEventListener('change', () => {
+        const n = parseInt(staleInput.value, 10);
+        if (isNaN(n) || n < 1 || n > 365) { staleInput.value = STALE_DAYS; return; }
+        if (n === STALE_DAYS) return;
+        localStorage.setItem('sb-dash-stale-days', String(n));
+        renderDashboard(container);
     });
 
     // Sélecteur d'équipe du graphe de vélocité (périmètre multi-équipes) → re-render

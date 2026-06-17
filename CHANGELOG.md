@@ -1,3 +1,72 @@
+## [3.38.0] - 2026-06-17
+
+### Design : accents en bordure haute + Dashboard réordonné + polish
+- **Accents de cards en `border-top`** au lieu de `border-left`/`::before` latéral (jugé chargé quand beaucoup de cards) : `.sprint-header` ([sprint.css](squad-board/static/css/views/sprint.css)), `.metric-card` + variantes `mc-*`, `.pi-obj-attain`, `.team-card` ([dashboard.css](squad-board/static/css/views/dashboard.css)), `.kanban-metric-*` ([base.css](squad-board/static/css/base.css)). Barres d'accent passées en gradient horizontal de 3 px en haut.
+- **Dashboard réordonné** ([dashboard.js](squad-board/static/js/views/dashboard.js)) : l'en-tête sprint/PI (`sprint-header`) est désormais **en premier**, suivi des métriques et des indicateurs secondaires.
+- **Barre d'atteinte PI plus lisible à 0 %** ([dashboard.css](squad-board/static/css/views/dashboard.css)) : la piste reçoit une bordure + un fond légèrement rayé (fini le « blanc sur blanc » quand vide), et l'échelle 0 / 80 % cible / 100 % gagne des repères verticaux et un meilleur contraste.
+- **Liste « bloqués / stagnants » colorée** : pastilles de statut pour tous les états (bloqué, en cours, revue, test, à faire), âge affiché en pastille teintée selon la criticité (jaune ≥ seuil, rouge ≥ 14 j), id en couleur primaire.
+
+## [3.37.0] - 2026-06-17
+
+### Fix : liste « bloqués / stagnants » toujours vide après une sync
+- **Symptôme** : aucun ticket n'apparaissait dans la card Dashboard alors que certains stagnaient (ex. GDEM-4057, 5 j « En cours de développement »).
+- **Cause** : l'ancienneté était calculée depuis `updatedAt`, qui est l'**horodatage d'écriture en base** (= heure de la dernière sync), et non la dernière activité JIRA → il vaut ~0 j pour tous les tickets juste après une synchro, donc rien ne dépassait le seuil.
+- **Correctif** ([dashboard.js](squad-board/static/js/views/dashboard.js)) : « sans mouvement » est désormais mesuré depuis le **dernier mouvement de statut** — `max(startedDate, dernier changement de statut du changelog)`. La colonne « état » affiche le **statut JIRA réel** (ex. « En cours de développement »). Vérifié : périmètre Gabbiano passe de 0 à 3 tickets, GDEM-4057 en tête (5 j).
+- **Page de diagnostic** : [tests/stuck-tickets-debug.html](squad-board/static/tests/stuck-tickets-debug.html) — inspecte un ticket (dates + ancienneté retenue, changelog), compare ancienne vs nouvelle logique, et liste le résultat par équipe/seuil.
+
+## [3.36.0] - 2026-06-17
+
+### Feat : seuil de stagnation éditable (Dashboard)
+- **Champ discret inline** dans la card « Tickets bloqués ou stagnants » ([dashboard.js](squad-board/static/js/views/dashboard.js)) : le nombre de jours de « sans mouvement depuis ≥ N j » est désormais éditable directement dans le sous-titre. Valeur persistée en localStorage (`sb-dash-stale-days`, défaut 5, bornée 1–365) et liste re-filtrée à la volée.
+- **Style** ([dashboard.css](squad-board/static/css/views/dashboard.css)) : `.inline-num-edit` — input numérique minimaliste (soulignement pointillé, spinners masqués) réutilisable pour d'autres éditions rapides inline.
+
+## [3.35.0] - 2026-06-17
+
+### Fix : suppression d'un objectif PI non persistée
+- **Symptôme** : supprimer un objectif via la corbeille le retirait de l'écran, mais il **réapparaissait au rafraîchissement** (la suppression n'était enregistrée qu'au clic ultérieur sur « Enregistrer »).
+- **Cause** : le bouton `.pi-obj-del` faisait seulement `row.remove()` (DOM) sans appel API.
+- **Correctif** ([pi.js](squad-board/static/js/views/pi.js)) : la logique de sauvegarde est extraite dans une fonction `persist()` réutilisée par « Enregistrer » **et** par la suppression — supprimer un objectif **persiste immédiatement** (toast « Objectif supprimé »). Une ligne nouvellement ajoutée mais vide/non enregistrée est simplement retirée du DOM sans appel réseau.
+
+## [3.34.0] - 2026-06-17
+
+### Fix : objectifs PI enregistrés mais invisibles (divergence de clé snapshot)
+- **Symptôme** : ajouter un objectif (ex. équipe Gabbiano) affichait « 1 objectif(s) enregistré(s) » mais rien n'apparaissait, ni dans PI Planning ni sur le Dashboard.
+- **Cause** : la **clé d'écriture** du snapshot (`pi_objectives[piInfo.number]`, auto côté backend) divergeait de la **clé de lecture** (`piNum` dérivé du sprint actif). Sur la base réelle, `piInfo.number = 0` alors que le sprint actif est `30.1` (→ `piNum = 30`) : l'objectif partait dans `objectives` (jeu vivant) + `pi_objectives["0"]`, mais l'affichage lisait `pi_objectives["30"]` (snapshot périmé) qui le masquait.
+- **Correctifs** ([pi.js](squad-board/static/js/views/pi.js), [dashboard.js](squad-board/static/js/views/dashboard.js)) :
+  - **Lecture auto-guérissante** : pour le PI courant, le jeu vivant `objectives` est désormais préféré dès qu'il est non vide (le snapshot ne sert que de fallback / aux PI passés). Les objectifs déjà saisis réapparaissent **sans avoir à les ressaisir**.
+  - **Écriture cohérente** : la sauvegarde du PI courant force le snapshot sous la **même clé que la lecture** (`pi_objectives[piNum]`), évitant toute divergence future même si `piInfo.number` est faux.
+- **Page de diagnostic** : [tests/pi-objectives-debug.html](squad-board/static/tests/pi-objectives-debug.html) — affiche l'état réel (number, sprint, clés snapshot), signale la divergence, et exécute un test d'ajout de bout en bout (correctif vs ancien comportement) + nettoyage des objectifs `[TEST]`.
+- _Note : la cause racine est `piInfo.number` non renseigné (0) — le renseigner dans PI Planning fiabilise aussi les snapshots de PI passés._
+
+## [3.33.0] - 2026-06-17
+
+### Feat : Dashboard — cartes compactes, indicateurs de flux, charts repensés
+- **Cartes métriques plus basses** ([dashboard.css](squad-board/static/css/views/dashboard.css)) : `.metric-card` passe en grille (icône en ligne avec le label, padding et police réduits, `--fs-2xl` → `--fs-xl`). Hauteur nettement réduite ; style appliqué aussi aux cartes PI Planning (`.pi-overview`).
+- **Nouvelle rangée d'indicateurs secondaires** ([dashboard.js](squad-board/static/js/views/dashboard.js)) : **Débit (7j)** (throughput), **Cycle time médian** (+ lead time médian), **Sans estimation** (tickets actifs sans points), **Sans assigné** (tickets actifs sans lead). Autres indicateurs proposables : âge moyen du WIP, % flaggés, ratio buffer, prévisibilité PI.
+- **Bouton « + Ajouter un objectif »** dans l'empty-state objectifs du Dashboard (`#pi-obj-add`) : lien direct vers **PI Planning → Objectifs** (`#pi/<équipe>/objectives`) de l'équipe/ligne produit courante.
+- **Charts repensés** (remplacent « Répartition par statut ») :
+  - **Lead time & Cycle time** : schéma visuel clair *Créé → (attente) → Démarré → (cycle time) → Terminé* avec moyennes, au-dessus du graphe par ticket existant (`renderCycleTime`).
+  - **Tickets bloqués ou stagnants** : liste des tickets bloqués ou sans mouvement depuis ≥ 5 j, triés par ancienneté, cliquables (ouvre le ticket). Colonnes : statut, id, titre, état, responsable, âge (jaune ≥ 5 j, rouge ≥ 14 j).
+
+## [3.32.0] - 2026-06-17
+
+### Feat : connexion JIRA configurable depuis les Paramètres (URL / email / token)
+- **Nouveau bloc « Connexion JIRA »** ([settings.js](squad-board/static/js/views/settings.js), section Plugin JIRA) — toujours visible, même sans `.env` : champs **URL**, **Email**, **Token API** (masqué). Pré-remplis depuis le `.env` serveur si présent (URL/email affichés ; pour le token, seul un indicateur « défini dans .env » est montré — le secret n'est **jamais** renvoyé au front). Boutons **Enregistrer**, **Tester** (`rest/api/3/myself`), **Réinitialiser (.env)**.
+- **Surcharge réelle de la connexion** : les valeurs saisies sont gardées en **localStorage** (`sb-jira-url` / `sb-jira-user` / `sb-jira-token`) et envoyées au proxy via en-têtes `X-Jira-Url` / `X-Jira-User` / `X-Jira-Token` ([api.js](squad-board/static/js/api.js) — `getJiraCreds`/`setJiraCreds`, en-têtes ajoutés à `jiraGet`). Permet de configurer JIRA sans toucher au `.env`.
+- **Proxy backend** ([jira.py](squad-board/app/routers/jira.py)) : chaque en-tête `X-Jira-*` fourni **prime sur le `.env`** ; sinon fallback `.env`. **Token jamais exposé** : `GET /api/config` ([data.py](squad-board/app/routers/data.py)) renvoie `jiraUrl`, `jiraUser` et un booléen `jiraTokenSet`, pas le token.
+- **État « configuré »** ([app.js](squad-board/static/js/app.js) — `applyJiraConfig`) recalculé en fusionnant `.env` + localStorage : la sync est activée dès que URL + email + token sont présents (peu importe la source). Champ token laissé vide = valeur conservée (jamais ré-écrit dans le DOM).
+- ⚠️ Le token saisi est stocké en clair dans le localStorage du navigateur (outil local) — utiliser le `.env` pour un déploiement partagé.
+
+## [3.31.0] - 2026-06-17
+
+### Feat : équipes/lignes produit retirées préservées + sync rapide allégée
+- **Les équipes/lignes produit retirées ne réapparaissent plus** : supprimer une équipe dans Paramètres l'ajoute aux **équipes masquées** (localStorage `sb-jira-excluded-teams`). La sync JIRA ne recrée plus ces équipes — ni leurs tickets/features/epics/sprints — quelle que soit la source (board, `Team[Team]`, features cross-board). Le board d'une équipe masquée n'est même plus scanné (économie de requêtes).
+- **Confirmation en début de sync** ([app.js](squad-board/static/js/app.js)) : si des équipes sont masquées, une modale `choiceModal` propose **Conserver ma configuration** (respecte les retraits, défaut) ou **Tout réimporter depuis JIRA** (ignore et vide la liste d'exclusion). Vaut pour la sync rapide **et** complète.
+- **Gestion dans Paramètres → Plugin JIRA** ([settings.js](squad-board/static/js/views/settings.js)) : nouvelle ligne « Équipes / lignes produit masquées » — puces cliquables pour restaurer une équipe, bouton « Tout restaurer ».
+- **Sync rapide optimisée (14 j)** ([sync.js](squad-board/static/js/sync.js)) : en mode rapide, on **saute les passes historiques** qui ne changent pas sur une fenêtre récente — pagination des sprints clos + vélocité Greenhopper par board, tickets des sprints clos (`closedTicketSprints`), scan complet du buffer (`labels=Buffer`). Les enfants de features sont filtrés sur `updated >= -Nj`. Résultat : nettement moins de requêtes et de temps.
+- **Pas de perte d'historique** : en mode rapide, les `teamSprints` fraîchement collectés (sprint actif + futurs) sont **fusionnés par `jiraId`** avec ceux déjà en base (sprints clos + vélocité/buffer), au lieu de les écraser. Une sync complète reste nécessaire pour rafraîchir la vélocité d'un sprint récemment clôturé.
+- **Menu de sync simplifié** ([index.html](squad-board/static/index.html)) : suppression des entrées 7 j et 30 j ; il ne reste que **14 j** (+ sync complète). La période reste configurable via Paramètres → « Sync rapide — période ».
+
 ## [3.30.0] - 2026-06-17
 
 ### Feat : graphe de Vélocité du Dashboard repris dans la page Health

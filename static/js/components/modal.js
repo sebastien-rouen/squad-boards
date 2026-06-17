@@ -496,6 +496,46 @@ function _sprintsHistoryOfTicket(ticket) {
     return out;
 }
 
+/** Date+heure complète FR pour le survol de l'historique : "mer. 17 juin, 14:32". */
+function _fmtHistDate(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '';
+    return dt.toLocaleString('fr-FR', {
+        weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+}
+
+/**
+ * Historique du ticket regroupé : les modifications CONSÉCUTIVES d'un même auteur
+ * forment une seule ligne (nom non répété), chaque changement portant sa date au survol.
+ * Reçoit les changements déjà ordonnés (plus récent en premier).
+ */
+function _renderTicketHistory(changes) {
+    const groups = [];
+    for (const c of changes) {
+        const last = groups[groups.length - 1];
+        if (last && last.author === c.author) last.changes.push(c);
+        else groups.push({ author: c.author, date: c.date, changes: [c] });
+    }
+    const _change = c => `<span class="hist-change" title="${esc(_fmtHistDate(c.date))}"><em>${esc(fieldLabelFr(c.field))}</em> : ${esc(c.from || '—')} &rarr; ${esc(c.to || '—')}</span>`;
+    return groups.map(g => {
+        if (g.changes.length === 1) {
+            return `<div class="activity-item">
+                <span class="activity-time" title="${esc(_fmtHistDate(g.changes[0].date))}">${fmtRelative(g.changes[0].date)}</span>
+                <span class="activity-text"><strong>${esc(g.author)}</strong> a modifié ${_change(g.changes[0])}</span>
+            </div>`;
+        }
+        return `<div class="activity-item">
+            <span class="activity-time" title="${esc(_fmtHistDate(g.date))}">${fmtRelative(g.date)}</span>
+            <div class="activity-text hist-grouped">
+                <span><strong>${esc(g.author)}</strong> a modifié <span class="hist-count">${g.changes.length}</span> champs :</span>
+                <div class="hist-changes">${g.changes.map(_change).join('')}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Ticket Detail - rich layout
 // ══════════════════════════════════════════════════════════════════════════════
@@ -731,12 +771,7 @@ export function openTicketModal(ticketId) {
             <details class="mb-4">
                 <summary class="text-xs font-semibold text-muted mb-2">Historique (${ticket.recentChanges.length})</summary>
                 <div class="activity-list">
-                    ${ticket.recentChanges.slice(-8).reverse().map(c => `
-                        <div class="activity-item">
-                            <span class="activity-time">${fmtRelative(c.date)}</span>
-                            <span class="activity-text"><strong>${esc(c.author)}</strong> a modifié <em>${esc(fieldLabelFr(c.field))}</em> : ${esc(c.from || '—')} &rarr; ${esc(c.to || '—')}</span>
-                        </div>
-                    `).join('')}
+                    ${_renderTicketHistory(ticket.recentChanges.slice(-12).reverse())}
                 </div>
             </details>
         ` : ''}

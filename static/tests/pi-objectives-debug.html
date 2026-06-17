@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>PI Objectives — diagnostic & test</title>
+<style>
+  body { font-family: ui-monospace, monospace; font-size: 13px; padding: 16px 20px; background: #0f172a; color: #e2e8f0; max-width: 1000px; margin: 0 auto; }
+  h1 { color: #f1f5f9; font-size: 18px; }
+  h2 { color: #60a5fa; margin: 20px 0 6px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+  .ok  { color: #4ade80; }
+  .err { color: #f87171; }
+  .warn { color: #fbbf24; }
+  .muted { color: #94a3b8; }
+  table { border-collapse: collapse; margin: 8px 0 12px; width: 100%; }
+  td, th { border: 1px solid #334155; padding: 4px 10px; text-align: left; vertical-align: top; }
+  th { background: #1e293b; color: #94a3b8; }
+  code, pre { background: #1e293b; border-radius: 4px; }
+  code { padding: 1px 5px; }
+  pre { padding: 10px; overflow:auto; max-height: 260px; font-size: 12px; }
+  input, select, button { font: inherit; padding: 5px 8px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; }
+  button { cursor: pointer; background: #2563eb; border-color: #2563eb; }
+  button.secondary { background: #1e293b; }
+  button.danger { background: #7f1d1d; border-color:#991b1b; }
+  button:hover { filter: brightness(1.1); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin: 8px 0; }
+  .badge { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11px; }
+  .badge-bug { background:#7f1d1d; color:#fecaca; }
+  .badge-ok  { background:#14532d; color:#bbf7d0; }
+  .card { background:#111827; border:1px solid #1f2937; border-radius:8px; padding:12px 14px; margin:10px 0; }
+</style>
+</head>
+<body>
+<h1>🎯 PI Objectives — diagnostic &amp; test</h1>
+<p class="muted">Vérifie le bug « objectifs enregistrés mais invisibles ». Cause : la clé d'écriture du snapshot
+(<code>pi_objectives[piInfo.number]</code>, auto côté backend) peut différer de la clé de lecture
+(<code>piNum</code> dérivé du sprint actif). Cette page lit l'état réel, signale la divergence, et exécute
+un test d'ajout de bout en bout.</p>
+
+<div id="diag"></div>
+
+<h2>Test d'ajout d'un objectif (bout en bout)</h2>
+<div class="card">
+  <div class="row">
+    <label>Équipe : <select id="t-team"></select></label>
+    <label>PI n° : <input id="t-pi" type="number" min="1" style="width:80px"></label>
+    <label>Texte : <input id="t-text" value="[TEST] objectif debug" style="width:280px"></label>
+  </div>
+  <div class="row">
+    <button id="t-run-fix">▶ Tester avec le CORRECTIF (snapshot sous piNum)</button>
+    <button id="t-run-old" class="secondary">Simuler l'ANCIEN comportement</button>
+    <button id="t-clean" class="danger">🧹 Supprimer les objectifs [TEST]</button>
+  </div>
+  <div id="t-out"></div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const j = r => r.json();
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c]));
+
+// Réplique exacte de utils.extractPiNum
+function extractPiNum(name) {
+  if (!name) return 0;
+  const s = String(name);
+  const m = s.match(/(\d+)\.\d+/) || s.match(/PI\s*#?\s*(\d+)/i)
+         || s.match(/(?<![A-Za-z])PI(?![A-Za-z])[^\d]{0,15}?(\d+)/i);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+async function getPi()     { return fetch('/api/pi').then(j); }
+async function getSprint() { return fetch('/api/sprint').then(j).catch(() => null); }
+async function getTeams()  { return fetch('/api/teams').then(j).catch(() => []); }
+
+function objSummary(arr) {
+  const byTeam = {};
+  for (const o of (arr || [])) { const k = o.team || '(sans équipe)'; byTeam[k] = (byTeam[k] || 0) + 1; }
+  const parts = Object.entries(byTeam).map(([t, n]) => `${t}: ${n}`);
+  return `${(arr || []).length} obj` + (parts.length ? ` — ${parts.join(', ')}` : '');
+}
+
+let _state = {};
+
+async function diag() {
+  const [pi, sprint, teams] = await Promise.all([getPi(), getSprint(), getTeams()]);
+  _state = { pi, sprint, teams };
+  const liveNum = pi?.number || 0;
+  const sprintName = sprint?.name || '';
+  const sprintPi = extractPiNum(sprintName);
+  // basePiNum tel que calculé dans pi.js : sprint d'abord, sinon piInfo.number
+  const piNum = sprintPi || liveNum || 0;
+  const mismatch = sprintPi && liveNum && sprintPi !== liveNum;
+
+  const snapKeys = Object.keys(pi?.piObjectives || {});
+  const snapForRead = (pi?.piObjectives || {})[String(piNum)] || null;
+  const live = pi?.objectives || [];
+
+  let html = '<h2>État actuel</h2><table>';
+  html += `<tr><th>piInfo.number (clé snapshot backend auto)</th><td>${liveNum || '<span class="err">non défini</span>'}</td></tr>`;
+  html += `<tr><th>Sprint actif</th><td>${esc(sprintName) || '(aucun)'}</td></tr>`;
+  html += `<tr><th>PI dérivé du sprint</th><td>${sprintPi || '(aucun)'}</td></tr>`;
+  html += `<tr><th><strong>piNum utilisé pour LIRE/AFFICHER</strong></th><td><strong>${piNum || '(aucun)'}</strong></td></tr>`;
+  html += `<tr><th>objectives (jeu vivant)</th><td>${objSummary(live)}</td></tr>`;
+  html += `<tr><th>Clés pi_objectives (snapshots)</th><td>${snapKeys.length ? snapKeys.map(k => `<code>${k}</code> (${(pi.piObjectives[k]||[]).length})`).join(', ') : '<span class="muted">aucune</span>'}</td></tr>`;
+  html += `<tr><th>Snapshot LU pour l'affichage (clé ${piNum})</th><td>${snapForRead ? objSummary(snapForRead) : '<span class="muted">aucun → fallback sur objectives</span>'}</td></tr>`;
+  html += '</table>';
+
+  html += '<h2>Diagnostic</h2>';
+  if (mismatch) {
+    html += `<p class="err">⚠ <span class="badge badge-bug">DIVERGENCE</span> piInfo.number = <b>${liveNum}</b> mais le PI affiché = <b>${piNum}</b> (dérivé du sprint).</p>`;
+    const staleHidesLive = snapForRead && JSON.stringify(snapForRead) !== JSON.stringify(live);
+    if (staleHidesLive) {
+      html += `<p class="err">→ Le snapshot lu (clé ${piNum}) <b>diffère</b> du jeu vivant : l'affichage montre le snapshot périmé et masque tes objectifs. C'est exactement le bug.</p>`;
+    } else if (!snapForRead) {
+      html += `<p class="warn">→ Pas encore de snapshot sous la clé ${piNum} : l'affichage retombe sur <code>objectives</code> (OK pour l'instant), mais l'ancien code écrivait sous la clé ${liveNum} → au prochain affichage le snapshot ${liveNum} ne serait pas lu. Le correctif force l'écriture sous ${piNum}.</p>`;
+    } else {
+      html += `<p class="ok">→ Snapshot et jeu vivant cohérents pour le moment.</p>`;
+    }
+  } else if (piNum) {
+    html += `<p class="ok"><span class="badge badge-ok">OK</span> Clé d'écriture et de lecture identiques (${piNum}). Pas de divergence structurelle.</p>`;
+  } else {
+    html += `<p class="warn">Aucun PI détecté (ni sprint, ni piInfo.number).</p>`;
+  }
+
+  $('#diag').innerHTML = html;
+
+  // Pré-remplit le formulaire de test
+  const teamSel = $('#t-team');
+  const names = teams.map(t => t.name);
+  teamSel.innerHTML = names.map(n => `<option>${esc(n)}</option>`).join('') || '<option value="">(aucune équipe)</option>';
+  if (names.includes('Gabbiano')) teamSel.value = 'Gabbiano';
+  $('#t-pi').value = piNum || liveNum || '';
+}
+
+// Construit newObjs comme le code de PI Planning (remplace les objectifs de l'équipe ciblée)
+function buildNewObjs(live, team, text) {
+  const hidden = team ? live.filter(o => (o.team || '') !== team) : live.slice();
+  return [...hidden, { text, team, status: 'todo', bv: 0, committed: false }];
+}
+
+// Vérifie ce que renderObjectives afficherait : snapshot[piNum] sinon objectives, filtré par équipe
+function wouldDisplay(pi, piNum, team) {
+  const snap = (pi.piObjectives || {})[String(piNum)];
+  const eff = (snap != null) ? snap : (pi.objectives || []);
+  return team ? eff.filter(o => (o.team || '') === team) : eff;
+}
+
+async function runTest(withFix) {
+  const out = $('#t-out');
+  const team = $('#t-team').value;
+  const piNum = parseInt($('#t-pi').value, 10);
+  const text = $('#t-text').value.trim() || '[TEST] objectif debug';
+  if (!piNum) { out.innerHTML = '<p class="err">PI n° requis.</p>'; return; }
+
+  const before = await getPi();
+  const newObjs = buildNewObjs(before.objectives || [], team, text);
+
+  const body = { ...before, objectives: newObjs };
+  if (withFix && piNum) {
+    body.piObjectives = { ...(before.piObjectives || {}), [String(piNum)]: newObjs };
+  }
+  await fetch('/api/pi', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+  const after = await getPi();
+  const shown = wouldDisplay(after, piNum, team);
+  const found = shown.some(o => o.text === text && (o.team || '') === (team || ''));
+
+  let html = `<div class="card"><p><b>${withFix ? '✔ Avec correctif' : 'Ancien comportement'}</b> — ajout de « ${esc(text)} » pour <b>${esc(team || '(sans équipe)')}</b> sous PI ${piNum}</p>`;
+  html += `<p>Clé snapshot écrite : <code>${after.number}</code> (auto backend)${withFix ? ` + <code>${piNum}</code> (forcée)` : ''}</p>`;
+  html += `<p>Ce que la page Objectifs afficherait pour cette équipe : <b>${shown.length}</b> objectif(s)</p>`;
+  html += found
+    ? `<p class="ok">✅ PASS — l'objectif ajouté est bien visible.</p>`
+    : `<p class="err">❌ FAIL — l'objectif a été enregistré mais reste invisible (snapshot lu sous la clé ${piNum} ne le contient pas).</p>`;
+  html += `</div>`;
+  out.innerHTML = html;
+  await diag();
+}
+
+async function cleanup() {
+  const out = $('#t-out');
+  const pi = await getPi();
+  const isTest = o => /^\[TEST\]/.test(o.text || '');
+  const objectives = (pi.objectives || []).filter(o => !isTest(o));
+  const piObjectives = {};
+  for (const [k, arr] of Object.entries(pi.piObjectives || {})) piObjectives[k] = (arr || []).filter(o => !isTest(o));
+  await fetch('/api/pi', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...pi, objectives, piObjectives }) });
+  out.innerHTML = '<p class="ok">🧹 Objectifs [TEST] supprimés (jeu vivant + tous les snapshots).</p>';
+  await diag();
+}
+
+$('#t-run-fix').addEventListener('click', () => runTest(true).catch(e => $('#t-out').innerHTML = `<p class="err">${esc(e.message)}</p>`));
+$('#t-run-old').addEventListener('click', () => runTest(false).catch(e => $('#t-out').innerHTML = `<p class="err">${esc(e.message)}</p>`));
+$('#t-clean').addEventListener('click', () => cleanup().catch(e => $('#t-out').innerHTML = `<p class="err">${esc(e.message)}</p>`));
+
+diag().catch(e => $('#diag').innerHTML = `<p class="err">Erreur: ${esc(e.message)}</p>`);
+</script>
+</body>
+</html>

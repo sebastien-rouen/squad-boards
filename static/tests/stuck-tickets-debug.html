@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Stuck tickets — diagnostic</title>
+<style>
+  body { font-family: ui-monospace, monospace; font-size: 13px; padding: 16px 20px; background: #0f172a; color: #e2e8f0; max-width: 1100px; margin: 0 auto; }
+  h1 { color: #f1f5f9; font-size: 18px; }
+  h2 { color: #60a5fa; margin: 20px 0 6px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+  .ok { color: #4ade80; } .err { color: #f87171; } .warn { color: #fbbf24; } .muted { color: #94a3b8; }
+  table { border-collapse: collapse; margin: 8px 0 12px; width: 100%; }
+  td, th { border: 1px solid #334155; padding: 4px 9px; text-align: left; }
+  th { background: #1e293b; color: #94a3b8; }
+  code { background:#1e293b; padding:1px 5px; border-radius:4px; }
+  input, select { font: inherit; padding: 5px 8px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin: 8px 0; }
+  .hi { background:#14532d33; }
+  .num { text-align:right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<h1>🩺 Tickets bloqués / stagnants — diagnostic</h1>
+<p class="muted">Vérifie le calcul d'ancienneté de la card Dashboard. Rappel : <code>updatedAt</code> = horodatage
+d'écriture en base (= heure de sync), <b>pas</b> la dernière activité JIRA → il vaut ~0j après une sync.
+La logique corrigée mesure le temps depuis le dernier <b>mouvement de statut</b> :
+<code>max(startedDate, dernier changement de statut du changelog)</code>.</p>
+
+<div class="row">
+  <label>Équipe : <select id="f-team"></select></label>
+  <label>Seuil (j) : <input id="f-th" type="number" value="5" min="1" max="365" style="width:70px"></label>
+  <label>Inspecter ticket : <input id="f-id" value="GDEM-4057" style="width:140px"></label>
+</div>
+
+<div id="inspect"></div>
+<div id="compare"></div>
+<div id="list"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c]));
+const NOW = Date.now(), DAY = 86400000;
+let TICKETS = [];
+
+const daysSince = iso => { if (!iso) return null; const t = Date.parse(iso); return isNaN(t) ? null : Math.max(0, Math.round((NOW - t) / DAY)); };
+const lastStatusChange = t => {
+  let d = null;
+  for (const c of (t.recentChanges || [])) if (/^status$/i.test(c.field || '') && c.date && (!d || c.date > d)) d = c.date;
+  return d;
+};
+// Logique CORRIGÉE (identique à dashboard.js)
+const stagNew = t => {
+  const dates = [t.startedDate, lastStatusChange(t)].filter(Boolean);
+  if (!dates.length) return null;
+  return daysSince(dates.reduce((a, b) => (a > b ? a : b)));
+};
+// Ancienne logique (buguée)
+const stagOld = t => daysSince(t.updatedAt) ?? daysSince(t.startedDate) ?? 0;
+
+function teamFilter() { const v = $('#f-team').value; return v === '__all__' ? null : v; }
+
+function inspect() {
+  const id = $('#f-id').value.trim();
+  const t = TICKETS.find(x => x.id === id);
+  let h = `<h2>Inspection : ${esc(id)}</h2>`;
+  if (!t) { $('#inspect').innerHTML = h + `<p class="err">Ticket absent de la base.</p>`; return; }
+  h += '<table>';
+  h += `<tr><th>Statut interne</th><td>${esc(t.status)}</td></tr>`;
+  h += `<tr><th>Statut JIRA</th><td>${esc(t.jiraStatus || '')}</td></tr>`;
+  h += `<tr><th>Équipe</th><td>${esc(t.team || '')}</td></tr>`;
+  h += `<tr><th>updatedAt (DB / sync)</th><td>${esc(t.updatedAt)} → <span class="err">${daysSince(t.updatedAt)} j (faux pour ça)</span></td></tr>`;
+  h += `<tr><th>startedDate (entrée en cours)</th><td>${esc(t.startedDate)} → ${daysSince(t.startedDate)} j</td></tr>`;
+  h += `<tr><th>Dernier chgt de statut (changelog)</th><td>${esc(lastStatusChange(t) || '(aucun dans les 8 derniers)')} → ${daysSince(lastStatusChange(t)) ?? '—'} j</td></tr>`;
+  h += `<tr class="hi"><th>➡ Ancienneté retenue (corrigée)</th><td class="ok"><b>${stagNew(t) ?? '—'} j</b></td></tr>`;
+  h += '</table>';
+  const rc = t.recentChanges || [];
+  h += `<p class="muted">recentChanges (${rc.length}) :</p><table><tr><th>date</th><th>champ</th><th>de → à</th></tr>`;
+  for (const c of rc) h += `<tr${/^status$/i.test(c.field||'')?' class="hi"':''}><td>${esc(c.date)}</td><td>${esc(c.field)}</td><td>${esc(c.from)} → ${esc(c.to)}</td></tr>`;
+  h += '</table>';
+  $('#inspect').innerHTML = h;
+}
+
+function buildList() {
+  const TH = parseInt($('#f-th').value, 10) || 5;
+  const team = teamFilter();
+  const scope = TICKETS.filter(t => t.status !== 'done' && (!team || t.team === team));
+  const rows = scope.map(t => ({ t, s: stagNew(t) }))
+    .filter(({ t, s }) => t.status === 'blocked' || (s != null && s >= TH))
+    .sort((a, b) => (b.s ?? 0) - (a.s ?? 0));
+  const oldCount = scope.filter(t => t.status === 'blocked' || stagOld(t) >= TH).length;
+
+  let h = `<h2>Résultat (seuil ${TH} j${team ? ', équipe ' + esc(team) : ', toutes équipes'})</h2>`;
+  h += `<p>Ancienne logique : <span class="err">${oldCount}</span> ticket(s) — Nouvelle logique : <span class="ok">${rows.length}</span> ticket(s).</p>`;
+  h += '<table><tr><th>#</th><th>id</th><th>statut JIRA</th><th>équipe</th><th class="num">ancienneté</th></tr>';
+  rows.slice(0, 40).forEach(({ t, s }, i) => {
+    h += `<tr${$('#f-id').value.trim()===t.id?' class="hi"':''}><td>${i+1}</td><td>${esc(t.id)}</td><td>${esc(t.jiraStatus||t.status)}</td><td>${esc(t.team||'')}</td><td class="num">${s==null?'—':s+' j'}</td></tr>`;
+  });
+  if (!rows.length) h += '<tr><td colspan="5" class="muted">Aucun</td></tr>';
+  h += '</table>';
+  if (rows.length > 40) h += `<p class="muted">… ${rows.length - 40} de plus (la card Dashboard n'en montre que 12).</p>`;
+  $('#list').innerHTML = h;
+}
+
+function refresh() { inspect(); buildList(); }
+
+async function init() {
+  TICKETS = await fetch('/api/tickets').then(r => r.json());
+  const teams = [...new Set(TICKETS.map(t => t.team).filter(Boolean))].sort();
+  $('#f-team').innerHTML = `<option value="__all__">(toutes)</option>` + teams.map(t => `<option${t==='Gabbiano'?' selected':''}>${esc(t)}</option>`).join('');
+  ['#f-team','#f-th','#f-id'].forEach(s => $(s).addEventListener('input', refresh));
+  refresh();
+}
+init().catch(e => $('#inspect').innerHTML = `<p class="err">Erreur: ${esc(e.message)}</p>`);
+</script>
+</body>
+</html>

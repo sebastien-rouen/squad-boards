@@ -533,11 +533,16 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
     const _lsKey = piNum ? `sb-pi-obj-PI${piNum}` : null;
     const _snapForPi = (piInfo?.piObjectives || {})[String(piNum)] || null;
 
-    // Snapshot pi_objectives[piNum] en priorité (import CSV ou auto-synchro depuis un save PI Planning).
-    // Fallback sur piInfo.objectives (jeu vivant) pour le PI courant si pas encore de snapshot.
+    // PI COURANT : le jeu vivant `objectives` est la source de vérité (maintenu à chaque save
+    // PI Planning). On le préfère dès qu'il est non vide ; sinon on retombe sur le snapshot
+    // pi_objectives[piNum] (cas d'un import CSV qui n'aurait peuplé que le snapshot).
+    // ⚠ Auto-guérison : quand `piInfo.number` est faux (ex: 0), le snapshot backend est écrit
+    // sous une mauvaise clé alors que la lecture se fait sous `piNum` (dérivé du sprint). Lire
+    // le snapshot en priorité masquait alors les objectifs réellement enregistrés dans `objectives`.
+    // PI PASSÉ : snapshot pi_objectives[piNum] (partagé) puis fallback localStorage legacy.
     const isEditable          = isCurrentPi !== false || _objUnlocked;
     const effectiveObjectives = isCurrentPi
-        ? (_snapForPi != null ? _snapForPi : (piInfo?.objectives || []))
+        ? ((piInfo?.objectives && piInfo.objectives.length) ? piInfo.objectives : (_snapForPi || []))
         : (_snapForPi || (_lsKey ? JSON.parse(localStorage.getItem(_lsKey) || '[]') : []));
 
     const filtered   = showAll
@@ -696,13 +701,72 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
         renderObjectives(el, { objectives, piInfo, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
     });
 
+    // ── Persistance des objectifs (partagée par « Enregistrer » et la suppression) ──
+    // Lit toutes les lignes visibles, fusionne avec les objectifs des autres équipes
+    // (non affichés quand un filtre équipe est actif), puis sauvegarde en base.
+    async function persist(successMsg) {
+        const rows = el.querySelectorAll('.pi-obj-row');
+        const editedObjs = Array.from(rows).map(row => ({
+            text:      row.querySelector('.pi-obj-text')?.value.trim() || '',
+            team:      row.querySelector('.pi-obj-team')?.value || '',
+            status:    row.querySelector('.pi-obj-status')?.value || 'todo',
+            bv:        parseInt(row.querySelector('.pi-obj-bv')?.value) || 0,
+            committed: row.querySelector('.pi-obj-committed')?.checked || false,
+        })).filter(o => o.text);
+        const msg = successMsg || `${editedObjs.length} objectif(s) enregistré(s)`;
+
+        if (isCurrentPi) {
+            // PI courant → sauvegarde via API.
+            const piRaw = store.get('piInfo') || {};
+            const currentObjs = piRaw.objectives || [];
+            const hiddenObjs  = (team && team !== 'all') ? currentObjs.filter(o => (o.team || '') !== team) : [];
+            const newObjs = [...hiddenObjs, ...editedObjs];
+            // ⚠ Le backend auto-snapshot sous `pi_objectives[piInfo.number]`, mais la lecture
+            // (renderObjectives / Dashboard) utilise `piNum` dérivé du sprint actif. Ces deux
+            // valeurs peuvent diverger (ex : piInfo.number=29 mais sprint actif=PI30) → on
+            // écrivait sous une clé et on lisait une autre (snapshot périmé) ⇒ objectifs invisibles.
+            // On force donc le snapshot sous la MÊME clé que la lecture (piNum).
+            const piObjectives = piNum
+                ? { ...(piRaw.piObjectives || {}), [String(piNum)]: newObjs }
+                : piRaw.piObjectives;
+            try {
+                const updated = await api.updatePI({ ...piRaw, objectives: newObjs, piObjectives });
+                store.set('piInfo', updated);
+                toast(msg, 'success');
+                renderObjectives(el, { objectives: updated.objectives || [], piInfo: updated, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
+            } catch (e) { toast(e.message, 'error'); }
+        } else {
+            // Autre PI → snapshot en base via /api/pi/objectives/{piNum} (partagé, plus de localStorage)
+            const snap = (store.get('piInfo')?.piObjectives || {})[String(piNum)] || [];
+            const hiddenObjs  = (team && team !== 'all') ? snap.filter(o => (o.team || '') !== team) : [];
+            const newObjs = [...hiddenObjs, ...editedObjs];
+            try {
+                await api.setPiObjectives(piNum, newObjs);
+                // Rafraîchit le piObjectives local sans recharger toute la config
+                const pi = { ...(store.get('piInfo') || {}) };
+                pi.piObjectives = { ...(pi.piObjectives || {}), [String(piNum)]: newObjs };
+                store.set('piInfo', pi);
+                if (_lsKey) localStorage.removeItem(_lsKey);   // nettoie l'ancien stockage legacy
+                toast(msg, 'success');
+                renderObjectives(el, { objectives, piInfo: pi, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
+            } catch (e) { toast(e.message, 'error'); }
+        }
+    }
+
     // ── Sync dot color on status change ───────────────────────────────────────
     function bindRow(row) {
         row.querySelector('.pi-obj-status')?.addEventListener('change', e => {
             const st = STATUS_OPT.find(s => s.v === e.target.value) || STATUS_OPT[0];
             row.querySelector('.pi-obj-dot').style.background = st.col;
         });
-        row.querySelector('.pi-obj-del')?.addEventListener('click', () => row.remove());
+        // Suppression = retrait de la ligne PUIS persistance immédiate (sinon réapparaît au refresh).
+        // Une ligne « nouvelle » non encore enregistrée (sans texte) est juste retirée du DOM.
+        row.querySelector('.pi-obj-del')?.addEventListener('click', () => {
+            const isUnsavedEmpty = row.classList.contains('pi-obj-row--new')
+                && !(row.querySelector('.pi-obj-text')?.value.trim());
+            row.remove();
+            if (!isUnsavedEmpty) persist('Objectif supprimé');
+        });
     }
     el.querySelectorAll('.pi-obj-row').forEach(bindRow);
 
@@ -719,44 +783,7 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
     });
 
     // ── Enregistrer ───────────────────────────────────────────────────────────
-    el.querySelector('#pi-obj-save')?.addEventListener('click', async () => {
-        const rows = el.querySelectorAll('.pi-obj-row');
-        const editedObjs = Array.from(rows).map(row => ({
-            text:      row.querySelector('.pi-obj-text')?.value.trim() || '',
-            team:      row.querySelector('.pi-obj-team')?.value || '',
-            status:    row.querySelector('.pi-obj-status')?.value || 'todo',
-            bv:        parseInt(row.querySelector('.pi-obj-bv')?.value) || 0,
-            committed: row.querySelector('.pi-obj-committed')?.checked || false,
-        })).filter(o => o.text);
-
-        if (isCurrentPi) {
-            // PI courant → sauvegarde via API (update_pi snapshot auto dans pi_objectives[number])
-            const currentObjs = store.get('piInfo')?.objectives || [];
-            const hiddenObjs  = (team && team !== 'all') ? currentObjs.filter(o => (o.team || '') !== team) : [];
-            const newObjs = [...hiddenObjs, ...editedObjs];
-            try {
-                const updated = await api.updatePI({ ...(store.get('piInfo') || {}), objectives: newObjs });
-                store.set('piInfo', updated);
-                toast(`${editedObjs.length} objectif(s) enregistré(s)`, 'success');
-                renderObjectives(el, { objectives: updated.objectives || [], piInfo: updated, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
-            } catch (e) { toast(e.message, 'error'); }
-        } else {
-            // Autre PI → snapshot en base via /api/pi/objectives/{piNum} (partagé, plus de localStorage)
-            const snap = (store.get('piInfo')?.piObjectives || {})[String(piNum)] || [];
-            const hiddenObjs  = (team && team !== 'all') ? snap.filter(o => (o.team || '') !== team) : [];
-            const newObjs = [...hiddenObjs, ...editedObjs];
-            try {
-                await api.setPiObjectives(piNum, newObjs);
-                // Rafraîchit le piObjectives local sans recharger toute la config
-                const pi = { ...(store.get('piInfo') || {}) };
-                pi.piObjectives = { ...(pi.piObjectives || {}), [String(piNum)]: newObjs };
-                store.set('piInfo', pi);
-                if (_lsKey) localStorage.removeItem(_lsKey);   // nettoie l'ancien stockage legacy
-                toast(`${editedObjs.length} objectif(s) enregistré(s)`, 'success');
-                renderObjectives(el, { objectives, piInfo: pi, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
-            } catch (e) { toast(e.message, 'error'); }
-        }
-    });
+    el.querySelector('#pi-obj-save')?.addEventListener('click', () => persist());
 }
 
 // ── Features tab ──────────────────────────────────────────────────────────────

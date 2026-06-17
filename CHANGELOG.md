@@ -1,3 +1,31 @@
+## [3.30.0] - 2026-06-17
+
+### Feat : graphe de Vélocité du Dashboard repris dans la page Health
+- **Carte Vélocité partagée** : la `health-history-card` (courbe SVG d'évolution du score) est remplacée par la **même carte Vélocité que le Dashboard** (KPIs moy./tendance/record/stabilité, sparkline mini-bars, graphe Chart.js) dans [health.js](squad-board/static/js/views/health.js).
+- **Composant réutilisable** [velocity_card.js](squad-board/static/js/components/velocity_card.js) : `velocityCardHtml(opts)` + `mountVelocityChart(opts)` (paramètre `canvasId`), extrait depuis le Dashboard pour éviter la duplication. [dashboard.js](squad-board/static/js/views/dashboard.js) refactoré pour l'utiliser (rendu identique).
+- Données dérivées des sprints clôturés via `computeVelocityHistory` / `computeCurrentSprintEntry`. Fonction morte `_renderHealthHistorySvg` supprimée (le sparkline du score Health reste inchangé dans le hero).
+- **Lisibilité multi-équipes (Health + Dashboard)** : en périmètre large (« toutes » ou groupe), agréger tous les sprints de toutes les équipes rendait le graphe illisible (177 points). Désormais, sur **les deux pages** : **sélecteur d'équipe** (chips, mémorisé en localStorage — clé distincte par page) affichant **une équipe à la fois**, et **cap aux 16 derniers sprints** (`maxPoints`). Quand une équipe précise est filtrée dans la topbar, le sélecteur disparaît.
+
+## [3.29.0] - 2026-06-17
+
+### Feat : historique du ticket regroupé (modale détail)
+- **Plus de répétition de l'auteur** ([modal.js](squad-board/static/js/components/modal.js)) : dans la section `<!-- History -->` de la modale de détail, les modifications **consécutives d'un même auteur** sont regroupées en **une seule ligne** (nom affiché une fois, badge « N champs », sous-liste des changements). Reprend le principe de l'activité récente du board.
+- **Date au survol** : chaque changement (et l'horodatage relatif) expose la date+heure complète en tooltip (`mer. 17 juin, 14:32`).
+- **Profondeur** : historique élargi de 8 à 12 dernières entrées.
+- **CSS** ([modal-detail.css](squad-board/static/css/views/modal-detail.css)) : `.hist-grouped`/`.hist-changes`/`.hist-change`/`.hist-count`.
+
+## [3.28.0] - 2026-06-17
+
+### Feat : matrice Health — colonnes « Prévu » (périmètre engagé au lancement du sprint)
+- **2 nouvelles colonnes** ([health.js](squad-board/static/js/views/health.js)) appairées avec les colonnes réalisées pour comparer prévu vs réalisé :
+  - **📋 Prévu** : vélocité planifiée (pts) + **nombre de tickets** engagés au lancement du sprint.
+  - **🛡 Buf. prévu** : vélocité Buffer planifiée (pts) + **nombre de tickets Buffer** engagés.
+- **Source** : vélocité planifiée = estimation JIRA au démarrage (Greenhopper `estimated`) quand dispo, sinon somme des points du périmètre du sprint. Le nombre de tickets n'étant pas snapshoté par JIRA au lancement, il reflète le périmètre courant du sprint (meilleure approximation — précisé dans le tooltip).
+- **Modale détaillée** : le tableau `htl-sprint-table` regroupe désormais les métriques en **2 colonnes à 3 sous-colonnes** — **⚡ Vélocité** (`nb` tickets · `planifié` · `réalisée`) et **🛡 Buffer** (`nb` · `planifié` · `réalisée`). `planifié` = estimation JIRA au lancement (non éditable). La colonne **Charge prévue ✏️** (capacité en SP validée par l'équipe au PI Planning, **éditable**, persistée en localStorage) est conservée comme colonne dédiée ; « Capa. estimée » (redondante) supprimée. Plus de **scrollbar horizontale** : en-têtes/cellules compactés, nom de sprint en retour à la ligne au lieu d'élargir la table. Titres de la modale simplifiés : « Vélocité réalisée » → **« Vélocité »**, « Buffer réalisé » → **« Buffer »**.
+- **Cellules « Prévu » cliquables** : les 4 sous-colonnes `nb`/`planifié` (Vélocité **et** Buffer) ouvrent, comme les cellules réalisées, la liste détaillée des tickets correspondants en bas de modale (scroll + surlignage). `planned` = tickets engagés au lancement (tous), `bufplanned` = tickets Buffer engagés. Listes stockées par sprint (`all`/`bufAll`) + lazy-fetch JIRA pour les sprints clos. Le moteur de section accepte désormais 4 métriques (velocity/buffer/planned/bufplanned).
+- **Liste de tickets regroupée par parent** : la table `htl-table` affiche un **bloc par epic/feature** (en-tête coloré par parent + `N tickets · X pts`), au lieu de répéter la colonne Parent sur chaque ligne ; tri des groupes par points décroissants, « Sans parent » en dernier. Nouvelle **colonne ✓** indiquant les tickets terminés (utile pour les listes « engagés » qui contiennent des tickets non terminés). Tri intra-groupe : **tickets terminés d'abord**, puis points décroissants. Points des tickets terminés en **chip vert**. Compteur de terminés ajouté dans l'en-tête de groupe (`N tickets · N ✓ · X pts`).
+- **CSS** ([health.css](squad-board/static/css/views/health.css)) : colonnes `--plan`/`--bufplan` (matrice) + en-têtes groupés `.htl-grp`/`.htl-sub` + séparateurs `.htl-grp-start` (modale) + sous-ligne `.health-metric-count` (« N tk »).
+
 ## [3.27.0] - 2026-06-17
 
 ### Feat : activité récente — regroupement des modifs d'un même auteur sur un même ticket

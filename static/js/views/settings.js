@@ -11,6 +11,7 @@ import {
     friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi, promptModal, choiceModal,
 } from '../utils.js';
 import { makePersonPicker } from '../components/modal.js';
+import { addExcludedTeam, getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
 
 // ── Reminder configuration ────────────────────────────────────────────────────
 const _LS_REMINDERS = 'sb-reminders';
@@ -246,6 +247,8 @@ export function renderSettings(container) {
     const jiraConfigured = store.get('jiraConfigured');
     const project = store.get('project');
     const jiraUrl = store.get('jiraUrl');
+    const jiraEnv = store.get('jiraEnv') || {};
+    const jiraCreds = api.getJiraCreds();
     const teams = store.get('teamObjects') || [];
     const teamNames = (store.get('teams') || []).slice().sort((a, b) => String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' }));
     const groups = store.get('groups') || [];
@@ -404,7 +407,7 @@ export function renderSettings(container) {
                             <input type="color" value="${t.color || '#3b82f6'}" data-team-id="${esc(t.id)}" class="input-color-swatch">
                             <span class="item-name">${esc(t.name)}</span>
                             <span class="item-meta">${tickets.filter(x => x.team === t.name).length}</span>
-                            <button class="btn-icon btn-del-team" data-id="${esc(t.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
+                            <button class="btn-icon btn-del-team" data-id="${esc(t.id)}" data-name="${esc(t.name)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
                         </div>
                     `).join('')}
                 </div>
@@ -1175,8 +1178,63 @@ export function renderSettings(container) {
             <div class="settings-section-body">
                 <div class="connection-status ${jiraConfigured ? 'connected' : 'disconnected'}">
                     <span class="status-dot"></span>
-                    ${jiraConfigured ? `Connecte a <strong>${esc(jiraUrl)}</strong> (projet: ${esc(project)})` : 'Non configure'}
+                    ${jiraConfigured ? `Connecte a <strong>${esc(jiraUrl || '')}</strong>${project ? ` (projet: ${esc(project)})` : ''}` : 'Non configure'}
                 </div>
+
+                <div class="sync-cfg-block mt-4">
+                    <div class="sync-cfg-title">Connexion JIRA</div>
+                    <div class="sync-cfg-hint">Pré-rempli depuis le <code>.env</code> serveur si présent. Toute valeur saisie ici est gardée en mémoire (localStorage) et <strong>prime sur le .env</strong>. Laissez vide pour conserver la valeur du .env.</div>
+
+                    <div class="sync-cfg-row">
+                        <div class="sync-cfg-label">
+                            <span class="sync-cfg-icon">🔗</span>
+                            <div>
+                                <div class="sync-cfg-name">URL JIRA</div>
+                                <div class="sync-cfg-desc">Base de l'instance, ex : <code>https://mon-domaine.atlassian.net</code></div>
+                            </div>
+                        </div>
+                        <div class="sync-cfg-input-wrap">
+                            <input type="url" id="jira-url" class="input sync-cfg-input" style="min-width:260px" placeholder="${esc(jiraEnv.url || 'https://mon-domaine.atlassian.net')}"
+                                value="${esc(jiraCreds.url || '')}">
+                        </div>
+                    </div>
+
+                    <div class="sync-cfg-row">
+                        <div class="sync-cfg-label">
+                            <span class="sync-cfg-icon">📧</span>
+                            <div>
+                                <div class="sync-cfg-name">Email</div>
+                                <div class="sync-cfg-desc">Compte JIRA (Basic Auth Atlassian Cloud)</div>
+                            </div>
+                        </div>
+                        <div class="sync-cfg-input-wrap">
+                            <input type="email" id="jira-user" class="input sync-cfg-input" style="min-width:260px" placeholder="${esc(jiraEnv.user || 'prenom.nom@societe.com')}"
+                                value="${esc(jiraCreds.user || '')}">
+                        </div>
+                    </div>
+
+                    <div class="sync-cfg-row">
+                        <div class="sync-cfg-label">
+                            <span class="sync-cfg-icon">🔑</span>
+                            <div>
+                                <div class="sync-cfg-name">Token API</div>
+                                <div class="sync-cfg-desc">${jiraEnv.tokenSet ? 'Un token est déjà défini dans le .env — laissez vide pour le conserver, ou saisissez-en un nouveau pour le surcharger.' : 'Token API Atlassian — non affiché une fois enregistré.'}</div>
+                            </div>
+                        </div>
+                        <div class="sync-cfg-input-wrap">
+                            <input type="password" id="jira-token" class="input sync-cfg-input" style="min-width:260px" autocomplete="off"
+                                placeholder="${jiraCreds.token ? '•••••••••• (enregistré — laissez vide pour conserver)' : (jiraEnv.tokenSet ? '•••••••••• (défini dans .env)' : 'Aucun token')}"
+                                value="">
+                        </div>
+                    </div>
+
+                    <div class="sync-cfg-actions">
+                        <button class="btn btn-primary btn-sm" id="btn-save-jira-conn">Enregistrer la connexion</button>
+                        <button class="btn btn-ghost btn-sm" id="btn-test-jira-conn">Tester</button>
+                        ${(jiraCreds.url || jiraCreds.user || jiraCreds.token) ? `<button class="btn btn-ghost btn-sm" id="btn-reset-jira-conn" title="Revenir aux valeurs du .env">Réinitialiser (.env)</button>` : ''}
+                    </div>
+                </div>
+
                 ${jiraConfigured ? `
                 <div class="sync-cfg-block mt-4">
                     <div class="sync-cfg-title">Configuration de la synchronisation</div>
@@ -1270,6 +1328,26 @@ export function renderSettings(container) {
                         </div>
                     </div>
 
+                    ${(() => {
+                        const ex = getExcludedTeams();
+                        return `
+                    <div class="sync-cfg-row" id="excluded-teams-row" style="${ex.length ? '' : 'display:none'}">
+                        <div class="sync-cfg-label">
+                            <span class="sync-cfg-icon">🚫</span>
+                            <div>
+                                <div class="sync-cfg-name">Équipes / lignes produit masquées</div>
+                                <div class="sync-cfg-desc">Retirées de la sync JIRA : elles ne sont pas recréées. Cliquez une puce pour la restaurer.</div>
+                            </div>
+                        </div>
+                        <div class="sync-cfg-input-wrap" style="flex-wrap:wrap;gap:6px;align-items:center">
+                            <div id="excluded-teams-list" style="display:flex;flex-wrap:wrap;gap:6px">
+                                ${ex.map(n => `<button type="button" class="chip chip-removable excluded-team-chip" data-name="${esc(n)}" title="Restaurer ${esc(n)}">${esc(n)} ✕</button>`).join('')}
+                            </div>
+                            ${ex.length ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-clear-excluded">Tout restaurer</button>` : ''}
+                        </div>
+                    </div>`;
+                    })()}
+
                     <div class="sync-cfg-actions">
                         <button class="btn btn-primary btn-sm" id="btn-save-sync-config">Enregistrer</button>
                     </div>
@@ -1330,6 +1408,38 @@ export function renderSettings(container) {
         if (v) localStorage.setItem(lsKey, v);
         else localStorage.removeItem(lsKey);
     };
+    // ── Connexion JIRA (URL / email / token → localStorage, prime sur .env) ────
+    const _saveJiraConn = () => {
+        const url   = container.querySelector('#jira-url')?.value || '';
+        const user  = container.querySelector('#jira-user')?.value || '';
+        const token = container.querySelector('#jira-token')?.value || '';
+        // URL/email vides ⇒ suppression (fallback .env). Token vide ⇒ on conserve l'existant.
+        api.setJiraCreds({ url, user, ...(token.trim() ? { token } : {}) });
+    };
+    container.querySelector('#btn-save-jira-conn')?.addEventListener('click', async () => {
+        _saveJiraConn();
+        await window.__squadBoard?.applyJiraConfig?.();
+        toast('Connexion JIRA enregistrée', 'success');
+        reloadAndRender(container);
+    });
+    container.querySelector('#btn-test-jira-conn')?.addEventListener('click', async e => {
+        const btn = e.currentTarget;
+        _saveJiraConn();  // on teste ce qui est saisi
+        const old = btn.textContent; btn.disabled = true; btn.textContent = 'Test…';
+        try {
+            const me = await api.jiraGet('rest/api/3/myself');
+            toast(`Connexion OK — ${me?.displayName || me?.emailAddress || 'authentifié'}`, 'success');
+        } catch (err) {
+            toast(`Échec connexion JIRA : ${err.message}`, 'error', 5000);
+        } finally { btn.disabled = false; btn.textContent = old; }
+    });
+    container.querySelector('#btn-reset-jira-conn')?.addEventListener('click', async () => {
+        api.setJiraCreds({ url: '', user: '', token: '' });
+        await window.__squadBoard?.applyJiraConfig?.();
+        toast('Connexion réinitialisée (valeurs du .env)', 'success');
+        reloadAndRender(container);
+    });
+
     container.querySelector('#btn-save-sync-config')?.addEventListener('click', () => {
         _saveCap('sync-max-features', 'sb-sync-maxFeatures');
         _saveCap('sync-max-boards',   'sb-sync-maxBoards');
@@ -1340,6 +1450,20 @@ export function renderSettings(container) {
         toast('Configuration sync JIRA enregistree', 'success');
         // Met à jour le label du bouton topbar pour refléter la nouvelle durée
         window.__squadBoard?.refreshSyncButtonLabel?.();
+    });
+
+    // ── Équipes masquées — restauration ───────────────────────────────────────
+    container.querySelectorAll('.excluded-team-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            removeExcludedTeam(chip.dataset.name);
+            toast(`« ${chip.dataset.name} » restaurée — réapparaîtra à la prochaine sync`, 'success');
+            reloadAndRender(container);
+        });
+    });
+    container.querySelector('#btn-clear-excluded')?.addEventListener('click', () => {
+        clearExcludedTeams();
+        toast('Toutes les équipes masquées ont été restaurées', 'success');
+        reloadAndRender(container);
     });
 
     // ── Groups — création depuis projets JIRA ─────────────────────────────────
@@ -1552,8 +1676,20 @@ export function renderSettings(container) {
     });
     container.querySelectorAll('.btn-del-team').forEach(btn => {
         btn.addEventListener('click', async () => {
-            if (!confirm('Supprimer cette equipe ?')) return;
-            try { await api.deleteTeam(btn.dataset.id); await reloadAndRender(container); } catch (e) { toast(e.message, 'error'); }
+            const name = btn.dataset.name || '';
+            const ok = await choiceModal(
+                'Supprimer cette équipe ?',
+                name
+                    ? `« ${name} » sera supprimée et ajoutée aux équipes masquées : la sync JIRA ne la recréera plus (sauf "Tout réimporter").`
+                    : 'Cette équipe sera supprimée.',
+                [{ key: 'del', label: 'Supprimer', variant: 'danger' }]
+            );
+            if (ok !== 'del') return;
+            try {
+                await api.deleteTeam(btn.dataset.id);
+                if (name) addExcludedTeam(name);  // mémorise le retrait pour la sync JIRA
+                await reloadAndRender(container);
+            } catch (e) { toast(e.message, 'error'); }
         });
     });
     container.querySelectorAll('input[type="color"][data-team-id]').forEach(input => {

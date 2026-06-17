@@ -11,15 +11,20 @@ router = APIRouter(tags=["jira"])
 
 @router.api_route("/jira/{path:path}", methods=["GET", "POST", "PUT"])
 async def jira_proxy(path: str, request: Request):
-    if not all([JIRA_URL, JIRA_USER, JIRA_TOKEN]):
+    # Surcharge optionnelle depuis le front (Paramètres → localStorage, via en-têtes
+    # X-Jira-*). Chaque valeur fournie l'emporte sur le .env ; sinon on retombe sur le .env.
+    base_url = (request.headers.get("X-Jira-Url") or JIRA_URL).rstrip("/")
+    jira_user = request.headers.get("X-Jira-User") or JIRA_USER
+    jira_token = request.headers.get("X-Jira-Token") or JIRA_TOKEN
+    if not all([base_url, jira_user, jira_token]):
         raise HTTPException(503, "JIRA non configure")
     allowed = ("rest/api/", "rest/agile/", "rest/greenhopper/")
     if not path.startswith(allowed) or ".." in path:
         raise HTTPException(403, "Chemin interdit")
 
-    url = f"{JIRA_URL}/{path}"
+    url = f"{base_url}/{path}"
     params = dict(request.query_params)
-    auth = (JIRA_USER, JIRA_TOKEN)
+    auth = (jira_user, jira_token)
     headers = {"Accept": "application/json"}
     body = await request.body() if request.method != "GET" else None
     if body:

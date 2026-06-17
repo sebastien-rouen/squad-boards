@@ -174,7 +174,33 @@ export const getCalendarEvents = (params={}) => {
 };
 
 // ── JIRA Proxy (optional) ────────────────────────────────────────────────────
+// Identifiants JIRA surchargeables depuis Paramètres (stockés en localStorage).
+// Quand renseignés, ils sont envoyés au proxy via en-têtes X-Jira-* et priment sur le .env.
+export const JIRA_LS_KEYS = { url: 'sb-jira-url', user: 'sb-jira-user', token: 'sb-jira-token' };
+
+export function getJiraCreds() {
+    return {
+        url:   (localStorage.getItem(JIRA_LS_KEYS.url)   || '').trim(),
+        user:  (localStorage.getItem(JIRA_LS_KEYS.user)  || '').trim(),
+        token: (localStorage.getItem(JIRA_LS_KEYS.token) || '').trim(),
+    };
+}
+export function setJiraCreds({ url, user, token }) {
+    const _set = (k, v) => v != null && (v.trim() ? localStorage.setItem(k, v.trim()) : localStorage.removeItem(k));
+    _set(JIRA_LS_KEYS.url, url);
+    _set(JIRA_LS_KEYS.user, user);
+    _set(JIRA_LS_KEYS.token, token);
+}
+function jiraHeaders() {
+    const c = getJiraCreds();
+    const h = {};
+    if (c.url)   h['X-Jira-Url']   = c.url;
+    if (c.user)  h['X-Jira-User']  = c.user;
+    if (c.token) h['X-Jira-Token'] = c.token;
+    return h;
+}
+
 export const jiraGet = (path, params = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return request(`/jira/${path}${qs ? '?' + qs : ''}`);
+    return request(`/jira/${path}${qs ? '?' + qs : ''}`, { headers: jiraHeaders() });
 };

@@ -8,6 +8,36 @@ import * as api from './api.js';
 import { mapStatus, mapType, extractTeam, toast, parseWikiMarkup } from './utils.js';
 import { SYNC_CONFIG } from './config.js';
 
+// ── Équipes / lignes produit retirées (exclusion de la sync JIRA) ───────────────
+// Persistées en localStorage. Quand l'utilisateur supprime une équipe (ou une ligne
+// produit) dans Paramètres, son nom est ajouté ici pour que la sync JIRA ne la
+// recrée pas par défaut. La modale de début de sync permet de "tout réimporter"
+// (vide cette liste) ou de "conserver la configuration" (respecte les exclusions).
+const EXCLUDED_TEAMS_KEY = 'sb-jira-excluded-teams';
+
+export function getExcludedTeams() {
+    try {
+        const arr = JSON.parse(localStorage.getItem(EXCLUDED_TEAMS_KEY) || '[]');
+        return Array.isArray(arr) ? arr.filter(Boolean) : [];
+    } catch { return []; }
+}
+export function addExcludedTeam(name) {
+    const n = String(name || '').trim();
+    if (!n) return;
+    const cur = getExcludedTeams();
+    if (!cur.some(t => t.toLowerCase() === n.toLowerCase())) {
+        localStorage.setItem(EXCLUDED_TEAMS_KEY, JSON.stringify([...cur, n]));
+    }
+}
+export function removeExcludedTeam(name) {
+    const n = String(name || '').trim().toLowerCase();
+    localStorage.setItem(EXCLUDED_TEAMS_KEY,
+        JSON.stringify(getExcludedTeams().filter(t => t.toLowerCase() !== n)));
+}
+export function clearExcludedTeams() {
+    localStorage.removeItem(EXCLUDED_TEAMS_KEY);
+}
+
 // ── Progress UI ───────────────────────────────────────────────────────────────
 let _syncTimerStart = 0;
 let _syncTimerInterval = null;
@@ -45,25 +75,36 @@ function setProgress(pct, label, detail = '') {
  * @param {object} options
  *   - `sinceDays` (number|null) : si défini, sync incrémentale — filtre les JQL sur `updated >= -Nd`
  *                                  et mode 'merge' (préserve l'existant). Sinon : full sync 'replace'.
+ *   - `overwrite` (boolean)     : si true, ignore la liste d'équipes retirées (réimport complet
+ *                                  depuis JIRA). Sinon, les équipes retirées ne sont pas recréées.
  */
 export async function importFromJira(options = {}) {
     const projectRaw = store.get('project');
     if (!projectRaw) throw new Error('Aucun projet JIRA configure');
     const projects = projectRaw.split(',').map(p => p.trim()).filter(Boolean);
     const sinceDays = Number.isInteger(options.sinceDays) && options.sinceDays > 0 ? options.sinceDays : null;
+    // Équipes retirées à ignorer (sauf si réimport complet demandé).
+    const excludedTeams = options.overwrite
+        ? new Set()
+        : new Set(getExcludedTeams().map(t => t.toLowerCase()));
 
     showProgress();
     setProgress(2, sinceDays ? `Sync rapide (${sinceDays}j)...` : 'Sync complète…', `${projects.length} projet(s)`);
 
     try {
-        return await _doImport(projects, sinceDays);
+        return await _doImport(projects, sinceDays, excludedTeams);
     } finally {
         hideProgress();
     }
 }
 
-async function _doImport(projects, sinceDays = null) {
+async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) {
     const quickMode = sinceDays != null;
+    // Une équipe est exclue si son nom (insensible à la casse) figure dans la liste des retraits.
+    const isExcludedTeam = name => excludedTeams.size > 0 && excludedTeams.has(String(name || '').toLowerCase());
+    if (excludedTeams.size) {
+        console.log(`[Squad-Board] ${excludedTeams.size} équipe(s) retirée(s) ignorée(s) : ${[...excludedTeams].join(', ')}`);
+    }
     // Clause à appendre aux JQL pour ne récupérer que les issues modifiées récemment
     const updClause = quickMode ? ` AND updated >= -${sinceDays}d` : '';
     // Read user-configurable sync settings from localStorage. Empty = Infinity (no cap).
@@ -193,8 +234,11 @@ async function _doImport(projects, sinceDays = null) {
     // Also build project → [teamNames] mapping for post-sync group suggestions
     const boardsByTeam = new Map();
     const projectTeams = {}; // { "ERPC": ["Fuego", "Gabbiano"], "GCOM": [...] }
+    let excludedBoardCount = 0;
     for (const b of scrumBoards) {
         const teamName = extractTeam(b.name);
+        // Équipe retirée → on ne scanne pas son board (économise toutes ses requêtes).
+        if (isExcludedTeam(teamName)) { excludedBoardCount++; continue; }
         if (!boardsByTeam.has(teamName)) boardsByTeam.set(teamName, b);
         const pk = (b.location?.projectKey || b.location?.projectName || '').toUpperCase();
         if (pk && teamName) {
@@ -209,7 +253,8 @@ async function _doImport(projects, sinceDays = null) {
         console.log(`[Squad-Board] Equipes detectees (boards): ${knownBoardTeams.join(', ')}`);
     }
 
-    setProgress(15, `${boards.length} equipes (scrum)`, `${skippedCount} boards kanban ignores`);
+    const _skipDetail = `${skippedCount} kanban ignorés` + (excludedBoardCount ? ` · ${excludedBoardCount} retirés` : '');
+    setProgress(15, `${boards.length} equipes (scrum)`, _skipDetail);
     if (!boards.length) throw new Error(`Aucun board scrum pour ${projects.join(', ')}`);
 
     const allTickets = [];
@@ -246,8 +291,10 @@ async function _doImport(projects, sinceDays = null) {
                         if (r?.values?.length) _add(r.values.map(s => ({ ...s, state: s.state || st })));
                     } catch { /* ignore */ }
                 }
-                // 2. Closed récents pour la vélocité historique — pagine jusqu'au bout et garde les N derniers
-                try {
+                // 2. Closed récents pour la vélocité historique — pagine jusqu'au bout et garde les N derniers.
+                //    ⚡ Quick mode : on saute totalement cette passe (l'historique de vélocité ne change pas
+                //    sur une fenêtre récente ; il est préservé côté DB via le merge des teamSprints). Gros gain.
+                if (!quickMode) try {
                     const CLOSED_KEEP = parseInt(localStorage.getItem('sb-sync-closedKeep') || '20') || 20;
                     let startAt = 0, total = Infinity, allClosed = [];
                     while (startAt < total) {
@@ -267,9 +314,9 @@ async function _doImport(projects, sinceDays = null) {
         ]);
         allBoardSprints = sprintsResult.status === 'fulfilled' ? (sprintsResult.value || []) : [];
         boardConfig     = configResult.status  === 'fulfilled' ? configResult.value : null;
-        // Velocity (Greenhopper) — only if closed sprints exist
+        // Velocity (Greenhopper) — only if closed sprints exist. Sauté en quick mode (historique inchangé).
         const hasClosed = allBoardSprints.some(s => s.state === 'closed');
-        if (hasClosed) {
+        if (!quickMode && hasClosed) {
             try {
                 const vr = await api.jiraGet(`rest/greenhopper/1.0/rapid/charts/velocity.json`, { rapidViewId: board.id });
                 const entries = vr?.velocityStatEntries || {};
@@ -426,7 +473,8 @@ async function _doImport(projects, sinceDays = null) {
         // 3a-bis. Tickets des sprints CLOS récents → disponibles en local pour l'historique
         // vélocité/buffer (Health). Cap configurable (Paramètres) ; 0 = désactivé.
         // Par défaut on couvre ~1 PI (6 sprints). Dédoublonnage via seenTicketIds.
-        const CLOSED_TICKET_SPRINTS = parseInt(localStorage.getItem('sb-sync-closedTicketSprints') || '6', 10);
+        // ⚡ Quick mode : sauté (historique inchangé sur fenêtre récente, préservé en DB via merge).
+        const CLOSED_TICKET_SPRINTS = quickMode ? 0 : parseInt(localStorage.getItem('sb-sync-closedTicketSprints') || '6', 10);
         if (CLOSED_TICKET_SPRINTS > 0) {
             const closedSprints = allBoardSprints
                 .filter(s => s.state === 'closed' && s.id)
@@ -721,7 +769,8 @@ async function _doImport(projects, sinceDays = null) {
                         `batch ${Math.floor(i / FEAT_CHILD_BATCH) + 1}/${Math.ceil(piFeatures.length / FEAT_CHILD_BATCH)}`);
                     try {
                         await _paginateJql({
-                            jql: `parent IN (${ids}) AND issuetype NOT IN (Feature, "Fonctionnalite", Epic) ORDER BY updated DESC`,
+                            // ⚡ Quick mode : seuls les enfants modifiés récemment (updClause) sont rapatriés.
+                            jql: `parent IN (${ids}) AND issuetype NOT IN (Feature, "Fonctionnalite", Epic)${updClause} ORDER BY updated DESC`,
                             fields: childFields,
                             pageSize: 100,
                             cap: maxFeaturesPerJql,
@@ -784,8 +833,10 @@ async function _doImport(projects, sinceDays = null) {
     // 6.5 Buffer historique : récupère tous les tickets `labels = Buffer` et
     // agrège leurs Story Points par sprint clos (dernier sprint clos de chaque ticket).
     // Évite de devoir charger TOUS les tickets des sprints clos juste pour avoir le buffer.
+    // ⚡ Quick mode : sauté (scan potentiellement coûteux de tous les tickets Buffer ;
+    //    les bufferPoints des sprints clos sont préservés en DB via le merge des teamSprints).
     const bufferBySprintId = new Map();  // sprintId → total points buffer
-    try {
+    if (!quickMode) try {
         setProgress(86, 'Buffer historique...', 'tickets label=Buffer');
         const bufFields = `summary,status,${storyPointsField},${sprintFieldId}`;
         const seenBuf = await _paginateJql({
@@ -845,21 +896,51 @@ async function _doImport(projects, sinceDays = null) {
         }
     }
 
+    // 7-bis. Filet de sécurité exclusions : les équipes retirées peuvent réapparaître via les
+    // passes JQL (Team[Team], features cross-board…), pas seulement via leur board. On les retire
+    // ici, juste avant l'import, quelle que soit la source. Garantit qu'une équipe retirée ne
+    // revient JAMAIS par défaut (sauf réimport complet, qui vide la liste d'exclusion).
+    let teamSprintsOut = teamSprints;
+    if (excludedTeams.size) {
+        const _before = { t: allTickets.length, f: allFeatures.length, e: allEpics.length };
+        const _keep = item => !isExcludedTeam(item.team);
+        const filteredTickets  = allTickets.filter(_keep);
+        const filteredFeatures = allFeatures.filter(_keep);
+        const filteredEpics    = allEpics.filter(_keep);
+        teamSprintsOut = teamSprints.filter(s => !isExcludedTeam(s.team));
+        allTickets.length = 0;  allTickets.push(...filteredTickets);
+        allFeatures.length = 0; allFeatures.push(...filteredFeatures);
+        allEpics.length = 0;    allEpics.push(...filteredEpics);
+        for (const name of [...teamsSet.keys()]) if (isExcludedTeam(name)) teamsSet.delete(name);
+        console.log(`[Squad-Board] Exclusions appliquées : -${_before.t - allTickets.length} tickets, -${_before.f - allFeatures.length} features, -${_before.e - allEpics.length} epics`);
+    }
+
     // 8. Import into database
     setProgress(90, 'Sauvegarde en base...', `${allTickets.length} tickets (dont amelioration), ${allFeatures.length} features, ${allEpics.length} epics`);
 
     const teams = [...teamsSet.entries()].map(([name, color]) => ({ name, color }));
     const jiraMembers = [...membersMap.values()];
 
+    // ⚡ Quick mode : on ne re-scanne plus les sprints clos (cf. optimisations ci-dessus).
+    // On fusionne donc les sprints fraîchement collectés (actif + futurs) avec ceux déjà en base
+    // (clos, avec leur vélocité/buffer) pour ne PAS perdre l'historique. Les sprints réimportés
+    // (même jiraId) écrasent l'ancienne version ; les autres sont conservés tels quels.
+    if (quickMode) {
+        const prev = store.get('sprintInfo')?.teamSprints || [];
+        const incomingIds = new Set(teamSprintsOut.map(s => String(s.jiraId)));
+        const preserved = prev.filter(s => !incomingIds.has(String(s.jiraId)) && !isExcludedTeam(s.team));
+        teamSprintsOut = [...preserved, ...teamSprintsOut];
+    }
+
     // Members are managed exclusively via CSV import in Settings - JIRA never touches them.
     // Le sprint global (sprintInfo) reste pour la rétrocompat ; teamSprints[] permet le filtrage par équipe.
     // IMPORTANT : on persiste teamSprints même sans sprintInfo (cas où aucun board n'a de sprint actif
     // mais a des closed/future — on veut quand même afficher la barre dans la modal calendrier).
-    const sprintPayload = (sprintInfo || teamSprints.length)
-        ? { ...(sprintInfo || {}), teamSprints }
+    const sprintPayload = (sprintInfo || teamSprintsOut.length)
+        ? { ...(sprintInfo || {}), teamSprints: teamSprintsOut }
         : null;
-    const withVelocity = teamSprints.filter(s => s.velocity > 0).length;
-    console.log(`[Squad-Board] Sprints collectés : ${teamSprints.length} entrées (${[...new Set(teamSprints.map(s => s.team))].length} équipes) | ${withVelocity} avec vélocité JIRA | sprintInfo global : ${sprintInfo ? sprintInfo.name : 'aucun'}`);
+    const withVelocity = teamSprintsOut.filter(s => s.velocity > 0).length;
+    console.log(`[Squad-Board] Sprints persistés : ${teamSprintsOut.length} entrées (${[...new Set(teamSprintsOut.map(s => s.team))].length} équipes) | ${withVelocity} avec vélocité | ${quickMode ? 'merge quick (historique préservé)' : 'full'} | sprintInfo global : ${sprintInfo ? sprintInfo.name : 'aucun'}`);
 
     // Quick mode = merge (préserve les items existants non touchés par cette sync)
     // Full mode  = replace (efface puis ré-importe — état propre)

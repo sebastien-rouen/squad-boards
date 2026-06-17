@@ -15,6 +15,13 @@
 ## Pagination robuste (`_paginateJql`)
 JIRA Cloud `/rest/api/3/search/jql` utilise `nextPageToken` (préféré) avec fallback `startAt`. `total` est non fiable (souvent capé à `maxResults`). Le helper sort sur : page vide, page entièrement dédoublonnée (`seenKeys`), `isLast === true`, page courte, ou hard cap 100 itérations.
 
+## Connexion (URL / email / token)
+Deux sources, fusionnées (la surcharge UI prime) :
+1. **`.env` serveur** (`JIRA_URL`, `JIRA_USER`, `JIRA_TOKEN`, `JIRA_PROJECT`) — utilisé par défaut par le proxy.
+2. **Paramètres → Plugin JIRA → Connexion JIRA** : champs URL / email / token gardés en localStorage (`sb-jira-url` / `sb-jira-user` / `sb-jira-token`) et envoyés au proxy via en-têtes `X-Jira-Url` / `X-Jira-User` / `X-Jira-Token`. Chaque en-tête fourni **prime sur le `.env`** ([jira.py](../app/routers/jira.py)).
+
+Le **token `.env` n'est jamais exposé** au front : `GET /api/config` renvoie `jiraUrl`, `jiraUser` et un booléen `jiraTokenSet`. Côté Paramètres, laisser le champ token vide = conserver la valeur existante (.env ou localStorage). Le bouton **Réinitialiser (.env)** vide les surcharges localStorage. Helpers : `getJiraCreds`/`setJiraCreds` ([api.js](../static/js/api.js)).
+
 ## Détection des champs custom
 Au démarrage : `/rest/api/3/field` est fetché pour résoudre Sprint et Team[Team] vers leur `customfield_XXXXX` via `clauseNames`. Le user peut entrer le nom JQL (`"Sprint"`, `"Team[Team]"`) ou l'ID dans Paramètres — la résolution est automatique.
 
@@ -32,12 +39,19 @@ Chaîne de fallback dans `transformIssue` : nom du sprint (regex `\d+\.\d+` ou `
 4. **Epics proxy** : epics avec children PI suivant mais sans feature parente (badge violet `epic`) — utile pour les projets qui planifient au niveau epic
 
 ## Settings disponibles (localStorage)
+- `sb-sync-quickDays` — fenêtre (jours) de la **sync rapide** (clic direct sur le bouton JIRA). Défaut 14. Filtre les JQL sur `updated >= -Nj`.
 - `sb-sync-maxFeatures` — cap par JQL (vide = illimité, hard cap interne 10 000)
 - `sb-sync-maxBoards` — cap total boards scannés (vide = illimité)
 - `sb-sync-sprintField` — nom JQL ou customfield (auto-détecté si vide)
 - `sb-sync-teamField` — idem
 - `sb-sync-closedKeep` — nb de sprints clos conservés par board pour l'historique vélocité (défaut 20)
 - `sb-sync-closedTicketSprints` — nb de sprints clos récents (par board) dont on **importe les tickets** en local, pour l'historique vélocité/buffer de la vue Health (défaut 6 ≈ 1 PI ; `0` = désactivé). Sans ça, les tickets des sprints clos ne sont pas synchronisés (seuls sprint actif + futurs + features/epics le sont) → la modale Health devait les lazy-fetch depuis JIRA.
+- `sb-jira-excluded-teams` — JSON array des **équipes / lignes produit retirées**. Alimenté quand on supprime une équipe dans Paramètres. La sync ne recrée pas ces équipes (board non scanné + filet de sécurité final sur tickets/features/epics/sprints). Helpers exportés par [sync.js](../static/js/sync.js) : `getExcludedTeams` / `addExcludedTeam` / `removeExcludedTeam` / `clearExcludedTeams`.
+
+## Sync rapide vs complète
+- **Rapide** (`importFromJira({ sinceDays })`, mode `merge`) : ne touche que ce qu'elle rapatrie. Pour être rapide, elle **saute les passes historiques** (sprints clos + vélocité Greenhopper par board, tickets des sprints clos, scan `labels=Buffer`) et filtre les enfants de features sur `updated`. Les `teamSprints` collectés (actif + futurs) sont **fusionnés par `jiraId`** avec ceux déjà en base → l'historique de vélocité/buffer des sprints clos est préservé. Conséquence : la vélocité d'un sprint **récemment clôturé** n'est rafraîchie qu'à la sync complète.
+- **Complète** (`importFromJira({})`, mode `replace`) : efface puis ré-importe tout, y compris l'historique des sprints clos. Plus lente.
+- **Équipes retirées** : par défaut respectées (non recréées). Une modale en début de sync propose « Conserver ma configuration » ou « Tout réimporter depuis JIRA » (cette dernière vide `sb-jira-excluded-teams`). Passer `{ overwrite: true }` force le réimport complet sans tenir compte des retraits.
 
 ## Pages de debug dans `/tests/`
 

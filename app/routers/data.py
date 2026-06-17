@@ -391,8 +391,12 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
 
 @router.get("/api/config")
 def get_config():
+    # On expose URL/email (non secrets) pour pré-remplir le formulaire Paramètres,
+    # mais JAMAIS le token : seul un booléen indique qu'un token .env est configuré.
     return {
         "jiraConfigured": bool(JIRA_URL and JIRA_USER and JIRA_TOKEN),
         "project": JIRA_PROJECT,
         "jiraUrl": JIRA_URL if JIRA_URL else None,
+        "jiraUser": JIRA_USER if JIRA_USER else None,
+        "jiraTokenSet": bool(JIRA_TOKEN),
     }

@@ -7,7 +7,7 @@ import { store } from './state.js';
 import * as api from './api.js';
 import { toast, promptModal } from './utils.js';
 import { seedDemoData } from './demo.js';
-import { importFromJira } from './sync.js';
+import { importFromJira, getExcludedTeams, clearExcludedTeams } from './sync.js';
 
 // ── Notification helpers ──────────────────────────────────────────────────────
 const LAST_VISIT_KEY = 'squad-board-lastVisit';
@@ -340,6 +340,26 @@ async function loadAllData() {
     });
 }
 
+// ── Config JIRA : fusionne .env (server) et surcharges localStorage (Paramètres) ──
+// L'URL et l'email sont pré-remplis depuis le .env ; le token .env n'est jamais exposé
+// (booléen jiraTokenSet seulement). La connexion est « configurée » si chaque élément
+// (URL, email, token) est présent via localStorage OU via le .env.
+function applyJiraConfig(config) {
+    const cfg = config || {};
+    const creds = api.getJiraCreds();
+    store.set('jiraEnv', { url: cfg.jiraUrl || null, user: cfg.jiraUser || null, tokenSet: !!cfg.jiraTokenSet });
+    store.set('project', cfg.project || '');
+    store.set('jiraUrl', creds.url || cfg.jiraUrl || null);
+    const urlOk   = !!(creds.url   || cfg.jiraUrl);
+    const userOk  = !!(creds.user  || cfg.jiraUser);
+    const tokenOk = !!(creds.token || cfg.jiraTokenSet);
+    store.set('jiraConfigured', urlOk && userOk && tokenOk);
+}
+if (typeof window !== 'undefined') {
+    window.__squadBoard = window.__squadBoard || {};
+    window.__squadBoard.applyJiraConfig = () => api.getConfig().then(applyJiraConfig).catch(() => applyJiraConfig(null));
+}
+
 // ── JIRA Import handler ───────────────────────────────────────────────────────
 // mode = 'full' (replace, lent mais propre) | nombre de jours (sync rapide en merge)
 async function handleJiraImport(mode = 14) {
@@ -349,7 +369,30 @@ async function handleJiraImport(mode = 14) {
         return;
     }
     const isFull = mode === 'full';
-    if (isFull) {
+    const excluded = getExcludedTeams();
+    let overwrite = false;
+
+    if (excluded.length) {
+        // L'utilisateur a retiré des équipes / lignes produit → on demande quoi faire AVANT de lancer.
+        const { choiceModal } = await import('./utils.js');
+        const liste = excluded.length > 6
+            ? `${excluded.slice(0, 6).join(', ')}… (+${excluded.length - 6})`
+            : excluded.join(', ');
+        const choice = await choiceModal(
+            'Synchronisation JIRA',
+            `Vous avez retiré ${excluded.length} équipe(s) / ligne(s) produit :\n${liste}.\n\n`
+            + (isFull
+                ? 'La sync complète efface puis ré-importe tout. Que faire de ces retraits ?'
+                : 'Que faire de ces retraits ?'),
+            [
+                { key: 'keep',      label: 'Conserver ma configuration', variant: 'primary' },
+                { key: 'overwrite', label: 'Tout réimporter depuis JIRA', variant: 'danger' },
+            ]
+        );
+        if (!choice) return;                     // annulé
+        overwrite = choice === 'overwrite';
+        if (overwrite) clearExcludedTeams();     // réimport complet → on oublie les retraits
+    } else if (isFull) {
         const { confirmDanger } = await import('./utils.js');
         const ok = await confirmDanger(
             'Sync JIRA complète ?',
@@ -367,7 +410,7 @@ async function handleJiraImport(mode = 14) {
     _showSyncSkeleton(isFull);
 
     try {
-        const result = await importFromJira(isFull ? {} : { sinceDays: mode });
+        const result = await importFromJira(isFull ? { overwrite } : { sinceDays: mode, overwrite });
         if (result.boardColumns && Object.keys(result.boardColumns).length) {
             localStorage.setItem('sb-boardColumns', JSON.stringify(result.boardColumns));
             store.set('boardColumns', result.boardColumns);
@@ -541,14 +584,12 @@ async function init() {
     });
     updateMyBtn();
 
-    // Load server config
+    // Load server config (URL/email/token .env) — fusionné avec les surcharges localStorage
     try {
         const config = await api.getConfig();
-        store.set('jiraConfigured', config.jiraConfigured);
-        store.set('project', config.project);
-        store.set('jiraUrl', config.jiraUrl);
+        applyJiraConfig(config);
     } catch {
-        store.set('jiraConfigured', false);
+        applyJiraConfig(null);
     }
 
     // Load data from database

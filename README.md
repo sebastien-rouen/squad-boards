@@ -34,14 +34,32 @@ python main.py
 
 ### 🖼️ Vues
 
+La sidebar est organisée en deux groupes : **Pilotage** (toujours visible, raccourcis `1`-`8`) et **Équipe & RH** (repliable, replié par défaut).
+
+#### 🧭 Pilotage
+
 | Vue | Description | Raccourci |
 |-----|-------------|-----------|
-| 📊 **Dashboard** | Métriques, cartes équipes, activité récente | `1` |
-| 🏃 **Sprint** | Board colonnes avec story points et WIP | `2` |
-| 📋 **Kanban** | Vue flux avec métriques | `3` |
-| 🎯 **PI Planning** | Features, objectifs PI, récap équipes | `4` |
-| 📈 **Rapports** | Graphiques, rapport texte copiable | `5` |
-| ⚙️ **Paramètres** | Groupes, équipes, membres, absences, support, sprint, data | `6` |
+| 📊 **Dashboard** | Métriques sprint/PI, cartes équipes, objectifs PI, tickets bloqués/stagnants, activité récente | `1` |
+| 🧭 **Board** | Bascule **Scrum** (liste par sprint, story points, WIP) ↔ **Kanban** (colonnes par statut) — un seul écran, un toggle | `2` |
+| 📋 **Backlog** | Tous les tickets via filtres puissants, regroupement par sprint / PI, actions en masse | `3` |
+| 🎯 **PI Planning** | 11 onglets : Objectifs, Features, Capacité, Burnup, ROAM, **Dépendances** (programme board inter-équipes), Équipes, Support, Mood/ROTI, Fist of Five, Calendrier | `4` |
+| 🗺️ **Roadmap** | **Timeline multi-PI** (PI-2 → PI+2, drill-down), vélocité 80/20, prédictibilité, santé backlog, allocation équipes, graphe de dépendances (liens inter-équipes en rouge) | `5` |
+| 🛡️ **Santé** | Anomalies actionnables (WIP, stagnation, sans estimation…), score de santé par équipe | `6` |
+| 📈 **Rapports** | Graphiques, rapport texte copiable | `7` |
+| ⚙️ **Paramètres** | Groupes, équipes, membres, absences, support, sprint, PI, calendriers ICS, JIRA, données | `8` |
+
+#### 👥 Équipe & RH (groupe repliable, sans raccourci clavier — accès via `Ctrl+K`)
+
+| Vue | Description |
+|-----|-------------|
+| 🔄 **Amélioration** | Rétrospectives — actions Start/Stop/Continue, suivi |
+| 🎧 **Support** | Rotation support par équipe et par semaine, modes & rotation auto |
+| 🕸️ **Atlas** | Cartographie compétences/appétences, mobilité, simulation de staffing |
+| 📅 **Agenda** | Présence hebdo (membres × jours), absences, support, jours fériés |
+
+> 🧭 **Board unifié** : Scrum et Kanban ne sont plus deux entrées séparées — un toggle en haut bascule entre les deux modes sans changer de page.
+> 🔁 **Pilotage réordonnable** : survolez un item (poignée ⠿), maintenez ~1 s puis glissez pour personnaliser l'ordre du menu (sauvegardé en local).
 
 ### 🔎 Filtre équipe / ligne produit
 
@@ -54,9 +72,12 @@ Le sélecteur en haut de l'écran permet de :
 | Touche | Action |
 |--------|--------|
 | `N` | ✏️ Nouveau ticket |
-| `1` → `6` | 🧭 Naviguer entre les vues |
+| `1`→`8` | 🧭 Vues Pilotage : Dashboard · Board · Backlog · PI Planning · Roadmap · Santé · Rapports · Paramètres |
+| `1`→`9` (sur PI Planning) | 🎯 Navigation entre les 10 onglets PI (la vue PI prioritaire sur les chiffres) |
 | `Ctrl+K` | 🔍 Recherche rapide |
 | `Esc` | ❌ Fermer modal / recherche |
+
+> 🔗 **Navigation partageable** : l'URL reflète la vue, l'équipe/ligne produit, l'onglet et le PI sélectionné (`#pi/Fuego/capacity`, `#roadmap/group:prod/current`). Les boutons ◀ ▶ du navigateur fonctionnent, et un lien collé dans Slack rouvre exactement le même écran.
 
 ### 📥 Import des absences (CSV)
 
@@ -69,6 +90,32 @@ Bob Dupont;Beta;2026-04-15;2026-04-15;maladie;1
 ```
 
 > 💡 Le format **Pivot RH** (colonnes-dates) est aussi reconnu automatiquement.
+
+---
+
+## 🎯 PI Planning — préparation & suivi
+
+La vue **PI Planning** (`4`) couvre tout le cycle d'un Program Increment via 10 onglets, et un **sélecteur de PI** dans le header (`PI-2 … PI+2`) permet de naviguer entre passé, courant et futur sans changer d'écran.
+
+### 🛠️ Avant le PI Planning (préparation)
+
+- 🎯 **Objectifs** — saisir les objectifs PI par équipe (committed / stretch), avec progression en rollup une fois le PI lancé.
+- ⚡ **Capacité** — capacité jours-homme par équipe = membres × sprints × jours ouvrés, **moins les absences planifiées** (source : CSV RH). Mini-heatmap de capacité dans le header.
+- 📦 **Features** — backlog des features du PI, **rang JIRA préservé**, drag & drop pour réordonner.
+- 🗓️ **Calendrier** — jours de PI Planning (PIP) récupérables, repères sprint, jours fériés.
+
+### 📡 Pendant & après (suivi)
+
+- 📈 **Burnup** — avancement story points du PI, par équipe ou global.
+- ⚠️ **ROAM** — registre des risques (Resolved / Owned / Accepted / Mitigated).
+- 🔗 **Dépendances** — programme board inter-équipes : matrice équipe→équipe des liens JIRA bloquants, dépendances inter-crews mises en évidence, détail au clic.
+- ✊ **Fist of Five** & 😊 **Mood / ROTI** — votes de confiance et de ressenti, avec **vote de confiance par objectif** et animation de consensus.
+- 👥 **Équipes** / 🛡️ **Support** — récap par équipe et rotation support sur la période.
+- 📊 **Prédictibilité** (Roadmap) — moyenne livrée sur les 2 PI précédents vs capacité nette du PI courant.
+
+> 🎥 **Mode présentation** plein écran (bouton ⊞ dans l'en-tête PI) pour animer la cérémonie sur grand écran.
+
+> 🧠 **Convention de matching PI** : un sprint nommé `Fuego - Ite 30.3`, un label `PI#30` ou `PI30` sont tous rattachés au **PI 30**. La détection du PI courant est centralisée (`getCurrentPi`) — voir [docs/regles-metier.md](docs/regles-metier.md).
 
 ---
 

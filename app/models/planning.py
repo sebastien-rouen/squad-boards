@@ -42,6 +42,9 @@ class PIConfig(SQLModel, table=True):
     # Forme : { "29": [{text, team, status, bv, committed}, …], "30": […] }
     # Permet d'afficher les objectifs d'un PI passé/futur sur le dashboard via le sélecteur PI.
     pi_objectives: dict = Field(default={}, sa_column=Column(JSON))
+    # Snapshot de commitment (baseline figée au lancement d'un PI) — pour mesurer engagé vs livré
+    # vs scope creep. Forme : { "30": { capturedAt, committedPts, features:[{id,title,team,points,status}] } }
+    pi_baselines: dict = Field(default={}, sa_column=Column(JSON))
     updated_at: str = Field(default_factory=_now)
 
 

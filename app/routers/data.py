@@ -239,6 +239,7 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
         p.role_capacity    = pd.get("roleCapacity", p.role_capacity or {})
         p.pi_members       = pd.get("piMembers", p.pi_members or {})
         p.pi_objectives    = pd.get("piObjectives", p.pi_objectives or {})
+        p.pi_baselines     = pd.get("piBaselines", p.pi_baselines or {})
         # Historise les objectifs importés sous la clé du PI courant si pas déjà couverts.
         if p.number and str(p.number) not in (p.pi_objectives or {}):
             snap = dict(p.pi_objectives or {})

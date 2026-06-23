@@ -68,6 +68,8 @@ async def update_pi(request: Request, session: Session = Depends(get_session)):
         p.pi_members     = body.get("piMembers") or {}
     if "piObjectives" in body:
         p.pi_objectives  = body.get("piObjectives") or {}
+    if "piBaselines" in body:
+        p.pi_baselines   = body.get("piBaselines") or {}
     # Historisation auto : à chaque save des objectifs du PI courant, on snapshot dans
     # pi_objectives[number] pour que les PI passés restent consultables (dashboard / sélecteur).
     # Le snapshot ne s'écrase qu'à la clé du PI courant — les autres PI sont préservés.
@@ -98,6 +100,31 @@ async def set_pi_members(pi_number: int, request: Request, session: Session = De
     session.commit()
     session.refresh(p)
     return {"ok": True, "piNumber": pi_number, "count": len(members)}
+
+
+@router.put("/api/pi/baseline/{pi_number}")
+async def set_pi_baseline(pi_number: int, request: Request, session: Session = Depends(get_session)):
+    """Fige le snapshot de commitment d'UN PI (baseline). Fusion — n'écrase pas les autres PI.
+
+    Body : { features: [{id, title, team, points, status}], committedPts }
+    Stocke aussi capturedAt (horodatage de la capture).
+    """
+    body = await request.json()
+    p = session.get(PIConfig, "pi-1")
+    if not p:
+        p = PIConfig(id="pi-1")
+    current = dict(p.pi_baselines or {})
+    current[str(pi_number)] = {
+        "capturedAt": _now(),
+        "committedPts": body.get("committedPts", 0),
+        "features": body.get("features", []),
+    }
+    p.pi_baselines = current
+    p.updated_at = _now()
+    session.add(p)
+    session.commit()
+    session.refresh(p)
+    return {"ok": True, "piNumber": pi_number, "count": len(body.get("features", []))}
 
 
 @router.put("/api/pi/objectives/{pi_number}")

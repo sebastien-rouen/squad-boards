@@ -31,6 +31,7 @@ def run_migrations(engine):
         ("supportrotation", "unlocked",   "ALTER TABLE supportrotation ADD COLUMN unlocked BOOLEAN DEFAULT 0"),
         ("piconfig", "pi_members",        "ALTER TABLE piconfig ADD COLUMN pi_members JSON DEFAULT '{}'"),
         ("piconfig", "pi_objectives",     "ALTER TABLE piconfig ADD COLUMN pi_objectives JSON DEFAULT '{}'"),
+        ("piconfig", "pi_baselines",      "ALTER TABLE piconfig ADD COLUMN pi_baselines JSON DEFAULT '{}'"),
     ]
     with engine.connect() as conn:
         insp = sa_inspect(engine)

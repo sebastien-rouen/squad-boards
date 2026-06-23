@@ -336,7 +336,7 @@
     color: var(--text); border-bottom: 2px solid var(--border); font-size: 11px;
     text-transform: uppercase; letter-spacing: .03em;
 }
-.atlas-grid-cat--app { color: #b45309; }
+.atlas-grid-cat--app { color: var(--amber-text); }
 .atlas-grid-skill {
     padding: 8px 4px; vertical-align: bottom; height: 120px;
     border-top: 3px solid var(--sc, var(--border));
@@ -347,7 +347,7 @@
     color: var(--sc, var(--text));
     max-height: 110px; overflow: hidden; text-overflow: ellipsis;
 }
-.atlas-grid-skill--app span { color: #b45309; }
+.atlas-grid-skill--app span { color: var(--amber-text); }
 .atlas-grid-appsep { width: 8px; background: var(--bg); border: none !important; padding: 0; }
 
 /* Compétence requise / favori */
@@ -765,8 +765,8 @@ tr[data-ent]:hover .atlas-grid-rowhdr { background: var(--bg); }
 .atlas-mc-block--mob { background: var(--bg); border-radius: var(--r-md); padding: 10px; }
 .atlas-mc-mob { display: flex; flex-wrap: wrap; gap: 8px; font-size: var(--fs-sm); color: var(--text); align-items: center; }
 .atlas-mc-risk { padding: 1px 8px; border-radius: 999px; font-size: 10px; font-weight: var(--fw-semibold); }
-.atlas-mc-risk--moyen { background: color-mix(in srgb, #f59e0b 14%, var(--surface)); color: #b45309; }
-.atlas-mc-risk--critique { background: color-mix(in srgb, #ef4444 14%, var(--surface)); color: #b91c1c; }
+.atlas-mc-risk--moyen { background: color-mix(in srgb, #f59e0b 14%, var(--surface)); color: var(--amber-text); }
+.atlas-mc-risk--critique { background: color-mix(in srgb, #ef4444 14%, var(--surface)); color: var(--danger); }
 
 /* ══════════════════════════════════════════════════════════════════════════════
    Responsive

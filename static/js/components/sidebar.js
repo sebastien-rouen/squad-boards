@@ -5,6 +5,7 @@
 import { store } from '../state.js';
 import { NAV_ITEMS, TEAM_COLORS } from '../config.js';
 import { esc } from '../utils.js';
+import { redrawAllCharts } from './charts.js';
 
 export function initSidebar() {
     const nav = document.getElementById('sidebar-nav');
@@ -12,21 +13,25 @@ export function initSidebar() {
     const btnMenu = document.getElementById('btn-menu');
     const btnTheme = document.getElementById('btn-theme');
 
-    // ── Nav order persistence ─────────────────────────────────────────────────
+    // ── Nav order persistence (groupe Pilotage uniquement) ─────────────────────
     const _LS_NAV = 'sb-nav-order';
+    const _LS_TEAM_COLLAPSED = 'sb-nav-team-collapsed';
+    const _MAIN_ITEMS = NAV_ITEMS.filter(n => n.section !== 'team');
+    const _TEAM_ITEMS = NAV_ITEMS.filter(n => n.section === 'team');
 
     function _loadOrder() {
         try {
             const saved = JSON.parse(localStorage.getItem(_LS_NAV) || 'null');
-            if (!Array.isArray(saved) || !saved.length) return NAV_ITEMS;
-            const ordered = saved.map(id => NAV_ITEMS.find(n => n.id === id)).filter(Boolean);
-            const extra   = NAV_ITEMS.filter(n => !saved.includes(n.id));
+            if (!Array.isArray(saved) || !saved.length) return _MAIN_ITEMS;
+            const ordered = saved.map(id => _MAIN_ITEMS.find(n => n.id === id)).filter(Boolean);
+            const extra   = _MAIN_ITEMS.filter(n => !saved.includes(n.id));
             return [...ordered, ...extra];
-        } catch { return NAV_ITEMS; }
+        } catch { return _MAIN_ITEMS; }
     }
 
     function _saveOrder() {
-        const ids = [...nav.querySelectorAll('.nav-item')].map(el => el.dataset.view);
+        // Seuls les items du groupe Pilotage (.nav-main) sont réordonnables.
+        const ids = [...nav.querySelectorAll('.nav-main .nav-item')].map(el => el.dataset.view);
         localStorage.setItem(_LS_NAV, JSON.stringify(ids));
     }
 
@@ -39,19 +44,42 @@ export function initSidebar() {
     // ── Nav items ─────────────────────────────────────────────────────────────
     const NOTIF_VIEWS = new Set(['dashboard', 'sprint', 'kanban']);
 
+    function _navItemHtml(item, newCount, curView) {
+        const showBadge = newCount > 0 && NOTIF_VIEWS.has(item.id);
+        const reorderable = item.section !== 'team';
+        const trailing = showBadge
+            ? `<span class="nav-badge">${newCount}</span>`
+            : (item.shortcut ? `<span class="nav-shortcut">${item.shortcut}</span>` : '');
+        // Poignée de réordonnancement (visible au survol) — découvrabilité du glisser-déposer.
+        const grip = reorderable
+            ? `<span class="nav-grip" aria-hidden="true" title="Maintenir puis glisser pour réordonner">⠿</span>`
+            : '';
+        return `
+            <a href="#" class="nav-item${curView === item.id ? ' active' : ''}" data-view="${item.id}">
+                <svg class="icon"><use href="#${item.icon}"/></svg>
+                <span>${item.label}</span>
+                ${grip}${trailing}
+            </a>`;
+    }
+
     function renderNav() {
         if (_dragSource) return;
         const newCount = store.get('newCount') || 0;
         const curView  = store.get('view');
-        nav.innerHTML = _loadOrder().map(item => {
-            const showBadge = newCount > 0 && NOTIF_VIEWS.has(item.id);
-            return `
-            <a href="#" class="nav-item${curView === item.id ? ' active' : ''}" data-view="${item.id}">
-                <svg class="icon"><use href="#${item.icon}"/></svg>
-                <span>${item.label}</span>
-                ${showBadge ? `<span class="nav-badge">${newCount}</span>` : `<span class="nav-shortcut">${item.shortcut}</span>`}
-            </a>`;
-        }).join('');
+        // Le groupe "Équipe & RH" s'auto-déplie si la vue courante en fait partie.
+        const curInTeam = _TEAM_ITEMS.some(n => n.id === curView);
+        // Replié par défaut (déclutter) ; seul '0' explicite force le déploiement persistant.
+        const collapsed = curInTeam ? false : localStorage.getItem(_LS_TEAM_COLLAPSED) !== '0';
+        const mainHtml = _loadOrder().map(i => _navItemHtml(i, newCount, curView)).join('');
+        const teamHtml = _TEAM_ITEMS.map(i => _navItemHtml(i, newCount, curView)).join('');
+        nav.innerHTML = `
+            <div class="nav-main">${mainHtml}</div>
+            <button class="nav-group-toggle${collapsed ? '' : ' is-open'}" id="nav-team-toggle"
+                    aria-expanded="${collapsed ? 'false' : 'true'}" aria-controls="nav-secondary">
+                <svg class="icon icon-xs nav-group-chevron"><use href="#i-chevron-right"/></svg>
+                <span class="nav-group-label-txt">Équipe &amp; RH</span>
+            </button>
+            <div class="nav-secondary${collapsed ? ' hidden' : ''}" id="nav-secondary">${teamHtml}</div>`;
     }
 
     renderNav();
@@ -74,7 +102,8 @@ export function initSidebar() {
     }
 
     nav.addEventListener('pointerdown', e => {
-        const item = e.target.closest('.nav-item');
+        // Seuls les items du groupe Pilotage sont réordonnables par glisser.
+        const item = e.target.closest('.nav-main .nav-item');
         if (!item) return;
         _holdEl = item;
         _holdX  = e.clientX;
@@ -98,7 +127,7 @@ export function initSidebar() {
     nav.addEventListener('pointercancel', () => { if (!_dragSource) _cancelHold(); });
 
     nav.addEventListener('dragstart', e => {
-        const item = e.target.closest('.nav-item[draggable]');
+        const item = e.target.closest('.nav-main .nav-item[draggable]');
         if (!item) { e.preventDefault(); return; }
         _dragSource = item;
         e.dataTransfer.effectAllowed = 'move';
@@ -111,7 +140,7 @@ export function initSidebar() {
         if (!_dragSource) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        const target = e.target.closest('.nav-item');
+        const target = e.target.closest('.nav-main .nav-item');
         if (!target || target === _dragSource) return;
         _clearDropIndicators();
         const { top, height } = target.getBoundingClientRect();
@@ -125,13 +154,14 @@ export function initSidebar() {
     nav.addEventListener('drop', e => {
         e.preventDefault();
         if (!_dragSource) return;
-        const target = e.target.closest('.nav-item');
-        if (target && target !== _dragSource) {
+        const target = e.target.closest('.nav-main .nav-item');
+        const mainEl = nav.querySelector('.nav-main');
+        if (target && target !== _dragSource && mainEl) {
             const { top, height } = target.getBoundingClientRect();
             if (e.clientY < top + height / 2) {
-                nav.insertBefore(_dragSource, target);
+                mainEl.insertBefore(_dragSource, target);
             } else {
-                nav.insertBefore(_dragSource, target.nextSibling);
+                mainEl.insertBefore(_dragSource, target.nextSibling);
             }
         }
         _clearDropIndicators();
@@ -149,6 +179,14 @@ export function initSidebar() {
     });
 
     nav.addEventListener('click', e => {
+        // Toggle du groupe repliable "Équipe & RH"
+        const toggle = e.target.closest('#nav-team-toggle');
+        if (toggle) {
+            const collapsed = localStorage.getItem(_LS_TEAM_COLLAPSED) === '1';
+            localStorage.setItem(_LS_TEAM_COLLAPSED, collapsed ? '0' : '1');
+            renderNav();
+            return;
+        }
         const item = e.target.closest('.nav-item');
         if (!item) return;
         e.preventDefault();
@@ -158,11 +196,9 @@ export function initSidebar() {
         sidebar.classList.remove('open');
     });
 
-    store.on('view', () => {
-        nav.querySelectorAll('.nav-item').forEach(el => {
-            el.classList.toggle('active', el.dataset.view === store.get('view'));
-        });
-    });
+    // Re-render complet au changement de vue : gère l'état actif ET l'auto-déploiement
+    // du groupe "Équipe & RH" quand on navigue vers une de ses vues (raccourci clavier inclus).
+    store.on('view', renderNav);
     store.on('newCount', renderNav);
 
     // ── Team buttons ──────────────────────────────────────────────────────────
@@ -283,6 +319,7 @@ export function initSidebar() {
         document.documentElement.setAttribute('data-theme', theme);
         btnTheme.querySelector('use').setAttribute('href', theme === 'dark' ? '#i-sun' : '#i-moon');
         btnTheme.querySelector('span').textContent = theme === 'dark' ? 'Clair' : 'Sombre';
+        redrawAllCharts();
     });
     const savedTheme = store.get('theme');
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -291,11 +328,14 @@ export function initSidebar() {
         btnTheme.querySelector('span').textContent = 'Clair';
     }
 
-    // ── Keyboard shortcuts ────────────────────────────────────────────────────
+    // ── Keyboard shortcuts (chiffres 1-8 → vues Pilotage) ──────────────────────
     document.addEventListener('keydown', e => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+        if (e.target.isContentEditable) return;
         if (e.ctrlKey || e.metaKey || e.altKey) return;
-        const item = NAV_ITEMS.find(n => n.shortcut === e.key);
+        // La vue PI Planning possède ses propres raccourcis 1-9 (onglets) : on lui cède les chiffres.
+        if (store.get('view') === 'pi' && /^[0-9]$/.test(e.key)) return;
+        const item = NAV_ITEMS.find(n => n.shortcut && n.shortcut === e.key);
         if (item) { e.preventDefault(); store.set('view', item.id); }
     });
 }

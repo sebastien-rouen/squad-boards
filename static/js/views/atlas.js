@@ -391,13 +391,15 @@ function _openCompareModal() {
         if (skills.length >= 3 && window.Chart) {
             const ctx = body.querySelector('#atlas-cmp-radar');
             if (ctx) {
+                const textColor = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#475569';
+                const gridColor = getComputedStyle(document.body).getPropertyValue('--border').trim() || '#e2e8f0';
                 _cmpChart = new window.Chart(ctx, {
                     type: 'radar',
                     data: { labels: skills.map(s => s.name), datasets },
                     options: {
                         responsive: true,
-                        scales: { r: { min: 0, max: 4, ticks: { stepSize: 1, display: false }, pointLabels: { font: { size: 10 } } } },
-                        plugins: { legend: { position: 'top', labels: { boxWidth: 14, font: { size: 11 } } } },
+                        scales: { r: { min: 0, max: 4, ticks: { stepSize: 1, display: false }, pointLabels: { font: { size: 10 }, color: textColor }, grid: { color: gridColor }, angleLines: { color: gridColor } } },
+                        plugins: { legend: { position: 'top', labels: { color: textColor, boxWidth: 14, font: { size: 11 } } } },
                     },
                 });
             }
@@ -995,6 +997,8 @@ function _openMemberCard(name) {
         const ctx = overlay.querySelector('#atlas-mc-radar');
         const labels = evaluated.map(x => x.s.name);
         const data   = evaluated.map(x => x.lvl);
+        const textColor = getComputedStyle(document.body).getPropertyValue('--text-secondary').trim() || '#475569';
+        const gridColor = getComputedStyle(document.body).getPropertyValue('--border').trim() || '#e2e8f0';
         new window.Chart(ctx, {
             type: 'radar',
             data: { labels, datasets: [{
@@ -1004,7 +1008,7 @@ function _openMemberCard(name) {
             }] },
             options: {
                 responsive: false,
-                scales: { r: { min: 0, max: 4, ticks: { stepSize: 1, display: false }, pointLabels: { font: { size: 11 } } } },
+                scales: { r: { min: 0, max: 4, ticks: { stepSize: 1, display: false }, pointLabels: { font: { size: 11 }, color: textColor }, grid: { color: gridColor }, angleLines: { color: gridColor } } },
                 plugins: { legend: { display: false } },
             },
         });

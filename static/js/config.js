@@ -88,19 +88,26 @@ export const WIP_LIMITS = {
     done: 0,
 };
 
+// Statuts comptabilisés dans le WIP (Work In Progress) — source unique pour countWip().
+export const WIP_STATUSES = ['inprog', 'review', 'test'];
+
+// `section` : 'main' (Pilotage, réordonnable) ou 'team' (Équipe & RH, groupe repliable).
+// `shortcut` : chiffres `1`-`8` réservés aux vues Pilotage (dans l'ordre du menu). Le groupe
+// "Équipe & RH" n'a PAS de raccourci nu (décision : éviter les lettres → taper du texte hors
+// champ ne déclenche plus de navigation accidentelle ; ces vues restent accessibles via Ctrl+K).
 export const NAV_ITEMS = [
-    { id: 'dashboard',  label: 'Dashboard',    icon: 'i-grid',       shortcut: '1' },
-    { id: 'sprint',     label: 'Board',        icon: 'i-columns',    shortcut: '2' },
-    { id: 'backlog',    label: 'Backlog',       icon: 'i-list',       shortcut: 'B' },
-    { id: 'pi',         label: 'PI Planning',  icon: 'i-calendar',   shortcut: '4' },
-    { id: 'roadmap',    label: 'Roadmap',      icon: 'i-map',        shortcut: '6' },
-    { id: 'health',     label: 'Santé',        icon: 'i-shield',     shortcut: 'H' },
-    { id: 'retro',      label: 'Amélioration', icon: 'i-refresh',    shortcut: '7' },
-    { id: 'support',    label: 'Support',      icon: 'i-users',      shortcut: 'S' },
-    { id: 'atlas',      label: 'Atlas',        icon: 'i-network',    shortcut: 'A' },
-    { id: 'agenda',     label: 'Agenda',       icon: 'i-agenda',     shortcut: 'G' },
-    { id: 'reports',    label: 'Rapports',     icon: 'i-chart',      shortcut: '8' },
-    { id: 'settings',   label: 'Paramètres',   icon: 'i-settings',   shortcut: '9' },
+    { id: 'dashboard',  label: 'Dashboard',    icon: 'i-grid',       shortcut: '1', section: 'main' },
+    { id: 'sprint',     label: 'Board',        icon: 'i-columns',    shortcut: '2', section: 'main' },
+    { id: 'backlog',    label: 'Backlog',       icon: 'i-list',       shortcut: '3', section: 'main' },
+    { id: 'pi',         label: 'PI Planning',  icon: 'i-calendar',   shortcut: '4', section: 'main' },
+    { id: 'roadmap',    label: 'Roadmap',      icon: 'i-map',        shortcut: '5', section: 'main' },
+    { id: 'health',     label: 'Santé',        icon: 'i-shield',     shortcut: '6', section: 'main' },
+    { id: 'reports',    label: 'Rapports',     icon: 'i-chart',      shortcut: '7', section: 'main' },
+    { id: 'settings',   label: 'Paramètres',   icon: 'i-settings',   shortcut: '8', section: 'main' },
+    { id: 'retro',      label: 'Amélioration', icon: 'i-refresh',    shortcut: '',  section: 'team' },
+    { id: 'support',    label: 'Support',      icon: 'i-users',      shortcut: '',  section: 'team' },
+    { id: 'atlas',      label: 'Atlas',        icon: 'i-network',    shortcut: '',  section: 'team' },
+    { id: 'agenda',     label: 'Agenda',       icon: 'i-agenda',     shortcut: '',  section: 'team' },
 ];
 
 export const SYNC_CONFIG = {

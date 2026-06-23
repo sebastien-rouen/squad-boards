@@ -85,7 +85,7 @@
     background: color-mix(in srgb, var(--success) 12%, transparent);
     border-color: color-mix(in srgb, var(--success) 30%, transparent);
 }
-.velocity-kpi--good .velocity-kpi-val { color: #047857; }
+.velocity-kpi--good .velocity-kpi-val { color: var(--success-text); }
 .velocity-kpi--ok {
     background: color-mix(in srgb, var(--info) 10%, transparent);
     border-color: color-mix(in srgb, var(--info) 28%, transparent);
@@ -95,12 +95,12 @@
     background: color-mix(in srgb, var(--warning) 14%, transparent);
     border-color: color-mix(in srgb, var(--warning) 35%, transparent);
 }
-.velocity-kpi--warn .velocity-kpi-val { color: #92400e; }
+.velocity-kpi--warn .velocity-kpi-val { color: var(--amber-text); }
 .velocity-kpi--danger {
     background: color-mix(in srgb, var(--danger) 12%, transparent);
     border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
-.velocity-kpi--danger .velocity-kpi-val { color: #b91c1c; }
+.velocity-kpi--danger .velocity-kpi-val { color: var(--danger); }
 
 /* Sparkline — strip de mini barres sous le chart */
 .velocity-spark {
@@ -729,7 +729,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
-.cmp-state--current { background: color-mix(in srgb, var(--success) 16%, transparent); color: #047857; }
+.cmp-state--current { background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success-text); }
 .cmp-state--closed  { background: color-mix(in srgb, var(--text-muted) 14%, transparent); color: var(--text-secondary); }
 .cmp-summary-col {
     background: color-mix(in srgb, var(--primary) 6%, transparent);
@@ -768,10 +768,10 @@
 
 .cmp-val { display: inline-block; }
 .cmp-ind { display: inline-block; margin-left: 6px; font-weight: var(--fw-bold); font-size: 12px; }
-.cmp-best { background: color-mix(in srgb, var(--success) 12%, transparent); color: #047857; }
-.cmp-best .cmp-ind { color: #047857; }
-.cmp-worst { background: color-mix(in srgb, var(--warning) 12%, transparent); color: #92400e; }
-.cmp-worst .cmp-ind { color: #92400e; }
+.cmp-best { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success-text); }
+.cmp-best .cmp-ind { color: var(--success-text); }
+.cmp-worst { background: color-mix(in srgb, var(--warning) 12%, transparent); color: var(--amber-text); }
+.cmp-worst .cmp-ind { color: var(--amber-text); }
 
 .sprint-compare-legend {
     display: flex;

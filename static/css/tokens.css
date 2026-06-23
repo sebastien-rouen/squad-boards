@@ -13,6 +13,10 @@
     --bg: #f1f5f9;
     --bg-alt: #e2e8f0;
 
+    /* Sidebar — identité fixe (toujours sombre), volontairement non redéfinie en dark mode */
+    --sidebar-bg: #0f172a;
+    --sidebar-text: #e2e8f0;
+
     /* Text */
     --text: #0f172a;
     --text-secondary: #475569;
@@ -51,6 +55,16 @@
     --info: #0284c7;
     --info-bg: #f0f9ff;
     --info-border: #bae6fd;
+
+    /* Texte d'accentuation sur fond teinté (chips/badges color-mix ou rgba) —
+       foncé en light mode, éclairci en dark mode pour rester lisible */
+    --success-text: #047857;
+    --amber-text: #b45309;
+    --indigo-text: #4338ca;
+    --teal-text: #0f766e;
+    --pink-text: #be185d;
+    --cyan-text: #0e7490;
+    --purple-text: #6b21a8;
 
     /* Ticket types */
     --type-story: #3b82f6;
@@ -158,6 +172,14 @@
     --danger-border: #991b1b;
     --info-bg: #0c4a6e;
     --info-border: #0369a1;
+
+    --success-text: #6ee7b7;
+    --amber-text: #fcd34d;
+    --indigo-text: #a5b4fc;
+    --teal-text: #5eead4;
+    --pink-text: #f9a8d4;
+    --cyan-text: #67e8f9;
+    --purple-text: #d8b4fe;
 
     --shadow-xs: 0 1px 2px rgba(0,0,0,0.2);
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);

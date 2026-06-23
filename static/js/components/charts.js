@@ -8,6 +8,68 @@ import { openSprintTicketsModal } from './sprint_tickets_modal.js';
 import { openSprintCompareModal } from './sprint_compare_modal.js';
 
 const _charts = new Map();
+
+// ── Registre des graphiques (pour le zoom plein écran) ─────────────────────────
+// Chaque render*() enregistre sa fonction + ses arguments, indexés par canvasId.
+// Le composant chart_zoom.js relit ce registre pour redessiner le même graphique
+// dans un canvas agrandi, et fournit un titre + une clé de type pour la légende.
+const _chartMeta = new Map();
+function _register(canvasId, kind, title, render, args) {
+    // Les canvas de la popin de zoom (préfixe `zoom-`) ne s'enregistrent pas eux-mêmes.
+    if (typeof canvasId === 'string' && canvasId.startsWith('zoom-')) return;
+    const prev = _chartMeta.get(canvasId);
+    _chartMeta.set(canvasId, { kind, title, render, args, controls: prev?.controls });
+}
+/** Métadonnées d'un graphique enregistré (ou undefined s'il n'a jamais été rendu). */
+export function getChartMeta(canvasId) { return _chartMeta.get(canvasId); }
+/**
+ * Redessine tous les graphiques actuellement affichés avec leurs couleurs CSS
+ * courantes (--text, --text-muted, --border…). À appeler après un changement de
+ * thème clair/sombre : les couleurs sont lues via `css()` au moment du rendu,
+ * donc un graphique déjà dessiné garde les couleurs de l'ancien thème sinon.
+ */
+export function redrawAllCharts() {
+    for (const [canvasId, meta] of _chartMeta) {
+        if (!document.getElementById(canvasId)) continue;
+        meta.render(canvasId, ...meta.args);
+    }
+}
+/**
+ * Descripteur des contrôles interactifs proposés par un graphique en vue zoom
+ * (toggle de mode, filtres, tri…). Renseigné par le render via `_setControls`.
+ * Indexé par le canvasId SOURCE (la carte d'origine), pas le canvas de zoom.
+ */
+export function getChartControls(sourceId) { return _chartMeta.get(sourceId)?.controls; }
+function _setControls(canvasId, controls) {
+    if (_isZoom(canvasId)) return;            // seul le rendu de la carte source décrit les contrôles
+    const m = _chartMeta.get(canvasId);
+    if (m) m.controls = controls;
+}
+/**
+ * Enregistre un graphique rendu en dehors de ce module (ex. burnup PI dans pi.js)
+ * pour le rendre zoomable. `render(targetId)` doit (re)dessiner dans le canvas cible.
+ */
+export function registerExternalChart(canvasId, kind, title, render) {
+    _register(canvasId, kind, title, (targetId) => render(targetId), []);
+}
+/**
+ * Redessine un graphique enregistré dans un autre canvas (même type, mêmes données).
+ * `overrideOpts` (optionnel) est fusionné dans le DERNIER argument s'il s'agit d'un
+ * objet d'options — permet à la popin de zoom de piloter mode/filtre/tri.
+ */
+export function rerenderChart(sourceId, targetCanvasId, overrideOpts) {
+    const meta = _chartMeta.get(sourceId);
+    if (!meta) return null;
+    let args = meta.args;
+    if (overrideOpts && args.length && typeof args[args.length - 1] === 'object' && !Array.isArray(args[args.length - 1])) {
+        args = [...args.slice(0, -1), { ...args[args.length - 1], ...overrideOpts }];
+    } else if (overrideOpts) {
+        args = [...args, overrideOpts];
+    }
+    meta.render(targetCanvasId, ...args);
+    return meta;
+}
+
 // Sélection multi-sprints pour comparaison (Set d'indices dans `data` du chart vélocité)
 const _velocitySelection = new Set();
 let _velocitySelectionData = null; // data du dernier render
@@ -31,6 +93,40 @@ const _TT = {
 function ctx(id) { const c = document.getElementById(id); return c?.getContext('2d'); }
 function kill(id) { if (_charts.has(id)) { _charts.get(id).destroy(); _charts.delete(id); } }
 function css(prop) { return getComputedStyle(document.documentElement).getPropertyValue(prop).trim(); }
+
+/** Un canvas est-il celui de la popin de zoom ? (préfixe `zoom-`). */
+function _isZoom(canvasId) { return typeof canvasId === 'string' && canvasId.startsWith('zoom-'); }
+
+/**
+ * Nombre max d'éléments à afficher : plus large dans la vue agrandie (zoom) que
+ * dans la carte compacte. Permet aux barres (Cycle Time / WIP Age) de profiter de
+ * la place disponible une fois le graphique zoomé.
+ */
+function _displayLimit(canvasId, compact, zoomed) {
+    return _isZoom(canvasId) ? zoomed : compact;
+}
+
+/**
+ * Affiche un état vide PAR-DESSUS le canvas, sans détruire ni le canvas ni le
+ * bouton de zoom (contrairement à `parentElement.innerHTML = …` qui efface tout).
+ * Retire un éventuel overlay précédent du même conteneur. Idempotent.
+ */
+function _emptyOverlay(canvas, message, icon = '📊') {
+    kill(canvas?.id);
+    const wrap = canvas?.parentElement;
+    if (!wrap) return;
+    wrap.querySelector('.chart-empty-overlay')?.remove();
+    const ov = document.createElement('div');
+    ov.className = 'chart-empty-overlay';
+    ov.innerHTML = `<span class="chart-empty-ico" aria-hidden="true">${icon}</span><span class="chart-empty-msg"></span>`;
+    ov.querySelector('.chart-empty-msg').textContent = message;
+    wrap.appendChild(ov);
+}
+
+/** Retire l'état vide d'un conteneur de graphique (avant un rendu normal). */
+function _clearEmptyOverlay(canvas) {
+    canvas?.parentElement?.querySelector('.chart-empty-overlay')?.remove();
+}
 
 // ── Event type styles ─────────────────────────────────────────────────────────
 const _EV_COLORS = { incident:'#EF4444', freeze:'#3B82F6', milestone:'#10B981', period:'#7C3AED', other:'#94A3B8' };
@@ -165,6 +261,7 @@ function currentDay(startDate, days) {
 // 1. Burndown
 // ══════════════════════════════════════════════════════════════════════════════
 export function renderBurndown(canvasId, tickets, sprint, events = []) {
+    _register(canvasId, 'burndown', 'Burndown', renderBurndown, [tickets, sprint, events]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
     _ensureTodayPlugin(); _ensureEventsPlugin();
     const days = sprint?.durationDays || 14;
@@ -210,6 +307,7 @@ export function renderBurndown(canvasId, tickets, sprint, events = []) {
 // 2. Burnup
 // ══════════════════════════════════════════════════════════════════════════════
 export function renderBurnup(canvasId, tickets, sprint, events = [], opts = {}) {
+    _register(canvasId, 'burnup', 'Burnup', renderBurnup, [tickets, sprint, events, opts]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
     _ensureTodayPlugin(); _ensureEventsPlugin();
     const days = sprint?.durationDays || 14;
@@ -259,6 +357,7 @@ export function renderBurnup(canvasId, tickets, sprint, events = [], opts = {}) 
 // 3. CFD (Cumulative Flow Diagram)
 // ══════════════════════════════════════════════════════════════════════════════
 export function renderCFD(canvasId, tickets, sprint, events = []) {
+    _register(canvasId, 'cfd', 'CFD — Diagramme de flux cumulé', renderCFD, [tickets, sprint, events]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
     _ensureTodayPlugin(); _ensureEventsPlugin();
     const days = sprint?.durationDays || 14;
@@ -303,7 +402,7 @@ export function renderCFD(canvasId, tickets, sprint, events = []) {
             ...baseOpts(),
             todayIndex,
             eventMarkers,
-            plugins: { ...baseOpts().plugins, legend: { position: 'right', labels: { font: { size: 10 }, usePointStyle: true, pointStyleWidth: 10 } } },
+            plugins: { ...baseOpts().plugins, legend: { position: 'right', labels: { color: css('--text-secondary') || '#475569', font: { size: 10 }, usePointStyle: true, pointStyleWidth: 10 } } },
             scales: { x: { ...baseOpts().scales.x, stacked: true }, y: { ...baseOpts().scales.y, stacked: true, max: total } },
         },
     }));
@@ -315,50 +414,107 @@ export function renderCFD(canvasId, tickets, sprint, events = []) {
 //  |══════ Attente ══════|══ Cycle Time ══|   ← Lead Time total
 //  Work Scheduled        Work Started     Work Complete
 // ══════════════════════════════════════════════════════════════════════════════
-export function renderCycleTime(canvasId, tickets) {
+// Percentile (méthode "nearest-rank") sur un tableau déjà trié croissant.
+function _pct(sortedAsc, p) {
+    if (!sortedAsc.length) return 0;
+    return sortedAsc[Math.ceil(sortedAsc.length * p) - 1];
+}
+const _ctColor = (ct, p50, p85) => ct > p85 ? '#EF4444' : ct > p50 ? '#F59E0B' : '#10B981';
+const _CT_LEADER = (t) => t.leader || t.assignee || '';
+
+export function renderCycleTime(canvasId, tickets, opts = {}) {
+    _register(canvasId, 'cycletime', 'Cycle Time & Lead Time', renderCycleTime, [tickets, opts]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
+    _clearEmptyOverlay(c.canvas);
 
-    const done = tickets
+    const zoomed = _isZoom(canvasId);
+    const mode   = zoomed ? (opts.mode || 'bars') : 'bars';   // contrôles uniquement en zoom
+    const sortBy = opts.sortBy || 'date';
+
+    // Base : tickets terminés avec un cycle time mesuré, du plus ancien au plus récent.
+    let base = tickets
         .filter(t => t.status === 'done' && t.cycleTimeDays > 0)
-        .sort((a, b) => (a.resolvedDate || '') < (b.resolvedDate || '') ? -1 : 1)
-        .slice(-15);
+        .sort((a, b) => (a.resolvedDate || '') < (b.resolvedDate || '') ? -1 : 1);
 
-    if (done.length < 2) {
-        c.canvas.parentElement.innerHTML = '<p class="text-muted text-sm text-center chart-empty">Pas assez de tickets terminés pour le Cycle Time</p>';
+    // Valeurs de filtre disponibles (calculées AVANT filtrage, pour proposer les chips).
+    // NB : pas de filtre "équipe" ici — la liste `tickets` arrive déjà filtrée par
+    // l'équipe/groupe sélectionné dans la sidebar (filterByTeam), un second filtre
+    // équipe serait redondant et trompeur. On ne propose que ce qui n'est filtrable
+    // nulle part ailleurs : le type et le lead.
+    const _uniq = (arr) => [...new Set(arr.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+    const filterValues = {
+        type:   _uniq(base.map(t => t.type)),
+        leader: _uniq(base.map(t => _CT_LEADER(t))),
+    };
+    // Expose les contrôles à la popin de zoom (toggle mode, tri, filtres).
+    _setControls(canvasId, {
+        modes:   [{ value: 'bars', label: '▭ Barres' }, { value: 'scatter', label: '⠿ Nuage' }],
+        sorts:   [
+            { value: 'date', label: 'Date' }, { value: 'ct', label: 'Cycle time ↓' },
+            { value: 'wait', label: 'Attente ↓' }, { value: 'lt', label: 'Lead time ↓' },
+        ],
+        filters: filterValues,
+    });
+
+    // Application des filtres (c).
+    if (opts.filterType)   base = base.filter(t => t.type === opts.filterType);
+    if (opts.filterLeader) base = base.filter(t => _CT_LEADER(t) === opts.filterLeader);
+
+    if (base.length < 2) {
+        _emptyOverlay(c.canvas, 'Pas assez de tickets terminés pour le Cycle Time', '⏱');
         return;
     }
 
-    const ctSorted = done.map(t => t.cycleTimeDays).sort((a, b) => a - b);
-    const p50ct = ctSorted[Math.ceil(ctSorted.length * 0.5) - 1];
-    const p85ct = ctSorted[Math.ceil(ctSorted.length * 0.85) - 1];
-    const avgCT = Math.round(ctSorted.reduce((s, v) => s + v, 0) / ctSorted.length * 10) / 10;
-
-    const ltVals  = done.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
-    const ltSorted = [...ltVals].sort((a, b) => a - b);
-    const p50lt = ltSorted[Math.ceil(ltSorted.length * 0.5) - 1];
-    const p85lt = ltSorted[Math.ceil(ltSorted.length * 0.85) - 1];
-    const avgLT  = Math.round(ltVals.reduce((s, v) => s + v, 0) / ltVals.length * 10) / 10;
+    // Percentiles calculés sur l'ensemble filtré (avant troncature d'affichage).
+    const lt = (t) => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays;
+    const ctAll = base.map(t => t.cycleTimeDays).sort((a, b) => a - b);
+    const ltAll = base.map(lt).sort((a, b) => a - b);
+    const p50ct = _pct(ctAll, 0.5), p85ct = _pct(ctAll, 0.85);
+    const p50lt = _pct(ltAll, 0.5), p85lt = _pct(ltAll, 0.85);
+    const avgCT = Math.round(ctAll.reduce((s, v) => s + v, 0) / ctAll.length * 10) / 10;
+    const avgLT = Math.round(ltAll.reduce((s, v) => s + v, 0) / ltAll.length * 10) / 10;
+    // (f) part moyenne d'attente dans le lead time.
+    const totLt = base.reduce((s, t) => s + lt(t), 0);
+    const totWait = base.reduce((s, t) => s + Math.max(0, lt(t) - t.cycleTimeDays), 0);
+    const waitShare = totLt > 0 ? Math.round(totWait / totLt * 100) : 0;
 
     const muted  = css('--text-muted') || '#94a3b8';
     const border = css('--border') || '#e2e8f0';
-    const labels    = done.map(t => t.id);
-    // Attente = temps en backlog avant démarrage (LT - CT)
-    const waitData  = done.map((t, i) => Math.max(0, ltVals[i] - t.cycleTimeDays));
-    const ctData    = done.map(t => t.cycleTimeDays);
-    const ctColors  = done.map(t =>
-        t.cycleTimeDays > p85ct ? '#EF4444cc' : t.cycleTimeDays > p50ct ? '#F59E0Bcc' : '#10B981cc'
-    );
+    const limit  = opts.limit || _displayLimit(canvasId, 15, 40);
 
-    // Plugin : lignes verticales de référence (Lead Time P50 / P85)
-    // La largeur totale de chaque barre = Lead Time → les percentiles LT sont lisibles
+    if (mode === 'scatter') {
+        _renderCycleScatter(canvasId, c, base, { p50ct, p85ct, p50lt, p85lt, avgCT, avgLT, waitShare, muted, border, zoomed, trend: opts.trend !== false });
+        return;
+    }
+
+    // ── Mode barres (défaut) ────────────────────────────────────────────────────
+    // Tri d'affichage (d) puis troncature.
+    const sorters = {
+        date: (a, b) => (a.resolvedDate || '') < (b.resolvedDate || '') ? -1 : 1,
+        ct:   (a, b) => a.cycleTimeDays - b.cycleTimeDays,
+        wait: (a, b) => (lt(a) - a.cycleTimeDays) - (lt(b) - b.cycleTimeDays),
+        lt:   (a, b) => lt(a) - lt(b),
+    };
+    // Pour les tris "↓" on garde les plus grands : on trie croissant puis on prend la fin.
+    const done = base.slice().sort(sorters[sortBy] || sorters.date).slice(-limit);
+
+    const ltVals  = done.map(lt);
+    const labels  = done.map(t => zoomed && t.title ? `${t.id} · ${t.title.slice(0, 45)}` : t.id);
+    const waitData = done.map((t, i) => Math.max(0, ltVals[i] - t.cycleTimeDays));
+    const ctData   = done.map(t => t.cycleTimeDays);
+    const ctColors = done.map(t => _ctColor(t.cycleTimeDays, p50ct, p85ct) + 'cc');
+    // (e) outliers = lead time > P85 → bordure épaisse + couleur appuyée.
+    const isOutlier = done.map(t => lt(t) > p85lt);
+
+    // Plugin : lignes de référence Lead Time (P50/P85) + marqueur ⚠ sur les outliers.
     const refLinesPlugin = {
         id: 'ctRefLines',
         afterDraw(chart) {
-            const { ctx: cx, chartArea, scales: { x } } = chart;
+            const { ctx: cx, chartArea, scales: { x, y } } = chart;
             if (!x || !chartArea) return;
             [
-                [p50lt, '#64748B', `LT méd. ${p50lt}j`],
-                [p85lt, '#334155', `LT 85%  ${p85lt}j`],
+                [p50lt, css('--text-muted') || '#64748B', `LT méd. ${p50lt}j`],
+                [p85lt, css('--text-secondary') || '#334155', `LT 85%  ${p85lt}j`],
             ].forEach(([val, color, lbl]) => {
                 const xPos = x.getPixelForValue(val);
                 cx.save();
@@ -370,13 +526,25 @@ export function renderCycleTime(canvasId, tickets) {
                 cx.lineTo(xPos, chartArea.bottom);
                 cx.stroke();
                 cx.setLineDash([]);
-                cx.font = '600 9px system-ui,sans-serif';
+                cx.font = `600 ${zoomed ? 13 : 9}px system-ui,sans-serif`;
                 cx.fillStyle = color;
                 cx.textAlign = 'center';
                 cx.textBaseline = 'top';
                 cx.fillText(lbl, xPos, chartArea.top + 2);
                 cx.restore();
             });
+            // ⚠ devant les barres outlier (lead time > P85).
+            if (y) {
+                cx.save();
+                cx.font = `${zoomed ? 14 : 11}px system-ui,sans-serif`;
+                cx.textAlign = 'left';
+                cx.textBaseline = 'middle';
+                isOutlier.forEach((out, i) => {
+                    if (!out) return;
+                    cx.fillText('⚠', chartArea.left + 2, y.getPixelForValue(i));
+                });
+                cx.restore();
+            }
         },
     };
 
@@ -387,7 +555,6 @@ export function renderCycleTime(canvasId, tickets) {
             labels,
             datasets: [
                 {
-                    // Segment gauche : temps d'attente avant démarrage
                     label: 'Attente (planifié → démarré)',
                     data: waitData,
                     backgroundColor: '#6366F155',
@@ -398,12 +565,11 @@ export function renderCycleTime(canvasId, tickets) {
                     order: 2,
                 },
                 {
-                    // Segment droit : Cycle Time effectif
                     label: 'Cycle Time (démarré → terminé)',
                     data: ctData,
                     backgroundColor: ctColors,
-                    borderColor: ctColors.map(col => col.slice(0, 7)),
-                    borderWidth: 1,
+                    borderColor: done.map((t, i) => isOutlier[i] ? '#7f1d1d' : _ctColor(t.cycleTimeDays, p50ct, p85ct)),
+                    borderWidth: done.map((_, i) => isOutlier[i] ? 2.5 : 1),
                     borderRadius: { topLeft: 0, bottomLeft: 0, topRight: 3, bottomRight: 3 },
                     stack: 'ct',
                     order: 1,
@@ -425,14 +591,14 @@ export function renderCycleTime(canvasId, tickets) {
             scales: {
                 x: {
                     stacked: true,
-                    ticks: { color: muted, font: { size: 9 } },
+                    ticks: { color: muted, font: { size: zoomed ? 12 : 9 } },
                     grid: { color: border },
                     beginAtZero: true,
-                    title: { display: true, text: 'Jours depuis la planification', font: { size: 10 }, color: muted },
+                    title: { display: true, text: 'Jours depuis la planification', font: { size: zoomed ? 13 : 10 }, color: muted },
                 },
                 y: {
                     stacked: true,
-                    ticks: { color: muted, font: { size: 9 } },
+                    ticks: { color: muted, font: { size: zoomed ? 12 : 9 } },
                     grid: { color: border },
                 },
             },
@@ -442,20 +608,20 @@ export function renderCycleTime(canvasId, tickets) {
                     position: 'bottom',
                     labels: {
                         color: css('--text-secondary') || '#475569',
-                        font: { size: 10 },
+                        font: { size: zoomed ? 12 : 10 },
                         usePointStyle: true,
                         pointStyleWidth: 10,
-                        generateLabels(chart) {
-                            // Légende fixe : Attente, CT ≤ méd, CT méd→85%, CT > 85%
+                        generateLabels() {
                             return [
                                 { text: 'Attente (planifié → démarré)', fillStyle: '#6366F155', strokeStyle: '#6366F1', lineWidth: 1, pointStyle: 'rect' },
                                 { text: `Cycle Time ≤ méd. (${p50ct}j)`, fillStyle: '#10B981cc', strokeStyle: '#10B981', lineWidth: 1, pointStyle: 'rect' },
                                 { text: `CT méd.–85% (${p50ct}–${p85ct}j)`, fillStyle: '#F59E0Bcc', strokeStyle: '#F59E0B', lineWidth: 1, pointStyle: 'rect' },
                                 { text: `CT > 85% (> ${p85ct}j)`,          fillStyle: '#EF4444cc', strokeStyle: '#EF4444', lineWidth: 1, pointStyle: 'rect' },
+                                { text: `⚠ Outlier · lead time > ${p85lt}j`, fillStyle: 'transparent', strokeStyle: '#7f1d1d', lineWidth: 2.5, pointStyle: 'rectRounded' },
                             ];
                         },
                     },
-                    onClick: () => {}, // désactive le toggle des datasets au clic légende
+                    onClick: () => {},
                 },
                 tooltip: {
                     ..._TT,
@@ -473,7 +639,159 @@ export function renderCycleTime(canvasId, tickets) {
                             }
                             return `Cycle Time : ${t.cycleTimeDays}j  |  Lead Time : ${ltVals[item.dataIndex]}j`;
                         },
-                        footer: () => `Moy CT: ${avgCT}j · Moy LT: ${avgLT}j · CT méd: ${p50ct}j · CT 85%: ${p85ct}j`,
+                        afterBody: items => {
+                            const t = done[items[0]?.dataIndex];
+                            const out = [];
+                            if (t && _CT_LEADER(t)) out.push(`Lead : ${_CT_LEADER(t)}`);
+                            if (isOutlier[items[0]?.dataIndex]) out.push(`⚠ Outlier (LT > P85 ${p85lt}j)`);
+                            return out;
+                        },
+                        footer: () => `Moy CT: ${avgCT}j · Moy LT: ${avgLT}j · CT méd: ${p50ct}j · CT 85%: ${p85ct}j · Attente: ${waitShare}% du lead time`,
+                    },
+                },
+            },
+        },
+    }));
+}
+
+// ── Cycle Time — mode "nuage de points" (scatter temporel) ─────────────────────
+// X = date de résolution, Y = cycle time, couleur = percentile CT.
+// Révèle la tendance dans le temps (flux qui se dégrade / s'améliore).
+function _renderCycleScatter(canvasId, c, base, p) {
+    const { p50ct, p85ct, p50lt, p85lt, avgCT, avgLT, waitShare, muted, border, zoomed, trend } = p;
+    const lt = (t) => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays;
+    // Ordonné par date de résolution (axe temps).
+    const items = base.slice().sort((a, b) => (a.resolvedDate || '') < (b.resolvedDate || '') ? -1 : 1);
+    const points = items.map(t => ({
+        x: new Date(t.resolvedDate || Date.now()).getTime(),
+        y: t.cycleTimeDays,
+        _t: t,
+    }));
+    const ptColors = items.map(t => _ctColor(t.cycleTimeDays, p50ct, p85ct) + 'cc');
+    const isOutlier = items.map(t => lt(t) > p85lt);
+
+    // (b) Tendance : moyenne mobile sur N tickets (granularité retenue avec l'utilisateur).
+    const N = Math.max(3, Math.min(7, Math.round(items.length / 4)));
+    const trendPts = trend ? points.map((pt, i) => {
+        const from = Math.max(0, i - N + 1);
+        const slice = points.slice(from, i + 1);
+        const avg = slice.reduce((s, q) => s + q.y, 0) / slice.length;
+        return { x: pt.x, y: Math.round(avg * 10) / 10 };
+    }) : [];
+
+    const datasets = [{
+        type: 'scatter',
+        label: 'Cycle time (par ticket)',
+        data: points,
+        pointBackgroundColor: ptColors,
+        pointBorderColor: items.map((t, i) => isOutlier[i] ? '#7f1d1d' : 'transparent'),
+        pointBorderWidth: items.map((_, i) => isOutlier[i] ? 2.5 : 0),
+        pointRadius: zoomed ? 6 : 4,
+        pointHoverRadius: zoomed ? 8 : 6,
+    }];
+    if (trend) {
+        datasets.push({
+            type: 'line',
+            label: `Tendance (moy. mobile ${N})`,
+            data: trendPts,
+            borderColor: '#0891b2',
+            backgroundColor: 'rgba(8,145,178,0.08)',
+            borderWidth: 2,
+            tension: 0.3,
+            pointRadius: 0,
+            fill: false,
+        });
+    }
+
+    // Bandes de percentile CT en fond (vert / orange / rouge).
+    const bandsPlugin = {
+        id: 'ctBands',
+        beforeDatasetsDraw(chart) {
+            const { ctx: cx, chartArea, scales: { y } } = chart;
+            if (!y || !chartArea) return;
+            const yTop = (v) => Math.max(chartArea.top, Math.min(chartArea.bottom, y.getPixelForValue(v)));
+            const zones = [
+                [chartArea.top, yTop(p85ct), 'rgba(239,68,68,0.06)'],   // > P85
+                [yTop(p85ct), yTop(p50ct), 'rgba(245,158,11,0.06)'],     // P50–P85
+                [yTop(p50ct), chartArea.bottom, 'rgba(16,185,129,0.06)'],// ≤ P50
+            ];
+            cx.save();
+            zones.forEach(([top, bot, color]) => {
+                cx.fillStyle = color;
+                cx.fillRect(chartArea.left, top, chartArea.right - chartArea.left, bot - top);
+            });
+            // Lignes P50 / P85.
+            [[p50ct, '#10B981', `CT méd. ${p50ct}j`], [p85ct, '#EF4444', `CT 85% ${p85ct}j`]].forEach(([v, col, lbl]) => {
+                const yp = yTop(v);
+                cx.beginPath();
+                cx.setLineDash([5, 4]);
+                cx.strokeStyle = col;
+                cx.lineWidth = 1.25;
+                cx.moveTo(chartArea.left, yp);
+                cx.lineTo(chartArea.right, yp);
+                cx.stroke();
+                cx.setLineDash([]);
+                cx.font = `600 ${zoomed ? 12 : 9}px system-ui,sans-serif`;
+                cx.fillStyle = col;
+                cx.textAlign = 'right';
+                cx.textBaseline = 'bottom';
+                cx.fillText(lbl, chartArea.right - 4, yp - 2);
+            });
+            cx.restore();
+        },
+    };
+
+    _charts.set(canvasId, new Chart(c, {
+        type: 'scatter',
+        plugins: [bandsPlugin],
+        data: { datasets },
+        options: {
+            ...baseOpts(),
+            interaction: { mode: 'nearest', intersect: true },
+            onClick(event, elements) {
+                if (!elements.length) return;
+                const t = points[elements[0].index]?._t;
+                if (t) window.__squadBoard?.openTicketModal?.(t.id);
+            },
+            onHover(event, elements) {
+                event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+            },
+            scales: {
+                x: {
+                    // Axe linéaire de timestamps (pas de dépendance à un adaptateur de date
+                    // Chart.js, absent du bundle) ; on formate les ticks nous-mêmes.
+                    type: 'linear',
+                    ticks: {
+                        color: muted, font: { size: zoomed ? 12 : 9 },
+                        maxRotation: 0, autoSkipPadding: 16,
+                        callback: (v) => fmtShortDate(new Date(v).toISOString()),
+                    },
+                    grid: { color: border },
+                    title: { display: true, text: 'Date de résolution', font: { size: zoomed ? 13 : 10 }, color: muted },
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: muted, font: { size: zoomed ? 12 : 9 } },
+                    grid: { color: border },
+                    title: { display: true, text: 'Cycle time (jours)', font: { size: zoomed ? 13 : 10 }, color: muted },
+                },
+            },
+            plugins: {
+                ...baseOpts().plugins,
+                legend: { position: 'bottom', labels: { color: css('--text-secondary') || '#475569', font: { size: zoomed ? 12 : 10 }, usePointStyle: true } },
+                tooltip: {
+                    ..._TT,
+                    callbacks: {
+                        title: items => {
+                            const t = items[0]?.raw?._t;
+                            return t ? [t.title || t.id, `${t.id} · ${fmtShortDate(t.resolvedDate)}`] : '';
+                        },
+                        label: item => {
+                            const t = item.raw?._t;
+                            if (!t) return '';
+                            return `Cycle Time : ${t.cycleTimeDays}j  |  Lead Time : ${lt(t)}j`;
+                        },
+                        footer: () => `Moy CT: ${avgCT}j · Moy LT: ${avgLT}j · CT méd: ${p50ct}j · CT 85%: ${p85ct}j · Attente: ${waitShare}% du lead time`,
                     },
                 },
             },
@@ -484,9 +802,12 @@ export function renderCycleTime(canvasId, tickets) {
 // ══════════════════════════════════════════════════════════════════════════════
 // 5. WIP Age
 // ══════════════════════════════════════════════════════════════════════════════
-export function renderWIPAge(canvasId, tickets) {
+export function renderWIPAge(canvasId, tickets, opts = {}) {
+    _register(canvasId, 'wipage', 'WIP Age — âge des tickets en cours', renderWIPAge, [tickets, opts]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
+    _clearEmptyOverlay(c.canvas);
 
+    const limit = opts.limit || _displayLimit(canvasId, 15, 40);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const wip = tickets
         .filter(t => ['inprog', 'review', 'test'].includes(t.status))
@@ -497,10 +818,10 @@ export function renderWIPAge(canvasId, tickets) {
             return { ...t, age, startedDate: started.toISOString().slice(0, 10), startedSource };
         })
         .sort((a, b) => b.age - a.age)
-        .slice(0, 15);
+        .slice(0, limit);
 
     if (!wip.length) {
-        c.canvas.parentElement.innerHTML = '<p class="text-muted text-sm text-center chart-empty">Aucun ticket en cours</p>';
+        _emptyOverlay(c.canvas, 'Aucun ticket en cours', '✅');
         return;
     }
 
@@ -571,6 +892,7 @@ export function renderWIPAge(canvasId, tickets) {
 // 6. Throughput
 // ══════════════════════════════════════════════════════════════════════════════
 export function renderThroughput(canvasId, tickets, sprint, events = []) {
+    _register(canvasId, 'throughput', 'Throughput — débit quotidien', renderThroughput, [tickets, sprint, events]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
     _ensureTodayPlugin(); _ensureEventsPlugin();
     const days = sprint?.durationDays || 14;
@@ -635,6 +957,7 @@ export function renderThroughput(canvasId, tickets, sprint, events = []) {
 // Existing charts (velocity, status doughnut, type bar)
 // ══════════════════════════════════════════════════════════════════════════════
 export function renderVelocityChart(canvasId, data, opts = {}) {
+    _register(canvasId, 'velocity', 'Vélocité par sprint', renderVelocityChart, [data, opts]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
 
     // Détection sprint en cours (dernière entrée flaggée isCurrent — exclue des stats)
@@ -834,6 +1157,7 @@ export function renderVelocityChart(canvasId, data, opts = {}) {
 }
 
 export function renderPIVelocityChart(canvasId, data, velocityTarget) {
+    _register(canvasId, 'pivelocity', 'Vélocité PI (estimé / buffer / réalisé)', renderPIVelocityChart, [data, velocityTarget]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
     if (!data.length) return;
 
@@ -909,6 +1233,7 @@ export function renderPIVelocityChart(canvasId, data, velocityTarget) {
 }
 
 export function renderStatusChart(canvasId, counts) {
+    _register(canvasId, 'status', 'Répartition par statut', renderStatusChart, [counts]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
 
     const ALL_KEYS   = ['todo', 'inprog', 'review', 'test', 'blocked', 'done'];
@@ -994,6 +1319,7 @@ export function renderStatusChart(canvasId, counts) {
 }
 
 export function renderTypeChart(canvasId, counts) {
+    _register(canvasId, 'type', 'Répartition par type', renderTypeChart, [counts]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
     const keys = Object.keys(counts).filter(k => counts[k] > 0);
     const colors = keys.map(k => css(`--type-${k}`) || '#94a3b8');
@@ -1007,6 +1333,11 @@ export function renderTypeChart(canvasId, counts) {
 export function destroyAllCharts() {
     for (const [, chart] of _charts) chart.destroy();
     _charts.clear();
+    // On purge le registre de zoom des canvas non éphémères (zoom-*) — le re-render
+    // de la vue ré-enregistrera les graphiques encore présents.
+    for (const id of [..._chartMeta.keys()]) {
+        if (!id.startsWith('zoom-')) _chartMeta.delete(id);
+    }
     _velocitySelection.clear();
     _velocitySelectionData = null;
     document.getElementById('velocity-compare-bar')?.remove();

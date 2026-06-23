@@ -43,7 +43,7 @@
 .sb-modal-review:hover {
     background: linear-gradient(135deg, color-mix(in srgb, var(--warning) 14%, transparent), var(--surface));
     border-color: color-mix(in srgb, var(--warning) 45%, transparent);
-    color: #b45309;
+    color: var(--amber-text);
 }
 .sb-modal-demo:hover {
     background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 14%, transparent), var(--surface));
@@ -1016,7 +1016,7 @@
 }
 .sb-modal-state--active {
     background: color-mix(in srgb, var(--success) 16%, transparent);
-    color: #047857;
+    color: var(--success-text);
 }
 .sb-modal-state--closed {
     background: color-mix(in srgb, var(--text-muted) 15%, transparent);
@@ -1045,7 +1045,7 @@
 .sb-modal-chip--warn {
     background: color-mix(in srgb, var(--warning) 14%, transparent);
     border-color: color-mix(in srgb, var(--warning) 35%, transparent);
-    color: #92400e;
+    color: var(--amber-text);
 }
 .sb-modal-chip--info {
     background: color-mix(in srgb, var(--info) 12%, transparent);
@@ -1275,12 +1275,12 @@
 .sb-ticket-prio--highest, .sb-ticket-prio--blocker {
     background: color-mix(in srgb, var(--danger) 14%, transparent);
     border-color: color-mix(in srgb, var(--danger) 35%, transparent);
-    color: #b91c1c;
+    color: var(--danger);
 }
 .sb-ticket-prio--high {
     background: color-mix(in srgb, var(--warning) 14%, transparent);
     border-color: color-mix(in srgb, var(--warning) 35%, transparent);
-    color: #b45309;
+    color: var(--amber-text);
 }
 .sb-ticket-prio--low, .sb-ticket-prio--lowest {
     background: color-mix(in srgb, var(--info) 10%, transparent);

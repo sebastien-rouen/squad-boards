@@ -3,10 +3,10 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, resolvePiObjectives, isBufferItem, countBlocked, throughputSince } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { renderCycleTime } from '../components/charts.js';
-import { renderActivityList, bindActivityClicks } from '../components/activity.js';
+import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
 import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
 
 export function renderDashboard(container) {
@@ -59,15 +59,9 @@ export function renderDashboard(container) {
     // Score = Σ BV livrés (commits done) / Σ BV planifiés (commits)
     // Stretch livré = bonus au numérateur (peut dépasser 100%)
     // Objectifs du PI affiché.
-    // PI COURANT (offset 0) : le jeu vivant `objectives` est la source de vérité (préféré dès qu'il
-    // est non vide) ; sinon fallback sur le snapshot pi_objectives[n] (cas import CSV seul).
-    // ⚠ Doit rester cohérent avec pi.js renderObjectives : lire le snapshot en priorité masquait
-    // les objectifs quand `piInfo.number` est faux (snapshot écrit sous une clé ≠ clé de lecture).
-    // PI PASSÉ : uniquement le snapshot pi_objectives[n].
-    const _piObjSnap = (piInfo?.piObjectives || {})[String(displayPiNum)];
-    const _rawObjs = piOffset === 0
-        ? ((piInfo?.objectives && piInfo.objectives.length) ? piInfo.objectives : (_piObjSnap || []))
-        : (_piObjSnap || []);
+    // Résolution courant-vs-snapshot déléguée à resolvePiObjectives (source unique partagée
+    // avec pi.js renderObjectives) — supprime le footgun « doit rester cohérent ».
+    const _rawObjs = resolvePiObjectives({ piInfo, piNum: displayPiNum, isCurrentPi: piOffset === 0 });
     const piObjs = _rawObjs.filter(o => (o.text || '').trim());
     const teamObjs = (team && team !== 'all') ? piObjs.filter(o => (o.team || '') === team) : piObjs;
     const _bv = o => Math.max(0, Math.min(10, parseInt(o.bv) || 0));
@@ -82,12 +76,8 @@ export function renderDashboard(container) {
                        : piScore >= 80  ? 'mc-warning'
                        : 'mc-danger';
 
-    // Extraction du PI depuis le sprint name d'un ticket
-    const _ticketPiNum = t => {
-        const s = String(t.sprintName || t.piSprint || '');
-        const m = s.match(/(\d+)\.\d+/) || s.match(/PI\s*#?\s*(\d+)/i);
-        return m ? parseInt(m[1], 10) : 0;
-    };
+    // Extraction du PI depuis le sprint name d'un ticket (source unique extractPiNum)
+    const _ticketPiNum = t => extractPiNum(t.sprintName || t.piSprint || '');
 
     // Scope des métriques : sprint courant (piOffset=0) ou tickets du PI sélectionné
     const isCurrentPi = piOffset === 0;
@@ -104,7 +94,7 @@ export function renderDashboard(container) {
     const total = displayTickets.length;
     const done = displayTickets.filter(t => t.status === 'done').length;
     const inprog = displayTickets.filter(t => t.status === 'inprog').length;
-    const blocked = displayTickets.filter(t => t.status === 'blocked').length;
+    const blocked = countBlocked(displayTickets);
     const totalPts = sumBy(displayTickets, t => t.points);
     const donePts = sumBy(displayTickets.filter(t => t.status === 'done'), t => t.points);
     const completion = pct(done, total);
@@ -128,9 +118,8 @@ export function renderDashboard(container) {
     const avgLT = _ltVals.length ? Math.round(_ltVals.reduce((s, v) => s + v, 0) / _ltVals.length * 10) / 10 : 0;
     const avgWait = Math.max(0, Math.round((avgLT - avgCT) * 10) / 10);
 
-    // Débit (throughput) : tickets terminés sur les 7 derniers jours (team complet)
-    const throughput7 = tickets.filter(t => t.status === 'done' && t.resolvedDate
-        && (_nowMs - new Date(t.resolvedDate).getTime()) <= 7 * DAY_MS).length;
+    // Débit (throughput) : tickets terminés sur les 7 derniers jours (team complet) — helper unique
+    const throughput7 = throughputSince(tickets, 7);
     // Hygiène backlog (périmètre courant) : actifs non estimés / non assignés
     const noEstimate = displayTickets.filter(t => t.status !== 'done' && !(t.points > 0)).length;
     const noAssignee = displayTickets.filter(t => t.status !== 'done' && !t.leader).length;
@@ -353,14 +342,14 @@ export function renderDashboard(container) {
 
         <!-- Team Cards — affiché seulement si >1 équipe -->
         ${teams.length > 1 ? (() => {
-            const _isBuf = t => (t.labels || []).some(l => /buffer/i.test(l));
+            const _isBuf = isBufferItem;
             return `
         <h3 class="section-title">Équipes</h3>
         <div class="team-cards mb-4">
             ${teams.map((t, i) => {
                 const tt    = byTeam.get(t) || [];
                 const done  = tt.filter(x => x.status === 'done');
-                const b     = tt.filter(x => x.status === 'blocked').length;
+                const b     = countBlocked(tt);
                 const tObj  = teamObjects.find(o => o.name === t);
                 const color = tObj?.color || TEAM_COLORS[i % TEAM_COLORS.length];
 
@@ -564,11 +553,8 @@ export function renderDashboard(container) {
             </div>
         </div>
 
-        <!-- Recent Activity -->
-        <details class="card mt-4 card-collapsible">
-            <summary class="card-header"><span class="card-title">Activité récente</span><span class="card-collapse-icon">▸</span></summary>
-            ${renderActivityList(tickets, { max: 15, scope: 'dashboard' })}
-        </details>
+        <!-- Recent Activity (composant partagé) -->
+        ${renderActivityCard(tickets, { max: 15, scope: 'dashboard' })}
     `;
 
     // Render charts after DOM is ready

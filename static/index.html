@@ -33,6 +33,7 @@
     <link rel="stylesheet" href="/css/views/poker.css">
     <link rel="stylesheet" href="/css/atlas.css">
     <link rel="stylesheet" href="/css/backlog.css">
+    <link rel="stylesheet" href="/css/views/chart-zoom.css">
     <script src="/js/vendor/chart.umd.min.js" defer></script>
 </head>
 <body>
@@ -122,6 +123,10 @@
                 <button id="btn-create" class="btn btn-primary" data-tooltip="Nouveau ticket (N)">
                     + Nouveau
                 </button>
+                <button id="btn-cal-sync" class="btn-icon cal-sync-badge" data-tooltip="Synchroniser les agendas ICS" aria-label="Synchroniser les agendas ICS" hidden>
+                    <svg class="icon"><use href="#i-calendar"/></svg>
+                    <span class="cal-sync-dot" aria-hidden="true"></span>
+                </button>
                 <div class="btn-split">
                     <button id="btn-sync" class="btn btn-secondary btn-split-main" data-tooltip="Sync rapide depuis JIRA (derniers 14 jours, merge)">
                         <svg class="icon"><use href="#i-sync"/></svg>
@@ -148,6 +153,8 @@
                 </div>
             </div>
         </header>
+        <!-- Bandeau agenda du jour — global (visible sur toutes les vues si des calendriers ICS existent) -->
+        <div id="global-cal-banner"></div>
         <div class="content-layout">
             <div id="content" class="content"></div>
             <aside id="info-panel" class="info-panel"></aside>

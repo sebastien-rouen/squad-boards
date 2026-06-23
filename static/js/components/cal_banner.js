@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, hashColor, toast, getSprintForTeam, getCurrentPi, extractTeam } from '../utils.js';
+import { esc, hashColor, toast, getSprintForTeam, getCurrentPi, extractTeam, relevantCalendars, lastCalendarSync } from '../utils.js';
 import * as api from '../api.js';
 
 // ── Jours fériés France ───────────────────────────────────────────────────────
@@ -235,16 +235,6 @@ export function renderCalBanner(wrap) {
     const todayEvs = filtered
         .filter(e => _dayKey(e.start) === today)
         .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
-
-    // Debug : si on a des events filtrés mais aucun aujourd'hui, log un échantillon
-    // pour comprendre (équipe sélectionnée vs equipe events vs dates parsées)
-    if (!todayEvs.length && filtered.length && console?.debug) {
-        const sample = filtered.slice(0, 3).map(e => ({
-            title: e.title, start: e.start, dayKey: _dayKey(e.start), team: e.team,
-        }));
-        console.debug('[cal-banner] 0 réunion aujourd\'hui malgré', filtered.length,
-            'events filtered (team:', team, ', today:', today, ') — échantillon:', sample);
-    }
 
     const offEvs     = todayEvs.filter(e => _isOff(e.title));
     const regularEvs = todayEvs.filter(e => !_isOff(e.title));
@@ -737,13 +727,9 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
     const daysHtml   = dayParts.map(p => p.ma).join('');
     const pmDaysHtml = showPmSplit ? dayParts.map(p => p.pm).join('') : '';
 
-    // Dernière synchro la plus récente parmi les calendriers pertinents
+    // Dernière synchro la plus récente parmi les calendriers pertinents (helper unique)
     const team0 = store.get('team');
-    const cals0 = store.get('calendars') || [];
-    const relevantCals = (team0 && team0 !== 'all')
-        ? cals0.filter(c => !c.team || c.team === team0)
-        : cals0;
-    const lastSync = relevantCals.reduce((max, c) => c.lastFetched > max ? c.lastFetched : max, '');
+    const lastSync = lastCalendarSync(store.get('calendars'), team0);
     const syncTip = lastSync
         ? `Dernière synchro : ${new Date(lastSync).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} — cliquer pour relancer`
         : 'Aucune synchro encore — cliquer pour démarrer';
@@ -1458,9 +1444,7 @@ async function _syncCalendarsFromModal(e) {
     const calendars = store.get('calendars') || [];
     const team = store.get('team');
     // Calendriers pertinents : sans équipe (= toutes) OU pour l'équipe courante
-    const relevant = (team && team !== 'all')
-        ? calendars.filter(c => !c.team || c.team === team)
-        : calendars;
+    const relevant = relevantCalendars(calendars, team);
     if (!relevant.length) {
         toast('Aucun calendrier ICS à synchroniser', 'info');
         return;
@@ -1490,4 +1474,26 @@ async function _syncCalendarsFromModal(e) {
         btn.disabled = false;
         btn.classList.remove('cal-sync-spin');
     }
+}
+
+/**
+ * Synchronise les calendriers ICS pertinents sans ouvrir la modal — utilisé par le badge
+ * de fraîcheur de la topbar. Met à jour le store (calendars + calendarEvents) et renvoie
+ * le nombre de calendriers synchronisés avec succès.
+ */
+export async function syncCalendars() {
+    const team = store.get('team');
+    const relevant = relevantCalendars(store.get('calendars'), team);
+    if (!relevant.length) { toast('Aucun calendrier ICS à synchroniser', 'info'); return 0; }
+    const results = await Promise.allSettled(relevant.map(c => api.refreshCalendar(c.id)));
+    const ok = results.filter(r => r.status === 'fulfilled').length;
+    const ko = results.length - ok;
+    const [freshCals, freshEvents] = await Promise.all([
+        api.getCalendars().catch(() => store.get('calendars') || []),
+        api.getCalendarEvents().catch(() => []),
+    ]);
+    store.set('calendars', freshCals);
+    store.set('calendarEvents', freshEvents);
+    toast(`${ok} calendrier${ok > 1 ? 's' : ''} synchronisé${ok > 1 ? 's' : ''}${ko ? ` (${ko} en échec)` : ''}`, ko ? 'warning' : 'success');
+    return ok;
 }

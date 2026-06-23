@@ -372,3 +372,139 @@ details[open] .feat-buf-toggle-icon { transform: rotate(90deg); }
     color: var(--text-muted);
 }
 
+
+/* ── Programme board inter-équipes (onglet Dépendances #14) ─────────────────── */
+.dep-board-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
+}
+.dep-board-kpi {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--success);
+    line-height: 1;
+}
+.dep-board-kpi--warn { color: var(--warning); }
+.dep-mx-wrap { overflow-x: auto; }
+.dep-mx-table {
+    border-collapse: collapse;
+    font-size: var(--fs-sm);
+}
+.dep-mx-table th,
+.dep-mx-table td {
+    border: 1px solid var(--border);
+    padding: var(--sp-2);
+    text-align: center;
+}
+.dep-mx-corner {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+}
+.dep-mx-col, .dep-mx-row {
+    white-space: nowrap;
+}
+.dep-mx-row { text-align: left; }
+.dep-mx-col span, .dep-mx-row span { vertical-align: middle; }
+.dep-team-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+.dep-mx-cell { font-variant-numeric: tabular-nums; }
+.dep-mx-empty { color: var(--text-muted); opacity: 0.4; }
+.dep-mx-intra { color: var(--text-muted); background: var(--bg-alt); cursor: pointer; }
+.dep-mx-cross {
+    color: var(--danger);
+    font-weight: 700;
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    cursor: pointer;
+}
+.dep-mx-cell.is-selected { outline: 2px solid var(--primary); outline-offset: -2px; }
+.dep-mx-cross:hover, .dep-mx-intra:hover { filter: brightness(1.15); }
+.dep-board-detail {
+    margin-top: var(--sp-3);
+    padding: var(--sp-3);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+}
+.dep-detail-hdr { font-size: var(--fs-sm); margin-bottom: var(--sp-2); }
+.dep-detail-list { display: flex; flex-direction: column; gap: 4px; }
+.dep-detail-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-xs);
+}
+.dep-detail-key {
+    background: var(--primary-bg);
+    color: var(--primary);
+    border: none;
+    border-radius: var(--r-sm);
+    padding: 1px 6px;
+    font-family: monospace;
+    cursor: pointer;
+}
+.dep-detail-key:hover { filter: brightness(1.1); }
+.dep-detail-arrow { color: var(--text-muted); }
+.dep-detail-title { color: var(--text-muted); }
+
+/* ── Panneau Engagement / commitment baseline (#12) ─────────────────────────── */
+.pi-commit {
+    margin: var(--sp-2) 0 var(--sp-3);
+    padding: var(--sp-3);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+.pi-commit--empty {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+.pi-commit-empty-txt { font-size: var(--fs-sm); color: var(--text-muted); }
+.pi-commit-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2);
+}
+.pi-commit-title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.pi-commit-when { font-size: var(--fs-xs); color: var(--text-muted); font-weight: 400; }
+.pi-commit-bar {
+    height: 8px;
+    background: var(--bg-alt);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: var(--sp-2);
+}
+.pi-commit-bar-fill {
+    height: 100%;
+    background: var(--success);
+    border-radius: 999px;
+    transition: width var(--tr-fast);
+}
+.pi-commit-stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-3);
+    font-size: var(--fs-xs);
+}
+.pi-commit-stat { color: var(--text-muted); }
+.pi-commit-stat strong { color: var(--text); font-size: var(--fs-sm); }
+.pi-commit-stat--ok strong { color: var(--success); }
+.pi-commit-stat--add { color: var(--warning); font-weight: var(--fw-semibold); }
+.pi-commit-stat--rm { color: var(--danger); font-weight: var(--fw-semibold); }
+.pi-commit-saydo { margin-left: auto; font-weight: 700; }

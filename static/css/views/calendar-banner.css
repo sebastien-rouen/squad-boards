@@ -1,4 +1,33 @@
 /* Composant: Calendar Banner & Week Modal + Calendar Reports — extrait de views.css (ordre cascade préservé) */
+
+/* ── Badge de fraîcheur des agendas ICS (topbar, à côté du Sync JIRA) ───────── */
+.cal-sync-badge {
+    position: relative;
+}
+.cal-sync-badge .cal-sync-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--warning);
+    border: 2px solid var(--surface);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.cal-sync-badge--stale {
+    color: var(--warning);
+}
+.cal-sync-badge--stale .cal-sync-dot {
+    opacity: 1;
+}
+.cal-sync-badge.cal-sync-spin .icon {
+    animation: cal-sync-rot 0.8s linear infinite;
+}
+@keyframes cal-sync-rot {
+    to { transform: rotate(360deg); }
+}
 /* ══════════════════════════════════════════════════════════════════════════════
    Calendar Banner & Week Modal
    ══════════════════════════════════════════════════════════════════════════════ */

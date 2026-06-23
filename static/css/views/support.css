@@ -152,6 +152,10 @@
 }
 .wip-age-legend-item { display: inline-flex; align-items: center; gap: 4px; }
 .wip-age-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+/* Variantes de couleur (alignées sur les seuils WIP Age du graphe Board) */
+.wip-age-swatch--ok   { background: #10B981; }
+.wip-age-swatch--warn { background: #F59E0B; }
+.wip-age-swatch--crit { background: #EF4444; }
 
 /* Health : courbe historique du score sur 3 mois */
 .health-history-card {

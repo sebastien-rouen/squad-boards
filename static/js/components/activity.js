@@ -94,6 +94,23 @@ export function renderActivityList(tickets, opts = {}) {
         </div>`;
 }
 
+/**
+ * Carte « Activité récente » complète et repliable — shell `<details>` + liste.
+ * Mutualise le boilerplate dupliqué entre Dashboard, Sprint et Kanban.
+ * À coupler avec `bindActivityClicks(container)` après le mount.
+ *
+ * @param {Array}  tickets  Liste des tickets (chacun avec `recentChanges[]`)
+ * @param {object} opts     Mêmes options que `renderActivityList` (max, scope, filterable)
+ *                          + `{ open: boolean }` pour déplier la carte par défaut.
+ */
+export function renderActivityCard(tickets, opts = {}) {
+    return `
+        <details class="card mt-4 card-collapsible"${opts.open ? ' open' : ''}>
+            <summary class="card-header"><span class="card-title">Activité récente</span><span class="card-collapse-icon">▸</span></summary>
+            ${renderActivityList(tickets, opts)}
+        </details>`;
+}
+
 function _renderFilterBar(fieldCounts, authorCounts, scope) {
     // Top champs (les plus actifs) + tous les autres avec >0
     const fields = [...fieldCounts.entries()]

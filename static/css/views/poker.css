@@ -13,7 +13,8 @@
 
 /* ══ Planning Poker ══════════════════════════════════════════════════════════ */
 .poker-overlay {
-    position: fixed; inset: 0; z-index: 2000;
+    /* Doit rester au-dessus du modal détail même quand celui-ci est bumpé par .above-demo (11000) */
+    position: fixed; inset: 0; z-index: 11500;
     background: rgba(0,0,0,.55); backdrop-filter: blur(4px);
     display: flex; align-items: center; justify-content: center;
     opacity: 0; transition: opacity .2s;

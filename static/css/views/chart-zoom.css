@@ -1,0 +1,366 @@
+/* ── Chart zoom — bouton « agrandir » + popin plein écran ───────────────────── */
+
+/* Le conteneur doit être positionné pour ancrer le bouton flottant. */
+.chart-container {
+    position: relative;
+}
+
+/* Bouton « agrandir » discret, en haut à droite du graphique.
+   Invisible au repos, révélé au survol du conteneur (et toujours focusable). */
+.chart-zoom-btn {
+    position: absolute;
+    top: var(--sp-2);
+    right: var(--sp-2);
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    background: color-mix(in srgb, var(--surface) 78%, transparent);
+    backdrop-filter: blur(4px);
+    color: var(--text-secondary);
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.9);
+    transition: opacity var(--tr-base), transform var(--tr-base),
+                background var(--tr-base), color var(--tr-base), border-color var(--tr-base);
+}
+.chart-container:hover .chart-zoom-btn,
+.chart-zoom-btn:focus-visible {
+    opacity: 1;
+    transform: scale(1);
+}
+.chart-zoom-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--text-inverse);
+}
+.chart-zoom-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+.chart-zoom-btn svg { width: 16px; height: 16px; }
+
+/* Sur tactile (pas de survol), le bouton reste visible en permanence. */
+@media (hover: none) {
+    .chart-zoom-btn { opacity: 0.65; transform: scale(1); }
+}
+
+/* ── Verrou de scroll quand la popin est ouverte ───────────────────────────── */
+body.chart-zoom-lock { overflow: hidden; }
+
+/* ── Overlay ────────────────────────────────────────────────────────────────── */
+.chart-zoom-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;          /* aligné en haut de l'écran */
+    padding: clamp(var(--sp-3), 4vh, var(--sp-10)) var(--sp-4) var(--sp-4);
+    opacity: 0;
+    transition: opacity var(--tr-slow);
+}
+.chart-zoom-overlay.hidden { display: none; }
+.chart-zoom-overlay--open { opacity: 1; }
+
+.chart-zoom-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    background: color-mix(in srgb, var(--text) 55%, transparent);
+    backdrop-filter: blur(3px);
+}
+
+/* ── Boîte de dialogue ──────────────────────────────────────────────────────── */
+.chart-zoom-dialog {
+    position: relative;
+    z-index: 1;
+    width: min(1100px, 96vw);
+    max-height: calc(100vh - 2 * clamp(var(--sp-3), 4vh, var(--sp-10)));
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    /* État initial pour la transition d'entrée (fondu + léger zoom depuis le haut). */
+    transform: translateY(-12px) scale(0.97);
+    opacity: 0;
+    transition: transform var(--tr-slow), opacity var(--tr-slow);
+}
+.chart-zoom-overlay--open .chart-zoom-dialog {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+/* ── En-tête ────────────────────────────────────────────────────────────────── */
+.chart-zoom-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    border-bottom: 1px solid var(--border);
+}
+.chart-zoom-title {
+    flex: 1;
+    margin: 0;
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-semibold);
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.chart-zoom-count {
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.chart-zoom-nav,
+.chart-zoom-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: none;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background var(--tr-base), color var(--tr-base), border-color var(--tr-base);
+}
+.chart-zoom-nav svg,
+.chart-zoom-close svg { width: 18px; height: 18px; }
+.chart-zoom-nav:hover,
+.chart-zoom-close:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-hover);
+    color: var(--text);
+}
+.chart-zoom-close:hover {
+    background: var(--danger-bg);
+    border-color: var(--danger-border);
+    color: var(--danger);
+}
+.chart-zoom-export:hover {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.chart-zoom-nav[hidden] { display: none; }
+.chart-zoom-nav:focus-visible,
+.chart-zoom-close:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* ── Barre d'outils (mode / tri / filtres) — uniquement en zoom ─────────────── */
+.chart-zoom-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2) var(--sp-4);
+    padding: var(--sp-3) var(--sp-5);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+}
+.chart-zoom-toolbar[hidden] { display: none; }
+.chart-zoom-tb-group {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+}
+.chart-zoom-tb-label {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+}
+
+/* Toggle segmenté (Barres / Nuage) */
+.chart-zoom-seg-group {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+}
+.chart-zoom-seg {
+    padding: var(--sp-1) var(--sp-3);
+    border: 0;
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    transition: background var(--tr-base), color var(--tr-base);
+}
+.chart-zoom-seg + .chart-zoom-seg { border-left: 1px solid var(--border); }
+.chart-zoom-seg:hover { background: var(--surface-hover); color: var(--text); }
+.chart-zoom-seg.is-active { background: var(--primary); color: var(--text-inverse); }
+
+/* Select de tri */
+.chart-zoom-select {
+    padding: var(--sp-1) var(--sp-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    color: var(--text);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+}
+
+/* Chips de filtre */
+.chart-zoom-chip {
+    padding: 2px var(--sp-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    transition: background var(--tr-base), color var(--tr-base), border-color var(--tr-base);
+}
+.chart-zoom-chip:hover { background: var(--surface-hover); border-color: var(--border-hover); color: var(--text); }
+.chart-zoom-chip.is-active {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+}
+.chart-zoom-seg:focus-visible,
+.chart-zoom-chip:focus-visible,
+.chart-zoom-select:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* ── Zone du graphique agrandi ──────────────────────────────────────────────── */
+.chart-zoom-canvas-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 320px;
+    height: min(56vh, 560px);
+    padding: var(--sp-5);
+}
+.chart-zoom-canvas-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* ── Légende / explication ──────────────────────────────────────────────────── */
+.chart-zoom-explain {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-4) var(--sp-5);
+    border-top: 1px solid var(--border);
+    background: var(--bg-alt);
+    overflow-y: auto;
+}
+.chart-zoom-explain:empty { display: none; }
+
+/* Légende repliable (<details> natif, dépliée par défaut). */
+.chart-zoom-explain-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.chart-zoom-explain-summary::-webkit-details-marker { display: none; }
+.chart-zoom-explain-summary:hover { color: var(--text); }
+.chart-zoom-explain-caret {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    transition: transform var(--tr-base);
+}
+.chart-zoom-explain-details[open] .chart-zoom-explain-caret { transform: rotate(90deg); }
+.chart-zoom-explain-summary:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+}
+.chart-zoom-explain-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    margin-top: var(--sp-3);
+}
+
+.chart-zoom-explain-row {
+    display: flex;
+    gap: var(--sp-3);
+    align-items: flex-start;
+}
+/* Le bloc texte (p + liste éventuelle) prend la largeur restante et empile ses enfants. */
+.chart-zoom-explain-row > div {
+    flex: 1;
+    min-width: 0;
+}
+.chart-zoom-explain-ico {
+    flex: none;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+.chart-zoom-explain p {
+    margin: 0;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
+    color: var(--text-secondary);
+}
+.chart-zoom-explain strong { color: var(--text); }
+.chart-zoom-explain em { color: var(--text); font-style: italic; }
+
+/* Liste : une idée par ligne (plus propre qu'un texte à rallonge). */
+.chart-zoom-explain-list {
+    margin: var(--sp-1) 0 0;
+    padding-left: var(--sp-4);
+    list-style: none;
+}
+.chart-zoom-explain-list li {
+    position: relative;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-normal);
+    color: var(--text-secondary);
+}
+.chart-zoom-explain-list li::before {
+    content: '–';
+    position: absolute;
+    left: calc(-1 * var(--sp-4));
+    color: var(--text-muted);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .chart-zoom-overlay { padding: var(--sp-2); align-items: stretch; }
+    .chart-zoom-dialog { width: 100%; max-height: 100%; border-radius: var(--r-lg); }
+    .chart-zoom-header { padding: var(--sp-3) var(--sp-4); gap: var(--sp-2); }
+    .chart-zoom-canvas-wrap { height: 48vh; padding: var(--sp-3); }
+    .chart-zoom-title { font-size: var(--fs-base); }
+}
+
+/* ── Préférence « réduire les animations » ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .chart-zoom-overlay,
+    .chart-zoom-dialog,
+    .chart-zoom-btn { transition: none; }
+    .chart-zoom-dialog { transform: none; }
+}

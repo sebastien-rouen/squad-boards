@@ -8,7 +8,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam } from '../utils.js';
+import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, STATUS_MAP } from '../config.js';
 import * as api from '../api.js';
 import { renderBurndown, renderBurnup } from './charts.js';
@@ -168,7 +168,7 @@ function _renderShell(sprint, tickets, opts = {}) {
     const ptsPct = pct(ptsDone, ptsTotal);
 
     // Buffer label : somme des points des tickets ayant le label "Buffer"
-    const bufferTickets = tickets.filter(t => (t.labels || []).some(l => /^Buffer$/i.test(l)));
+    const bufferTickets = tickets.filter(isBufferItem);
     const bufferPts = sumBy(bufferTickets, t => t.points);
     const bufferShare = sprint.estimated > 0 ? Math.round((bufferPts / sprint.estimated) * 100) : 0;
 
@@ -653,7 +653,7 @@ function _buildSprintReport(sprint, tickets) {
     const ptsDone  = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
     const doneCount = tickets.filter(t => t.status === 'done').length;
 
-    const bufferTickets = tickets.filter(t => (t.labels || []).some(l => /^Buffer$/i.test(l)));
+    const bufferTickets = tickets.filter(isBufferItem);
     const bufferPts = sumBy(bufferTickets, t => t.points);
     const bufferShare = sprint.estimated > 0 ? Math.round((bufferPts / sprint.estimated) * 100) : 0;
     const realisedPct = sprint.estimated > 0 ? Math.round(((sprint.velocity || ptsDone) / sprint.estimated) * 100) : null;
@@ -720,7 +720,7 @@ function _buildSprintReportMd(sprint, tickets) {
     const ptsTotal = sumBy(tickets, t => t.points);
     const ptsDone  = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
     const doneCount = tickets.filter(t => t.status === 'done').length;
-    const bufferTickets = tickets.filter(t => (t.labels || []).some(l => /^Buffer$/i.test(l)));
+    const bufferTickets = tickets.filter(isBufferItem);
     const bufferPts = sumBy(bufferTickets, t => t.points);
     const bufferShare = sprint.estimated > 0 ? Math.round((bufferPts / sprint.estimated) * 100) : 0;
     const realisedPct = sprint.estimated > 0 ? Math.round(((sprint.velocity || ptsDone) / sprint.estimated) * 100) : null;
@@ -793,7 +793,7 @@ function _buildSprintReportHtml(sprint, tickets) {
     const ptsTotal = sumBy(tickets, t => t.points);
     const ptsDone  = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
     const doneCount = tickets.filter(t => t.status === 'done').length;
-    const bufferTickets = tickets.filter(t => (t.labels || []).some(l => /^Buffer$/i.test(l)));
+    const bufferTickets = tickets.filter(isBufferItem);
     const bufferPts = sumBy(bufferTickets, t => t.points);
     const bufferShare = sprint.estimated > 0 ? Math.round((bufferPts / sprint.estimated) * 100) : 0;
     const realisedPct = sprint.estimated > 0 ? Math.round(((sprint.velocity || ptsDone) / sprint.estimated) * 100) : null;
@@ -817,7 +817,7 @@ function _buildSprintReportHtml(sprint, tickets) {
         const color = statusColor[status] || '#94a3b8';
         const rows = group.map(t => {
             const tIcon = _typeIcon(t.type, t.labels);
-            const bufferTag = (t.labels || []).some(l => /^Buffer$/i.test(l)) ? ' <span class="tag tag-buffer">🛡️ Buffer</span>' : '';
+            const bufferTag = isBufferItem(t) ? ' <span class="tag tag-buffer">🛡️ Buffer</span>' : '';
             const retroTag = (t.labels || []).some(l => /^ActionRetro$/i.test(l)) ? ' <span class="tag tag-retro">🔁 Retro</span>' : '';
             return `<tr>
                 <td class="ic">${tIcon}</td>
@@ -1442,7 +1442,7 @@ function _buildSprintReviewHtml(sprint, tickets) {
     const ptsDone  = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
     const doneCount = tickets.filter(t => t.status === 'done').length;
     const realisedPct = sprint.estimated > 0 ? Math.round(((sprint.velocity || ptsDone) / sprint.estimated) * 100) : null;
-    const bufferTickets = tickets.filter(t => (t.labels || []).some(l => /^Buffer$/i.test(l)));
+    const bufferTickets = tickets.filter(isBufferItem);
     const bufferPts = sumBy(bufferTickets, t => t.points);
 
     // ── Résolution feature parente (chaîne ticket → epic → feature) ─────────

@@ -3,8 +3,7 @@
  * Shows leader + contributor avatars.
  */
 
-import { esc, initials, hashColor, daysInCurrentColumn, fmtDate } from '../utils.js';
-import { TYPE_LABELS } from '../config.js';
+import { esc, initials, hashColor, daysInCurrentColumn, fmtDate, typeBadge } from '../utils.js';
 
 const _DWELL_SOURCE_LABEL = {
     status:  'depuis la dernière transition de statut',
@@ -32,10 +31,24 @@ function _dwellChip(ticket) {
 }
 
 /**
+ * Badge discret "pas de mise à jour depuis hier" — repère pour le daily : un ticket actif
+ * dont personne n'a touché le statut/contenu depuis 24h mérite d'être pointé en priorité.
+ */
+function _staleBadge(ticket) {
+    if (!ticket || !['inprog', 'review', 'test'].includes(ticket.status)) return '';
+    if (!ticket.updatedAt) return '';
+    const hours = (Date.now() - new Date(ticket.updatedAt).getTime()) / 3600000;
+    if (hours < 24) return '';
+    const days = Math.floor(hours / 24);
+    const since = days >= 1 ? `${days} jour${days > 1 ? 's' : ''}` : '24h';
+    const title = `Pas de mise à jour depuis ${since} · dernière maj ${fmtDate(ticket.updatedAt)}`;
+    return `<span class="ticket-stale" title="${esc(title)}" aria-label="${esc(title)}">⏰</span>`;
+}
+
+/**
  * Render a ticket card HTML string.
  */
 export function renderCard(ticket) {
-    const typeLabel = TYPE_LABELS[ticket.type] || ticket.type;
     const flagClass = ticket.flagged ? ' flagged' : '';
     const leader = ticket.leader || ticket.assignee;
     const contributors = (ticket.contributors || []).filter(c => c && c !== leader);
@@ -54,7 +67,7 @@ export function renderCard(ticket) {
     return `
         <div class="ticket-card${flagClass}" data-ticket-id="${esc(ticket.id)}" title="${esc(ticket.title)}" draggable="true">
             <div class="ticket-card-top">
-                <span class="badge badge-type badge-${ticket.type}">${esc(typeLabel)}</span>
+                ${typeBadge(ticket.type, { title: false })}
                 <div class="ticket-card-top-right">
                     ${_dwellChip(ticket)}
                     <span class="ticket-id">${esc(ticket.id)}</span>
@@ -72,6 +85,7 @@ export function renderCard(ticket) {
                     <span class="truncate">${esc(leader || 'Non assigne')}</span>
                 </div>
                 <div class="ticket-meta">
+                    ${_staleBadge(ticket)}
                     ${(ticket.comments?.length) ? `<span class="ticket-comment-count">💬${ticket.comments.length}</span>` : ''}
                     ${ticket.points ? `<span class="badge badge-points">${ticket.points} pts</span>` : ''}
                     ${ticket.flagged ? '<svg class="icon icon-sm text-danger"><use href="#i-alert"/></svg>' : ''}

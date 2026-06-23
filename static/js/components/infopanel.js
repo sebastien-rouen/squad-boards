@@ -4,11 +4,12 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam, relevantCalendars, lastCalendarSync, isBufferItem, getCurrentPi, typeBadge, teamCapacity, wipThreshold } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
 import { loadReminders, REMINDER_DEFS } from '../views/settings.js';
 import { openCalWeekModal } from './cal_banner.js';
 import { openAlertModal } from './alert_modal.js';
+import { collapseCharts, enterDailyMode } from '../views/sprint.js';
 
 const panel = () => document.getElementById('info-panel');
 
@@ -17,6 +18,18 @@ const _fmtDate = iso => {
     if (!iso) return '?';
     const d = new Date(iso);
     return `${d.getDate()} ${_MONTHS[d.getMonth()]}`;
+};
+// Ligne mini d'item (ticket/feature) dans un détail de carte — cliquable (ouvre la modal).
+const _miniRow = (item, statusColor, jiraUrl) => {
+    const idEl = jiraUrl
+        ? `<a class="panel-buf-id" href="${jiraUrl}/browse/${esc(item.id)}" target="_blank" rel="noopener" title="${esc(item.id)}">${esc(item.id)}</a>`
+        : `<span class="panel-buf-id">${esc(item.id)}</span>`;
+    return `<div class="panel-buf-row" data-ticket-id="${esc(item.id)}">
+        <span class="status-dot-xs" style="background:var(--status-${statusColor})"></span>
+        ${idEl}
+        <span class="panel-buf-title" title="${esc(item.title || '')}">${esc((item.title || '').slice(0, 22))}</span>
+        ${item.points ? `<span class="panel-buf-pts-sm">${item.points}pt</span>` : '<span class="panel-buf-pts-sm" style="opacity:.35">-</span>'}
+    </div>`;
 };
 const _daysLeft = endIso => {
     if (!endIso) return null;
@@ -31,7 +44,7 @@ export function updateInfoPanel() {
     const team      = store.get('team');
     const jiraUrl   = store.get('jiraUrl') || null;
     const allTeamTickets = filterByTeam(store.get('tickets') || [], team);
-    const features  = filterByTeam(store.get('features') || [], team);
+    const allTeamFeatures = filterByTeam(store.get('features') || [], team);
     const calendars = store.get('calendars') || [];
     // sprintInfo = sprint ACTIF de l'équipe sélectionnée (pas le sprint global qui mélange).
     // Si team='all', getSprintForTeam retourne le 1er actif → on garde sprintInfo global en fallback.
@@ -50,6 +63,19 @@ export function updateInfoPanel() {
     const piInfo    = store.get('piInfo');
     const absences  = store.get('absences') || [];
     const support   = store.get('support') || [];
+
+    // PI courant (offset 0 — l'info-panel suit toujours le PI en cours) → filtre les features.
+    // Même logique que la vue PI (pi.js) : match sur piSprint / sprintName / labels.
+    const curPiNum = getCurrentPi({ sprintInfo, piInfo });
+    const _inPi = (raw) => {
+        if (!raw || !curPiNum) return true; // pas de PI exploitable → on garde
+        const s = String(raw).toUpperCase().replace(/\s+/g, '');
+        const m = s.match(/^(\d+)\.\d+$/);
+        return s === `PI#${curPiNum}` || s === `PI${curPiNum}` || !!(m && +m[1] === curPiNum);
+    };
+    const features = curPiNum
+        ? allTeamFeatures.filter(f => _inPi(f.piSprint) || _inPi(f.sprintName) || (f.labels || []).some(_inPi))
+        : allTeamFeatures;
 
     if (['settings'].includes(view)) { el.innerHTML = ''; return; }
 
@@ -70,8 +96,16 @@ export function updateInfoPanel() {
         ticketsByStatus[t.status].push(t);
     }
 
-    const featureDone = features.filter(f => f.status === 'done').length;
-    const featurePct  = pct(featureDone, features.length);
+    const featureDone   = features.filter(f => f.status === 'done').length;
+    const featurePct    = pct(featureDone, features.length);
+    const featurePts    = sumBy(features, f => f.points);
+    const featureDonePts = sumBy(features.filter(f => f.status === 'done'), f => f.points);
+    const featuresByStatus = {};
+    for (const f of features) (featuresByStatus[f.status] = featuresByStatus[f.status] || []).push(f);
+    const featBlocked  = (featuresByStatus.blocked || []).length;
+    const featInprog   = (featuresByStatus.inprog || []).length + (featuresByStatus.review || []).length + (featuresByStatus.test || []).length;
+    const featTodo     = (featuresByStatus.todo || []).length;
+    const featPctClr   = featurePct >= 80 ? 'var(--status-done)' : featurePct >= 50 ? 'var(--status-inprog)' : 'var(--status-blocked)';
 
     const now = new Date().toISOString().slice(0, 10);
     const activeAbsences   = absences.filter(a => a.startDate <= now && a.endDate >= now);
@@ -105,8 +139,8 @@ export function updateInfoPanel() {
     const ptsBehind = timePct > ptsPct + 20;
     const ptsColor  = ptsPct >= 80 ? 'var(--status-done)' : ptsPct >= 50 ? 'var(--status-inprog)' : 'var(--status-blocked)';
 
-    // Buffer tickets (label "buffer" in JIRA, case-insensitive)
-    const bufferTickets = tickets.filter(t => (t.labels || []).some(l => /buffer/i.test(l)));
+    // Buffer tickets — détection via helper unique isBufferItem
+    const bufferTickets = tickets.filter(isBufferItem);
     const bufPts        = sumBy(bufferTickets, t => t.points);
     const bufDonePts    = sumBy(bufferTickets.filter(t => t.status === 'done'), t => t.points);
     const bufPct        = pct(bufDonePts, bufPts || 1);
@@ -132,7 +166,8 @@ export function updateInfoPanel() {
     html += `
     <div class="panel-card panel-card--clickable" data-panel-id="sprint">
         <div class="panel-card-header">
-            <div class="panel-title">Sprint</div>
+            <div class="panel-title panel-title--icon"><span class="panel-title-emoji">🎯</span>Sprint</div>
+            <button class="panel-goto-daily" type="button" title="Ouvrir le board Scrum, métriques repliées">Aller au Daily →</button>
             <span class="panel-card-chevron">▾</span>
         </div>
         <div class="panel-value" style="color:${ptsColor}">${ptsPct}%</div>
@@ -160,33 +195,24 @@ export function updateInfoPanel() {
                 ${['blocked','inprog','review','test','todo','done'].map(s => {
                     const group = ticketsByStatus[s] || [];
                     if (!group.length) return '';
-                    const max = s === 'done' ? 3 : 5;
-                    const rowHtml = t => {
-                        const href = jiraUrl ? `${jiraUrl}/browse/${esc(t.id)}` : null;
-                        const idEl = href
-                            ? `<a class="panel-buf-id" href="${href}" target="_blank" rel="noopener" title="${esc(t.id)}">${esc(t.id)}</a>`
-                            : `<span class="panel-buf-id">${esc(t.id)}</span>`;
-                        return `<div class="panel-buf-row" data-ticket-id="${esc(t.id)}">
-                            <span class="status-dot-xs" style="background:var(--status-${s})"></span>
-                            ${idEl}
-                            <span class="panel-buf-title" title="${esc(t.title || '')}">${esc((t.title || '').slice(0, 22))}</span>
-                            ${t.points ? `<span class="panel-buf-pts-sm">${t.points}pt</span>` : '<span class="panel-buf-pts-sm" style="opacity:.35">-</span>'}
-                        </div>`;
-                    };
+                    const max = s === 'done' ? group.length : 5;
+                    const rowHtml = t => _miniRow(t, s, jiraUrl);
                     const visibleRows = group.slice(0, max).map(rowHtml).join('');
                     const hiddenRows  = group.slice(max).map(rowHtml).join('');
                     const more = group.length > max
                         ? `<button class="panel-more-toggle" data-target="panel-more-${s}" aria-expanded="false">+${group.length - max} autres ▾</button>
                            <div class="panel-more-extra" id="panel-more-${s}" hidden>${hiddenRows}</div>`
                         : '';
-                    return `<div class="panel-sprint-group">
-                        <div class="panel-sprint-group-hd">
+                    // Groupe pliable, replié par défaut ; « en cours » / « bloqué » restent ouverts.
+                    return `<details class="panel-sprint-group"${(s === 'inprog' || s === 'blocked') ? ' open' : ''}>
+                        <summary class="panel-sprint-group-hd">
                             <span class="status-dot-xs" style="background:var(--status-${s})"></span>
                             <span>${esc(STATUS_LABELS[s])}</span>
                             <span class="panel-mini-count">${group.length}</span>
-                        </div>
+                            <span class="panel-group-caret" aria-hidden="true">▾</span>
+                        </summary>
                         <div class="panel-buf-list">${visibleRows}${more}</div>
-                    </div>`;
+                    </details>`;
                 }).join('')}
             </div>
         </div>
@@ -197,7 +223,7 @@ export function updateInfoPanel() {
         html += `
         <div class="panel-card panel-card--clickable panel-card-buffer" data-panel-id="buffer">
             <div class="panel-card-header">
-                <div class="panel-title" style="color:${BUF_CLR}">Buffer</div>
+                <div class="panel-title panel-title--icon" style="color:${BUF_CLR}"><span class="panel-title-emoji">🛡️</span>Buffer</div>
                 <span class="panel-card-chevron" style="color:${BUF_CLR}">▾</span>
             </div>
             <div class="panel-buf-summary">
@@ -257,7 +283,7 @@ export function updateInfoPanel() {
         html += `
         <div class="panel-card panel-card--clickable panel-card-buffer" data-panel-id="buffer">
             <div class="panel-card-header">
-                <div class="panel-title" style="color:${BUF_CLR}">Buffer</div>
+                <div class="panel-title panel-title--icon" style="color:${BUF_CLR}"><span class="panel-title-emoji">🛡️</span>Buffer</div>
                 <span class="panel-card-chevron" style="color:${BUF_CLR}">▾</span>
             </div>
             <div class="panel-buf-theoric">~${theoreticalBuf} pts</div>
@@ -281,31 +307,7 @@ export function updateInfoPanel() {
         </div>`;
     }
 
-    // ── Statuts ───────────────────────────────────────────────────────────
-    html += `
-    <div class="panel-card">
-        <div class="panel-title">Statuts</div>
-        <div class="panel-list">
-            ${['todo','inprog','review','test','blocked','done'].map(s => {
-                const count = statusCounts[s] || 0;
-                if (!count) return '';
-                const tooltipRows = (ticketsByStatus[s] || []).map(t => {
-                    const idEl = jiraUrl
-                        ? `<a class="ticket-id sb-tooltip-id" href="${jiraUrl}/browse/${esc(t.id)}" target="_blank" rel="noopener">${esc(t.id)}</a>`
-                        : `<span class="ticket-id sb-tooltip-id">${esc(t.id)}</span>`;
-                    return `<div class="sb-tooltip-row">${idEl}<span class="badge badge-type badge-${t.type} badge-2xs">${esc(t.type)}</span><span class="sb-tooltip-title truncate flex-1" data-open-ticket="${esc(t.id)}">${esc(t.title?.slice(0, 30))}</span>${t.points ? `<span class="sb-tooltip-pts badge badge-points badge-2xs" data-open-ticket="${esc(t.id)}">${t.points}</span>` : ''}</div>`;
-                }).join('');
-                const extra = '';
-                return `<div class="panel-list-item">
-                    <span><span class="status-dot-sm" style="background:var(--status-${s})"></span>${esc(STATUS_LABELS[s])}</span>
-                    <strong>${count}</strong>
-                    <div class="sb-tooltip">${tooltipRows}${extra}</div>
-                </div>`;
-            }).join('')}
-        </div>
-    </div>`;
-
-    // ── Alertes proactives (toutes les alertes de getSprintAlerts) ─────────
+    // ── Alertes proactives (au-dessus des Statuts) ─────────────────────────
     const proactiveAlerts = getSprintAlerts(tickets, sprintInfo).filter(a => a.type !== 'success');
     if (proactiveAlerts.length) {
         // Tri par sévérité : danger > warning > info
@@ -337,12 +339,33 @@ export function updateInfoPanel() {
         </div>`;
     }
 
+    // ── Statuts (sous les Alertes) ─────────────────────────────────────────
+    html += `
+    <div class="panel-card">
+        <div class="panel-title">Statuts</div>
+        <div class="panel-list">
+            ${['todo','inprog','review','test','blocked','done'].map(s => {
+                const count = statusCounts[s] || 0;
+                if (!count) return '';
+                const tooltipRows = (ticketsByStatus[s] || []).map(t => {
+                    const idEl = jiraUrl
+                        ? `<a class="ticket-id sb-tooltip-id" href="${jiraUrl}/browse/${esc(t.id)}" target="_blank" rel="noopener">${esc(t.id)}</a>`
+                        : `<span class="ticket-id sb-tooltip-id">${esc(t.id)}</span>`;
+                    return `<div class="sb-tooltip-row">${idEl}${typeBadge(t.type, { size: '2xs' })}<span class="sb-tooltip-title truncate flex-1" data-open-ticket="${esc(t.id)}">${esc(t.title?.slice(0, 30))}</span>${t.points ? `<span class="sb-tooltip-pts badge badge-points badge-2xs" data-open-ticket="${esc(t.id)}">${t.points}</span>` : ''}</div>`;
+                }).join('');
+                return `<div class="panel-list-item">
+                    <span><span class="status-dot-sm" style="background:var(--status-${s})"></span>${esc(STATUS_LABELS[s])}</span>
+                    <strong>${count}</strong>
+                    <div class="sb-tooltip">${tooltipRows}</div>
+                </div>`;
+            }).join('')}
+        </div>
+    </div>`;
+
     // ── Calendrier (raccourci semaine) ────────────────────────────────────
     if (calendars.length) {
-        const relCals = (team && team !== 'all')
-            ? calendars.filter(c => !c.team || c.team === team)
-            : calendars;
-        const lastSync = relCals.reduce((mx, c) => c.lastFetched > mx ? c.lastFetched : mx, '');
+        const relCals = relevantCalendars(calendars, team);
+        const lastSync = lastCalendarSync(calendars, team);
         const lastTxt = lastSync
             ? new Date(lastSync).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
             : 'jamais';
@@ -356,13 +379,59 @@ export function updateInfoPanel() {
         </button>`;
     }
 
-    // ── Features ──────────────────────────────────────────────────────────
-    if (features.length) {
+    // ── Features ── (libellés de contexte équipe + PI pour l'état vide)
+    const _teamLabel = (!team || team === 'all') ? 'toutes les équipes' : team, _piLabel = curPiNum ? `PI #${curPiNum}` : 'ce PI';
+    if (!features.length) {
+        // État vide explicite : aucune feature pour l'équipe + PI courant
         html += `
-        <div class="panel-card">
-            <div class="panel-title">Features</div>
-            <div class="panel-value">${featureDone}/${features.length}</div>
-            <div class="progress progress-thin mt-2"><div class="progress-bar ${progressColor(featurePct)}" style="width:${featurePct}%"></div></div>
+        <div class="panel-card panel-card-empty">
+            <div class="panel-card-header"><div class="panel-title">Features</div></div>
+            <div class="panel-empty-state">
+                <span class="panel-empty-icon" aria-hidden="true">📦</span>
+                <div class="panel-empty-text"><strong>Aucune feature</strong><span>pour ${esc(_teamLabel)} · ${esc(_piLabel)}</span></div>
+            </div>
+        </div>`;
+    } else {
+        // Ordre d'affichage : ce qui demande attention d'abord, terminé en dernier
+        const FEAT_STATUS_ORDER = ['blocked', 'inprog', 'review', 'test', 'todo', 'done'];
+        const featGroups = FEAT_STATUS_ORDER.map(s => {
+            const group = featuresByStatus[s] || [];
+            if (!group.length) return '';
+            // Affiche toutes les features du groupe (pas de troncature « +N autres »)
+            const rows = group.map(f => _miniRow(f, f.status, jiraUrl)).join('');
+            return `<div class="panel-sprint-group">
+                <div class="panel-sprint-group-hd">
+                    <span class="status-dot-xs" style="background:var(--status-${s})"></span>
+                    <span>${esc(STATUS_LABELS[s])}</span>
+                    <span class="panel-mini-count">${group.length}</span>
+                </div>
+                <div class="panel-buf-list">${rows}</div>
+            </div>`;
+        }).join('');
+
+        // Mini-répartition (segments visuels) pour scanner l'état d'un coup d'œil
+        const segs = [[featBlocked, 'blocked'], [featInprog, 'inprog'], [featTodo, 'todo'], [featureDone, 'done']].filter(([n]) => n > 0);
+        const distrib = segs.map(([n, s]) =>
+            `<span class="panel-feat-seg" style="flex:${n};background:var(--status-${s})" title="${n} ${esc(STATUS_LABELS[s])}"></span>`
+        ).join('');
+
+        html += `
+        <div class="panel-card panel-card--clickable" data-panel-id="features">
+            <div class="panel-card-header">
+                <div class="panel-title">Features</div>
+                <span class="panel-card-chevron">▾</span>
+            </div>
+            <div class="panel-value" style="color:${featPctClr}">${featureDone}/${features.length}</div>
+            <div class="panel-sub">${featurePct}% terminées${featurePts ? ` &middot; ${featureDonePts}/${featurePts} pts` : ''}</div>
+            <div class="panel-feat-distrib mt-2">${distrib}</div>
+            <div class="panel-feat-legend">
+                ${[[featBlocked, 'blocked', `bloquée${featBlocked > 1 ? 's' : ''}`], [featInprog, 'inprog', 'en cours'], [featTodo, 'todo', 'à faire']]
+                    .filter(([n]) => n)
+                    .map(([n, s, lbl]) => `<span><span class="status-dot-xs" style="background:var(--status-${s})"></span>${n} ${lbl}</span>`).join('')}
+            </div>
+            <div class="panel-card-detail">
+                <div class="panel-card-detail-inner">${featGroups}</div>
+            </div>
         </div>`;
     }
 
@@ -528,10 +597,24 @@ function _attachPanelEvents(el) {
         });
     });
 
+    el.querySelector('.panel-goto-daily')?.addEventListener('click', e => {
+        e.stopPropagation();
+        collapseCharts();
+        enterDailyMode();
+        store.set('view', 'sprint');
+    });
+
     el.querySelectorAll('.panel-card--clickable').forEach(card => {
         card.addEventListener('click', e => {
-            if (e.target.closest('a, button')) return;
-            card.classList.toggle('panel-card--expanded');
+            // Laisse passer : liens, boutons, et le pli/dépli des groupes de statut (<summary>)
+            if (e.target.closest('a, button, summary')) return;
+            const expanded = card.classList.toggle('panel-card--expanded');
+            // À l'ouverture : déplie tous les groupes de statut + amène la carte en vue.
+            if (expanded) {
+                card.querySelectorAll('details.panel-sprint-group').forEach(d => { d.open = true; });
+                const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+                setTimeout(() => card.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' }), 320);
+            }
         });
     });
 
@@ -552,6 +635,7 @@ function _attachPanelEvents(el) {
     el.querySelectorAll('.panel-buf-row[data-ticket-id]').forEach(row => {
         row.addEventListener('click', e => {
             if (e.target.closest('a')) return;  // laisse passer le lien JIRA
+            e.stopPropagation();  // n'entraîne pas le pli/dépli de la carte parente
             const id = row.dataset.ticketId;
             window.__squadBoard?.openTicketModal?.(id);
         });
@@ -638,12 +722,13 @@ export function getSprintAlerts(tickets, sprintInfo) {
         });
     }
 
-    if (inprog > total * 0.6 && total > 5)
-        alerts.push({
-            type: 'warning',
-            text: `WIP élevé : ${inprog} tickets en cours sur ${total}`,
-            actionable: 'wip',
-        });
+    // WIP "élevé" = au-delà de la capacité de l'équipe (membres présents, congés déduits).
+    // Même logique que la modale d'action et la vue Health (pas un simple ratio).
+    const _wipTeam = store.get('team');
+    const _cap = (_wipTeam && _wipTeam !== 'all') ? teamCapacity(_wipTeam, store.get('members') || [], store.get('absences') || []) : null;
+    const _wipMax = _cap ? wipThreshold(_cap) : 0;
+    if (_cap && inprog > _wipMax)
+        alerts.push({ type: 'warning', actionable: 'wip', text: `WIP élevé : ${inprog} en cours pour ${_cap.available} présent${_cap.available > 1 ? 's' : ''} (seuil ${_wipMax})` });
 
     // Tickets stagnants : en cours/review/test depuis plus de 5 jours sans update
     const stale = tickets.filter(t =>

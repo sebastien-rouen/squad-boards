@@ -3,12 +3,11 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, filterByMine, sumBy, groupBy, sortTickets } from '../utils.js';
-import { STATUS_ORDER, STATUS_LABELS, WIP_LIMITS } from '../config.js';
+import { esc, filterByTeam, filterByMine, sumBy, groupBy, sortTickets, countWip, countBlocked, throughputSince, typeBadge } from '../utils.js';
+import { STATUS_ORDER, STATUS_LABELS, TYPE_LABELS, WIP_LIMITS } from '../config.js';
 import { renderCard, bindCardClicks } from '../components/card.js';
-import { renderBurndown, renderBurnup, renderCFD, renderThroughput, renderCycleTime, renderWIPAge } from '../components/charts.js';
-import { renderCalBanner } from '../components/cal_banner.js';
-import { renderActivityList, bindActivityClicks } from '../components/activity.js';
+import { renderBoardChartsSection, mountBoardCharts } from '../components/board_charts.js';
+import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
 
 let _chartsCollapsed = localStorage.getItem('sb-kanban-charts-collapsed') === 'true';
 
@@ -47,10 +46,11 @@ export function renderKanban(container) {
     const events    = store.get('events') || [];
 
     const total = tickets.length;
-    const wip = tickets.filter(t => ['inprog', 'review', 'test'].includes(t.status)).length;
-    const blocked = tickets.filter(t => t.status === 'blocked').length;
-    const done = tickets.filter(t => t.status === 'done').length;
-    const throughput = done; // simplified
+    const wip = countWip(tickets);
+    const blocked = countBlocked(tickets);
+    // Débit canonique (7 derniers jours) — aligné sur le Dashboard. Avant : total des "done"
+    // labellisé "Throughput" (commentaire `// simplified`), ce qui était trompeur.
+    const throughput = throughputSince(tickets, 7);
 
     // Group by status
     const byStatus = {};
@@ -66,7 +66,6 @@ export function renderKanban(container) {
     for (const t of tickets) byType[t.type] = (byType[t.type] || 0) + 1;
 
     container.innerHTML = `
-        <div id="cal-banner-wrap"></div>
         <div class="view-search-bar">
             <input type="search" id="kanban-search" class="input view-search-input" placeholder="🔍 Recherche : clé, titre, leader, label…" value="${esc(sessionStorage.getItem('kanban-search') || '')}" autocomplete="off">
             ${searchQ ? `<button class="btn-icon view-search-clear" id="kanban-search-clear" title="Effacer"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>` : ''}
@@ -83,7 +82,7 @@ export function renderKanban(container) {
                 <span class="metric-value ${blocked > 0 ? 'text-danger' : 'text-success'}">${blocked}</span>
             </div>
             <div class="kanban-metric kanban-metric-done">
-                <span class="metric-label">📈 Throughput</span>
+                <span class="metric-label">📈 Throughput <small>7j</small></span>
                 <span class="metric-value text-status-done">${throughput}</span>
             </div>
             <div class="kanban-metric kanban-metric-primary">
@@ -98,38 +97,13 @@ export function renderKanban(container) {
 
         <!-- Type Breakdown -->
         <div class="flex gap-2 mb-4 flex-wrap">
-            ${Object.entries(byType).map(([type, count]) => `
-                <span class="badge badge-type badge-${type}">${esc(type)} ${count}</span>
-            `).join('')}
+            ${Object.entries(byType).map(([type, count]) =>
+                typeBadge(type, { label: `${TYPE_LABELS[type] || type} ${count}`, title: false })
+            ).join('')}
         </div>
 
-        <!-- Charts (collapsible) -->
-        <details ${_chartsCollapsed ? '' : 'open'} id="kanban-charts-section">
-            <summary class="text-xs font-semibold text-muted mb-2">Métriques sprint</summary>
-            <div class="dashboard-grid mb-4">
-                <div class="card"><div class="card-header"><span class="card-title">Burndown</span></div><div class="chart-container chart-h-sm"><canvas id="kchart-burndown"></canvas></div></div>
-                <div class="card"><div class="card-header"><span class="card-title">Burnup</span></div><div class="chart-container chart-h-sm"><canvas id="kchart-burnup"></canvas></div></div>
-            </div>
-            <div class="dashboard-grid mb-4">
-                <div class="card"><div class="card-header"><span class="card-title">CFD</span></div><div class="chart-container chart-h-sm"><canvas id="kchart-cfd"></canvas></div></div>
-                <div class="card"><div class="card-header"><span class="card-title">Throughput</span></div><div class="chart-container chart-h-sm"><canvas id="kchart-throughput"></canvas></div></div>
-            </div>
-            <div class="dashboard-grid mb-4">
-                <div class="card"><div class="card-header"><span class="card-title">Cycle Time</span></div><div class="chart-container chart-h-sm"><canvas id="kchart-cycletime"></canvas></div></div>
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-title">WIP Age</span>
-                        <span class="card-subtitle" title="Age = jours depuis la mise en cours.&#10;🟢 OK · 🟡 attention (≥70% p85) · 🔴 critique (≥p85). Fallback : 🟡≥7j / 🔴≥14j.">ⓘ</span>
-                    </div>
-                    <div class="chart-container chart-h-sm"><canvas id="khart-wipage"></canvas></div>
-                    <div class="wip-age-legend">
-                        <span class="wip-age-legend-item"><span class="wip-age-swatch" style="background:#10B981"></span>OK</span>
-                        <span class="wip-age-legend-item"><span class="wip-age-swatch" style="background:#F59E0B"></span>Attention</span>
-                        <span class="wip-age-legend-item"><span class="wip-age-swatch" style="background:#EF4444"></span>Critique</span>
-                    </div>
-                </div>
-            </div>
-        </details>
+        <!-- Charts (collapsible) — composant partagé Scrum/Kanban -->
+        ${renderBoardChartsSection({ collapsed: _chartsCollapsed, sectionId: 'kanban-charts-section' })}
 
         <!-- Kanban Board -->
         <div class="board" id="kanban-board">
@@ -159,18 +133,10 @@ export function renderKanban(container) {
         </div>
 
         <!-- Recent Activity (composant partagé avec Dashboard/Sprint) -->
-        <details class="card mt-4 card-collapsible">
-            <summary class="card-header"><span class="card-title">Activité récente</span><span class="card-collapse-icon">▸</span></summary>
-            <div id="kanban-activity-list"></div>
-        </details>
+        ${renderActivityCard(tickets, { max: 20, scope: 'kanban' })}
     `;
 
-    renderCalBanner(container.querySelector('#cal-banner-wrap'));
-    const actEl = container.querySelector('#kanban-activity-list');
-    if (actEl) {
-        actEl.innerHTML = renderActivityList(tickets, { max: 20, scope: 'kanban' });
-        bindActivityClicks(actEl);
-    }
+    bindActivityClicks(container);
 
     // Boutons Sprint Review / Demo (délégués aux helpers globaux)
     container.querySelector('#kanban-open-review')?.addEventListener('click', () =>
@@ -203,14 +169,5 @@ export function renderKanban(container) {
         localStorage.setItem('sb-kanban-charts-collapsed', _chartsCollapsed);
     });
 
-    if (!_chartsCollapsed) {
-        requestAnimationFrame(() => {
-            renderBurndown('kchart-burndown', tickets, sprintCtx, events);
-            renderBurnup('kchart-burnup', tickets, sprintCtx, events);
-            renderCFD('kchart-cfd', tickets, sprintCtx, events);
-            renderThroughput('kchart-throughput', tickets, sprintCtx, events);
-            renderCycleTime('kchart-cycletime', tickets);
-            renderWIPAge('khart-wipage', tickets);
-        });
-    }
+    if (!_chartsCollapsed) mountBoardCharts(tickets, sprintCtx, events);
 }

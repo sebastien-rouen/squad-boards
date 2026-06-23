@@ -33,6 +33,22 @@ class MoodVote(SQLModel, table=True):
     created_at: str = Field(default_factory=_now)
 
 
+class PokerVote(SQLModel, table=True):
+    """Vote de Planning Poker (ré-estimation collaborative d'un ticket).
+
+    Un vote par (ticket_id, voter) — upsert côté routeur. `value` est une chaîne
+    pour accepter la carte '?' en plus des nombres Fibonacci.
+    """
+    __table_args__ = _TA
+    id: str = Field(default_factory=_gen_id, primary_key=True)
+    ticket_id: str = ""
+    voter: str = ""
+    value: str = ""              # "1".."21" ou "?"
+    revealed: bool = False
+    created_at: str = Field(default_factory=_now)
+    updated_at: str = Field(default_factory=_now)
+
+
 class RetroItem(SQLModel, table=True):
     """Action d'amelioration continue (retro, post-mortem, CoP, adapt)."""
     __table_args__ = _TA

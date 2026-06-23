@@ -32,6 +32,117 @@
 .rpt-ctrl-count { color: var(--text-muted); }
 .rpt-ctrl-date  { color: var(--text-muted); }
 .rpt-ctrl-sep   { color: var(--border); font-size: 10px; }
+
+/* ── Layout : timeline / sommaire latéral + colonne des sections ──────────── */
+.reports-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: var(--sp-5);
+    align-items: start;
+}
+.reports-sections { min-width: 0; }
+
+.reports-timeline {
+    position: sticky;
+    /* sous la barre de contrôles sticky (hauteur ~ contrôles) */
+    top: var(--sp-4);
+    align-self: start;
+}
+.reports-timeline-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    /* trait vertical reliant les points */
+    position: relative;
+}
+.reports-timeline-list::before {
+    content: '';
+    position: absolute;
+    left: 6px; top: 8px; bottom: 8px;
+    width: 2px;
+    background: var(--border);
+    border-radius: 1px;
+}
+.reports-timeline-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 5px 8px 5px 0;
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
+    border-radius: var(--r-md);
+    transition: color var(--tr-fast), background var(--tr-fast);
+}
+.reports-timeline-dot {
+    width: 14px; height: 14px;
+    flex-shrink: 0;
+    border-radius: var(--r-full);
+    border: 2px solid var(--border);
+    background: var(--surface);
+    z-index: 1;
+    transition: border-color var(--tr-fast), background var(--tr-fast), transform var(--tr-fast);
+}
+.reports-timeline-icon { font-size: 13px; line-height: 1; flex-shrink: 0; }
+.reports-timeline-label {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.reports-timeline-item:hover {
+    color: var(--text);
+    background: var(--surface-hover);
+}
+.reports-timeline-item:hover .reports-timeline-dot { border-color: var(--primary); }
+.reports-timeline-item.is-active {
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+}
+.reports-timeline-item.is-active .reports-timeline-dot {
+    border-color: var(--primary);
+    background: var(--primary);
+    transform: scale(1.1);
+}
+.reports-timeline-item.is-urgent .reports-timeline-dot { border-color: var(--danger); }
+.reports-timeline-item.is-urgent.is-active .reports-timeline-dot { background: var(--danger); }
+
+/* Décalage d'ancrage (fallback CSS) : le header de section ne passe pas sous la
+   barre de contrôles sticky. Le scroll JS calcule sa hauteur réelle précisément. */
+.report-section { scroll-margin-top: 72px; }
+
+/* Section "Métriques sprint" : <details> stylé comme une vraie section ──────── */
+.report-section-charts-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid transparent;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    background: var(--surface-alt, var(--surface-hover));
+    transition: background var(--tr-fast), border-color var(--tr-fast);
+}
+.report-section-charts-summary::-webkit-details-marker { display: none; }
+.report-section-charts-summary:hover { background: var(--surface-hover); }
+.report-section--charts[open] > .report-section-charts-summary {
+    border-bottom-color: var(--border);
+    background: var(--surface);
+}
+.report-section--charts[open] > .report-section-charts-summary .report-section-chevron {
+    transform: rotate(180deg);
+}
+/* Le contenu graphiques (KPI + grilles) reçoit le padding de section */
+.report-section--charts { overflow: visible; }
+.report-section--charts > :not(.report-section-charts-summary) { padding: 0 var(--sp-4); }
+.report-section--charts > .rpt-kpi-row:first-of-type { padding-top: var(--sp-4); }
+.report-section--charts > .dashboard-grid:last-child { padding-bottom: var(--sp-4); }
+
+/* Sur écran étroit : timeline masquée (la page redevient pleine largeur) */
+@media (max-width: 1100px) {
+    .reports-layout { grid-template-columns: 1fr; }
+    .reports-timeline { display: none; }
+}
+
 .report-section {
     background: var(--surface);
     border: 1px solid var(--border);

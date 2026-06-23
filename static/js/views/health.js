@@ -12,7 +12,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, computeCapacityNextPI, getCurrentPi, extractPiNum, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry } from '../utils.js';
+import { esc, filterByTeam, sumBy, computeCapacityNextPI, getCurrentPi, extractPiNum, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -100,6 +100,7 @@ export function renderHealth(container) {
     const groupId     = store.get('group');
     const groups      = store.get('groups')    || [];
     const absences    = store.get('absences')  || [];
+    const members     = store.get('members')   || [];
     const piInfo      = store.get('piInfo');
     const piOffset    = store.get('piOffset')  || 0;
     const currentPiNum = getCurrentPi({ sprintInfo, piInfo });
@@ -135,20 +136,25 @@ export function renderHealth(container) {
         ? `<div class="health-velo-teams"><span class="health-velo-teams-lbl">Vélocité par équipe :</span>${teamsScope.map(tm => `<button class="health-velo-team-chip${tm === _veloSel ? ' is-active' : ''}" data-velo-team="${esc(tm)}">${esc(tm)}</button>`).join('')}</div>`
         : '';
 
-    // Compute : pour chaque équipe, pour chaque anomalie, count
+    // Filtre PI : si offset ≠ 0, on ne garde que les tickets du PI cible
+    const piTickets = (piOffset !== 0 && targetPiNum)
+        ? allTickets.filter(t => extractPiNum(t.sprintName || t.sprint_name || '') === targetPiNum)
+        : allTickets;
+
+    // Compute : pour chaque équipe → contexte d'anomalie (sprint + capacité/WIP)
     const ctxByTeam = {};
     for (const tm of teamsScope) {
         const ts = sprintInfo.teamSprints || [];
         const teamSprint = ts.find(s => s.team === tm && s.state === 'active') || ts.find(s => s.team === tm);
         const sprintStartMs = teamSprint?.startDate
             ? new Date(String(teamSprint.startDate).slice(0, 10)).getTime() : 0;
-        ctxByTeam[tm] = { sprintStartMs };
+        // Capacité du jour (membres présents, congés déduits) → seuil de WIP "élevé"
+        const wipCapacity = teamCapacity(tm, members, absences);
+        const wipMax       = wipThreshold(wipCapacity);
+        const wipCount     = countWip(piTickets.filter(t => t.team === tm));
+        const wipExceededTeams = wipCount > wipMax ? new Set([tm]) : new Set();
+        ctxByTeam[tm] = { sprintStartMs, wipCapacity, wipMax, wipCount, wipExceededTeams };
     }
-
-    // Filtre PI : si offset ≠ 0, on ne garde que les tickets du PI cible
-    const piTickets = (piOffset !== 0 && targetPiNum)
-        ? allTickets.filter(t => extractPiNum(t.sprintName || t.sprint_name || '') === targetPiNum)
-        : allTickets;
 
     const matrix = {}; // matrix[team][anomalyKey] = count
     const totals = {}; // totals[anomalyKey] = sum across teams
@@ -272,7 +278,7 @@ export function renderHealth(container) {
             ? piTickets.filter(t => t.team === tm && (t.sprintName === spName || t.sprint_name === spName))
             : piTickets.filter(t => t.team === tm);
         const done    = spTickets.filter(t => t.status === 'done');
-        const bufDone = done.filter(t => (t.labels||[]).some(l => /^buffer$/i.test(l)));
+        const bufDone = done.filter(t => isBufferItem(t));
 
         // Vélocité : JIRA > calculé depuis tickets Done
         const vPts = ref?.velocity     != null ? ref.velocity     : done.reduce((s, t) => s + (t.points||0), 0);
@@ -282,7 +288,7 @@ export function renderHealth(container) {
         // Vélocité planifiée = estimation JIRA au démarrage (Greenhopper `estimated`) si dispo,
         // sinon somme des points du périmètre courant. Le nombre de tickets n'étant pas snapshoté
         // par JIRA au lancement, on prend le périmètre courant du sprint comme meilleure approximation.
-        const bufPlanned = spTickets.filter(t => (t.labels||[]).some(l => /^buffer$/i.test(l)));
+        const bufPlanned = spTickets.filter(t => isBufferItem(t));
         const planTk     = spTickets.length;
         const planPts    = (ref?.estimated != null && ref.estimated > 0)
             ? ref.estimated
@@ -314,10 +320,10 @@ export function renderHealth(container) {
             });
             const spDone = spTk.filter(t => t.status === 'done');
             // Périmètre engagé "au lancement" de ce sprint (done ou non) — pour les colonnes Prévu.
-            const spBufAll = spTk.filter(t => (t.labels||[]).some(l => /^buffer$/i.test(l)));
+            const spBufAll = spTk.filter(t => isBufferItem(t));
             sprintTickets[sp.name] = {
                 done:    spDone,
-                bufDone: spDone.filter(t => (t.labels||[]).some(l => /^buffer$/i.test(l))),
+                bufDone: spDone.filter(t => isBufferItem(t)),
                 all:     spTk,
                 bufAll:  spBufAll,
                 planTk:     spTk.length,
@@ -657,7 +663,7 @@ function _openSprintModal(meta, teamName, metric) {
         });
         const _ticketRow = tk => {
             const who = tk.leader || tk.assignee || '';
-            const isBuf = (tk.labels || []).some(l => /^buffer$/i.test(l));
+            const isBuf = isBufferItem(tk);
             return `<tr class="htl-ticket-row" data-open-ticket="${esc(tk.id || '')}" title="Voir le détail du ticket">
                 <td class="htl-id">${esc(tk.id || '—')}</td>
                 <td class="htl-done">${tk.status === 'done' ? '<span class="htl-done-yes" title="Terminé">✓</span>' : '<span class="htl-done-no" title="Non terminé">·</span>'}</td>
@@ -816,9 +822,9 @@ function _openSprintModal(meta, teamName, metric) {
             meta.sprintTickets = meta.sprintTickets || {};
             meta.sprintTickets[sprintName] = {
                 done,
-                bufDone: done.filter(t => (t.labels || []).some(l => /^buffer$/i.test(l))),
+                bufDone: done.filter(t => isBufferItem(t)),
                 all: fetched,
-                bufAll: fetched.filter(t => (t.labels || []).some(l => /^buffer$/i.test(l))),
+                bufAll: fetched.filter(t => isBufferItem(t)),
             };
             host.innerHTML = _ticketsSection(sprintName, metric);
         } catch {

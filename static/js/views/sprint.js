@@ -1,18 +1,15 @@
 /**
  * Sprint board view - 3 modes, quick filters, support banner, daily activity,
- * alerts, burndown/burnup/CFD/flow charts.
+ * burndown/burnup/CFD/flow charts.
  */
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, filterByTeam, filterByMine, sumBy, pct, progressColor, fmtDate, fmtRelative, sortTickets, initials, hashColor, toast, getSprintForTeam } from '../utils.js';
-import { renderActivityList, bindActivityClicks } from '../components/activity.js';
-import { STATUS_ORDER, STATUS_LABELS, WIP_LIMITS, TYPE_LABELS } from '../config.js';
+import { esc, filterByTeam, filterByMine, sumBy, pct, progressColor, fmtDate, fmtRelative, sortTickets, initials, hashColor, toast, getSprintForTeam, isBufferItem, countBlocked, typeBadge, statusBadge } from '../utils.js';
+import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
+import { STATUS_ORDER, STATUS_LABELS, WIP_LIMITS } from '../config.js';
 import { renderCard, bindCardClicks } from '../components/card.js';
-import { renderBurndown, renderBurnup, renderCFD, renderThroughput, renderCycleTime, renderWIPAge } from '../components/charts.js';
-import { getSprintAlerts } from '../components/infopanel.js';
-import { renderCalBanner } from '../components/cal_banner.js';
-import { openAlertModal } from '../components/alert_modal.js';
+import { renderBoardChartsSection, mountBoardCharts } from '../components/board_charts.js';
 import { getSprintTicketsAsync } from '../components/sprint_tickets_modal.js';
 
 // Cache des tickets fetchés depuis JIRA pour un sprint passé sélectionné via le picker.
@@ -27,14 +24,107 @@ let _boardMode = localStorage.getItem('sb-board-mode') || 'columns';
 let _qfText = sessionStorage.getItem('sprint-qfText') || sessionStorage.getItem('sprint-search') || '';
 let _qfFilter = null; // 'blocked' | 'unassigned' | 'critical' | null
 let _chartsCollapsed = localStorage.getItem('sb-charts-collapsed') === 'true';
+let _chartsMounted = false; // évite un double-montage Chart.js si la section est repliée/dépliée sans re-render complet
 let _sprintContainer = null; // référence au conteneur pour _refreshBoard
 // Sprint sélectionné manuellement par l'utilisateur via le sélecteur. null = sprint actif par défaut.
 // Persisté dans store.sprintPick (consommé par pushHash → #sprint/<team>/<sprintName>) — lien partageable.
 const _getSprintPick = () => store.get('sprintPick') || null;
 const _setSprintPick = (name) => store.set('sprintPick', name || null);
 
+// ── Mode "Daily" (déclenché par le bouton "Aller au Daily" de l'infopanel) ─────────────
+// Lecture droite → gauche façon flux tiré : on scrolle vers la fin du board (Bloqués/Terminé)
+// pour finir le travail en cours avant d'en tirer du nouveau, et on flashe la colonne la plus
+// à droite qui a du contenu (priorité aux Bloqués, qui empêchent justement de tirer).
+let _dailyPendingScroll = false;
+let _dailyPendingHighlight = false;
+const DAILY_TIMER_MS = 15 * 60 * 1000;
+let _timerVisible = false;
+let _timerRunning = false;
+let _timerEndAt = 0;          // epoch ms — valide si _timerRunning
+let _timerRemainingMs = DAILY_TIMER_MS; // valide si en pause
+let _timerInterval = null;
+let _timerDoneNotified = false;
+
+/** Déclenché par le bouton "Aller au Daily" : scroll + flash colonne + (re)montre le timer. */
+export function enterDailyMode() {
+    _dailyPendingScroll = true;
+    _dailyPendingHighlight = true;
+    if (!_timerVisible) {
+        _timerVisible = true;
+        _timerRunning = true;
+        _timerEndAt = Date.now() + DAILY_TIMER_MS;
+        _timerRemainingMs = DAILY_TIMER_MS;
+        _timerDoneNotified = false;
+    }
+}
+
+function _timerMsLeft() {
+    return Math.max(0, _timerRunning ? _timerEndAt - Date.now() : _timerRemainingMs);
+}
+
+function _fmtTimer(ms) {
+    const s = Math.ceil(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** Câble le widget timer du daily : play/pause, fermeture, tick chaque seconde. */
+function _wireDailyTimer(container) {
+    clearInterval(_timerInterval);
+    const widget = container.querySelector('#daily-timer');
+    if (!widget) return;
+    const timeEl   = widget.querySelector('#daily-timer-time');
+    const toggleEl = widget.querySelector('#daily-timer-toggle');
+
+    const tick = () => {
+        const left = _timerMsLeft();
+        if (timeEl) timeEl.textContent = _fmtTimer(left);
+        widget.classList.toggle('daily-timer--warn', left > 0 && left <= 5 * 60 * 1000);
+        widget.classList.toggle('daily-timer--done', left <= 0);
+        if (left <= 0 && _timerRunning) {
+            _timerRunning = false;
+            if (!_timerDoneNotified) { _timerDoneNotified = true; toast('⏰ Daily terminé (15 min)'); }
+            if (toggleEl) { toggleEl.textContent = '▶'; toggleEl.title = 'Relancer'; }
+        }
+    };
+    tick();
+    _timerInterval = setInterval(tick, 1000);
+
+    toggleEl?.addEventListener('click', e => {
+        e.stopPropagation();
+        if (_timerRunning) {
+            _timerRunning = false;
+            _timerRemainingMs = _timerMsLeft();
+            toggleEl.textContent = '▶'; toggleEl.title = 'Reprendre';
+        } else {
+            _timerRunning = true;
+            _timerRemainingMs = _timerRemainingMs > 0 ? _timerRemainingMs : DAILY_TIMER_MS;
+            _timerEndAt = Date.now() + _timerRemainingMs;
+            _timerDoneNotified = false;
+            toggleEl.textContent = '⏸'; toggleEl.title = 'Pause';
+        }
+        tick();
+    });
+    widget.querySelector('#daily-timer-close')?.addEventListener('click', e => {
+        e.stopPropagation();
+        _timerVisible = false;
+        clearInterval(_timerInterval);
+        widget.remove();
+    });
+}
+
+/** Replie la section graphiques (ex: avant un raccourci "Aller au Daily" — on veut le board, pas les métriques). */
+export function collapseCharts() {
+    _chartsCollapsed = true;
+    localStorage.setItem('sb-charts-collapsed', 'true');
+}
+
 export function renderSprint(container) {
     _sprintContainer = container;
+    // Mode d'affichage : priorité au hash (store.sprintLayout, posé par applyHash) sinon localStorage.
+    const _layoutFromHash = store.get('sprintLayout');
+    if (_layoutFromHash && ['columns', 'swimlanes', 'list'].includes(_layoutFromHash)) {
+        _boardMode = _layoutFromHash;
+    }
     const team = store.get('team');
     const allTickets = store.get('tickets') || [];
     const teamTickets = filterByMine(filterByTeam(allTickets, team));
@@ -136,7 +226,7 @@ export function renderSprint(container) {
     })();
 
     // Quick filter
-    const blocked = tickets.filter(t => t.status === 'blocked').length;
+    const blocked = countBlocked(tickets);
     const unassigned = tickets.filter(t => !t.leader && !t.assignee).length;
     const critical = tickets.filter(t => t.priority === 'critical' || t.priority === 'high').length;
 
@@ -225,11 +315,8 @@ export function renderSprint(container) {
         return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
     };
 
-    // Alerts
-    const alerts = getSprintAlerts(tickets, sprintInfo);
-
-    // Buffer
-    const bufferTickets = tickets.filter(t => (t.labels || []).some(l => l.toLowerCase().includes('buffer')));
+    // Buffer (détection via helper unique isBufferItem)
+    const bufferTickets = tickets.filter(isBufferItem);
     const bufferPts = sumBy(bufferTickets, t => t.points);
     const bufferDone = sumBy(bufferTickets.filter(t => t.status === 'done'), t => t.points);
 
@@ -251,16 +338,6 @@ export function renderSprint(container) {
                     ${currentSupport[0] ? `<span class="support-banner-dates" title="${fmtDate(currentSupport[0].weekStart)} → ${fmtDate(currentSupport[0].weekEnd)}">${esc(_shortRange(currentSupport[0].weekStart, currentSupport[0].weekEnd))}</span>` : ''}
                 </div>
             ` : ''}
-
-            <div id="cal-banner-wrap"></div>
-
-            ${alerts.length ? `<div class="alert-bar">${alerts.map(a => {
-                const clickable = !!a.actionable;
-                const cls = `alert-item alert-${a.type}${clickable ? ' alert-item--clickable' : ''}`;
-                const attr = clickable ? ` data-alert-action="${esc(a.actionable)}" title="Cliquer pour agir sur ces tickets" role="button" tabindex="0"` : '';
-                const cta = clickable ? '<span class="alert-item-cta" aria-hidden="true">→</span>' : '';
-                return `<div class="${cls}"${attr}>${esc(a.text)}${cta}</div>`;
-            }).join('')}</div>` : ''}
 
             ${sprintCandidates.length > 1 ? `
             <div class="sprint-picker" title="Sélectionnez un sprint des PI ${activePi - 1} / ${activePi} / ${activePi + 1}">
@@ -306,6 +383,13 @@ export function renderSprint(container) {
                         ${bufferPts ? `<div class="sprint-stat">Buffer: <strong>${bufferDone}/${bufferPts}</strong></div>` : ''}
                     </div>
                     <div class="sprint-quick-actions">
+                        ${_timerVisible ? `
+                        <div class="daily-timer" id="daily-timer">
+                            <span class="daily-timer-icon">⏱</span>
+                            <span class="daily-timer-time" id="daily-timer-time">${_fmtTimer(_timerMsLeft())}</span>
+                            <button class="daily-timer-toggle" id="daily-timer-toggle" type="button" title="${_timerRunning ? 'Pause' : 'Reprendre'}">${_timerRunning ? '⏸' : '▶'}</button>
+                            <button class="daily-timer-close" id="daily-timer-close" type="button" title="Fermer">✕</button>
+                        </div>` : ''}
                         <button class="btn btn-sm btn-secondary" id="sprint-open-review" title="Compte-rendu Sprint Review (Confluence-ready)">📋 Review</button>
                         <button class="btn btn-sm btn-primary" id="sprint-open-demo" title="Mode Démo fullscreen (présentation TV)">📺 Demo</button>
                     </div>
@@ -329,57 +413,15 @@ export function renderSprint(container) {
             </div>
         </div>
 
-        <!-- Charts (collapsible) -->
-        <details ${_chartsCollapsed ? '' : 'open'} id="charts-section">
-            <summary class="text-xs font-semibold text-muted mb-2">Metriques sprint</summary>
-            <div class="dashboard-grid mb-4">
-                <div class="card"><div class="card-header"><span class="card-title">Burndown</span></div><div class="chart-container chart-h-sm"><canvas id="chart-burndown"></canvas></div></div>
-                <div class="card"><div class="card-header"><span class="card-title">Burnup</span></div><div class="chart-container chart-h-sm"><canvas id="chart-burnup"></canvas></div></div>
-            </div>
-            <div class="dashboard-grid mb-4">
-                <div class="card"><div class="card-header"><span class="card-title">CFD</span></div><div class="chart-container chart-h-sm"><canvas id="chart-cfd"></canvas></div></div>
-                <div class="card"><div class="card-header"><span class="card-title">Throughput</span></div><div class="chart-container chart-h-sm"><canvas id="chart-throughput"></canvas></div></div>
-            </div>
-            <div class="dashboard-grid mb-4">
-                <div class="card"><div class="card-header"><span class="card-title">Cycle Time</span></div><div class="chart-container chart-h-sm"><canvas id="chart-cycletime"></canvas></div></div>
-                <div class="card">
-                    <div class="card-header">
-                        <span class="card-title">WIP Age</span>
-                        <span class="card-subtitle" title="Age = jours depuis la mise en cours (ou la création si pas encore mis en cours).&#10;Seuils colorés : 🟢 OK · 🟡 attention (≥70% du p85 cycle time des tickets done) · 🔴 critique (≥p85).&#10;Si pas assez de tickets done : seuils fixes 🟡≥7j / 🔴≥14j.">ⓘ comment ça marche</span>
-                    </div>
-                    <div class="chart-container chart-h-sm"><canvas id="chart-wipage"></canvas></div>
-                    <div class="wip-age-legend">
-                        <span class="wip-age-legend-item"><span class="wip-age-swatch" style="background:#10B981"></span>OK · &lt; 70% p85</span>
-                        <span class="wip-age-legend-item"><span class="wip-age-swatch" style="background:#F59E0B"></span>Attention · ≥ 70% p85</span>
-                        <span class="wip-age-legend-item"><span class="wip-age-swatch" style="background:#EF4444"></span>Critique · ≥ p85 (à débloquer)</span>
-                    </div>
-                </div>
-            </div>
-        </details>
+        <!-- Charts (collapsible) — composant partagé Scrum/Kanban -->
+        ${renderBoardChartsSection({ collapsed: _chartsCollapsed, sectionId: 'charts-section' })}
 
         <!-- Board -->
         <div id="board-container"></div>
 
         <!-- Recent Activity (composant partagé) -->
-        <details class="card mt-4 card-collapsible">
-            <summary class="card-header"><span class="card-title">Activité récente</span><span class="card-collapse-icon">▸</span></summary>
-            <div id="sprint-activity-list"></div>
-        </details>
+        ${renderActivityCard(tickets, { max: 20, scope: 'sprint' })}
     `;
-
-    renderCalBanner(container.querySelector('#cal-banner-wrap'));
-
-    // Alert-bar cliquable → ouvre la modal d'action (même qu'au clic sur panel-alert)
-    container.querySelectorAll('.alert-item[data-alert-action]').forEach(el => {
-        const open = () => {
-            const actionable = el.dataset.alertAction;
-            if (actionable) openAlertModal(actionable);
-        };
-        el.addEventListener('click', open);
-        el.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
-        });
-    });
 
     // ── Wire events ───────────────────────────────────────────────────────────
     // Sprint Review / Demo — délégué aux helpers exposés sur window.__squadBoard
@@ -426,21 +468,27 @@ export function renderSprint(container) {
         _refreshBoard(container);
     });
 
-    // Board modes
+    // Board modes (colonnes / swimlanes / liste) — le mode est aussi reflété dans le hash
+    // (#sprint/<team>/[pick/]<mode>, mode "columns" par défaut omis) → lien partageable.
     container.querySelectorAll('.board-mode-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             _boardMode = btn.dataset.mode;
             localStorage.setItem('sb-board-mode', _boardMode);
+            store.set('sprintLayout', _boardMode);
             container.querySelectorAll('.board-mode-btn').forEach(b =>
                 b.classList.toggle('active', b.dataset.mode === _boardMode));
+            window.__squadBoard?.pushHash?.();
             _refreshBoard(container);
         });
     });
 
-    // Charts collapse state
+    // Charts collapse state — si on déplie une section jamais montée (ex: arrivée avec
+    // collapseCharts() forcé), on monte les graphiques à la demande plutôt que de laisser
+    // les canvas vides jusqu'au prochain re-render complet.
     container.querySelector('#charts-section')?.addEventListener('toggle', e => {
         _chartsCollapsed = !e.target.open;
         localStorage.setItem('sb-charts-collapsed', _chartsCollapsed);
+        if (e.target.open && !_chartsMounted) { mountBoardCharts(tickets, sprintCtx, events); _chartsMounted = true; }
     });
 
     // ── Render board mode ─────────────────────────────────────────────────────
@@ -452,24 +500,35 @@ export function renderSprint(container) {
     bindCardClicks(container);
     wireDragDrop(boardContainer);
 
-    // ── Render activity feed (composant partagé avec Dashboard/Kanban) ───────
-    const actEl = container.querySelector('#sprint-activity-list');
-    if (actEl) {
-        actEl.innerHTML = renderActivityList(tickets, { max: 20, scope: 'sprint' });
-        bindActivityClicks(actEl);
+    // ── Mode Daily : scroll droite→gauche (flux tiré) + flash de la colonne prioritaire ───
+    if (_boardMode === 'columns' && (_dailyPendingScroll || _dailyPendingHighlight)) {
+        const board = boardContainer.querySelector('.board');
+        const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        if (board && _dailyPendingScroll) {
+            requestAnimationFrame(() => board.scrollTo({ left: board.scrollWidth, behavior: reduce ? 'auto' : 'smooth' }));
+        }
+        if (board && _dailyPendingHighlight) {
+            // Priorité : Bloqués (ce qui empêche de tirer le flux), sinon la colonne non-vide la plus à droite.
+            const cols = [...board.querySelectorAll('.board-column:not(.board-column--empty)')];
+            const target = cols.find(c => c.querySelector('.column-header.col-blocked')) || cols[cols.length - 1];
+            if (target) {
+                target.classList.add('board-column--daily-pulse');
+                setTimeout(() => target.classList.remove('board-column--daily-pulse'), 2600);
+            }
+        }
+        _dailyPendingScroll = false;
+        _dailyPendingHighlight = false;
     }
 
-    // ── Render charts ─────────────────────────────────────────────────────────
-    if (!_chartsCollapsed) {
-        requestAnimationFrame(() => {
-            renderBurndown('chart-burndown', tickets, sprintCtx, events);
-            renderBurnup('chart-burnup', tickets, sprintCtx, events);
-            renderCFD('chart-cfd', tickets, sprintCtx, events);
-            renderThroughput('chart-throughput', tickets, sprintCtx, events);
-            renderCycleTime('chart-cycletime', tickets);
-            renderWIPAge('chart-wipage', tickets);
-        });
-    }
+    // ── Activity feed (composant partagé avec Dashboard/Kanban) ─────────────
+    bindActivityClicks(container);
+
+    // ── Render charts (composant partagé Scrum/Kanban) ──────────────────────────
+    _chartsMounted = !_chartsCollapsed;
+    if (_chartsMounted) mountBoardCharts(tickets, sprintCtx, events);
+
+    // ── Widget timer Daily ───────────────────────────────────────────────────
+    _wireDailyTimer(container);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -630,9 +689,14 @@ function renderListView(el, tickets) {
             <div class="board-list-row${t.flagged ? ' flagged' : ''}" data-ticket-id="${esc(t.id)}">
                 <span class="ticket-id">${esc(t.id)}</span>
                 <span class="truncate">${esc(t.title)}</span>
-                <span><span class="badge badge-type badge-${t.type}">${esc(TYPE_LABELS[t.type] || t.type)}</span></span>
-                <span><span class="badge badge-${t.status} badge-status" title="${esc(STATUS_LABELS[t.status] || t.status)} (interne)">${esc(t.jiraStatus || _colLabel(t.status))}</span></span>
-                <span class="truncate text-xs">${esc(t.leader || t.assignee || '-')}</span>
+                <span>${typeBadge(t.type)}</span>
+                <span>${statusBadge(t, { label: t.jiraStatus || _colLabel(t.status), attrs: `title="${esc((STATUS_LABELS[t.status] || t.status))} (interne)"`, title: false })}</span>
+                <span class="board-list-assignee text-xs">${(() => {
+                    const a = t.leader || t.assignee;
+                    return a
+                        ? `<span class="assignee-avatar" style="background:${hashColor(a)};color:white;width:20px;height:20px;font-size:8px" title="${esc(a)}">${esc(initials(a))}</span>`
+                        : '<span class="text-muted">-</span>';
+                })()}</span>
                 <span class="text-xs text-muted">${esc(t.team || '-')}</span>
                 <span class="text-xs font-semibold">${t.points || '-'}</span>
             </div>

@@ -5,7 +5,7 @@
 
 import { store } from '../state.js';
 import { NAV_ITEMS } from '../config.js';
-import { esc, debounce, getStatusLabel, getCurrentPi, getSprintForTeam } from '../utils.js';
+import { esc, debounce, statusBadge, getCurrentPi, getSprintForTeam, relevantCalendars, lastCalendarSync } from '../utils.js';
 import { toggleFavoritesDropdown } from './favorites.js';
 
 let _topbarInited = false;
@@ -128,6 +128,42 @@ export function initTopbar() {
     store.on('sprintInfo', updatePiSelector);
     updatePiSelector();
 
+    // ── Badge de fraîcheur des agendas ICS (à côté du Sync JIRA) ────────────────
+    // Les calendriers ICS n'ont pas d'auto-refresh (seul JIRA en a un) : on signale
+    // ici quand la dernière synchro dépasse le seuil, et un clic relance la synchro.
+    const CAL_STALE_HOURS = 6;
+    const calBtn = document.getElementById('btn-cal-sync');
+    function updateCalFreshness() {
+        if (!calBtn) return;
+        const cals = store.get('calendars') || [];
+        const team = store.get('team');
+        if (!relevantCalendars(cals, team).length) { calBtn.hidden = true; return; }
+        calBtn.hidden = false;
+        const last = lastCalendarSync(cals, team);
+        const ageH = last ? Math.floor((Date.now() - new Date(last).getTime()) / 3600000) : Infinity;
+        const stale = ageH >= CAL_STALE_HOURS;
+        calBtn.classList.toggle('cal-sync-badge--stale', stale);
+        const lastTxt = last
+            ? new Date(last).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+            : 'jamais';
+        calBtn.dataset.tooltip = stale
+            ? `Agendas ICS possiblement périmés (synchro : ${lastTxt}) — cliquer pour rafraîchir`
+            : `Agendas ICS à jour (synchro : ${lastTxt}) — cliquer pour rafraîchir`;
+    }
+    calBtn?.addEventListener('click', async () => {
+        if (calBtn.classList.contains('cal-sync-spin')) return;
+        calBtn.classList.add('cal-sync-spin');
+        try {
+            const { syncCalendars } = await import('./cal_banner.js');
+            await syncCalendars();
+        } catch { /* toast déjà affiché par syncCalendars */ }
+        finally { calBtn.classList.remove('cal-sync-spin'); updateCalFreshness(); }
+    });
+    store.on('calendars',      updateCalFreshness);
+    store.on('calendarEvents', updateCalFreshness);
+    store.on('team',           updateCalFreshness);
+    updateCalFreshness();
+
     // Search
     const doSearch = debounce(query => {
         store.set('searchQuery', query);
@@ -211,7 +247,7 @@ function renderSearchResults(query) {
         <div class="search-result-item" data-id="${esc(t.id)}">
             <span class="ticket-id">${esc(t.id)}</span>
             <span class="truncate">${esc(t.title)}</span>
-            <span class="badge badge-${t.status} badge-status">${esc(getStatusLabel(t))}</span>
+            ${statusBadge(t)}
         </div>
     `).join('');
 

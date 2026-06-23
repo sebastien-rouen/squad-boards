@@ -3,6 +3,8 @@
  * Partagé entre reports.js et pi.js.
  */
 
+import { copyToClipboard } from '../utils.js';
+
 export const SONDAGE_TEMPLATES = [
   { theme: ':roller_coaster: Votre humeur en 1 emoji ?',
     responses: [
@@ -104,6 +106,76 @@ export const SONDAGE_TEMPLATES = [
     ],
     footer: `Attachez vos ceintures et votez ! :seat:`,
   },
+  { theme: ':coffee: Ce sprint en termes de café ?',
+    responses: [
+      { n: ':one:',   text: `"Décaféiné froid de la veille" - aucune énergie, aucun goût :face_with_spiral_eyes:` },
+      { n: ':two:',   text: `"Café de la machine à 30 centimes" - ça passe parce qu'il faut bien :neutral_face:` },
+      { n: ':three:', text: `"Allongé du matin" - correct, sans plus :coffee:` },
+      { n: ':four:',  text: `"Bon expresso de barista" - ça réveille et c'est bon :sparkles:` },
+      { n: ':five:',  text: `"Triple shot artisanal" - SUPER PRODUCTIF, j'ai tout déchiré :zap::muscle:` },
+    ],
+    footer: `Servez-vous une tasse et votez ! :coffee:`,
+  },
+  { theme: ':mountain: Ce sprint comme une randonnée ?',
+    responses: [
+      { n: ':one:',   text: `"Perdu en montagne sous l'orage" - où est le chemin ?! :tornado:` },
+      { n: ':two:',   text: `"Montée raide sans pause" - les jambes en feu :fire:` },
+      { n: ':three:', text: `"Sentier vallonné" - quelques montées, quelques descentes :hiking_boot:` },
+      { n: ':four:',  text: `"Belle balade avec vue" - effort récompensé :sunny:` },
+      { n: ':five:',  text: `"Sommet atteint au lever du soleil" :mountain::sparkles: - vue imprenable !"` },
+    ],
+    footer: `Chaussez vos crampons et votez ! :hiking_boot:`,
+  },
+  { theme: ':ocean: Ce sprint en sortie en mer ?',
+    responses: [
+      { n: ':one:',   text: `"Naufrage" - on coule, sortez les canots :sos:` },
+      { n: ':two:',   text: `"Mer agitée, tout le monde a le mal de mer" :face_vomiting:` },
+      { n: ':three:', text: `"Houle modérée" - ça tangue mais on tient le cap :sailboat:` },
+      { n: ':four:',  text: `"Vent dans le dos" - on file droit vers l'objectif :dash:` },
+      { n: ':five:',  text: `"Mer d'huile + dauphins" :dolphin::ocean: - croisière parfaite !"` },
+    ],
+    footer: `Hissez les voiles et votez ! :sailboat:`,
+  },
+  { theme: ':dragon: Ce sprint en quête héroïque ?',
+    responses: [
+      { n: ':one:',   text: `"Game over dès le premier donjon" - le dragon a gagné :dragon::skull:` },
+      { n: ':two:',   text: `"Combat de boss interminable" - encore une potion ? :crossed_swords:` },
+      { n: ':three:', text: `"Quête secondaire" - utile mais on a oublié l'objectif principal :scroll:` },
+      { n: ':four:',  text: `"Niveau bouclé, loot correct" :shield: - on progresse bien` },
+      { n: ':five:',  text: `"Trésor légendaire débloqué" :crown::sparkles: - épopée réussie !"` },
+    ],
+    footer: `Tirez l'épée et votez ! :crossed_swords:`,
+  },
+  { theme: ':snowflake: La saison de ce sprint ?',
+    responses: [
+      { n: ':one:',   text: `"Hiver glacial" - tout est gelé, rien n'avance :snowflake:` },
+      { n: ':two:',   text: `"Automne pluvieux" - morose et un peu déprimant :cloud_with_rain:` },
+      { n: ':three:', text: `"Printemps capricieux" - ça repart, par à-coups :seedling:` },
+      { n: ':four:',  text: `"Bel été" - chaud, productif, agréable :sunny:` },
+      { n: ':five:',  text: `"Été indien parfait" :rainbow::sparkles: - le climat idéal !"` },
+    ],
+    footer: `Donnez la météo de votre sprint ! :thermometer:`,
+  },
+  { theme: ':pizza: Ce sprint en pizza ?',
+    responses: [
+      { n: ':one:',   text: `"Brûlée et froide" - immangeable :face_with_spiral_eyes:` },
+      { n: ':two:',   text: `"Surgelée passée au micro-ondes" - ça nourrit, sans joie :neutral_face:` },
+      { n: ':three:', text: `"Pizza correcte du coin" - ni bonne ni mauvaise :pizza:` },
+      { n: ':four:',  text: `"Bonne pizza au feu de bois" - généreuse et savoureuse :sparkles:` },
+      { n: ':five:',  text: `"Napolitaine d'un vrai pizzaiolo" :pizza::kissing_chef: - chef's kiss !"` },
+    ],
+    footer: `Coupez une part et votez ! :pizza:`,
+  },
+  { theme: ':rocket: Ce sprint en mission spatiale ?',
+    responses: [
+      { n: ':one:',   text: `"Explosion au décollage" - mission avortée :boom:` },
+      { n: ':two:',   text: `"Problème, Houston" - on improvise pour rentrer :satellite:` },
+      { n: ':three:', text: `"Orbite basse" - on tourne, sans avancer vraiment :artificial_satellite:` },
+      { n: ':four:',  text: `"Amarrage réussi" - mission solide :rocket:` },
+      { n: ':five:',  text: `"On a marché sur la Lune" :rocket::full_moon: - un pas de géant !"` },
+    ],
+    footer: `3, 2, 1… votez ! :rocket:`,
+  },
 ];
 
 export const FIST_SCALE = [
@@ -133,18 +205,38 @@ export const SLACK_EMOJI = {
   ':fuelpump:':'⛽',':tire:':'🛞',':checkered_flag:':'🏁',':sports_medal:':'🏅',
   ':dash:':'💨',':traffic_light:':'🚦',':airplane:':'✈️',':baby:':'👶',':cry:':'😢',
   ':leg:':'🦵',':briefcase:':'💼',':seat:':'💺',':loud_sound:':'🔊',
+  ':face_with_spiral_eyes:':'😵‍💫',':neutral_face:':'😐',':mountain:':'⛰️',':hiking_boot:':'🥾',
+  ':sos:':'🆘',':face_vomiting:':'🤮',':sailboat:':'⛵',':dolphin:':'🐬',':dragon:':'🐉',
+  ':crossed_swords:':'⚔️',':scroll:':'📜',':shield:':'🛡️',':snowflake:':'❄️',':seedling:':'🌱',
+  ':pizza:':'🍕',':boom:':'💥',':satellite:':'📡',':artificial_satellite:':'🛰️',':full_moon:':'🌕',
 };
 
 export function slackToEmoji(txt) {
   return txt.replace(/:[a-z_+]+:/g, m => SLACK_EMOJI[m] || m);
 }
 
-/** Génère le message Slack brut d'invitation au vote Mood Meter */
-export function buildMoodSlackRaw(sprintName) {
+/** Nombre de thèmes disponibles (pour le bouton « 🎲 Autre thème »). */
+export const SONDAGE_THEME_COUNT = SONDAGE_TEMPLATES.length;
+
+/** Index de thème déterministe à partir du nom de sprint (rotation auto par sprint). */
+export function moodThemeIndex(sprintName) {
   const m = (sprintName || '').match(/(\d+)\.(\d+)/);
   const sprintNum = m ? parseInt(m[1]) * 10 + parseInt(m[2]) : 0;
+  return sprintNum % SONDAGE_TEMPLATES.length;
+}
+
+/**
+ * Génère le message Slack brut d'invitation au vote Mood Meter.
+ * @param sprintName  nom du sprint (ex. "30.1") — détermine le thème par défaut.
+ * @param themeIndex  index de thème explicite (bouton « 🎲 Autre thème ») ; sinon rotation auto.
+ */
+export function buildMoodSlackRaw(sprintName, themeIndex = null) {
+  const m = (sprintName || '').match(/(\d+)\.(\d+)/);
   const sprintLabel = m ? ` ${m[1]}.${m[2]}` : '';
-  const tpl = SONDAGE_TEMPLATES[sprintNum % SONDAGE_TEMPLATES.length];
+  const idx = themeIndex == null
+    ? moodThemeIndex(sprintName)
+    : ((themeIndex % SONDAGE_TEMPLATES.length) + SONDAGE_TEMPLATES.length) % SONDAGE_TEMPLATES.length;
+  const tpl = SONDAGE_TEMPLATES[idx];
   let raw = `[SONDAGE] Mood du sprint${sprintLabel} : ${tpl.theme}\n\n`;
   tpl.responses.forEach(r => { raw += `${r.n} = ${r.text}\n`; });
   raw += `\n→ ${tpl.footer}`;
@@ -160,5 +252,30 @@ export function buildFistSlackRaw(sprintName) {
   FIST_SCALE.forEach(r => { raw += `${r.n} *${r.label}* = ${r.text}\n`; });
   raw += `\n→ Votez avec un chiffre (1 à 5) pour enregistrer votre vote 🗳️`;
   return raw;
+}
+
+/**
+ * Texte explicatif bref affiché au-dessus du message Slack, selon le type de sondage.
+ * Rappelle à quoi sert le sondage et comment l'utiliser.
+ */
+export const SONDAGE_INTRO = {
+  mood: 'Mesure l\'humeur de l\'équipe en fin de sprint (1 à 5). Anonyme, ludique, ça lance la rétro et détecte l\'usure.',
+  fist: 'Vote de confiance (Fist of Five) sur l\'atteinte des objectifs du PI. Donne un signal partagé pour ajuster le plan.',
+};
+
+/**
+ * Câble un bouton de copie Slack de façon homogène (même comportement partout).
+ * Utilise le helper partagé copyToClipboard (fallback + toast inclus).
+ * @param btn      le bouton (HTMLElement) ; ses libellés sont gérés ici.
+ * @param getText  fonction renvoyant le texte brut à copier au moment du clic.
+ * @param label    libellé du bouton au repos (défaut « 📋 Copier »).
+ */
+export function wireSlackCopy(btn, getText, label = '📋 Copier') {
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const ok = await copyToClipboard(getText(), 'Message Slack copié');
+    btn.textContent = ok ? '✓ Copié !' : label;
+    setTimeout(() => { btn.textContent = label; }, 1500);
+  });
 }
   

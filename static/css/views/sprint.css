@@ -113,7 +113,7 @@
 }
 .sprint-dayleft--warn {
     background: color-mix(in srgb, var(--warning) 14%, transparent);
-    color: #92400e;
+    color: var(--amber-text);
     border-color: color-mix(in srgb, var(--warning) 40%, transparent);
 }
 .sprint-header-stats {
@@ -133,11 +133,11 @@
 .sprint-stat-chip small  { color: var(--text-muted); margin-left: 2px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
 .sprint-stat-chip.sprint-delta--ahead {
     background: color-mix(in srgb, var(--success) 12%, transparent);
-    color: #047857;
+    color: var(--success-text);
 }
 .sprint-stat-chip.sprint-delta--behind {
     background: color-mix(in srgb, var(--warning) 14%, transparent);
-    color: #92400e;
+    color: var(--amber-text);
 }
 
 /* Objectif sprint en bandeau */
@@ -557,6 +557,50 @@
     .board-column { max-width: none; min-width: auto; }
 }
 
+/* Widget timer Daily — discret, affiché à l'arrivée via "Aller au Daily" */
+.daily-timer {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-full);
+    background: var(--primary-bg);
+    border: 1px solid var(--primary-border, var(--border));
+    font-size: var(--fs-xs);
+    transition: background var(--tr-fast), border-color var(--tr-fast);
+}
+.daily-timer-icon { line-height: 1; opacity: .8; }
+.daily-timer-time {
+    font-family: var(--font-mono);
+    font-weight: var(--fw-semibold);
+    color: var(--primary);
+    min-width: 34px;
+    text-align: center;
+}
+.daily-timer-toggle, .daily-timer-close {
+    background: none;
+    border: none;
+    padding: 0 2px;
+    cursor: pointer;
+    font-size: var(--fs-xs);
+    line-height: 1;
+    color: var(--text-muted);
+    opacity: .75;
+    transition: opacity .15s;
+}
+.daily-timer-toggle:hover, .daily-timer-close:hover { opacity: 1; }
+.daily-timer--warn {
+    background: var(--warning-bg);
+    border-color: var(--warning-border);
+}
+.daily-timer--warn .daily-timer-time { color: var(--warning); }
+.daily-timer--done {
+    background: var(--danger-bg);
+    border-color: var(--danger-border);
+    animation: daily-pulse 1.2s ease-in-out infinite;
+}
+.daily-timer--done .daily-timer-time { color: var(--danger); }
+
 /* Board View Mode Toggle */
 .board-modes {
     display: inline-flex;
@@ -583,7 +627,7 @@
 .board-list { display: flex; flex-direction: column; gap: 1px; }
 .board-list-row {
     display: grid;
-    grid-template-columns: 80px 2fr auto 100px 90px 80px 60px;
+    grid-template-columns: 80px 2fr auto minmax(0, 140px) 90px 80px 60px;
     gap: var(--sp-2);
     align-items: center;
     padding: var(--sp-2) var(--sp-3);
@@ -595,9 +639,20 @@
 }
 .board-list-row:hover { background: var(--surface-hover); }
 .board-list-row.flagged { border-left: 3px solid var(--danger); }
+/* Chaque cellule peut rétrécir → les badges tronquent au lieu de déborder sur la voisine */
+.board-list-row > span { min-width: 0; overflow: hidden; }
+/* Colonne Statut : le badge (parfois libellé JIRA long) s'ellipse dans sa cellule */
+.board-list-row > span > .badge-status {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+}
+/* Colonne "Assigné" : avatar à initiales (nom complet en title) */
+.board-list-assignee { display: inline-flex; align-items: center; overflow: visible; }
 .board-list-header {
     display: grid;
-    grid-template-columns: 80px 2fr auto 100px 90px 80px 60px;
+    grid-template-columns: 80px 2fr auto minmax(0, 140px) 90px 80px 60px;
     gap: var(--sp-2);
     padding: var(--sp-2) var(--sp-3);
     font-size: var(--fs-xs);
@@ -1014,6 +1069,25 @@
     gap: 2px;
     font-size: 0.6rem;
     color: var(--text-muted);
+}
+
+/* Badge "pas de mise à jour depuis hier" — repère discret pour le daily */
+.ticket-stale {
+    font-size: 0.6rem;
+    line-height: 1;
+    color: #b45309;
+    cursor: help;
+}
+[data-theme="dark"] .ticket-stale { color: #fbbf24; }
+
+/* Flash de la colonne prioritaire à l'arrivée en mode Daily (flux tiré : droite → gauche) */
+@keyframes daily-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50%      { box-shadow: 0 0 0 3px var(--primary); }
+}
+.board-column--daily-pulse {
+    animation: daily-pulse 0.85s ease-in-out 2;
+    border-radius: var(--r-lg);
 }
 
 /* Sync Stale Banner */

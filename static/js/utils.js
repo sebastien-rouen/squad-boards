@@ -2,7 +2,7 @@
  * Shared utility functions.
  */
 
-import { STATUS_MAP, STATUS_LABELS, TYPE_MAP } from './config.js';
+import { STATUS_MAP, STATUS_LABELS, TYPE_MAP, TYPE_LABELS, WIP_STATUSES } from './config.js';
 
 /**
  * Retourne le label d'affichage du statut d'un ticket.
@@ -15,6 +15,52 @@ export function getStatusLabel(ticket) {
     if (!ticket) return '';
     if (ticket.jiraStatus && String(ticket.jiraStatus).trim()) return ticket.jiraStatus;
     return STATUS_LABELS[ticket.status] || ticket.status || '';
+}
+
+/**
+ * Badge de TYPE de ticket — point d'entrée unique pour des couleurs/design homogènes.
+ * Couleurs & style : classes CSS `.badge .badge-type .badge-<type>` (cf. base.css).
+ *
+ * @param {string} type   clé interne (story, bug, task, support, ops, debt, epic, feature)
+ * @param {object} [opts]
+ * @param {string} [opts.size]   '2xs' | 'sm' → ajoute `badge-<size>`
+ * @param {string} [opts.extra]  classes additionnelles
+ * @param {string} [opts.attrs]  attributs HTML bruts (déjà échappés par l'appelant)
+ * @param {string} [opts.label]  libellé forcé (sinon TYPE_LABELS[type] ou la clé)
+ * @param {boolean}[opts.title]  ajoute un title = libellé (défaut true)
+ * @returns {string} HTML du badge
+ */
+export function typeBadge(type, opts = {}) {
+    const t = type || '';
+    const label = opts.label != null ? opts.label : (TYPE_LABELS[t] || t || '?');
+    const size  = opts.size ? ` badge-${opts.size}` : '';
+    const extra = opts.extra ? ` ${opts.extra}` : '';
+    const title = opts.title === false ? '' : ` title="${esc(label)}"`;
+    const attrs = opts.attrs ? ` ${opts.attrs}` : '';
+    return `<span class="badge badge-type badge-${esc(t)}${size}${extra}"${title}${attrs}>${esc(label)}</span>`;
+}
+
+/**
+ * Badge de STATUT de ticket — point d'entrée unique (couleurs/design homogènes).
+ * Classes CSS `.badge .badge-status .badge-<statusKey>` (cf. base.css).
+ *
+ * @param {object} ticket  ticket (utilise t.status pour la couleur, getStatusLabel pour le libellé)
+ * @param {object} [opts]
+ * @param {string} [opts.size]    '2xs' | 'sm'
+ * @param {string} [opts.extra]   classes additionnelles
+ * @param {string} [opts.attrs]   attributs HTML bruts
+ * @param {string} [opts.label]   libellé forcé (sinon getStatusLabel(ticket))
+ * @param {boolean}[opts.title]   ajoute un title (défaut true)
+ * @returns {string} HTML du badge
+ */
+export function statusBadge(ticket, opts = {}) {
+    const key   = ticket?.status || '';
+    const label = opts.label != null ? opts.label : getStatusLabel(ticket);
+    const size  = opts.size ? ` badge-${opts.size}` : '';
+    const extra = opts.extra ? ` ${opts.extra}` : '';
+    const title = opts.title === false ? '' : ` title="${esc(label)}"`;
+    const attrs = opts.attrs ? ` ${opts.attrs}` : '';
+    return `<span class="badge badge-${esc(key)} badge-status${size}${extra}"${title}${attrs}>${esc(label)}</span>`;
 }
 
 /** Escape HTML to prevent XSS. */
@@ -675,6 +721,80 @@ export function getCurrentPi({ sprintInfo, piInfo } = {}) {
     return extractPiNum(si?.name) || pi?.number || 0;
 }
 
+/**
+ * SOURCE UNIQUE de résolution des objectifs PI à afficher pour un PI donné — partagée par
+ * le Dashboard (carte « Atteinte ») et PI Planning (onglet Objectifs). Évite le footgun
+ * historique « doit rester cohérent entre les deux vues » (clé de lecture du snapshot).
+ *
+ * Règle : PI courant → jeu vivant `piInfo.objectives` s'il est non vide, sinon snapshot
+ * `piObjectives[piNum]`. PI passé → snapshot, puis fallback localStorage legacy si fourni.
+ * Renvoie la liste BRUTE (ni filtre texte, ni filtre équipe) — chaque appelant applique
+ * ensuite ses propres filtres (l'éditeur PI a besoin des lignes vides/en cours de saisie).
+ *
+ * @param {object} opts { piInfo, piNum, isCurrentPi, legacyLsKey? }
+ * @returns {Array} objectifs bruts pour ce PI
+ */
+export function resolvePiObjectives({ piInfo, piNum, isCurrentPi, legacyLsKey = null } = {}) {
+    const snap = (piInfo?.piObjectives || {})[String(piNum)] || null;
+    const live = piInfo?.objectives || [];
+    if (isCurrentPi) return live.length ? live : (snap || []);
+    if (snap) return snap;
+    if (legacyLsKey) {
+        try { return JSON.parse(localStorage.getItem(legacyLsKey) || '[]'); } catch { return []; }
+    }
+    return [];
+}
+
+/**
+ * Compare une baseline de commitment PI (snapshot figé) à l'état courant des features du PI.
+ * Baseline et live partagent la forme { id, title, team, points, status }.
+ * @returns {{engagedPts, deliveredPts, addedPts, removedPts, added, removed, addedCount, removedCount, sayDo, capturedAt}}
+ */
+export function computeCommitment(baseline, liveFeatures) {
+    const base = baseline?.features || [];
+    const live = liveFeatures || [];
+    const baseIds = new Set(base.map(f => f.id));
+    const liveById = new Map(live.map(f => [f.id, f]));
+    const liveIds = new Set(live.map(f => f.id));
+    const engagedPts = base.reduce((s, f) => s + (f.points || 0), 0);
+    // Livré = features engagées (baseline) encore présentes et désormais "done".
+    const deliveredPts = base.reduce((s, f) => {
+        const cur = liveById.get(f.id);
+        return s + (cur && cur.status === 'done' ? (cur.points || 0) : 0);
+    }, 0);
+    const added   = live.filter(f => !baseIds.has(f.id));   // scope creep
+    const removed = base.filter(f => !liveIds.has(f.id));   // descopé
+    const addedPts   = added.reduce((s, f) => s + (f.points || 0), 0);
+    const removedPts = removed.reduce((s, f) => s + (f.points || 0), 0);
+    return {
+        engagedPts, deliveredPts, addedPts, removedPts,
+        added, removed, addedCount: added.length, removedCount: removed.length,
+        sayDo: engagedPts > 0 ? Math.round((deliveredPts / engagedPts) * 100) : null,
+        capturedAt: baseline?.capturedAt || null,
+    };
+}
+
+/**
+ * Calendriers pertinents pour une équipe : ceux sans équipe (= globaux/toutes) OU de l'équipe
+ * courante. Si team est vide/'all', renvoie tous les calendriers. Source unique — utilisée par
+ * le bandeau agenda, la modale semaine, l'infopanel et le badge de fraîcheur topbar.
+ */
+export function relevantCalendars(calendars, team) {
+    const cals = calendars || [];
+    return (team && team !== 'all')
+        ? cals.filter(c => !c.team || c.team === team)
+        : cals;
+}
+
+/**
+ * Date ISO de la synchro la plus récente parmi les calendriers pertinents (cf. relevantCalendars).
+ * @returns {string} ISO de `lastFetched` le plus récent, ou '' si aucune synchro.
+ */
+export function lastCalendarSync(calendars, team) {
+    return relevantCalendars(calendars, team)
+        .reduce((mx, c) => (c.lastFetched && c.lastFetched > mx) ? c.lastFetched : mx, '');
+}
+
 export function getSprintForTeam(team, sprintInfo = null, targetDate = null) {
     const si = sprintInfo || (typeof window !== 'undefined' && window.__squadBoard?.store?.get('sprintInfo'));
     if (!si) return null;
@@ -732,6 +852,64 @@ export function getSprintForTeam(team, sprintInfo = null, targetDate = null) {
         jiraId: si.jiraId,
         jiraBoardId: si.jiraBoardId,
     };
+}
+
+/**
+ * SOURCE UNIQUE de détection « buffer » d'un ticket/feature. Convention : un label
+ * **exactement** égal à « buffer » (insensible à la casse). Avant, roadmap/pi utilisaient
+ * un match sous-chaîne `/buffer/i` (faux positifs « buffer-xxx ») alors que health.js utilisait
+ * déjà `/^buffer$/i` → chiffres divergents. On converge ici sur la sémantique stricte de health.
+ * @param {{labels?: string[]}} item
+ * @returns {boolean}
+ */
+export function isBufferItem(item) {
+    return (item?.labels || []).some(l => /^buffer$/i.test(l));
+}
+
+/**
+ * Ventilation vélocité / buffer / feature d'un lot de tickets — source unique partagée par
+ * la Roadmap et PI Planning (évite les calculs divergents).
+ * @param {Array} tickets
+ * @returns {{totalPts, donePts, bufferPts, bufferDonePts, featurePts, featureDonePts}}
+ */
+export function computeVelocityBreakdown(tickets) {
+    const list = tickets || [];
+    const _pts = t => t.points || 0;
+    const done = list.filter(t => t.status === 'done');
+    const bufAll = list.filter(isBufferItem);
+    const bufDone = bufAll.filter(t => t.status === 'done');
+    const totalPts      = sumBy(list, _pts);
+    const donePts       = sumBy(done, _pts);
+    const bufferPts     = sumBy(bufAll, _pts);
+    const bufferDonePts = sumBy(bufDone, _pts);
+    return {
+        totalPts, donePts, bufferPts, bufferDonePts,
+        featurePts:     totalPts - bufferPts,
+        featureDonePts: donePts - bufferDonePts,
+    };
+}
+
+/**
+ * Indicateurs de flux — sources uniques partagées par Dashboard (vue d'ensemble),
+ * Board (sprint courant) et Santé. Évite les définitions divergentes d'une vue à l'autre.
+ */
+/** Nombre de tickets bloqués. */
+export function countBlocked(tickets) {
+    return (tickets || []).filter(t => t.status === 'blocked').length;
+}
+/** Nombre de tickets en cours (WIP) — statuts WIP_STATUSES (inprog/review/test). */
+export function countWip(tickets) {
+    return (tickets || []).filter(t => WIP_STATUSES.includes(t.status)).length;
+}
+/**
+ * Débit (throughput) : nb de tickets passés en « done » avec `resolvedDate` dans les
+ * `days` derniers jours. Définition canonique (le Dashboard l'utilisait déjà inline).
+ */
+export function throughputSince(tickets, days = 7) {
+    const cutoff = Date.now() - days * 86400000;
+    return (tickets || []).filter(t =>
+        t.status === 'done' && t.resolvedDate && new Date(t.resolvedDate).getTime() >= cutoff
+    ).length;
 }
 
 /**
@@ -832,7 +1010,7 @@ export function computeCurrentSprintEntry(tickets, sprintInfo, team = null) {
         if (!validKeys.has(k)) continue;
         liveTotal += t.points || 0;
         if (t.status === 'done') completed += t.points || 0;
-        if ((t.labels || []).some(l => /^Buffer$/i.test(l))) bufferPoints += t.points || 0;
+        if (isBufferItem(t)) bufferPoints += t.points || 0;
     }
     if (liveTotal > 0) estimated = liveTotal; // priorité au calcul live
 
@@ -953,7 +1131,7 @@ function _sumBufferTicketPoints(tickets, sprintName, team) {
     for (const t of tickets) {
         if ((t.sprintName || t.sprint_name) !== sprintName) continue;
         if (team && t.team !== team) continue;
-        if (!(t.labels || []).some(l => /^Buffer$/i.test(l))) continue;
+        if (!isBufferItem(t)) continue;
         sum += t.points || 0;
     }
     return sum;
@@ -1014,6 +1192,54 @@ export function deriveMembersFromAbsences(absences, members = []) {
         if (existing && m.role) existing.role = m.role;
     }
     return [...byKey.values()];
+}
+
+/**
+ * Capacité d'une équipe à une date donnée (par défaut aujourd'hui) : membres
+ * présents = roster (deriveMembersFromAbsences) moins les absents du jour.
+ * Source de vérité = table `absence` (CSV RH), conformément aux conventions du site.
+ *
+ * @param {string} team         nom d'équipe (normalisé via extractTeam)
+ * @param {Array}  members      store.members (rôles/autocomplete)
+ * @param {Array}  absences     store.absences
+ * @param {Date}   [at]         date de référence (défaut : maintenant)
+ * @returns {{ total:number, available:number, absent:number,
+ *             availableNames:string[], absentNames:string[] }}
+ */
+export function teamCapacity(team, members, absences, at = new Date()) {
+    const teamKey = extractTeam(team);
+    const roster = deriveMembersFromAbsences(absences, members)
+        .filter(m => extractTeam(m.team) === teamKey)
+        .map(m => m.name);
+    const day = at.toISOString().slice(0, 10); // YYYY-MM-DD
+    const absentToday = new Set(
+        (absences || [])
+            .filter(a => a.memberName && extractTeam(a.team) === teamKey
+                && a.startDate && a.endDate
+                && String(a.startDate).slice(0, 10) <= day
+                && String(a.endDate).slice(0, 10) >= day)
+            .map(a => a.memberName)
+    );
+    const availableNames = roster.filter(n => !absentToday.has(n));
+    const absentNames    = roster.filter(n => absentToday.has(n));
+    return {
+        total: roster.length,
+        available: availableNames.length,
+        absent: absentNames.length,
+        availableNames,
+        absentNames,
+    };
+}
+
+/**
+ * Seuil de WIP pour une équipe selon sa capacité du jour (membres présents).
+ * Heuristique : ~2 tickets en parallèle par personne présente, plancher à 3.
+ * Retourne le seuil entier au-delà duquel le WIP est jugé « élevé ».
+ */
+export const WIP_PER_MEMBER = 2;
+export function wipThreshold(capacity) {
+    const avail = Math.max(0, capacity?.available || 0);
+    return Math.max(3, Math.ceil(avail * WIP_PER_MEMBER));
 }
 
 // ── Rotation Support : règles métier centralisées ───────────────────────────

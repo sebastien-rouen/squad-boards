@@ -1,3 +1,241 @@
+## [3.62.0] - 2026-06-24
+
+### Feat : Planning Poker collaboratif en live (backend + polling)
+- **Le poker était 100 % local (localStorage)** : chaque participant ne voyait que ses propres votes, aucune synchro entre machines. Désormais les votes sont **partagés via le backend** et rafraîchis en direct.
+- **Backend** : nouveau modèle `PokerVote` ([app/models/agile.py](app/models/agile.py)), serializer `_poker_dict` ([app/serializers.py](app/serializers.py)), routeur ([app/routers/poker.py](app/routers/poker.py)) — `GET /api/poker/{ticket}`, `POST .../vote` (upsert par participant), `POST .../reveal`, `POST .../reset`, `DELETE .../voter/{voter}` (quitter). Enregistré dans [main.py](main.py). Données éphémères volontairement **hors de `/api/all`** (golden export inchangé). Table documentée dans [docs/regles-metier.md](docs/regles-metier.md).
+- **Frontend** ([modal.js](static/js/components/modal.js), [api.js](static/js/api.js)) : remplacement du localStorage par les appels API + **polling ~3 s** dans la modale ouverte (nettoyé à la fermeture). Le polling ne ré-écrase pas la saisie en cours (nom / points). L'identité du participant (`sb-poker-myname`) reste locale ; on apparaît côté serveur au 1er vote. « Révéler », « Nouveau tour », « Enregistrer » et « Quitter » deviennent collectifs (propagés à tous). Le bouton « Partager » est enfin pleinement fonctionnel.
+
+## [3.61.2] - 2026-06-24
+
+### Fix : bouton « Partager » du poker copiait un lien sans le suffixe /poker
+- Le lien de partage du Planning Poker ([modal.js](static/js/components/modal.js)) devait pointer vers la modale de ré-estimation (`.../ticket/<id>/poker`), mais lorsqu'on était **déjà** dans la modale poker (hash terminé par `/poker`), la logique retirait le suffixe sans le remettre → le lien copié n'ouvrait que le ticket, pas le vote. Normalisation simplifiée : on retire un `/poker` final éventuel puis on le rajoute systématiquement.
+
+## [3.61.1] - 2026-06-24
+
+### Fix : lien partagé alerte + ticket (ré-estimation poker) ne perdait plus l'alerte
+- **Parsing du hash** ([app.js](static/js/app.js)) : un lien combinant alerte et ticket (ex. `/#health/Gabbiano/alert/scopeCreep/ticket/GDEM-4117`) perdait le segment `/alert/scopeCreep` et redirigeait vers `/#health/Gabbiano/ticket/GDEM-4117`. La regex d'extraction de l'alerte était ancrée en fin de chaîne (`$`) et échouait dès qu'un `/ticket/…` suivait. On extrait désormais le **ticket d'abord** (toujours en fin), puis l'alerte sur le reste → les deux modales s'ouvrent correctement.
+- **Nettoyage du hash** ([alert_modal.js](static/js/components/alert_modal.js)) : `_clearAlertFromHash` retire maintenant le segment `/alert/<id>` même lorsqu'il est suivi d'un `/ticket/…`.
+- **Seuil WIP** ([utils.js](static/js/utils.js)) : passé de 1,5 à **2 tickets par membre présent** (`WIP_PER_MEMBER`).
+
+## [3.61.0] - 2026-06-24
+
+### Métier : « WIP élevé » basé sur la capacité réelle de l'équipe (congés déduits)
+- **Refonte de l'anomalie WIP** ([business_rules.js](static/js/business_rules.js)) : avant, l'alerte listait *tous* les tickets en cours (`inprog`/`review`/`test`) sans seuil — donc se déclenchait dès qu'il y avait du WIP, ce qui est normal. Désormais elle ne se déclenche que si le **WIP dépasse la capacité du jour de l'équipe**.
+- **Capacité = membres présents** (roster dérivé de la table `absence`, **moins les personnes en congé aujourd'hui**). Nouveaux helpers `teamCapacity()` / `wipThreshold()` ([utils.js](static/js/utils.js)) — seuil = ~1,5 ticket par membre présent, plancher à 3. Calculé **par équipe** (signal d'agrégat `wipExceededTeams`), un ticket seul n'est jamais une anomalie.
+- **Aligné aux 3 points d'entrée** : matrice/cartes Health ([health.js](static/js/views/health.js)), alerte proactive de l'info-panel ([infopanel.js](static/js/components/infopanel.js), remplace l'ancien ratio « >60 % en cours »), et modale d'action ([alert_modal.js](static/js/components/alert_modal.js)) — plus de divergence entre le compteur et la modale.
+- **Légende capacité dans la modale WIP** : `<details>` dépliable listant, par équipe, le **WIP courant / seuil**, les **membres présents** et ceux **en congé** (chips barrés), avec surlignage des équipes en dépassement. Styles `.wip-cap-*` ([base.css](static/css/base.css)).
+
+## [3.60.0] - 2026-06-24
+
+### UI : header et nav mieux différenciés du contenu principal
+- **Header (`.topbar`)** ([base.css](static/css/base.css)) : fond légèrement teinté (`primary` 4 % sur la surface) pour le distinguer du blanc pur des cartes, + **ombre portée dessous** (`box-shadow`) pour le faire flotter au-dessus du `main` au lieu d'un simple trait.
+- **Nav (`.sidebar`)** : **ombre portée sur le bord droit** + fin liseré, pour la détacher visuellement du contenu principal (en plus de son fond sombre déjà contrasté). En mobile (sidebar en overlay), l'ombre renforce l'effet de superposition.
+
+## [3.59.0] - 2026-06-24
+
+### Refactor : badges type/statut centralisés + fix chevauchement vue Liste
+- **Helpers partagés `typeBadge(type, opts)` et `statusBadge(ticket, opts)`** ([utils.js](static/js/utils.js)) : point d'entrée unique pour les badges de type et de statut (libellé correct via TYPE_LABELS/getStatusLabel, classes CSS homogènes, taille `2xs`/`sm`, `title`, attributs, échappement XSS). Modifier l'apparence se fait désormais à **un seul endroit** (CSS `.badge-*` dans base.css + ces helpers).
+- **9 sites d'appel refactorisés** pour utiliser ces helpers : [sprint.js](static/js/views/sprint.js) (liste), [kanban.js](static/js/views/kanban.js), [pi.js](static/js/views/pi.js), [roadmap.js](static/js/views/roadmap.js), [card.js](static/js/components/card.js), [infopanel.js](static/js/components/infopanel.js), [modal.js](static/js/components/modal.js), [topbar.js](static/js/components/topbar.js), [alert_modal.js](static/js/components/alert_modal.js). Au passage, correction d'incohérences (tooltips info-panel et breakdown Kanban affichaient la **clé brute** `debt` au lieu du libellé `Dette`). Imports morts nettoyés. Exceptions laissées telles quelles : la palette de commandes (style `cmd-type` dédié) et le badge `badge-sm` de roadmap (sizing différent).
+- **Fix chevauchement (vue Liste du board)** ([sprint.css](static/css/views/sprint.css)) : le badge de statut au libellé JIRA long (ex. « A livrer en Préprod ») débordait sur l'avatar de l'assigné. La colonne Statut tronque désormais en ellipsis (`minmax(0,140px)` + `text-overflow`), chaque cellule pouvant rétrécir sans déborder sur sa voisine.
+
+## [3.58.0] - 2026-06-23
+
+### UX : board Scrum — vue Liste avec avatars + mode d'affichage dans le hash
+- **Vue Liste (≡)** ([sprint.js](static/js/views/sprint.js), [sprint.css](static/css/views/sprint.css)) : la colonne « Assigné » affiche désormais un **avatar à initiales** (pastille colorée, nom complet en `title`) au lieu du nom complet tronqué — cohérent avec les swimlanes et les cartes.
+- **Mode d'affichage dans l'URL** : le mode du board (Colonnes / Swimlanes / Liste) est maintenant reflété dans le hash → lien partageable et restauré au rechargement. Format `#sprint/<team>/[<sprintPick>/]<mode>`, le mode par défaut « columns » étant omis (ex. `#sprint/Gabbiano/list`, `#sprint/all/swimlanes`). Les modes sont des mots réservés, distingués sans ambiguïté d'un nom de sprint. Si l'URL ne précise pas de mode, la préférence locale (localStorage) est conservée ([app.js](static/js/app.js)).
+
+## [3.57.0] - 2026-06-23
+
+### UI : info-panel — détail des cartes plus lisible + dépliage auto des statuts
+- **Textes agrandis** dans le détail des cartes Sprint/Buffer/Features ([base.css](static/css/base.css)) : les tailles `9-10px` passent à `--fs-xs` (~11px), le nom du sprint à `--fs-sm` (~13px). Concernés : nom de sprint, dates, badge, objectif, en-têtes de groupe de statut, lignes de tickets (id, titre, points), caret et bouton « +N autres ». Plus confortable à lire.
+- **Dépliage automatique des groupes de statut** ([infopanel.js](static/js/components/infopanel.js)) : quand on déplie la carte Sprint, tous ses groupes `<details>` (En cours, Revue, À faire, Terminé…) s'ouvrent d'un coup — plus besoin de cliquer chaque en-tête.
+
+## [3.56.3] - 2026-06-23
+
+### Fix UX : Rapports — changement de format ne fait plus sauter le scroll
+- Passer d'un format à l'autre (Texte / Slack / Confluence) re-rendait toute la page : la hauteur du contenu changeant, le scroll « sautait » vers une autre section (ex. depuis Sprint vers Mood Meter) ([reports.js](static/js/views/reports.js)). Désormais la **section en cours de lecture est mémorisée avant le re-render et reposée en vue après** (scroll instantané, sans animation), et l'item de timeline correspondant reste actif. Clic sur le format déjà actif = sans effet. Le calcul de scroll partagé (`_scrollToSection`) compense toujours la barre de contrôles sticky.
+
+## [3.56.2] - 2026-06-23
+
+### Fix UX : timeline Rapports — scroll qui compense la barre de contrôles sticky
+- Cliquer sur un item de la timeline alignait le haut de la section sous la barre `.report-controls` sticky, qui la recouvrait ([reports.js](static/js/views/reports.js)). Le scroll est désormais **manuel et calcule la hauteur réelle de `.report-controls`** (`offsetHeight` + petite marge), de sorte que le titre de la section reste visible juste sous la barre. Fallback CSS `scroll-margin-top` ajusté à 72px.
+
+## [3.56.1] - 2026-06-23
+
+### UX : page Rapports — « Métriques sprint » intégré à la timeline
+- Le bloc graphiques/KPI en tête de page (« Métriques sprint ») devient une **vraie section** dans la colonne, avec son ancre `#report-sec-metriques`, et **figure désormais en première entrée de la timeline** ([reports.js](static/js/views/reports.js), [reports.css](static/css/views/reports.css)). La timeline couvre ainsi toute la page et est visible dès l'arrivée, sans scroller.
+- Le `<details>` repliable des métriques est stylé comme les autres sections (en-tête, chevron rotatif, fond différencié). Clic sur l'item « Métriques sprint » dans la timeline → déplie la section si besoin et y défile ; les graphiques sont **rendus à la volée au premier dépliage** (helper idempotent `_renderCharts`), y compris si la section était repliée au chargement.
+
+## [3.56.0] - 2026-06-23
+
+### UX : page Rapports — timeline / sommaire latéral de navigation
+- **Sommaire latéral sticky** ([reports.js](static/js/views/reports.js), [reports.css](static/css/views/reports.css)) : la page Rapports étant longue, une timeline verticale à gauche liste toutes les sections (Sprint, Kanban/Flow, Support, Roadmap/PI, Epic Burndown, Mood/ROTI, Vote de confiance, Calendrier, Équipes, PI Planning, Rapport complet) avec leur icône.
+- **Clic → défilement** vers la section (smooth, respecte `prefers-reduced-motion`) ; si la section était repliée, elle se déplie automatiquement.
+- **Surbrillance auto** de l'item courant au défilement (IntersectionObserver) : point plein + libellé coloré pour repérer où on se trouve. Sections urgentes (vote PI à J-0/J-1) signalées par un point rouge.
+- Chaque section reçoit une ancre `id` + `scroll-margin-top` pour ne pas passer sous la barre de contrôles sticky. **Responsive** : la timeline est masquée < 1100px (la page reprend toute la largeur).
+
+## [3.55.0] - 2026-06-23
+
+### Sondage Slack — enrichissement des thèmes, bouton « Autre thème », copie homogène
+- **+8 thèmes de Mood Meter** ([sondage.js](static/js/components/sondage.js)) : café, randonnée, sortie en mer, quête héroïque, saison, pizza, mission spatiale… (9 → 17 thèmes) pour ne plus revoir les mêmes sondages d'un PI à l'autre. Emojis Slack correspondants ajoutés à `SLACK_EMOJI`.
+- **Bouton « 🎲 Autre thème »** (vue Mood / ROTI) : tire un autre thème de sondage à la volée, met à jour le message brut **et** l'aperçu Slack sans recharger la vue. `buildMoodSlackRaw` accepte désormais un index de thème explicite ; helpers `moodThemeIndex` / `SONDAGE_THEME_COUNT` exposés.
+- **Texte explicatif bref** au-dessus de chaque message Slack (`SONDAGE_INTRO`) : rappelle à quoi sert le sondage (Mood : humeur de fin de sprint ; Fist : vote de confiance PI).
+- **Copie Slack homogénéisée** : nouveau helper partagé `wireSlackCopy(btn, getText, label)` ([sondage.js](static/js/components/sondage.js)) basé sur le util `copyToClipboard` (fallback presse-papier + toast). Remplace les 3 implémentations dupliquées de `navigator.clipboard.writeText` + bascule « ✓ Copié ! » dans [reports.js](static/js/views/reports.js) (Mood + Fist) et [pi.js](static/js/views/pi.js) (sondage de vote).
+- Styles `.sondage-intro` / `.sondage-col-actions` ([reports-epic.css](static/css/views/reports-epic.css)).
+
+## [3.54.0] - 2026-06-23
+
+### UI : info-panel — cartes Sprint/Buffer plus soignées, statuts pliables, alertes remontées
+- **Buffer** : emoji 🛡️ ajouté au titre (cohérent avec l'iconographie du site) + léger dégradé violet de fond ([infopanel.js](static/js/components/infopanel.js), [base.css](static/css/base.css)).
+- **Sprint** : emoji 🎯 au titre + **zone de détail « enfoncée »** (fond teinté, bordure, ombre interne) pour bien différencier l'intérieur du contenu de la carte ; ombre plus marquée à l'ouverture/au survol.
+- **Groupes de statut (détail Sprint)** : convertis en `<details>` **pliables, repliés par défaut** — seuls « En cours » et « Bloqué » restent ouverts (travail actif + risques visibles). Caret animé, en-tête cliquable. Le clic sur un groupe ou une ligne de ticket ne déclenche plus le pli/dépli de la carte parente (`summary` exclu du handler + `stopPropagation` sur les lignes).
+- **Alertes remontées au-dessus de la carte « Statuts »** : les alertes proactives s'affichent désormais avant le récapitulatif des statuts (priorité visuelle).
+- **Détail des cartes dépliables** : `max-height` porté à `70vh` avec **scroll interne** si le contenu déborde (au lieu de tronquer), pour toutes les cartes (Sprint, Buffer, Features).
+
+## [3.53.0] - 2026-06-23
+
+### Fix UX : mini-heatmap capacité PI + carte Features sans troncature
+- **Mini-heatmap capacité (vue PI)** ([pi.js](static/js/views/pi.js)) : cliquer sur une pastille d'équipe **forçait l'onglet « Capacité »** (`/#pi/<team>/capacity`), éjectant l'utilisateur de l'onglet courant (ex. Mood / ROTI). Désormais le clic **filtre seulement l'équipe** et **reste sur l'onglet courant** (`store.set('team')` re-rend la vue, le tab est préservé). **Toggle** : re-cliquer sur l'équipe déjà active revient à « toutes les équipes ». La pastille active est mise en valeur au rendu (`pi-cap-dot--active`), et le tooltip indique l'action (« Cliquer pour filtrer sur cette équipe »).
+- **Carte « Features » (info-panel)** ([infopanel.js](static/js/components/infopanel.js)) : suppression du bouton « +N autres » — **toutes les features sont affichées directement** dans chaque groupe de statut. Le détail de la carte autorise désormais un **scroll interne** (`max-height: 70vh`) plutôt que de tronquer ([base.css](static/css/base.css)).
+
+## [3.52.2] - 2026-06-23
+
+### Fix UX : info-panel — scroll auto à l'ouverture d'une carte dépliable
+- **Carte dépliée amenée en vue** ([infopanel.js](static/js/components/infopanel.js)) : déplier une carte (Sprint / Buffer / Features) en bas de l'aside ouvrait le détail hors écran — on ne voyait pas qu'il s'était passé quelque chose. Au clic, après la transition CSS (~320 ms), la carte est désormais ramenée dans la zone visible via `scrollIntoView({ block: 'nearest' })` (uniquement à l'ouverture, pas au repli). Respecte `prefers-reduced-motion` (scroll instantané si l'utilisateur le demande).
+
+## [3.52.1] - 2026-06-23
+
+### UX : info-panel — carte Features filtrée par PI + état vide explicite
+- **Filtrage des features par PI courant** ([infopanel.js](static/js/components/infopanel.js)) : la carte Features ne mélangeait que par équipe et ramenait des features d'autres PI. Elle filtre désormais aussi sur le **PI en cours** (`getCurrentPi`), avec la **même logique de matching que la vue PI** (`piSprint` / `sprintName` / `labels` → `PI#XX`, `PIXX`, `XX.Y`).
+- **Carte « vide » explicite** quand aucune feature pour l'équipe + le PI sélectionnés : icône 📦 + « Aucune feature pour `<équipe>` · `PI #XX` » (au lieu de masquer la carte). Styles `.panel-card-empty` / `.panel-empty-state` / `.panel-empty-icon` / `.panel-empty-text` ([base.css](static/css/base.css)).
+- **Refactor sûr** : extraction du helper partagé `_miniRow(item, statusColor, jiraUrl)` (ligne d'item cliquable des détails de carte), désormais réutilisé par les cartes **Sprint** et **Features** (suppression d'une duplication, fichier repassé sous la limite de 800 lignes).
+
+## [3.52.0] - 2026-06-23
+
+### UX : info-panel — suppression du doublon d'alertes & carte Features enrichie
+- **Suppression de l'`alert-bar`** en tête de la vue Sprint ([sprint.js](static/js/views/sprint.js)) : elle dupliquait exactement la carte **Alertes** de l'info-panel (mêmes textes, même action `scopeCreep`). L'info-panel reste la **source unique** des alertes (toujours alimenté par `getSprintAlerts`, conservé en interne). Nettoyage du handler, de la variable `alerts`, des imports `getSprintAlerts`/`openAlertModal` désormais inutilisés et des styles morts `.alert-bar`/`.alert-item*` ([base.css](static/css/base.css)).
+- **Carte « Features » repensée** ([infopanel.js](static/js/components/infopanel.js)) — elle était un cul-de-sac (juste `23/30` + barre). Désormais **cliquable/dépliable** comme les cartes Sprint et Buffer :
+  - **Sous-ligne** : `% terminées` + points (`done/total pts`).
+  - **Mini-barre de répartition** par statut (bloquée / en cours / à faire / terminée) pour scanner l'état d'un coup d'œil + **légende** chiffrée.
+  - **Détail dépliable** : features groupées par statut (attention d'abord, terminé en dernier), lignes cliquables ouvrant la modal du ticket, lien JIRA, et bouton « +N autres ». Réutilise les classes existantes (`panel-buf-row`, `panel-sprint-group`, `panel-card-detail`) → wiring clic déjà en place.
+  - Nouveaux styles `.panel-feat-distrib` / `.panel-feat-seg` / `.panel-feat-legend` ([base.css](static/css/base.css)).
+
+## [3.51.0] - 2026-06-23
+
+### UX : modal « Nouveau ticket » — pickers autocomplete réutilisés depuis l'édition
+- **Fin des `<select>` natifs** dans la création. Les champs **Équipe**, **Leader**, **Epic**, **Contributors** et **Labels** réutilisent désormais les **mêmes pickers que la modal d'édition** (avatars colorés, autocomplete, pastilles de couleur d'équipe), au lieu de menus déroulants hétérogènes.
+  - **Équipe** → `_makeChipPicker` avec pastille de couleur (`teamObjects`, fallback sur `teams` si vide).
+  - **Leader** → `_makePersonPicker` (avatars + initiales), **filtré par l'équipe** sélectionnée ; réinitialisé si le leader courant n'appartient plus à la nouvelle équipe.
+  - **Epic** → `_makeEpicPicker` (récents + tri alpha, recherche par clé/titre, mémorisation des récents).
+  - **Contributors** → `_makePersonPicker` enchaîné (saisie successive), exclut le leader et les contributeurs déjà choisis.
+  - **Labels** → `_makeLabelPicker` (suggestions issues du store + création libre).
+- **Nouveau helper réutilisable** `_wireFormPicker(trigger, hidden, makePicker, renderDisplay, onChange)` ([modal.js](static/js/components/modal.js)) : ouvre un picker inline dans un champ de formulaire **sans sauvegarde API** (valeur tenue dans un `input[hidden]` jusqu'au submit), avec fermeture au clic extérieur et activation clavier (Entrée/Espace).
+- **Submit** lit désormais les contributeurs et labels depuis les chips du DOM (`getContribs()` / `getLabels()`), le reste via les `input[hidden]`. Contrat de création inchangé (mêmes clés envoyées à l'API).
+- **Styles** ([forms.css](static/css/views/forms.css)) : `.form-picker-trigger` (zone cliquable affichant la valeur, anneau de focus cohérent), `.form-picker-dot` (pastille couleur d'équipe), `.contrib-inline-wrap` / `.labels-inline-wrap` (chips + picker enchaîné).
+
+## [3.50.1] - 2026-06-23
+
+### UI : modals create/edit — chips plus lisibles & sections compactes
+- **Espacement resserré** des formulaires de ticket ([forms.css](static/css/views/forms.css)) : `.edit-section` passe d'un encadré épais (`padding: sp-4`, `margin: sp-3`) à un bloc compact (`padding: sp-2/sp-3`, `margin: sp-2`) pour gagner de la hauteur sans perdre la séparation visuelle. Les titres de section restent bien identifiables grâce à un **petit trait d'accent** (`.edit-section-title::before`) et une couleur passée de `--text-muted` à `--text-secondary`. `form-actions` resserré (`sp-4` → `sp-3`).
+- **État actif des chips plus franc** — `.chip-sel.is-active` gagne `font-weight: semibold` + une ombre légère ; ajout d'un `:focus-visible` accessible (anneau `--primary`). Inspiré des sélecteurs segmentés type onboarding mobile, en gardant la densité pro de Squad Board.
+- **Select picker (Équipe / Leader / Epic) harmonisé** — pleine largeur dans la grille, même anneau de focus que les chips (`.edit-section .select`), tout en restant un `<select>` natif (cascade Équipe→Leader inchangée).
+- **Accessibilité** — `_chipSelGroup()` ([modal.js](static/js/components/modal.js)) expose désormais `role="radiogroup"`/`radio` (choix unique) ou `group`/`checkbox` (labels multi), avec `aria-checked` maintenu à jour au clic dans `_wireChipGroup()` et sur les labels custom ajoutés à la volée.
+
+## [3.50.0] - 2026-06-23
+
+### Feat : Cycle Time & Lead Time — analyse enrichie en vue zoom (BACKLOG #31)
+- **Légende explicative repliable** — la légende « Comment lire ce graphique » de la popin de zoom est désormais un `<details>` natif pliable/dépliable (déplié par défaut, état conservé d'un graphique à l'autre) pour libérer de la place. Styles `.chart-zoom-explain-summary` / `-caret` / `-body`.
+- **Barre d'outils contextuelle en zoom** — [chart_zoom.js](static/js/components/chart_zoom.js) : nouveau mécanisme générique où un graphique déclare ses contrôles (`getChartControls` / `_setControls`), rendus en barre d'outils dans la popin (toggle de mode, tri, chips de filtre). `rerenderChart(sourceId, targetId, overrideOpts)` fusionne l'état des contrôles dans les options du graphique. Styles `.chart-zoom-toolbar` / `.chart-zoom-seg` / `.chart-zoom-chip` dans [chart-zoom.css](static/css/views/chart-zoom.css).
+- **[charts.js](static/js/components/charts.js) `renderCycleTime`** (contrôles actifs uniquement en zoom, carte compacte inchangée) :
+  - **a) Vue « Nuage de points » (scatter temporel)** — X = date de résolution, Y = cycle time, couleur = percentile CT. Bandes de percentile (vert/orange/rouge) en fond + lignes CT méd./P85. Axe X linéaire formaté maison (pas d'adaptateur de date Chart.js requis, absent du bundle). Toggle **Barres / Nuage**.
+  - **b) Ligne de tendance** — moyenne mobile sur N tickets (N auto entre 3 et 7) sur le nuage, pour visualiser la dérive du flux.
+  - **c) Filtres rapides** type / lead (chips, « Tous » pour réinitialiser). Pas de filtre « équipe » : la liste arrive déjà filtrée par l'équipe/groupe de la sidebar, un doublon serait trompeur.
+  - **d) Tri configurable** (mode barres) : date, cycle time ↓, attente ↓, lead time ↓.
+  - **e) Outliers** : tickets dont le lead time dépasse le P85 marqués ⚠ + bordure appuyée, avec entrée dédiée dans la légende.
+  - **f) Part d'attente** : le footer du tooltip indique « Attente : X % du lead time » (temps en backlog avant démarrage).
+
+## [3.49.0] - 2026-06-23
+
+### Feat : graphiques — vue zoom enrichie & lisibilité (BACKLOG #30)
+- **a) Plus de tickets en vue agrandie** — [charts.js](static/js/components/charts.js) : `renderCycleTime` et `renderWIPAge` acceptent un `opts.limit` et, dans le canvas de zoom (préfixe `zoom-`), affichent jusqu'à **40 barres** au lieu de 15 (helpers `_displayLimit` / `_isZoom`). La vue agrandie devient réellement plus informative.
+- **b) États vides non destructeurs** — ces deux graphiques écrasaient `canvas.parentElement.innerHTML` (ce qui supprimait le canvas **et** le bouton de zoom). Nouveau helper `_emptyOverlay()` : message d'état vide (icône + texte centré) **par-dessus** le canvas, sans casser le conteneur ni le bouton zoom ; nettoyé au rendu suivant via `_clearEmptyOverlay()`. Styles `.chart-empty-overlay` dans [base.css](static/css/base.css).
+- **c) Export PNG depuis la popin zoom** — [chart_zoom.js](static/js/components/chart_zoom.js) : bouton **⬇ Exporter en PNG** dans l'en-tête de la popin. Le canvas (transparent) est aplati sur un fond `--surface` pour un rendu lisible hors de l'app, nommé `squad-board-<graphique>-<date>.png`. Styles `.chart-zoom-export` dans [chart-zoom.css](static/css/views/chart-zoom.css).
+
+## [3.48.0] - 2026-06-23
+
+### Feat : zoom plein écran des graphiques (popin + légende explicative)
+- **Nouveau composant [chart_zoom.js](static/js/components/chart_zoom.js)** + styles [chart-zoom.css](static/css/views/chart-zoom.css) : un bouton **« agrandir »** (icône, révélé au survol) est injecté automatiquement dans chaque `.chart-container` de l'application. Au clic, une **popin alignée en haut de l'écran** s'ouvre (fondu + léger zoom) et redessine le graphique en grand.
+- **Navigation précédent/suivant** entre tous les graphiques zoomables de la page (flèches ←/→ ou boutons), **sans animation de transition** (changement instantané, conformément à la demande). `Échap` ferme.
+- **Légende enrichie** par type de graphique : pour chaque graphique, deux lignes « 👁 Lecture » (comment lire) et « 💡 Interprétation » (signal d'alerte / interprétation métier) — Burndown, Burnup, CFD, Throughput, Cycle Time, WIP Age, Vélocité (sprint & PI), Statuts, Types et Burnup PI.
+- **Mécanique** : [charts.js](static/js/components/charts.js) tient désormais un **registre** (`getChartMeta` / `rerenderChart` / `registerExternalChart`) — chaque `render*()` s'enregistre avec ses arguments, ce qui permet de re-rendre le même graphique dans le canvas agrandi. Le burnup PI ([pi.js](static/js/views/pi.js)) s'enregistre via `registerExternalChart`. Initialisé dans [app.js](static/js/app.js) (`initChartZoom`), décoration auto via `MutationObserver` sur `#content`.
+- Accessible (ARIA, focus visible), responsive (plein écran < 640px, bouton toujours visible en tactile) et respecte `prefers-reduced-motion`.
+
+## [3.47.0] - 2026-06-22
+
+### Feat : snapshot de commitment PI (baseline engagé vs livré) (BACKLOG #12)
+- **Backend** : nouvelle colonne `pi_baselines` (JSON par numéro de PI) sur `PIConfig` ([app/models/planning.py](app/models/planning.py)), migration ([app/migrations.py](app/migrations.py)), clé `piBaselines` au contrat ([app/serializers.py](app/serializers.py)), endpoint `PUT /api/pi/baseline/{pi_number}` (fusion, n'écrase pas les autres PI) et round-trip export/import ([app/routers/planning.py](app/routers/planning.py), [app/routers/data.py](app/routers/data.py)).
+- **Frontend** : helper `computeCommitment(baseline, liveFeatures)` ([utils.js](static/js/utils.js)) + helper API `setPiBaseline` ([api.js](static/js/api.js)). Dans **PI Planning › Objectifs** : bouton **📌 Figer la baseline** (capture manuelle, disponible sur le PI courant en vue « toutes équipes » → baseline au niveau PI) et panneau **Engagement** : barre engagé/livré, chips « +N ajoutés » (scope creep) / « −N retirés », ratio **Say/Do**, date de capture. Comparaison filtrable par équipe à l'affichage. Styles [pi-planning.css](static/css/views/pi-planning.css).
+- Permet de mesurer engagé vs livré vs périmètre ajouté en cours de PI — auparavant tout était recalculé sur l'état courant (glissement de périmètre invisible).
+
+## [3.46.0] - 2026-06-22
+
+### Feat : Roadmap repositionnée en vue multi-PI (BACKLOG #27)
+- **Timeline multi-PI** en tête de la Roadmap ([roadmap.js](static/js/views/roadmap.js), [roadmap.css](static/css/views/roadmap.css)) : survol horizontal PI-2 → PI+2 (centre = PI courant réel), une colonne par PI listant ses features (triées par rang JIRA, badge de statut, liseré couleur de l'équipe, compteur « N feat. · M ✓ »). Clic sur un en-tête de PI → sélectionne ce PI (`piOffset`) et le détail mono-PI sous la timeline s'actualise ; clic sur une carte → ouvre la feature. Clarifie le rôle de la Roadmap (vision long terme) face à PI Planning (mono-PI).
+
+## [3.45.0] - 2026-06-22
+
+### Feat : dépendances inter-équipes + graphe mutualisé (BACKLOG #14/#29)
+- **Composant partagé [dep_graph.js](static/js/components/dep_graph.js)** : extraction des dépendances à partir des **liens JIRA réels** (`links` : « bloque / est bloqué par / dépend de ») au lieu du champ `dependencies` qui n'était jamais peuplé. Fournit `extractDependencyEdges`, `renderItemDepGraph` (graphe SVG, colonnes par équipe, arêtes inter-équipes en rouge), `computeTeamDependencies` et `renderTeamDepBoard`.
+- **#29 — Graphe Roadmap réparé & mutualisé** : suppression de `_renderDepGraph` (mort) dans [roadmap.js](static/js/views/roadmap.js) ; le graphe et le badge « ⇒ N » par feature s'appuient désormais sur les vrais liens.
+- **#14 — Programme board inter-équipes** : nouvel onglet **🔗 Dépendances** dans PI Planning ([pi.js](static/js/views/pi.js)) — matrice équipe→équipe (dépendances inter-équipes en rouge, internes grisées), compteur de dépendances inter-équipes dans le libellé de l'onglet, et détail des liens au clic sur une cellule. Le périmètre couvre le PI **toutes équipes** pour ne pas masquer un bout de lien. Styles dans [pi-planning.css](static/css/views/pi-planning.css).
+
+## [3.44.0] - 2026-06-22
+
+### UX navigation : raccourcis nettoyés + drag découvrable (BACKLOG #15/#16)
+- **#15 — Raccourcis clavier en chiffres uniquement** : les vues Pilotage prennent `1`-`8` (ordre du menu), le groupe « Équipe & RH » n'a plus de raccourci nu ([config.js](static/js/config.js)). Fini les lettres `B H S A G` qui déclenchaient une navigation en tapant du texte hors champ. Le garde clavier ([sidebar.js](static/js/components/sidebar.js)) ignore désormais les raccourcis vides, gère les zones `contentEditable`, et **cède les chiffres à la vue PI Planning** (qui possède ses propres raccourcis d'onglets `1`-`9`) — résolution d'un conflit où presser un chiffre sur PI déclenchait à la fois un changement d'onglet et une navigation.
+- **#16 — Glisser-déposer de la sidebar découvrable** : poignée `⠿` révélée au survol des items du groupe Pilotage (+ `title` explicatif), le badge de raccourci s'efface au survol ([base.css](static/css/base.css)).
+- **#17 — Topbar** : investigué et différé — le sélecteur PI est justifié sur toutes les vues où il s'affiche (toutes consomment `piOffset`) ; un désencombrement visuel demandera une passe UI dédiée.
+
+## [3.43.0] - 2026-06-22
+
+### Refactor + UX : indicateurs de flux canoniques & regroupement sidebar (BACKLOG #24/#26)
+- **#24 — Bloqués / WIP / Throughput unifiés** : helpers `countBlocked()`, `countWip()`, `throughputSince()` et constante `WIP_STATUSES` ([config.js](static/js/config.js), [utils.js](static/js/utils.js)), adoptés par Dashboard, [sprint.js](static/js/views/sprint.js) et [kanban.js](static/js/views/kanban.js). **Correction** : le « Throughput » du Kanban affichait le **total des tickets terminés** (placeholder `// simplified`) et non un débit ; il calcule désormais le **débit sur 7 jours** (même définition que le Dashboard, libellé « Throughput 7j »).
+- **#26 — Sidebar regroupée en 2 sections** : champ `section` (`main`/`team`) sur `NAV_ITEMS` ([config.js](static/js/config.js)). Groupe **Pilotage** (Dashboard, Board, Backlog, PI Planning, Roadmap, Santé, Rapports, Paramètres) toujours visible et réordonnable par glisser ; groupe **Équipe & RH** (Amélioration, Support, Atlas, Agenda) repliable, **replié par défaut** pour désencombrer, avec auto-déploiement quand la vue active en fait partie et état persisté (`sb-nav-team-collapsed`). Drag-and-drop désormais limité au groupe Pilotage ([sidebar.js](static/js/components/sidebar.js)) ; nouveaux styles dans [base.css](static/css/base.css).
+
+## [3.42.0] - 2026-06-22
+
+### Refactor : sources de calcul uniques — objectifs PI & buffer/vélocité (BACKLOG #23/#25)
+- **#23 — Résolution des objectifs PI centralisée** : `resolvePiObjectives()` ([utils.js](static/js/utils.js)) — la sélection « jeu vivant courant vs snapshot pi_objectives » était dupliquée entre [dashboard.js](static/js/views/dashboard.js) et [pi.js](static/js/views/pi.js) avec un commentaire « doit rester cohérent » signalant le risque. Désormais une seule source. Le `_ticketPiNum` local du Dashboard passe aussi par `extractPiNum`.
+- **#25 — Détection buffer & ventilation vélocité unifiées** : `isBufferItem(item)` + `computeVelocityBreakdown(tickets)` ([utils.js](static/js/utils.js)). **Correction de divergence** : Roadmap, PI, Dashboard, Reports et Infopanel détectaient le buffer par sous-chaîne `/buffer/i` tandis que Santé utilisait le match exact `/^buffer$/i` — d'où des totaux buffer/vélocité potentiellement différents d'une vue à l'autre. Tout converge sur la **sémantique stricte** (label exactement « buffer », insensible à la casse), adoptée aussi par [sprint.js](static/js/views/sprint.js), [reports.js](static/js/views/reports.js), [health.js](static/js/views/health.js), [infopanel.js](static/js/components/infopanel.js) et [sprint_tickets_modal.js](static/js/components/sprint_tickets_modal.js).
+  - ⚠️ **Impact visible** : un libellé comme `buffer-sprint` ou `mybuffer` n'est plus comptabilisé comme buffer dans la Roadmap/PI/Dashboard/Reports (alignement sur le comportement déjà en vigueur dans Santé).
+
+## [3.41.0] - 2026-06-22
+
+### Refactor : mutualisation Board (graphiques + activité récente) (BACKLOG #21/#22)
+- **#21 — Graphiques Board partagés** : nouveau composant [board_charts.js](static/js/components/board_charts.js) (`renderBoardChartsSection` + `mountBoardCharts`) — le bloc Burndown / Burnup / CFD / Throughput / Cycle Time / WIP Age était dupliqué à l'identique dans [sprint.js](static/js/views/sprint.js) et [kanban.js](static/js/views/kanban.js) (deux modes du même écran Board). IDs de canvas unifiés en `board-chart-*`. Les pastilles de la légende WIP Age passent de styles inline à des classes CSS `.wip-age-swatch--ok/warn/crit` ([support.css](static/css/views/support.css)).
+- **#22 — Carte « Activité récente » mutualisée** : ajout de `renderActivityCard()` à [activity.js](static/js/components/activity.js) (déjà composant partagé) pour factoriser le shell `<details>` + câblage répété dans Dashboard, Sprint et Kanban. Sprint/Kanban passent d'un rendu différé (div vide rempli après coup) au rendu inline, cohérent avec le Dashboard.
+
+## [3.40.0] - 2026-06-22
+
+### Feat : agenda — badge de fraîcheur ICS, bandeau global, helpers mutualisés (BACKLOG #18/#19/#20)
+- **#18 — Badge de fraîcheur ICS dans la topbar** ([index.html](static/index.html), [topbar.js](static/js/components/topbar.js)) : nouveau bouton `#btn-cal-sync` à côté du Sync JIRA. Les calendriers ICS n'ayant pas d'auto-refresh, une pastille d'avertissement s'allume quand la dernière synchro dépasse 6 h ; un clic relance la synchro des calendriers pertinents via `syncCalendars()` (nouvel export headless de [cal_banner.js](static/js/components/cal_banner.js)). Styles dans [calendar-banner.css](static/css/views/calendar-banner.css).
+- **#19 — Bandeau agenda du jour global** : `#global-cal-banner` monté sous le header ([index.html](static/index.html)) et rendu une seule fois dans [app.js](static/js/app.js) — il survit aux re-renders de vue et se rafraîchit via ses abonnements store. Il est désormais visible sur **toutes** les vues (vide si aucun calendrier ICS), plus seulement sur le Board. Montages par-vue retirés de [sprint.js](static/js/views/sprint.js) et [kanban.js](static/js/views/kanban.js).
+- **#20 — Helpers calendrier mutualisés** : `relevantCalendars()` et `lastCalendarSync()` ajoutés à [utils.js](static/js/utils.js), remplaçant la logique « dernière synchro des calendriers pertinents » dupliquée dans la modale semaine, le bandeau, [infopanel.js](static/js/components/infopanel.js) et le badge topbar.
+
+## [3.39.0] - 2026-06-22
+
+### Refactor : matching PI Roadmap centralisé + nettoyage logs (BACKLOG #28)
+- **[roadmap.js](static/js/views/roadmap.js)** : suppression de la regex PI réimplémentée localement (`_extractPiNum`, `_matchPi`, `_normPi`) — source de bugs historiques signalée dans le CLAUDE.md du site. Le PI courant vient désormais de `getCurrentPi({ sprintInfo, piInfo })` et le matching de `extractPiNum(raw) === currentPiNum` ([utils.js](static/js/utils.js), source unique). Effet de bord positif : un `sprintName` complet type `Fuego - Ite 30.3` est maintenant correctement rattaché au PI 30 (l'ancienne regex ancrée ne matchait que `30.1` nu).
+- **Logs de debug retirés** : `console.log` de diagnostic à chaque render de la Roadmap et `console.debug` du bandeau calendrier ([cal_banner.js](static/js/components/cal_banner.js)).
+
+## [3.38.1] - 2026-06-22
+
+### Docs : README remis à jour (vues, raccourcis, PI Planning)
+- **Table des vues** ([README.md](README.md)) alignée sur la réalité : 12 entrées de navigation (Dashboard, Board unifié Scrum/Kanban, Backlog, PI Planning, Roadmap, Santé, Amélioration, Support, Atlas, Agenda, Rapports, Paramètres) au lieu de 6 — le README listait encore Sprint/Kanban séparés et des raccourcis `1→6` obsolètes.
+- **Raccourcis clavier** corrigés pour correspondre à [config.js](static/js/config.js) (`1 2 4 6 7 8 9` + `B H S A G`), mention de la sidebar réordonnable et des URLs partageables.
+- **Nouvelle section « PI Planning — préparation & suivi »** : 10 onglets, sélecteur PI `PI-2…PI+2`, capacité/absences, prédictibilité, conventions de matching PI.
+- **[BACKLOG.md](BACKLOG.md)** : section « AUDIT 2026-06-22 » (#12→#29) — pistes validées sur PI Planning (snapshot commitment, tendance confiance, dépendances inter-équipes), navigation (raccourcis chiffres-only, sidebar), agenda (badge fraîcheur ICS, dédup), redondances (graphiques Board, activité récente, sources uniques) et roadmap (repositionnement multi-PI).
+
 ## [3.38.0] - 2026-06-17
 
 ### Design : accents en bordure haute + Dashboard réordonné + polish

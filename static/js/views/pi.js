@@ -4,11 +4,13 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
-import { buildMoodSlackRaw, buildFistSlackRaw } from '../components/sondage.js';
+import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy } from '../components/sondage.js';
 import { renderRoam } from './roam.js';
 import { renderPICalendar } from './picalendar.js';
+import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
+import { registerExternalChart } from '../components/charts.js';
 
 let _activeTab = 'objectives';
 let _objUnlocked  = false; // déverrouillage manuel des objectifs sur PI passé
@@ -51,6 +53,16 @@ export function renderPI(container) {
     const tickets  = piTag ? allTeamTickets.filter(_ticketInPi)  : allTeamTickets;
     const features = piTag ? allTeamFeatures.filter(_featureInPi) : allTeamFeatures;
 
+    // Items du PI TOUTES équipes (pas de filtre équipe) — pour le programme board inter-équipes (#14).
+    // Filtrer par l'équipe sélectionnée masquerait l'autre bout d'un lien inter-équipes.
+    const _epicInPi = (e) => _inPi(e.piSprint) || _inPi(e.sprintName) || (e.labels || []).some(l => _inPi(l));
+    const depItems = piTag
+        ? [...(store.get('tickets') || []).filter(_ticketInPi),
+           ...(store.get('features') || []).filter(_featureInPi),
+           ...epics.filter(_epicInPi)]
+        : [...(store.get('tickets') || []), ...(store.get('features') || []), ...epics];
+    const depCross = computeTeamDependencies(depItems).crossCount;
+
     // Reset du verrou si l'utilisateur change de PI
     if (_lastPiOffset !== null && _lastPiOffset !== piOffset) _objUnlocked = false;
     _lastPiOffset = piOffset;
@@ -66,22 +78,17 @@ export function renderPI(container) {
         : 'PI en cours';
     const objectives = isCurrentPi ? (piInfo?.objectives || []) : [];
 
-    // Buffer & Velocity metrics
-    const _isBuf     = t => (t.labels || []).some(l => /buffer/i.test(l));
-    const bufTickets = tickets.filter(_isBuf);
-    const totalPts   = sumBy(tickets, t => t.points || 0);
-    const donePts    = sumBy(tickets.filter(t => t.status === 'done'), t => t.points || 0);
-    const bufPts     = sumBy(bufTickets, t => t.points || 0);
-    const bufDonePts = sumBy(bufTickets.filter(t => t.status === 'done'), t => t.points || 0);
-    const velPts     = totalPts - bufPts;
-    const velDonePts = donePts - bufDonePts;
+    // Buffer & Velocity metrics — source unique computeVelocityBreakdown / isBufferItem
+    const bufTickets = tickets.filter(isBufferItem);
+    const { totalPts, donePts, bufferPts: bufPts, bufferDonePts: bufDonePts,
+            featurePts: velPts, featureDonePts: velDonePts } = computeVelocityBreakdown(tickets);
     const velRatio   = velPts ? pct(velDonePts, velPts) : 0;
     const bufRatio   = bufPts ? pct(bufDonePts, bufPts) : 0;
 
     const _stC = { done:'var(--success)', inprog:'var(--primary)', review:'#6366f1', test:'var(--warning)', blocked:'var(--danger)', todo:'var(--text-muted)' };
     const _stI = { done:'✓', inprog:'●', review:'◑', test:'◕', blocked:'✗', todo:'○' };
     const _stL = { done:'Terminé', inprog:'En cours', review:'Review', test:'Test', blocked:'Bloqué', todo:'À faire' };
-    const nonBufTickets = tickets.filter(t => !_isBuf(t));
+    const nonBufTickets = tickets.filter(t => !isBufferItem(t));
     const velRows = ['done','inprog','review','test','blocked','todo']
         .map(s => ({ s, pts: sumBy(nonBufTickets.filter(t => t.status === s), t => t.points || 0), count: nonBufTickets.filter(t => t.status === s).length }))
         .filter(x => x.count > 0);
@@ -232,6 +239,7 @@ export function renderPI(container) {
         { id: 'capacity',   label: '⚡ Capacité' },
         { id: 'burnup',     label: '📈 Burnup' },
         { id: 'roam',       label: `⚠️ ROAM${roamCount ? ` (${roamCount})` : ''}` },
+        { id: 'deps',       label: `🔗 Dépendances${depCross ? ` (${depCross})` : ''}` },
         { id: 'teams',      label: '👥 Équipes' },
         { id: 'support',    label: '🛡️ Support' },
         { id: 'mood',       label: '😊 Mood / ROTI' },
@@ -389,10 +397,12 @@ export function renderPI(container) {
                 } else if (tc?.memberCount === 0) {
                     dot = 'var(--border)';
                 }
-                const tip = spNet > 0
-                    ? `${esc(t)} — ${spPlan} SP planifiés / ${spNet} SP nets (${Math.round(spPlan / spNet * 100)}%)`
-                    : `${esc(t)} — capacité non configurée`;
-                return `<button class="pi-cap-dot" data-team="${esc(t)}" style="--tc:${col};--dot:${dot}" title="${tip}">
+                const _capTxt = spNet > 0
+                    ? `${spPlan} SP planifiés / ${spNet} SP nets (${Math.round(spPlan / spNet * 100)}%)`
+                    : `capacité non configurée`;
+                const tip = `${esc(t)} — ${_capTxt}\nCliquer pour filtrer sur cette équipe`;
+                const isActive = store.get('team') === t;
+                return `<button class="pi-cap-dot${isActive ? ' pi-cap-dot--active' : ''}" data-team="${esc(t)}" style="--tc:${col};--dot:${dot}" title="${tip}">
                     <span class="pi-cap-dot-dot" style="background:${dot}"></span>
                     <span class="pi-cap-dot-name">${esc(t)}</span>
                     ${spNet > 0 ? `<span class="pi-cap-dot-val">${spPlan}/${spNet}</span>` : ''}
@@ -437,7 +447,7 @@ export function renderPI(container) {
     });
 
     // Tab switching
-    const _tabData = { objectives, featureList, teamCap, tickets, teams, teamObjects, piInfo, absences, epics: piEpics, isCurrentPi, piNum, capByTeam, _computeCapByTeam };
+    const _tabData = { objectives, featureList, teamCap, tickets, teams, teamObjects, piInfo, absences, epics: piEpics, isCurrentPi, piNum, capByTeam, _computeCapByTeam, depItems };
     function _switchTab(id) {
         if (!tabs.find(t => t.id === id)) return;
         _activeTab = id;
@@ -452,14 +462,15 @@ export function renderPI(container) {
         if (btn) _switchTab(btn.dataset.tab);
     });
 
-    // Mini-heatmap : clic sur une pastille équipe → onglet capacité + filtre topbar (#2)
+    // Mini-heatmap : clic sur une pastille équipe → filtre l'équipe SANS changer d'onglet.
+    // (store.set('team') déclenche un re-render complet de la vue sur l'onglet courant.)
     container.querySelector('#pi-cap-strip')?.addEventListener('click', e => {
         const btn = e.target.closest('.pi-cap-dot');
         if (!btn) return;
         const teamName = btn.dataset.team;
-        if (teamName) store.set('team', teamName);
-        _switchTab('capacity');
-        container.querySelectorAll('.pi-cap-dot').forEach(b => b.classList.toggle('pi-cap-dot--active', b.dataset.team === teamName));
+        if (!teamName) return;
+        // Re-clic sur l'équipe déjà active → on revient à « toutes les équipes » (toggle).
+        store.set('team', store.get('team') === teamName ? 'all' : teamName);
     });
 
     // Raccourcis clavier 1-9 → onglets (désactivés si focus sur un champ)
@@ -506,6 +517,19 @@ export function renderPI(container) {
     }
 }
 
+// ── Dépendances tab (programme board inter-équipes #14) ─────────────────────────
+function renderDeps(el, { depItems = [], teamObjects = [] }) {
+    el.innerHTML = `
+        <div class="pi-section">
+            <div class="pi-section-hdr">
+                <h3 class="pi-section-title">Dépendances inter-équipes</h3>
+                <span class="text-xs text-muted">Liens JIRA « bloque / est bloqué par / dépend de » sur le périmètre du PI</span>
+            </div>
+            ${renderTeamDepBoard(depItems, teamObjects)}
+        </div>`;
+    bindTeamDepBoard(el, depItems);
+}
+
 function renderTabContent(el, tab, data) {
     switch (tab) {
         case 'objectives': return renderObjectives(el, data);
@@ -515,10 +539,45 @@ function renderTabContent(el, tab, data) {
         case 'teams': return renderTeams(el, data);
         case 'support': return renderSupportRota(el, data);
         case 'roam': return renderRoam(el);
+        case 'deps': return renderDeps(el, data);
         case 'mood': return renderMood(el, data);
         case 'fist': return renderFist(el, data);
         case 'calendar': return renderPICalendar(el);
     }
+}
+
+// Panneau "Engagement du PI" (commitment baseline #12) — affiché en tête de l'onglet Objectifs.
+function _commitmentPanelHtml(commit, baseline, canCapture) {
+    const captureBtn = canCapture
+        ? `<button class="btn btn-xs ${baseline ? 'btn-secondary' : 'btn-primary'}" id="pi-baseline-capture" title="${baseline ? 'Re-figer la baseline (remplace la précédente)' : 'Figer la liste des features engagées comme baseline du PI'}">📌 ${baseline ? 'Re-figer' : 'Figer la baseline'}</button>`
+        : '';
+    if (!baseline) {
+        if (!canCapture) return '';
+        return `<div class="pi-commit pi-commit--empty">
+            <span class="pi-commit-empty-txt"><strong>Engagement non figé</strong> — figez la baseline en début de PI pour suivre « engagé vs livré » et le scope creep.</span>
+            ${captureBtn}
+        </div>`;
+    }
+    const c = commit;
+    const delivPct = c.engagedPts > 0 ? Math.min(100, Math.round(c.deliveredPts / c.engagedPts * 100)) : 0;
+    const sayDoCol = c.sayDo == null ? 'var(--text-muted)' : c.sayDo >= 80 ? 'var(--success)' : c.sayDo >= 50 ? 'var(--warning)' : 'var(--danger)';
+    const when = c.capturedAt ? new Date(c.capturedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
+    return `<div class="pi-commit">
+        <div class="pi-commit-hd">
+            <span class="pi-commit-title">📌 Engagement du PI${when ? ` <span class="pi-commit-when">figé le ${esc(when)}</span>` : ''}</span>
+            ${captureBtn}
+        </div>
+        <div class="pi-commit-bar" title="${c.deliveredPts} / ${c.engagedPts} SP engagés livrés">
+            <div class="pi-commit-bar-fill" style="width:${delivPct}%"></div>
+        </div>
+        <div class="pi-commit-stats">
+            <span class="pi-commit-stat"><strong>${c.engagedPts}</strong> engagés</span>
+            <span class="pi-commit-stat pi-commit-stat--ok"><strong>${c.deliveredPts}</strong> livrés</span>
+            ${c.addedPts ? `<span class="pi-commit-stat pi-commit-stat--add" title="${c.addedCount} feature(s) ajoutée(s) après la baseline">+${c.addedPts} ajoutés (${c.addedCount})</span>` : ''}
+            ${c.removedPts ? `<span class="pi-commit-stat pi-commit-stat--rm" title="${c.removedCount} feature(s) retirée(s) depuis la baseline">−${c.removedPts} retirés (${c.removedCount})</span>` : ''}
+            <span class="pi-commit-saydo" style="color:${sayDoCol}" title="Say/Do = SP livrés ÷ SP engagés">Say/Do ${c.sayDo == null ? '—' : c.sayDo + '%'}</span>
+        </div>
+    </div>`;
 }
 
 // ── Objectives tab ────────────────────────────────────────────────────────────
@@ -528,22 +587,14 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
     const team       = store.get('team');
     const showAll    = !team || team === 'all';
 
-    // Snapshot par PI en base (source de vérité partagée). Fallback localStorage legacy
-    // pour les objectifs saisis avant la migration vers pi_objectives.
+    // Clé localStorage legacy (objectifs saisis avant la migration vers pi_objectives) —
+    // utilisée pour le fallback de lecture ET le nettoyage au save.
     const _lsKey = piNum ? `sb-pi-obj-PI${piNum}` : null;
-    const _snapForPi = (piInfo?.piObjectives || {})[String(piNum)] || null;
 
-    // PI COURANT : le jeu vivant `objectives` est la source de vérité (maintenu à chaque save
-    // PI Planning). On le préfère dès qu'il est non vide ; sinon on retombe sur le snapshot
-    // pi_objectives[piNum] (cas d'un import CSV qui n'aurait peuplé que le snapshot).
-    // ⚠ Auto-guérison : quand `piInfo.number` est faux (ex: 0), le snapshot backend est écrit
-    // sous une mauvaise clé alors que la lecture se fait sous `piNum` (dérivé du sprint). Lire
-    // le snapshot en priorité masquait alors les objectifs réellement enregistrés dans `objectives`.
-    // PI PASSÉ : snapshot pi_objectives[piNum] (partagé) puis fallback localStorage legacy.
+    // Résolution courant-vs-snapshot déléguée à resolvePiObjectives (source unique partagée
+    // avec le Dashboard) — supprime le footgun « doit rester cohérent entre les 2 vues ».
     const isEditable          = isCurrentPi !== false || _objUnlocked;
-    const effectiveObjectives = isCurrentPi
-        ? ((piInfo?.objectives && piInfo.objectives.length) ? piInfo.objectives : (_snapForPi || []))
-        : (_snapForPi || (_lsKey ? JSON.parse(localStorage.getItem(_lsKey) || '[]') : []));
+    const effectiveObjectives = resolvePiObjectives({ piInfo, piNum, isCurrentPi, legacyLsKey: _lsKey });
 
     const filtered   = showAll
         ? effectiveObjectives
@@ -564,6 +615,22 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
 
     const globalPct   = globalTotal ? Math.round(globalDone / globalTotal * 100) : 0;
     const globalCol   = globalPct >= 80 ? 'var(--success)' : globalPct >= 40 ? 'var(--warning)' : 'var(--danger)';
+
+    // ── Commitment baseline (#12) ─────────────────────────────────────────────
+    // Features du PI normalisées (forme partagée {id,title,team,points,status}). En vue
+    // "toutes équipes" featureList couvre tout le PI ; filtrée sinon.
+    const piFeats = (featureList || []).map(f => ({
+        id: f.id, title: f.title || '', team: f.team || 'Autre',
+        points: f.childPts || f.points || 0, status: f.rolledStatus || f.status,
+    }));
+    const _baselineRaw = (piInfo?.piBaselines || {})[String(piNum)] || null;
+    // Comparaison filtrée par équipe à l'affichage (la baseline est figée au niveau PI).
+    const _baseFeats = _baselineRaw
+        ? (showAll ? (_baselineRaw.features || []) : (_baselineRaw.features || []).filter(f => f.team === team))
+        : null;
+    const _commit = _baselineRaw ? computeCommitment({ ...(_baselineRaw), features: _baseFeats }, piFeats) : null;
+    // Capture autorisée uniquement sur le PI courant en vue "toutes équipes" (baseline = niveau PI).
+    const _canCapture = isCurrentPi !== false && showAll;
 
     const STATUS_OPT = [
         { v: 'todo',   l: 'À faire',  col: 'var(--status-todo)'   },
@@ -679,6 +746,7 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
             <div class="pi-obj-gauge-bar"><div class="pi-obj-gauge-fill" style="width:${globalPct}%;background:${globalCol}"></div></div>
             <span class="pi-obj-gauge-pct" style="color:${globalCol}">${globalDone}/${globalTotal} · ${globalPct}%</span>
         </div>` : ''}
+        ${_commitmentPanelHtml(_commit, _baselineRaw, _canCapture)}
         <div class="pi-obj-toolbar">
             ${!showAll
                 ? `<span class="chip" style="background:var(--primary-bg);color:var(--primary)">${esc(team)}</span>`
@@ -699,6 +767,26 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
     el.querySelector('.pi-obj-unlock-btn')?.addEventListener('click', () => {
         _objUnlocked = true;
         renderObjectives(el, { objectives, piInfo, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
+    });
+
+    // ── Capture de la baseline de commitment (#12) ────────────────────────────
+    el.querySelector('#pi-baseline-capture')?.addEventListener('click', async () => {
+        const committedPts = piFeats.reduce((s, f) => s + (f.points || 0), 0);
+        if (_baselineRaw) {
+            const ok = await confirmDanger('Re-figer la baseline ?',
+                `La baseline actuelle du PI#${piNum} (${(_baselineRaw.features || []).length} features) sera remplacée par l'état courant (${piFeats.length} features, ${committedPts} SP).`,
+                { confirmLabel: 'Re-figer', danger: true });
+            if (!ok) return;
+        }
+        try {
+            await api.setPiBaseline(piNum, { features: piFeats, committedPts });
+            const pi = { ...(store.get('piInfo') || {}) };
+            pi.piBaselines = { ...(pi.piBaselines || {}),
+                [String(piNum)]: { capturedAt: new Date().toISOString(), committedPts, features: piFeats } };
+            store.set('piInfo', pi);
+            toast(`Baseline figée — ${piFeats.length} features, ${committedPts} SP`, 'success');
+            renderObjectives(el, { objectives, piInfo: pi, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
+        } catch (e) { toast(e.message, 'error'); }
     });
 
     // ── Persistance des objectifs (partagée par « Enregistrer » et la suppression) ──
@@ -821,7 +909,7 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
         todo:   { bg: 'var(--bg-alt)',                    text: 'var(--text-muted)',             dot: '#94a3b8' },
     };
 
-    const _isBufFeature = f => (f.labels || []).some(l => /buffer/i.test(l));
+    const _isBufFeature = isBufferItem;
     const jiraUrl = store.get('jiraUrl') || null;
 
     // Formate une feature : "[Feature] https://jira.../browse/ID - Titre - X pts"
@@ -980,7 +1068,7 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
         let cutIdx = null; // index APRÈS lequel insérer la ligne (null = pas de ligne)
         let overBudget = false;
         if (cap && (cap.spNet > 0 || cap.spEst > 0)) {
-            const _isBufFeature = f => (f.labels || []).some(l => /buffer/i.test(l));
+            const _isBufFeature = isBufferItem;
             let cumSp = 0;
             const budgetNet = cap.spNet;
             const budgetTotal = cap.spEst; // inclut le buffer
@@ -2062,7 +2150,7 @@ function renderTeams(el, { teamCap, tickets, teams }) {
                         <div class="flex gap-1 mt-2 flex-wrap">
                             ${['todo', 'inprog', 'review', 'test', 'blocked', 'done'].map(s => {
                                 const c = statusCounts[s] || 0;
-                                return c ? `<span class="badge badge-${s} badge-status">${STATUS_LABELS[s]} ${c}</span>` : '';
+                                return c ? statusBadge({ status: s }, { label: `${STATUS_LABELS[s]} ${c}` }) : '';
                             }).join('')}
                         </div>
                     </div>
@@ -2462,9 +2550,10 @@ function renderBurnup(el, { piInfo, teams, teamObjects }) {
             </div>
         </div>`;
 
-    requestAnimationFrame(() => {
+    // Construit le graphique dans un canvas cible (id) — réutilisé par le zoom plein écran.
+    const _buildPiBurnup = (targetId) => {
         if (!window.Chart) return;
-        const ctx = document.getElementById('pi-burnup-chart')?.getContext('2d');
+        const ctx = document.getElementById(targetId)?.getContext('2d');
         if (!ctx) return;
 
         // Datasets : une ligne par équipe (cumul) + ligne totale (gras) + commitment horizontal
@@ -2519,6 +2608,13 @@ function renderBurnup(el, { piInfo, teams, teamObjects }) {
                 },
             },
         });
+    };
+
+    requestAnimationFrame(() => {
+        _buildPiBurnup('pi-burnup-chart');
+        // Rend le graphique zoomable (popin plein écran) avec une explication contextuelle.
+        registerExternalChart('pi-burnup-chart', 'piburnup',
+            `PI#${piNumber} Burnup ${teamFilter ? `— ${team}` : '— toutes équipes'}`, _buildPiBurnup);
     });
 }
 
@@ -2923,16 +3019,15 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
     el.querySelector('#vote-sprint')?.addEventListener('change', () => { syncVoteBtns(); refreshResults(); });
 
     // Copie le message d'invitation au sondage (template fun pour Mood, structuré pour Fist)
-    el.querySelector('.btn-copy-vote-slack')?.addEventListener('click', async () => {
-        const btn = el.querySelector('.btn-copy-vote-slack');
-        const sprintVal = el.querySelector('#vote-sprint')?.value.trim() || store.get('sprintInfo')?.name || '';
-        const raw = type === 'fist' ? buildFistSlackRaw(sprintVal) : buildMoodSlackRaw(sprintVal);
-        try {
-            await navigator.clipboard.writeText(raw);
-            btn.textContent = '✓ Copié !';
-            setTimeout(() => { btn.textContent = '📋 Copier Slack'; }, 1500);
-        } catch { toast('Impossible de copier', 'error'); }
-    });
+    // Helper partagé wireSlackCopy : le texte est recalculé au clic depuis le sprint courant.
+    wireSlackCopy(
+        el.querySelector('.btn-copy-vote-slack'),
+        () => {
+            const sprintVal = el.querySelector('#vote-sprint')?.value.trim() || store.get('sprintInfo')?.name || '';
+            return type === 'fist' ? buildFistSlackRaw(sprintVal) : buildMoodSlackRaw(sprintVal);
+        },
+        '📋 Copier Slack'
+    );
 
     // État initial
     syncVoteBtns();

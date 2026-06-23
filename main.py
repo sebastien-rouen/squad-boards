@@ -19,7 +19,7 @@ from app.migrations import run_migrations
 from app.seed import seed_atlas_catalog
 from app.routers import (
     teams, groups, epics, members, absences, support, agile,
-    tickets, features, planning, atlas, calendars, jira, data,
+    tickets, features, planning, atlas, calendars, jira, data, poker,
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -48,7 +48,7 @@ for _r in (
     absences.router, support.router,
     agile.router_events, agile.router_retro, agile.router_risks, agile.router_mood,
     tickets.router, features.router, planning.router, atlas.router,
-    calendars.router, jira.router, data.router,
+    calendars.router, jira.router, data.router, poker.router_poker,
 ):
     app.include_router(_r)
 

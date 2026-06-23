@@ -11,32 +11,105 @@
     display: flex;
     justify-content: flex-end;
     gap: var(--sp-2);
-    margin-top: var(--sp-4);
-    padding-top: var(--sp-4);
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-3);
     border-top: 1px solid var(--border);
 }
 
-/* ── Sections visuelles dans les formulaires edit/create ── */
+/* ── Sections visuelles dans les formulaires edit/create ──
+   Espacement compact pour gagner de la place : pas d'encadré lourd, juste un
+   léger fond + un titre bien identifiable (trait d'accent + couleur secondaire). */
 .edit-section {
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-    padding: var(--sp-4);
-    margin-bottom: var(--sp-3);
+    border-radius: var(--r-md);
+    padding: var(--sp-2) var(--sp-3) var(--sp-3);
+    margin-bottom: var(--sp-2);
 }
 .edit-section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
     font-size: var(--fs-xs);
     font-weight: var(--fw-semibold);
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-muted);
-    margin-bottom: var(--sp-3);
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-2);
 }
-.edit-section .form-group { margin-bottom: var(--sp-3); }
+/* Petit trait d'accent devant le titre — repère visuel sans prendre de hauteur */
+.edit-section-title::before {
+    content: '';
+    width: 3px;
+    height: 11px;
+    border-radius: var(--r-full);
+    background: var(--primary);
+    opacity: 0.55;
+    flex-shrink: 0;
+}
+.edit-section .form-group { margin-bottom: var(--sp-2); }
 .edit-section .form-group:last-child,
 .edit-section .form-row:last-child { margin-bottom: 0; }
-.edit-section .form-row { gap: var(--sp-3); }
-.edit-section .label { font-size: var(--fs-xs); color: var(--text-secondary); font-weight: var(--fw-medium); }
+.edit-section .form-row { gap: var(--sp-2) var(--sp-3); }
+.edit-section .label {
+    font-size: var(--fs-xs);
+    color: var(--text-secondary);
+    font-weight: var(--fw-medium);
+    margin-bottom: 3px;
+}
+/* Selects (Équipe / Leader / Epic) alignés sur les chips : même focus ring,
+   pleine largeur dans la grille, fond surface cohérent. */
+.edit-section .select {
+    width: 100%;
+    min-width: 0;
+    background-color: var(--surface);
+}
+.edit-section .select:focus-visible,
+.edit-section .select:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* Trigger cliquable (Équipe / Leader / Epic) — affiche la valeur, ouvre un picker
+   autocomplete inline au clic (avatars, couleurs d'équipe). Cohérent avec l'édition. */
+.form-picker-trigger {
+    display: flex;
+    align-items: center;
+    min-height: 34px;
+    padding: var(--sp-1) var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    font-size: var(--fs-sm);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
+}
+.form-picker-trigger:hover { border-color: var(--border-hover); }
+.form-picker-trigger:focus-visible {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+/* Le picker inline occupe toute la largeur du trigger une fois ouvert */
+.form-picker-trigger .person-picker,
+.form-picker-trigger .epic-picker { width: 100%; }
+.form-picker-trigger .person-picker-input { max-width: none; flex: 1; }
+.form-picker-dot {
+    width: 9px; height: 9px;
+    border-radius: var(--r-full);
+    margin-right: var(--sp-2);
+    flex-shrink: 0;
+}
+
+/* Zones contributeurs / labels en mode création (chips + picker enchaîné) */
+.contrib-inline-wrap,
+.labels-inline-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+}
 .edit-checkbox-label {
     display: flex;
     align-items: center;
@@ -73,6 +146,15 @@
 .chip-sel:hover {
     background: var(--bg-alt);
     border-color: color-mix(in srgb, var(--text-secondary) 50%, transparent);
+}
+.chip-sel:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+/* État actif (toutes variantes) : un cran plus marqué — poids + ombre légère */
+.chip-sel.is-active {
+    font-weight: var(--fw-semibold);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 6%, transparent);
 }
 /* Type variants */
 .chip-sel--story.is-active   { background: color-mix(in srgb, var(--type-story)   12%, transparent); color: var(--type-story);   border-color: var(--type-story);   }

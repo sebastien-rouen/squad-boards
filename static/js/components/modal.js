@@ -5,7 +5,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal } from '../utils.js';
+import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS } from '../config.js';
 
 const overlay = () => document.getElementById('modal-overlay');
@@ -443,6 +443,10 @@ let _modalIdx = -1;
 
 export function closeModal() {
     overlay().classList.add('hidden');
+    // .above-demo (bump z-index au-dessus d'une Demo/alert ouverte) ne doit pas survivre à la
+    // fermeture — sinon il reste collé et passe devant le Planning Poker (z-index 2000) sur les
+    // ouvertures suivantes, même hors contexte Demo.
+    overlay().classList.remove('above-demo');
     // Nettoyage de la sidebar enfants (features) — sinon elle persiste sur la prochaine ouverture
     document.getElementById('mdl-children-side')?.remove();
     document.getElementById('mdl-children-toggle')?.remove();
@@ -552,7 +556,6 @@ export function openTicketModal(ticketId) {
     _modalIdx = all.findIndex(t => t.id === ticketId);
 
     const jiraUrl = store.get('jiraUrl');
-    const typeLabel = TYPE_LABELS[ticket.type] || ticket.type;
     const jiraLink = jiraUrl ? `${jiraUrl}/browse/${ticket.id}` : null;
 
     const leader = ticket.leader || ticket.assignee;
@@ -604,7 +607,7 @@ export function openTicketModal(ticketId) {
         <!-- H : avatar leader -->
         ${leader ? `<span class="mdl-header-avatar" style="background:${hashColor(leader)}" title="${esc(leader)}">${esc(initials(leader))}</span>` : ''}
         <!-- D : badge type éditable -->
-        <span class="badge badge-type badge-${ticket.type} mdl-type-badge editable-field" data-field="type" data-value="${ticket.type}" title="Cliquer pour modifier le type">${esc(typeLabel)}</span>
+        ${typeBadge(ticket.type, { extra: 'mdl-type-badge editable-field', attrs: `data-field="type" data-value="${esc(ticket.type)}" title="Cliquer pour modifier le type"`, title: false })}
         ${jiraLink
             ? `<a class="mdl-ticket-link" href="${esc(jiraLink)}" target="_blank" rel="noopener" title="Ouvrir dans JIRA">${esc(ticket.id)}</a>`
             : `<span class="mdl-ticket-id">${esc(ticket.id)}</span>`
@@ -1288,7 +1291,6 @@ function _bindInlineEditors(container, ticket) {
 // ══════════════════════════════════════════════════════════════════════════════
 // Planning Poker — vote collectif Story Points
 // ══════════════════════════════════════════════════════════════════════════════
-const POKER_KEY  = (id) => `sb-poker-${id}`;
 const POKER_FIB  = [1, 2, 3, 5, 8, 13, 21, '?'];
 const POKER_FIBS = [1, 2, 3, 5, 8, 13, 21];
 
@@ -1299,8 +1301,13 @@ const _pokerColor = (name) => {
     return `hsl(${h % 360}, 60%, 48%)`;
 };
 const _initials = (name) => name.trim().split(/\s+/).map(w => w[0]?.toUpperCase() || '').slice(0, 2).join('');
-const _getVotes = (id) => { try { return JSON.parse(localStorage.getItem(POKER_KEY(id)) || '[]'); } catch { return []; } };
-const _saveVotes = (id, v) => localStorage.setItem(POKER_KEY(id), JSON.stringify(v));
+// Adapte un vote serveur {voter,value,revealed} → forme front {name,val,me,revealed}.
+const _adaptVote = (v, myName) => ({
+    name: v.voter,
+    val: v.value === '?' ? '?' : (v.value === '' || v.value == null ? null : parseInt(v.value)),
+    me: v.voter === myName,
+    revealed: !!v.revealed,
+});
 
 function _openPokerModal(ticket, apiSave, openTicketModal) {
     document.getElementById('poker-overlay')?.remove();
@@ -1311,16 +1318,28 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
     document.body.appendChild(ov);
     requestAnimationFrame(() => ov.classList.add('visible'));
 
+    // État des votes (source = serveur, rafraîchi par polling pour le live multi-utilisateurs)
+    let _serverVotes = [];
+    let _pollTimer = null;
+
     const close = () => {
+        clearInterval(_pollTimer);
         if (location.hash.endsWith('/poker'))
             history.replaceState(null, '', location.hash.replace(/\/poker$/, ''));
         ov.classList.remove('visible');
         ov.addEventListener('transitionend', () => ov.remove(), { once: true });
     };
 
+    // Rafraîchit l'état depuis le serveur puis re-render (sans casser la saisie en cours).
+    const refresh = async (rerender = true) => {
+        try { _serverVotes = await api.getPoker(ticket.id); }
+        catch { /* réseau : on garde le dernier état connu */ }
+        if (rerender) render();
+    };
+
     const render = () => {
-        const votes   = _getVotes(ticket.id);
         const myName  = localStorage.getItem('sb-poker-myname') || '';
+        const votes   = _serverVotes.map(v => _adaptVote(v, myName));
         const meVote  = votes.find(v => v.me);
         const hasVoted = votes.filter(v => v.val !== null).length;
         const revealed = votes.length > 0 && votes.every(v => v.revealed);
@@ -1336,8 +1355,10 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
         // Phase : 'identity' | 'vote' | 'revealed'
         const phase = !myName ? 'identity' : revealed ? 'revealed' : 'vote';
 
-        // Lien de partage
-        const shareUrl = location.href.replace(/\/poker$/, '') + (location.href.includes('/poker') ? '' : '/poker');
+        // Lien de partage : doit TOUJOURS pointer vers la modale de ré-estimation poker
+        // (ex. .../#health/Gabbiano/ticket/GDEM-4117/poker). On normalise en retirant un
+        // éventuel /poker final puis en le rajoutant — qu'on soit déjà sur /poker ou non.
+        const shareUrl = location.href.replace(/\/poker$/, '') + '/poker';
 
         ov.innerHTML = `
         <div class="poker-modal poker-phase--${phase}">
@@ -1521,17 +1542,12 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
             } catch { toast('Copie impossible', 'error'); }
         });
 
-        // Formulaire identité
+        // Formulaire identité — purement local (on n'apparaît côté serveur qu'au 1er vote)
         ov.querySelector('#poker-identity-form')?.addEventListener('submit', e => {
             e.preventDefault();
             const name = ov.querySelector('#poker-voter-name')?.value.trim();
             if (!name) return;
             localStorage.setItem('sb-poker-myname', name);
-            const cur = _getVotes(ticket.id);
-            if (!cur.find(v => v.me)) {
-                cur.push({ name, val: null, me: true, revealed: false });
-                _saveVotes(ticket.id, cur);
-            }
             render();
         });
 
@@ -1541,53 +1557,44 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
             render();
         });
 
-        // Sélection carte
+        // Sélection carte → vote serveur (upsert), puis refresh
         ov.querySelectorAll('.poker-card:not([disabled])').forEach(card => {
-            card.addEventListener('click', () => {
-                const val = card.dataset.val === '?' ? '?' : parseInt(card.dataset.val);
-                const cur = _getVotes(ticket.id);
-                const me  = cur.find(v => v.me);
-                if (!me) {
-                    const name = localStorage.getItem('sb-poker-myname') || 'Moi';
-                    cur.push({ name, val, me: true, revealed: false });
-                } else {
-                    me.val = val;
-                    me.revealed = false;
-                }
-                _saveVotes(ticket.id, cur);
-                render();
+            card.addEventListener('click', async () => {
+                const name = localStorage.getItem('sb-poker-myname');
+                if (!name) return;
+                try { await api.pokerVote(ticket.id, name, String(card.dataset.val)); await refresh(); }
+                catch (e) { toast(e.message, 'error'); }
             });
         });
 
         // Révéler / Nouveau tour
-        ov.querySelector('#poker-reveal')?.addEventListener('click', () => {
-            const cur = _getVotes(ticket.id);
-            const allRevealed = cur.every(v => v.revealed);
-            if (allRevealed) {
-                // Nouveau tour : reset les valeurs, garder les participants
-                cur.forEach(v => { v.val = null; v.revealed = false; });
-            } else {
-                cur.forEach(v => { v.revealed = true; });
-            }
-            _saveVotes(ticket.id, cur);
-            render();
+        ov.querySelector('#poker-reveal')?.addEventListener('click', async () => {
+            const allRevealed = votes.length > 0 && votes.every(v => v.revealed);
+            try {
+                // Nouveau tour (déjà révélé) = reset des votes ; sinon on révèle tout.
+                if (allRevealed) await api.pokerReset(ticket.id);
+                else await api.pokerReveal(ticket.id);
+                await refresh();
+            } catch (e) { toast(e.message, 'error'); }
         });
 
         // Reset complet
-        ov.querySelector('#poker-reset')?.addEventListener('click', () => {
-            localStorage.removeItem(POKER_KEY(ticket.id));
-            render();
+        ov.querySelector('#poker-reset')?.addEventListener('click', async () => {
+            try { await api.pokerReset(ticket.id); await refresh(); }
+            catch (e) { toast(e.message, 'error'); }
         });
 
-        // Quitter (remove me)
+        // Quitter : retire mon vote côté serveur + oublie mon identité locale.
         ov.querySelectorAll('.poker-vote-rm').forEach(btn => {
-            btn.addEventListener('click', () => {
-                _saveVotes(ticket.id, _getVotes(ticket.id).filter(v => !v.me));
-                render();
+            btn.addEventListener('click', async () => {
+                const name = localStorage.getItem('sb-poker-myname');
+                localStorage.removeItem('sb-poker-myname');
+                try { if (name) await api.pokerLeave(ticket.id, name); await refresh(); }
+                catch (e) { toast(e.message, 'error'); render(); }
             });
         });
 
-        // Sauvegarder
+        // Sauvegarder la valeur retenue + reset de la session de vote
         ov.querySelector('#poker-save')?.addEventListener('click', async () => {
             const input = ov.querySelector('#poker-save-pts');
             const pts   = parseInt(input?.value);
@@ -1596,7 +1603,7 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
             btn.disabled = true;
             try {
                 await apiSave({ points: pts });
-                localStorage.removeItem(POKER_KEY(ticket.id));
+                await api.pokerReset(ticket.id);
                 btn.innerHTML = `<svg class="icon icon-sm"><use href="#i-check"/></svg> Enregistré !`;
                 setTimeout(() => { close(); openTicketModal(ticket.id); }, 700);
                 toast(`Story Points mis à jour : ${pts} SP`, 'success');
@@ -1607,7 +1614,18 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
         });
     };
 
+    // Rendu initial immédiat (état vide) puis 1er fetch, enfin polling live (~3 s).
     render();
+    refresh();
+    _pollTimer = setInterval(() => {
+        // Ne pas ré-écraser pendant que l'utilisateur saisit (nom ou valeur à enregistrer)
+        const ae = document.activeElement;
+        if (ae && ov.contains(ae) && (ae.id === 'poker-voter-name' || ae.id === 'poker-save-pts')) {
+            refresh(false);   // met à jour les données sans re-render
+        } else {
+            refresh();
+        }
+    }, 3000);
 }
 
 // Arrow keys for modal navigation
@@ -1679,11 +1697,14 @@ const PRIORITY_CFG = [
 ];
 const PRESET_LABELS = ['tech-debt','retro','postmortem','cop','adapt','support','skill-up','urgent'];
 
-function _chipSelGroup(name, items, defaultVal, extra = '') {
-    const chips = items.map(({ val, label, cls }) =>
-        `<button type="button" class="chip-sel ${cls || `chip-sel--${val}`}${val === defaultVal ? ' is-active' : ''}" data-val="${val}">${label}</button>`
-    ).join('');
-    return `<div class="chip-sel-group" data-name="${name}">${chips}</div><input type="hidden" name="${name}" value="${defaultVal}">${extra}`;
+function _chipSelGroup(name, items, defaultVal, extra = '', multi = false) {
+    const itemRole = multi ? 'checkbox' : 'radio';
+    const chips = items.map(({ val, label, cls }) => {
+        const active = val === defaultVal;
+        return `<button type="button" role="${itemRole}" aria-checked="${active}" class="chip-sel ${cls || `chip-sel--${val}`}${active ? ' is-active' : ''}" data-val="${val}">${label}</button>`;
+    }).join('');
+    const groupRole = multi ? 'group' : 'radiogroup';
+    return `<div class="chip-sel-group" role="${groupRole}" data-name="${name}">${chips}</div><input type="hidden" name="${name}" value="${defaultVal}">${extra}`;
 }
 
 function _wireChipGroup(container, name, single = true, onChange) {
@@ -1692,37 +1713,91 @@ function _wireChipGroup(container, name, single = true, onChange) {
     if (!group) return;
     group.querySelectorAll('.chip-sel').forEach(chip => {
         chip.addEventListener('click', () => {
-            if (single) { group.querySelectorAll('.chip-sel').forEach(c => c.classList.remove('is-active')); chip.classList.add('is-active'); }
-            else        { chip.classList.toggle('is-active'); }
+            if (single) {
+                group.querySelectorAll('.chip-sel').forEach(c => { c.classList.remove('is-active'); c.setAttribute('aria-checked', 'false'); });
+                chip.classList.add('is-active');
+            } else {
+                chip.classList.toggle('is-active');
+            }
+            chip.setAttribute('aria-checked', chip.classList.contains('is-active'));
             if (hidden && single) hidden.value = chip.dataset.val;
             if (onChange) onChange(chip.dataset.val, chip.classList.contains('is-active'));
         });
     });
 }
 
+/**
+ * Ouvre un picker inline dans un conteneur de champ de formulaire (création).
+ * Réutilise les pickers de l'édition (avatars, autocomplete, couleurs d'équipe)
+ * mais SANS sauvegarde API : la valeur est tenue dans un input caché jusqu'au submit.
+ *
+ * @param trigger  élément cliquable affichant la valeur courante (.form-picker-trigger)
+ * @param hidden   input[type=hidden] mis à jour à la sélection
+ * @param makePicker (current, onCommit, onCancel) → { wrap, input } | wrap
+ * @param renderDisplay (value) → HTML affiché dans le trigger
+ * @param onChange  callback optionnel (value) après commit
+ */
+function _wireFormPicker(trigger, hidden, makePicker, renderDisplay, onChange) {
+    trigger.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger.click(); }
+    });
+    trigger.addEventListener('click', () => {
+        if (trigger.querySelector('.person-picker, .epic-picker, .chip-picker')) return;
+        const orig = trigger.innerHTML;
+        const restore = () => { trigger.innerHTML = orig; };
+        const onCommit = (val) => {
+            cleanup();
+            hidden.value = val == null ? '' : val;
+            trigger.innerHTML = renderDisplay(hidden.value);
+            if (onChange) onChange(hidden.value);
+        };
+        const onCancel = () => { cleanup(); restore(); };
+        const built = makePicker(hidden.value, onCommit, onCancel);
+        const wrap  = built.wrap || built;
+        const input = built.input;
+        trigger.innerHTML = '';
+        trigger.appendChild(wrap);
+        if (input) requestAnimationFrame(() => input.focus());
+        const onDocClick = (ev) => { if (!wrap.contains(ev.target)) onCancel(); };
+        const cleanup = () => document.removeEventListener('mousedown', onDocClick, true);
+        setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+    });
+}
+
 export function openCreateModal(defaults = {}) {
-    const teams   = store.get('teams') || [];
-    const members = store.get('members') || [];
     const epics   = store.get('epics') || [];
+    // Source des équipes avec couleur : teamObjects si dispo, sinon noms bruts (fallback)
+    let teamObjs = store.get('teamObjects') || [];
+    if (!teamObjs.length) {
+        teamObjs = (store.get('teams') || []).map(t => (typeof t === 'string' ? { name: t } : t));
+    }
     const defaultType   = defaults.type   || 'story';
     const defaultStatus = defaults.status || 'todo';
     const defaultTeam   = defaults.team   || '';
 
-    const teamNames = teams.map(t => (typeof t === 'string' ? t : t.name));
-    const membersByTeam = (team) => {
-        if (!team) return members.map(m => m.name || m);
-        return members.filter(m => (m.team || '') === team).map(m => m.name || m);
-    };
-    const leaderOpts = (team) => {
-        const names = membersByTeam(team);
-        return `<option value="">Non assigné</option>${names.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('')}`;
+    // Options d'équipe avec pastille de couleur (comme l'édition)
+    const teamOptions = [
+        { value: '', label: '— Aucune' },
+        ...teamObjs.map(t => ({ value: t.name, label: t.name, dot: t.color })),
+    ];
+    const _teamColor = (name) => teamObjs.find(t => t.name === name)?.color || 'var(--text-muted)';
+    // Rendus d'affichage des triggers
+    const teamDisplay = (val) => val
+        ? `<span class="inline-flex-center"><span class="form-picker-dot" style="background:${esc(_teamColor(val))}"></span><span>${esc(val)}</span></span>`
+        : `<span class="text-muted">— Choisir une équipe</span>`;
+    const personDisplay = (val) => val
+        ? personChip(val, 'leader')
+        : `<span class="text-muted">Non assigné</span>`;
+    const epicDisplay = (val) => {
+        if (!val) return `<span class="text-muted">Aucun</span>`;
+        const e = epics.find(x => x.id === val);
+        return `<span class="inline-flex-center"><span class="epic-picker-key">${esc(val)}</span> <span>${esc(e?.title || '')}</span></span>`;
     };
 
     const typeItems     = Object.entries(TYPE_LABELS).map(([val, label]) => ({ val, label: `${TYPE_ICONS[val] || ''} ${label}` }));
     const priorityItems = PRIORITY_CFG.map(p => ({ val: p.val, label: p.label }));
     const pointsItems   = [0,1,2,3,5,8,13,21].map(p => ({ val: String(p), label: p === 0 ? '–' : String(p), cls: 'chip-sel chip-sel--pts' }));
     const statusItems   = STATUS_ORDER.map(s => ({ val: s, label: STATUS_LABELS[s] }));
-    const labelItems    = PRESET_LABELS.map(l => ({ val: l, label: l, cls: 'chip-sel chip-sel--label' }));
 
     titleEl().textContent = 'Nouveau ticket';
     bodyEl().innerHTML = `
@@ -1759,19 +1834,20 @@ export function openCreateModal(defaults = {}) {
                 <div class="form-row">
                     <div class="form-group">
                         <label class="label">Équipe</label>
-                        <select class="select w-full" name="team" id="cs-team">
-                            <option value="">—</option>
-                            ${teamNames.map(t => `<option value="${esc(t)}"${t===defaultTeam?' selected':''}>${esc(t)}</option>`).join('')}
-                        </select>
+                        <div class="form-picker-trigger" id="cs-team-trigger" tabindex="0" role="button">${teamDisplay(defaultTeam)}</div>
+                        <input type="hidden" name="team" value="${esc(defaultTeam)}">
                     </div>
                     <div class="form-group">
                         <label class="label">Leader</label>
-                        <select class="select w-full" name="leader" id="cs-leader">${leaderOpts(defaultTeam)}</select>
+                        <div class="form-picker-trigger" id="cs-leader-trigger" tabindex="0" role="button">${personDisplay('')}</div>
+                        <input type="hidden" name="leader" value="">
                     </div>
                 </div>
                 <div class="form-group" style="margin-bottom:0">
                     <label class="label">Contributors</label>
-                    ${contribFieldHtml([])}
+                    <div class="contrib-inline-wrap" id="cs-contrib-wrap">
+                        <button type="button" class="btn btn-sm btn-secondary" id="cs-contrib-add-btn">+ Ajouter</button>
+                    </div>
                 </div>
             </div>
 
@@ -1779,20 +1855,14 @@ export function openCreateModal(defaults = {}) {
                 <div class="edit-section-title">Liens</div>
                 <div class="form-group" style="margin-bottom:0">
                     <label class="label">Epic</label>
-                    <select class="select w-full" name="epic">
-                        <option value="">Aucun</option>
-                        ${epics.map(e => `<option value="${esc(e.id)}">${esc(e.id)} — ${esc(e.title)}</option>`).join('')}
-                    </select>
+                    <div class="form-picker-trigger" id="cs-epic-trigger" tabindex="0" role="button">${epicDisplay('')}</div>
+                    <input type="hidden" name="epic" value="">
                 </div>
             </div>
 
             <div class="edit-section">
                 <div class="edit-section-title">Labels</div>
-                ${_chipSelGroup('_labels_ui', labelItems, '__none__')}
-                <div style="margin-top:var(--sp-2);display:flex;gap:var(--sp-2);align-items:center">
-                    <input class="input" id="cs-label-input" placeholder="+ Label personnalisé…" style="font-size:var(--fs-xs);flex:1">
-                    <span class="text-xs text-muted">↵ pour ajouter</span>
-                </div>
+                <div class="labels-inline-wrap" id="cs-labels-wrap"></div>
             </div>
 
             <div class="edit-section">
@@ -1810,52 +1880,103 @@ export function openCreateModal(defaults = {}) {
     // Wire radio chip groups
     ['type','priority','points','status'].forEach(name => _wireChipGroup(bodyEl(), name, true));
 
-    // Wire label chips (multi-select, no hidden input — read from DOM at submit)
-    _wireChipGroup(bodyEl(), '_labels_ui', false);
+    const body       = bodyEl();
+    const teamHidden = body.querySelector('input[name="team"]');
+    const leadHidden = body.querySelector('input[name="leader"]');
 
-    // Custom label input
-    const labelGroup = bodyEl().querySelector('.chip-sel-group[data-name="_labels_ui"]');
-    bodyEl().querySelector('#cs-label-input')?.addEventListener('keydown', e => {
-        if (e.key !== 'Enter') return;
-        e.preventDefault();
-        const raw = e.target.value.trim().replace(/\s+/g, '-').toLowerCase();
-        if (!raw) return;
-        const existing = labelGroup?.querySelector(`.chip-sel[data-val="${CSS.escape(raw)}"]`);
-        if (existing) { existing.classList.add('is-active'); }
-        else if (labelGroup) {
-            const btn = document.createElement('button');
-            btn.type = 'button'; btn.className = 'chip-sel chip-sel--label is-active'; btn.dataset.val = raw; btn.textContent = raw;
-            btn.addEventListener('click', () => btn.classList.toggle('is-active'));
-            labelGroup.appendChild(btn);
-        }
-        e.target.value = '';
+    // ── Équipe : chip-picker avec pastilles de couleur ──────────────────────────
+    _wireFormPicker(
+        body.querySelector('#cs-team-trigger'),
+        teamHidden,
+        (current, onCommit) => _makeChipPicker(teamOptions, current, onCommit),
+        teamDisplay
+    );
+
+    // ── Leader : person-picker (avatars) — même source que l'édition ────────────
+    _wireFormPicker(
+        body.querySelector('#cs-leader-trigger'),
+        leadHidden,
+        (current, onCommit, onCancel) => _makePersonPicker(getMemberNames(), current, onCommit, onCancel),
+        personDisplay
+    );
+
+    // ── Epic : autocomplete (récents + tri alpha) ───────────────────────────────
+    _wireFormPicker(
+        body.querySelector('#cs-epic-trigger'),
+        body.querySelector('input[name="epic"]'),
+        (current, onCommit, onCancel) => _makeEpicPicker(epics, current, (id) => { if (id) _pushRecentEpic(id); onCommit(id); }, onCancel),
+        epicDisplay
+    );
+
+    // ── Contributors : person-picker enchaîné (avatars), comme l'édition ────────
+    const contribWrap = body.querySelector('#cs-contrib-wrap');
+    const addBtn = body.querySelector('#cs-contrib-add-btn');
+    const getContribs = () => Array.from(contribWrap.querySelectorAll('.contrib-rm')).map(b => b.dataset.name);
+    contribWrap.addEventListener('click', e => {
+        const rm = e.target.closest('.contrib-rm'); if (!rm) return;
+        rm.closest('.chip')?.remove();
     });
+    const _openContribPicker = () => {
+        if (contribWrap.querySelector('.person-picker')) return;
+        const current = getContribs();
+        const allNames = getMemberNames().filter(m => !current.includes(m) && m !== leadHidden.value);
+        if (!allNames.length) return;
+        const onCommit = (name) => {
+            cleanup();
+            if (!name) return;
+            const chip = document.createElement('span');
+            chip.className = 'chip chip-gap';
+            chip.innerHTML = `${avatar(name, false, 18)} ${esc(name)} <button type="button" class="contrib-rm" data-name="${esc(name)}" title="Retirer">×</button>`;
+            contribWrap.insertBefore(chip, addBtn);
+            requestAnimationFrame(_openContribPicker);  // enchaîne
+        };
+        const onCancel = () => { cleanup(); pickerWrap.remove(); };
+        const { wrap: pickerWrap, input } = _makePersonPicker(allNames, '', onCommit, onCancel);
+        pickerWrap.classList.add('person-picker--no-clear');
+        contribWrap.insertBefore(pickerWrap, addBtn);
+        requestAnimationFrame(() => input.focus());
+        const onDocClick = (ev) => { if (!pickerWrap.contains(ev.target) && ev.target !== addBtn) onCancel(); };
+        const cleanup = () => document.removeEventListener('mousedown', onDocClick, true);
+        setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+    };
+    addBtn.addEventListener('click', _openContribPicker);
 
-    // Team → filter leader
-    const teamSel   = bodyEl().querySelector('#cs-team');
-    const leaderSel = bodyEl().querySelector('#cs-leader');
-    teamSel?.addEventListener('change', () => {
-        leaderSel.innerHTML = leaderOpts(teamSel.value);
+    // ── Labels : autocomplete (suggestions du store + frappe libre) ─────────────
+    const labelsWrap = body.querySelector('#cs-labels-wrap');
+    const getLabels = () => Array.from(labelsWrap.querySelectorAll('.label-rm')).map(b => b.dataset.label);
+    labelsWrap.addEventListener('click', e => {
+        const rm = e.target.closest('.label-rm'); if (!rm) return;
+        rm.closest('.chip')?.remove();
     });
+    const { wrap: labelPickerWrap } = _makeLabelPicker(
+        getLabels(),
+        (val) => {
+            if (!val || getLabels().includes(val)) return;
+            const chip = document.createElement('span');
+            chip.className = 'chip chip-gap';
+            chip.innerHTML = `${esc(val)} <button type="button" class="label-rm" data-label="${esc(val)}" title="Retirer">×</button>`;
+            labelsWrap.insertBefore(chip, labelPickerWrap);
+        },
+        () => {}
+    );
+    labelsWrap.appendChild(labelPickerWrap);
 
-    wireContrib(bodyEl());
-    bodyEl().querySelector('#btn-cancel-create')?.addEventListener('click', closeModal);
+    body.querySelector('#btn-cancel-create')?.addEventListener('click', closeModal);
 
-    bodyEl().querySelector('#create-form')?.addEventListener('submit', async (e) => {
+    body.querySelector('#create-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        const selectedLabels = [...(labelGroup?.querySelectorAll('.chip-sel.is-active') || [])].map(c => c.dataset.val);
         const data = {
             title:        fd.get('title'),
             type:         fd.get('type'),
             status:       fd.get('status'),
             team:         fd.get('team'),
             leader:       fd.get('leader') || null,
-            contributors: JSON.parse(fd.get('contributors') || '[]'),
+            contributors: getContribs(),
             points:       parseInt(fd.get('points')) || 0,
             priority:     fd.get('priority'),
             epic:         fd.get('epic') || null,
-            labels:       selectedLabels,
+            labels:       getLabels(),
             description:  fd.get('description'),
         };
         try {
@@ -1999,7 +2120,8 @@ export function openEditModal(ticket) {
         else if (labelGroup) {
             const btn = document.createElement('button');
             btn.type = 'button'; btn.className = 'chip-sel chip-sel--label is-active'; btn.dataset.val = raw; btn.textContent = raw;
-            btn.addEventListener('click', () => btn.classList.toggle('is-active'));
+            btn.setAttribute('role', 'checkbox'); btn.setAttribute('aria-checked', 'true');
+            btn.addEventListener('click', () => { const on = btn.classList.toggle('is-active'); btn.setAttribute('aria-checked', on); });
             labelGroup.appendChild(btn);
         }
         e.target.value = '';
@@ -2098,7 +2220,7 @@ function _renderChildrenSidebar(feature) {
             <span class="badge badge-${esc(type)} badge-2xs">${esc(type)}</span>
             <span class="mdl-cs-id">${esc(t.id)}</span>
             <span class="mdl-cs-title truncate">${esc(t.title || '(sans titre)')}</span>
-            <span class="badge badge-${esc(t.status)} badge-status badge-2xs">${esc(STATUS_LABELS[t.status] || t.status)}</span>
+            ${statusBadge(t, { size: '2xs', label: STATUS_LABELS[t.status] || t.status })}
             <span class="mdl-cs-pts">${t.points ? t.points : '—'}</span>
         </div>`;
     side.innerHTML = `

@@ -26,7 +26,9 @@ import { toggleFavoritesDropdown } from './components/favorites.js';
 import { initTeamSwitcher, openTeamSwitcher } from './components/team_switcher.js';
 import { openCurrentSprintReview, openCurrentSprintDemo } from './components/sprint_tickets_modal.js';
 import { destroyAllCharts } from './components/charts.js';
+import { initChartZoom } from './components/chart_zoom.js';
 import { updateInfoPanel } from './components/infopanel.js';
+import { renderCalBanner } from './components/cal_banner.js';
 
 import { renderDashboard } from './views/dashboard.js';
 import { renderSprint } from './views/sprint.js';
@@ -94,14 +96,17 @@ function pushHash() {
         const sec = store.get('settingsSection');
         if (sec) hash = `settings/${sec}`;
     } else if (view === 'sprint') {
-        // Sprint : team/sprintPick (le sprint sélectionné si différent du sprint actif)
+        // Sprint : team/[sprintPick/][layout]
+        //   - sprintPick = sprint sélectionné si différent du sprint actif
+        //   - layout = mode d'affichage (swimlanes|list) ; "columns" (défaut) omis
+        const pick   = store.get('sprintPick');
+        const layout = store.get('sprintLayout');
+        const layoutPart = (layout && layout !== 'columns') ? layout : '';
+        // team préfixée si nécessaire, ou 'all' placeholder si un segment suit
         if (group || (team && team !== 'all')) hash += '/' + teamPart;
-        const pick = store.get('sprintPick');
-        if (pick) {
-            // Si pas de team préfixé, on met 'all' pour préserver la position du sprint
-            if (!group && (!team || team === 'all')) hash += '/all';
-            hash += '/' + encodeURIComponent(pick);
-        }
+        else if (pick || layoutPart) hash += '/all';
+        if (pick) hash += '/' + encodeURIComponent(pick);
+        if (layoutPart) hash += '/' + layoutPart;
     } else {
         if (group) hash += '/' + teamPart;
         else if (team && team !== 'all') hash += '/' + teamPart;
@@ -129,16 +134,19 @@ function applyHash() {
         raw = raw.slice(0, spIdx);
     }
 
-    // Extract optional alert fragment: #view[/team[/tab]]/alert/<actionable>
-    const am = raw.match(/^(.*?)\/alert\/([^/]+)$/);
-    const alertId = am ? decodeURIComponent(am[2]) : null;
-    let rest = am ? am[1] : raw;
-
-    // Extract optional ticket fragment: #view[/team[/tab]]/ticket/ID[/poker]
-    const tm = rest.match(/^(.*?)\/ticket\/([^/]+?)(?:\/(poker))?$/);
+    // Extract optional ticket fragment EN PREMIER (toujours en fin de hash) :
+    //   #view[/team[/tab]][/alert/<id>]/ticket/ID[/poker]
+    // On retire le ticket avant l'alerte pour que `/alert/<id>` puisse être suivi d'un ticket
+    // (ex: .../alert/scopeCreep/ticket/GDEM-4117 — sinon l'alerte était perdue).
+    const tm = raw.match(/^(.*?)\/ticket\/([^/]+?)(?:\/(poker))?$/);
     const ticketId  = tm ? decodeURIComponent(tm[2]) : null;
     const ticketSub = tm ? (tm[3] || null) : null; // "poker" ou null
-    const h = tm ? tm[1] : rest;
+    let rest = tm ? tm[1] : raw;
+
+    // Extract optional alert fragment: #view[/team[/tab]]/alert/<actionable>
+    const am = rest.match(/^(.*?)\/alert\/([^/]+)$/);
+    const alertId = am ? decodeURIComponent(am[2]) : null;
+    const h = am ? am[1] : rest;
 
     if (h) {
         // Décoder les éventuels %7E (%3F pour rétrocompat) encodés par certains navigateurs dans les fragments
@@ -185,7 +193,17 @@ function applyHash() {
                         const off = parts[3] !== undefined ? parseInt(parts[3], 10) : 0;
                         store.set('piOffset', isNaN(off) ? 0 : off);
                     } else if (view === 'roadmap') store.set('roadmapTab', decodeURIComponent(parts[2]));
-                    else if (view === 'sprint') store.set('sprintPick', decodeURIComponent(parts[2]));
+                    else if (view === 'sprint') {
+                        // parts[2..3] = sprintPick et/ou layout (swimlanes|list).
+                        // Les modes sont des mots réservés → on les distingue d'un nom de sprint.
+                        const LAYOUTS = ['columns', 'swimlanes', 'list'];
+                        const segs = [parts[2], parts[3]].filter(Boolean).map(decodeURIComponent);
+                        const layout = segs.find(s => LAYOUTS.includes(s)) || null;
+                        const pick   = segs.find(s => !LAYOUTS.includes(s)) || null;
+                        store.set('sprintPick', pick);
+                        // Layout précisé dans l'URL → il prime ; sinon on laisse la préférence locale.
+                        if (layout) store.set('sprintLayout', layout);
+                    }
                 }
                 // Si pas de parts[2] sur sprint → reset le sprint pick (au cas où on était sur un autre sprint)
                 if (view === 'sprint' && !parts[2]) store.set('sprintPick', null);
@@ -467,6 +485,7 @@ async function init() {
     initCmdPalette();
     initTeamSwitcher();
     initTooltips();
+    initChartZoom();
     window.__squadBoard = window.__squadBoard || {};
     window.__squadBoard.openTeamSwitcher = openTeamSwitcher;
 
@@ -626,6 +645,10 @@ async function init() {
     // Rendu initial
     renderView();
     pushHash(); // initialise le hash si l'URL en était dépourvue
+
+    // Bandeau agenda du jour — monté une fois, hors #content : il survit aux re-renders
+    // de vue et se rafraîchit seul via ses abonnements (calendars / calendarEvents / team).
+    renderCalBanner(document.getElementById('global-cal-banner'));
 }
 
 init().catch(e => {

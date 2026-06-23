@@ -10,7 +10,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, sumBy, toast, deriveMembersFromAbsences, getStatusLabel } from '../utils.js';
+import { esc, sumBy, toast, deriveMembersFromAbsences, getStatusLabel, statusBadge, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER } from '../config.js';
 import * as api from '../api.js';
 import { ANOMALY_BY_KEY } from '../business_rules.js';
@@ -30,17 +30,35 @@ export function openAlertModal(actionable, opts = {}) {
     const teamFilter = team && team !== 'all';
     const allTickets = store.get('tickets') || [];
     const sprintInfo = store.get('sprintInfo');
+    const members    = store.get('members')  || [];
+    const absences   = store.get('absences') || [];
     const sprintStartMs = sprintInfo?.startDate
         ? new Date(String(sprintInfo.startDate).slice(0, 10)).getTime() : 0;
-    const ctx = { sprintStartMs };
-    const tickets = allTickets
-        .filter(t => !teamFilter || t.team === team)
-        .filter(t => meta.match(t, ctx));
+
+    // Tickets dans le périmètre (équipe courante ou toutes)
+    const scopeTickets = allTickets.filter(t => !teamFilter || t.team === team);
+
+    // ── Capacité / WIP par équipe (membres présents, congés du jour déduits) ──
+    // On évalue chaque équipe du périmètre : son WIP dépasse-t-il son seuil de capacité ?
+    const teamsInScope = [...new Set(scopeTickets.map(t => t.team).filter(Boolean))];
+    const wipExceededTeams = new Set();
+    const wipDetails = [];   // pour la légende de la modale (anomalie WIP uniquement)
+    for (const tm of teamsInScope) {
+        const cap   = teamCapacity(tm, members, absences);
+        const max   = wipThreshold(cap);
+        const count = countWip(scopeTickets.filter(t => t.team === tm));
+        const exceeded = count > max;
+        if (exceeded) wipExceededTeams.add(tm);
+        wipDetails.push({ team: tm, count, max, exceeded, cap });
+    }
+
+    const ctx = { sprintStartMs, wipExceededTeams };
+    const tickets = scopeTickets.filter(t => meta.match(t, ctx));
 
     const overlay = document.createElement('div');
     overlay.id = 'alert-modal-overlay';
     overlay.className = 'modal-overlay alert-modal-overlay';
-    overlay.innerHTML = _renderModalHtml(actionable, meta, tickets);
+    overlay.innerHTML = _renderModalHtml(actionable, meta, tickets, { wipDetails });
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visible'));
 
@@ -72,15 +90,18 @@ function _setAlertInHash(actionable) {
 function _clearAlertFromHash() {
     const cur = location.hash.replace(/^#/, '');
     if (!cur.includes('/alert/')) return;
-    const cleaned = cur.replace(/\/?alert\/[^/]+$/, '');
+    // Retire le segment /alert/<id> même s'il est suivi d'un /ticket/... (ordre canonique)
+    const cleaned = cur.replace(/\/?alert\/[^/]+/, '');
     history.replaceState(null, '', '#' + cleaned);
 }
 
 // ── HTML ─────────────────────────────────────────────────────────────────────
-function _renderModalHtml(actionable, meta, tickets) {
+function _renderModalHtml(actionable, meta, tickets, extra = {}) {
     const teamLabel = store.get('team');
     const teamChip = teamLabel && teamLabel !== 'all'
         ? `<span class="alert-modal-chip">👥 ${esc(teamLabel)}</span>` : '';
+    // Légende capacité/WIP — uniquement pour l'anomalie WIP
+    const wipLegend = actionable === 'wip' ? _renderWipLegend(extra.wipDetails || []) : '';
     return `
         <div class="modal alert-modal" role="dialog" aria-labelledby="alert-modal-title">
             <div class="modal-header alert-modal-header">
@@ -102,6 +123,7 @@ function _renderModalHtml(actionable, meta, tickets) {
                 ${teamChip}
                 <span class="alert-modal-intro">${esc(meta.intro)}</span>
             </div>
+            ${wipLegend}
             <div class="modal-body alert-modal-body">
                 ${tickets.length === 0 ? `
                     <div class="alert-modal-empty">
@@ -111,6 +133,46 @@ function _renderModalHtml(actionable, meta, tickets) {
                 ` : _renderTableHtml(tickets)}
             </div>
         </div>`;
+}
+
+/**
+ * Légende capacité/WIP affichée dans la modale WIP : pour chaque équipe, le WIP
+ * courant vs le seuil de capacité, et le détail des membres présents / en congé.
+ */
+function _renderWipLegend(details) {
+    if (!details.length) return '';
+    const rows = details.map(d => {
+        const cap = d.cap || {};
+        const presents = (cap.availableNames || []);
+        const absents  = (cap.absentNames || []);
+        const presentChips = presents.length
+            ? presents.map(n => `<span class="wip-cap-member" title="${esc(n)}">${esc(n)}</span>`).join('')
+            : '<span class="wip-cap-none">aucun membre disponible</span>';
+        const absentChips = absents.length
+            ? `<div class="wip-cap-absents">🌴 En congé : ${absents.map(n => `<span class="wip-cap-member wip-cap-member--off" title="${esc(n)}">${esc(n)}</span>`).join('')}</div>`
+            : '';
+        return `
+            <div class="wip-cap-row${d.exceeded ? ' wip-cap-row--over' : ''}">
+                <div class="wip-cap-head">
+                    <span class="wip-cap-team">${esc(d.team)}</span>
+                    <span class="wip-cap-count" title="WIP courant / seuil (capacité du jour)">
+                        ${d.count} / ${d.max} ${d.exceeded ? '⚠️' : '✓'}
+                    </span>
+                </div>
+                <div class="wip-cap-members">
+                    <span class="wip-cap-label">${presents.length} présent${presents.length > 1 ? 's' : ''} :</span>
+                    ${presentChips}
+                </div>
+                ${absentChips}
+            </div>`;
+    }).join('');
+    return `
+        <details class="wip-cap-legend" open>
+            <summary class="wip-cap-legend-summary">
+                📊 Capacité de l'équipe (seuil WIP = ~1,5 × membres présents, congés déduits)
+            </summary>
+            <div class="wip-cap-legend-body">${rows}</div>
+        </details>`;
 }
 
 function _renderTableHtml(tickets) {
@@ -145,7 +207,7 @@ function _renderRowHtml(t) {
                 <span class="alert-ticket-title">${esc(t.title || '(sans titre)')}</span>
             </td>
             <td>
-                <span class="badge badge-${t.status} badge-status badge-2xs">${esc(statusLbl)}</span>
+                ${statusBadge(t, { size: '2xs', label: statusLbl })}
             </td>
             <td class="alert-edit-col">
                 <div class="alert-leader-ac">

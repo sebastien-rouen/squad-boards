@@ -85,6 +85,8 @@ export const updatePI        = data => request('/api/pi', { method: 'PUT', body:
 export const setPiMembers    = (piNumber, members) => request(`/api/pi/members/${piNumber}`, { method: 'PUT', body: JSON.stringify({ members }) });
 // Snapshot des objectifs d'un PI (fusion — n'écrase pas les autres PI ; synchronise `objectives` si PI courant)
 export const setPiObjectives = (piNumber, objectives) => request(`/api/pi/objectives/${piNumber}`, { method: 'PUT', body: JSON.stringify({ objectives }) });
+// Baseline de commitment d'un PI (fusion) — { features:[{id,title,team,points,status}], committedPts }
+export const setPiBaseline   = (piNumber, payload) => request(`/api/pi/baseline/${piNumber}`, { method: 'PUT', body: JSON.stringify(payload) });
 
 // ── Groups (lignes produit) ───────────────────────────────────────────────────
 export const getGroups       = ()   => request('/api/groups');
@@ -128,6 +130,15 @@ export const getMood         = (params = {}) => {
 };
 export const createMood      = data => request('/api/mood', { method: 'POST', body: JSON.stringify(data) });
 export const deleteMood      = id   => request(`/api/mood/${id}`, { method: 'DELETE' });
+
+// ── Planning Poker (ré-estimation collaborative, live via polling) ──────────────
+const _pk = t => `/api/poker/${encodeURIComponent(t)}`;
+export const getPoker        = ticket          => request(_pk(ticket));
+export const pokerVote       = (ticket, voter, value) =>
+    request(`${_pk(ticket)}/vote`, { method: 'POST', body: JSON.stringify({ voter, value }) });
+export const pokerReveal     = ticket          => request(`${_pk(ticket)}/reveal`, { method: 'POST' });
+export const pokerReset      = ticket          => request(`${_pk(ticket)}/reset`, { method: 'POST' });
+export const pokerLeave      = (ticket, voter) => request(`${_pk(ticket)}/voter/${encodeURIComponent(voter)}`, { method: 'DELETE' });
 
 // ── Retro Items ───────────────────────────────────────────────────────────────
 export const getRetro        = (params = {}) => {

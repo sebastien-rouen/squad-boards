@@ -8,7 +8,7 @@ from app.models import (
     Ticket, Feature, Risk, Epic, Member, Team, Skill, Appetence,
     MemberSkill, MemberAppetence, MemberMobility, SprintConfig, PIConfig,
     TeamGroup, Absence, SupportRotation, Event, MoodVote, RetroItem,
-    TeamCalendar,
+    TeamCalendar, PokerVote,
 )
 
 
@@ -130,6 +130,7 @@ def _pi_dict(p: PIConfig) -> dict | None:
         "roleCapacity": p.role_capacity or {},
         "piMembers": p.pi_members or {},
         "piObjectives": p.pi_objectives or {},
+        "piBaselines": p.pi_baselines or {},
         "updatedAt": p.updated_at,
     }
 
@@ -178,6 +179,14 @@ def _mood_dict(m: MoodVote) -> dict:
         "value": m.value, "piSprint": m.pi_sprint,
         "author": m.author, "note": m.note,
         "createdAt": m.created_at,
+    }
+
+
+def _poker_dict(p: PokerVote) -> dict:
+    return {
+        "id": p.id, "ticketId": p.ticket_id, "voter": p.voter,
+        "value": p.value, "revealed": p.revealed,
+        "createdAt": p.created_at, "updatedAt": p.updated_at,
     }
 
 

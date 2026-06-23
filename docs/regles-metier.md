@@ -14,6 +14,7 @@
 - **supportrotation** : id, team, week_label, week_start, week_end, members[]
 - **sprintconfig** : name, start_date, end_date, goal
 - **piconfig** : number, name, objectives[] (PI courant), pi_objectives{} (snapshot par PI), pi_members{} (snapshot par PI)
+- **pokervote** : id, ticket_id, voter, value ("1".."21" | "?"), revealed, created_at, updated_at — session de Planning Poker live (1 vote par `voter`, upsert). Données éphémères, **hors `/api/all`** (golden export). API : `GET /api/poker/{ticket}`, `POST .../vote|reveal|reset`, `DELETE .../voter/{voter}`. Front : polling ~3 s ([modal.js](../static/js/components/modal.js)), identité locale `sb-poker-myname`.
 
 ## Conventions de données
 - `leader` = responsable principal (anciennement "assignee")

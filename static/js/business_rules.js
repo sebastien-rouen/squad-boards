@@ -10,7 +10,9 @@
  *   desc      — longer description
  *   sev       — 'danger' | 'warning' | 'info'
  *   match(t, ctx) — returns true if ticket t matches the anomaly
- *                   ctx = { sprintStartMs: number }
+ *                   ctx = { sprintStartMs: number, wipExceededTeams?: Set<string> }
+ *                   (wipExceededTeams = équipes dont le WIP dépasse la capacité du jour,
+ *                    signal d'agrégat calculé par l'appelant — un ticket seul n'est jamais une anomalie WIP)
  */
 export const ANOMALY_RULES = [
     {
@@ -70,12 +72,15 @@ export const ANOMALY_RULES = [
     {
         key: 'wip',
         icon: '🔄', label: 'WIP élevé',
-        desc: 'Tickets en cours / review / test',
+        desc: 'Tickets en cours quand le WIP dépasse la capacité de l\'équipe',
         sev: 'warning',
-        title: 'WIP élevé — tickets en cours',
-        intro: 'Trop de tickets en parallèle. Concentre-toi sur les plus avancés ou réassigne.',
+        title: 'WIP élevé — au-delà de la capacité de l\'équipe',
+        intro: 'Le nombre de tickets en parallèle dépasse la capacité de l\'équipe (membres présents, congés déduits). Concentre-toi sur les plus avancés ou réassigne.',
         editableFields: ['leader', 'points'],
-        match: t => ['inprog', 'review', 'test'].includes(t.status),
+        // WIP "élevé" = tickets en cours UNIQUEMENT pour les équipes dont le WIP dépasse
+        // leur seuil de capacité (membres présents). Signal d'agrégat calculé en amont.
+        match: (t, ctx) => ['inprog', 'review', 'test'].includes(t.status)
+            && !!ctx?.wipExceededTeams?.has(t.team),
     },
     {
         key: 'scopeCreep',

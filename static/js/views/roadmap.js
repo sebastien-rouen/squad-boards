@@ -4,9 +4,10 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, deriveMembersFromAbsences, rollupStatus, computeVelocityHistory } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, deriveMembersFromAbsences, rollupStatus, computeVelocityHistory, getCurrentPi, extractPiNum, computeVelocityBreakdown, statusBadge } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { renderVelocityChart } from '../components/charts.js';
+import { renderItemDepGraph, extractDependencyEdges } from '../components/dep_graph.js';
 import * as api from '../api.js';
 import { toast } from '../utils.js';
 
@@ -24,15 +25,10 @@ export function renderRoadmap(container) {
     const piInfo = store.get('piInfo');
 
     // PI context — décalé par le sélecteur topbar (piOffset)
-    // Fallback : si piInfo.number n'est pas configuré dans Settings, on déduit
-    // depuis le nom du sprint actif (ex: "Fuego - Ite 29.3" → 29)
+    // PI courant = SOURCE UNIQUE getCurrentPi (sprint actif > piInfo.number) — ne jamais
+    // réimplémenter la regex localement (bugs historiques, cf. CLAUDE.md du site).
     const _sprintInfo = store.get('sprintInfo');
-    const _extractPiNum = (name) => {
-        if (!name) return 0;
-        const m = String(name).match(/(\d+)\.\d+/) || String(name).match(/PI\s*#?\s*(\d+)/i);
-        return m ? parseInt(m[1], 10) : 0;
-    };
-    const _basePi = _extractPiNum(_sprintInfo?.name) || piInfo?.number || 0;
+    const _basePi = getCurrentPi({ sprintInfo: _sprintInfo, piInfo });
     const _piOffset = store.get('piOffset') || 0;
     const currentPiNum = _basePi ? Math.max(1, _basePi + _piOffset) : 0;
     // Sub-mode cards/list pour la vue "PI futur" — préservé via roadmapTab
@@ -52,17 +48,9 @@ export function renderRoadmap(container) {
     //   1. f.piSprint déjà extrait par sync.js (extractPI sur le nom de sprint JIRA)
     //   2. Fallback : extraction directe depuis f.sprintName (au cas où le snapshot DB serait incomplet)
     //   3. Fallback : labels (pattern PI29 / PI#29)
-    // Tolérance large : `PI#29`, `PI29`, `pi 29`, `29` (dans un label PI-prefix), case-insensitive, espaces ignorés.
-    const _normPi = (v) => v == null ? '' : String(v).toUpperCase().replace(/\s+/g, '');
-    const _matchPi = (raw) => {
-        if (!raw || !currentPiTag) return false;
-        const s = _normPi(raw);
-        if (s === _normPi(currentPiTag)) return true;
-        if (s === `PI${currentPiNum}`) return true;
-        // Sprint nommé "29.1" / "29.3" → match PI 29
-        const m = s.match(/^(\d+)\.\d+$/);
-        return !!(m && parseInt(m[1], 10) === currentPiNum);
-    };
+    // Extraction du n° de PI déléguée à extractPiNum (source unique) — gère `PI#29`, `PI29`,
+    // `pi 29`, `29.1`, `Fuego - Ite 29.3` de façon cohérente avec getCurrentPi.
+    const _matchPi = (raw) => !!currentPiNum && extractPiNum(raw) === currentPiNum;
     const _matchFeaturePi = (f) => {
         if (_matchPi(f.piSprint)) return true;
         if (_matchPi(f.sprintName)) return true;  // au cas où piSprint serait null mais sprintName présent
@@ -72,16 +60,6 @@ export function renderRoadmap(container) {
         return false;
     };
     const piFilteredFeatures = features.filter(_matchFeaturePi);
-
-    // Diagnostic (visible en console) — utile quand l'utilisateur ne voit pas de features
-    if (currentPiTag && features.length > 0) {
-        const _byPi = {};
-        for (const f of features) {
-            const k = f.piSprint || '(null)';
-            _byPi[k] = (_byPi[k] || 0) + 1;
-        }
-        console.log(`[Roadmap] Filtre PI ${currentPiTag} (team=${team || 'all'}) : ${piFilteredFeatures.length}/${features.length} features`, _byPi);
-    }
 
     // Sort features by rank then by creation date
     const sortedFeatures = [...piFilteredFeatures].sort((a, b) => {
@@ -204,12 +182,8 @@ export function renderRoadmap(container) {
             });
     })() : [];
 
-    // Velocity breakdown (80/20)
-    const totalPts = sumBy(tickets, t => t.points);
-    const donePts = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
-    const bufferTickets = tickets.filter(t => (t.labels || []).some(l => l.toLowerCase().includes('buffer')));
-    const bufferPts = sumBy(bufferTickets, t => t.points);
-    const featurePts = totalPts - bufferPts;
+    // Velocity breakdown (80/20) — source unique computeVelocityBreakdown
+    const { totalPts, donePts, bufferPts, featurePts } = computeVelocityBreakdown(tickets);
 
     // Prédictibilité — moyenne livraison 2 derniers PI + capacité brute/nette pour le PI courant.
     // Membres dérivés des absences (CSV RH = source de vérité), pas de la table members (artefacts JIRA).
@@ -268,11 +242,24 @@ export function renderRoadmap(container) {
             </div>
         </div>
 
+        ${_multiPiTimelineHtml(features, _basePi, _piOffset, teamObjects)}
+
         ${isNextPi
             ? _nextPiSectionHtml(nextPiFeatureData, nextPiTag, nextPiLabel, _buildDiag(allFeatures, allTickets, nextPiTag, nextPiFeatureData.length, nextPiFeatureData.filter(f => f._piInherited).length), viewMode, allTickets, epics, teamObjects, store.get('jiraUrl') || null)
             : _currentPiSectionHtml(featureData, noEpic, noPoints, noPriority, teamAlloc, totalPts, velocityHistory)
         }
     `;
+
+    // ── Timeline multi-PI : clic en-tête PI → sélection (piOffset), clic carte → modal ──
+    container.querySelectorAll('.rm-tl-hd[data-pi-offset]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const o = parseInt(btn.dataset.piOffset, 10);
+            if (!Number.isNaN(o)) store.set('piOffset', o);
+        });
+    });
+    container.querySelectorAll('.rm-tl-card[data-feature-id]').forEach(el => {
+        el.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(el.dataset.featureId));
+    });
 
     // ── Sub-view toggle (Cartes / Liste) — au sein de la section "PI suivant" ──
     container.querySelectorAll('[data-npi-view]').forEach(btn => {
@@ -329,7 +316,7 @@ export function renderRoadmap(container) {
     // ── Dependency graph + velocity chart ─────────────────────────────────────
     requestAnimationFrame(() => {
         const svg = container.querySelector('#dep-graph');
-        if (svg) _renderDepGraph(svg, featureData);
+        if (svg) renderItemDepGraph(svg, featureData, teamObjects);
         if (velocityHistory.length) renderVelocityChart('chart-rm-velocity', velocityHistory);
     });
 }
@@ -726,6 +713,10 @@ function _buildDiag(features, allTickets, nextPiTag, filteredCount = null, inher
 
 // ── Current PI section HTML ───────────────────────────────────────────────────
 function _currentPiSectionHtml(featureData, noEpic, noPoints, noPriority, teamAlloc, totalPts, velocityHistory) {
+    // Dépendances réelles (liens JIRA bloquants) entre les features du PI — out-degree par feature.
+    const _depEdges = extractDependencyEdges(featureData);
+    const _depOut = {};
+    _depEdges.forEach(e => { _depOut[e.from] = (_depOut[e.from] || 0) + 1; });
     const featureRows = featureData.length
         ? featureData.map(f => `
             <div class="feature-row feature-draggable" draggable="true" data-feature-id="${esc(f.id)}" data-ticket-id="${esc(f.id)}">
@@ -737,20 +728,20 @@ function _currentPiSectionHtml(featureData, noEpic, noPoints, noPriority, teamAl
                     const tip = f.rolledStatus && f.rolledStatus !== f.status
                         ? `Statut dérivé des ${f.childCount} enfants (JIRA propre: ${STATUS_LABELS[f.status] || f.status})`
                         : `Statut JIRA`;
-                    return `<span class="badge badge-${s} badge-status" title="${esc(tip)}">${esc(STATUS_LABELS[s] || s)}</span>`;
+                    return statusBadge({ status: s }, { label: STATUS_LABELS[s] || s, attrs: `title="${esc(tip)}"`, title: false });
                 })()}
                 <div class="feature-progress">
                     <div class="progress progress-xs"><div class="progress-bar ${progressColor(f.progress)}" style="width:${f.progress}%"></div></div>
                 </div>
                 <span class="text-xs text-muted">${f.donePts}/${f.pts} pts</span>
                 <span class="feature-team">${esc(f.team || '-')}</span>
-                ${(f.dependencies || []).length ? `<span class="dep-badge" title="Dependances: ${esc((f.dependencies||[]).join(', '))}">⇒ ${(f.dependencies||[]).length}</span>` : ''}
+                ${_depOut[f.id] ? `<span class="dep-badge" title="Dépend de ${_depOut[f.id]} autre(s) feature(s) (liens JIRA bloquants)">⇒ ${_depOut[f.id]}</span>` : ''}
             </div>`).join('')
         : '<div class="empty-state"><p>Aucune feature</p></div>';
 
-    const depGraphSection = featureData.some(f => (f.dependencies || []).length > 0) ? `
+    const depGraphSection = _depEdges.length ? `
         <div class="pi-section">
-            <h3 class="pi-section-title">Graphe de dependances</h3>
+            <h3 class="pi-section-title">Graphe de dépendances <span class="text-xs text-muted">(liens inter-équipes en rouge)</span></h3>
             <div class="card" style="overflow:auto">
                 <svg id="dep-graph" class="dep-graph-svg"></svg>
             </div>
@@ -820,63 +811,57 @@ function _currentPiSectionHtml(featureData, noEpic, noPoints, noPriority, teamAl
         ${velocitySection}`;
 }
 
-// ── Dependency graph SVG ──────────────────────────────────────────────────────
-function _renderDepGraph(svg, features) {
-    const withDeps = features.filter(f => (f.dependencies || []).length > 0);
-    const mentioned = new Set([...withDeps.map(f => f.id), ...withDeps.flatMap(f => f.dependencies || [])]);
-    const nodes = features.filter(f => mentioned.has(f.id));
-    if (!nodes.length) return;
-
-    const W = 160, H = 48, PAD = 24, GAPX = 60, GAPY = 16;
-    const cols = {};
-    nodes.forEach(f => {
-        const col = f.piSprint || 'no-sprint';
-        if (!cols[col]) cols[col] = [];
-        cols[col].push(f);
-    });
-    const colKeys = Object.keys(cols).sort();
-    const positions = {};
-    let cx = PAD;
-    for (const col of colKeys) {
-        let cy = PAD;
-        for (const f of cols[col]) {
-            positions[f.id] = { x: cx, y: cy };
-            cy += H + GAPY;
-        }
-        cx += W + GAPX;
+// ── Timeline multi-PI (vue long terme #27) ────────────────────────────────────
+/**
+ * Survol horizontal des PI (centre = PI courant réel `basePi`, ±2). Chaque colonne liste
+ * les features de ce PI ; un clic sur l'en-tête sélectionne le PI (pilote `piOffset` → le
+ * détail mono-PI sous la timeline s'actualise), un clic sur une carte ouvre la feature.
+ */
+function _multiPiTimelineHtml(features, basePi, piOffset, teamObjects) {
+    if (!basePi) return '';
+    const range = [-2, -1, 0, 1, 2].map(o => basePi + o).filter(n => n >= 1);
+    const selectedPi = Math.max(1, basePi + (piOffset || 0));
+    const _featPi = f => extractPiNum(f.piSprint) || extractPiNum(f.sprintName)
+        || (f.labels || []).reduce((acc, l) => acc || extractPiNum(l), 0);
+    const byPi = new Map(range.map(n => [n, []]));
+    for (const f of features) {
+        const n = _featPi(f);
+        if (byPi.has(n)) byPi.get(n).push(f);
     }
-    const totalW = cx + PAD;
-    const totalH = Math.max(...Object.values(positions).map(p => p.y + H)) + PAD;
-    svg.setAttribute('width', totalW);
-    svg.setAttribute('height', totalH);
-    svg.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`);
+    const tcol = t => teamObjects.find(o => o.name === t)?.color || 'var(--text-muted)';
 
-    let html = '<defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--primary)"/></marker></defs>';
-    for (const f of withDeps) {
-        const from = positions[f.id];
-        if (!from) continue;
-        for (const depId of (f.dependencies || [])) {
-            const to = positions[depId];
-            if (!to) continue;
-            const x1 = from.x + W, y1 = from.y + H / 2;
-            const x2 = to.x, y2 = to.y + H / 2;
-            const mx = (x1 + x2) / 2;
-            html += `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#arrowhead)" opacity="0.7"/>`;
-        }
-    }
-    for (const f of nodes) {
-        const { x, y } = positions[f.id];
-        const hasDeps = withDeps.some(fd => fd.id === f.id);
-        html += `<g class="dep-node" data-feature-id="${esc(f.id)}">
-            <rect x="${x}" y="${y}" width="${W}" height="${H}" rx="6" fill="${hasDeps ? 'var(--primary-bg)' : 'var(--card-bg)'}" stroke="var(--primary)" stroke-width="${hasDeps ? 2 : 1}" opacity="0.9"/>
-            <text x="${x + W/2}" y="${y + 16}" text-anchor="middle" font-size="10" fill="var(--text)" font-weight="600" class="dep-node-id">${esc(f.id)}</text>
-            <text x="${x + W/2}" y="${y + 32}" text-anchor="middle" font-size="9" fill="var(--text-muted)" class="dep-node-title">${esc(f.title.slice(0, 22))}${f.title.length > 22 ? '…' : ''}</text>
-        </g>`;
-    }
-    svg.innerHTML = html;
+    const cols = range.map(n => {
+        const list = (byPi.get(n) || []).sort((a, b) => (a.rank || 0) - (b.rank || 0));
+        const isCurrent = n === basePi;
+        const isSelected = n === selectedPi;
+        const done = list.filter(f => f.status === 'done').length;
+        const cards = list.length
+            ? list.slice(0, 40).map(f => `
+                <button class="rm-tl-card" data-feature-id="${esc(f.id)}" style="--tcol:${esc(tcol(f.team))}" title="${esc(f.title || '')}${f.team ? ' · ' + esc(f.team) : ''}">
+                    <span class="rm-tl-card-id">${esc(f.id)}</span>
+                    <span class="rm-tl-card-title">${esc((f.title || '').slice(0, 48))}</span>
+                    <span class="badge badge-${esc(f.status)} badge-sm">${esc(STATUS_LABELS[f.status] || f.status)}</span>
+                </button>`).join('')
+                + (list.length > 40 ? `<div class="rm-tl-more">+${list.length - 40} autres…</div>` : '')
+            : '<div class="rm-tl-empty">Aucune feature</div>';
+        return `
+        <div class="rm-tl-col${isCurrent ? ' rm-tl-col--current' : ''}${isSelected ? ' rm-tl-col--selected' : ''}">
+            <button class="rm-tl-hd" data-pi-offset="${n - basePi}" title="Voir le détail de PI${n} ci-dessous">
+                <span class="rm-tl-hd-pi">PI${n}${isCurrent ? ' <span class="rm-tl-hd-cur">courant</span>' : ''}</span>
+                <span class="rm-tl-hd-count">${list.length} feat.${done ? ` · ${done} ✓` : ''}</span>
+            </button>
+            <div class="rm-tl-cards">${cards}</div>
+        </div>`;
+    }).join('');
 
-    svg.querySelectorAll('.dep-node').forEach(node => {
-        node.style.cursor = 'pointer';
-        node.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(node.dataset.featureId));
-    });
+    return `
+        <div class="pi-section rm-timeline-section">
+            <div class="pi-section-hdr">
+                <h3 class="pi-section-title">Timeline multi-PI</h3>
+                <span class="text-xs text-muted">Vue long terme — cliquez un PI pour afficher son détail ci-dessous</span>
+            </div>
+            <div class="rm-timeline">${cols}</div>
+        </div>`;
 }
+
+// Graphe de dépendances : composant partagé components/dep_graph.js (renderItemDepGraph).

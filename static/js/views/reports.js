@@ -3,14 +3,17 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi } from '../utils.js';
+import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 import { renderPIVelocityChart, renderStatusChart, renderTypeChart, renderBurndown, renderBurnup, renderCycleTime, renderWIPAge } from '../components/charts.js';
-import { FIST_SCALE, slackToEmoji, buildMoodSlackRaw, buildFistSlackRaw } from '../components/sondage.js';
+import { FIST_SCALE, slackToEmoji, buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, moodThemeIndex, SONDAGE_THEME_COUNT, SONDAGE_INTRO } from '../components/sondage.js';
 import * as api from '../api.js';
 
 let _format = 'text';
 let _chartsCollapsed = localStorage.getItem('sb-rpt-charts-collapsed') === 'true';
+// Section à reposer en vue après un re-render (ex. changement de format) — évite
+// que le scroll saute parce que le contenu change de hauteur.
+let _restoreSectionId = null;
 
 export function renderReports(container) {
     const team = store.get('team');
@@ -55,7 +58,7 @@ export function renderReports(container) {
         if (fromName) return fromName;
         return t.piSprint && /^\d+\.\d+$/.test(String(t.piSprint)) ? String(t.piSprint) : null;
     };
-    const _isBuffer    = t => (t.labels || []).some(l => /buffer/i.test(l));
+    const _isBuffer    = isBufferItem;
     const _storedVel   = piInfo?.sprintVelocities || [];
     const _teamKey     = team === 'all' ? 'all' : team;
 
@@ -124,9 +127,36 @@ export function renderReports(container) {
             </button>
         </div>
 
-        <!-- Charts (collapsible) -->
-        <details ${_chartsCollapsed ? '' : 'open'} id="rpt-charts-section">
-            <summary class="text-xs font-semibold text-muted mb-2">Métriques sprint</summary>
+        <div class="reports-layout">
+        <nav class="reports-timeline" aria-label="Sommaire des sections">
+            <ul class="reports-timeline-list">
+                <li>
+                    <a class="reports-timeline-item" href="#report-sec-metriques" data-tl="metriques">
+                        <span class="reports-timeline-dot"></span>
+                        <span class="reports-timeline-icon">📊</span>
+                        <span class="reports-timeline-label">Métriques sprint</span>
+                    </a>
+                </li>
+                ${sections.map(s => {
+                    const tlUrgent = s.id === 'pifist' && s.dLeft !== null && s.dLeft <= 1;
+                    return `<li>
+                        <a class="reports-timeline-item${tlUrgent ? ' is-urgent' : ''}" href="#report-sec-${s.id}" data-tl="${s.id}">
+                            <span class="reports-timeline-dot"></span>
+                            <span class="reports-timeline-icon">${s.icon || '•'}</span>
+                            <span class="reports-timeline-label">${esc(s.title)}</span>
+                        </a>
+                    </li>`;
+                }).join('')}
+            </ul>
+        </nav>
+        <div class="reports-sections">
+
+        <!-- Charts (collapsible) — section "Métriques sprint" -->
+        <details class="report-section report-section--charts" ${_chartsCollapsed ? '' : 'open'} id="report-sec-metriques">
+            <summary class="report-section-charts-summary">
+                <span class="report-section-title"><span class="report-section-icon">📊</span>Métriques sprint</span>
+                <svg class="icon icon-sm report-section-chevron"><use href="#i-chevron-down"/></svg>
+            </summary>
 
             <!-- KPI row -->
             <div class="rpt-kpi-row mb-4">
@@ -224,7 +254,7 @@ export function renderReports(container) {
                     : '';
             const noExportBadge = s.noExport ? `<span class="report-section-badge report-section-badge--noexport">Interactif</span>` : '';
             return `
-            <div class="report-section${isUrgent ? ' report-section--urgent' : ''} is-open">
+            <div class="report-section${isUrgent ? ' report-section--urgent' : ''} is-open" id="report-sec-${s.id}">
                 <div class="report-section-header" data-section="${s.id}">
                     <span class="report-section-title">
                         ${s.icon ? `<span class="report-section-icon">${s.icon}</span>` : ''}
@@ -256,12 +286,73 @@ export function renderReports(container) {
                 </div>
             </div>`;
         }).join('')}
+        </div>
+        </div>
     `;
 
     container.querySelectorAll('[data-fmt]').forEach(btn => {
-        btn.addEventListener('click', () => { _format = btn.dataset.fmt; renderReports(container); });
+        btn.addEventListener('click', () => {
+            if (btn.dataset.fmt === _format) return;  // déjà actif → rien à faire
+            // Mémorise la section en cours de lecture pour la reposer après re-render
+            // (sinon le changement de hauteur du contenu fait sauter le scroll).
+            _restoreSectionId = container.querySelector('.reports-timeline-item.is-active')?.dataset.tl || null;
+            _format = btn.dataset.fmt;
+            renderReports(container);
+        });
     });
     container.querySelector('.btn-print')?.addEventListener('click', () => window.print());
+
+    // ── Timeline / sommaire latéral : clic → scroll, surbrillance auto au défilement ──
+    const tlItems = [...container.querySelectorAll('.reports-timeline-item')];
+    // Fait défiler jusqu'à une section en compensant la barre de contrôles sticky.
+    const _scrollToSection = (id, smooth = true) => {
+        const target = container.querySelector(`#report-sec-${id}`);
+        if (!target) return;
+        const scroller = container.classList?.contains('content') ? container : document.scrollingElement;
+        const controls = container.querySelector('.report-controls');
+        const offset   = (controls?.offsetHeight || 0) + 8;  // hauteur barre + marge
+        const top = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - offset;
+        const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        scroller.scrollTo({ top: Math.max(0, top), behavior: (smooth && !reduce) ? 'smooth' : 'auto' });
+    };
+    if (tlItems.length) {
+        tlItems.forEach(item => {
+            item.addEventListener('click', e => {
+                e.preventDefault();
+                const target = container.querySelector(`#report-sec-${item.dataset.tl}`);
+                if (!target) return;
+                // Déplie la section si elle est repliée, pour montrer le contenu
+                if (target.tagName === 'DETAILS') {
+                    target.open = true;  // section "Métriques sprint" (<details> natif)
+                } else {
+                    const body = container.querySelector(`[data-body="${item.dataset.tl}"]`);
+                    if (body?.classList.contains('collapsed')) {
+                        body.classList.remove('collapsed');
+                        target.classList.add('is-open');
+                    }
+                }
+                _scrollToSection(item.dataset.tl, true);
+            });
+        });
+        // Surbrillance de l'item courant selon la section visible
+        const _setActive = id => tlItems.forEach(i => i.classList.toggle('is-active', i.dataset.tl === id));
+        if ('IntersectionObserver' in window) {
+            const io = new IntersectionObserver(() => {
+                // L'item actif = section la plus haute encore dans la zone de lecture
+                let bestId = null, bestTop = Infinity;
+                container.querySelectorAll('.report-section').forEach(sec => {
+                    const top = sec.getBoundingClientRect().top;
+                    if (top < window.innerHeight * 0.4 && top > -sec.offsetHeight && top < bestTop) {
+                        bestTop = top; bestId = sec.id.replace('report-sec-', '');
+                    }
+                });
+                if (bestId) _setActive(bestId);
+            }, { root: container.classList?.contains('content') ? container : null, threshold: [0, 0.25, 0.5, 1] });
+            container.querySelectorAll('.report-section').forEach(sec => io.observe(sec));
+            _setActive(tlItems[0]?.dataset.tl);
+        }
+    }
+
     container.querySelectorAll('.report-section-header').forEach(h => {
         h.addEventListener('click', e => {
             if (e.target.closest('.btn-copy-section')) return;
@@ -312,23 +403,42 @@ export function renderReports(container) {
         } catch (e) { toast(e.message, 'error'); }
     });
 
-    container.querySelector('#rpt-charts-section')?.addEventListener('toggle', e => {
+    // Rendu (idempotent) des graphiques de la section Métriques sprint.
+    let _chartsRendered = false;
+    const _renderCharts = () => {
+        if (_chartsRendered) return;
+        _chartsRendered = true;
+        renderStatusChart('chart-rpt-status', statusCounts);
+        renderTypeChart('chart-rpt-types', typeCounts);
+        renderBurndown('chart-rpt-burndown', tickets, sprintCtx, events);
+        renderBurnup('chart-rpt-burnup', tickets, sprintCtx, events);
+        renderCycleTime('chart-rpt-cycletime', tickets);
+        if (piVelocityData.length) renderPIVelocityChart('chart-rpt-velocity', piVelocityData, piInfo?.velocityTarget);
+    };
+
+    container.querySelector('#report-sec-metriques')?.addEventListener('toggle', e => {
         _chartsCollapsed = !e.target.open;
         localStorage.setItem('sb-rpt-charts-collapsed', _chartsCollapsed);
+        // Rend les graphiques au premier dépliage (ex. ouverture via la timeline)
+        if (e.target.open) requestAnimationFrame(_renderCharts);
     });
 
     requestAnimationFrame(() => {
-        if (!_chartsCollapsed) {
-            renderStatusChart('chart-rpt-status', statusCounts);
-            renderTypeChart('chart-rpt-types', typeCounts);
-            renderBurndown('chart-rpt-burndown', tickets, sprintCtx, events);
-            renderBurnup('chart-rpt-burnup', tickets, sprintCtx, events);
-            renderCycleTime('chart-rpt-cycletime', tickets);
-            if (piVelocityData.length) renderPIVelocityChart('chart-rpt-velocity', piVelocityData, piInfo?.velocityTarget);
-        }
+        if (!_chartsCollapsed) _renderCharts();
         _renderSondage(container);
         _renderPiFist(container, dLeft);
         _renderCalReport(container, team);
+
+        // Repositionne sur la section lue avant un re-render (ex. changement de format),
+        // une fois les sous-rendus (sondage/pifist/calendrier) posés → pas de saut de scroll.
+        if (_restoreSectionId) {
+            const id = _restoreSectionId;
+            _restoreSectionId = null;
+            requestAnimationFrame(() => {
+                _scrollToSection(id, false);
+                tlItems.forEach(i => i.classList.toggle('is-active', i.dataset.tl === id));
+            });
+        }
     });
 }
 
@@ -393,15 +503,16 @@ function _spLine(line) {
     : `<div>${html}</div>`;
 }
 
-/** Génère le bloc "Message Slack" à partir du contexte sprint */
-function _sondageSlackBlock(sprintInfo, teamLabel) {
+/** Génère le bloc "Message Slack" à partir du contexte sprint.
+ *  @param themeIndex  index de thème explicite (bouton « 🎲 Autre thème ») ; sinon rotation auto. */
+function _sondageSlackBlock(sprintInfo, teamLabel, themeIndex = null) {
   const sprintName = sprintInfo?.name || '';
   const start  = sprintInfo?.startDate || '';
   const end    = sprintInfo?.endDate   || '';
   const period = start && end ? ` (${_fmtShortDate(start)} → ${_fmtShortDate(end)})` : '';
   const sendBy = _sendByDate(end);
 
-  const raw = buildMoodSlackRaw(sprintName);
+  const raw = buildMoodSlackRaw(sprintName, themeIndex);
 
   // Preview Slack
   const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -711,18 +822,22 @@ function _renderSondage(outerContainer) {
     el.innerHTML = `
     <div class="sondage-msg">
         <div class="sondage-msg-header">💬 Message Slack - Sondage Mood Meter</div>
+        <p class="sondage-intro">${SONDAGE_INTRO.mood}</p>
         ${slackBanner}
         <div class="sondage-columns">
             <div class="sondage-col">
                 <div class="sondage-col-label">
                     Message à copier dans Slack
-                    <button class="btn btn-secondary btn-xs btn-copy-raw">📋 Copier</button>
+                    <span class="sondage-col-actions">
+                        <button class="btn btn-ghost btn-xs btn-reroll-mood" title="Tirer un autre thème de sondage">🎲 Autre thème</button>
+                        <button class="btn btn-secondary btn-xs btn-copy-raw">📋 Copier</button>
+                    </span>
                 </div>
                 <pre class="sondage-raw" id="sondage-raw-pre"></pre>
             </div>
             <div class="sondage-col">
                 <div class="sondage-col-label">Aperçu Slack</div>
-                ${slackPreview}
+                <div id="sondage-preview-wrap">${slackPreview}</div>
             </div>
         </div>
     </div>
@@ -749,13 +864,21 @@ function _renderSondage(outerContainer) {
     const rawPre = el.querySelector('#sondage-raw-pre');
     if (rawPre) rawPre.textContent = slackRaw;
 
-    // Copy raw Slack message
-    el.querySelector('.btn-copy-raw')?.addEventListener('click', async () => {
-        const copyBtn = el.querySelector('.btn-copy-raw');
-        try {
-            await navigator.clipboard.writeText(slackRaw);
-            if (copyBtn) { copyBtn.textContent = '✓ Copié !'; setTimeout(() => { copyBtn.textContent = '📋 Copier'; }, 1500); }
-        } catch {}
+    // État du thème courant (rotation auto par défaut, modifiable via « 🎲 Autre thème »)
+    let _moodTheme = moodThemeIndex(sprintInfo?.name || '');
+    let _moodRaw   = slackRaw;
+
+    // Copie Slack (helper partagé, fallback + toast inclus)
+    wireSlackCopy(el.querySelector('.btn-copy-raw'), () => _moodRaw);
+
+    // 🎲 Tire un autre thème : régénère le message brut + l'aperçu, sans recharger la vue
+    el.querySelector('.btn-reroll-mood')?.addEventListener('click', () => {
+        _moodTheme = (_moodTheme + 1) % SONDAGE_THEME_COUNT;
+        const block = _sondageSlackBlock(sprintInfo, teamLabel, _moodTheme);
+        _moodRaw = block.raw;
+        if (rawPre) rawPre.textContent = _moodRaw;
+        const pw = el.querySelector('#sondage-preview-wrap');
+        if (pw) pw.innerHTML = block.preview;
     });
 
     // Vote
@@ -903,6 +1026,7 @@ function _renderPiFist(outerContainer, dLeft) {
     el.innerHTML = `
     <div class="sondage-msg">
         <div class="sondage-msg-header">✊ Message Slack - Vote de confiance PI${curLabel ? ` · <span class="s-badge s-badge-blue">${esc(curLabel)}</span>` : ''}</div>
+        <p class="sondage-intro">${SONDAGE_INTRO.fist}</p>
         ${infoBanner}
         ${fistSummary}
         <div class="sondage-columns">
@@ -924,13 +1048,7 @@ function _renderPiFist(outerContainer, dLeft) {
     const rawPre = el.querySelector('#pifist-raw-pre');
     if (rawPre) rawPre.textContent = raw;
 
-    el.querySelector('.btn-copy-fist')?.addEventListener('click', async () => {
-        const btn = el.querySelector('.btn-copy-fist');
-        try {
-            await navigator.clipboard.writeText(raw);
-            if (btn) { btn.textContent = '✓ Copié !'; setTimeout(() => { btn.textContent = '📋 Copier'; }, 1500); }
-        } catch {}
-    });
+    wireSlackCopy(el.querySelector('.btn-copy-fist'), () => raw);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1034,7 +1152,7 @@ const GENERATORS = {
             const teamLabel = team === 'all' ? 'Toutes équipes' : (team || '-');
             const ticketPct = pct(done, total);
             const ptsPct    = pct(donePts, totalPts);
-            const isBuffer  = t => (t.labels || []).some(l => /buffer/i.test(l));
+            const isBuffer  = isBufferItem;
             const stories   = tickets.filter(t => !isBuffer(t) && t.type !== 'bug' && t.type !== 'support');
             const buffers   = tickets.filter(isBuffer);
             const bugs      = tickets.filter(t => t.type === 'bug' && !isBuffer(t));
@@ -1082,7 +1200,7 @@ const GENERATORS = {
             const teamLabel = team === 'all' ? 'Toutes équipes' : (team || '-');
             const ticketPct = pct(done, total);
             const ptsPct    = pct(donePts, totalPts);
-            const isBuffer  = t => (t.labels || []).some(l => /buffer/i.test(l));
+            const isBuffer  = isBufferItem;
             const stories   = tickets.filter(t => !isBuffer(t) && t.type !== 'bug' && t.type !== 'support');
             const buffers   = tickets.filter(isBuffer);
             const bugs      = tickets.filter(t => t.type === 'bug' && !isBuffer(t));
@@ -1139,7 +1257,7 @@ const GENERATORS = {
             const ticketPct  = pct(done, total);
             const ptsPct     = pct(donePts, totalPts);
             const blocked    = tickets.filter(t => t.status === 'blocked');
-            const isBuffer   = t => (t.labels || []).some(l => /buffer/i.test(l));
+            const isBuffer   = isBufferItem;
             const stories    = tickets.filter(t => ['story', 'feature', 'debt', 'task', 'ops', null, undefined, ''].includes(t.type) && !isBuffer(t) && t.type !== 'bug' && t.type !== 'support');
             const buffers    = tickets.filter(isBuffer);
             const bugs       = tickets.filter(t => t.type === 'bug' && !isBuffer(t));

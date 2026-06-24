@@ -1015,6 +1015,9 @@ function _openMemberCard(name) {
     }
 }
 
+// Alias public — ouvre la fiche membre (radar compétences) depuis une autre vue (ex: team.js).
+export const openMemberCard = _openMemberCard;
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Onglet 2 — Skills Matrix (compétences × entités, niveaux + appétences éditables)
 // ══════════════════════════════════════════════════════════════════════════════

@@ -263,9 +263,10 @@ export function renderCalBanner(wrap) {
     const calendars = store.get('calendars') || [];
     if (!calendars.length) { wrap.innerHTML = ''; return; }
 
-    // Sur la page Reports, le bandeau du jour (réunions + absences) sous le header est
-    // redondant avec les sections propres de la page (Calendrier, Support...).
-    if (store.get('view') === 'reports') { wrap.innerHTML = ''; return; }
+    // Le bandeau du jour (réunions + absences) n'a de sens que sur les vues de pilotage
+    // quotidien (Dashboard, Board) — ailleurs il est redondant avec les sections propres
+    // de chaque page (Calendrier/Support sur Reports, ateliers sur Équipe, etc.).
+    if (!['dashboard', 'sprint'].includes(store.get('view'))) { wrap.innerHTML = ''; return; }
 
     const team = store.get('team');
     const all = store.get('calendarEvents') || [];

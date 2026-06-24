@@ -13,10 +13,13 @@
 
 .team-id-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
     gap: var(--sp-4);
     margin-bottom: var(--sp-4);
 }
+.team-id-header-left { display: flex; align-items: center; gap: var(--sp-4); }
 .team-id-swatch {
     width: 48px;
     height: 48px;
@@ -28,10 +31,24 @@
     color: white;
     flex-shrink: 0;
 }
-.team-id-header-info h2 { margin: 0 0 var(--sp-2) 0; }
-.team-id-members {
+.team-id-header-info h2 { margin: 0; }
+
+/* Roster — aligné à droite, trié par rôle, clic → fiche membre (Atlas). */
+.team-id-roster { flex: 1 1 320px; max-width: 480px; margin-left: auto; }
+.team-id-roster-label {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: var(--sp-2);
+    text-align: right;
+}
+.team-id-roster-list {
     display: flex;
     flex-wrap: wrap;
+    justify-content: flex-end;
     gap: var(--sp-2);
 }
 .team-id-member-chip {
@@ -39,7 +56,23 @@
     align-items: center;
     gap: var(--sp-1);
     font-size: var(--fs-sm);
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    padding: 3px 10px 3px 4px;
+    cursor: pointer;
+    transition: background var(--tr-fast), border-color var(--tr-fast);
 }
+.team-id-member-chip:hover { background: var(--primary-bg); border-color: var(--primary); }
+.team-id-member-name { font-weight: var(--fw-medium); }
+.team-id-member-role { color: var(--text-muted); font-size: var(--fs-xs); }
+.team-id-roster-former {
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-2);
+    border-top: 1px dashed var(--border);
+}
+.team-id-member-chip--former { opacity: 0.55; }
+.team-id-member-chip--former:hover { opacity: 0.9; }
 
 .team-id-banner {
     display: flex;

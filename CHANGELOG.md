@@ -1,3 +1,11 @@
+## [3.75.0] - 2026-06-24
+
+### Feat : roster d'équipe trié par rôle + bandeau du jour limité à Dashboard/Board
+- **Membres triés par rôle** ([team.js](static/js/views/team.js)) : la fiche d'identité affiche désormais les membres à droite du header, triés par rôle puis par nom, sous forme de chips cliquables.
+- **Clic membre → fiche radar** ([atlas.js](static/js/views/atlas.js)) : réutilise la fiche membre (compétences/appétences/mobilité) déjà construite pour Atlas plutôt que de dupliquer une modal — exposée via `openMemberCard`.
+- **« En mémoire »** : ligne dédiée sous le roster listant les membres présents au PI précédent (snapshot `piInfo.piMembers`) mais absents du roster courant — turnover visible sans aller chercher dans PI Planning.
+- **Bandeau du jour resserré** ([cal_banner.js](static/js/components/cal_banner.js)) : les réunions/absences sous le header ne s'affichent plus que sur Dashboard et Board — ailleurs (Équipe, Atlas, Backlog...) il était redondant ou hors-sujet.
+
 ## [3.74.0] - 2026-06-24
 
 ### Style : selects "sexy", Team Canvas sur une ligne, fiche d'identité différenciée par couleur

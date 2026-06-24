@@ -11,7 +11,8 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, toast, hashColor, initials, deriveMembersFromAbsences, confirmDanger, copyToClipboard, promptModal } from '../utils.js';
+import { esc, toast, hashColor, initials, deriveMembersFromAbsences, confirmDanger, copyToClipboard, promptModal, extractTeam, getCurrentPi } from '../utils.js';
+import { openMemberCard } from './atlas.js';
 
 const IDENTITY_FIELDS = [
     { key: 'vision', label: 'Vision' },
@@ -53,6 +54,32 @@ function _isIdentityEmpty(identity) {
     return IDENTITY_FIELDS.every(f => !(identity[f.key] || '').trim());
 }
 
+/** Membres triés par rôle (vide en dernier), puis par nom. */
+function _sortedMembers(members) {
+    return [...members].sort((a, b) => {
+        const ra = (a.role || '').trim(), rb = (b.role || '').trim();
+        if (ra !== rb) {
+            if (!ra) return 1;
+            if (!rb) return -1;
+            return ra.localeCompare(rb, 'fr');
+        }
+        return (a.name || '').localeCompare(b.name || '', 'fr');
+    });
+}
+
+/** Membres présents dans l'équipe au PI précédent mais absents du roster courant ("en mémoire"). */
+function _formerMembers(team, currentMembers) {
+    const piInfo = store.get('piInfo');
+    const curPi = getCurrentPi({ sprintInfo: store.get('sprintInfo'), piInfo });
+    if (!curPi || curPi <= 1) return [];
+    const snapshot = (piInfo?.piMembers || {})[String(curPi - 1)] || [];
+    const currentNames = new Set(currentMembers.map(m => m.name));
+    const seen = new Set();
+    return snapshot
+        .filter(m => extractTeam(m.team) === team && !currentNames.has(m.name))
+        .filter(m => !seen.has(m.name) && seen.add(m.name));
+}
+
 export function renderTeam(container) {
     const team = store.get('team');
     if (!team || team === 'all') {
@@ -69,6 +96,8 @@ export function renderTeam(container) {
     const color     = teamObj?.color || hashColor(team);
     const members   = deriveMembersFromAbsences(store.get('absences') || [], store.get('members') || [])
         .filter(m => m.team === team);
+    const sortedMembers = _sortedMembers(members);
+    const formerMembers = _formerMembers(team, members);
     const identity  = (store.get('teamIdentities') || []).find(i => i.team === team) || {};
     const templates = (store.get('workshopTemplates') || []).filter(t => t.active !== false)
         .sort((a, b) => (a.sort || 0) - (b.sort || 0));
@@ -77,17 +106,33 @@ export function renderTeam(container) {
 
     container.innerHTML = `
         <div class="team-id-header card">
-            <span class="team-id-swatch" style="background:${color}">${esc(team.slice(0, 2).toUpperCase())}</span>
-            <div class="team-id-header-info">
-                <h2>${esc(team)}</h2>
-                <div class="team-id-members">
-                    ${members.length
-                        ? members.map(m => `<span class="team-id-member-chip" title="${esc(m.role || '')}">
-                            <span class="assignee-avatar" style="background:${hashColor(m.name)}">${esc(initials(m.name))}</span>
-                            ${esc(m.name)}
-                        </span>`).join('')
+            <div class="team-id-header-left">
+                <span class="team-id-swatch" style="background:${color}">${esc(team.slice(0, 2).toUpperCase())}</span>
+                <div class="team-id-header-info"><h2>${esc(team)}</h2></div>
+            </div>
+            <div class="team-id-roster">
+                <span class="team-id-roster-label">Membres (${members.length})</span>
+                <div class="team-id-roster-list">
+                    ${sortedMembers.length
+                        ? sortedMembers.map(m => `
+                            <button type="button" class="team-id-member-chip" data-member="${esc(m.name)}" title="${esc(m.role || 'Voir la fiche membre')}">
+                                <span class="assignee-avatar" style="background:${hashColor(m.name)}">${esc(initials(m.name))}</span>
+                                <span class="team-id-member-name">${esc(m.name)}</span>
+                                ${m.role ? `<span class="team-id-member-role">${esc(m.role)}</span>` : ''}
+                            </button>`).join('')
                         : '<span class="text-muted text-sm">Aucun membre — importer les absences pour peupler la liste.</span>'}
                 </div>
+                ${formerMembers.length ? `
+                    <div class="team-id-roster-former">
+                        <span class="team-id-roster-label">🕯️ En mémoire — PI précédent</span>
+                        <div class="team-id-roster-list">
+                            ${formerMembers.map(m => `
+                                <button type="button" class="team-id-member-chip team-id-member-chip--former" data-member="${esc(m.name)}" title="Voir la fiche membre">
+                                    <span class="assignee-avatar" style="background:${hashColor(m.name)}">${esc(initials(m.name))}</span>
+                                    <span class="team-id-member-name">${esc(m.name)}</span>
+                                </button>`).join('')}
+                        </div>
+                    </div>` : ''}
             </div>
         </div>
 
@@ -204,6 +249,9 @@ function _bindIdentityForm(container, team) {
     container.querySelector('#btn-copy-slack')?.addEventListener('click', () => {
         const identity = (store.get('teamIdentities') || []).find(i => i.team === team) || {};
         copyToClipboard(_buildSlackText(team, identity), 'Copié pour Slack');
+    });
+    container.querySelectorAll('.team-id-member-chip[data-member]').forEach(btn => {
+        btn.addEventListener('click', () => openMemberCard(btn.dataset.member));
     });
 }
 

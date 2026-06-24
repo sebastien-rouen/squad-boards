@@ -172,6 +172,19 @@ export const importAll       = (data, mode = 'replace') => request('/api/import'
     method: 'POST',
     body: JSON.stringify({ ...data, mode }),
 });
+// Réponse binaire (zip) — ne passe pas par request() qui force resp.json().
+export const exportZip = async (keys, format) => {
+    const resp = await fetch('/api/export/zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys, format }),
+    });
+    if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+    return resp.blob();
+};
 
 // ── Calendriers ICS ───────────────────────────────────────────────────────────
 export const getCalendars      = ()          => request('/api/calendars');

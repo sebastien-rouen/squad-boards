@@ -4,7 +4,12 @@ export & all sont pilotés par un registre {clé: (Model, serializer)} (lecture,
 par le golden test). import_all conserve sa logique par entité (mutation à risque, non
 couverte par golden) — déplacé tel quel.
 """
-from fastapi import APIRouter, Request, Depends
+import io
+import json
+import zipfile
+from datetime import date
+
+from fastapi import APIRouter, Request, Response, Depends
 from sqlmodel import Session, select
 
 from app.common import _gen_id, _now
@@ -42,6 +47,7 @@ _EXPORT_SPEC = [
     ("memberSkills",     MemberSkill,     _member_skill_dict),
     ("memberAppetences", MemberAppetence, _member_appetence_dict),
     ("mobility",         MemberMobility,  _mobility_dict),
+    ("calendars",        TeamCalendar,    _cal_dict),
 ]
 
 
@@ -53,6 +59,58 @@ def export_all(session: Session = Depends(get_session)):
     out["pi"] = _pi_dict(session.get(PIConfig, "pi-1"))
     out["exportedAt"] = _now()
     return out
+
+
+def _rows_to_csv(rows: list[dict]) -> str:
+    """CSV Excel-compatible (BOM + délimiteur `;`) — miroir de arrayToCsv (static/js/utils.js).
+    Colonnes = union des clés dans leur ordre d'apparition ; valeurs liste/dict sérialisées
+    en JSON dans leur cellule plutôt que d'éclater en sous-colonnes."""
+    cols: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        for k in row.keys():
+            if k not in seen:
+                seen.add(k)
+                cols.append(k)
+
+    def cell(v):
+        if v is None:
+            return ""
+        s = json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else str(v)
+        return '"' + s.replace('"', '""') + '"'
+
+    lines = [";".join(cols)] + [";".join(cell(r.get(c)) for c in cols) for r in rows]
+    return "﻿" + "\n".join(lines)
+
+
+@router.post("/api/export/zip")
+async def export_zip(request: Request, session: Session = Depends(get_session)):
+    """Export sélectif en .zip — un fichier par catégorie demandée (json ou csv selon
+    `format`), pour éviter les multiples téléchargements navigateur du mode CSV à plat."""
+    payload = await request.json()
+    keys = payload.get("keys") or []
+    fmt = payload.get("format", "json")
+    data = export_all(session)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for key in keys:
+            value = data.get(key)
+            if value is None:
+                continue
+            if fmt == "csv" and isinstance(value, list):
+                if not value:
+                    continue
+                zf.writestr(f"{key}.csv", _rows_to_csv(value))
+            else:
+                zf.writestr(f"{key}.json", json.dumps(value, ensure_ascii=False, indent=2))
+
+    filename = f"squad-board-{date.today().isoformat()}.zip"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/api/all")

@@ -133,9 +133,19 @@
     flex-shrink: 0;
     align-self: stretch;
 }
+/* Bouton plier/déplier le bandeau (résumé compact vs journée complète) */
+.cal-banner-collapse-btn {
+    flex-shrink: 0;
+    align-self: center;
+    width: 28px;
+    height: 28px;
+}
+.cal-banner-collapse-icon { transition: transform var(--tr-fast); }
+.cal-banner-collapse-icon--open { transform: rotate(180deg); }
+
 .cal-banner-week-btn {
     flex-shrink: 0;
-    margin-left: auto;
+    margin-left: 0;
     align-self: center;
     display: inline-flex;
     align-items: center;

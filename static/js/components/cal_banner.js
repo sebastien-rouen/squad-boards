@@ -207,6 +207,34 @@ function _offGroupChip(team, count) {
     </span>`;
 }
 
+/** HTML des chips d'absences du jour — groupé par équipe si `groupOff`, sinon un chip par personne. */
+function _offChipsHtml(offEvs, todayEvs, groupOff) {
+    if (!offEvs.length) return '';
+    if (!groupOff) return offEvs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('');
+    const byTeam = new Map();
+    for (const ev of offEvs) {
+        const t = (ev.team || '').split(',')[0].trim() || null;
+        byTeam.set(t, (byTeam.get(t) || 0) + 1);
+    }
+    return [...byTeam.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([t, count]) => _offGroupChip(t, count))
+        .join('');
+}
+
+/** Colonne label + chips, réutilisée par le rendu plié (créneaux / absents côte à côte). */
+function _halfGroupHtml(label, innerHtml) {
+    return innerHtml
+        ? `<div class="cal-banner-half">
+               <span class="cal-banner-half-lbl">${label}</span>
+               <div class="cal-banner-half-chips">${innerHtml}</div>
+           </div>`
+        : '';
+}
+
+// Préférence d'affichage plié/déplié du bandeau — persistée, partagée entre toutes les vues.
+const _CAL_BANNER_COLLAPSED_KEY = 'sb-cal-banner-collapsed';
+
 // Subscription au store : re-render auto quand les events/team changent.
 // Une seule subscription par instance de wrap — déstockée si wrap retiré du DOM.
 const _bannerUnsubs = new WeakMap();
@@ -235,6 +263,10 @@ export function renderCalBanner(wrap) {
     const calendars = store.get('calendars') || [];
     if (!calendars.length) { wrap.innerHTML = ''; return; }
 
+    // Sur la page Reports, le bandeau du jour (réunions + absences) sous le header est
+    // redondant avec les sections propres de la page (Calendrier, Support...).
+    if (store.get('view') === 'reports') { wrap.innerHTML = ''; return; }
+
     const team = store.get('team');
     const all = store.get('calendarEvents') || [];
     // Support du CSV multi-équipes : `e.team = "Fuego,Caméléon"` matche les deux
@@ -252,10 +284,7 @@ export function renderCalBanner(wrap) {
         .filter(e => _dayKey(e.start) === today)
         .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
-    // Sur la page Reports, le bandeau d'absences sous le header est redondant avec
-    // ses propres sections (Calendrier, Support...) — on ne garde que les réunions.
-    const isReports = store.get('view') === 'reports';
-    const offEvs     = isReports ? [] : todayEvs.filter(e => _isOff(e.title));
+    const offEvs     = todayEvs.filter(e => _isOff(e.title));
     const regularEvs = todayEvs.filter(e => !_isOff(e.title));
 
     const matinEvs = regularEvs.filter(e => new Date(e.start).getHours() < 12);
@@ -264,30 +293,12 @@ export function renderCalBanner(wrap) {
     // "Toutes équipes" + beaucoup d'absences le même jour → un chip par personne déborde et
     // casse le visuel. On regroupe alors par équipe (couleur d'équipe + nombre d'absents).
     const groupOff = (!team || team === 'all') && offEvs.length > OFF_GROUP_THRESHOLD;
-    const offLine = !offEvs.length ? '' : groupOff
-        ? `<div class="cal-banner-line cal-banner-line--off cal-banner-line--off-grouped">
-               ${(() => {
-                   const byTeam = new Map();
-                   for (const ev of offEvs) {
-                       const t = (ev.team || '').split(',')[0].trim() || null;
-                       byTeam.set(t, (byTeam.get(t) || 0) + 1);
-                   }
-                   return [...byTeam.entries()]
-                       .sort((a, b) => b[1] - a[1])
-                       .map(([t, count]) => _offGroupChip(t, count))
-                       .join('');
-               })()}
-           </div>`
-        : `<div class="cal-banner-line cal-banner-line--off">
-               ${offEvs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')}
-           </div>`;
-
-    const _halfGroup = (evs, label) => evs.length
-        ? `<div class="cal-banner-half">
-               <span class="cal-banner-half-lbl">${label}</span>
-               <div class="cal-banner-half-chips">${evs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')}</div>
-           </div>`
+    const offChips = _offChipsHtml(offEvs, todayEvs, groupOff);
+    const offLine  = offChips
+        ? `<div class="cal-banner-line cal-banner-line--off${groupOff ? ' cal-banner-line--off-grouped' : ''}">${offChips}</div>`
         : '';
+
+    const _halfGroup = (evs, label) => _halfGroupHtml(label, evs.length ? evs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('') : '');
 
     const regularLine = regularEvs.length
         ? (matinEvs.length && apremEvs.length
@@ -303,6 +314,21 @@ export function renderCalBanner(wrap) {
         ? '<span class="cal-banner-empty">Aucune réunion aujourd\'hui 🎉</span>'
         : '';
 
+    // ── Rendu plié : les 2 prochains créneaux + les absents, côte à côte (compact) ──────
+    const collapsed = localStorage.getItem(_CAL_BANNER_COLLAPSED_KEY) === '1';
+    const nowTs = Date.now();
+    const upcomingEvs = regularEvs
+        .filter(ev => new Date(ev.end).getTime() >= nowTs)
+        .sort((a, b) => (a.start || '').localeCompare(b.start || ''))
+        .slice(0, 2);
+    const upcomingHtml = upcomingEvs.length
+        ? upcomingEvs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')
+        : '<span class="cal-banner-empty">Aucune réunion à venir 🎉</span>';
+    const collapsedHtml = `<div class="cal-banner-split">
+        ${_halfGroupHtml('🕐 Prochains créneaux', upcomingHtml)}
+        ${offChips ? `<span class="cal-banner-split-sep"></span>${_halfGroupHtml('🚫 Absents', offChips)}` : ''}
+    </div>`;
+
     // Mini calendrier d'aujourd'hui dans le bouton "Voir la semaine"
     const nowDate = new Date();
     const _months = ['JAN','FÉV','MAR','AVR','MAI','JUIN','JUIL','AOÛ','SEP','OCT','NOV','DÉC'];
@@ -315,8 +341,13 @@ export function renderCalBanner(wrap) {
         <div class="cal-banner">
             <span class="cal-banner-icon">📅</span>
             <div class="cal-banner-events cal-banner-events--rows">
-                ${offLine}${regularLine}${emptyMsg}
+                ${collapsed ? collapsedHtml : `${offLine}${regularLine}${emptyMsg}`}
             </div>
+            <button class="btn-icon cal-banner-collapse-btn" id="cal-banner-collapse-btn"
+                    title="${collapsed ? 'Déplier le bandeau (toute la journée)' : 'Replier le bandeau (résumé compact)'}"
+                    aria-expanded="${collapsed ? 'false' : 'true'}">
+                <svg class="icon icon-sm cal-banner-collapse-icon${collapsed ? '' : ' cal-banner-collapse-icon--open'}"><use href="#i-chevron-down"/></svg>
+            </button>
             <button class="cal-banner-week-btn" title="Voir la semaine — ${esc(_fmtDay(nowDate))}">
                 <span class="cal-mini" aria-hidden="true">
                     <span class="cal-mini-hdr">${todayMonth}</span>
@@ -330,10 +361,19 @@ export function renderCalBanner(wrap) {
             </button>
         </div>`;
 
+    wrap.querySelector('#cal-banner-collapse-btn')?.addEventListener('click', () => {
+        localStorage.setItem(_CAL_BANNER_COLLAPSED_KEY, collapsed ? '0' : '1');
+        renderCalBanner(wrap);
+    });
     wrap.querySelector('.cal-banner-week-btn')?.addEventListener('click', () => _openWeekModal(filtered));
-    wrap.querySelectorAll('.cal-chip').forEach(chip => {
-        const i = parseInt(chip.dataset.evIdx ?? '0', 10);
+    // Chips liés à un event précis (data-ev-idx posé par _chip) → ouvrent la semaine en surlignant
+    // cet event. Les chips groupés (_offGroupChip, sans data-ev-idx) ouvrent juste la semaine.
+    wrap.querySelectorAll('.cal-chip[data-ev-idx]').forEach(chip => {
+        const i = parseInt(chip.dataset.evIdx, 10);
         chip.addEventListener('click', () => _openWeekModal(filtered, todayEvs[i]));
+    });
+    wrap.querySelectorAll('.cal-chip:not([data-ev-idx])').forEach(chip => {
+        chip.addEventListener('click', () => _openWeekModal(filtered));
     });
 }
 

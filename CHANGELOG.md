@@ -1,3 +1,10 @@
+## [3.65.0] - 2026-06-24
+
+### Feat : bandeau agenda du jour pliable/dépliable
+- **Reports** ([cal_banner.js](static/js/components/cal_banner.js)) : le bandeau du jour (réunions + absences) sous le header est désormais entièrement masqué sur `/#reports` (et plus seulement les absences) — redondant avec ses propres sections.
+- **Plié/déplié** (même fichier + [calendar-banner.css](static/css/views/calendar-banner.css)) : nouveau bouton (chevron) sur le bandeau, préférence persistée (`sb-cal-banner-collapsed`). Déplié = vue actuelle (toute la journée). Plié = résumé compact : les 2 prochains créneaux à venir et les absents du jour, côte à côte (réutilise le layout `.cal-banner-split`/`.cal-banner-half`).
+- Petit fix associé : les chips d'absences groupés par équipe (sans event précis) ouvraient par erreur la semaine en surlignant le premier event du jour — ils ouvrent désormais la semaine sans surlignage erroné.
+
 ## [3.64.0] - 2026-06-24
 
 ### Feat : export sélectif, bandeau absences allégé, sync ICS ciblée

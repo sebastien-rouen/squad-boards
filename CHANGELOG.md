@@ -1,3 +1,9 @@
+## [3.63.0] - 2026-06-24
+
+### Fix : carte sprint actif (Dashboard) peu visible + favoris incomplets ("Mes tickets", onglets/filtres)
+- **Carte sprint actif** ([support.css](static/css/views/support.css)) : en thème sombre, `--bg-alt` et `--surface` sont la **même couleur** → la carte de sprint (`.pi-sprint-card`) se confondait avec son `.card` parent, et la variante `--active` se confondait à son tour avec les cartes par défaut (seule la bordure différait). `.pi-sprint-card` passe à `var(--bg)` (distinct de `.card`) et `.pi-sprint-card--active` à une teinte `color-mix(..., var(--primary) 12%, ...)` pour bien ressortir.
+- **Favoris** ([favorites.js](static/js/components/favorites.js)) : un favori ne capturait que `view`/`team`/`group`/`qfText` — le toggle « Mes tickets » et les sous-filtres encodés dans le hash (onglet PI/Roadmap, sprint sélectionné, layout, filtres backlog...) n'étaient pas restaurés, donc la page rechargée ne montrait pas le même contenu. Un favori capture désormais le **hash complet** (rejoué via `applyHash`, exposé sur `window.__squadBoard`) et l'état de `sb-my-tickets-on` (restauré via un nouveau `window.__squadBoard.setMyFilter`, [app.js](static/js/app.js)). Les anciens favoris sans `hash` restent compatibles (fallback view/team/group).
+
 ## [3.62.0] - 2026-06-24
 
 ### Feat : Planning Poker collaboratif en live (backend + polling)

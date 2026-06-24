@@ -9,7 +9,7 @@ import {
     buildSupportPiWeeks, SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
     isMemberSupportActive, setMemberSupportActive, getInactiveSupportMembers,
     friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi, promptModal, choiceModal,
-    exportChoiceModal, arrayToCsv,
+    exportChoiceModal, arrayToCsv, diagramFrameHtml, teamNameMatches,
 } from '../utils.js';
 import { makePersonPicker } from '../components/modal.js';
 import { addExcludedTeam, getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
@@ -1780,6 +1780,20 @@ export function renderSettings(container) {
                     <dt class="text-xs">N</dt><dd class="text-xs">Nouveau ticket</dd>
                     <dt class="text-xs">1-6</dt><dd class="text-xs">Naviguer entre les vues</dd>
                     <dt class="text-xs">Ctrl+K</dt><dd class="text-xs">Rechercher</dd>
+                </div>
+                <div class="history-diagrams">
+                    <details class="history-diagram" open>
+                        <summary>Histoire du projet</summary>
+                        <div class="history-diagram-scroll">${diagramFrameHtml('/img/excalidraw/historique-projet.svg', "Timeline de l'histoire du projet Squad Board")}</div>
+                    </details>
+                    <details class="history-diagram">
+                        <summary>Storytelling</summary>
+                        <div class="history-diagram-scroll">${diagramFrameHtml('/img/excalidraw/storytelling.svg', 'Storytelling du projet Squad Board')}</div>
+                    </details>
+                    <details class="history-diagram">
+                        <summary>User Story Mapping</summary>
+                        <div class="history-diagram-scroll">${diagramFrameHtml('/img/excalidraw/user-story-map.svg', 'User Story Mapping du projet Squad Board')}</div>
+                    </details>
                 </div>
             </div>
         </div>

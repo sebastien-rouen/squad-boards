@@ -295,6 +295,10 @@
     gap: var(--sp-2);
     margin-bottom: var(--sp-2);
 }
+.team-attachment-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+/* Vignette d'aperçu (schéma/image) — taille réduite vs l'aperçu pleine largeur de Paramètres. */
+.diagram-frame--thumb { width: 140px; }
+.diagram-frame--thumb img { border: 1px solid var(--border); border-radius: var(--r-sm); background: #fff; }
 .team-attachment-chip {
     display: inline-flex;
     align-items: center;

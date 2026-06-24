@@ -43,11 +43,13 @@ const EXPORT_CATEGORIES = [
     { key: 'risks',    label: 'Risques ROAM', icon: '⚠️' },
     { key: 'atlas',    label: 'Atlas (compétences)', icon: '🧭' },
     { key: 'config',   label: 'Sprint & PI',  icon: '⚙️' },
+    { key: 'team',     label: 'Équipe (fiches & ateliers)', icon: '🪪' },
     { key: 'calendars', label: 'Calendriers', icon: '🗓️' },
 ];
 const EXPORT_CATEGORY_KEYS = {
     atlas:  ['skills', 'appetences', 'memberSkills', 'memberAppetences', 'mobility'],
     config: ['sprint', 'pi'],
+    team:   ['teamIdentities', 'workshopTemplates', 'teamWorkshops'],
 };
 const EXPORT_FORMATS = [
     { key: 'json', label: 'JSON' },
@@ -77,6 +79,7 @@ function _exportCategoryCounts() {
         events:   len('events'),
         risks:    len('risks'),
         atlas:    len('skills') + len('appetences') + len('memberSkills') + len('memberAppetences') + len('mobility'),
+        team:     len('teamIdentities') + len('workshopTemplates') + len('teamWorkshops'),
         calendars: len('calendars'),
         // 'config' (sprint & PI) n'est pas une liste — pas de badge pertinent.
     };

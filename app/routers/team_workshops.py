@@ -13,6 +13,16 @@ from app.serializers import _team_workshop_dict
 router = APIRouter(prefix="/api/team-workshops", tags=["team-workshops"])
 
 
+def delete_workshop_cascade(session: Session, workshop: TeamWorkshop):
+    """Supprime un TeamWorkshop + ses pièces jointes (DB et fichiers sur disque).
+    Partagé avec la suppression de WorkshopTemplate (workshop_templates.py) pour
+    éviter que les deux chemins de suppression divergent et laissent des orphelins."""
+    for att in session.exec(select(Attachment).where(Attachment.team_workshop_id == workshop.id)).all():
+        (UPLOADS_DIR / att.stored_name).unlink(missing_ok=True)
+        session.delete(att)
+    session.delete(workshop)
+
+
 @router.get("")
 def list_team_workshops(team: Optional[str] = None, session: Session = Depends(get_session)):
     stmt = select(TeamWorkshop)
@@ -46,9 +56,6 @@ def delete_team_workshop(item_id: str, session: Session = Depends(get_session)):
     row = session.get(TeamWorkshop, item_id)
     if not row:
         raise HTTPException(404, "Réponse d'atelier non trouvée")
-    session.delete(row)
-    for att in session.exec(select(Attachment).where(Attachment.team_workshop_id == item_id)).all():
-        (UPLOADS_DIR / att.stored_name).unlink(missing_ok=True)
-        session.delete(att)
+    delete_workshop_cascade(session, row)
     session.commit()
     return {"ok": True}

@@ -341,6 +341,15 @@
     border-top: 1px solid var(--border);
 }
 .team-workshop-admin-icon { max-width: 80px; }
+.team-workshop-admin-active {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    align-self: flex-end;
+}
 .team-workshop-admin-fields { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-2) 0; }
 .team-workshop-admin-field-row {
     display: grid;

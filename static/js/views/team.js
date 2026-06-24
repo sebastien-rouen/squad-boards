@@ -99,8 +99,10 @@ export function renderTeam(container) {
     const sortedMembers = _sortedMembers(members);
     const formerMembers = _formerMembers(team, members);
     const identity  = (store.get('teamIdentities') || []).find(i => i.team === team) || {};
-    const templates = (store.get('workshopTemplates') || []).filter(t => t.active !== false)
-        .sort((a, b) => (a.sort || 0) - (b.sort || 0));
+    const allTemplates = [...(store.get('workshopTemplates') || [])].sort((a, b) => (a.sort || 0) - (b.sort || 0));
+    // Galerie/réponses : seulement les ateliers actifs. L'admin (ci-dessous) voit tout,
+    // sinon désactiver un atelier le rendrait introuvable pour le réactiver.
+    const templates = allTemplates.filter(t => t.active !== false);
     const workshops = (store.get('teamWorkshops') || []).filter(w => w.team === team);
     const empty     = _isIdentityEmpty(identity);
 
@@ -161,7 +163,7 @@ export function renderTeam(container) {
                 <span class="card-title">✨ Ateliers</span>
                 <button class="btn btn-secondary btn-sm" id="btn-toggle-admin">⚙ Gérer les ateliers</button>
             </div>
-            ${_adminOpen ? _renderAdminPanel(templates) : ''}
+            ${_adminOpen ? _renderAdminPanel(allTemplates) : ''}
             <div class="team-workshop-gallery">
                 ${templates.length ? templates.map(t => _renderWorkshopCard(t, workshops.find(w => (w.templateKey || w.template_key) === t.key))).join('')
                     : '<p class="text-muted text-sm">Aucun atelier disponible — utilise "Gérer les ateliers" pour en créer un.</p>'}
@@ -171,10 +173,10 @@ export function renderTeam(container) {
 
     _bindIdentityForm(container, team);
     _bindBanner(container);
-    _bindAdminToggle(container, templates);
+    _bindAdminToggle(container);
     _bindWorkshopCards(container, team, templates, workshops);
     _bindRichEditors(container);
-    if (_adminOpen) _bindAdminPanel(container, templates);
+    if (_adminOpen) _bindAdminPanel(container, allTemplates);
 
     // Charge les pièces jointes de l'atelier ouvert (si pas déjà en cache).
     const openWorkshop = workshops.find(w => (w.templateKey || w.template_key) === _openWorkshopKey);
@@ -354,7 +356,14 @@ function _collectWorkshopData(container, template) {
     const data = {};
     for (const f of (template.fields || [])) {
         const el = container.querySelector(`#ws-field-${template.key}-${f.key}`);
-        data[f.key] = !el ? '' : (f.type === 'select' || f.type === 'scale' || f.type === 'text' ? el.value : el.innerHTML.trim());
+        if (!el) { data[f.key] = ''; continue; }
+        if (f.type === 'select' || f.type === 'scale' || f.type === 'text') {
+            data[f.key] = el.value;
+        } else {
+            // contenteditable laisse parfois un <br>/<p></p> résiduel même sans saisie réelle
+            // (clic puis sortie sans taper) — on se base sur le texte pour décider si c'est vide.
+            data[f.key] = el.textContent.trim() ? el.innerHTML.trim() : '';
+        }
     }
     return data;
 }
@@ -487,6 +496,7 @@ function _renderAdminPanel(templates) {
                         <span>${esc(t.icon || '📋')}</span>
                         <strong>${esc(t.name)}</strong>
                         <span class="text-muted text-xs">(${esc(t.key)})</span>
+                        ${t.active === false ? '<span class="badge badge-muted">Inactif</span>' : ''}
                     </div>
                     <div class="team-workshop-admin-actions">
                         <button class="btn btn-secondary btn-sm admin-edit-template" data-id="${esc(t.id)}">Éditer</button>
@@ -502,6 +512,10 @@ function _renderAdminPanel(templates) {
 
 function _emptyField() { return { key: '', label: '', type: 'textarea', options: [] }; }
 
+// Reflète côté client la normalisation appliquée par le backend (slugify, app/common.py)
+// pour que la clé affichée corresponde exactement à ce qui sera réellement enregistré.
+const _slug = s => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
 function _renderTemplateEditor(template) {
     const fields = template.fields && template.fields.length ? template.fields : [_emptyField()];
     return `
@@ -516,10 +530,16 @@ function _renderTemplateEditor(template) {
             </div>
             <div class="form-group"><label class="label">Description</label>
                 <input class="input" id="tpl-description" value="${esc(template.description || '')}"></div>
-            <div class="form-group"><label class="label">Catégorie</label>
-                <select class="select w-full" id="tpl-category">
-                    ${Object.keys(CATEGORY_META).map(c => `<option value="${c}"${c === template.category ? ' selected' : ''}>${c}</option>`).join('')}
-                </select></div>
+            <div class="form-row">
+                <div class="form-group"><label class="label">Catégorie</label>
+                    <select class="select w-full" id="tpl-category">
+                        ${Object.keys(CATEGORY_META).map(c => `<option value="${c}"${c === template.category ? ' selected' : ''}>${c}</option>`).join('')}
+                    </select></div>
+                <label class="form-group team-workshop-admin-active">
+                    <input type="checkbox" id="tpl-active" ${template.active !== false ? 'checked' : ''}>
+                    Actif (visible dans la galerie des équipes)
+                </label>
+            </div>
             <div class="team-workshop-admin-fields" id="tpl-fields">
                 ${fields.map((f, i) => _renderFieldEditorRow(f, i)).join('')}
             </div>
@@ -546,7 +566,7 @@ function _renderFieldEditorRow(f, i) {
     `;
 }
 
-function _bindAdminToggle(container, templates) {
+function _bindAdminToggle(container) {
     container.querySelector('#btn-toggle-admin')?.addEventListener('click', () => {
         _adminOpen = !_adminOpen;
         renderTeam(container);
@@ -558,6 +578,11 @@ function _bindAdminPanel(container, templates) {
 
     const openEditor = (template) => {
         editorHost.innerHTML = _renderTemplateEditor(template);
+        editorHost.querySelector('#tpl-key')?.addEventListener('blur', e => { e.target.value = _slug(e.target.value); });
+        // 'focusout' (et non 'blur', qui ne remonte pas) pour couvrir les lignes ajoutées dynamiquement.
+        editorHost.querySelector('#tpl-fields')?.addEventListener('focusout', e => {
+            if (e.target.matches('[data-fld="key"]')) e.target.value = _slug(e.target.value);
+        });
         editorHost.querySelector('#btn-add-field')?.addEventListener('click', () => {
             const fieldsEl = editorHost.querySelector('#tpl-fields');
             const idx = fieldsEl.children.length;
@@ -583,6 +608,7 @@ function _bindAdminPanel(container, templates) {
                 name: editorHost.querySelector('#tpl-name').value.trim(),
                 description: editorHost.querySelector('#tpl-description').value.trim(),
                 category: editorHost.querySelector('#tpl-category').value,
+                active: editorHost.querySelector('#tpl-active').checked,
                 fields,
             };
             if (!payload.key || !payload.name) { toast('Clé et nom requis', 'warning'); return; }

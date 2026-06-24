@@ -49,6 +49,9 @@ def run_migrations(engine):
             "CREATE INDEX IF NOT EXISTS ix_ticket_team_status ON ticket (team, status)",
             "CREATE INDEX IF NOT EXISTS ix_ticket_team_pi ON ticket (team, pi_sprint)",
             "CREATE INDEX IF NOT EXISTS ix_epic_feature_team ON epic (feature_id, team)",
+            # Empêche deux réponses d'atelier pour la même (équipe, atelier) — garde-fou contre
+            # une double sauvegarde concurrente (double-clic, deux onglets) qui dupliquerait la ligne.
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_teamworkshop_team_template ON teamworkshop (team, template_key)",
         ]:
             try:
                 conn.execute(text(idx_sql))

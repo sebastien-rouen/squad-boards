@@ -12,7 +12,7 @@ from datetime import date
 from fastapi import APIRouter, Request, Response, Depends
 from sqlmodel import Session, select
 
-from app.common import _gen_id, _now
+from app.common import _gen_id, _now, slugify, clean_workshop_fields
 from app.config import JIRA_URL, JIRA_USER, JIRA_TOKEN, JIRA_PROJECT
 from app.db import get_session
 from app.services.ics import expand_calendar_events
@@ -451,6 +451,54 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
                 transition_duration=d.get("transitionDuration", ""),
             ))
         counts["mobility"] = len(items)
+
+    # ── Équipe : fiche d'identité / catalogue d'ateliers / réponses d'ateliers ──
+    if "teamIdentities" in body and body["teamIdentities"] is not None:
+        items = body["teamIdentities"]
+        if mode == "replace":
+            for row in session.exec(select(TeamIdentity)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(TeamIdentity(
+                id=d.get("id") or _gen_id(), team=d.get("team", ""),
+                vision=d.get("vision", ""), perimeter=d.get("perimeter", ""),
+                qui_sommes_nous=d.get("quiSommesNous", ""),
+                que_faisons_nous=d.get("queFaisonsNous", ""),
+                avec_qui=d.get("avecQui", ""),
+                comment_fonctionnons=d.get("commentFonctionnons", ""),
+                besoins_reussite=d.get("besoinsReussite", ""),
+            ))
+        counts["teamIdentities"] = len(items)
+
+    if "workshopTemplates" in body and body["workshopTemplates"] is not None:
+        items = body["workshopTemplates"]
+        if mode == "replace":
+            for row in session.exec(select(WorkshopTemplate)).all():
+                session.delete(row)
+        for d in items:
+            # slugify : un import JSON/CSV édité à la main peut contenir des clés non
+            # normalisées (espaces, accents) — sinon elles casseraient les sélecteurs
+            # DOM/CSS côté front (id="ws-field-<templateKey>-<fieldKey>").
+            session.merge(WorkshopTemplate(
+                id=d.get("id") or _gen_id(), key=slugify(d.get("key", "")), name=d.get("name", ""),
+                description=d.get("description", ""), icon=d.get("icon", "📋"),
+                category=d.get("category", "custom"), fields=clean_workshop_fields(d.get("fields", [])),
+                sort=d.get("sort", 0), active=d.get("active", True),
+            ))
+        counts["workshopTemplates"] = len(items)
+
+    if "teamWorkshops" in body and body["teamWorkshops"] is not None:
+        items = body["teamWorkshops"]
+        if mode == "replace":
+            for row in session.exec(select(TeamWorkshop)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(TeamWorkshop(
+                id=d.get("id") or _gen_id(), team=d.get("team", ""),
+                template_key=slugify(d.get("templateKey", "")), data=d.get("data", {}),
+                status=d.get("status", "draft"),
+            ))
+        counts["teamWorkshops"] = len(items)
 
     session.commit()
     return {"ok": True, "mode": mode, "counts": counts}

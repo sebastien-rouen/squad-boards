@@ -1,3 +1,20 @@
+## [3.77.0] - 2026-06-24
+
+### Fix : audit Équipe & Ateliers — fuites, intégrité des clés, durcissement upload
+- **Pièces jointes orphelines** : supprimer un atelier (`WorkshopTemplate`) laissait les fichiers de ses réponses (`TeamWorkshop`) sur disque, plus jamais référencés. La cascade de suppression (`delete_workshop_cascade`, [team_workshops.py](app/routers/team_workshops.py)) est désormais partagée entre les deux chemins de suppression.
+- **Doublons de réponses** : ajout d'une contrainte unique `(team, template_key)` sur `TeamWorkshop` ([team_identity.py](app/models/team_identity.py), migration idempotente) — empêchait un double-clic/double-onglet de créer deux réponses pour le même atelier dont une serait silencieusement ignorée.
+- **Clé d'atelier immuable + slugifiée** : modifier la `key` d'un atelier après création orphelinait silencieusement toutes les réponses existantes — désormais rejeté côté API. Les clés (template ET questions) sont normalisées (`slugify`, [app/common.py](app/common.py)) à la création, à l'édition et à l'import JSON/CSV, pour éviter qu'un libellé avec espaces/accents ne casse les sélecteurs DOM générés côté front.
+- **Upload durci** ([attachments.py](app/routers/attachments.py)) : lecture bornée à 15 Mo+1 (au lieu de tout lire avant de vérifier la taille), Content-Type de réponse dérivé de l'extension plutôt que de la valeur déclarée par le client (non fiable).
+- **Activer/désactiver un atelier** : la case `active` existait déjà en base mais n'était pilotable que par suppression définitive — ajout d'une case à cocher dans l'admin ; le panneau admin liste désormais aussi les ateliers inactifs (sinon impossible de les réactiver).
+- **Qualité des réponses riches** ([team.js](static/js/views/team.js)) : un champ texte riche cliqué puis laissé vide (résidu `<br>` du contenteditable) n'est plus compté comme "rempli".
+
+## [3.76.0] - 2026-06-24
+
+### Feat : export/import de la fiche d'identité et des ateliers
+- **Nouvelle tuile « Équipe (fiches & ateliers) »** dans la modale Export ([settings.js](static/js/views/settings.js)) regroupant `teamIdentities`, `workshopTemplates`, `teamWorkshops` — disponible en JSON, CSV et ZIP comme les autres catégories.
+- **Import** : ces 3 entités sont reconnues par la modale d'import (prévisualisation, modèle JSON vide) et réellement réécrites en base côté backend ([app/routers/data.py](app/routers/data.py), `import_all`) en mode Remplacer ou Fusionner — jusqu'ici elles étaient exportables mais pas ré-importables.
+- Les pièces jointes (fichiers binaires) restent hors export/import, comme les calendriers ICS — seules les métadonnées structurées sont concernées.
+
 ## [3.75.0] - 2026-06-24
 
 ### Feat : roster d'équipe trié par rôle + bandeau du jour limité à Dashboard/Board

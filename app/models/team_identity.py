@@ -1,5 +1,6 @@
 """Modèles fiche d'identité d'équipe + ateliers (Team Canvas, Tuckman, maturité Agile)."""
 from sqlmodel import SQLModel, Field, JSON, Column
+from sqlalchemy import UniqueConstraint as _SAUnique
 
 from app.common import _gen_id, _now, _TA
 
@@ -38,7 +39,10 @@ class WorkshopTemplate(SQLModel, table=True):
 
 class TeamWorkshop(SQLModel, table=True):
     """Réponses d'une équipe à un atelier — 1 ligne par (team, template_key)."""
-    __table_args__ = _TA
+    __table_args__ = (
+        _SAUnique("team", "template_key", name="ux_teamworkshop_team_template"),
+        _TA,
+    )
     id: str = Field(default_factory=_gen_id, primary_key=True)
     team: str = Field(index=True)
     template_key: str = Field(index=True)

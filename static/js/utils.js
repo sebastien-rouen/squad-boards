@@ -625,6 +625,65 @@ export function choiceModal(title, message, buttons = []) {
 }
 
 /**
+ * Modale de sélection multiple façon "gros boutons carrés" (ex: choisir les
+ * données à exporter). Chaque bouton bascule sélectionné/désélectionné avec un
+ * visuel "enfoncé" (bordure + fond teintés, légèrement réduit, ombre interne).
+ * Tout est présélectionné par défaut.
+ * @param {string} title
+ * @param {Array<{key:string,label:string,icon?:string}>} items
+ * @param {object} [opts] { message?, confirmLabel? }
+ * @returns {Promise<string[]|null>} clés sélectionnées (peut être vide), ou `null` si annulé.
+ */
+export function exportChoiceModal(title, items, opts = {}) {
+    const { message = '', confirmLabel = 'Exporter' } = opts;
+    return new Promise(resolve => {
+        const selected = new Set(items.map(i => i.key));
+        const ov = document.createElement('div');
+        ov.className = 'confirm-overlay';
+        const gridHtml = items.map(i => `
+            <button type="button" class="export-choice-btn export-choice-btn--on" data-key="${esc(i.key)}">
+                <span class="export-choice-icon">${i.icon || '📦'}</span>
+                <span class="export-choice-label">${esc(i.label)}</span>
+            </button>`).join('');
+        ov.innerHTML = `
+            <div class="confirm-modal confirm-modal--export" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+                <div class="confirm-body">
+                    <div class="confirm-title">${esc(title)}</div>
+                    ${message ? `<div class="confirm-message">${esc(message)}</div>` : ''}
+                    <div class="export-choice-grid">${gridHtml}</div>
+                </div>
+                <div class="confirm-actions">
+                    <button class="btn btn-ghost btn-sm" data-act="cancel">Annuler</button>
+                    <button class="btn btn-primary btn-sm" data-act="ok">${esc(confirmLabel)}</button>
+                </div>
+            </div>`;
+        document.body.appendChild(ov);
+        requestAnimationFrame(() => ov.classList.add('visible'));
+        const cleanup = (val) => {
+            ov.classList.remove('visible');
+            ov.addEventListener('transitionend', () => ov.remove(), { once: true });
+            document.removeEventListener('keydown', onKey);
+            resolve(val);
+        };
+        const onKey = e => { if (e.key === 'Escape') cleanup(null); };
+        document.addEventListener('keydown', onKey);
+        ov.querySelector('.export-choice-grid').addEventListener('click', e => {
+            const btn = e.target.closest('.export-choice-btn');
+            if (!btn) return;
+            const key = btn.dataset.key;
+            if (selected.has(key)) selected.delete(key); else selected.add(key);
+            btn.classList.toggle('export-choice-btn--on', selected.has(key));
+        });
+        ov.addEventListener('click', e => {
+            if (e.target === ov) return cleanup(null);
+            const act = e.target.closest('[data-act]')?.dataset.act;
+            if (act === 'ok') cleanup([...selected]);
+            if (act === 'cancel') cleanup(null);
+        });
+    });
+}
+
+/**
  * Saisie texte modale (remplace `prompt()` natif : thémée, dark-mode, validation, Échap/Entrée).
  * @param {string} title
  * @param {object} [opts] { message?, value?, placeholder?, confirmLabel?, cancelLabel?, type?, required? }

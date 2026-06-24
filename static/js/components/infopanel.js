@@ -130,13 +130,10 @@ export function updateInfoPanel() {
     // Reminder thresholds from settings (localStorage)
     const reminders = loadReminders();
 
-    // Label du sprint courant dans le PI (ex: "29.1")
-    const _piNum      = piInfo?.number || '';
-    const _sprintsCnt = piInfo?.sprintsPerPI || 0;
-    const _piLabels   = _sprintsCnt > 0
-        ? [...Array(_sprintsCnt)].map((_, i) => `${_piNum}.${i + 1}`)
-        : [];
-    const curLabel = _piLabels.find(lbl => (sprintInfo?.name || '').includes(lbl)) || null;
+    // Label du sprint courant dans le PI (ex: "29.1") — extrait directement du nom du sprint
+    // actif plutôt que reconstruit depuis piInfo.number + index (qui produit un label tronqué
+    // type ".1" si piInfo.number est vide/obsolète, et ne matche alors plus aucun vote).
+    const curLabel = extractSprintLabel(sprintInfo?.name) || null;
 
     // Sprint time progress
     let timePct = 0;
@@ -542,6 +539,17 @@ export function updateInfoPanel() {
                 <div class="panel-bar-track mt-1">
                     <div class="panel-bar-fill" style="width:${objPct}%;background:${objClr}"></div>
                 </div>
+                <div class="panel-list mt-2">
+                    ${objs.slice(0, 6).map(o => {
+                        const oIcon = o.status === 'done' ? '✓' : o.status === 'blocked' ? '⚠' : o.status === 'inprog' ? '◐' : '○';
+                        const oClr  = o.status === 'done' ? 'var(--status-done)' : o.status === 'blocked' ? 'var(--status-blocked)' : o.status === 'inprog' ? 'var(--status-inprog)' : 'var(--status-todo)';
+                        const oText = o.text || o.title || 'Sans titre';
+                        return `<div class="panel-list-item" title="${esc(oText)}">
+                            <span class="truncate"><span style="color:${oClr}">${oIcon}</span> ${esc(oText)}</span>
+                        </div>`;
+                    }).join('')}
+                    ${objs.length > 6 ? `<div class="panel-list-item"><span class="text-muted text-xs">+${objs.length - 6} autre${objs.length - 6 > 1 ? 's' : ''}</span></div>` : ''}
+                </div>
                 ${fistAvg !== null ? `
                 <div class="panel-meter-row mt-2">
                     <span class="panel-sub" style="margin-right:6px">✊ Vote confiance${curLabel ? ` · ${curLabel}` : ''}</span>
@@ -577,18 +585,6 @@ export function updateInfoPanel() {
                         ${(s.members || []).map(m => `<div class="panel-list-item panel-list-item--indent"><span>${esc(m)}</span></div>`).join('')}
                     </div>`;
                 }).join('')}
-            </div>
-        </div>`;
-    }
-
-    // ── Absences ──────────────────────────────────────────────────────────
-    if (activeAbsences.length) {
-        html += `
-        <div class="panel-card">
-            <div class="panel-title">Absents (${activeAbsences.length})</div>
-            <div class="panel-list">
-                ${activeAbsences.slice(0, 5).map(a => `<div class="panel-list-item"><span>${esc(a.memberName)}</span><span class="chip">${esc(a.type)}</span></div>`).join('')}
-                ${activeAbsences.length > 5 ? `<div class="panel-sub">+${activeAbsences.length - 5} autres</div>` : ''}
             </div>
         </div>`;
     }

@@ -1,3 +1,10 @@
+## [3.99.0] - 2026-06-25
+
+### Fix : membre parti encore visible dans Agenda et sur /#support (hero-card)
+- **Cause** ([agenda.js](static/js/views/agenda.js), [support.js](static/js/views/support.js)) : `_supportForDay` (Agenda) et `_heroCard` (page Support, "Rotation cette semaine") lisaient `SupportRotation.members` brut (noms figés en base au moment du shuffle) sans le filtrer contre le roster effectif du PI affiché — même symptôme déjà corrigé côté panneau latéral (3.97.0), pas encore appliqué à ces deux vues.
+- **Fix** : les deux vues utilisent désormais le helper partagé `effectiveRosterForPi` (au lieu de dupliquer la résolution snapshot/fallback localement) — `agenda.js` filtre les noms de `_supportForDay`, `support.js` propage le roster à `_heroCard` via `_renderHeroRotation` (3 vues : équipe, groupe, orphelins). Un membre qui a quitté l'équipe ne s'affiche plus dans `.agenda-support-bar`, `.agenda-member-row`/`.agenda-support-row`, ni dans `.sup-hero-card`.
+- `effectiveRosterForPi` (utils.js) normalise désormais aussi le nom d'équipe du snapshot PI (`extractTeam`), nécessaire pour que `teamNameMatches` apparie correctement membre ↔ équipe dans ces nouveaux filtres.
+
 ## [3.98.0] - 2026-06-25
 
 ### Fix : vote Fist of Five enregistré sous un sprint "S1" générique au lieu de "30.1"

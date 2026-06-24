@@ -10,7 +10,7 @@ import {
     deriveMembersFromAbsences, generateSupportRotation, buildSupportPiWeeks, supportAbsenceDays,
     initials, hashColor,
     SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
-    isMemberSupportActive, effectiveRosterForPi, teamNameMatches,
+    isMemberSupportActive, effectiveRosterForPi, teamNameMatches, getCurrentPi,
 } from '../utils.js';
 import * as api from '../api.js';
 
@@ -47,8 +47,10 @@ function _supHeroView() {
     return v === 'group' ? 'group' : 'team';
 }
 
-/** Rend une carte de rotation pour une équipe (couleur de l'équipe). */
-function _heroCard(rot, teamObjects, absences) {
+/** Rend une carte de rotation pour une équipe (couleur de l'équipe).
+ *  `rosterMembers` = roster effectif du PI courant (effectiveRosterForPi) — filtre les
+ *  noms de `rot.members` qui ont quitté l'équipe depuis le shuffle (figés en base sinon). */
+function _heroCard(rot, teamObjects, absences, rosterMembers = []) {
     const tObj   = teamObjects.find(o => o.name === rot.team);
     const color  = tObj?.color || '#6366f1';
     const wStart = rot.weekStart || '';
@@ -60,7 +62,8 @@ function _heroCard(rot, teamObjects, absences) {
     const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((now - sMs) / total * 100))) : 0;
     const remaining = eMs > now ? Math.ceil((eMs - now) / 86400000) : 0;
     const remainTxt = remaining === 0 ? 'Dernier jour' : remaining === 1 ? '1j restant' : `${remaining}j restants`;
-    const memberChips = (rot.members || []).map(m => {
+    const rotMembers = (rot.members || []).filter(m => rosterMembers.some(r => r.name === m && teamNameMatches(r.team, rot.team)));
+    const memberChips = rotMembers.map(m => {
         const absent = supportAbsenceDays(m, wStart, wEnd, absences) >= 3;
         return `<div class="sup-hero-member${absent ? ' is-absent' : ''}" title="${esc(m)}${absent ? ' · absent ≥ 3j' : ''}">
             ${_avatar(m, 36)}
@@ -95,12 +98,12 @@ function _heroCard(rot, teamObjects, absences) {
 }
 
 /** Rend la rotation : grille à plat (vue équipe) ou groupée par ligne produit (vue groupe). */
-function _renderHeroRotation(curRot, teamObjects, groups, absences) {
+function _renderHeroRotation(curRot, teamObjects, groups, absences, rosterMembers) {
     const _norm = s => (s || '').toLowerCase().trim();
 
     // Vue par équipe (défaut) ou pas de groupes configurés
     if (_supHeroView() === 'team' || !groups.length) {
-        return `<div class="sup-hero-grid">${curRot.map(r => _heroCard(r, teamObjects, absences)).join('')}</div>`;
+        return `<div class="sup-hero-grid">${curRot.map(r => _heroCard(r, teamObjects, absences, rosterMembers)).join('')}</div>`;
     }
 
     // Vue par ligne produit : regroupe les rotations sous chaque groupe
@@ -118,7 +121,7 @@ function _renderHeroRotation(curRot, teamObjects, groups, absences) {
                 <span class="sup-hero-group-name">${esc(g.name)}</span>
                 <span class="sup-hero-group-count">${rotInGroup.length} équipe${rotInGroup.length > 1 ? 's' : ''}</span>
             </div>
-            <div class="sup-hero-grid">${rotInGroup.map(r => _heroCard(r, teamObjects, absences)).join('')}</div>
+            <div class="sup-hero-grid">${rotInGroup.map(r => _heroCard(r, teamObjects, absences, rosterMembers)).join('')}</div>
         </div>`;
     }).join('');
 
@@ -131,7 +134,7 @@ function _renderHeroRotation(curRot, teamObjects, groups, absences) {
                 <span class="sup-hero-group-name">Autres équipes</span>
                 <span class="sup-hero-group-count">${orphans.length}</span>
             </div>
-            <div class="sup-hero-grid">${orphans.map(r => _heroCard(r, teamObjects, absences)).join('')}</div>
+            <div class="sup-hero-grid">${orphans.map(r => _heroCard(r, teamObjects, absences, rosterMembers)).join('')}</div>
         </div>` : '';
 
     return `<div class="sup-hero-groups">${groupBlocks}${orphanBlock}</div>`;
@@ -143,6 +146,12 @@ export function renderSupport(container) {
     const support   = store.get('support') || [];
     const teams     = store.get('teams') || [];
     const teamObjects = store.get('teamObjects') || [];
+    // Roster effectif du PI courant (pas un PI décalé — les hero-cards montrent "cette
+    // semaine") pour filtrer les membres partis des hero-cards de rotation ci-dessous.
+    const heroRosterMembers = effectiveRosterForPi(
+        store.get('piInfo'), getCurrentPi({ sprintInfo: store.get('sprintInfo'), piInfo: store.get('piInfo') }),
+        store.get('absences') || [], store.get('members') || [],
+    );
 
     const tickets = filterByTeam(allTickets, team).filter(t => t.type === 'support');
     const open    = tickets.filter(t => t.status !== 'done');
@@ -205,7 +214,7 @@ export function renderSupport(container) {
                 </div>` : ''}
             </div>
             ${curRot.length
-                ? _renderHeroRotation(curRot, teamObjects, store.get('groups') || [], store.get('absences') || [])
+                ? _renderHeroRotation(curRot, teamObjects, store.get('groups') || [], store.get('absences') || [], heroRosterMembers)
                 : `<div class="empty-state"><p>🪂 Aucune rotation définie pour cette semaine. Génère depuis la timeline ci-dessous.</p></div>`}
         </div>
 

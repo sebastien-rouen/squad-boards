@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, deriveMembersFromAbsences, getCurrentPi, extractTeam } from '../utils.js';
+import { esc, getCurrentPi, effectiveRosterForPi, teamNameMatches } from '../utils.js';
 
 const ABSENCE_CONFIG = {
     conge:     { label: 'Congé',     color: '#991b1b', bg: '#fecaca' },
@@ -194,26 +194,27 @@ export function renderAgenda(container) {
     const currentTeam    = store.get('team');
     const today          = _iso(new Date());
 
-    // Membres effectifs : aligne sur la page Rotation (snapshot PI en priorité → turnover inter-PI).
-    // Fallback sur deriveMembersFromAbsences si aucun snapshot disponible pour ce PI.
+    // Membres effectifs : aligne sur la page Rotation (snapshot PI en priorité → turnover inter-PI),
+    // via le helper partagé effectiveRosterForPi (utils.js) — même source que la grille Rotation
+    // Support et le panneau latéral, pour ne jamais diverger entre ces vues.
     const piInfo       = store.get('piInfo') || {};
     const sprintInfo   = store.get('sprintInfo');
     const piOffset     = store.get('piOffset') || 0;
     const _basePiNum   = getCurrentPi({ sprintInfo, piInfo });
     const displayPiNum = _basePiNum ? Math.max(1, _basePiNum + piOffset) : (piInfo.number || 0);
-    const _piSnapshot  = displayPiNum ? ((piInfo.piMembers || {})[String(displayPiNum)] || null) : null;
-    const members = (_piSnapshot && _piSnapshot.length)
-        ? _piSnapshot.map(m => ({ ...m, team: extractTeam(m.team) }))
-        : deriveMembersFromAbsences(absences, store.get('members') || []);
+    const members = effectiveRosterForPi(piInfo, displayPiNum, absences, store.get('members') || []);
 
     // Support per day — la frontière de semaine peut tomber en milieu de semaine agenda
     // (ex. mode 'friday' : ven→jeu, donc lun–jeu et ven peuvent avoir des binômes différents)
     const _earlyDayIsos = Array.from({ length: 5 }, (_, i) => _iso(_addDays(_weekStart, i)));
+    // Filtre les noms qui ne sont plus dans le roster effectif : une rotation déjà shuffle garde
+    // des noms figés en base, jamais réécrits quand un membre quitte l'équipe (même symptôme que
+    // le panneau latéral "Support cette semaine" et la page Support — cf. effectiveRosterForPi).
     const _supportForDay = dayIso => new Set(
         support.filter(r => {
             if (currentTeam && currentTeam !== 'all' && r.team !== currentTeam) return false;
             return r.weekStart <= dayIso && r.weekEnd >= dayIso;
-        }).flatMap(r => r.members || [])
+        }).flatMap(r => (r.members || []).filter(m => members.some(eff => eff.name === m && teamNameMatches(eff.team, r.team))))
     );
     const _setsEq = (a, b) => a.size === b.size && [...a].every(x => b.has(x));
     const _supportSegs = [];

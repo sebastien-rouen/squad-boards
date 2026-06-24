@@ -663,6 +663,7 @@ export function openTicketModal(ticketId) {
             <span class="chip editable-field" data-field="flagged" data-value="${ticket.flagged ? 'true' : 'false'}" style="${ticket.flagged ? 'background:var(--danger-bg);color:var(--danger);border-color:var(--danger)30' : 'opacity:0.35'}" title="${ticket.flagged ? 'Cliquer pour débloquer' : 'Cliquer pour bloquer'}">🚫 Bloqué</span>
             ${ct ? `<span class="chip" title="Cycle time">⏱ ${ct}j cycle</span>` : ''}
             ${lt ? `<span class="chip" title="Lead time">📅 ${lt}j lead</span>` : ''}
+            <span class="mdl-meta-spacer"></span>
             <div class="mdl-meta-right">
                 <span class="chip editable-field" data-field="team" data-value="${esc(ticket.team || '')}" style="${ticket.team ? '' : 'opacity:0.5'}">${ticket.team ? esc(ticket.team) : '— Équipe'}</span>
                 ${ticket.piSprint ? `<span class="chip">${esc(ticket.piSprint)}</span>` : ''}

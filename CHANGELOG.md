@@ -1,3 +1,48 @@
+## [3.83.0] - 2026-06-24
+
+### Style : grand vide évité au retour à la ligne sur la ligne meta de la modale ticket
+- **Cause** ([modal-detail.css](static/css/views/modal-detail.css)) : `.mdl-meta-right` (équipe/sprint/date) utilisait `margin-left: auto` pour se coller à droite — quand les chips de gauche (statut/priorité/points/Réestimer/Bloqué/cycle/lead) étaient trop nombreuses pour tenir sur une ligne, ce retour à la ligne forçait `.mdl-meta-right` tout à droite de sa propre ligne, laissant un grand espace blanc inutile à gauche (visible ex. sur GDEM-4212).
+- **Fix** ([modal.js](static/js/components/modal.js)) : remplacement par un espaceur flexible (`.mdl-meta-spacer`, `flex:1 1 0`) — il absorbe l'espace restant quand tout tient sur une ligne (même rendu qu'avant), mais s'efface naturellement au retour à la ligne au lieu de forcer l'écart. `.mdl-meta-right` peut aussi désormais wrapper son propre contenu si besoin.
+
+## [3.82.0] - 2026-06-24
+
+### Fix : modale de vélocité bloquée après ouverture puis fermeture d'un ticket
+- **Cause** ([health.js](static/js/views/health.js)) : `_openSprintModal` empilait une nouvelle entrée d'historique (`pushState`) à chaque ouverture, y compris lors de la réouverture automatique déclenchée par `reopenSprintModalFromHash` (elle-même appelée en réponse à une navigation arrière depuis la modale de détail ticket). Résultat : ouvrir un ticket puis le fermer dupliquait l'entrée `~sprint=...`, et "Fermer"/Échap sur la modale de vélocité ne faisait que revenir sur ce doublon au lieu de quitter — la modale semblait ne plus jamais se fermer.
+- **Fix** : `_openSprintModal` n'empile une entrée que pour une ouverture initiée par l'utilisateur (nouveau paramètre `pushHistory`, `true` par défaut) ; `reopenSprintModalFromHash` l'appelle désormais avec `pushHistory: false` puisque le hash courant correspond déjà à l'état voulu.
+
+## [3.81.0] - 2026-06-24
+
+### Feat : vélocité par ligne produit (groupe d'équipes)
+- **Chips regroupées** ([health.js](static/js/views/health.js)) : le sélecteur d'équipe au-dessus du graphe de vélocité (Health) clusterise désormais les équipes sous leur ligne produit (`TeamGroup`), avec une pastille de ligne produit cliquable en plus des chips équipe individuelles ; les équipes sans ligne produit restent dans un cluster "Autres équipes".
+- **Filtrer sur une ligne produit** affiche une grille d'une carte de vélocité par équipe du groupe (au lieu d'une seule courbe agrégée illisible) — chaque carte a son propre graphe Chart.js (`canvasId` dédié par équipe). Re-cliquer sur la ligne produit active revient à la sélection par équipe simple.
+- Préférence persistée dans `localStorage` (`sb-health-velo-group`), nettoyée automatiquement si la ligne produit a été supprimée depuis.
+
+## [3.80.0] - 2026-06-24
+
+### Fix : vélocité affichant 0 alors que des tickets sont Done en cours de sprint
+- **Cause** ([health.js](static/js/views/health.js)) : la vélocité de la cellule principale du tableau Health priorisait la stat JIRA (`ref.velocity`) sur le calcul local dès qu'elle était non-nulle — y compris quand JIRA renvoie `0` pour un sprint encore actif (la stat Greenhopper ne se fige qu'à la clôture). Résultat : un sprint en cours avec des tickets Done localement pouvait afficher 0 pts.
+- **Fix** : la somme des points Done **locaux** est désormais prioritaire dès qu'on a au moins un ticket Done connu ; JIRA ne sert plus de fallback que si aucun Done local n'est connu (sprint clos non synchronisé). Même logique côté Buffer. Comportement aligné avec celui déjà utilisé dans le tableau détaillé de la modale sprint, qui ne souffrait pas du problème.
+
+### Style : liste de tickets du détail sprint plus lisible
+- **« 0 » au lieu de « — » sur sprint en cours/clos** ([health.js](static/js/views/health.js)) : une cellule vide (nb engagés, planifié, réalisé, points d'un ticket) est un vrai zéro mesuré une fois le sprint démarré ou terminé — seuls les sprints à venir gardent le « — » (rien n'a encore pu se passer).
+- **Total réestimé visible** ([health.js](static/js/views/health.js)) : si au moins un ticket de la liste a été réestimé pendant le sprint, le total en pied de tableau (et le badge d'en-tête) affichent désormais `lancement→actuel` (ex. `10→13`) au lieu du seul total au lancement, avec tooltip explicite — sinon l'écart par ticket restait invisible au niveau agrégé.
+- **Ligne Terminé/Done** ([health.css](static/css/views/health.css), `.htl-ticket-row--done`) : au-delà du simple ✓, toute la ligne reçoit désormais une teinte verte, un liseré sur la colonne ID et un titre légèrement atténué — plus facile à repérer dans une liste mêlant tickets faits/à faire.
+- **Couleur par parent renforcée** : la teinte par epic/feature (`--pc`) était techniquement appliquée mais trop subtile (8-13% de mix) pour être perçue comme distincte d'un parent à l'autre — fond/bordure renforcés et pastille colorée ajoutée devant le libellé.
+- **Groupe ActionRetro dédié** ([health.js](static/js/views/health.js)) : les tickets portant le label `ActionRetro` (pas de Story Points attendu — déjà exclus de l'anomalie "Sans estimation" via `isActionRetro`, désormais exportée depuis [business_rules.js](static/js/business_rules.js)) sont isolés dans leur propre groupe 🔁 plutôt que noyés dans "Sans parent", où ils ressemblaient à des tickets non estimés à corriger.
+
+## [3.79.0] - 2026-06-24
+
+### Fix : historique Story Points tronqué + liens profonds sur le détail des sprints
+- **Cause d'un ticket réestimé invisible** (ex. GDEM-1777, 3→5 pts non affiché) : `_extractRecentChanges` ([sync.js](static/js/sync.js)) ne gardait que les 8 derniers changements JIRA **toutes catégories confondues** — un changement Story Points ancien pouvait être évincé par des changements de statut/assignee plus récents, le rendant invisible à `_pointsAtLaunch` même après resync. Les champs `story points` et `sprint` ne sont désormais plus jamais évincés par ce cap (les autres champs continuent de se partager le quota de 8). **Nécessite une resynchronisation JIRA pour les tickets déjà importés** — les historiques déjà tronqués ne peuvent pas être reconstitués sans un nouvel appel à l'API JIRA.
+- **Liens profonds sur le détail des sprints** ([health.js](static/js/views/health.js), [app.js](static/js/app.js)) : cliquer sur une cellule du tableau interne (planifié/réalisé/buffer d'un sprint du PI) met désormais à jour l'URL (`~sprint=<metric>:<équipe>:<sprint>`, remplacé sans empiler l'historique) — la cellule active reste surlignée et le lien peut être partagé ou rechargé sans perdre la sélection. Ancien format `~sprint=<metric>:<équipe>` toujours supporté en lecture (rouvre sur le sprint de référence).
+
+## [3.78.0] - 2026-06-24
+
+### Fix : vélocité planifiée faussée par une réestimation en cours de sprint
+- **Cause** : la « vélocité planifiée au lancement » (colonne du tableau Health, métriques `planned`/`bufplanned`) sommait les Story Points **courants** des tickets du sprint au lieu des points **au lancement** — une réestimation en cours de sprint gonflait artificiellement le planifié. Cas constaté : GDEM-4057 (5→8 pts pendant l'Ité 30.1) faisait afficher 13 pts planifiés au lieu de 10.
+- **Fix** ([health.js](static/js/views/health.js), `_pointsAtLaunch`) : reconstruction des points au lancement depuis l'historique JIRA du champ Story Points (`recentChanges`) — ne garde la valeur reconstituée que si elle est `> 0` (un ticket non encore estimé au lancement, ex. 0→1 pts, continue de compter ses points actuels plutôt qu'un planifié à 0, trompeur).
+- **Bonus** : la liste de détail (clic sur la cellule planifiée) affiche désormais `lancement→actuel` (ex. `5→8`) pour chaque ticket réestimé pendant le sprint, avec tooltip explicite ; le total de cette liste et le tri restent cohérents avec la cellule du tableau.
+
 ## [3.77.0] - 2026-06-24
 
 ### Fix : audit Équipe & Ateliers — fuites, intégrité des clés, durcissement upload

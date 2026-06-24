@@ -267,7 +267,7 @@
     gap: var(--sp-2);
 }
 .pi-sprint-card {
-    background: var(--bg-alt);
+    background: var(--bg);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     padding: var(--sp-2) var(--sp-3);
@@ -363,7 +363,7 @@
 /* Variants par état */
 .pi-sprint-card--closed { opacity: 0.7; }
 .pi-sprint-card--active {
-    background: var(--surface);
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
     border-color: var(--primary);
     border-width: 2px;
     box-shadow: 0 0 0 1px var(--primary), 0 4px 12px color-mix(in srgb, var(--primary) 18%, transparent);

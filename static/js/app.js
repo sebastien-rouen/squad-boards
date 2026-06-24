@@ -303,6 +303,7 @@ window.__squadBoard = window.__squadBoard || {};
 window.__squadBoard.rerenderView = renderView;
 window.__squadBoard.store = store;
 window.__squadBoard.pushHash = pushHash;
+window.__squadBoard.applyHash = applyHash;
 window.__squadBoard.openCurrentSprintReview = openCurrentSprintReview;
 window.__squadBoard.openCurrentSprintDemo   = openCurrentSprintDemo;
 
@@ -602,6 +603,11 @@ async function init() {
         renderView();
     });
     updateMyBtn();
+    window.__squadBoard = window.__squadBoard || {};
+    window.__squadBoard.setMyFilter = (on) => {
+        localStorage.setItem(_MY_KEY, on ? '1' : '0');
+        updateMyBtn();
+    };
 
     // Load server config (URL/email/token .env) — fusionné avec les surcharges localStorage
     try {

@@ -6,6 +6,9 @@
  * - view (dashboard/sprint/kanban/...)
  * - team (string, ou 'all')
  * - group (id ou null)
+ * - hash complet (#vue/équipe/tab/...) — restaure tab/sprintPick/layout/piOffset/
+ *   backlogHashQuery etc. en rejouant le routing existant (applyHash)
+ * - myOn : état du toggle "Mes tickets" (global, hors hash)
  * - filtres sessionStorage (sprint-qfText, kanban-search) — optionnel
  * - name (saisi par l'utilisateur)
  */
@@ -32,17 +35,36 @@ function _captureCurrent() {
         view:   store.get('view') || 'dashboard',
         team:   store.get('team') || 'all',
         group:  store.get('group') || null,
+        hash:   location.hash.replace(/^#/, ''),
+        myOn:   localStorage.getItem('sb-my-tickets-on') === '1',
         qfText: sessionStorage.getItem('sprint-qfText') || '',
     };
 }
 
-/** Restore un favori : applique view/team/group + restaure les filtres. */
+/** Restore un favori : rejoue le hash complet (view/team/tab/...) + filtres globaux. */
 export function applyFavorite(fav) {
     if (!fav) return;
     if (fav.qfText !== undefined) {
         if (fav.qfText) sessionStorage.setItem('sprint-qfText', fav.qfText);
         else sessionStorage.removeItem('sprint-qfText');
     }
+    if (fav.myOn !== undefined) window.__squadBoard?.setMyFilter?.(fav.myOn);
+
+    if (fav.hash) {
+        // Rejoue le routing existant (applyHash) pour restaurer fidèlement
+        // tab/sprintPick/layout/piOffset/backlogHashQuery, etc. On passe par
+        // history.pushState (comme pushHash) plutôt que location.hash pour
+        // appeler applyHash + rerenderView nous-mêmes, de façon synchrone —
+        // certains champs (piTab, sprintPick...) n'ont pas de listener `store.on`
+        // dédié qui déclencherait un re-render via le seul événement hashchange.
+        const newHash = '#' + fav.hash;
+        if (location.hash !== newHash) history.pushState(null, '', newHash);
+        window.__squadBoard?.applyHash?.();
+        window.__squadBoard?.rerenderView?.();
+        return;
+    }
+
+    // Fallback pour les favoris créés avant l'ajout du champ `hash`.
     if (fav.group)        { store.set('group', fav.group); store.set('team', 'all'); }
     else if (fav.team)    { store.set('group', null); store.set('team', fav.team); }
     else                  { store.set('group', null); store.set('team', 'all'); }
@@ -145,6 +167,7 @@ function _favTooltip(f) {
     if (f.group) parts.push(`groupe ${f.group}`);
     else if (f.team && f.team !== 'all') parts.push(f.team);
     if (f.qfText) parts.push(`filtre "${f.qfText}"`);
+    if (f.myOn) parts.push('mes tickets');
     return parts.join(' · ');
 }
 function _suggestName() {

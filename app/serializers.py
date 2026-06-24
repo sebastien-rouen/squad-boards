@@ -8,7 +8,7 @@ from app.models import (
     Ticket, Feature, Risk, Epic, Member, Team, Skill, Appetence,
     MemberSkill, MemberAppetence, MemberMobility, SprintConfig, PIConfig,
     TeamGroup, Absence, SupportRotation, Event, MoodVote, RetroItem,
-    TeamCalendar, PokerVote,
+    TeamCalendar, PokerVote, TeamIdentity, WorkshopTemplate, TeamWorkshop, Attachment,
 )
 
 
@@ -204,4 +204,35 @@ def _cal_dict(c: TeamCalendar) -> dict:
         "id": c.id, "team": c.team, "name": c.name,
         "icalUrl": c.ical_url, "lastFetched": c.last_fetched,
         "createdAt": c.created_at,
+    }
+
+
+def _team_identity_dict(t: TeamIdentity) -> dict:
+    return {
+        "id": t.id, "team": t.team, "vision": t.vision, "perimeter": t.perimeter,
+        "quiSommesNous": t.qui_sommes_nous, "queFaisonsNous": t.que_faisons_nous,
+        "avecQui": t.avec_qui, "commentFonctionnons": t.comment_fonctionnons,
+        "besoinsReussite": t.besoins_reussite, "updatedAt": t.updated_at,
+    }
+
+
+def _workshop_template_dict(w: WorkshopTemplate) -> dict:
+    return {
+        "id": w.id, "key": w.key, "name": w.name, "description": w.description,
+        "icon": w.icon or "📋", "category": w.category, "fields": w.fields or [], "sort": w.sort,
+        "active": w.active, "createdAt": w.created_at, "updatedAt": w.updated_at,
+    }
+
+
+def _team_workshop_dict(w: TeamWorkshop) -> dict:
+    return {
+        "id": w.id, "team": w.team, "templateKey": w.template_key,
+        "data": w.data or {}, "status": w.status, "updatedAt": w.updated_at,
+    }
+
+
+def _attachment_dict(a: Attachment) -> dict:
+    return {
+        "id": a.id, "teamWorkshopId": a.team_workshop_id, "filename": a.filename,
+        "contentType": a.content_type, "size": a.size, "createdAt": a.created_at,
     }

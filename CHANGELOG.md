@@ -1,3 +1,35 @@
+## [3.74.0] - 2026-06-24
+
+### Style : selects "sexy", Team Canvas sur une ligne, fiche d'identité différenciée par couleur
+- **Listes déroulantes des ateliers** ([team.css](static/css/views/team.css), `.select-fancy`) : flèche teintée par la couleur de catégorie, bordure et halo au focus/survol, typographie plus affirmée — scopé aux champs de réponse d'atelier (pas touché ailleurs sur le site).
+- **Team Canvas en une ligne** : `.team-workshop-canvas-grid` passe d'une grille qui retombait à la ligne à un déroulé horizontal façon plateau de post-its (`overflow-x: auto`, post-its de largeur fixe).
+- **Titres de questions d'atelier** en police manuscrite teintée par la couleur de la catégorie (cohérent avec le titre de la carte).
+- **Fiche d'identité différenciée** : chaque champ (Vision, Périmètre, Qui sommes-nous...) reçoit une couleur dédiée parmi rouge/jaune/vert/bleu/orange/violet (bordure, pastille devant le libellé, fond teinté), pour les distinguer visuellement au premier coup d'œil.
+
+## [3.73.0] - 2026-06-24
+
+### Feat : édition riche des ateliers + fiche d'identité cliquable + export Slack
+- **Éditeur riche dans les ateliers** ([team.js](static/js/views/team.js)) : les questions de type texte libre utilisent désormais le même éditeur WYSIWYG que la description des tickets (gras/italique/souligné/listes/lien) — réutilise directement les classes `desc-toolbar`/`desc-editable`/`mdl-description` de [modal-detail.css](static/css/views/modal-detail.css), aucune nouvelle dépendance ni duplication de style.
+- **Fiche d'identité cliquable** : fini le gros formulaire à bouton « Enregistrer » — chaque champ s'affiche proprement (sauts de ligne préservés, placeholder discret si vide) et devient éditable au clic ; sauvegarde automatique au blur ou Ctrl+Entrée, Échap pour annuler.
+- **Copier pour Slack** : bouton sur la fiche d'identité qui copie l'ensemble des champs remplis au format mrkdwn Slack (`*titre*` + contenu), prêt à coller dans un canal.
+- **Admin des ateliers** : renommé « + Question » en « + Item » pour rester générique (un item peut être une question, une note, un critère...).
+
+## [3.72.0] - 2026-06-24
+
+### Feat : ateliers enrichis (catalogue, pièces jointes, habillage visuel)
+- **7 nouveaux ateliers** ([app/seed.py](app/seed.py)) : Notre place dans l'ART, Interfaces & dépendances, Rituels & fonctionnement, DoR/DoD, Compétences & responsabilités, Santé d'équipe, FAQ équipe — en plus de Team Canvas/Tuckman/Maturité Agile. Seed désormais idempotent par clé (une réexécution n'écrase ni ne duplique les ateliers existants, permet d'ajouter de nouveaux ateliers par défaut plus tard sans script de migration de données).
+- **Pièces jointes par atelier** ([app/routers/attachments.py](app/routers/attachments.py), [app/models/team_identity.py](app/models/team_identity.py)) : image/PDF/XLS/Doc, 15 Mo max, stockées sur disque (`data/uploads/`, nom généré — jamais le nom d'origine) et servies via une route dédiée (pas de listing public). Nécessite la dépendance `python-multipart` (ajoutée à [requirements.txt](requirements.txt)).
+- **Habillage visuel des ateliers** ([team.css](static/css/views/team.css)) : galerie de cartes avec icône par atelier, accent coloré par catégorie, police manuscrite mais lisible (Patrick Hand, self-hébergée dans `static/fonts/` — pas d'appel runtime à Google Fonts, conforme à la règle homelab/souveraineté) réservée aux titres. Le Team Canvas se présente désormais en grille de « post-its » colorés (palette `--type-*` existante réutilisée).
+- **Admin des ateliers** : ajout d'un champ icône (emoji) par modèle, éditable au même endroit que les questions.
+
+## [3.71.0] - 2026-06-24
+
+### Feat : fiche d'identité d'équipe + ateliers (Team Canvas, Tuckman, maturité Agile)
+- **Nouvelle vue « Équipe »** ([team.js](static/js/views/team.js), [team.css](static/css/views/team.css)) : fiche par équipe (vision, périmètre, qui sommes-nous/que faisons-nous/avec qui/comment fonctionnons-nous/besoins pour réussir), membres dérivés des absences (source de vérité existante). Bandeau d'incitation si la fiche est vide.
+- **Catalogue d'ateliers admin** ([app/models/team_identity.py](app/models/team_identity.py)) : `WorkshopTemplate` (questions libres, éditables depuis « Gérer les ateliers »), `TeamWorkshop` (réponses par équipe), seedés par défaut avec Team Canvas (FR) basique/avancé, modèle de Tuckman et Maturité Agile ([app/seed.py](app/seed.py)).
+- **Backend** : `TeamIdentity` (1 ligne par équipe), routeurs `team_identity.py`, `workshop_templates.py`, `team_workshops.py` ; nouvelles entités ajoutées à `/api/all` et `/api/export` (additif, ne change pas le contrat existant).
+- Remplir un atelier n'écrase pas automatiquement la fiche — c'est une référence consultable à côté, à reporter manuellement si pertinent (évite une logique de mapping fragile entre champs d'atelier et champs de fiche).
+
 ## [3.70.0] - 2026-06-24
 
 ### Feat : import CSV et ZIP (symétrique avec les 3 formats de l'Export)

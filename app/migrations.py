@@ -32,6 +32,7 @@ def run_migrations(engine):
         ("piconfig", "pi_members",        "ALTER TABLE piconfig ADD COLUMN pi_members JSON DEFAULT '{}'"),
         ("piconfig", "pi_objectives",     "ALTER TABLE piconfig ADD COLUMN pi_objectives JSON DEFAULT '{}'"),
         ("piconfig", "pi_baselines",      "ALTER TABLE piconfig ADD COLUMN pi_baselines JSON DEFAULT '{}'"),
+        ("workshoptemplate", "icon",       "ALTER TABLE workshoptemplate ADD COLUMN icon TEXT DEFAULT '📋'"),
     ]
     with engine.connect() as conn:
         insp = sa_inspect(engine)

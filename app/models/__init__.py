@@ -11,6 +11,7 @@ from app.models.atlas import (
     Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility,
 )
 from app.models.calendar import TeamCalendar
+from app.models.team_identity import TeamIdentity, WorkshopTemplate, TeamWorkshop, Attachment
 
 __all__ = [
     "Team", "Member", "Ticket", "Feature", "Epic",
@@ -19,4 +20,5 @@ __all__ = [
     "Event", "MoodVote", "RetroItem", "Risk", "PokerVote",
     "Skill", "Appetence", "MemberSkill", "MemberAppetence", "MemberMobility",
     "TeamCalendar",
+    "TeamIdentity", "WorkshopTemplate", "TeamWorkshop", "Attachment",
 ]

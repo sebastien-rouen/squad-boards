@@ -16,10 +16,11 @@ from app import http_client
 from app.config import STATIC_DIR
 from app.db import engine
 from app.migrations import run_migrations
-from app.seed import seed_atlas_catalog
+from app.seed import seed_atlas_catalog, seed_workshop_templates
 from app.routers import (
     teams, groups, epics, members, absences, support, agile,
     tickets, features, planning, atlas, calendars, jira, data, poker,
+    team_identity, workshop_templates, team_workshops, attachments,
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -28,6 +29,7 @@ from app.routers import (
 SQLModel.metadata.create_all(engine)
 run_migrations(engine)
 seed_atlas_catalog(engine)
+seed_workshop_templates(engine)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -49,6 +51,8 @@ for _r in (
     agile.router_events, agile.router_retro, agile.router_risks, agile.router_mood,
     tickets.router, features.router, planning.router, atlas.router,
     calendars.router, jira.router, data.router, poker.router_poker,
+    team_identity.router, workshop_templates.router, team_workshops.router,
+    attachments.router,
 ):
     app.include_router(_r)
 

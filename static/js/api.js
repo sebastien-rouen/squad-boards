@@ -186,6 +186,37 @@ export const exportZip = async (keys, format) => {
     return resp.blob();
 };
 
+// ── Fiche d'identité d'équipe ──────────────────────────────────────────────────
+export const getTeamIdentity    = team => request(`/api/team-identity/${encodeURIComponent(team)}`);
+export const updateTeamIdentity = (team, data) => request(`/api/team-identity/${encodeURIComponent(team)}`, {
+    method: 'PUT', body: JSON.stringify(data),
+});
+
+// ── Ateliers (Team Canvas, Tuckman, maturité Agile, ...) ──────────────────────
+export const getWorkshopTemplates   = ()   => request('/api/workshop-templates');
+export const createWorkshopTemplate = data => request('/api/workshop-templates', { method: 'POST', body: JSON.stringify(data) });
+export const updateWorkshopTemplate = (id, data) => request(`/api/workshop-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteWorkshopTemplate = id   => request(`/api/workshop-templates/${id}`, { method: 'DELETE' });
+
+export const getTeamWorkshops  = (team) => request(`/api/team-workshops${team ? '?team=' + encodeURIComponent(team) : ''}`);
+export const upsertTeamWorkshop = data  => request('/api/team-workshops', { method: 'PUT', body: JSON.stringify(data) });
+export const deleteTeamWorkshop = id    => request(`/api/team-workshops/${id}`, { method: 'DELETE' });
+
+// ── Pièces jointes d'un atelier (image, PDF, XLS, Doc — 15 Mo max) ────────────
+export const getAttachments = workshopId => request(`/api/team-workshops/${workshopId}/attachments`);
+export async function uploadAttachment(workshopId, file) {
+    const form = new FormData();
+    form.append('file', file);
+    const resp = await fetch(`/api/team-workshops/${workshopId}/attachments`, { method: 'POST', body: form });
+    if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+    return resp.json();
+}
+export const deleteAttachment = id => request(`/api/attachments/${id}`, { method: 'DELETE' });
+export const attachmentDownloadUrl = id => `/api/attachments/${id}/download`;
+
 // ── Calendriers ICS ───────────────────────────────────────────────────────────
 export const getCalendars      = ()          => request('/api/calendars');
 export const createCalendar    = data        => request('/api/calendars', { method: 'POST', body: JSON.stringify(data) });

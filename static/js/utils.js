@@ -1340,6 +1340,30 @@ export function deriveMembersFromAbsences(absences, members = []) {
 }
 
 /**
+ * Roster effectif d'un PI donné : priorité au snapshot figé à l'import CSV
+ * (`piInfo.piMembers[piNum]`) — gère le turnover PI à PI (un membre qui rejoint/quitte
+ * une équipe entre deux PI) ; sinon fallback sur `deriveMembersFromAbsences` (dérivation
+ * "vivante", pas figée). Sans ce snapshot, un membre parti après le PI où la rotation
+ * Support a été générée continuerait d'apparaître indéfiniment (rotation déjà shuffle
+ * = noms figés en base, jamais réécrits tant que personne ne relance un shuffle).
+ *
+ * Utilisée pour : grille Rotation Support (Paramètres), panneau latéral "Support cette
+ * semaine" (infopanel.js) — partout où on doit savoir qui est *réellement* dans l'équipe
+ * pour le PI affiché, pas seulement qui a un jour eu une absence enregistrée.
+ */
+export function effectiveRosterForPi(piInfo, piNum, absences, members) {
+    const snapshot = piInfo?.piMembers?.[String(piNum)];
+    return (snapshot && snapshot.length) ? snapshot : deriveMembersFromAbsences(absences, members);
+}
+
+/** Comparaison tolérante de noms d'équipe (CSV RH vs config app peuvent différer légèrement). */
+export function teamNameMatches(memberTeam, target) {
+    const t = (memberTeam || '').toLowerCase().trim();
+    const tgt = (target || '').toLowerCase().trim();
+    return t === tgt || (tgt && t && (t.includes(tgt) || tgt.includes(t)));
+}
+
+/**
  * Capacité d'une équipe à une date donnée (par défaut aujourd'hui) : membres
  * présents = roster (deriveMembersFromAbsences) moins les absents du jour.
  * Source de vérité = table `absence` (CSV RH), conformément aux conventions du site.

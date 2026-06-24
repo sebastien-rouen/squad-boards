@@ -1366,7 +1366,11 @@ export function deriveMembersFromAbsences(absences, members = []) {
  */
 export function effectiveRosterForPi(piInfo, piNum, absences, members) {
     const snapshot = piInfo?.piMembers?.[String(piNum)];
-    return (snapshot && snapshot.length) ? snapshot : deriveMembersFromAbsences(absences, members);
+    // Normalise le nom d'équipe du snapshot (ex: "Team Fuego" → "Fuego") — sinon teamNameMatches
+    // peut échouer à apparier un membre snapshotté avec une équipe non normalisée (cf. agenda.js).
+    return (snapshot && snapshot.length)
+        ? snapshot.map(m => ({ ...m, team: extractTeam(m.team) }))
+        : deriveMembersFromAbsences(absences, members);
 }
 
 /** Comparaison tolérante de noms d'équipe (CSV RH vs config app peuvent différer légèrement). */

@@ -18,7 +18,7 @@ import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
 import { sparkline, trendChip } from '../components/sparkline.js';
 import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
-import { ANOMALY_RULES } from '../business_rules.js';
+import { ANOMALY_RULES, isActionRetro } from '../business_rules.js';
 
 // Historique local du score Health (snapshot à chaque visite, max 30 entrées)
 const HEALTH_HIST_KEY = 'sb-health-history';
@@ -52,6 +52,25 @@ const _spKey  = name => { const m = String(name||'').match(/(\d+\.\d+)/); return
 const _face   = n => ({ 1:'😞', 2:'😕', 3:'😐', 4:'🙂', 5:'😄' }[Math.round(n)] || '—');
 const _fmtD   = iso => iso ? new Date(iso).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' }) : '—';
 const _stateL = s => ({ active:'🟢 En cours', closed:'✅ Terminé', future:'🔜 À venir' }[s] || s || '—');
+
+/**
+ * Reconstruit les points d'un ticket "au lancement" du sprint depuis son historique
+ * (recentChanges, field "Story Points") plutôt que de prendre les points courants —
+ * sinon une réestimation en cours de sprint fausse la vélocité planifiée (footgun
+ * remonté en prod : GDEM-4057 5→8 pts pendant l'Ité 30.1 gonflait le planifié de +3).
+ * Si la valeur reconstituée est 0 (ticket pas encore estimé au lancement), on garde
+ * les points courants : un "0 pts planifiés" serait trompeur, mieux vaut afficher
+ * la meilleure estimation connue pour ce ticket plutôt qu'un planifié sous-évalué.
+ */
+function _pointsAtLaunch(t, sprintStart) {
+    if (!sprintStart) return t.points || 0;
+    const changes = (t.recentChanges || t.recent_changes || [])
+        .filter(c => (c.field || '').toLowerCase() === 'story points' && c.date && c.date >= sprintStart)
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    if (!changes.length) return t.points || 0;
+    const launch = parseFloat(changes[0].from);
+    return (!isNaN(launch) && launch > 0) ? launch : (t.points || 0);
+}
 
 // Badge état coloré pour le tableau sprints : bleu=en cours, vert=clos/terminé, gris=à venir
 function _stateBadge(state) {
@@ -124,6 +143,21 @@ export function renderHealth(container) {
     // Vélocité (même graphe que le Dashboard) — dérivée des sprints clôturés.
     // Périmètre large (plusieurs équipes) → on affiche UNE équipe à la fois via un sélecteur,
     // sinon le graphe agrège les sprints de toutes les équipes et devient illisible.
+    // Filtrer sur une ligne produit (groupe) affiche à la place une carte par équipe du groupe.
+    const _VELO_GROUP_KEY = 'sb-health-velo-group';
+    let _veloGroupSel = localStorage.getItem(_VELO_GROUP_KEY) || null;
+    // Le groupe n'existe plus (supprimé) → on nettoie la préférence. S'il existe mais qu'on est
+    // momentanément sur un périmètre à 1 équipe (filtre topbar), on garde la préférence en
+    // localStorage sans l'appliquer ici — elle redeviendra active dès qu'on repasse en vue large.
+    if (_veloGroupSel && !groups.some(g => g.id === _veloGroupSel)) {
+        localStorage.removeItem(_VELO_GROUP_KEY);
+        _veloGroupSel = null;
+    }
+    const _activeGroup = (_veloGroupSel && teamsScope.length > 1)
+        ? groups.find(g => g.id === _veloGroupSel && (g.teams || []).some(t => teamsScope.includes(t)))
+        : null;
+    const _groupTeams = _activeGroup ? teamsScope.filter(t => _activeGroup.teams.includes(t)) : [];
+
     let _veloSel = (teamFilter && teamFilter !== 'all' && teamsScope.includes(teamFilter)) ? teamFilter : null;
     if (!_veloSel) {
         const _saved = localStorage.getItem('sb-health-velo-team');
@@ -132,8 +166,33 @@ export function renderHealth(container) {
     const _veloMax = 16;   // n'affiche que les derniers sprints (lisibilité)
     const velocityHistory    = computeVelocityHistory(allTickets, sprintInfo, _veloSel || teamFilter);
     const currentSprintEntry = computeCurrentSprintEntry(allTickets, sprintInfo, _veloSel || teamFilter);
+    // Une entrée {team, vh, cur} par équipe de la ligne produit sélectionnée — calculé une seule
+    // fois, réutilisé pour le HTML des cartes et pour monter les graphes Chart.js associés.
+    const _groupVeloData = _groupTeams.map(tm => ({
+        team: tm,
+        vh:  computeVelocityHistory(allTickets, sprintInfo, tm),
+        cur: computeCurrentSprintEntry(allTickets, sprintInfo, tm),
+    }));
+    const _veloCanvasId = tm => `chart-velocity-${tm.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+    // Chips équipe, regroupées sous leur ligne produit (groupe) — + "Autres équipes" pour le reste.
+    const _groupedTeamIds = new Set(groups.flatMap(g => g.teams || []));
+    const _ungroupedTeams = teamsScope.filter(t => !_groupedTeamIds.has(t));
+    const _teamChip = tm => `<button class="health-velo-team-chip${!_activeGroup && tm === _veloSel ? ' is-active' : ''}" data-velo-team="${esc(tm)}">${esc(tm)}</button>`;
+    const _groupChipBlock = g => {
+        const gTeams = (g.teams || []).filter(t => teamsScope.includes(t));
+        if (!gTeams.length) return '';
+        return `<div class="health-velo-group">
+            <button class="health-velo-group-chip${_activeGroup?.id === g.id ? ' is-active' : ''}" data-velo-group="${esc(g.id)}" style="--gc:${esc(g.color || '#6366f1')}" title="Afficher la vélocité de toutes les équipes de la ligne produit « ${esc(g.name)} »">🗂️ ${esc(g.name)}</button>
+            ${gTeams.map(_teamChip).join('')}
+        </div>`;
+    };
     const _veloTeamChips = teamsScope.length > 1
-        ? `<div class="health-velo-teams"><span class="health-velo-teams-lbl">Vélocité par équipe :</span>${teamsScope.map(tm => `<button class="health-velo-team-chip${tm === _veloSel ? ' is-active' : ''}" data-velo-team="${esc(tm)}">${esc(tm)}</button>`).join('')}</div>`
+        ? `<div class="health-velo-teams">
+            <span class="health-velo-teams-lbl">Vélocité par équipe :</span>
+            ${groups.map(_groupChipBlock).join('')}
+            ${_ungroupedTeams.length ? `<div class="health-velo-group health-velo-group--none">${_ungroupedTeams.map(_teamChip).join('')}</div>` : ''}
+        </div>`
         : '';
 
     // Filtre PI : si offset ≠ 0, on ne garde que les tickets du PI cible
@@ -280,21 +339,25 @@ export function renderHealth(container) {
         const done    = spTickets.filter(t => t.status === 'done');
         const bufDone = done.filter(t => isBufferItem(t));
 
-        // Vélocité : JIRA > calculé depuis tickets Done
-        const vPts = ref?.velocity     != null ? ref.velocity     : done.reduce((s, t) => s + (t.points||0), 0);
-        const bPts = ref?.bufferPoints != null ? ref.bufferPoints : bufDone.reduce((s, t) => s + (t.points||0), 0);
+        // Vélocité : calculé depuis les tickets Done locaux dès qu'on en a (source la plus à
+        // jour — JIRA ne fige sa stat de vélocité qu'à la clôture du sprint, elle peut rester à
+        // 0/stale en cours de sprint). JIRA en fallback seulement si aucun Done connu localement.
+        const vPts = done.length    ? done.reduce((s, t) => s + (t.points||0), 0)    : (ref?.velocity     != null ? ref.velocity     : 0);
+        const bPts = bufDone.length ? bufDone.reduce((s, t) => s + (t.points||0), 0) : (ref?.bufferPoints != null ? ref.bufferPoints : 0);
 
         // Périmètre engagé "au lancement du sprint" : tous les tickets du sprint (done ou non).
         // Vélocité planifiée = estimation JIRA au démarrage (Greenhopper `estimated`) si dispo,
-        // sinon somme des points du périmètre courant. Le nombre de tickets n'étant pas snapshoté
-        // par JIRA au lancement, on prend le périmètre courant du sprint comme meilleure approximation.
+        // sinon somme des points reconstitués au lancement (_pointsAtLaunch, via l'historique
+        // JIRA du champ Story Points) — sinon une réestimation en cours de sprint fausserait
+        // la vélocité planifiée. Le nombre de tickets n'étant pas snapshoté par JIRA au
+        // lancement, on prend le périmètre courant du sprint comme meilleure approximation.
         const bufPlanned = spTickets.filter(t => isBufferItem(t));
         const planTk     = spTickets.length;
         const planPts    = (ref?.estimated != null && ref.estimated > 0)
             ? ref.estimated
-            : spTickets.reduce((s, t) => s + (t.points||0), 0);
+            : spTickets.reduce((s, t) => s + _pointsAtLaunch(t, ref?.startDate), 0);
         const bufPlanTk  = bufPlanned.length;
-        const bufPlanPts = bufPlanned.reduce((s, t) => s + (t.points||0), 0);
+        const bufPlanPts = bufPlanned.reduce((s, t) => s + _pointsAtLaunch(t, ref?.startDate), 0);
 
         // Mood du sprint (piSprint = "29.3" extrait du nom de sprint)
         const spKey   = _spKey(spName);
@@ -326,10 +389,11 @@ export function renderHealth(container) {
                 bufDone: spDone.filter(t => isBufferItem(t)),
                 all:     spTk,
                 bufAll:  spBufAll,
+                startDate:  sp.startDate,
                 planTk:     spTk.length,
-                planPts:    (sp.estimated != null && sp.estimated > 0) ? sp.estimated : spTk.reduce((s, t) => s + (t.points||0), 0),
+                planPts:    (sp.estimated != null && sp.estimated > 0) ? sp.estimated : spTk.reduce((s, t) => s + _pointsAtLaunch(t, sp.startDate), 0),
                 bufPlanTk:  spBufAll.length,
-                bufPlanPts: spBufAll.reduce((s, t) => s + (t.points||0), 0),
+                bufPlanPts: spBufAll.reduce((s, t) => s + _pointsAtLaunch(t, sp.startDate), 0),
             };
         }
 
@@ -456,7 +520,15 @@ export function renderHealth(container) {
 
             <div class="health-velo-host">
                 ${_veloTeamChips}
-                ${velocityCardHtml({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax })}
+                ${_activeGroup
+                    ? (_groupVeloData.length
+                        ? `<div class="health-velo-group-grid">${_groupVeloData.map(({ team, vh, cur }) => `
+                            <div class="health-velo-group-card">
+                                <div class="health-velo-group-card-lbl">${esc(team)}</div>
+                                ${velocityCardHtml({ velocityHistory: vh, currentSprintEntry: cur, target: piInfo?.velocityTarget || null, maxPoints: _veloMax, canvasId: _veloCanvasId(team) })}
+                            </div>`).join('')}</div>`
+                        : '<p class="text-muted text-sm">Aucune équipe de cette ligne produit dans le périmètre courant.</p>')
+                    : velocityCardHtml({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax })}
             </div>
 
             <div class="health-cards">${cardsHtml}</div>
@@ -485,16 +557,37 @@ export function renderHealth(container) {
         </div>
     `;
 
-    // Graphe de vélocité (Chart.js) — monté après insertion du DOM
-    requestAnimationFrame(() => mountVelocityChart({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax }));
+    // Graphe(s) de vélocité (Chart.js) — monté(s) après insertion du DOM.
+    // Mode ligne produit : un graphe par équipe du groupe (canvasId dédié par équipe).
+    requestAnimationFrame(() => {
+        if (_activeGroup) {
+            for (const { team, vh, cur } of _groupVeloData) {
+                mountVelocityChart({ velocityHistory: vh, currentSprintEntry: cur, target: piInfo?.velocityTarget || null, maxPoints: _veloMax, canvasId: _veloCanvasId(team) });
+            }
+        } else {
+            mountVelocityChart({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax });
+        }
+    });
 
     // Un seul listener à la fois : on remplace l'ancien pour éviter les stale closures
     if (container._healthClick) container.removeEventListener('click', container._healthClick);
     container._healthClick = e => {
+        // Sélecteur ligne produit (groupe) du graphe de vélocité — affiche une carte par équipe
+        // du groupe. Re-cliquer sur le groupe déjà actif le désélectionne (retour à l'équipe seule).
+        const veloGroupChip = e.target.closest('.health-velo-group-chip');
+        if (veloGroupChip?.dataset.veloGroup) {
+            const isActive = veloGroupChip.classList.contains('is-active');
+            if (isActive) localStorage.removeItem('sb-health-velo-group');
+            else localStorage.setItem('sb-health-velo-group', veloGroupChip.dataset.veloGroup);
+            renderHealth(container);
+            return;
+        }
+
         // Sélecteur d'équipe du graphe de vélocité (périmètre multi-équipes)
         const veloChip = e.target.closest('.health-velo-team-chip');
         if (veloChip?.dataset.veloTeam) {
             localStorage.setItem('sb-health-velo-team', veloChip.dataset.veloTeam);
+            localStorage.removeItem('sb-health-velo-group');
             renderHealth(container);
             return;
         }
@@ -522,10 +615,13 @@ export function renderHealth(container) {
     container.addEventListener('click', container._healthClick);
 }
 
-// Réouverture depuis le hash (refresh / lien partagé) : lit _sprintMetaStore peuplé par renderHealth.
-export function reopenSprintModalFromHash(team, metric) {
+// Réouverture depuis le hash (refresh / lien partagé / retour arrière depuis un ticket) : lit
+// _sprintMetaStore peuplé par renderHealth. `pushHistory: false` — le hash courant correspond
+// déjà à cet état (on y arrive PAR la navigation), le ré-empiler créerait des entrées dupliquées
+// que "Fermer"/Échap doivent retraverser une par une (la modale semble alors ne plus se fermer).
+export function reopenSprintModalFromHash(team, metric, sprintName) {
     const meta = _sprintMetaStore.get(team);
-    if (meta) _openSprintModal(meta, team, metric);
+    if (meta) _openSprintModal(meta, team, metric, sprintName, false);
 }
 
 // Découverte (mise en cache) du champ Story Points JIRA — pour le lazy-fetch des sprints clos.
@@ -570,7 +666,10 @@ async function _fetchSprintIssuesFromJira(jiraId) {
 }
 
 // ── Modal sprint détaillé (vélocité / buffer) ─────────────────────────────────
-function _openSprintModal(meta, teamName, metric) {
+// `initialSprintName` : sprint dont la liste de tickets est affichée à l'ouverture —
+// par défaut le sprint de référence de l'équipe, mais un lien profond (~sprint=...)
+// peut cibler n'importe quel sprint du PI.
+function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory = true) {
     if (!meta) return;
     document.getElementById('health-sprint-modal')?.remove();
 
@@ -580,37 +679,42 @@ function _openSprintModal(meta, teamName, metric) {
     const color   = meta.teamColor || '#6366f1';
     const initials = teamName.slice(0, 2).toUpperCase();
     const piLabel  = meta.piNum ? `PI#${meta.piNum}` : '';
+    const activeSprintName = initialSprintName || meta.spName;
 
     // ── Tableau des sprints du PI ────────────────────────────────────────────
     const sprintRows = (meta.piSprints || []).map(s => {
         const sk    = _spKey(s.name);
         const moodHtml   = _moodCellHtml(teamName, sk);
         const isRef = s.name === meta.spName;
+        const _active = m => s.name === activeSprintName && m === metric ? ' htl-cell-active' : '';
         const chargeKey  = `sb-charge-${s.name}`;
         const chargeSaved = localStorage.getItem(chargeKey);
         const chargeVal  = chargeSaved != null ? chargeSaved : (s.estimated != null ? String(s.estimated) : '');
         // Cellules Vélo/Buffer cliquables → section tickets en bas.
         // COHÉRENCE : « réalisé » = somme des Story Points des tickets Done locaux quand on les a
         // (= total affiché dans la section). Fallback sur la vélocité JIRA (greenhopper) sinon.
+        // Sprint en cours/passé : une cellule vide est un vrai 0 mesuré (rien fait/engagé).
+        // Sprint à venir : rien n'a encore pu se passer → le "—" reste plus honnête qu'un 0.
+        const _isPastOrActive = s.state === 'active' || s.state === 'closed';
         const spT = meta.sprintTickets?.[s.name] || { done: [], bufDone: [] };
         const vel = spT.done.length
             ? spT.done.reduce((a, t) => a + (t.points || 0), 0)
-            : (s.velocity != null ? s.velocity : '—');
+            : (s.velocity != null ? s.velocity : (_isPastOrActive ? 0 : '—'));
         const buf = spT.bufDone.length
             ? spT.bufDone.reduce((a, t) => a + (t.points || 0), 0)
-            : (s.bufferPoints != null ? s.bufferPoints : '—');
+            : (s.bufferPoints != null ? s.bufferPoints : (_isPastOrActive ? 0 : '—'));
         const veloClickable = vel !== '—' || spT.done.length > 0;
         const bufClickable  = buf !== '—' || spT.bufDone.length > 0;
-        const veloAttr = veloClickable ? ` htl-cell-clickable" data-sp-tickets="${esc(s.name)}" data-sp-metric="velocity` : '';
-        const bufAttr  = bufClickable  ? ` htl-cell-clickable" data-sp-tickets="${esc(s.name)}" data-sp-metric="buffer`   : '';
+        const veloAttr = veloClickable ? ` htl-cell-clickable${_active('velocity')}" data-sp-tickets="${esc(s.name)}" data-sp-metric="velocity` : '';
+        const bufAttr  = bufClickable  ? ` htl-cell-clickable${_active('buffer')}" data-sp-tickets="${esc(s.name)}" data-sp-metric="buffer`   : '';
         // Périmètre engagé au lancement : vélocité planifiée (pts) + nb de tickets engagés.
         const planTk = spT.planTk || 0, planPts = spT.planPts || 0, bufPlanTk = spT.bufPlanTk || 0, bufPlanPts = spT.bufPlanPts || 0;
         const planClickable = planTk > 0 || planPts > 0, bufPlanClickable = bufPlanTk > 0 || bufPlanPts > 0;
         const planAttr    = planClickable    ? ` data-sp-tickets="${esc(s.name)}" data-sp-metric="planned"`    : '';
         const bufPlanAttr = bufPlanClickable ? ` data-sp-tickets="${esc(s.name)}" data-sp-metric="bufplanned"` : '';
-        const planCls = planClickable ? ' htl-cell-clickable' : '', bufPlanCls = bufPlanClickable ? ' htl-cell-clickable' : '';
+        const planCls = planClickable ? ' htl-cell-clickable' + _active('planned') : '', bufPlanCls = bufPlanClickable ? ' htl-cell-clickable' + _active('bufplanned') : '';
         const planHint = planClickable ? ' — cliquer pour la liste' : '', bufPlanHint = bufPlanClickable ? ' — cliquer pour la liste' : '';
-        const dash = '<span class="htl-muted">—</span>';
+        const dash = _isPastOrActive ? '0' : '<span class="htl-muted">—</span>';
         return `<tr class="${isRef ? 'htl-sprint-row--ref' : ''}">
             <td class="htl-spr-name">${isRef ? `<strong>${esc(s.name)}</strong>` : esc(s.name)}</td>
             <td class="htl-spr-date">${_fmtD(s.startDate)}</td>
@@ -638,6 +742,7 @@ function _openSprintModal(meta, teamName, metric) {
     //   velocity = Done · buffer = Buffer Done · planned = engagés au lancement (tous) · bufplanned = Buffer engagés
     const _METRIC_FIELD = { velocity: 'done', buffer: 'bufDone', planned: 'all', bufplanned: 'bufAll' };
     const _METRIC_EMPTY = { velocity: 'Done', buffer: 'Buffer Done', planned: 'engagé', bufplanned: 'Buffer engagé' };
+    const _isPlanMetric = metric => metric === 'planned' || metric === 'bufplanned';
     const _ticketsFor = (sprintName, metric) => {
         const field = _METRIC_FIELD[metric] || 'done';
         const bucket = meta.sprintTickets?.[sprintName];
@@ -645,48 +750,72 @@ function _openSprintModal(meta, teamName, metric) {
         if (sprintName === meta.spName && meta[field]) return meta[field];
         return [];
     };
+    // Démarrage du sprint cliqué — nécessaire pour reconstituer les points "au lancement"
+    // (planned/bufplanned) via _pointsAtLaunch, cohérent avec le total de la cellule du tableau.
+    const _sprintStartFor = sprintName =>
+        (sprintName === meta.spName ? meta.startDate : meta.sprintTickets?.[sprintName]?.startDate) || null;
+    // Points à afficher/sommer pour un ticket selon la métrique : reconstitués au lancement
+    // pour planned/bufplanned, courants sinon.
+    const _ptsFor = (tk, metric, sprintStart) => _isPlanMetric(metric) ? _pointsAtLaunch(tk, sprintStart) : (tk.points || 0);
 
-    const _ticketRowsHtml = (list, metric) => {
+    const _ACTIONRETRO_KEY = '__actionretro__';
+    const _ticketRowsHtml = (list, metric, sprintStart, isPastOrActive) => {
         if (!list.length) return `<tr><td colspan="6" class="text-muted text-center" style="padding:16px">Aucun ticket ${_METRIC_EMPTY[metric] || ''}</td></tr>`;
         // Regroupe les tickets par parent (epic/feature) — un bloc par parent, trié par points décroissants.
+        // Les tickets ActionRetro (actions de rétro, pas de Story Points attendu) sont isolés dans
+        // leur propre groupe plutôt que noyés dans "Sans parent" — sinon ils ressemblent à des
+        // tickets non estimés problématiques alors que c'est normal pour cette catégorie.
         const groups = new Map();
         for (const tk of list) {
-            const k = tk.epic ? String(tk.epic) : '';
+            const k = isActionRetro(tk) ? _ACTIONRETRO_KEY : (tk.epic ? String(tk.epic) : '');
             if (!groups.has(k)) groups.set(k, []);
             groups.get(k).push(tk);
         }
-        const _gpts = items => items.reduce((s, tk) => s + (tk.points || 0), 0);
+        const _gpts = items => items.reduce((s, tk) => s + _ptsFor(tk, metric, sprintStart), 0);
+        // Ordre : epics réels (points décroissants) → ActionRetro → Sans parent (toujours en dernier).
+        const _grpOrder = k => k === '' ? 2 : k === _ACTIONRETRO_KEY ? 1 : 0;
         const ordered = [...groups.entries()].sort((a, b) => {
-            if (!a[0]) return 1;   // "Sans parent" en dernier
-            if (!b[0]) return -1;
-            return _gpts(b[1]) - _gpts(a[1]);
+            const oa = _grpOrder(a[0]), ob = _grpOrder(b[0]);
+            if (oa !== ob) return oa - ob;
+            return oa === 0 ? _gpts(b[1]) - _gpts(a[1]) : 0;
         });
         const _ticketRow = tk => {
             const who = tk.leader || tk.assignee || '';
             const isBuf = isBufferItem(tk);
-            return `<tr class="htl-ticket-row" data-open-ticket="${esc(tk.id || '')}" title="Voir le détail du ticket">
+            const curPts = tk.points || 0;
+            const launchPts = _isPlanMetric(metric) ? _pointsAtLaunch(tk, sprintStart) : curPts;
+            const reestimated = _isPlanMetric(metric) && launchPts !== curPts;
+            const ptsLabel = reestimated ? `${launchPts}→${curPts}` : String(launchPts || '');
+            const ptsHtml = (launchPts || reestimated)
+                ? `<span class="htl-pts-chip${tk.status === 'done' ? ' htl-pts-chip--done' : ''}${reestimated ? ' htl-pts-chip--reest' : ''}"${reestimated ? ` title="Réestimé pendant le sprint : ${launchPts} pts au lancement → ${curPts} pts actuels"` : ''}>${ptsLabel}</span>`
+                : (isPastOrActive ? '0' : '<span class="htl-muted">—</span>');
+            return `<tr class="htl-ticket-row${tk.status === 'done' ? ' htl-ticket-row--done' : ''}" data-open-ticket="${esc(tk.id || '')}" title="Voir le détail du ticket">
                 <td class="htl-id">${esc(tk.id || '—')}</td>
                 <td class="htl-done">${tk.status === 'done' ? '<span class="htl-done-yes" title="Terminé">✓</span>' : '<span class="htl-done-no" title="Non terminé">·</span>'}</td>
                 <td class="htl-title">${esc(tk.title || '')}</td>
                 <td class="htl-buf-flag">${isBuf ? '<span title="Ticket Buffer">🛡️</span>' : ''}</td>
-                <td class="htl-pts">${tk.points ? `<span class="htl-pts-chip${tk.status === 'done' ? ' htl-pts-chip--done' : ''}">${tk.points}</span>` : '<span class="htl-muted">—</span>'}</td>
+                <td class="htl-pts">${ptsHtml}</td>
                 <td class="htl-who">${who ? esc(who) : '<span class="htl-muted">—</span>'}</td>
             </tr>`;
         };
         return ordered.map(([parentKey, items]) => {
-            const parentTitle = parentKey ? (_parentTitleById.get(parentKey) || '') : '';
-            const full = parentKey ? `${parentKey}${parentTitle ? ' — ' + parentTitle : ''}` : '';
+            const isRetroGrp = parentKey === _ACTIONRETRO_KEY;
+            const parentTitle = (parentKey && !isRetroGrp) ? (_parentTitleById.get(parentKey) || '') : '';
+            const full = (parentKey && !isRetroGrp) ? `${parentKey}${parentTitle ? ' — ' + parentTitle : ''}` : '';
             const lbl  = full.length > 64 ? full.slice(0, 63) + '…' : full;
-            const head = parentKey
-                ? `<span class="htl-parent-chip" style="--pc:${hashColor(parentKey)}" data-open-ticket="${esc(parentKey)}" title="Parent : ${esc(parentKey)}${parentTitle ? ' — ' + esc(parentTitle) : ''} — cliquer pour voir le détail">${esc(lbl)}</span>`
-                : '<span class="htl-muted">Sans parent</span>';
-            const groupRow = `<tr class="htl-grp-row"${parentKey ? ` style="--pc:${hashColor(parentKey)}"` : ''}>
+            const pc   = (parentKey && !isRetroGrp) ? hashColor(parentKey) : '';
+            const head = isRetroGrp
+                ? `<span class="htl-parent-chip htl-parent-chip--retro" title="Actions de rétrospective — pas de Story Points attendu, c'est normal">🔁 ActionRetro</span>`
+                : parentKey
+                    ? `<span class="htl-parent-chip" style="--pc:${pc}" data-open-ticket="${esc(parentKey)}" title="Parent : ${esc(parentKey)}${parentTitle ? ' — ' + esc(parentTitle) : ''} — cliquer pour voir le détail">${esc(lbl)}</span>`
+                    : '<span class="htl-muted">Sans parent</span>';
+            const groupRow = `<tr class="htl-grp-row"${pc ? ` style="--pc:${pc}"` : ''}>
                 <td colspan="6" class="htl-grp-cell">${head}<span class="htl-grp-meta">${items.length} ticket${items.length !== 1 ? 's' : ''} · ${items.filter(x => x.status === 'done').length} ✓ · ${_gpts(items)} pts</span></td>
             </tr>`;
             // Tri intra-groupe : tickets terminés d'abord, puis points décroissants
             const sorted = items.slice().sort((a, b) => {
                 const da = a.status === 'done' ? 1 : 0, db = b.status === 'done' ? 1 : 0;
-                return db - da || (b.points || 0) - (a.points || 0);
+                return db - da || _ptsFor(b, metric, sprintStart) - _ptsFor(a, metric, sprintStart);
             });
             return groupRow + sorted.map(_ticketRow).join('');
         }).join('');
@@ -701,22 +830,33 @@ function _openSprintModal(meta, teamName, metric) {
     };
     const _ticketsSection = (sprintName, metric) => {
         const list = _ticketsFor(sprintName, metric);
-        const tot  = list.reduce((s, t) => s + (t.points || 0), 0);
+        const sprintStart = _sprintStartFor(sprintName);
+        // Sprint en cours/clos : un ticket sans points affiche "0" (vrai zéro mesuré) plutôt
+        // qu'un "—" — cohérent avec le tableau récapitulatif des sprints ci-dessus.
+        const spState = (meta.piSprints || []).find(s => s.name === sprintName)?.state;
+        const isPastOrActive = spState === 'active' || spState === 'closed';
+        const tot = list.reduce((s, t) => s + _ptsFor(t, metric, sprintStart), 0);
+        // Si au moins un ticket a été réestimé pendant le sprint, le total "au lancement" seul
+        // masquerait l'écart — on affiche aussi le total courant, même format que les chips de ligne.
+        const totCurrent = list.reduce((s, t) => s + (t.points || 0), 0);
+        const totReest = _isPlanMetric(metric) && tot !== totCurrent;
+        const totLabel = totReest ? `${tot}→${totCurrent}` : String(tot);
+        const totTitle = totReest ? ` title="Au moins un ticket réestimé pendant le sprint : ${tot} pts au lancement → ${totCurrent} pts actuels"` : '';
         return `
             <div class="htl-tickets-hdr">
                 <span class="htl-tickets-hdr-title">${_METRIC_TITLE[metric] || _METRIC_TITLE.velocity}</span>
                 ${sprintName ? `<span class="htl-tickets-hdr-sprint">${esc(sprintName)}</span>` : ''}
-                <span class="htl-tickets-hdr-badge">${list.length} ticket${list.length !== 1 ? 's' : ''} · ${tot} pts</span>
+                <span class="htl-tickets-hdr-badge"${totTitle}>${list.length} ticket${list.length !== 1 ? 's' : ''} · ${totLabel} pts</span>
             </div>
             <table class="htl-table">
                 <thead><tr>
                     <th>ID</th><th title="Terminé">✓</th><th>Titre</th>
                     <th title="Ticket Buffer">🛡️</th><th>Pts</th><th>Responsable</th>
                 </tr></thead>
-                <tbody>${_ticketRowsHtml(list, metric)}</tbody>
+                <tbody>${_ticketRowsHtml(list, metric, sprintStart, isPastOrActive)}</tbody>
                 ${list.length ? `<tfoot><tr>
                     <td colspan="4" class="htl-total-lbl">Total</td>
-                    <td class="htl-total-val">${tot}</td>
+                    <td class="htl-total-val${totReest ? ' htl-total-val--reest' : ''}"${totTitle}>${totLabel}</td>
                     <td></td>
                 </tr></tfoot>` : ''}
             </table>`;
@@ -765,19 +905,24 @@ function _openSprintModal(meta, teamName, metric) {
                     </table>
                 </div>
                 <div class="htl-section-lbl htl-tickets-hint">Détail des tickets — clique une cellule chiffrée (nb · planifié · réalisée) ci-dessus</div>
-                <div class="htl-tickets-section" id="htl-tickets-host">${_ticketsSection(meta.spName, metric)}</div>
+                <div class="htl-tickets-section" id="htl-tickets-host">${_ticketsSection(activeSprintName, metric)}</div>
             </div>
         </div>`;
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visible'));
 
     // ── Hash routing : reflète l'ouverture dans l'URL (back-button + partage) ─
-    // On empile une entrée d'historique avec le marqueur ~sprint=<metric>:<team>.
-    // On retire d'abord tout marqueur existant pour ne jamais le doubler.
-    // (Au refresh, pushHash a déjà recréé une entrée propre dessous → back() ne quitte pas l'app.)
-    const _base = (location.hash || '#').replace(/~sprint=[^~]*/g, '') || '#';
-    history.pushState({ healthSprint: true }, '',
-        _base + '~sprint=' + encodeURIComponent(`${metric}:${teamName}`));
+    // On empile une entrée d'historique avec le marqueur ~sprint=<metric>:<team>:<sprint>,
+    // SEULEMENT pour une ouverture initiée par l'utilisateur (pushHistory=true, défaut).
+    // Une réouverture déclenchée par reopenSprintModalFromHash (retour arrière depuis un ticket,
+    // refresh, lien partagé) arrive déjà sur le hash voulu — le pousser à nouveau créerait des
+    // entrées dupliquées que "Fermer"/Échap devraient retraverser une par une (footgun : la
+    // modale semblait alors ne plus jamais se fermer après avoir ouvert puis fermé un ticket).
+    if (pushHistory) {
+        const _base = (location.hash || '#').replace(/~sprint=[^~]*/g, '') || '#';
+        history.pushState({ healthSprint: true }, '',
+            _base + '~sprint=' + encodeURIComponent(`${metric}:${teamName}:${activeSprintName}`));
+    }
 
     // ── Charge prévue éditable (localStorage) ───────────────────────────────
     overlay.querySelectorAll('.htl-charge-input').forEach(input => {
@@ -799,6 +944,12 @@ function _openSprintModal(meta, teamName, metric) {
         const metric     = cell.dataset.spMetric || 'velocity';
         overlay.querySelectorAll('.htl-cell-active').forEach(c => c.classList.remove('htl-cell-active'));
         cell.classList.add('htl-cell-active');
+
+        // Met à jour le hash sans empiler d'entrée d'historique (remplace, ne pousse pas) —
+        // sinon chaque clic dans la table interne casserait le bouton "retour" du navigateur.
+        const _base = (location.hash || '#').replace(/~sprint=[^~]*/g, '') || '#';
+        history.replaceState({ healthSprint: true }, '',
+            _base + '~sprint=' + encodeURIComponent(`${metric}:${teamName}:${sprintName}`));
 
         // Tickets locaux dispo → affichage direct
         if (_ticketsFor(sprintName, metric).length) {

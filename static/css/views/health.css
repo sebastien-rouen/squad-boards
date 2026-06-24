@@ -111,6 +111,48 @@
     color: var(--primary);
     font-weight: var(--fw-semibold);
 }
+
+/* Cluster ligne produit : la pastille du groupe + ses équipes regroupées visuellement. */
+.health-velo-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--gc, var(--border)) 6%, transparent);
+}
+.health-velo-group--none { background: none; padding: 0; }
+.health-velo-group-chip {
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--gc, var(--primary)) 45%, transparent);
+    background: color-mix(in srgb, var(--gc, var(--primary)) 14%, var(--surface));
+    color: var(--gc, var(--primary));
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+}
+.health-velo-group-chip:hover { background: color-mix(in srgb, var(--gc, var(--primary)) 24%, var(--surface)); }
+.health-velo-group-chip.is-active {
+    background: var(--gc, var(--primary));
+    border-color: var(--gc, var(--primary));
+    color: var(--text-inverse);
+}
+
+/* Grille de cartes vélocité quand une ligne produit est sélectionnée — une carte par équipe. */
+.health-velo-group-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--sp-3);
+}
+.health-velo-group-card-lbl {
+    font-size: 12px;
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
 .health-card {
     display: flex;
     flex-direction: column;
@@ -533,17 +575,25 @@
 .htl-done { width: 28px; text-align: center; }
 .htl-done-yes { color: var(--success); font-weight: var(--fw-bold); }
 .htl-done-no  { color: var(--text-muted); opacity: .6; }
-.htl-pts   { text-align: right; white-space: nowrap; width: 50px; }
+.htl-pts   { text-align: right; white-space: nowrap; width: 64px; }
 .htl-who   { white-space: nowrap; width: 140px; color: var(--text-secondary); }
 
 /* Ligne ticket entièrement cliquable → ouvre le détail */
 .htl-ticket-row { cursor: pointer; transition: background .1s; }
 .htl-ticket-row:hover td { background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+/* Ligne d'un ticket Terminé — au-delà du simple ✓, teinte verte + liseré pour le repérer
+   d'un coup d'œil dans une liste mêlant tickets faits/à faire. */
+.htl-ticket-row--done td { background: color-mix(in srgb, var(--success) 7%, var(--surface)); }
+.htl-ticket-row--done:hover td { background: color-mix(in srgb, var(--success) 14%, var(--surface)); }
+.htl-ticket-row--done td.htl-id { box-shadow: inset 3px 0 0 var(--success); }
+.htl-ticket-row--done td.htl-title { color: var(--text-secondary); }
 
-/* En-tête de groupe « parent » : un bloc par epic/feature, coloré via --pc */
+/* En-tête de groupe « parent » : un bloc par epic/feature, coloré via --pc.
+   Mix plus marqué que l'ancien 8% — sinon la couleur par parent était trop subtile
+   pour être perçue comme "différente" d'un parent à l'autre. */
 .htl-grp-row td.htl-grp-cell {
-    background: color-mix(in srgb, var(--pc, var(--primary)) 8%, var(--surface-2));
-    border-left: 3px solid var(--pc, var(--border));
+    background: color-mix(in srgb, var(--pc, var(--primary)) 16%, var(--surface-2));
+    border-left: 4px solid var(--pc, var(--border));
     border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
     padding: 5px 10px;
 }
@@ -551,9 +601,12 @@
 /* Tickets d'un groupe : id légèrement en retrait pour la lisibilité hiérarchique */
 .htl-ticket-row td.htl-id { padding-left: 16px; }
 
-/* Chip parent (epic) — 1 couleur par parent via --pc */
+/* Chip parent (epic) — 1 couleur par parent via --pc, contraste renforcé (pastille + fond/bordure
+   plus saturés) pour bien distinguer les groupes au survol rapide de la liste. */
 .htl-parent-chip {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -562,17 +615,34 @@
     padding: 1px 8px;
     border-radius: 999px;
     font-size: 10px;
-    font-weight: var(--fw-semibold);
+    font-weight: var(--fw-bold);
     color: var(--pc, var(--primary));
-    background: color-mix(in srgb, var(--pc, var(--primary)) 13%, var(--surface));
-    border: 1px solid color-mix(in srgb, var(--pc, var(--primary)) 30%, transparent);
+    background: color-mix(in srgb, var(--pc, var(--primary)) 20%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--pc, var(--primary)) 50%, transparent);
     cursor: pointer;
     transition: background .1s;
 }
+.htl-parent-chip::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--pc, var(--primary));
+    flex-shrink: 0;
+}
 .htl-parent-chip:hover {
-    background: color-mix(in srgb, var(--pc, var(--primary)) 24%, var(--surface));
+    background: color-mix(in srgb, var(--pc, var(--primary)) 32%, var(--surface));
     text-decoration: underline;
 }
+/* Groupe ActionRetro — couleur fixe (pas de --pc, pas un epic) distincte des groupes parent. */
+.htl-parent-chip--retro {
+    color: var(--info);
+    background: color-mix(in srgb, var(--info) 16%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--info) 40%, transparent);
+    cursor: default;
+}
+.htl-parent-chip--retro::before { background: var(--info); }
+.htl-parent-chip--retro:hover { background: color-mix(in srgb, var(--info) 16%, var(--surface)); text-decoration: none; }
 /* Points en chip */
 .htl-pts-chip {
     display: inline-block;
@@ -591,8 +661,16 @@
     background: color-mix(in srgb, var(--success) 18%, var(--surface));
     color: var(--success);
 }
+/* Ticket réestimé en cours de sprint (colonne "engagés au lancement") — affiche lancement→actuel */
+.htl-pts-chip--reest {
+    background: color-mix(in srgb, var(--warning) 18%, var(--surface));
+    color: var(--warning);
+    min-width: 36px;
+}
 .htl-total-lbl { color: var(--text-muted); text-align: right !important; }
 .htl-total-val { text-align: right; font-weight: var(--fw-bold); }
+/* Total incluant au moins un ticket réestimé pendant le sprint — même teinte que les chips de ligne. */
+.htl-total-val--reest, .htl-tickets-hdr-badge[title] { color: var(--warning); }
 
 .health-matrix tbody td {
     padding: 7px 4px;

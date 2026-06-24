@@ -1113,29 +1113,39 @@ const _CHANGE_FIELDS_SKIP = new Set([
     'lastviewed', 'remoteissuelinks',
 ]);
 
+// Champs jamais évincés par le cap `max` : nécessaires à la reconstruction de la vélocité
+// planifiée "au lancement" (cf. _pointsAtLaunch dans health.js) — un changement Story Points
+// ancien noyé sous 8+ changements de statut/assignee plus récents serait sinon perdu, et la
+// vélocité planifiée resterait fausse même après resync (footgun GDEM-1777 : 3→5 pts invisible).
+const _CHANGE_FIELDS_KEEP_ALL = new Set(['story points', 'sprint']);
+
 function _extractRecentChanges(issue, max = 8) {
     const histories = issue?.changelog?.histories || [];
     if (!histories.length) return [];
-    const out = [];
+    const kept = [], other = [];
     // histories est trié du plus ancien au plus récent ; on parcourt à l'envers
-    for (let h = histories.length - 1; h >= 0 && out.length < max; h--) {
+    for (let h = histories.length - 1; h >= 0; h--) {
         const hist = histories[h];
         const author = hist.author?.displayName || 'Inconnu';
         const date   = hist.created;
         for (const item of (hist.items || [])) {
             const rawField = (item.field || item.fieldId || '').toString();
-            if (_CHANGE_FIELDS_SKIP.has(rawField.toLowerCase())) continue;
-            out.push({
+            const fieldKey = rawField.toLowerCase();
+            if (_CHANGE_FIELDS_SKIP.has(fieldKey)) continue;
+            const entry = {
                 date,
                 author,
                 field: rawField,  // clé technique (status, assignee, sprint…)
                 from:  item.fromString || item.from || '',
                 to:    item.toString   || item.to   || '',
-            });
-            if (out.length >= max) break;
+            };
+            (_CHANGE_FIELDS_KEEP_ALL.has(fieldKey) ? kept : other).push(entry);
         }
     }
-    return out;
+    // `other` complète jusqu'au quota ; `kept` (Story Points/Sprint) n'est jamais tronqué.
+    const remaining = Math.max(0, max - kept.length);
+    return [...kept, ...other.slice(0, remaining)]
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 }
 
 // ── ADF (Atlassian Document Format) → HTML parser ─────────────────────────────

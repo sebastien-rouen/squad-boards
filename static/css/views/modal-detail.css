@@ -17,11 +17,16 @@
     background: var(--surface);
     border: 1px solid var(--border);
 }
+/* Espaceur flexible plutôt que margin-left:auto sur .mdl-meta-right — avec margin-left:auto,
+   un retour à la ligne (chips de gauche trop nombreuses) pousse .mdl-meta-right tout à droite
+   de sa propre ligne, laissant un grand vide ; un spaceur flex collapse naturellement à 0
+   au lieu de forcer cet écart. */
+.mdl-meta-spacer { flex: 1 1 0; min-width: 0; }
 .mdl-meta-right {
-    margin-left: auto;
     display: flex;
     gap: 6px;
     align-items: center;
+    flex-wrap: wrap;
 }
 .mdl-meta-right .chip {
     font-weight: var(--fw-semibold);

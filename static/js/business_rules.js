@@ -14,6 +14,12 @@
  *                   (wipExceededTeams = équipes dont le WIP dépasse la capacité du jour,
  *                    signal d'agrégat calculé par l'appelant — un ticket seul n'est jamais une anomalie WIP)
  */
+
+// Détection ticket ActionRetro — exportée pour rester l'unique source de vérité (cf. note
+// ci-dessus) : utilisée ici par la règle `noPoints` ET par health.js pour regrouper ces
+// tickets à part dans le détail des sprints (ils n'ont normalement pas de Story Points).
+export const isActionRetro = t => (t.labels || []).some(l => /^ActionRetro$/i.test(l));
+
 export const ANOMALY_RULES = [
     {
         key: 'blocked',
@@ -66,8 +72,7 @@ export const ANOMALY_RULES = [
         intro: 'Ces tickets n\'ont pas de Story Points. Estime-les pour suivre la vélocité correctement.',
         editableFields: ['points', 'leader'],
         // ActionRetro tickets are excluded — no estimation expected on retro actions.
-        match: t => !t.points && t.status !== 'done'
-            && !(t.labels || []).some(l => /^ActionRetro$/i.test(l)),
+        match: t => !t.points && t.status !== 'done' && !isActionRetro(t),
     },
     {
         key: 'wip',

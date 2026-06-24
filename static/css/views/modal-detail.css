@@ -402,6 +402,20 @@
 }
 @keyframes chip-picker-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .chip-picker--nowrap { flex-wrap: nowrap; max-width: none; }
+/* Liste déroulante générique (type, statut, …) en chips colorées (cf. .chip-sel) — même popin
+   que .chip-picker (élévation, positionnement fixe) mais garde les classes chip-sel pour le
+   même rendu que la modale de création (icône + couleur par valeur) plutôt que les chips
+   génériques de .chip-picker-opt. */
+.chip-dropdown {
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--primary);
+    border-radius: var(--r-md);
+    box-shadow: 0 8px 24px rgb(0 0 0/.18), 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);
+    z-index: 9999;
+    max-width: min(420px, 90vw);
+    animation: chip-picker-in .1s ease;
+}
 .chip-picker-opt {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 4px 10px; border-radius: 99px; cursor: pointer;

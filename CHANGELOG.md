@@ -1,3 +1,38 @@
+## [3.89.0] - 2026-06-24
+
+### Style : statut aussi en liste déroulante, comme le type
+- **Même traitement que le type** ([modal.js](static/js/components/modal.js)) : le statut redevient un badge cliquable (`statusBadge`) dans la ligne meta, qui ouvre une liste déroulante de chips colorées au lieu d'occuper une rangée fixe de 6 boutons.
+- **Helper factorisé** : `_openTypeDropdown` devient `_openChipDropdown(el, items, currentValue, onCommit)`, générique — utilisé pour le type et le statut au lieu de dupliquer la même fonction deux fois (classe CSS renommée `.chip-dropdown`).
+
+## [3.88.0] - 2026-06-24
+
+### Style : type de ticket en liste déroulante (au lieu d'une rangée fixe dans la ligne meta)
+- **Retour en arrière partiel sur 3.86.0/3.87.0** ([modal.js](static/js/components/modal.js)) : afficher tous les types en permanence dans `.mdl-meta` prenait trop de place. Le sélecteur de type redevient un clic sur le badge du titre, mais ouvre désormais une liste déroulante ancrée sous le badge avec les mêmes chips colorées (icône + couleur par type, `_openTypeDropdown`) que la modale de création — au lieu de l'ancien picker générique sans couleur (`_openChipPicker`).
+- Le statut reste affiché en permanence dans la ligne meta (`chip-sel-group--status`), inchangé — il n'a que 6 valeurs et reste lisible sur une ligne.
+
+## [3.87.0] - 2026-06-24
+
+### Fix : clic sans effet sur le badge de type dans l'en-tête
+- Le badge devenu non-éditable (3.86.0) ne faisait plus rien au clic — mauvaise UX. Il scrolle désormais vers le sélecteur de type (`chip-sel-group`) dans la ligne meta et le flashe brièvement, même mécanisme que le badge commentaires qui scrolle vers les commentaires.
+
+## [3.86.0] - 2026-06-24
+
+### Style : type de ticket aussi harmonisé — plus de chip-picker flottant
+- **Cause** ([modal.js](static/js/components/modal.js)) : le statut utilisait déjà la nouvelle `chip-sel-group`, mais le badge de type ouvrait encore l'ancien picker flottant générique (`_openChipPicker`/`.chip-picker-opt`) — sans icônes ni couleur par type, visuellement différent du sélecteur de la modale de création malgré la demande d'homogénéité.
+- **Fix** : le type est désormais une `chip-sel-group` dans la ligne meta (même rendu — icône + couleur par type — que la modale de création), juste avant celle du statut. Le badge de type dans la barre de titre redevient un simple repère visuel (non cliquable) ; modifier le type se fait via les chips.
+
+## [3.85.0] - 2026-06-24
+
+### Style : statut de la modale ticket harmonisé avec les chips de la création
+- **`<select>` natif → `chip-sel-group`** ([modal.js](static/js/components/modal.js)) : le sélecteur de statut de la modale détail reprend désormais exactement le même style que le sélecteur de type de la modale de création (boutons radiogroup colorés, icône + libellé) — les couleurs par statut (`.chip-sel--todo/inprog/review/test/blocked/done`) existaient déjà dans [forms.css](static/css/views/forms.css), seul le câblage manquait.
+- **Pas étendu à la carte Rétro** (`retro-status-select`, police 9px dans une colonne de swimlane très dense) — un radiogroup de boutons n'y tiendrait pas ; le `<select>` compact reste le bon choix dans ce contexte précis.
+
+## [3.84.0] - 2026-06-24
+
+### Fix : badge de type non cliquable dans la modale ticket
+- **Cause** ([modal.js](static/js/components/modal.js)) : le badge de type (`[data-field="type"]`) est rendu dans la barre de titre (`titleEl()`), mais `_bindInlineEditors` n'était appelé que sur le corps de la modale (`bodyEl()`) — son `querySelectorAll('[data-field]')` ne trouvait donc jamais ce badge, et cliquer dessus ne faisait rien.
+- **Fix** : `_bindInlineEditors` est désormais appelé sur `#modal` (ancêtre commun titre + corps) au lieu de `bodyEl()` seul — le picker de type s'ouvre normalement au clic.
+
 ## [3.83.0] - 2026-06-24
 
 ### Style : grand vide évité au retour à la ligne sur la ligne meta de la modale ticket

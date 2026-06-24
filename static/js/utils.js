@@ -71,6 +71,30 @@ export function esc(str) {
     return d.innerHTML;
 }
 
+/**
+ * Extensions d'image éligibles à l'aperçu zoomable (`diagramFrameHtml`) — schémas
+ * (SVG Excalidraw/draw.io exportés, captures de tableau blanc) et photos classiques.
+ */
+export const ZOOMABLE_IMAGE_EXT = ['svg', 'png', 'jpg', 'jpeg', 'gif', 'webp'];
+
+/** Extension (minuscule, sans le point) d'un nom de fichier. */
+export function fileExt(filename) {
+    return (filename || '').split('.').pop().toLowerCase();
+}
+
+/**
+ * Marquage HTML standard pour un schéma/image zoomable (molette + pan + pincement).
+ * Décoré automatiquement par `initDiagramZoom()` (components/diagram_zoom.js) : tout
+ * `.diagram-frame` présent dans #content reçoit le bouton « agrandir » au prochain rendu.
+ * Utilisé par : Paramètres → A propos (diagrammes Excalidraw), Équipe → pièces jointes
+ * d'atelier (aperçu image au lieu d'un simple lien de téléchargement).
+ */
+export function diagramFrameHtml(src, alt, extraClass = '') {
+    return `<div class="diagram-frame${extraClass ? ' ' + extraClass : ''}">
+        <img src="${esc(src)}" alt="${esc(alt || '')}" loading="lazy">
+    </div>`;
+}
+
 /** Map a JIRA status string to internal status key. */
 export function mapStatus(jiraStatus) {
     if (!jiraStatus) return 'todo';

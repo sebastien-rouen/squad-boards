@@ -11,7 +11,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, toast, hashColor, initials, deriveMembersFromAbsences, confirmDanger, copyToClipboard, promptModal, extractTeam, getCurrentPi } from '../utils.js';
+import { esc, toast, hashColor, initials, deriveMembersFromAbsences, confirmDanger, copyToClipboard, promptModal, extractTeam, getCurrentPi, diagramFrameHtml, fileExt, ZOOMABLE_IMAGE_EXT } from '../utils.js';
 import { openMemberCard } from './atlas.js';
 
 const IDENTITY_FIELDS = [
@@ -43,8 +43,9 @@ const CATEGORY_META = {
 const _catMeta = c => CATEGORY_META[c] || CATEGORY_META.custom;
 
 const ATTACHMENT_ICON = { pdf: '📄', xls: '📊', xlsx: '📊', doc: '📝', docx: '📝',
-    png: '🖼️', jpg: '🖼️', jpeg: '🖼️', gif: '🖼️', webp: '🖼️' };
-const _attIcon = filename => ATTACHMENT_ICON[(filename.split('.').pop() || '').toLowerCase()] || '📎';
+    svg: '🖼️', png: '🖼️', jpg: '🖼️', jpeg: '🖼️', gif: '🖼️', webp: '🖼️' };
+const _attIcon = filename => ATTACHMENT_ICON[fileExt(filename)] || '📎';
+const _isZoomableImage = filename => ZOOMABLE_IMAGE_EXT.includes(fileExt(filename));
 
 let _adminOpen = false;
 let _openWorkshopKey = null;
@@ -405,23 +406,34 @@ function _renderAttachmentsSection(workshop) {
             </div>`;
     }
     const attachments = _attachmentsCache[workshop.id] || [];
+    // Images (dont schémas Excalidraw/draw.io exportés en SVG) : aperçu zoomable
+    // standard (diagramFrameHtml, components/diagram_zoom.js) au lieu d'un simple lien.
+    const _attCard = a => {
+        const url = api.attachmentDownloadUrl(a.id);
+        const preview = _isZoomableImage(a.filename)
+            ? diagramFrameHtml(url, a.filename, 'diagram-frame--thumb')
+            : '';
+        return `
+            <div class="team-attachment-card">
+                ${preview}
+                <span class="team-attachment-chip">
+                    <a href="${esc(url)}" target="_blank" rel="noopener" title="${esc(a.filename)}">
+                        ${_attIcon(a.filename)} ${esc(a.filename)}
+                    </a>
+                    <button type="button" class="attachment-delete" data-id="${esc(a.id)}" title="Supprimer">×</button>
+                </span>
+            </div>`;
+    };
     return `
         <div class="team-workshop-attachments" data-workshop-id="${esc(workshop.id)}">
             <div class="team-workshop-attachments-label">📎 Pièces jointes</div>
             <div class="team-workshop-attachments-list">
-                ${attachments.map(a => `
-                    <span class="team-attachment-chip">
-                        <a href="${esc(api.attachmentDownloadUrl(a.id))}" target="_blank" rel="noopener" title="${esc(a.filename)}">
-                            ${_attIcon(a.filename)} ${esc(a.filename)}
-                        </a>
-                        <button type="button" class="attachment-delete" data-id="${esc(a.id)}" title="Supprimer">×</button>
-                    </span>
-                `).join('') || '<span class="text-muted text-sm">Aucune pièce jointe.</span>'}
+                ${attachments.map(_attCard).join('') || '<span class="text-muted text-sm">Aucune pièce jointe.</span>'}
             </div>
             <label class="btn btn-secondary btn-sm attachment-upload-label">
                 + Ajouter un fichier
                 <input type="file" class="attachment-upload-input" data-workshop-id="${esc(workshop.id)}"
-                    accept="image/png,image/jpeg,image/gif,image/webp,.pdf,.xls,.xlsx,.doc,.docx" hidden>
+                    accept="image/svg+xml,image/png,image/jpeg,image/gif,image/webp,.pdf,.xls,.xlsx,.doc,.docx" hidden>
             </label>
         </div>
     `;

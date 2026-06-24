@@ -27,6 +27,7 @@ import { initTeamSwitcher, openTeamSwitcher } from './components/team_switcher.j
 import { openCurrentSprintReview, openCurrentSprintDemo } from './components/sprint_tickets_modal.js';
 import { destroyAllCharts } from './components/charts.js';
 import { initChartZoom } from './components/chart_zoom.js';
+import { initDiagramZoom } from './components/diagram_zoom.js';
 import { updateInfoPanel } from './components/infopanel.js';
 import { renderCalBanner } from './components/cal_banner.js';
 
@@ -499,6 +500,7 @@ async function init() {
     initTeamSwitcher();
     initTooltips();
     initChartZoom();
+    initDiagramZoom();
     window.__squadBoard = window.__squadBoard || {};
     window.__squadBoard.openTeamSwitcher = openTeamSwitcher;
 

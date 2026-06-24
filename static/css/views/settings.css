@@ -650,3 +650,144 @@
     border-color: currentColor;
 }
 
+/* ── Histoire du projet (diagrammes Excalidraw exportés en SVG) ──────────── */
+.history-diagrams { display: flex; flex-direction: column; gap: var(--sp-4); margin-top: var(--sp-3); }
+.history-diagram { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: var(--surface); }
+.history-diagram summary {
+    padding: var(--sp-2) var(--sp-4);
+    cursor: pointer;
+    font-weight: var(--fw-semibold);
+    color: var(--text);
+    background: var(--bg-alt);
+    list-style: none;
+}
+.history-diagram summary::-webkit-details-marker { display: none; }
+.history-diagram[open] summary { border-bottom: 1px solid var(--border); }
+.history-diagram-scroll { padding: var(--sp-3); }
+
+/* Cadre = ancre du bouton "agrandir" ; l'aperçu tient toujours en entier dans la
+   largeur (pas de scroll forcé) — le détail se lit via le zoom, pas en coupant l'image. */
+.diagram-frame { position: relative; }
+.diagram-frame img { display: block; width: 100%; height: auto; max-width: none; cursor: zoom-in; }
+.diagram-zoom-btn {
+    position: absolute;
+    top: var(--sp-2);
+    right: var(--sp-2);
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: color-mix(in srgb, var(--surface) 78%, transparent);
+    backdrop-filter: blur(4px);
+    color: var(--text-secondary);
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.9);
+    transition: opacity var(--tr-base), transform var(--tr-base), background var(--tr-base), color var(--tr-base);
+}
+.diagram-frame:hover .diagram-zoom-btn,
+.diagram-zoom-btn:focus-visible { opacity: 1; transform: scale(1); }
+.diagram-zoom-btn:hover { background: var(--primary); border-color: var(--primary); color: var(--text-inverse); }
+.diagram-zoom-btn svg { width: 16px; height: 16px; }
+@media (hover: none) {
+    .diagram-zoom-btn { opacity: 0.65; transform: scale(1); }
+}
+
+/* ── Popin de zoom plein écran avec pan/zoom (molette + glisser + pinch) ────── */
+body.diagram-zoom-lock { overflow: hidden; }
+.diagram-zoom-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: var(--sp-4);
+    opacity: 0;
+    transition: opacity var(--tr-slow);
+}
+.diagram-zoom-overlay.hidden { display: none; }
+.diagram-zoom-overlay--open { opacity: 1; }
+.diagram-zoom-backdrop {
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--text) 55%, transparent);
+    backdrop-filter: blur(3px);
+}
+.diagram-zoom-dialog {
+    position: relative;
+    z-index: 1;
+    width: min(1400px, 96vw);
+    height: min(900px, 92vh);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    transform: scale(0.97);
+    opacity: 0;
+    transition: transform var(--tr-slow), opacity var(--tr-slow);
+}
+.diagram-zoom-overlay--open .diagram-zoom-dialog { transform: scale(1); opacity: 1; }
+.diagram-zoom-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border);
+}
+.diagram-zoom-title { flex: 1; margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--text); }
+.diagram-zoom-actions { display: flex; align-items: center; gap: var(--sp-2); }
+.diagram-zoom-pct { min-width: 3.5em; text-align: center; font-size: var(--fs-sm); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.diagram-zoom-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    min-width: 34px;
+    padding: 0 var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+    transition: background var(--tr-base), color var(--tr-base), border-color var(--tr-base);
+}
+.diagram-zoom-actions button:hover { background: var(--surface-hover); border-color: var(--border-hover); color: var(--text); }
+.diagram-zoom-close:hover { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger); }
+.diagram-zoom-actions button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.diagram-zoom-stage {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background: var(--bg);
+    cursor: grab;
+    touch-action: none;
+}
+.diagram-zoom-stage.is-dragging { cursor: grabbing; }
+.diagram-zoom-stage img { position: absolute; top: 0; left: 0; transform-origin: 0 0; user-select: none; -webkit-user-drag: none; }
+.diagram-zoom-hint {
+    margin: 0;
+    padding: var(--sp-2) var(--sp-4);
+    border-top: 1px solid var(--border);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    text-align: center;
+}
+@media (max-width: 640px) {
+    .diagram-zoom-overlay { padding: 0; }
+    .diagram-zoom-dialog { width: 100%; height: 100%; border-radius: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .diagram-zoom-overlay, .diagram-zoom-dialog { transition: none; }
+    .diagram-zoom-dialog { transform: none; }
+}
+

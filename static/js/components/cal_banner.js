@@ -192,6 +192,21 @@ function _chip(ev, idx = 0) {
     </span>`;
 }
 
+// Au-delà de ce nombre d'absences du jour, vue "toutes équipes" : un chip par
+// personne casse le visuel (déborde sur plusieurs lignes) → on regroupe par équipe.
+const OFF_GROUP_THRESHOLD = 5;
+
+/** Chip groupé "N absences" pour une équipe (couleur de l'équipe, pas de nom listé). */
+function _offGroupChip(team, count) {
+    const color = team ? _teamColor(team) : '#94a3b8';
+    const label = team || 'Sans équipe';
+    return `<span class="cal-chip cal-chip--off-group" style="--cal-color:${color}" title="${count} absence${count > 1 ? 's' : ''} aujourd'hui · ${esc(label)}">
+        <span class="cal-chip-time">🚫</span>
+        <span class="cal-chip-title">${esc(label)}</span>
+        <span class="cal-chip-off-count">${count}</span>
+    </span>`;
+}
+
 // Subscription au store : re-render auto quand les events/team changent.
 // Une seule subscription par instance de wrap — déstockée si wrap retiré du DOM.
 const _bannerUnsubs = new WeakMap();
@@ -213,6 +228,7 @@ export function renderCalBanner(wrap) {
             store.on('calendarEvents', rerender),
             store.on('calendars', rerender),
             store.on('team', rerender),
+            store.on('view', rerender),
         ]);
     }
 
@@ -236,17 +252,35 @@ export function renderCalBanner(wrap) {
         .filter(e => _dayKey(e.start) === today)
         .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
-    const offEvs     = todayEvs.filter(e => _isOff(e.title));
+    // Sur la page Reports, le bandeau d'absences sous le header est redondant avec
+    // ses propres sections (Calendrier, Support...) — on ne garde que les réunions.
+    const isReports = store.get('view') === 'reports';
+    const offEvs     = isReports ? [] : todayEvs.filter(e => _isOff(e.title));
     const regularEvs = todayEvs.filter(e => !_isOff(e.title));
 
     const matinEvs = regularEvs.filter(e => new Date(e.start).getHours() < 12);
     const apremEvs = regularEvs.filter(e => new Date(e.start).getHours() >= 12);
 
-    const offLine = offEvs.length
-        ? `<div class="cal-banner-line cal-banner-line--off">
-               ${offEvs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')}
+    // "Toutes équipes" + beaucoup d'absences le même jour → un chip par personne déborde et
+    // casse le visuel. On regroupe alors par équipe (couleur d'équipe + nombre d'absents).
+    const groupOff = (!team || team === 'all') && offEvs.length > OFF_GROUP_THRESHOLD;
+    const offLine = !offEvs.length ? '' : groupOff
+        ? `<div class="cal-banner-line cal-banner-line--off cal-banner-line--off-grouped">
+               ${(() => {
+                   const byTeam = new Map();
+                   for (const ev of offEvs) {
+                       const t = (ev.team || '').split(',')[0].trim() || null;
+                       byTeam.set(t, (byTeam.get(t) || 0) + 1);
+                   }
+                   return [...byTeam.entries()]
+                       .sort((a, b) => b[1] - a[1])
+                       .map(([t, count]) => _offGroupChip(t, count))
+                       .join('');
+               })()}
            </div>`
-        : '';
+        : `<div class="cal-banner-line cal-banner-line--off">
+               ${offEvs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')}
+           </div>`;
 
     const _halfGroup = (evs, label) => evs.length
         ? `<div class="cal-banner-half">
@@ -1477,13 +1511,17 @@ async function _syncCalendarsFromModal(e) {
 }
 
 /**
- * Synchronise les calendriers ICS pertinents sans ouvrir la modal — utilisé par le badge
- * de fraîcheur de la topbar. Met à jour le store (calendars + calendarEvents) et renvoie
- * le nombre de calendriers synchronisés avec succès.
+ * Synchronise les calendriers ICS sans ouvrir la modal — utilisé par le badge de fraîcheur
+ * de la topbar. Met à jour le store (calendars + calendarEvents) et renvoie le nombre de
+ * calendriers synchronisés avec succès.
+ * @param {'team'|'all'} scope  'team' (défaut) = calendriers pertinents pour l'équipe topbar
+ *   courante (cf. relevantCalendars) ; 'all' = absolument tous les calendriers configurés,
+ *   même si une équipe spécifique est sélectionnée dans la topbar.
  */
-export async function syncCalendars() {
+export async function syncCalendars(scope = 'team') {
     const team = store.get('team');
-    const relevant = relevantCalendars(store.get('calendars'), team);
+    const all = store.get('calendars') || [];
+    const relevant = scope === 'all' ? all : relevantCalendars(all, team);
     if (!relevant.length) { toast('Aucun calendrier ICS à synchroniser', 'info'); return 0; }
     const results = await Promise.allSettled(relevant.map(c => api.refreshCalendar(c.id)));
     const ok = results.filter(r => r.status === 'fulfilled').length;

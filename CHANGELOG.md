@@ -1,3 +1,12 @@
+## [3.64.0] - 2026-06-24
+
+### Feat : export sélectif, bandeau absences allégé, sync ICS ciblée
+- **Export à choix multiples** ([utils.js](static/js/utils.js), [settings.js](static/js/views/settings.js)) : le bouton « Exporter (JSON) » ouvre désormais une modale `exportChoiceModal` (gros boutons carrés, tout présélectionné, visuel « enfoncé » au clic — `.export-choice-*` dans [base.css](static/css/base.css)) pour choisir les catégories à inclure (tickets, features, membres, absences, Atlas, Sprint & PI...) avant de générer le fichier.
+- **Bandeau agenda du jour** ([cal_banner.js](static/js/components/cal_banner.js)) :
+  - Plus affiché sur `/#reports` : redondant avec les sections propres de la page (le bandeau s'abonne maintenant aussi à `store.on('view', ...)` pour se mettre à jour à la navigation).
+  - Vue « Toutes équipes » avec beaucoup d'absences le même jour : au-delà de 5, les chips individuels (un par personne) sont remplacés par un **regroupement par équipe** (couleur d'équipe + nombre d'absents) pour ne plus casser le visuel.
+- **Sync ICS ciblée** ([topbar.js](static/js/components/topbar.js), `syncCalendars(scope)` dans [cal_banner.js](static/js/components/cal_banner.js)) : le bouton 📅 de la topbar propose désormais, si une équipe est filtrée, un choix « Équipe sélectionnée seulement » vs « Tous les calendriers » avant de lancer la synchro (sync directe si aucune équipe n'est filtrée).
+
 ## [3.63.0] - 2026-06-24
 
 ### Fix : carte sprint actif (Dashboard) peu visible + favoris incomplets ("Mes tickets", onglets/filtres)

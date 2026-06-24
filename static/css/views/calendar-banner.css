@@ -1330,6 +1330,22 @@
 /* Chip "aujourd'hui" demi-journée (bannière) — même logique de distinction */
 .cal-chip--off.cal-chip--half { border-style: dashed; }
 
+/* Chip groupé "N absences" par équipe (vue "toutes équipes", beaucoup d'absences) */
+.cal-chip--off-group .cal-chip-title { font-style: normal; }
+.cal-chip-off-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: var(--r-full);
+    background: var(--cal-color, var(--primary));
+    color: #fff;
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+}
+
 /* Lien dans un event */
 .cal-ev-link {
     color: var(--primary);

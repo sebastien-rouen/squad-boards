@@ -150,14 +150,57 @@ export function initTopbar() {
             ? `Agendas ICS possiblement périmés (synchro : ${lastTxt}) — cliquer pour rafraîchir`
             : `Agendas ICS à jour (synchro : ${lastTxt}) — cliquer pour rafraîchir`;
     }
-    calBtn?.addEventListener('click', async () => {
+    const _runCalSync = async (scope) => {
         if (calBtn.classList.contains('cal-sync-spin')) return;
         calBtn.classList.add('cal-sync-spin');
         try {
             const { syncCalendars } = await import('./cal_banner.js');
-            await syncCalendars();
+            await syncCalendars(scope);
         } catch { /* toast déjà affiché par syncCalendars */ }
         finally { calBtn.classList.remove('cal-sync-spin'); updateCalFreshness(); }
+    };
+
+    // Choix de la portée de la sync (tous les calendriers vs équipe sélectionnée) — uniquement
+    // utile si une équipe spécifique est filtrée dans la topbar (sinon les deux sont identiques).
+    let _calSyncMenu = null;
+    const _closeCalSyncMenu = () => { _calSyncMenu?.remove(); _calSyncMenu = null; };
+    const _openCalSyncMenu = (anchor, team) => {
+        if (_calSyncMenu) { _closeCalSyncMenu(); return; }
+        _calSyncMenu = document.createElement('div');
+        _calSyncMenu.className = 'sync-menu';
+        _calSyncMenu.innerHTML = `
+            <button class="sync-menu-item" data-scope="team">👥 Équipe « ${esc(team)} » seulement</button>
+            <button class="sync-menu-item" data-scope="all">🌍 Tous les calendriers</button>
+        `;
+        document.body.appendChild(_calSyncMenu);
+        const r = anchor.getBoundingClientRect();
+        _calSyncMenu.style.position = 'fixed';
+        _calSyncMenu.style.top = `${r.bottom + 6}px`;
+        _calSyncMenu.style.right = `${window.innerWidth - r.right}px`;
+        _calSyncMenu.style.zIndex = '9000';
+        _calSyncMenu.addEventListener('click', e => {
+            const btn = e.target.closest('[data-scope]');
+            if (!btn) return;
+            _closeCalSyncMenu();
+            _runCalSync(btn.dataset.scope);
+        });
+        setTimeout(() => {
+            const onOut = (e) => {
+                if (_calSyncMenu && !_calSyncMenu.contains(e.target) && !anchor.contains(e.target)) {
+                    _closeCalSyncMenu();
+                    document.removeEventListener('mousedown', onOut, true);
+                }
+            };
+            document.addEventListener('mousedown', onOut, true);
+        }, 0);
+    };
+
+    calBtn?.addEventListener('click', () => {
+        if (calBtn.classList.contains('cal-sync-spin')) return;
+        const team = store.get('team');
+        // Pas de filtre équipe actif → "toutes" et "équipe" seraient identiques, on sync direct.
+        if (!team || team === 'all') { _runCalSync('all'); return; }
+        _openCalSyncMenu(calBtn, team);
     });
     store.on('calendars',      updateCalFreshness);
     store.on('calendarEvents', updateCalFreshness);

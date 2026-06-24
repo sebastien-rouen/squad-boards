@@ -9,6 +9,7 @@ import {
     buildSupportPiWeeks, SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
     isMemberSupportActive, setMemberSupportActive, getInactiveSupportMembers,
     friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi, promptModal, choiceModal,
+    exportChoiceModal,
 } from '../utils.js';
 import { makePersonPicker } from '../components/modal.js';
 import { addExcludedTeam, getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
@@ -24,6 +25,29 @@ export const REMINDER_DEFS = [
     { id: 'sondage', icon: '📊', label: 'Sondage équipe',       dBefore: 2,  enabled: false },
     { id: 'planning',icon: '📋', label: 'Sprint Planning',      dBefore: 0,  enabled: false },
 ];
+
+// ── Export (modale à choix multiples) ─────────────────────────────────────────
+// `key` mappe vers 1+ clés de la réponse /api/export (cf. _EXPORT_SPEC côté backend,
+// app/routers/data.py). Plusieurs clés d'export sont regroupées sous une seule tuile
+// (Atlas, Sprint & PI) pour rester lisible dans la grille.
+const EXPORT_CATEGORIES = [
+    { key: 'tickets',  label: 'Tickets',      icon: '🎫' },
+    { key: 'features', label: 'Features',     icon: '🧩' },
+    { key: 'epics',    label: 'Epics',        icon: '🏔️' },
+    { key: 'members',  label: 'Membres',      icon: '👤' },
+    { key: 'teams',    label: 'Équipes',      icon: '👥' },
+    { key: 'groups',   label: 'Groupes',      icon: '🗂️' },
+    { key: 'absences', label: 'Absences',     icon: '🏖️' },
+    { key: 'support',  label: 'Support',      icon: '🛟' },
+    { key: 'events',   label: 'Évènements',   icon: '📅' },
+    { key: 'risks',    label: 'Risques ROAM', icon: '⚠️' },
+    { key: 'atlas',    label: 'Atlas (compétences)', icon: '🧭' },
+    { key: 'config',   label: 'Sprint & PI',  icon: '⚙️' },
+];
+const EXPORT_CATEGORY_KEYS = {
+    atlas:  ['skills', 'appetences', 'memberSkills', 'memberAppetences', 'mobility'],
+    config: ['sprint', 'pi'],
+};
 
 export function loadReminders() {
     try {
@@ -3091,9 +3115,17 @@ export function renderSettings(container) {
 
     // ── Data ──────────────────────────────────────────────────────────────────
     container.querySelector('#btn-export')?.addEventListener('click', async () => {
+        const picked = await exportChoiceModal('Que voulez-vous exporter ?', EXPORT_CATEGORIES, {
+            message: 'Tout est présélectionné — cliquez pour désélectionner ce que vous ne voulez pas inclure.',
+        });
+        if (!picked) return; // annulé
+        if (!picked.length) { toast('Aucune donnée sélectionnée', 'info'); return; }
         try {
             const data = await api.exportAll();
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const keys = new Set(picked.flatMap(k => EXPORT_CATEGORY_KEYS[k] || [k]));
+            const out = { exportedAt: data.exportedAt };
+            for (const k of keys) out[k] = data[k];
+            const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
             a.download = `squad-board-${new Date().toISOString().slice(0, 10)}.json`;
             a.click(); URL.revokeObjectURL(a.href);

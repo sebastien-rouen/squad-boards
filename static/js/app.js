@@ -45,6 +45,7 @@ import { renderAgenda } from './views/agenda.js';
 import { renderHealth } from './views/health.js';
 import { renderAtlas } from './views/atlas.js';
 import { renderBacklog } from './views/backlog.js';
+import { renderTeam } from './views/team.js';
 
 const VIEW_RENDERERS = {
     dashboard: renderDashboard,
@@ -62,6 +63,7 @@ const VIEW_RENDERERS = {
     agenda: renderAgenda,
     reports: renderReports,
     settings: renderSettings,
+    team: renderTeam,
 };
 
 const content = document.getElementById('content');
@@ -330,6 +332,9 @@ async function loadAllData() {
     store.set('fistVotes', d.fistVotes || []);
     store.set('calendars', d.calendars || []);
     store.set('calendarEvents', d.calendarEvents || []);
+    store.set('teamIdentities', d.teamIdentities || []);
+    store.set('workshopTemplates', d.workshopTemplates || []);
+    store.set('teamWorkshops', d.teamWorkshops || []);
     // Board column labels (persisted from last sync)
     try {
         const saved = localStorage.getItem('sb-boardColumns');

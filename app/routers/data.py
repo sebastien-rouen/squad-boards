@@ -20,12 +20,14 @@ from app.models import (
     Team, Member, Ticket, Feature, Epic, SprintConfig, PIConfig, TeamGroup,
     Absence, SupportRotation, Event, MoodVote, RetroItem, Risk,
     Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, TeamCalendar,
+    TeamIdentity, WorkshopTemplate, TeamWorkshop,
 )
 from app.serializers import (
     _ticket_dict, _feature_dict, _epic_dict, _member_dict, _team_dict, _group_dict,
     _absence_dict, _support_dict, _event_dict, _risk_dict, _skill_dict, _appetence_dict,
     _member_skill_dict, _member_appetence_dict, _mobility_dict, _sprint_dict, _pi_dict,
-    _retro_dict, _mood_dict, _cal_dict,
+    _retro_dict, _mood_dict, _cal_dict, _team_identity_dict, _workshop_template_dict,
+    _team_workshop_dict,
 )
 
 router = APIRouter(tags=["data"])
@@ -48,6 +50,9 @@ _EXPORT_SPEC = [
     ("memberAppetences", MemberAppetence, _member_appetence_dict),
     ("mobility",         MemberMobility,  _mobility_dict),
     ("calendars",        TeamCalendar,    _cal_dict),
+    ("teamIdentities",   TeamIdentity,    _team_identity_dict),
+    ("workshopTemplates", WorkshopTemplate, _workshop_template_dict),
+    ("teamWorkshops",    TeamWorkshop,    _team_workshop_dict),
 ]
 
 
@@ -135,6 +140,9 @@ def get_all_data(session: Session = Depends(get_session)):
         "fistVotes":     [_mood_dict(m) for m in session.exec(select(MoodVote).where(MoodVote.type == "fist")).all()],
         "calendars":     [_cal_dict(c) for c in cals],
         "calendarEvents": expand_calendar_events(cals),
+        "teamIdentities": [_team_identity_dict(t) for t in session.exec(select(TeamIdentity)).all()],
+        "workshopTemplates": [_workshop_template_dict(w) for w in session.exec(select(WorkshopTemplate)).all()],
+        "teamWorkshops": [_team_workshop_dict(w) for w in session.exec(select(TeamWorkshop)).all()],
         "sprint":        _sprint_dict(session.get(SprintConfig, "sprint-1")),
         "pi":            _pi_dict(session.get(PIConfig, "pi-1")),
     }

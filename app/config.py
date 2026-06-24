@@ -12,6 +12,8 @@ DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 STATIC_DIR = BASE_DIR / "static"
 DB_PATH = DATA_DIR / "board.db"
+UPLOADS_DIR = DATA_DIR / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
 
 JIRA_URL = os.getenv("JIRA_URL", "").rstrip("/")
 JIRA_USER = os.getenv("JIRA_USER", "")

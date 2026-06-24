@@ -1,0 +1,317 @@
+/* Vue Équipe — fiche d'identité + ateliers (Team Canvas, ART, Interfaces, Rituels,
+   DoR/DoD, Compétences, Santé d'équipe, FAQ, Tuckman, Maturité Agile).
+   Police manuscrite (Patrick Hand, self-hosted) réservée aux titres d'atelier —
+   le contenu/formulaires restent en --font système pour la lisibilité. */
+
+@font-face {
+    font-family: 'Patrick Hand';
+    src: url('/fonts/patrick-hand-latin.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+.team-id-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+.team-id-swatch {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--r-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: var(--fw-semibold);
+    color: white;
+    flex-shrink: 0;
+}
+.team-id-header-info h2 { margin: 0 0 var(--sp-2) 0; }
+.team-id-members {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+}
+.team-id-member-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    font-size: var(--fs-sm);
+}
+
+.team-id-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    background: var(--warning-bg);
+    border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+    border-radius: var(--r-md);
+    padding: var(--sp-3) var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+
+.team-id-card { margin-bottom: var(--sp-4); }
+
+/* ── Fiche d'identité — affichage joli, clic pour éditer ─────────────────── */
+.team-identity-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--sp-3) var(--sp-4);
+}
+/* Palette différenciante par champ (rouge/jaune/vert/bleu/orange/violet), cyclée sur 6 — boucle au 7e champ. */
+.team-identity-field { display: flex; flex-direction: column; gap: var(--sp-1); }
+.team-identity-field:nth-child(6n+1) { --idf-accent: #ef4444; }
+.team-identity-field:nth-child(6n+2) { --idf-accent: #eab308; }
+.team-identity-field:nth-child(6n+3) { --idf-accent: #22c55e; }
+.team-identity-field:nth-child(6n+4) { --idf-accent: #3b82f6; }
+.team-identity-field:nth-child(6n+5) { --idf-accent: #f97316; }
+.team-identity-field:nth-child(6n+6) { --idf-accent: #a855f7; }
+
+.team-identity-label {
+    font-family: 'Patrick Hand', var(--font);
+    font-size: 1.1rem;
+    color: var(--idf-accent, var(--text-secondary));
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+.team-identity-label::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: var(--r-full);
+    background: var(--idf-accent, var(--text-muted));
+    flex-shrink: 0;
+}
+.team-identity-value {
+    border: 1px solid transparent;
+    border-left: 3px solid var(--idf-accent, transparent);
+    border-radius: var(--r-md);
+    padding: var(--sp-2) var(--sp-3);
+    cursor: pointer;
+    line-height: 1.55;
+    background: color-mix(in srgb, var(--idf-accent, var(--border)) 6%, var(--surface));
+    transition: background var(--tr-fast), border-color var(--tr-fast);
+    min-height: 2.4em;
+}
+.team-identity-value:hover, .team-identity-value:focus-visible {
+    background: color-mix(in srgb, var(--idf-accent, var(--border)) 14%, var(--surface));
+    border-color: var(--idf-accent, var(--border));
+    outline: none;
+}
+.team-identity-placeholder { color: var(--text-muted); font-style: italic; }
+.team-identity-textarea { width: 100%; resize: vertical; }
+
+/* ── Galerie d'ateliers ───────────────────────────────────────────────────── */
+.team-workshop-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--sp-4);
+    align-items: start;
+}
+.team-workshop-card {
+    --wc-accent: var(--primary);
+    grid-column: span 1;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+    border-top: 3px solid var(--wc-accent);
+    transition: box-shadow var(--tr-base), transform var(--tr-base);
+}
+.team-workshop-card:hover { box-shadow: var(--shadow-md); }
+.team-workshop-card.is-open { grid-column: 1 / -1; box-shadow: var(--shadow-lg); }
+
+.team-workshop-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    cursor: default;
+}
+.team-workshop-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    background: color-mix(in srgb, var(--wc-accent) 16%, var(--surface));
+}
+.team-workshop-card-text { flex: 1; min-width: 0; }
+.team-workshop-title {
+    font-family: 'Patrick Hand', var(--font);
+    font-size: 1.35rem;
+    line-height: 1.2;
+    color: var(--text);
+    display: block;
+}
+.team-workshop-card-text p { margin: var(--sp-1) 0 0; }
+.team-workshop-card-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--sp-2);
+    flex-shrink: 0;
+}
+
+.team-workshop-form {
+    padding: var(--sp-4);
+    border-top: 1px solid var(--border);
+    background: var(--bg-alt);
+}
+.team-workshop-fields { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+/* Titres des questions d'atelier — police manuscrite, teintée par la couleur de catégorie. */
+.team-workshop-fields > .form-group > .label {
+    font-family: 'Patrick Hand', var(--font);
+    font-size: 1.1rem;
+    color: var(--wc-accent, var(--text-secondary));
+    margin-bottom: var(--sp-1);
+    display: block;
+}
+
+/* Éditeur riche réutilisant les classes desc-* de la modale ticket (même look). */
+.rich-editor .desc-editable { min-height: 70px; }
+.rich-editor .desc-editable:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); }
+
+/* Mise en page "Team Canvas" — post-its colorés alignés sur une seule ligne, défilement
+   horizontal façon plateau physique. Couleurs réutilisées depuis la palette --type-* existante. */
+.team-workshop-canvas-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--sp-3);
+    overflow-x: auto;
+    padding-bottom: var(--sp-2);
+}
+.team-workshop-sticky {
+    --sticky-hue: var(--type-story);
+    flex: 0 0 250px;
+    background: color-mix(in srgb, var(--sticky-hue) 10%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--sticky-hue) 25%, var(--border));
+    border-radius: var(--r-md);
+    padding: var(--sp-3);
+    box-shadow: var(--shadow-xs);
+}
+.team-workshop-sticky:nth-child(8n+1) { --sticky-hue: var(--type-story); }
+.team-workshop-sticky:nth-child(8n+2) { --sticky-hue: var(--type-feature); }
+.team-workshop-sticky:nth-child(8n+3) { --sticky-hue: var(--type-task); }
+.team-workshop-sticky:nth-child(8n+4) { --sticky-hue: var(--type-support); }
+.team-workshop-sticky:nth-child(8n+5) { --sticky-hue: var(--type-ops); }
+.team-workshop-sticky:nth-child(8n+6) { --sticky-hue: var(--type-debt); }
+.team-workshop-sticky:nth-child(8n+7) { --sticky-hue: var(--type-epic); }
+.team-workshop-sticky:nth-child(8n+8) { --sticky-hue: var(--danger); }
+.team-workshop-sticky .label { font-family: 'Patrick Hand', var(--font); font-size: 1rem; color: var(--text-secondary); }
+
+/* Selects "sexy" des réponses d'atelier — flèche teintée par la couleur de catégorie. */
+.select-fancy { position: relative; display: block; }
+.select-fancy select {
+    appearance: none;
+    width: 100%;
+    padding: var(--sp-3) var(--sp-8) var(--sp-3) var(--sp-4);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-medium);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color var(--tr-fast), box-shadow var(--tr-fast), transform var(--tr-fast);
+}
+.select-fancy::after {
+    content: '▾';
+    position: absolute;
+    right: var(--sp-4);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--wc-accent, var(--primary));
+    font-size: 0.8rem;
+    pointer-events: none;
+}
+.select-fancy select:hover {
+    border-color: var(--wc-accent, var(--primary));
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+.select-fancy select:focus {
+    border-color: var(--wc-accent, var(--primary));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--wc-accent, var(--primary)) 18%, transparent);
+    outline: none;
+}
+
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-muted   { background: var(--bg-alt); color: var(--text-muted); }
+
+/* ── Pièces jointes ───────────────────────────────────────────────────────── */
+.team-workshop-attachments {
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-3);
+    border-top: 1px dashed var(--border);
+}
+.team-workshop-attachments--locked { border-top: none; padding-top: 0; }
+.team-workshop-attachments-label { font-size: var(--fs-sm); font-weight: var(--fw-medium); margin-bottom: var(--sp-2); }
+.team-workshop-attachments-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2);
+}
+.team-attachment-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    padding: 4px 6px 4px 10px;
+    font-size: var(--fs-sm);
+}
+.team-attachment-chip a { color: var(--text); text-decoration: none; }
+.team-attachment-chip a:hover { text-decoration: underline; }
+.attachment-delete {
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0 var(--sp-1);
+}
+.attachment-delete:hover { color: var(--danger); }
+.attachment-upload-label { cursor: pointer; display: inline-flex; }
+
+/* ── Admin des ateliers (catalogue) ──────────────────────────────────────── */
+.team-workshop-admin {
+    border: 1px dashed var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-4);
+}
+.team-workshop-admin-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--border);
+}
+.team-workshop-admin-row:last-of-type { border-bottom: none; }
+.team-workshop-admin-actions { display: flex; gap: var(--sp-2); }
+.team-workshop-admin-editor {
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-3);
+    border-top: 1px solid var(--border);
+}
+.team-workshop-admin-icon { max-width: 80px; }
+.team-workshop-admin-fields { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-2) 0; }
+.team-workshop-admin-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 120px 1fr auto;
+    gap: var(--sp-2);
+    align-items: center;
+}

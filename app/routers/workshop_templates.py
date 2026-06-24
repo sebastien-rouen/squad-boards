@@ -2,15 +2,17 @@
 from fastapi import Request, HTTPException, Depends
 from sqlmodel import Session, select
 
-from app.common import _gen_id
+from app.common import _gen_id, _now, slugify, clean_workshop_fields
 from app.db import get_session
 from app.models import WorkshopTemplate, TeamWorkshop
 from app.serializers import _workshop_template_dict
 from app.crud import make_crud_router
+from app.routers.team_workshops import delete_workshop_cascade
 
 router = make_crud_router(model=WorkshopTemplate, serializer=_workshop_template_dict,
                           prefix="/api/workshop-templates", tag="workshop-templates",
-                          not_found="Atelier non trouve", with_list=False, with_delete=False)
+                          not_found="Atelier non trouve", with_list=False, with_delete=False,
+                          with_update=False)
 
 
 @router.get("")
@@ -22,17 +24,42 @@ def list_templates(session: Session = Depends(get_session)):
 @router.post("")
 async def create_template(request: Request, session: Session = Depends(get_session)):
     body = await request.json()
-    if not body.get("key") or not body.get("name"):
+    key = slugify(body.get("key", ""))
+    if not key or not body.get("name"):
         raise HTTPException(400, "key et name sont requis")
-    if session.exec(select(WorkshopTemplate).where(WorkshopTemplate.key == body["key"])).first():
+    if session.exec(select(WorkshopTemplate).where(WorkshopTemplate.key == key)).first():
         raise HTTPException(400, "Cette clé d'atelier existe déjà")
     w = WorkshopTemplate(
         id=body.get("id") or _gen_id(),
-        key=body["key"], name=body["name"], description=body.get("description", ""),
+        key=key, name=body["name"], description=body.get("description", ""),
         icon=body.get("icon", "📋"),
-        category=body.get("category", "custom"), fields=body.get("fields", []),
+        category=body.get("category", "custom"), fields=clean_workshop_fields(body.get("fields")),
         sort=body.get("sort", 0), active=body.get("active", True),
     )
+    session.add(w)
+    session.commit()
+    session.refresh(w)
+    return _workshop_template_dict(w)
+
+
+@router.put("/{item_id}")
+async def update_template(item_id: str, request: Request, session: Session = Depends(get_session)):
+    w = session.get(WorkshopTemplate, item_id)
+    if not w:
+        raise HTTPException(404, "Atelier non trouve")
+    body = await request.json()
+    # La clé est l'identifiant stable référencé par les réponses déjà enregistrées
+    # (TeamWorkshop.template_key) — la modifier après création les orphelinerait silencieusement.
+    if "key" in body and slugify(body["key"]) != w.key:
+        raise HTTPException(400, "La clé d'un atelier ne peut pas être modifiée après création")
+    for k, v in body.items():
+        if k in ("key", "id"):
+            continue
+        if k == "fields":
+            v = clean_workshop_fields(v)
+        if hasattr(w, k):
+            setattr(w, k, v)
+    w.updated_at = _now()
     session.add(w)
     session.commit()
     session.refresh(w)
@@ -46,6 +73,6 @@ def delete_template(item_id: str, session: Session = Depends(get_session)):
         raise HTTPException(404, "Atelier non trouve")
     session.delete(w)
     for row in session.exec(select(TeamWorkshop).where(TeamWorkshop.template_key == w.key)).all():
-        session.delete(row)
+        delete_workshop_cascade(session, row)
     session.commit()
     return {"ok": True}

@@ -1,3 +1,61 @@
+## [3.98.0] - 2026-06-25
+
+### Fix : vote Fist of Five enregistré sous un sprint "S1" générique au lieu de "30.1"
+- **Cause** ([pi.js](static/js/views/pi.js)) : `renderVotingPanel` (formulaire "Voter") et `_renderConfidenceByObjective` calculaient le PI courant via `piInfo?.number || 0` seul, sans repasser par `getCurrentPi` (sprint actif > config) — contrairement à 3 autres endroits du même fichier qui appliquaient déjà ce fallback. Quand `piInfo.number` était vide/obsolète au moment du vote, le sélecteur de sprint retombait sur un libellé générique `S1`/`S2`/… au lieu de `30.1`/`30.2`/… — le vote était alors enregistré avec `piSprint: "S1"`, qui ne matche plus jamais le label `"30.1"` utilisé ailleurs (panneau latéral, résultats de sondage) → "Aucun vote confiance · 30.1" malgré des votes bien enregistrés.
+- **Fix** : les deux fonctions utilisent désormais `getCurrentPi({ sprintInfo, piInfo })`, comme partout ailleurs dans le fichier.
+- **Limite connue** : ce fix empêche le bug pour les *futurs* votes — les votes déjà enregistrés sous un `piSprint` générique (`S1`, …) restent orphelins (le sélecteur ne propose plus que `30.1`, `30.2`, etc.). À corriger au cas par cas (revoter, ou migration ciblée si le volume le justifie).
+
+## [3.97.0] - 2026-06-25
+
+### Fix : membre parti depuis un PI précédent encore affiché en rotation Support
+- **Cause** : `SupportRotation.members` est figé en base au moment du shuffle — si un membre quitte l'équipe après coup, son nom reste affiché indéfiniment (panneau latéral "Support cette semaine", page Support, grille Rotation de Paramètres) tant que personne ne relance un shuffle sur cette semaine. Confirmé sur l'équipe Gabbiano (Guillaume COLSENET assigné en 30.1.2/30.3.2/… alors qu'il n'apparaît plus dans le roster du PI 30).
+- **Fix** : nouveau helper `effectiveRosterForPi(piInfo, piNum, absences, members)` ([utils.js](static/js/utils.js)) — priorité au snapshot de membres figé à l'import CSV du PI affiché (gère le turnover), sinon fallback `deriveMembersFromAbsences`. Même logique déjà utilisée par la grille Rotation Support (Paramètres), désormais partagée au lieu d'être dupliquée.
+- Appliqué pour filtrer les membres affichés : [infopanel.js](static/js/components/infopanel.js) (panneau latéral), [support.js](static/js/views/support.js) (lignes de la page Support + stats d'équité "Top 3"). La grille Rotation de [settings.js](static/js/views/settings.js) utilisait déjà cette logique (dupliquée localement) — remplacée par le helper partagé.
+- Le nettoyage des lignes déjà shuffle (retirer le nom en base) reste manuel : relancer un shuffle sur la semaine concernée dans Paramètres → Rotation Support.
+
+## [3.96.0] - 2026-06-25
+
+### Feat : aperçu zoomable standardisé (utils.js), réutilisé dans les pièces jointes d'atelier
+- **Standardisation** ([utils.js](static/js/utils.js)) : `diagramFrameHtml(src, alt, extraClass)` génère le markup `.diagram-frame` (déjà décoré automatiquement par `initDiagramZoom()`) — évite de dupliquer ce HTML à chaque nouvel usage. [Settings.js](static/js/views/settings.js) (diagrammes Excalidraw) migré sur ce helper.
+- **Équipe → Pièces jointes d'atelier** ([team.js](static/js/views/team.js)) : les images (SVG/PNG/JPG/GIF/WebP, ex. un export Excalidraw de Team Canvas) affichent désormais une vignette zoomable au lieu d'un simple lien de téléchargement — chip de nom de fichier + suppression conservés en dessous. SVG ajouté aux types acceptés à l'upload.
+
+## [3.95.0] - 2026-06-25
+
+### Fix + Feat : diagrammes Excalidraw tronqués dans Paramètres → zoom/pan plein écran
+- **Fix troncature** ([settings.css](static/css/views/settings.css)) : l'aperçu forçait une hauteur fixe (420px) avec scroll horizontal dans une section large de 800px max — illisible, on ne voyait qu'une tranche du diagramme. L'aperçu affiche désormais l'image entière à 100% de la largeur disponible (plus de coupe).
+- **Nouveau composant** [diagram_zoom.js](static/js/components/diagram_zoom.js) : clic sur un diagramme → popin plein écran avec zoom (molette, centré sur le curseur, ou pincement à deux doigts au tactile) et pan (glisser), boutons +/−/Ajuster, double-clic pour réinitialiser, Échap pour fermer. Même esprit que [chart_zoom.js](static/js/components/chart_zoom.js) (zoom des graphiques) mais dédié aux images, sans dépendance.
+- Câblé globalement via `initDiagramZoom()` ([app.js](static/js/app.js)), décore tout `.diagram-frame` présent dans la page (pas seulement Paramètres).
+
+## [3.94.0] - 2026-06-25
+
+### Fix : votes mood/fist invisibles dans le panneau latéral après un vote fraîchement saisi
+- **Cause** ([pi.js](static/js/views/pi.js)) : voter (ou supprimer un vote) dans le panneau "Mood"/"Fist of Five" de PI Planning ne rafraîchissait que la vue locale (`refreshResults`, re-fetch direct depuis l'API) — le store global `moodVotes`/`fistVotes` n'était mis à jour qu'au chargement initial de l'app. Le panneau latéral (et les cellules mood de Health) restaient donc sur l'instantané de démarrage et affichaient "Aucun vote" malgré des votes bien enregistrés en base.
+- **Fix** : nouvelle fonction `_syncGlobalVoteStore(type)` qui re-synchronise `store.moodVotes`/`store.fistVotes` après chaque vote/suppression, puis rafraîchit explicitement le panneau latéral (`updateInfoPanel()` — pas un rerender de toute la vue PI, pour ne pas perdre l'état du panneau de vote en cours d'utilisation).
+
+## [3.93.0] - 2026-06-25
+
+### Feat : diagrammes Excalidraw de l'histoire du projet dans Paramètres → A propos
+- **Conversion SVG** ([docs/excalidraw/to_svg.py](docs/excalidraw/to_svg.py)) : script Python autonome (sans dépendance, sans node) qui parse les scènes `.excalidraw` (`docs/excalidraw/*.excalidraw`) et génère des SVG statiques (`static/img/excalidraw/*.svg`) — rendu net (pas de style "sketchy" rough.js), fidèle aux formes/couleurs/textes. À relancer après toute modification d'un `.excalidraw`.
+- **Police** : réutilise la police "Patrick Hand" déjà auto-hébergée pour le ton manuscrit ([team.css](static/css/views/team.css)), pas de service tiers.
+- **Affichage** ([settings.js](static/js/views/settings.js)) : 3 diagrammes repliables (`<details>`) dans la section "A propos" — Histoire du projet, Storytelling, User Story Mapping — avec scroll horizontal ([settings.css](static/css/views/settings.css)).
+
+## [3.92.0] - 2026-06-25
+
+### Style : panneau latéral allégé — Absences retirée, Support filtré par équipe
+- **Card "Absents (N)" retirée** ([infopanel.js](static/js/components/infopanel.js)) : peu utile telle quelle (toutes équipes confondues, sans rapport avec l'équipe sélectionnée).
+- **"Support cette semaine" filtré** : ne liste plus que les rotations de l'équipe sélectionnée dans le sidebar (toutes les équipes restent affichées si aucune équipe spécifique n'est sélectionnée).
+
+## [3.91.0] - 2026-06-25
+
+### Feat : liste des objectifs PI dans le panneau latéral
+- La card "🎯 Objectifs PI" ([infopanel.js](static/js/components/infopanel.js)) n'affichait que le compteur et la barre de progression — elle liste désormais les objectifs eux-mêmes (icône de statut + texte, jusqu'à 6 puis "+N autres"), même style `.panel-list`/`.panel-list-item` que les autres cards de ce panneau.
+
+## [3.90.0] - 2026-06-25
+
+### Fix : panneau latéral "Aucun vote" alors que des votes mood existent
+- **Cause** ([infopanel.js](static/js/components/infopanel.js)) : le label du sprint courant (`curLabel`, ex. "30.1") était reconstruit à la main depuis `piInfo.number + index` au lieu d'être extrait du nom du sprint actif. Quand `piInfo.number` est vide/obsolète, la reconstruction produit un label tronqué (`".1"`) — qui matche `sprintInfo.name` par accident (`"Team G - Ité 30.1".includes(".1")` est vrai !) mais ne matche plus aucun `v.piSprint` réel (`"30.1"` ≠ `".1"`), donc le panneau affichait "Aucun vote · .1" alors que 3 votes existaient bien pour ce sprint.
+- **Fix** : nouvelle fonction `extractSprintLabel(name)` ([utils.js](static/js/utils.js)) qui extrait le label `"NN.N"` directement par regex depuis le nom du sprint — même principe que `getCurrentPi`/`extractPiNum` déjà en place pour éviter de réimplémenter cette extraction. `health.js` réutilise désormais aussi cette fonction (au lieu de sa propre regex locale `_spKey`) pour rester la source unique.
+
 ## [3.89.0] - 2026-06-24
 
 ### Style : statut aussi en liste déroulante, comme le type

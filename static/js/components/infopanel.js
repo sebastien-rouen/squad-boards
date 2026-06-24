@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam, relevantCalendars, lastCalendarSync, isBufferItem, getCurrentPi, typeBadge, teamCapacity, wipThreshold } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam, relevantCalendars, lastCalendarSync, isBufferItem, getCurrentPi, typeBadge, teamCapacity, wipThreshold, extractSprintLabel, effectiveRosterForPi, teamNameMatches } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
 import { loadReminders, REMINDER_DEFS } from '../views/settings.js';
 import { openCalWeekModal } from './cal_banner.js';
@@ -61,7 +61,6 @@ export function updateInfoPanel() {
           )
         : allTeamTickets;
     const piInfo    = store.get('piInfo');
-    const absences  = store.get('absences') || [];
     const support   = store.get('support') || [];
 
     // PI courant (offset 0 — l'info-panel suit toujours le PI en cours) → filtre les features.
@@ -108,8 +107,20 @@ export function updateInfoPanel() {
     const featPctClr   = featurePct >= 80 ? 'var(--status-done)' : featurePct >= 50 ? 'var(--status-inprog)' : 'var(--status-blocked)';
 
     const now = new Date().toISOString().slice(0, 10);
-    const activeAbsences   = absences.filter(a => a.startDate <= now && a.endDate >= now);
-    const currentSupport   = support.filter(s => s.weekStart <= now && s.weekEnd >= now);
+    // Support de la semaine : limité à l'équipe sélectionnée dans le sidebar (sinon toutes
+    // les équipes s'accumulaient dans une seule card, peu utile une fois une équipe choisie).
+    const currentSupportRaw = support.filter(s => s.weekStart <= now && s.weekEnd >= now
+        && (!team || team === 'all' || s.team === team));
+    // Filtre les membres qui ont quitté l'équipe depuis que cette semaine a été shuffle :
+    // une rotation déjà générée garde des noms figés en base, jamais réécrits tant que
+    // personne ne relance un shuffle — un membre parti continuerait sinon d'apparaître ici
+    // indéfiniment (même symptôme déjà géré côté grille Rotation Support via effectiveRosterForPi).
+    const absences = store.get('absences') || [];
+    const rosterByPi = effectiveRosterForPi(piInfo, curPiNum, absences, store.get('members') || []);
+    const currentSupport = currentSupportRaw.map(s => ({
+        ...s,
+        members: (s.members || []).filter(m => rosterByPi.some(r => r.name === m && teamNameMatches(r.team, s.team))),
+    }));
     const supportMembers   = currentSupport.flatMap(s => s.members || []);
 
     // Mood & fist votes

@@ -4232,20 +4232,17 @@ function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
     const today    = new Date().toISOString().slice(0, 10);
     const showNext = _rotPiOff() > 0; // pour les classes CSS existantes
 
-    // Snapshot des membres du PI affiché (gère le turnover PI à PI). Si présent → prime sur la
-    // dérivation absences ; sinon fallback sur `members` (dérivé du CSV courant).
+    // Snapshot des membres du PI affiché (gère le turnover PI à PI) — cf. effectiveRosterForPi
+    // (utils.js), même logique que le panneau latéral (infopanel.js) pour rester la source
+    // unique. `members` ici est déjà le résultat de deriveMembersFromAbsences (rotMembers,
+    // calculé par l'appelant) → fallback direct, pas besoin de re-dériver.
     const piMembersMap = store.get('piInfo')?.piMembers || {};
     const piSnapshot   = piMembersMap[String(_sp || curPiNum)] || null;
     const effectiveMembers = (piSnapshot && piSnapshot.length) ? piSnapshot : members;
     const _usingSnapshot = !!(piSnapshot && piSnapshot.length);
 
     // Match tolérant entre équipes config app et équipes du CSV RH (cf. piège #5 agent debugger)
-    const _norm = s => (s || '').toLowerCase().trim();
-    const _matchTeam = (memberTeam, target) => {
-        const t = _norm(memberTeam);
-        const tgt = _norm(target);
-        return t === tgt || (tgt && t && (t.includes(tgt) || tgt.includes(t)));
-    };
+    const _matchTeam = teamNameMatches;
 
     const panels = teamNames.map(teamName => {
         const teamObj   = teamObjects.find(t => (typeof t === 'string' ? t : t.name) === teamName);

@@ -10,7 +10,7 @@ import {
     deriveMembersFromAbsences, generateSupportRotation, buildSupportPiWeeks, supportAbsenceDays,
     initials, hashColor,
     SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
-    isMemberSupportActive,
+    isMemberSupportActive, effectiveRosterForPi, teamNameMatches,
 } from '../utils.js';
 import * as api from '../api.js';
 
@@ -364,13 +364,13 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
     const _panel = (team) => {
         const tObj  = teamObjects.find(o => o.name === team);
         const color = tObj?.color || '#6366f1';
-        const _norm = s => (s || '').toLowerCase().trim();
-        const _matchTeam = (mt, tgt) => {
-            const t = _norm(mt), gg = _norm(tgt);
-            return t === gg || (gg && t && (t.includes(gg) || gg.includes(t)));
-        };
+        const _matchTeam = teamNameMatches;
         const teamSupport = support.filter(s => _matchTeam(s.team, team));
-        const derived = deriveMembersFromAbsences(absences, members).filter(m => _matchTeam(m.team, team));
+        // Roster effectif du PI affiché (gère le turnover PI à PI, cf. effectiveRosterForPi) —
+        // sinon un membre parti après le shuffle de cette semaine resterait affiché indéfiniment
+        // (rot.members = noms figés en base au moment du shuffle, jamais réécrits depuis).
+        const derived = effectiveRosterForPi(piInfo, displayPiNum, absences, members).filter(m => _matchTeam(m.team, team));
+        const derivedNames = new Set(derived.map(d => d.name));
         const totalMembers = derived.length;
         const mpw = parseInt(localStorage.getItem(`rot-mpw-${team}`)) || 2;
         // Mode semaine par équipe (vendredi par défaut = 1er jour de sprint typique).
@@ -395,7 +395,7 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
         const counts = {};
         for (const w of teamAllWeeks) {
             const rot = teamSupport.find(s => s.weekStart === w.weekStart && s.weekEnd === w.weekEnd);
-            for (const m of (rot?.members || [])) counts[m] = (counts[m] || 0) + 1;
+            for (const m of (rot?.members || [])) { if (derivedNames.has(m)) counts[m] = (counts[m] || 0) + 1; }
         }
 
         // Détection PI-frontière pour l'affichage de séparateurs (PI courant vs suivant)
@@ -409,7 +409,8 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
             const inCurPi   = curWeekKeys.has(`${w.weekStart}|${w.weekEnd}`);
             const state = isCurrent ? 'current' : isPast ? 'past' : 'future';
             const stateLbl = isCurrent ? 'EN COURS' : isPast ? 'PASSÉ 🔒' : 'À VENIR';
-            const memberCells = (rot?.members || []).map(m => {
+            const rotMembers = (rot?.members || []).filter(m => derivedNames.has(m));
+            const memberCells = rotMembers.map(m => {
                 const absent = supportAbsenceDays(m, w.weekStart, w.weekEnd, absences) >= 3;
                 return `<div class="sup-row-member${absent ? ' is-absent' : ''}" title="${esc(m)}${absent ? ' · absent ≥ 3j' : ''}">
                     ${_avatar(m, 24)}
@@ -417,7 +418,7 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
                     ${absent ? '<span class="sup-row-member-flag">absent</span>' : ''}
                 </div>`;
             }).join('');
-            const count = (rot?.members || []).length;
+            const count = rotMembers.length;
             const fillCls = count === 0 ? 'is-empty' : count < mpw ? 'is-partial' : 'is-full';
             const fillLbl = count === 0 ? 'Vide' : count < mpw ? `${count}/${mpw}` : '✓ Complet';
 

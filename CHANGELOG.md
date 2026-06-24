@@ -1,3 +1,41 @@
+## [3.70.0] - 2026-06-24
+
+### Feat : import CSV et ZIP (symétrique avec les 3 formats de l'Export)
+- **CSV** ([settings.js](static/js/views/settings.js), `_csvTextToRows`) : parseur CSV maison (BOM, délimiteur `;`, cellules entre guillemets, cast au mieux des nombres/booléens, JSON.parse des cellules array/object) — miroir de `arrayToCsv` côté export. La catégorie est déduite du nom de fichier (`squad-board-<categorie>-AAAA-MM-JJ.csv`) ; plusieurs `.csv` peuvent être déposés en même temps (un par catégorie).
+- **ZIP** (`_parseZipFile`) : décompression **entièrement côté navigateur**, sans librairie tierce (interdit côté front) — lecture manuelle des en-têtes ZIP (central directory + en-têtes locaux) et inflate via `DecompressionStream('deflate-raw')` natif. Volontairement limité au sous-ensemble produit par notre propre `/api/export/zip` (pas de zip64, chiffrement ni data descriptor) — pas un lecteur ZIP générique.
+- **Dropzone élargie** : `accept=".json,.csv,.zip"` + `multiple`, message mis à jour pour expliquer les 3 formats acceptés.
+- ⚠️ Code de parsing binaire ZIP non exécuté/testé en conditions réelles dans cette session (pas d'environnement navigateur disponible ici) — à vérifier après déploiement, notamment sur le support de `DecompressionStream` (Chrome/Edge récents OK ; fallback explicite si absent).
+
+## [3.69.0] - 2026-06-24
+
+### Feat : import guidé (format, modèle, prévisualisation, mode)
+- **Modale d'import** ([settings.js](static/js/views/settings.js)) : le bouton « Importer » n'ouvre plus directement le sélecteur de fichier natif — il ouvre une modale qui explique le format attendu (`.json`, mêmes clés que l'Export), propose un **modèle vide à télécharger** (`_emptyImportTemplate`) et accepte le fichier par clic ou **glisser-déposer** (`.import-dropzone`).
+- **Prévisualisation avant import** : une fois le fichier choisi, affiche les catégories reconnues avec leur nombre d'éléments (réutilise le style `.export-choice-grid`), signale les clés non reconnues, et bloque l'import si le fichier est invalide ou vide de contenu reconnu.
+- **Choix du mode** (Remplacer/Fusionner, pills `.board-modes`) : le mode `replace` n'est plus imposé silencieusement — `merge` est désormais accessible depuis l'UI (déjà supporté par `/api/import`, jusqu'ici seulement via API directe).
+- **Calendriers** explicitement exclus de l'import (`IMPORT_CATEGORIES`) : exportés pour référence/backup mais `/api/import` ne sait pas les recréer — évite l'illusion d'un round-trip complet.
+
+## [3.68.0] - 2026-06-24
+
+### Style : section « Données » plus lisible
+- **Stats** ([settings.js](static/js/views/settings.js), [settings.css](static/css/views/settings.css)) : la ligne de texte brute (« 1530 tickets, 2477 features... ») devient 4 tuiles compactes `.data-stat` (icône + chiffre + libellé).
+- **Actions** : boutons Export/Import avec icônes (`.data-actions`), le bouton destructeur « Tout supprimer » poussé à droite pour le distinguer visuellement.
+- **Démo** : carte dédiée `.data-demo-card` (dégradé teinté primary), avertissement « Remplace toutes les données existantes » sorti du texte noyé pour devenir un badge orange (réutilise `--warning`/`--warning-bg`/`--warning-border`).
+
+## [3.67.0] - 2026-06-24
+
+### Feat : export ZIP + compteurs, tout sélectionner, dernier choix mémorisé
+- **Format ZIP** ([app/routers/data.py](app/routers/data.py), `POST /api/export/zip`) : zippe côté backend (module stdlib `zipfile`, aucune dépendance ajoutée) un fichier CSV par catégorie sélectionnée — règle le problème des téléchargements multiples en rafale du mode CSV à plat dès qu'on choisit ≥2 catégories. Nouvelle pill « ZIP » dans le sélecteur de format ([api.js](static/js/api.js) `exportZip`, [settings.js](static/js/views/settings.js)).
+- **Compteurs sur les tuiles** ([utils.js](static/js/utils.js), `exportChoiceModal`) : chaque tuile affiche désormais le nombre d'éléments de la catégorie (badge, `_exportCategoryCounts()` dans settings.js) — on sait ce qu'on exporte avant de cliquer.
+- **Tout sélectionner / désélectionner** (même modale) : raccourci au-dessus de la grille, utile vu les 13 catégories disponibles.
+- **Dernier choix mémorisé** ([settings.js](static/js/views/settings.js), `sb-export-last`) : la sélection de catégories et le format utilisés la dernière fois sont pré-cochés à la prochaine ouverture de la modale.
+
+## [3.66.0] - 2026-06-24
+
+### Feat : choix du format à l'export + calendriers ICS exportables
+- **Bouton renommé** ([settings.js](static/js/views/settings.js)) : « Exporter (JSON) » devient « Export » — le format n'est plus figé dans le libellé puisqu'il se choisit désormais dans la modale.
+- **Choix du format** ([utils.js](static/js/utils.js), `exportChoiceModal`) : ajout d'un sélecteur JSON/CSV (pills `.board-modes`, réutilisées depuis Reports) au-dessus de la grille de catégories. En CSV, un fichier est généré **par catégorie** sélectionnée (`arrayToCsv`, nouveau helper générique — colonnes = union des clés, champs imbriqués sérialisés en JSON dans la cellule) ; en JSON, un seul fichier combiné comme avant.
+- **Calendriers ICS exportables** ([app/routers/data.py](app/routers/data.py)) : `_EXPORT_SPEC` inclut désormais `calendars` (config ICS : nom, équipe, URL, dernière synchro). La tuile « Calendriers » n'apparaît dans la modale que s'il existe au moins un calendrier configuré.
+
 ## [3.65.0] - 2026-06-24
 
 ### Feat : bandeau agenda du jour pliable/dépliable

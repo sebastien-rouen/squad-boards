@@ -9,7 +9,7 @@ import {
     buildSupportPiWeeks, SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
     isMemberSupportActive, setMemberSupportActive, getInactiveSupportMembers,
     friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi, promptModal, choiceModal,
-    exportChoiceModal,
+    exportChoiceModal, arrayToCsv,
 } from '../utils.js';
 import { makePersonPicker } from '../components/modal.js';
 import { addExcludedTeam, getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
@@ -43,11 +43,365 @@ const EXPORT_CATEGORIES = [
     { key: 'risks',    label: 'Risques ROAM', icon: '⚠️' },
     { key: 'atlas',    label: 'Atlas (compétences)', icon: '🧭' },
     { key: 'config',   label: 'Sprint & PI',  icon: '⚙️' },
+    { key: 'calendars', label: 'Calendriers', icon: '🗓️' },
 ];
 const EXPORT_CATEGORY_KEYS = {
     atlas:  ['skills', 'appetences', 'memberSkills', 'memberAppetences', 'mobility'],
     config: ['sprint', 'pi'],
 };
+const EXPORT_FORMATS = [
+    { key: 'json', label: 'JSON' },
+    { key: 'csv',  label: 'CSV' },
+    { key: 'zip',  label: 'ZIP' },
+];
+const _LS_EXPORT_LAST = 'sb-export-last';
+
+/** Catégories d'export visibles : « Calendriers » seulement si des calendriers ICS existent. */
+function _availableExportCategories() {
+    const hasCalendars = (store.get('calendars') || []).length > 0;
+    return EXPORT_CATEGORIES.filter(c => c.key !== 'calendars' || hasCalendars);
+}
+
+/** Nombre d'éléments par catégorie — affiché en badge sur chaque tuile de la modale. */
+function _exportCategoryCounts() {
+    const len = key => (store.get(key) || []).length;
+    return {
+        tickets:  len('tickets'),
+        features: len('features'),
+        epics:    len('epics'),
+        members:  len('members'),
+        teams:    (store.get('teamObjects') || store.get('teams') || []).length,
+        groups:   len('groups'),
+        absences: len('absences'),
+        support:  len('support'),
+        events:   len('events'),
+        risks:    len('risks'),
+        atlas:    len('skills') + len('appetences') + len('memberSkills') + len('memberAppetences') + len('mobility'),
+        calendars: len('calendars'),
+        // 'config' (sprint & PI) n'est pas une liste — pas de badge pertinent.
+    };
+}
+
+/** Dernier choix d'export (sélection + format), persisté pour pré-cocher la modale au prochain usage. */
+function _loadLastExportChoice() {
+    try { return JSON.parse(localStorage.getItem(_LS_EXPORT_LAST) || 'null'); }
+    catch { return null; }
+}
+function _saveLastExportChoice(keys, format) {
+    localStorage.setItem(_LS_EXPORT_LAST, JSON.stringify({ keys, format }));
+}
+
+// ── Import (modale guidée : format, modèle, prévisualisation) ─────────────────
+// « Calendriers » est exclu : exporté pour référence/backup mais /api/import ne sait pas
+// le ré-importer (les calendriers ICS se gèrent via leur propre section ci-dessus).
+const IMPORT_CATEGORIES = EXPORT_CATEGORIES.filter(c => c.key !== 'calendars');
+const IMPORT_ALL_RAW_KEYS = new Set(IMPORT_CATEGORIES.flatMap(c => EXPORT_CATEGORY_KEYS[c.key] || [c.key]));
+
+/** Modèle JSON vide (toutes les clés reconnues, en tableaux vides) — pour montrer le format attendu. */
+function _emptyImportTemplate() {
+    const out = {};
+    for (const k of IMPORT_ALL_RAW_KEYS) out[k] = [];
+    return out;
+}
+
+/** Nombre d'éléments détectés pour une catégorie dans un fichier importé, ou `null` si absente du fichier. */
+function _importCategoryCount(data, category) {
+    const keys = EXPORT_CATEGORY_KEYS[category.key] || [category.key];
+    let total = null;
+    for (const k of keys) {
+        if (!(k in data)) continue;
+        const v = data[k];
+        if (Array.isArray(v)) total = (total || 0) + v.length;
+        else if (v != null) total = (total || 0) + 1; // sprint/pi : objet présent
+    }
+    return total;
+}
+
+function _downloadBlob(content, mime, filename) {
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click(); URL.revokeObjectURL(a.href);
+}
+
+/**
+ * Parse un CSV généré par l'export (BOM + délimiteur `;`, cellules entre guillemets,
+ * valeurs imbriquées en JSON dans leur cellule — miroir de `arrayToCsv`). Cast au mieux
+ * les nombres/booléens (perdus en texte brut par le format CSV), JSON.parse les cellules
+ * array/object ; tout le reste reste une chaîne.
+ */
+function _csvTextToRows(text) {
+    const clean = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text; // retire le BOM utf-8 ajouté à l'export
+    const lines = clean.split(/\r\n|\n/).filter(l => l.length);
+    if (!lines.length) return [];
+    const parseLine = (line) => {
+        const cells = [];
+        let cur = '', inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (inQuotes) {
+                if (ch === '"') {
+                    if (line[i + 1] === '"') { cur += '"'; i++; }
+                    else inQuotes = false;
+                } else cur += ch;
+            } else if (ch === '"') inQuotes = true;
+            else if (ch === ';') { cells.push(cur); cur = ''; }
+            else cur += ch;
+        }
+        cells.push(cur);
+        return cells;
+    };
+    const castCell = (v) => {
+        if (v === '') return null;
+        if ((v[0] === '[' && v[v.length - 1] === ']') || (v[0] === '{' && v[v.length - 1] === '}')) {
+            try { return JSON.parse(v); } catch { /* garde la chaîne brute */ }
+        }
+        if (/^-?\d+$/.test(v)) return parseInt(v, 10);
+        if (/^-?\d+\.\d+$/.test(v)) return parseFloat(v);
+        if (v === 'true') return true;
+        if (v === 'false') return false;
+        return v;
+    };
+    const headers = parseLine(lines[0]);
+    return lines.slice(1).map(line => {
+        const cells = parseLine(line);
+        const row = {};
+        headers.forEach((h, idx) => { row[h] = castCell(cells[idx] ?? ''); });
+        return row;
+    });
+}
+
+/** Déduit la catégorie depuis le nom de fichier `squad-board-<categorie>-AAAA-MM-JJ.csv` (export). */
+function _categoryKeyFromFilename(name) {
+    const m = name.match(/^squad-board-(.+?)-\d{4}-\d{2}-\d{2}\.\w+$/i);
+    return m ? m[1] : name.replace(/\.\w+$/, '');
+}
+
+async function _parseCsvFile(file) {
+    const rows = _csvTextToRows(await file.text());
+    return { [_categoryKeyFromFilename(file.name)]: rows };
+}
+
+/**
+ * Décompresse un .zip généré par `/api/export/zip` (un fichier .json ou .csv par catégorie)
+ * entièrement côté navigateur — lecture manuelle du format ZIP (en-têtes locaux + central
+ * directory) + `DecompressionStream('deflate-raw')` natif pour l'inflate. Pas de librairie
+ * tierce (interdit côté front) : on ne supporte que le sous-ensemble produit par notre propre
+ * export (pas de zip64, pas de chiffrement, pas de data descriptor — tailles connues à l'écriture).
+ */
+async function _parseZipFile(file) {
+    if (typeof DecompressionStream === 'undefined') {
+        throw new Error('Ce navigateur ne sait pas décompresser un .zip ici — dézippez-le et importez les fichiers .json/.csv individuellement.');
+    }
+    const buf = await file.arrayBuffer();
+    const view = new DataView(buf);
+    const bytes = new Uint8Array(buf);
+
+    const EOCD_SIG = 0x06054b50;
+    const maxBack = Math.min(bytes.length, 65557);
+    let eocdOffset = -1;
+    for (let i = bytes.length - 22; i >= bytes.length - maxBack && i >= 0; i--) {
+        if (view.getUint32(i, true) === EOCD_SIG) { eocdOffset = i; break; }
+    }
+    if (eocdOffset < 0) throw new Error('Archive ZIP invalide (fin de répertoire central introuvable).');
+
+    const entryCount = view.getUint16(eocdOffset + 10, true);
+    let offset = view.getUint32(eocdOffset + 16, true); // début du central directory
+    const CD_SIG = 0x02014b50;
+    const decoder = new TextDecoder('utf-8');
+    const out = {};
+
+    for (let i = 0; i < entryCount; i++) {
+        if (view.getUint32(offset, true) !== CD_SIG) throw new Error('Archive ZIP invalide (en-tête central).');
+        const method = view.getUint16(offset + 10, true);
+        const compSize = view.getUint32(offset + 20, true);
+        const nameLen = view.getUint16(offset + 28, true);
+        const extraLen = view.getUint16(offset + 30, true);
+        const commentLen = view.getUint16(offset + 32, true);
+        const localOffset = view.getUint32(offset + 42, true);
+        const name = decoder.decode(bytes.subarray(offset + 46, offset + 46 + nameLen));
+
+        if (view.getUint32(localOffset, true) !== 0x04034b50) throw new Error(`Archive ZIP invalide (entrée "${name}").`);
+        const lhNameLen = view.getUint16(localOffset + 26, true);
+        const lhExtraLen = view.getUint16(localOffset + 28, true);
+        const dataStart = localOffset + 30 + lhNameLen + lhExtraLen;
+        const compData = bytes.subarray(dataStart, dataStart + compSize);
+
+        let raw;
+        if (method === 0) raw = compData; // stocké, non compressé
+        else if (method === 8) {
+            const stream = new Blob([compData]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+            raw = new Uint8Array(await new Response(stream).arrayBuffer());
+        } else {
+            throw new Error(`Méthode de compression non supportée pour "${name}".`);
+        }
+
+        const text = decoder.decode(raw);
+        const ext = name.split('.').pop().toLowerCase();
+        const key = name.replace(/\.\w+$/, '');
+        if (ext === 'json') out[key] = JSON.parse(text);
+        else if (ext === 'csv') out[key] = _csvTextToRows(text);
+
+        offset += 46 + nameLen + extraLen + commentLen;
+    }
+    return out;
+}
+
+/**
+ * Modale d'import guidée : explique le format attendu, propose un modèle vide à télécharger,
+ * accepte .json / .csv / .zip (clic ou glisser-déposer, comme produits par l'Export), prévisualise
+ * le contenu (catégories reconnues + compteurs, clés ignorées) et choisit le mode avant import.
+ */
+function _openImportModal(container) {
+    const ov = document.createElement('div');
+    ov.className = 'confirm-overlay';
+    ov.innerHTML = `
+        <div class="confirm-modal confirm-modal--export" role="dialog" aria-modal="true" aria-label="Importer des données">
+            <div class="confirm-body">
+                <div class="confirm-title">Importer des données</div>
+                <div class="confirm-message">
+                    Fichier(s) <code>.json</code>, <code>.csv</code> ou <code>.zip</code> — ceux générés par le bouton <strong>Export</strong> ci-dessus
+                    (mêmes clés/catégories : ${IMPORT_CATEGORIES.map(c => esc(c.label)).join(', ')}).
+                    Pas sûr du format ? <button type="button" class="link-btn" id="import-dl-template">📥 Télécharger un modèle JSON vide</button>
+                </div>
+                <div class="import-dropzone" id="import-dropzone" role="button" tabindex="0">
+                    <span class="import-dropzone-icon">📂</span>
+                    <span class="import-dropzone-text">Cliquer pour choisir un ou plusieurs fichiers, ou glisser-déposer ici</span>
+                    <span class="import-dropzone-hint">.json (1 fichier) · .csv (1 par catégorie, plusieurs à la fois) · .zip (1 fichier, dézippé ici)</span>
+                </div>
+                <input type="file" accept=".json,.csv,.zip,application/json,text/csv,application/zip" id="import-file-input" multiple style="display:none;">
+                <div id="import-preview"></div>
+            </div>
+            <div class="confirm-actions">
+                <button class="btn btn-ghost btn-sm" data-act="cancel">Annuler</button>
+                <button class="btn btn-primary btn-sm" data-act="ok" id="import-confirm-btn" disabled>Importer</button>
+            </div>
+        </div>`;
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add('visible'));
+
+    let parsedData = null;
+    let mode = 'replace';
+
+    const close = () => {
+        ov.classList.remove('visible');
+        ov.addEventListener('transitionend', () => ov.remove(), { once: true });
+        document.removeEventListener('keydown', onKey);
+    };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+
+    const dropzone   = ov.querySelector('#import-dropzone');
+    const fileInput  = ov.querySelector('#import-file-input');
+    const previewEl  = ov.querySelector('#import-preview');
+    const confirmBtn = ov.querySelector('#import-confirm-btn');
+
+    const modeHint = () => mode === 'replace'
+        ? '⚠️ Remplace entièrement les données existantes des catégories détectées ci-dessus.'
+        : 'Fusionne avec les données existantes (mise à jour par id si trouvé, ajout sinon).';
+
+    const renderPreview = (fileNames, data) => {
+        const recognized = IMPORT_CATEGORIES
+            .map(c => ({ ...c, count: _importCategoryCount(data, c) }))
+            .filter(c => c.count != null);
+        const unknownKeys = Object.keys(data).filter(k => !IMPORT_ALL_RAW_KEYS.has(k) && k !== 'exportedAt');
+        previewEl.innerHTML = `
+            <div class="import-preview-file">📄 <strong>${fileNames.map(esc).join(', ')}</strong></div>
+            ${recognized.length ? `<div class="export-choice-grid import-preview-grid">
+                ${recognized.map(c => `<div class="export-choice-btn export-choice-btn--on import-preview-tile">
+                    <span class="export-choice-count">${c.count}</span>
+                    <span class="export-choice-icon">${c.icon}</span>
+                    <span class="export-choice-label">${esc(c.label)}</span>
+                </div>`).join('')}
+            </div>` : `<div class="import-preview-warn import-preview-warn--danger">Aucune catégorie reconnue — vérifiez le format (modèle ci-dessus) ou le nom des fichiers .csv.</div>`}
+            ${unknownKeys.length ? `<div class="import-preview-warn">⚠️ Clé(s)/fichier(s) ignoré(s) (non reconnu(s)) : ${unknownKeys.map(esc).join(', ')}</div>` : ''}
+            ${recognized.length ? `
+            <div class="export-choice-formats">
+                <span class="export-choice-formats-lbl">Mode</span>
+                <div class="board-modes">
+                    <button type="button" class="board-mode-btn${mode === 'replace' ? ' active' : ''}" data-mode="replace">Remplacer</button>
+                    <button type="button" class="board-mode-btn${mode === 'merge' ? ' active' : ''}" data-mode="merge">Fusionner</button>
+                </div>
+            </div>
+            <p class="import-preview-hint">${modeHint()}</p>` : ''}
+        `;
+        previewEl.querySelectorAll('[data-mode]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                mode = btn.dataset.mode;
+                previewEl.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+                const hint = previewEl.querySelector('.import-preview-hint');
+                if (hint) hint.textContent = modeHint();
+            });
+        });
+        confirmBtn.disabled = !recognized.length;
+    };
+
+    const handleFiles = async (fileList) => {
+        const files = [...(fileList || [])];
+        if (!files.length) return;
+        try {
+            const zips = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
+            if (zips.length && files.length > 1) {
+                throw new Error('Un fichier .zip doit être déposé seul (il contient déjà toutes les catégories).');
+            }
+            let merged;
+            if (zips.length) {
+                merged = await _parseZipFile(zips[0]);
+            } else {
+                merged = {};
+                for (const file of files) {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    if (ext === 'json') {
+                        const data = JSON.parse(await file.text());
+                        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                            throw new Error(`"${file.name}" doit contenir un objet JSON (pas une liste).`);
+                        }
+                        Object.assign(merged, data);
+                    } else if (ext === 'csv') {
+                        Object.assign(merged, await _parseCsvFile(file));
+                    } else {
+                        throw new Error(`Format non supporté : "${file.name}" (.json, .csv ou .zip attendu).`);
+                    }
+                }
+            }
+            parsedData = merged;
+            renderPreview(files.map(f => f.name), merged);
+        } catch (err) {
+            parsedData = null;
+            confirmBtn.disabled = true;
+            previewEl.innerHTML = `<div class="import-preview-warn import-preview-warn--danger">❌ ${esc(err.message)}</div>`;
+        }
+    };
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+    fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+    ['dragover', 'dragleave', 'drop'].forEach(evt => {
+        dropzone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropzone.classList.toggle('import-dropzone--over', evt === 'dragover');
+        });
+    });
+    dropzone.addEventListener('drop', e => handleFiles(e.dataTransfer?.files));
+
+    ov.querySelector('#import-dl-template')?.addEventListener('click', () => {
+        _downloadBlob(JSON.stringify(_emptyImportTemplate(), null, 2), 'application/json', 'squad-board-template.json');
+    });
+
+    ov.addEventListener('click', async e => {
+        if (e.target === ov) return close();
+        const act = e.target.closest('[data-act]')?.dataset.act;
+        if (act === 'cancel') return close();
+        if (act === 'ok' && parsedData) {
+            close();
+            try {
+                await api.importAll(parsedData, mode);
+                await reloadAndRender(container);
+                toast('Import réussi', 'success');
+            } catch (err) { toast(`Erreur : ${err.message}`, 'error'); }
+        }
+    });
+}
 
 export function loadReminders() {
     try {
@@ -1384,18 +1738,32 @@ export function renderSettings(container) {
         <div class="settings-section">
             <div class="settings-section-header" data-stg-toggle><h3>Données</h3><svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg></div>
             <div class="settings-section-body">
-                <span class="text-sm">${tickets.length} tickets, ${(store.get('features') || []).length} features, ${members.length} membres, ${absences.length} absences</span>
-                <div class="flex gap-3 mt-4 flex-wrap">
-                    <button class="btn btn-secondary" id="btn-export">Exporter (JSON)</button>
-                    <label class="btn btn-secondary" style="cursor:pointer;display:inline-flex;">Importer (JSON)<input type="file" accept=".json" id="btn-import-file" style="display:none;"></label>
-                    <button class="btn btn-danger" id="btn-clear">Tout supprimer</button>
+                <div class="data-stats">
+                    <div class="data-stat"><span class="data-stat-icon">🎫</span><div class="data-stat-body"><span class="data-stat-val">${tickets.length}</span><span class="data-stat-lbl">Tickets</span></div></div>
+                    <div class="data-stat"><span class="data-stat-icon">🧩</span><div class="data-stat-body"><span class="data-stat-val">${(store.get('features') || []).length}</span><span class="data-stat-lbl">Features</span></div></div>
+                    <div class="data-stat"><span class="data-stat-icon">👤</span><div class="data-stat-body"><span class="data-stat-val">${members.length}</span><span class="data-stat-lbl">Membres</span></div></div>
+                    <div class="data-stat"><span class="data-stat-icon">🏖️</span><div class="data-stat-body"><span class="data-stat-val">${absences.length}</span><span class="data-stat-lbl">Absences</span></div></div>
                 </div>
+
+                <div class="data-actions">
+                    <button class="btn btn-secondary" id="btn-export"><svg class="icon icon-sm"><use href="#i-download"/></svg> Export</button>
+                    <button class="btn btn-secondary" id="btn-import">⬆️ Importer</button>
+                    <button class="btn btn-danger" id="btn-clear">🗑️ Tout supprimer</button>
+                </div>
+
                 <hr class="mt-4 mb-4" style="border-color:var(--border)">
-                <div>
-                    <p class="text-sm font-semibold mb-1">Jeu de données démo</p>
-                    <p class="text-xs text-muted mb-3">Charge un scénario SAFe complet : 4 équipes fictives (Vega, Lyra, Orion, Sirius), PI#5 sprint 3 en cours, 56 tickets, features, epics, objectifs PI, rotations support, absences, risques ROAM, compétences Atlas. <strong>Remplace toutes les données existantes.</strong></p>
-                    <button class="btn btn-primary" id="btn-seed-demo">🎬 Charger la démo complète</button>
-                    <span id="seed-demo-status" class="text-xs text-muted ml-3" style="display:none"></span>
+
+                <div class="data-demo-card">
+                    <span class="data-demo-icon">🎬</span>
+                    <div class="data-demo-body">
+                        <p class="data-demo-title">Jeu de données démo</p>
+                        <p class="data-demo-desc">Charge un scénario SAFe complet : 4 équipes fictives (Vega, Lyra, Orion, Sirius), PI#5 sprint 3 en cours, 56 tickets, features, epics, objectifs PI, rotations support, absences, risques ROAM, compétences Atlas.</p>
+                        <span class="data-demo-warn">⚠️ Remplace toutes les données existantes</span>
+                    </div>
+                    <div class="data-demo-action">
+                        <button class="btn btn-primary" id="btn-seed-demo">Charger la démo</button>
+                        <span id="seed-demo-status" class="text-xs text-muted" style="display:none"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3115,34 +3483,53 @@ export function renderSettings(container) {
 
     // ── Data ──────────────────────────────────────────────────────────────────
     container.querySelector('#btn-export')?.addEventListener('click', async () => {
-        const picked = await exportChoiceModal('Que voulez-vous exporter ?', EXPORT_CATEGORIES, {
+        const counts = _exportCategoryCounts();
+        const categories = _availableExportCategories().map(c => ({ ...c, count: counts[c.key] }));
+        const last = _loadLastExportChoice();
+        const picked = await exportChoiceModal('Que voulez-vous exporter ?', categories, {
             message: 'Tout est présélectionné — cliquez pour désélectionner ce que vous ne voulez pas inclure.',
+            formats: EXPORT_FORMATS,
+            initialSelected: last?.keys || null,
+            initialFormat: last?.format || null,
         });
         if (!picked) return; // annulé
-        if (!picked.length) { toast('Aucune donnée sélectionnée', 'info'); return; }
+        const { keys: pickedKeys, format } = picked;
+        if (!pickedKeys.length) { toast('Aucune donnée sélectionnée', 'info'); return; }
+        _saveLastExportChoice(pickedKeys, format);
+        const keys = [...new Set(pickedKeys.flatMap(k => EXPORT_CATEGORY_KEYS[k] || [k]))];
+        const day = new Date().toISOString().slice(0, 10);
         try {
-            const data = await api.exportAll();
-            const keys = new Set(picked.flatMap(k => EXPORT_CATEGORY_KEYS[k] || [k]));
-            const out = { exportedAt: data.exportedAt };
-            for (const k of keys) out[k] = data[k];
-            const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-            a.download = `squad-board-${new Date().toISOString().slice(0, 10)}.json`;
-            a.click(); URL.revokeObjectURL(a.href);
+            if (format === 'zip') {
+                // Bundle CSV par catégorie dans un .zip généré côté backend (zipfile stdlib) —
+                // évite les téléchargements multiples en rafale du mode CSV à plat ci-dessous.
+                const blob = await api.exportZip(keys, 'csv');
+                _downloadBlob(blob, 'application/zip', `squad-board-${day}.zip`);
+            } else if (format === 'csv') {
+                // Pas de structure tabulaire unique commune à toutes les catégories → un CSV par
+                // catégorie (les champs imbriqués — labels, comments... — sont sérialisés en JSON
+                // dans leur cellule plutôt que d'exploser en colonnes). Avec 2+ catégories, préférer
+                // le format ZIP ci-dessus (un seul fichier, pas de rafale de téléchargements).
+                const data = await api.exportAll();
+                let i = 0;
+                for (const k of keys) {
+                    const rows = Array.isArray(data[k]) ? data[k] : [];
+                    if (!rows.length) continue;
+                    const csv = arrayToCsv(rows);
+                    setTimeout(() => _downloadBlob(csv, 'text/csv;charset=utf-8', `squad-board-${k}-${day}.csv`), i * 150);
+                    i++;
+                }
+                if (!i) { toast('Aucune ligne à exporter pour cette sélection', 'info'); return; }
+            } else {
+                const data = await api.exportAll();
+                const out = { exportedAt: data.exportedAt };
+                for (const k of keys) out[k] = data[k];
+                _downloadBlob(JSON.stringify(out, null, 2), 'application/json', `squad-board-${day}.json`);
+            }
             toast('Exporte', 'success');
         } catch (e) { toast(e.message, 'error'); }
     });
 
-    container.querySelector('#btn-import-file')?.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0]; if (!file) return;
-        try {
-            const data = JSON.parse(await file.text());
-            if (!confirm('Importer ? Les donnees actuelles seront remplacees.')) return;
-            await api.importAll(data, 'replace');
-            await reloadAndRender(container);
-            toast('Import reussi', 'success');
-        } catch (err) { toast(`Erreur: ${err.message}`, 'error'); }
-    });
+    container.querySelector('#btn-import')?.addEventListener('click', () => _openImportModal(container));
 
     container.querySelector('#btn-clear')?.addEventListener('click', async () => {
         if (!confirm('Tout supprimer ? Irreversible.')) return;

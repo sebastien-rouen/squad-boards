@@ -504,6 +504,96 @@
     font-size: var(--fs-sm);
 }
 
+/* ── Données (Paramètres → Données) ────────────────────────────────────── */
+.data-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+}
+.data-stat {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    background: var(--surface-alt, var(--surface-hover));
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    min-width: 110px;
+}
+.data-stat-icon { font-size: 18px; line-height: 1; }
+.data-stat-body { display: flex; flex-direction: column; gap: 1px; }
+.data-stat-val {
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-bold);
+    color: var(--text);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.data-stat-lbl {
+    font-size: 10.5px;
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.data-actions {
+    display: flex;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    margin-top: var(--sp-4);
+}
+/* Bouton destructeur visuellement distancé des actions courantes */
+.data-actions .btn-danger { margin-left: auto; }
+
+.data-demo-card {
+    display: flex;
+    gap: var(--sp-4);
+    align-items: flex-start;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 6%, var(--surface)), var(--surface));
+    border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+    border-radius: var(--r-lg);
+    padding: var(--sp-4);
+}
+.data-demo-icon { font-size: 26px; line-height: 1; flex-shrink: 0; }
+.data-demo-body { flex: 1; min-width: 0; }
+.data-demo-title {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--text);
+    margin-bottom: 4px;
+}
+.data-demo-desc {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.data-demo-warn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: var(--sp-2);
+    font-size: 10.5px;
+    font-weight: var(--fw-semibold);
+    color: var(--warning);
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    border-radius: var(--r-full);
+    padding: 2px 9px;
+}
+.data-demo-action {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--sp-1);
+}
+@media (max-width: 600px) {
+    .data-actions .btn-danger { margin-left: 0; }
+    .data-demo-card { flex-direction: column; }
+    .data-demo-action { align-items: flex-start; width: 100%; }
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    VIEW: Search Results
    ══════════════════════════════════════════════════════════════════════════════ */

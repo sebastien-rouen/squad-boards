@@ -1373,13 +1373,30 @@ body { display: flex; }
 
 /* Variante export (choix multiple, gros boutons carrés) — sans icône, une seule colonne, plus large */
 .confirm-modal--export { grid-template-columns: 1fr; max-width: 560px; }
+.export-choice-formats {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-top: var(--sp-3);
+}
+.export-choice-formats-lbl {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
+}
+.export-choice-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--sp-2);
+}
 .export-choice-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
     gap: var(--sp-2);
-    margin-top: var(--sp-3);
+    margin-top: var(--sp-2);
 }
 .export-choice-btn {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1397,6 +1414,26 @@ body { display: flex; }
 .export-choice-btn:hover { border-color: var(--border-hover); }
 .export-choice-icon { font-size: 22px; line-height: 1; }
 .export-choice-label { font-size: var(--fs-xs); font-weight: var(--fw-semibold); text-align: center; line-height: 1.2; }
+.export-choice-count {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: var(--r-full);
+    background: var(--surface-active);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.export-choice-btn--on .export-choice-count {
+    background: var(--primary);
+    color: #fff;
+}
 .export-choice-btn--on {
     border-color: var(--primary);
     background: color-mix(in srgb, var(--primary) 16%, var(--surface));
@@ -1407,6 +1444,70 @@ body { display: flex; }
 .confirm-input--error {
     border-color: var(--danger);
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+/* ── Bouton texte façon lien (ex: "Télécharger un modèle") ───────────────── */
+.link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--primary);
+    font-size: inherit;
+    font-weight: var(--fw-semibold);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--primary) 40%, transparent);
+    cursor: pointer;
+}
+.link-btn:hover { text-decoration-color: var(--primary); }
+
+/* ── Import : dropzone + prévisualisation (modale Paramètres → Données) ──── */
+.import-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-1);
+    margin-top: var(--sp-3);
+    padding: var(--sp-5);
+    border: 2px dashed var(--border);
+    border-radius: var(--r-lg);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--tr-fast), background var(--tr-fast);
+}
+.import-dropzone:hover,
+.import-dropzone:focus-visible { border-color: var(--border-hover); }
+.import-dropzone--over {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.import-dropzone-icon { font-size: 24px; line-height: 1; }
+.import-dropzone-text { font-size: var(--fs-sm); color: var(--text-muted); }
+.import-dropzone-hint { font-size: 10.5px; color: var(--text-muted); opacity: 0.75; }
+.import-preview-file {
+    margin-top: var(--sp-3);
+    font-size: var(--fs-sm);
+    color: var(--text);
+}
+.import-preview-grid { margin-top: var(--sp-2); }
+.import-preview-tile { cursor: default; }
+.import-preview-warn {
+    margin-top: var(--sp-2);
+    font-size: var(--fs-xs);
+    color: var(--warning);
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    border-radius: var(--r-md);
+    padding: var(--sp-2) var(--sp-3);
+}
+.import-preview-warn--danger {
+    color: var(--danger);
+    background: var(--danger-bg);
+    border-color: var(--danger-border);
+}
+.import-preview-hint {
+    margin-top: var(--sp-2);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
 }
 
 /* ── Copy button (clé JIRA + titre) ────────────────────────────────────── */

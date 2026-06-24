@@ -628,28 +628,48 @@ export function choiceModal(title, message, buttons = []) {
  * Modale de sélection multiple façon "gros boutons carrés" (ex: choisir les
  * données à exporter). Chaque bouton bascule sélectionné/désélectionné avec un
  * visuel "enfoncé" (bordure + fond teintés, légèrement réduit, ombre interne).
- * Tout est présélectionné par défaut.
+ * Tout est présélectionné par défaut (sauf `initialSelected`). Propose en option
+ * un choix de format (pills façon `.board-modes`, réutilisé depuis Reports) et
+ * un raccourci tout sélectionner/désélectionner.
  * @param {string} title
- * @param {Array<{key:string,label:string,icon?:string}>} items
- * @param {object} [opts] { message?, confirmLabel? }
- * @returns {Promise<string[]|null>} clés sélectionnées (peut être vide), ou `null` si annulé.
+ * @param {Array<{key:string,label:string,icon?:string,count?:number}>} items
+ * @param {object} [opts] { message?, confirmLabel?, formats?:Array<{key:string,label:string}>,
+ *   initialSelected?:string[], initialFormat?:string }
+ * @returns {Promise<{keys:string[],format:string}|null>} sélection + format choisi, ou `null` si annulé.
  */
 export function exportChoiceModal(title, items, opts = {}) {
-    const { message = '', confirmLabel = 'Exporter' } = opts;
+    const { message = '', confirmLabel = 'Exporter', formats = null, initialSelected = null, initialFormat = null } = opts;
     return new Promise(resolve => {
-        const selected = new Set(items.map(i => i.key));
+        const validKeys = new Set(items.map(i => i.key));
+        const initial = initialSelected?.filter(k => validKeys.has(k));
+        const selected = new Set(initial?.length ? initial : items.map(i => i.key));
+        let format = (initialFormat && formats?.some(f => f.key === initialFormat)) ? initialFormat : (formats?.[0]?.key || null);
         const ov = document.createElement('div');
         ov.className = 'confirm-overlay';
+        const toggleAllLabel = () => selected.size === items.length ? 'Tout désélectionner' : 'Tout sélectionner';
         const gridHtml = items.map(i => `
-            <button type="button" class="export-choice-btn export-choice-btn--on" data-key="${esc(i.key)}">
+            <button type="button" class="export-choice-btn${selected.has(i.key) ? ' export-choice-btn--on' : ''}" data-key="${esc(i.key)}">
+                ${i.count != null ? `<span class="export-choice-count">${i.count}</span>` : ''}
                 <span class="export-choice-icon">${i.icon || '📦'}</span>
                 <span class="export-choice-label">${esc(i.label)}</span>
             </button>`).join('');
+        const formatsHtml = formats
+            ? `<div class="export-choice-formats">
+                   <span class="export-choice-formats-lbl">Format</span>
+                   <div class="board-modes">
+                       ${formats.map(f => `<button type="button" class="board-mode-btn${f.key === format ? ' active' : ''}" data-format="${esc(f.key)}">${esc(f.label)}</button>`).join('')}
+                   </div>
+               </div>`
+            : '';
         ov.innerHTML = `
             <div class="confirm-modal confirm-modal--export" role="dialog" aria-modal="true" aria-label="${esc(title)}">
                 <div class="confirm-body">
                     <div class="confirm-title">${esc(title)}</div>
                     ${message ? `<div class="confirm-message">${esc(message)}</div>` : ''}
+                    ${formatsHtml}
+                    <div class="export-choice-toolbar">
+                        <button type="button" class="btn btn-ghost btn-xs" id="export-choice-toggle-all">${toggleAllLabel()}</button>
+                    </div>
                     <div class="export-choice-grid">${gridHtml}</div>
                 </div>
                 <div class="confirm-actions">
@@ -667,20 +687,62 @@ export function exportChoiceModal(title, items, opts = {}) {
         };
         const onKey = e => { if (e.key === 'Escape') cleanup(null); };
         document.addEventListener('keydown', onKey);
+        const toggleAllBtn = ov.querySelector('#export-choice-toggle-all');
         ov.querySelector('.export-choice-grid').addEventListener('click', e => {
             const btn = e.target.closest('.export-choice-btn');
             if (!btn) return;
             const key = btn.dataset.key;
             if (selected.has(key)) selected.delete(key); else selected.add(key);
             btn.classList.toggle('export-choice-btn--on', selected.has(key));
+            toggleAllBtn.textContent = toggleAllLabel();
+        });
+        toggleAllBtn?.addEventListener('click', () => {
+            const selectAll = selected.size !== items.length;
+            selected.clear();
+            if (selectAll) items.forEach(i => selected.add(i.key));
+            ov.querySelectorAll('.export-choice-btn').forEach(btn =>
+                btn.classList.toggle('export-choice-btn--on', selected.has(btn.dataset.key)));
+            toggleAllBtn.textContent = toggleAllLabel();
+        });
+        ov.querySelector('.export-choice-formats')?.addEventListener('click', e => {
+            const btn = e.target.closest('[data-format]');
+            if (!btn) return;
+            format = btn.dataset.format;
+            ov.querySelectorAll('.export-choice-formats .board-mode-btn').forEach(b =>
+                b.classList.toggle('active', b.dataset.format === format));
         });
         ov.addEventListener('click', e => {
             if (e.target === ov) return cleanup(null);
             const act = e.target.closest('[data-act]')?.dataset.act;
-            if (act === 'ok') cleanup([...selected]);
+            if (act === 'ok') cleanup({ keys: [...selected], format });
             if (act === 'cancel') cleanup(null);
         });
     });
+}
+
+/**
+ * Convertit un tableau d'objets plats en CSV (Excel-compatible : BOM + délimiteur `;`).
+ * Colonnes = union des clés de tous les objets, dans leur ordre d'apparition. Une valeur
+ * array/object est sérialisée en JSON dans sa cellule (pas d'éclatement en sous-colonnes).
+ * @param {Array<object>} rows
+ * @returns {string} contenu CSV prêt à être mis dans un Blob
+ */
+export function arrayToCsv(rows) {
+    if (!rows?.length) return '';
+    const cols = [];
+    const seen = new Set();
+    for (const row of rows) {
+        for (const k of Object.keys(row)) {
+            if (!seen.has(k)) { seen.add(k); cols.push(k); }
+        }
+    }
+    const cell = v => {
+        if (v == null) return '';
+        const s = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+        return `"${s.replace(/"/g, '""')}"`;
+    };
+    const lines = [cols.join(';'), ...rows.map(r => cols.map(c => cell(r[c])).join(';'))];
+    return '﻿' + lines.join('\n');
 }
 
 /**

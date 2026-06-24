@@ -11,6 +11,10 @@ import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS } from '../config.js';
 const overlay = () => document.getElementById('modal-overlay');
 const titleEl = () => document.getElementById('modal-title');
 
+// Icônes des statuts — même esprit que TYPE_ICONS (création de ticket), pour une chip-sel-group
+// homogène entre la modale de création (type) et le sélecteur de statut de la modale détail.
+const STATUS_ICONS = { todo: '📋', inprog: '🔄', review: '👀', test: '🧪', blocked: '🚫', done: '✅' };
+
 // ── Epic picker : récents (localStorage) + autocomplete + tri alpha ─────────
 const _RECENT_EPICS_KEY = 'sb-recent-epics';
 const _RECENT_EPICS_MAX = 8;
@@ -287,6 +291,34 @@ function _openChipPicker(el, options, currentValue, onCommit) {
     wrap.style.top  = `${rect.bottom + 6}px`;
     wrap.style.left = `${rect.left}px`;
     document.body.appendChild(wrap);
+    const onDocClick = (ev) => { if (!wrap.contains(ev.target) && ev.target !== el) cleanup(); };
+    const cleanup = () => {
+        wrap.remove();
+        document.removeEventListener('mousedown', onDocClick, true);
+    };
+    setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+}
+
+// Liste déroulante générique (type, statut, …) — chips colorées par valeur (même style que la
+// modale de création), ancrée sous le badge déclencheur plutôt qu'affichée en permanence.
+// `items` : [{ val, label }] — label déjà échappé/préparé par l'appelant (icône + libellé).
+function _openChipDropdown(el, items, currentValue, onCommit) {
+    document.querySelector('.chip-dropdown')?.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'chip-sel-group chip-dropdown';
+    wrap.setAttribute('role', 'radiogroup');
+    wrap.innerHTML = items.map(({ val, label }) => `<button type="button" role="radio" aria-checked="${val === currentValue}" class="chip-sel chip-sel--${val}${val === currentValue ? ' is-active' : ''}" data-val="${val}">${label}</button>`).join('');
+    const rect = el.getBoundingClientRect();
+    wrap.style.position = 'fixed';
+    wrap.style.top  = `${rect.bottom + 6}px`;
+    wrap.style.left = `${rect.left}px`;
+    document.body.appendChild(wrap);
+    wrap.addEventListener('click', e => {
+        const btn = e.target.closest('.chip-sel');
+        if (!btn) return;
+        cleanup();
+        if (btn.dataset.val !== currentValue) onCommit(btn.dataset.val);
+    });
     const onDocClick = (ev) => { if (!wrap.contains(ev.target) && ev.target !== el) cleanup(); };
     const cleanup = () => {
         wrap.remove();
@@ -606,8 +638,8 @@ export function openTicketModal(ticketId) {
         <button class="mdl-nav-btn${_modalIdx <= 0 ? ' disabled' : ''}" id="mdl-prev" title="Precedent (←)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
         <!-- H : avatar leader -->
         ${leader ? `<span class="mdl-header-avatar" style="background:${hashColor(leader)}" title="${esc(leader)}">${esc(initials(leader))}</span>` : ''}
-        <!-- D : badge type éditable -->
-        ${typeBadge(ticket.type, { extra: 'mdl-type-badge editable-field', attrs: `data-field="type" data-value="${esc(ticket.type)}" title="Cliquer pour modifier le type"`, title: false })}
+        <!-- D : badge type — clic = scroll vers les chips d'édition dans le corps -->
+        ${typeBadge(ticket.type, { extra: 'mdl-type-badge', attrs: 'id="mdl-type-badge-link" title="Cliquer pour modifier le type"', title: false })}
         ${jiraLink
             ? `<a class="mdl-ticket-link" href="${esc(jiraLink)}" target="_blank" rel="noopener" title="Ouvrir dans JIRA">${esc(ticket.id)}</a>`
             : `<span class="mdl-ticket-id">${esc(ticket.id)}</span>`
@@ -648,9 +680,7 @@ export function openTicketModal(ticketId) {
 
         <!-- Meta row -->
         <div class="mdl-meta">
-            <select class="status-select" id="detail-status" style="background:var(--status-${ticket.status}-bg);color:var(--status-${ticket.status})">
-                ${STATUS_ORDER.map(s => `<option value="${s}"${s === ticket.status ? ' selected' : ''}>${esc(STATUS_LABELS[s])}</option>`).join('')}
-            </select>
+            ${statusBadge(ticket, { extra: 'mdl-type-badge', attrs: 'id="mdl-status-badge-link" title="Cliquer pour modifier le statut"', title: false })}
             ${(() => {
                 const p = ticket.priority || 'medium';
                 const pc = p === 'critical' ? 'var(--danger)' : p === 'high' ? 'var(--warning)' : p === 'low' ? 'var(--text-muted)' : 'var(--info)';
@@ -816,15 +846,6 @@ export function openTicketModal(ticketId) {
     _renderChildrenSidebar(ticket);
 
     // ── Wire events ───────────────────────────────────────────────────────────
-    bodyEl().querySelector('#detail-status')?.addEventListener('change', async (e) => {
-        try {
-            const col = ticket.type === 'feature' ? api.updateFeature : ticket.type === 'epic' ? api.updateEpic : api.updateTicket;
-            await col(ticket.id, { status: e.target.value });
-            await refreshData();
-            toast(`Statut → ${STATUS_LABELS[e.target.value]}`, 'success');
-        } catch (err) { toast(err.message, 'error'); }
-    });
-
     bodyEl().querySelector('#btn-add-comment')?.addEventListener('click', async () => {
         const text = bodyEl().querySelector('#comment-text')?.value?.trim();
         if (!text) return;
@@ -890,6 +911,36 @@ export function openTicketModal(ticketId) {
         }
     });
 
+    // D : badge de type → liste déroulante de chips (même style que la modale de création)
+    // ancrée juste sous le badge, plutôt qu'une chip-sel-group permanente dans la ligne meta.
+    document.getElementById('mdl-type-badge-link')?.addEventListener('click', e => {
+        const items = Object.entries(TYPE_LABELS)
+            .filter(([v]) => !['epic', 'feature'].includes(v))
+            .map(([v, l]) => ({ val: v, label: `${TYPE_ICONS[v] || ''} ${esc(l)}` }));
+        _openChipDropdown(e.currentTarget, items, ticket.type, async (val) => {
+            try {
+                const col = ticket.type === 'feature' ? api.updateFeature : ticket.type === 'epic' ? api.updateEpic : api.updateTicket;
+                await col(ticket.id, { type: val });
+                await refreshData();
+                openTicketModal(ticket.id);
+            } catch (err) { toast(err.message, 'error'); }
+        });
+    });
+
+    // Badge de statut → même mécanisme de liste déroulante que le type.
+    document.getElementById('mdl-status-badge-link')?.addEventListener('click', e => {
+        const items = STATUS_ORDER.map(s => ({ val: s, label: `${STATUS_ICONS[s] || ''} ${esc(STATUS_LABELS[s])}` }));
+        _openChipDropdown(e.currentTarget, items, ticket.status, async (val) => {
+            try {
+                const col = ticket.type === 'feature' ? api.updateFeature : ticket.type === 'epic' ? api.updateEpic : api.updateTicket;
+                await col(ticket.id, { status: val });
+                await refreshData();
+                toast(`Statut → ${STATUS_LABELS[val]}`, 'success');
+                openTicketModal(ticket.id);
+            } catch (err) { toast(err.message, 'error'); }
+        });
+    });
+
     // Bouton copier (clé + titre)
     document.getElementById('mdl-copy-key')?.addEventListener('click', e => {
         const btn = e.currentTarget;
@@ -899,7 +950,10 @@ export function openTicketModal(ticketId) {
     });
 
     _bindDescriptionEditor(bodyEl(), ticket);
-    _bindInlineEditors(bodyEl(), ticket);
+    // Le badge de type ([data-field="type"]) vit dans la barre de titre (titleEl()), pas dans
+    // le corps — binder sur #modal (ancêtre commun titre+corps) au lieu de bodyEl() seul,
+    // sinon son clic ne déclenche jamais le picker (footgun : "je ne vois pas pour modifier le type").
+    _bindInlineEditors(document.getElementById('modal') || bodyEl(), ticket);
 
     // Prev/Next buttons
     document.getElementById('mdl-prev')?.addEventListener('click', () => {
@@ -1066,17 +1120,7 @@ function _bindInlineEditors(container, ticket) {
     container.querySelectorAll('[data-field]').forEach(el => {
         const field = el.dataset.field;
 
-        // D : type éditable
-        if (field === 'type') {
-            const typeOptions = Object.entries(TYPE_LABELS)
-                .filter(([v]) => !['epic','feature'].includes(v)) // épics/features gérés autrement
-                .map(([v, l]) => ({ value: v, label: l }));
-            el.addEventListener('click', () => _openChipPicker(el, typeOptions, el.dataset.value, async (val) => {
-                try { await apiSave({ type: val }, el); openTicketModal(ticket.id); }
-                catch (err) { toast(err.message, 'error'); }
-            }));
-            return;
-        }
+        // Type : géré via _openChipDropdown (clic sur le badge titre), câblé plus haut.
 
         if (field === 'flagged') {
             el.addEventListener('click', async () => {

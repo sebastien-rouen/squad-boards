@@ -12,7 +12,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, computeCapacityNextPI, getCurrentPi, extractPiNum, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, computeCapacityNextPI, getCurrentPi, extractPiNum, extractSprintLabel, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -48,7 +48,7 @@ const _sprintMetaStore = new Map();
 // Helpers et données partagés entre renderHealth et _openSprintModal (module-level)
 let _lastMoodVotes   = [];
 let _lastTeamObjects = [];
-const _spKey  = name => { const m = String(name||'').match(/(\d+\.\d+)/); return m ? m[1] : ''; };
+const _spKey  = extractSprintLabel; // alias local — source unique désormais dans utils.js
 const _face   = n => ({ 1:'😞', 2:'😕', 3:'😐', 4:'🙂', 5:'😄' }[Math.round(n)] || '—');
 const _fmtD   = iso => iso ? new Date(iso).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' }) : '—';
 const _stateL = s => ({ active:'🟢 En cours', closed:'✅ Terminé', future:'🔜 À venir' }[s] || s || '—');

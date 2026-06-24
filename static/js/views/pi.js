@@ -4,13 +4,14 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy } from '../components/sondage.js';
 import { renderRoam } from './roam.js';
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
 import { registerExternalChart } from '../components/charts.js';
+import { updateInfoPanel } from '../components/infopanel.js';
 
 let _activeTab = 'objectives';
 let _objUnlocked  = false; // déverrouillage manuel des objectifs sur PI passé
@@ -2719,7 +2720,11 @@ async function _renderConfidenceByObjective(el, objectives) {
 
     const sprintInfo = store.get('sprintInfo');
     const piInfo     = store.get('piInfo');
-    const piNum      = piInfo?.number || 0;
+    // getCurrentPi (sprint actif > piInfo.number) — pas piInfo.number seul, sinon piNum reste
+    // vide/obsolète quand piInfo n'a pas encore été configuré/resynchronisé, et les sprints
+    // générés ici retombent sur le format générique "S1" au lieu de "30.1" (le vote est alors
+    // enregistré sous un piSprint qui ne matche plus rien côté affichage).
+    const piNum      = getCurrentPi({ sprintInfo, piInfo }) || 0;
     const piOff      = store.get('piOffset') || 0;
     const piNumEff   = piNum ? Math.max(1, piNum + piOff) : 0;
     const piCfg      = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNumEff}`) || 'null'); } catch { return null; } })();
@@ -2818,11 +2823,30 @@ async function _renderConfidenceByObjective(el, objectives) {
     wrap.querySelector('#conf-team')?.addEventListener('change', refreshConf);
 }
 
+// Re-synchronise le store global (moodVotes/fistVotes) après un vote/suppression dans le
+// panneau de vote — sinon seule la vue locale (refreshResults, re-fetch direct) est à jour ;
+// le panneau latéral (infopanel.js) et les cellules mood de Health restent sur l'instantané
+// chargé au démarrage et affichent "Aucun vote" malgré des votes existants.
+async function _syncGlobalVoteStore(type) {
+    if (type !== 'mood' && type !== 'fist') return; // seuls ces 2 types sont mis en store
+    try {
+        const all = await api.getMood({ type });
+        store.set(type === 'fist' ? 'fistVotes' : 'moodVotes', all);
+        // store.set seul ne réaffiche pas le panneau latéral (pas d'abonnement dédié) — on
+        // rafraîchit juste l'info panel, pas toute la vue PI (sinon on perdrait l'état du
+        // panneau de vote qu'on vient d'utiliser).
+        updateInfoPanel();
+    } catch { /* best-effort — la vue locale reste correcte via refreshResults() */ }
+}
+
 async function renderVotingPanel(el, type, title, teams, scale, objectives = []) {
     // ── Config centralisée Sprint + PI (voir <!-- ═══ Sprint + PI Config ═══ -->) ──
     const sprintInfo    = store.get('sprintInfo');
     const piInfo        = store.get('piInfo');
-    const _basePiNum    = piInfo?.number || 0;
+    // getCurrentPi (sprint actif > piInfo.number), même correctif que _renderConfidenceByObjective
+    // ci-dessus — évite un piSprint enregistré en "S1" générique qui ne matchera plus jamais
+    // le label "NN.N" affiché ailleurs (panneau latéral, résultats du sondage).
+    const _basePiNum    = getCurrentPi({ sprintInfo, piInfo }) || 0;
     const _piOff        = store.get('piOffset') || 0;
     const piNum         = _basePiNum ? Math.max(1, _basePiNum + _piOff) : '';
     const _piCfgLocalBu = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNum}`) || 'null'); } catch { return null; } })();
@@ -2962,6 +2986,7 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
                 await Promise.all(toDelete.map(v => api.deleteMood(v.id)));
                 toast(`${toDelete.length} vote(s) supprimé(s)`, 'success');
                 refreshResults();
+                _syncGlobalVoteStore(type);
             });
         });
 
@@ -3007,6 +3032,7 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
                 await api.createMood({ type, team: teamVal, value: parseInt(btn.dataset.value), piSprint: sprint, note });
                 toast(`Vote enregistré : ${btn.title}`, 'success');
                 await refreshResults();
+                await _syncGlobalVoteStore(type);
             } catch (e) {
                 toast(e.message, 'error');
             } finally {

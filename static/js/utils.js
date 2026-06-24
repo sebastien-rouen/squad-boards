@@ -849,6 +849,19 @@ export function extractPiNum(name) {
 }
 
 /**
+ * Extrait le label complet "NN.N" d'un nom de sprint (ex: "Team G - Ité 30.1" → "30.1").
+ * À utiliser pour matcher `v.piSprint` (votes mood/fist) — NE JAMAIS reconstruire ce label à
+ * la main depuis `piInfo.number` + index de sprint : si `piInfo.number` est vide/obsolète, la
+ * reconstruction produit un label tronqué (ex: ".1") qui ne matche plus aucun vote (footgun
+ * constaté : panneau latéral "Aucun vote · .1" alors que des votes existaient bien sur 30.1).
+ * @returns {string} le label "NN.N", ou '' si non extractible.
+ */
+export function extractSprintLabel(name) {
+    const m = String(name || '').match(/(\d+\.\d+)/);
+    return m ? m[1] : '';
+}
+
+/**
  * SOURCE UNIQUE du "PI courant". À utiliser partout (topbar, settings, dashboard, …)
  * au lieu de réimplémenter la regex localement — sinon divergences et bugs d'affichage.
  *

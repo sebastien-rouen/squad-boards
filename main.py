@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
 from sqlmodel import SQLModel
 
 import app.models  # noqa: F401 — enregistre toutes les tables sur SQLModel.metadata
@@ -58,7 +59,19 @@ for _r in (
 
 
 # ── Static Files ──────────────────────────────────────────────────────────────
-app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
+class NoCacheStaticFiles(StaticFiles):
+    """Sert les assets avec `Cache-Control: no-cache` afin que le navigateur
+    revalide systématiquement (les imports ES modules n'ont pas de cache-busting
+    `?v=` ; sans ça le front sert un module obsolète après une modif). Léger : la
+    revalidation reste un 304 via ETag/Last-Modified tant que le fichier ne change pas.
+    """
+    def file_response(self, *args, **kwargs) -> Response:
+        resp = super().file_response(*args, **kwargs)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
+app.mount("/", NoCacheStaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 
 
 if __name__ == "__main__":

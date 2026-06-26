@@ -1501,6 +1501,7 @@ function _buildSprintReviewHtml(sprint, tickets) {
         return (b.points || 0) - (a.points || 0);
     });
     const blocked = notDone.filter(t => t.status === 'blocked');
+    const notDonePts = sumBy(notDone, t => t.points);
 
     // Périmètre élargi : tickets ajoutés après début sprint
     const sprintStart = sprint.startDate ? new Date(String(sprint.startDate).slice(0, 10)).getTime() : 0;
@@ -1612,12 +1613,14 @@ function _buildSprintReviewHtml(sprint, tickets) {
         </div>`;
 
     // ── Génération du texte Slack-friendly (PUR TEXTE, sans mrkdwn) ──────────
-    // Slack n'interprète PAS *gras* / _italique_ / `code` au paste, mais interprète
-    // les liens `<URL|texte>` (cliquables même au paste). On en profite pour les tickets.
+    // Slack n'interprète PAS *gras* / _italique_ / `code` au paste. Le format de
+    // lien `<URL|texte>` n'est PAS non plus interprété au paste dans le composeur
+    // Slack : il s'affiche en littéral avec le `|` (ex : `…/browse/GDEM-4212|GDEM-4212`).
+    // → on émet l'URL nue, que Slack/Teams/Gmail auto-linkifient (cf. CHANGELOG 3.6.31).
     const jiraBaseClean = (jiraBase || '').replace(/\/$/, '');
-    const _slackKey = (id) => jiraBaseClean && id ? `<${jiraBaseClean}/browse/${id}|${id}>` : id || '';
+    const _slackKey = (id) => jiraBaseClean && id ? `${jiraBaseClean}/browse/${id}` : id || '';
     const _slackList = (arr, max = 5) => {
-        const top = arr.slice(0, max).map(t => `   • ${_slackKey(t.id)} - ${t.title || '(sans titre)'}${t.points ? ` (${t.points} pts)` : ''}`).join('\n');
+        const top = arr.slice(0, max).map(t => `   • ${_typeIcon(t.type, t.labels)} ${_slackKey(t.id)} - ${t.title || '(sans titre)'}${t.points ? ` (${t.points} pts)` : ''}`).join('\n');
         const rest = arr.length > max ? `\n   ...et ${arr.length - max} autre${arr.length - max > 1 ? 's' : ''}` : '';
         return top + rest;
     };
@@ -1664,12 +1667,16 @@ function _buildSprintReviewHtml(sprint, tickets) {
         if (fistStats) climLines.push(`   • Fist of Five (confiance PI) : ${fistStats.avg}/5 (${fistStats.count} vote${fistStats.count > 1 ? 's' : ''})`);
         slackParts.push(climLines.join('\n'));
     }
+    if (notDone.length) {
+        // notDone est déjà trié blocked → inprog → review → test → todo : les bloqués remontent en tête.
+        const reportHdr = `\n🔄 À reporter - ${notDone.length} ticket${notDone.length > 1 ? 's' : ''}`
+            + (notDonePts ? ` · ${notDonePts} pts` : '')
+            + (blocked.length ? ` (dont ${blocked.length} bloqué${blocked.length > 1 ? 's' : ''} 🚨)` : '');
+        slackParts.push(`${reportHdr}\n${_slackList(notDone, 10)}`);
+    }
     if (allActionRetro.length) {
         const openRetro = allActionRetro.filter(t => t.status !== 'done');
         if (openRetro.length) slackParts.push(`\n🔁 Actions rétro à passer en revue (${openRetro.length} non clôturée${openRetro.length > 1 ? 's' : ''})\n${_slackList(openRetro, 10)}`);
-    }
-    if (notDone.length) {
-        slackParts.push(`\n🔄 À reporter - ${notDone.length} ticket${notDone.length > 1 ? 's' : ''}${blocked.length ? ` (dont ${blocked.length} bloqué${blocked.length > 1 ? 's' : ''} 🚨)` : ''}`);
     }
     if (blocked.length > 0 || scopeCreep.length >= 2) {
         const pts = [];
@@ -2048,7 +2055,19 @@ ul.cr-tickets a:hover { text-decoration: underline; }
     const icn = btn?.querySelector('.slack-btn-icon');
     btn?.addEventListener('click', async () => {
         try {
-            await navigator.clipboard.writeText(SLACK_TEXT);
+            // Reprend les "Décisions & prochaines étapes" saisies dans la zone éditable
+            // (générée vide côté serveur → on la relit au moment du clic).
+            let text = SLACK_TEXT;
+            const decEl = document.getElementById('cr-decisions');
+            const decTxt = decEl ? (decEl.innerText || '').replace(/ /g, ' ').trim() : '';
+            if (decTxt) {
+                // Backslashes doublés : ce bloc est injecté dans le <script> via le template
+                // literal externe ; une séquence d'échappement simple deviendrait un vrai saut
+                // de ligne dans le script généré (chaîne multi-lignes = SyntaxError, bouton inerte).
+                const decBody = decTxt.split('\\n').map(l => l.trim() ? '   ' + l.trim() : '').join('\\n');
+                text += '\\n\\n🚀 Décisions & prochaines étapes\\n' + decBody;
+            }
+            await navigator.clipboard.writeText(text);
             btn.classList.add('is-ok');
             if (lbl) lbl.textContent = 'Copié !';
             if (icn) icn.textContent = '✓';
@@ -2241,6 +2260,32 @@ ${(moodStats || fistStats) ? `
     </div>` : ''}
 </div>` : ''}
 
+<h2>🔄 À reporter au prochain sprint <span class="badge">${notDone.length} ticket${notDone.length > 1 ? 's' : ''}${notDonePts ? ` · ${notDonePts} pts` : ''}</span></h2>
+${notDone.length === 0
+    ? '<p class="empty">🎉 Tous les tickets ont été livrés !</p>'
+    : (() => {
+        // Groupes par statut dans l'ordre du tri (blocked → inprog → review → test → todo)
+        const groups = [
+            { key: 'blocked', label: '🚫 Bloqués',   color: '#ef4444' },
+            { key: 'inprog',  label: '🔄 En cours',  color: '#3b82f6' },
+            { key: 'review',  label: '👁 En review', color: '#8b5cf6' },
+            { key: 'test',    label: '🧪 En test',   color: '#f59e0b' },
+            { key: 'todo',    label: '⏸ À faire',    color: '#64748b' },
+        ];
+        const other = notDone.filter(t => !groups.find(g => g.key === t.status));
+        return groups.map(g => {
+            const list = notDone.filter(t => t.status === g.key);
+            if (!list.length) return '';
+            return `<div class="wins-group" style="border-left-color:${g.color}">
+                <h3 class="wins-group-title"><span>${g.label}</span><span class="wins-group-count">${list.length}</span></h3>
+                <ul class="cr-tickets">${list.map(renderRow).join('')}</ul>
+            </div>`;
+        }).join('') + (other.length ? `<div class="wins-group" style="border-left-color:#94a3b8">
+            <h3 class="wins-group-title"><span>Autres</span><span class="wins-group-count">${other.length}</span></h3>
+            <ul class="cr-tickets">${other.map(renderRow).join('')}</ul>
+        </div>` : '');
+    })()}
+
 ${allActionRetro.length ? `
 <h2>🔁 Actions rétro à passer en revue <span class="badge">${allActionRetro.length}</span></h2>
 <p class="retro-intro">Tour de table : où en est-on sur chaque action issue des rétros précédentes ?</p>
@@ -2270,32 +2315,6 @@ ${allActionRetro.length ? `
         </div>`;
     }).join('')}
 </div>` : ''}
-
-<h2>🔄 À reporter au prochain sprint <span class="badge">${notDone.length} ticket${notDone.length > 1 ? 's' : ''}</span></h2>
-${notDone.length === 0
-    ? '<p class="empty">🎉 Tous les tickets ont été livrés !</p>'
-    : (() => {
-        // Groupes par statut dans l'ordre du tri (blocked → inprog → review → test → todo)
-        const groups = [
-            { key: 'blocked', label: '🚫 Bloqués',   color: '#ef4444' },
-            { key: 'inprog',  label: '🔄 En cours',  color: '#3b82f6' },
-            { key: 'review',  label: '👁 En review', color: '#8b5cf6' },
-            { key: 'test',    label: '🧪 En test',   color: '#f59e0b' },
-            { key: 'todo',    label: '⏸ À faire',    color: '#64748b' },
-        ];
-        const other = notDone.filter(t => !groups.find(g => g.key === t.status));
-        return groups.map(g => {
-            const list = notDone.filter(t => t.status === g.key);
-            if (!list.length) return '';
-            return `<div class="wins-group" style="border-left-color:${g.color}">
-                <h3 class="wins-group-title"><span>${g.label}</span><span class="wins-group-count">${list.length}</span></h3>
-                <ul class="cr-tickets">${list.map(renderRow).join('')}</ul>
-            </div>`;
-        }).join('') + (other.length ? `<div class="wins-group" style="border-left-color:#94a3b8">
-            <h3 class="wins-group-title"><span>Autres</span><span class="wins-group-count">${other.length}</span></h3>
-            <ul class="cr-tickets">${other.map(renderRow).join('')}</ul>
-        </div>` : '');
-    })()}
 
 <h2>⚠️ Points d'attention pour la rétro</h2>
 ${blocked.length > 0 || scopeCreep.length >= 2

@@ -6,6 +6,40 @@
 - **Frontend** ([settings.js](static/js/views/settings.js), [app.js](static/js/app.js)) : catégorie d'export « Mood & Fist Five » (`votes` → `moodVotes` + `fistVotes` + `confidenceVotes`) + nouvelle catégorie « Rétro (actions) », avec compteurs. `confidenceVotes` chargé dans le store au boot (compteur juste). `IMPORT_CATEGORIES` n'exclut plus « Calendriers » — toutes les catégories d'export sont désormais ré-importables.
 - **Hors périmètre** (décision validée) : votes Poker (éphémères) non concernés ; les configs calendrier par-PI (`pi-cfg-N` : date de début / nb sprints / durée) restent en localStorage, JIRA gardant la source de vérité des dates.
 
+## [3.99.5] - 2026-06-25
+
+### Fix : « Copier pour Slack » toujours inerte (le commentaire du fix 3.99.4 cassait le script)
+- Le correctif 3.99.4 avait bien doublé les `\\n` des lignes de **code**, mais le **commentaire** ajouté pour documenter le piège contenait lui-même un `\n` simple — transformé en vrai saut de ligne par le template literal externe, il coupait le commentaire en deux et exposait du texte comme du code (`SyntaxError: Unexpected identifier 'deviendrait'`) → script inline toujours non chargé, bouton inerte.
+- **Fix** : commentaire réécrit sans aucune séquence backslash. **Vérifié** en extrayant et générant réellement le `<script>` inline depuis le source (évaluation du template literal + `vm.Script`) : `=> SCRIPT GENERE : SYNTAXE OK`.
+- Leçon : dans ce `<script>` inline, le piège des backslashes vaut aussi pour les **commentaires**, pas seulement les chaînes.
+
+## [3.99.4] - 2026-06-25
+
+### Fix : bouton « Copier pour Slack » de la Review ne copiait plus rien
+- **Symptôme** : un clic sur « Copier pour Slack » ne copiait qu'une seule ligne (en réalité l'ancienne sélection de l'utilisateur, le titre H2 de la page) — le presse-papier n'était jamais écrit.
+- **Cause** ([sprint_tickets_modal.js](static/js/components/sprint_tickets_modal.js)) : le code ajouté en 3.99.2 pour reprendre la zone « Décisions » est injecté dans le `<script>` inline, lui-même dans le template literal externe `return \`…\``. Les `\n` en chaînes simple-quotes étaient interprétés par le template literal **externe** et devenaient de vrais sauts de ligne → chaîne `'…'` multi-lignes = **SyntaxError** dans le script généré → aucun écouteur de clic câblé (bouton inerte).
+- **Fix** : doublé les séquences (`\\n`) dans le bloc Décisions pour qu'elles survivent jusqu'au script généré (`split('\\n')`, `join('\\n')`, séparateur `'\\n\\n…'`). Vérifié : le script généré est désormais syntaxiquement valide.
+
+## [3.99.3] - 2026-06-25
+
+### Sprint Review — « À reporter » avant « Actions rétro »
+- Inversion de l'ordre des deux sections, sur la page HTML **et** dans la copie Slack ([sprint_tickets_modal.js](static/js/components/sprint_tickets_modal.js)) : « 🔄 À reporter au prochain sprint » passe désormais **avant** « 🔁 Actions rétro à passer en revue ». L'enchaînement suit le déroulé naturel de la review (ce qui reste à finir, puis le tour de table des actions rétro).
+
+## [3.99.2] - 2026-06-25
+
+### Amélioration : Sprint Review — copie Slack plus riche + points reportés
+- **Emoji de type par ticket** dans la copie Slack ([sprint_tickets_modal.js](static/js/components/sprint_tickets_modal.js) `_slackList`) : chaque ligne Réalisations / Actions rétro / À reporter est préfixée de l'icône de type (📖/⚙️/🐛/🛡️/🔁…), comme le rendu HTML — meilleur scan.
+- **Section « À reporter » détaillée** : remplace le simple compteur par la liste des tickets (10 max), bloqués en tête (la liste est déjà triée `blocked → inprog → review → test → todo`), avec le total de points reportés.
+- **Total points « À reporter »** aussi affiché dans le badge de la page HTML (`N tickets · M pts`) — mesure la dette de sprint d'un coup d'œil.
+- **Zone « Décisions & prochaines étapes » reprise dans la copie** : la zone éditable est relue au moment du clic « Copier pour Slack » et ajoutée en fin de message (elle était jusqu'ici perdue car le texte Slack est généré avant l'édition).
+
+## [3.99.1] - 2026-06-25
+
+### Fix : Copier Slack Review — lien JIRA affiché en littéral `…/browse/GDEM-4212|GDEM-4212`
+- **Problème** : sur la page Sprint Review, le bouton "Copier pour Slack" produisait des liens au format `<URL|ID>` pour les tickets des sections **Réalisations** et **Actions rétro**. Collés dans Slack, ils s'affichaient en littéral avec le `|` (`https://erpc.atlassian.net/browse/GDEM-4212|GDEM-4212`) au lieu d'être cliquables.
+- **Cause** ([sprint_tickets_modal.js:1618](static/js/components/sprint_tickets_modal.js#L1618)) : le helper `_slackKey` réutilisait le format `<URL|texte>`, déjà identifié comme non interprété par Slack au paste dans la 3.6.31 (le composeur Slack ne traite ce format qu'à la frappe / via l'API, pas au collage).
+- **Fix** : `_slackKey` émet désormais l'**URL nue** (`…/browse/GDEM-4212`), auto-linkifiée par Slack/Teams/Gmail sans configuration — cohérent avec le format texte universel adopté en 3.6.31.
+
 ## [3.99.0] - 2026-06-25
 
 ### Fix : membre parti encore visible dans Agenda et sur /#support (hero-card)

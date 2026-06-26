@@ -338,6 +338,7 @@ async function loadAllData() {
     store.set('risks', d.risks || []);
     store.set('moodVotes', d.moodVotes || []);
     store.set('fistVotes', d.fistVotes || []);
+    store.set('confidenceVotes', d.confidenceVotes || []);
     store.set('calendars', d.calendars || []);
     store.set('calendarEvents', d.calendarEvents || []);
     store.set('teamIdentities', d.teamIdentities || []);

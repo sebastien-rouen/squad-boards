@@ -1,3 +1,11 @@
+## [3.100.0] - 2026-06-26
+
+### Feat : export/import complet des votes (Mood / Fist Five / Confidence), des Rétro, des Calendriers, et réparation import Risques ROAM
+- **Constat** : les votes Mood / Fist of Five / Confidence sont bien persistés en base ([`MoodVote`](app/models/agile.py), via `/api/mood`) et non en localStorage — mais ils étaient absents de `/api/export` et `/api/import`. Les votes `confidence` (vote de confiance par objectif de PI, sous l'onglet « ✊ Fist of Five ») n'étaient même pas exposés dans `/api/all`. Les Rétro (`RetroItem`) étaient dans `/api/all` mais ni exportées ni importées. Les calendriers ICS étaient exportés mais volontairement exclus de l'import. Les Risques ROAM étaient exportés mais le handler `/api/import` ne les traitait pas (réimport silencieusement ignoré).
+- **Backend** ([data.py](app/routers/data.py)) : `export_all` + `/api/all` exposent désormais `moodVotes`, `fistVotes` et `confidenceVotes` (une clé par type). `retroItems` ajouté à `_EXPORT_SPEC`. Le handler `/api/import` gère les nouvelles entrées : `risks` (bug corrigé), `retroItems`, les 3 types de votes (`replace` scopé au type), et `calendars` (recrée le lien ICS url/nom/équipe ; les events sont re-fetchés depuis l'URL au prochain rafraîchissement, `events_json` n'étant pas exporté).
+- **Frontend** ([settings.js](static/js/views/settings.js), [app.js](static/js/app.js)) : catégorie d'export « Mood & Fist Five » (`votes` → `moodVotes` + `fistVotes` + `confidenceVotes`) + nouvelle catégorie « Rétro (actions) », avec compteurs. `confidenceVotes` chargé dans le store au boot (compteur juste). `IMPORT_CATEGORIES` n'exclut plus « Calendriers » — toutes les catégories d'export sont désormais ré-importables.
+- **Hors périmètre** (décision validée) : votes Poker (éphémères) non concernés ; les configs calendrier par-PI (`pi-cfg-N` : date de début / nb sprints / durée) restent en localStorage, JIRA gardant la source de vérité des dates.
+
 ## [3.99.0] - 2026-06-25
 
 ### Fix : membre parti encore visible dans Agenda et sur /#support (hero-card)

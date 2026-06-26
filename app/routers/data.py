@@ -44,6 +44,7 @@ _EXPORT_SPEC = [
     ("support",          SupportRotation, _support_dict),
     ("events",           Event,           _event_dict),
     ("risks",            Risk,            _risk_dict),
+    ("retroItems",       RetroItem,       _retro_dict),
     ("skills",           Skill,           _skill_dict),
     ("appetences",       Appetence,       _appetence_dict),
     ("memberSkills",     MemberSkill,     _member_skill_dict),
@@ -62,6 +63,10 @@ def export_all(session: Session = Depends(get_session)):
            for key, model, ser in _EXPORT_SPEC}
     out["sprint"] = _sprint_dict(session.get(SprintConfig, "sprint-1"))
     out["pi"] = _pi_dict(session.get(PIConfig, "pi-1"))
+    # Votes Mood / Fist of Five / Confidence — une clé par type (mêmes clés que /api/all).
+    out["moodVotes"] = [_mood_dict(m) for m in session.exec(select(MoodVote).where(MoodVote.type == "mood")).all()]
+    out["fistVotes"] = [_mood_dict(m) for m in session.exec(select(MoodVote).where(MoodVote.type == "fist")).all()]
+    out["confidenceVotes"] = [_mood_dict(m) for m in session.exec(select(MoodVote).where(MoodVote.type == "confidence")).all()]
     out["exportedAt"] = _now()
     return out
 
@@ -138,6 +143,7 @@ def get_all_data(session: Session = Depends(get_session)):
         "risks":         [_risk_dict(r) for r in session.exec(select(Risk)).all()],
         "moodVotes":     [_mood_dict(m) for m in session.exec(select(MoodVote).where(MoodVote.type == "mood")).all()],
         "fistVotes":     [_mood_dict(m) for m in session.exec(select(MoodVote).where(MoodVote.type == "fist")).all()],
+        "confidenceVotes": [_mood_dict(m) for m in session.exec(select(MoodVote).where(MoodVote.type == "confidence")).all()],
         "calendars":     [_cal_dict(c) for c in cals],
         "calendarEvents": expand_calendar_events(cals),
         "teamIdentities": [_team_identity_dict(t) for t in session.exec(select(TeamIdentity)).all()],
@@ -381,6 +387,43 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
             session.merge(e)
         counts["events"] = len(items)
 
+    if "risks" in body and body["risks"] is not None:
+        items = body["risks"]
+        if mode == "replace":
+            for row in session.exec(select(Risk)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(Risk(
+                id=d.get("id") or _gen_id(),
+                title=d.get("title", ""),
+                description=d.get("description", ""),
+                quadrant=d.get("quadrant", "open"),
+                team=d.get("team", ""),
+                owner=d.get("owner"),
+                impact=d.get("impact", "medium"),
+                probability=d.get("probability", "medium"),
+                mitigation=d.get("mitigation", ""),
+                pi_sprint=d.get("piSprint"),
+            ))
+        counts["risks"] = len(items)
+
+    if "retroItems" in body and body["retroItems"] is not None:
+        items = body["retroItems"]
+        if mode == "replace":
+            for row in session.exec(select(RetroItem)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(RetroItem(
+                id=d.get("id") or _gen_id(),
+                title=d.get("title", ""),
+                source=d.get("source", "retro"),
+                status=d.get("status", "todo"),
+                team=d.get("team", ""),
+                owner=d.get("owner"),
+                pi_sprint=d.get("piSprint"),
+            ))
+        counts["retroItems"] = len(items)
+
     # ── Atlas : compétences / appétences / niveaux / mobilité ──────────────────
     if "skills" in body and body["skills"] is not None:
         items = body["skills"]
@@ -499,6 +542,41 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
                 status=d.get("status", "draft"),
             ))
         counts["teamWorkshops"] = len(items)
+
+    # ── Votes Mood / Fist of Five / Confidence (une clé par type) ──────────────
+    for _vote_key, _vote_type in (("moodVotes", "mood"), ("fistVotes", "fist"), ("confidenceVotes", "confidence")):
+        if _vote_key in body and body[_vote_key] is not None:
+            items = body[_vote_key]
+            if mode == "replace":
+                for row in session.exec(select(MoodVote).where(MoodVote.type == _vote_type)).all():
+                    session.delete(row)
+            for d in items:
+                session.merge(MoodVote(
+                    id=d.get("id") or _gen_id(),
+                    type=_vote_type,
+                    team=d.get("team", ""),
+                    value=d.get("value", 3),
+                    pi_sprint=d.get("piSprint"),
+                    author=d.get("author"),
+                    note=d.get("note", ""),
+                ))
+            counts[_vote_key] = len(items)
+
+    # ── Calendriers ICS : on ré-importe le lien (url/nom/équipe). Les events sont
+    # re-fetchés depuis l'URL au prochain rafraîchissement (events_json non exporté).
+    if "calendars" in body and body["calendars"] is not None:
+        items = body["calendars"]
+        if mode == "replace":
+            for row in session.exec(select(TeamCalendar)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(TeamCalendar(
+                id=d.get("id") or _gen_id(),
+                team=d.get("team", ""),
+                name=d.get("name", "Calendrier"),
+                ical_url=d.get("icalUrl", ""),
+            ))
+        counts["calendars"] = len(items)
 
     session.commit()
     return {"ok": True, "mode": mode, "counts": counts}

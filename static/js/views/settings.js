@@ -41,6 +41,8 @@ const EXPORT_CATEGORIES = [
     { key: 'support',  label: 'Support',      icon: '🛟' },
     { key: 'events',   label: 'Évènements',   icon: '📅' },
     { key: 'risks',    label: 'Risques ROAM', icon: '⚠️' },
+    { key: 'votes',    label: 'Mood & Fist Five', icon: '😊' },
+    { key: 'retroItems', label: 'Rétro (actions)', icon: '🔁' },
     { key: 'atlas',    label: 'Atlas (compétences)', icon: '🧭' },
     { key: 'config',   label: 'Sprint & PI',  icon: '⚙️' },
     { key: 'team',     label: 'Équipe (fiches & ateliers)', icon: '🪪' },
@@ -50,6 +52,7 @@ const EXPORT_CATEGORY_KEYS = {
     atlas:  ['skills', 'appetences', 'memberSkills', 'memberAppetences', 'mobility'],
     config: ['sprint', 'pi'],
     team:   ['teamIdentities', 'workshopTemplates', 'teamWorkshops'],
+    votes:  ['moodVotes', 'fistVotes', 'confidenceVotes'],
 };
 const EXPORT_FORMATS = [
     { key: 'json', label: 'JSON' },
@@ -80,6 +83,8 @@ function _exportCategoryCounts() {
         risks:    len('risks'),
         atlas:    len('skills') + len('appetences') + len('memberSkills') + len('memberAppetences') + len('mobility'),
         team:     len('teamIdentities') + len('workshopTemplates') + len('teamWorkshops'),
+        votes:    len('moodVotes') + len('fistVotes') + len('confidenceVotes'),
+        retroItems: len('retroItems'),
         calendars: len('calendars'),
         // 'config' (sprint & PI) n'est pas une liste — pas de badge pertinent.
     };
@@ -95,9 +100,9 @@ function _saveLastExportChoice(keys, format) {
 }
 
 // ── Import (modale guidée : format, modèle, prévisualisation) ─────────────────
-// « Calendriers » est exclu : exporté pour référence/backup mais /api/import ne sait pas
-// le ré-importer (les calendriers ICS se gèrent via leur propre section ci-dessus).
-const IMPORT_CATEGORIES = EXPORT_CATEGORIES.filter(c => c.key !== 'calendars');
+// Toutes les catégories d'export sont désormais ré-importables. Pour « Calendriers »,
+// l'import recrée le lien ICS (url/nom/équipe) ; les events sont re-fetchés depuis l'URL.
+const IMPORT_CATEGORIES = EXPORT_CATEGORIES;
 const IMPORT_ALL_RAW_KEYS = new Set(IMPORT_CATEGORIES.flatMap(c => EXPORT_CATEGORY_KEYS[c.key] || [c.key]));
 
 /** Modèle JSON vide (toutes les clés reconnues, en tableaux vides) — pour montrer le format attendu. */

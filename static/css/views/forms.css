@@ -636,41 +636,47 @@
 .vr-global-unit  { font-size: 11px; font-weight: 400; color: var(--text-muted); margin-left: 1px; }
 .vr-global-label { font-size: 12px; color: var(--text-muted); }
 
-.vr-list { display: flex; flex-direction: column; gap: 3px; }
-.vr-row {
+.vr-list {
     display: grid;
-    grid-template-columns: 1fr 72px 1fr 52px 24px;
-    align-items: center; gap: var(--sp-2);
-    padding: 6px var(--sp-3); border-radius: var(--r-md);
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: var(--sp-2);
+}
+.vr-row {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 6px var(--sp-2); border-radius: var(--r-md);
     background: var(--surface); border: 1px solid var(--border);
     transition: background var(--tr-fast);
 }
 .vr-row:hover { background: var(--bg); }
 .vr-row--empty { opacity: 0.4; }
 
-.vr-team  { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.vr-row-top { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .vr-dot   { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; }
-.vr-name  { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vr-name  { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+
+.vr-row-mid { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
 
 .vr-score  { display: flex; align-items: baseline; gap: 3px; }
-.vr-emoji  { font-size: 14px; line-height: 1; }
-.vr-val    { font-size: 15px; font-weight: 700; }
+.vr-emoji  { font-size: 13px; line-height: 1; }
+.vr-val    { font-size: 14px; font-weight: 700; }
 .vr-unit   { font-size: 10px; color: var(--text-muted); }
 
-.vr-distrib       { display: flex; height: 5px; gap: 2px; border-radius: 3px; min-width: 60px; }
+.vr-distrib       { display: flex; height: 4px; gap: 2px; border-radius: 3px; }
 .vr-seg           { border-radius: 2px; min-width: 3px; }
 .vr-distrib-empty { flex: 1; background: var(--border); border-radius: 2px; }
 
-.vr-count { font-size: 11px; color: var(--text-muted); white-space: nowrap; text-align: right; }
+.vr-count { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 
 .vr-del {
+    flex-shrink: 0;
     opacity: 0; background: none; border: none; cursor: pointer;
-    font-size: 12px; padding: 2px 3px; border-radius: var(--r-sm);
+    font-size: 11px; padding: 1px 2px; border-radius: var(--r-sm);
     transition: opacity var(--tr-fast), background var(--tr-fast);
     color: var(--text-muted);
 }
 .vr-row:hover .vr-del { opacity: 1; }
 .vr-del:hover { background: var(--danger-bg); color: var(--danger); }
+@media (hover: none) { .vr-del { opacity: 1; } }
 
 /* Confiance par objectif (#4) */
 .conf-obj-list { display: flex; flex-direction: column; padding: 8px 16px 12px; gap: 6px; }

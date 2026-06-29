@@ -372,6 +372,19 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .pi-obj-attain-item--todo .pi-obj-attain-text { color: var(--text-muted); }
+
+/* Édition inline depuis le Dashboard (PI courant uniquement) */
+.pi-obj-attain-item--editable [data-obj-cycle-status] { cursor: pointer; }
+.pi-obj-attain-item--editable [data-obj-cycle-status]:hover { box-shadow: 0 0 0 2px var(--primary); }
+.pi-obj-attain-item--editable [data-obj-edit-text] { cursor: text; border-radius: var(--r-sm); }
+.pi-obj-attain-item--editable [data-obj-edit-text]:hover { background: var(--surface); box-shadow: 0 0 0 1px var(--border); }
+.pi-obj-attain-item--editable [data-obj-edit-text]:focus {
+    outline: none; white-space: normal; overflow: visible;
+    background: var(--surface); box-shadow: 0 0 0 2px var(--primary);
+}
+.pi-obj-attain-item--editable [data-obj-edit-bv] { cursor: text; border-radius: 2px; padding: 0 2px; }
+.pi-obj-attain-item--editable [data-obj-edit-bv]:hover { box-shadow: 0 0 0 1px var(--border); }
+.pi-obj-attain-item--editable [data-obj-edit-bv]:focus { outline: none; box-shadow: 0 0 0 2px var(--primary); }
 .pi-obj-attain-team {
     font-size: 10px;
     color: var(--text-muted);
@@ -385,9 +398,12 @@
     font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em;
     font-weight: var(--fw-semibold);
     padding: 2px 6px; border-radius: 3px;
+    border: none; font-family: inherit;
 }
 .pi-obj-kind--commit  { background: rgba(99, 102, 241, 0.14); color: var(--indigo-text); }
 .pi-obj-kind--stretch { background: rgba(245, 158, 11, 0.14); color: var(--amber-text); }
+button.pi-obj-kind { cursor: pointer; }
+button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .pi-obj-attain-bv {
     font-size: 10px;
     font-weight: var(--fw-semibold);

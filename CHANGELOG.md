@@ -1,3 +1,16 @@
+## [3.101.0] - 2026-06-29
+
+### Feat : édition inline des objectifs PI depuis le Dashboard (texte, statut, commis/stretch, BV)
+- **Constat** : corriger un objectif PI (texte, statut, BV, commis/stretch) depuis le Dashboard imposait d'aller dans PI Planning → Objectifs, perdant le contexte de la vue d'ensemble.
+- **Frontend** ([dashboard.js](static/js/views/dashboard.js)) : sur le PI courant uniquement (un PI passé reste un snapshot figé, éditable via PI Planning si déverrouillé), chaque ligne de `pi-obj-attain-list` devient éditable : texte en `contenteditable` (Entrée valide, Échap annule), icône de statut cliquable (cycle todo → en cours → terminé → bloqué), badge Commis/Stretch cliquable (toggle), BV cliquable (0–10, clampé). Chaque édition réécrit l'objectif à son index d'origine (`_idx`, conservé après filtre/tri) dans `piInfo.objectives` puis persiste via `api.updatePI` (même chemin que l'éditeur complet de PI Planning).
+- **CSS** ([dashboard.css](static/css/views/dashboard.css)) : affordances hover/focus (anneau de couleur primaire) sur les éléments désormais éditables.
+
+### Style : résultats de vote (Fist of Five / Mood-ROTI) en grille compacte multi-équipes
+- **Constat** : `#vote-results` empilait une ligne pleine largeur par équipe, obligeant à scroller dès que plusieurs équipes votaient.
+- **Frontend** ([pi.js](static/js/views/pi.js), [forms.css](static/css/views/forms.css)) : chaque équipe devient une mini-carte verticale compacte (nom+suppression / score+nb votes / barre de distribution) ; `.vr-list` passe en grille responsive (`auto-fill, minmax(130px,1fr)`) pour afficher plusieurs équipes côte à côte selon la largeur d'écran au lieu d'une liste verticale unique.
+
+---
+
 ## [3.100.0] - 2026-06-26
 
 ### Feat : export/import complet des votes (Mood / Fist Five / Confidence), des Rétro, des Calendriers, et réparation import Risques ROAM

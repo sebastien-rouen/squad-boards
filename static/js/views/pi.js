@@ -2956,16 +2956,18 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
                     }).join('');
                     return `
                     <div class="vr-row${t.count ? '' : ' vr-row--empty'}">
-                        <div class="vr-team">
+                        <div class="vr-row-top">
                             <span class="vr-dot" style="background:${t.color}"></span>
                             <span class="vr-name">${esc(t.name)}</span>
+                            ${t.count ? `<button class="vr-del vote-del-team" data-team="${esc(t.name)}" title="Supprimer les votes">🗑</button>` : ''}
                         </div>
-                        <div class="vr-score" style="color:${sc}">
-                            ${t.count ? `<span class="vr-emoji">${emoji}</span><span class="vr-val">${t.avg}</span><span class="vr-unit">/5</span>` : '<span class="vr-val" style="color:var(--text-muted)">—</span>'}
+                        <div class="vr-row-mid">
+                            <div class="vr-score" style="color:${sc}">
+                                ${t.count ? `<span class="vr-emoji">${emoji}</span><span class="vr-val">${t.avg}</span><span class="vr-unit">/5</span>` : '<span class="vr-val" style="color:var(--text-muted)">—</span>'}
+                            </div>
+                            <span class="vr-count">${t.count ? `${t.count} vote${t.count > 1 ? 's' : ''}` : ''}</span>
                         </div>
                         <div class="vr-distrib">${bars || '<span class="vr-distrib-empty"></span>'}</div>
-                        <span class="vr-count">${t.count ? `${t.count} vote${t.count > 1 ? 's' : ''}` : ''}</span>
-                        ${t.count ? `<button class="vr-del vote-del-team" data-team="${esc(t.name)}" title="Supprimer les votes">🗑</button>` : '<span></span>'}
                     </div>`;
                 }).join('')}
             </div>

@@ -3,7 +3,8 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, resolvePiObjectives, isBufferItem, countBlocked, throughputSince } from '../utils.js';
+import * as api from '../api.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { renderCycleTime } from '../components/charts.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
@@ -62,7 +63,11 @@ export function renderDashboard(container) {
     // Résolution courant-vs-snapshot déléguée à resolvePiObjectives (source unique partagée
     // avec pi.js renderObjectives) — supprime le footgun « doit rester cohérent ».
     const _rawObjs = resolvePiObjectives({ piInfo, piNum: displayPiNum, isCurrentPi: piOffset === 0 });
-    const piObjs = _rawObjs.filter(o => (o.text || '').trim());
+    // _idx = position dans le tableau live piInfo.objectives — conservé après filtre/tri pour
+    // pouvoir réécrire le bon objectif lors de l'édition inline depuis le Dashboard.
+    const piObjs = _rawObjs
+        .map((o, i) => ({ ...o, _idx: i }))
+        .filter(o => (o.text || '').trim());
     const teamObjs = (team && team !== 'all') ? piObjs.filter(o => (o.team || '') === team) : piObjs;
     const _bv = o => Math.max(0, Math.min(10, parseInt(o.bv) || 0));
     const commitObjs   = teamObjs.filter(o => o.committed);
@@ -452,14 +457,19 @@ export function renderDashboard(container) {
                     const _stCls = o => o.status === 'done' ? 'done' : o.status === 'inprog' ? 'inprog' : o.status === 'blocked' ? 'blocked' : 'todo';
                     const _icon  = o => o.status === 'done' ? '✓' : o.status === 'inprog' ? '◐' : o.status === 'blocked' ? '⚠' : '○';
                     const _row   = o => {
-                        const kind = o.committed
-                            ? `<span class="pi-obj-kind pi-obj-kind--commit">Commis</span>`
-                            : `<span class="pi-obj-kind pi-obj-kind--stretch">Stretch</span>`;
-                        return `<div class="pi-obj-attain-item pi-obj-attain-item--${_stCls(o)}" title="${esc(o.text || '')}">
-                            <span class="pi-obj-attain-icon">${_icon(o)}</span>
-                            <span class="pi-obj-attain-text">${esc(o.text || 'Sans titre')}</span>
+                        // Commis/Stretch : bouton cliquable sur le PI courant, simple badge sinon.
+                        const kind = isCurrentPi
+                            ? `<button type="button" class="pi-obj-kind pi-obj-kind--${o.committed ? 'commit' : 'stretch'}" data-obj-toggle-committed title="Cliquer pour basculer Commis/Stretch">${o.committed ? 'Commis' : 'Stretch'}</button>`
+                            : (o.committed
+                                ? `<span class="pi-obj-kind pi-obj-kind--commit">Commis</span>`
+                                : `<span class="pi-obj-kind pi-obj-kind--stretch">Stretch</span>`);
+                        // Édition inline (texte, statut, commis, BV) uniquement sur le PI courant — pour un PI
+                        // passé les objectifs sont un snapshot figé, édités via PI Planning si déverrouillé.
+                        return `<div class="pi-obj-attain-item pi-obj-attain-item--${_stCls(o)}${isCurrentPi ? ' pi-obj-attain-item--editable' : ''}" data-obj-idx="${o._idx}" title="${esc(o.text || '')}">
+                            <span class="pi-obj-attain-icon"${isCurrentPi ? ' data-obj-cycle-status title="Cliquer pour changer le statut"' : ''}>${_icon(o)}</span>
+                            <span class="pi-obj-attain-text"${isCurrentPi ? ' data-obj-edit-text contenteditable="true" spellcheck="false" title="Cliquer pour modifier"' : ''}>${esc(o.text || 'Sans titre')}</span>
                             ${kind}
-                            <span class="pi-obj-attain-bv" title="Business Value">BV ${_bv(o)}</span>
+                            <span class="pi-obj-attain-bv" title="Business Value">BV <span${isCurrentPi ? ' data-obj-edit-bv contenteditable="true" spellcheck="false" title="Cliquer pour modifier (0–10)"' : ''}>${_bv(o)}</span></span>
                         </div>`;
                     };
                     const _sortObjs = list => list.slice().sort((a, b) =>
@@ -589,6 +599,77 @@ export function renderDashboard(container) {
         }
     };
     container.addEventListener('click', container._dashVeloClick);
+
+    // ── Édition inline des objectifs PI (pi-obj-attain-list) ───────────────────
+    // Permet de corriger un texte ou faire avancer un statut directement depuis le Dashboard,
+    // sans repasser par PI Planning → Objectifs. Réécrit l'objectif à son index d'origine
+    // (`_idx`, posé lors du calcul de piObjs) dans piInfo.objectives puis sauvegarde via l'API.
+    if (isCurrentPi) {
+        const STATUS_CYCLE = ['todo', 'inprog', 'done', 'blocked'];
+
+        async function saveObjectiveField(idx, patch) {
+            const piRaw = store.get('piInfo') || {};
+            const liveObjs = [...(piRaw.objectives || [])];
+            if (!liveObjs[idx]) return;
+            liveObjs[idx] = { ...liveObjs[idx], ...patch };
+            const piObjectives = displayPiNum
+                ? { ...(piRaw.piObjectives || {}), [String(displayPiNum)]: liveObjs }
+                : piRaw.piObjectives;
+            try {
+                const updated = await api.updatePI({ ...piRaw, objectives: liveObjs, piObjectives });
+                store.set('piInfo', updated);
+            } catch (e) { toast(e.message, 'error'); }
+            renderDashboard(container);
+        }
+
+        container.querySelectorAll('.pi-obj-attain-item--editable [data-obj-cycle-status]').forEach(icon => {
+            icon.addEventListener('click', () => {
+                const idx = parseInt(icon.closest('.pi-obj-attain-item')?.dataset.objIdx, 10);
+                if (isNaN(idx)) return;
+                const cur  = (store.get('piInfo')?.objectives || [])[idx]?.status || 'todo';
+                const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur) + 1) % STATUS_CYCLE.length];
+                saveObjectiveField(idx, { status: next });
+            });
+        });
+
+        container.querySelectorAll('.pi-obj-attain-item--editable [data-obj-edit-text]').forEach(textEl => {
+            textEl.dataset.orig = textEl.textContent;
+            textEl.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { e.preventDefault(); textEl.blur(); }
+                else if (e.key === 'Escape') { e.preventDefault(); textEl.textContent = textEl.dataset.orig; textEl.blur(); }
+            });
+            textEl.addEventListener('blur', () => {
+                const idx = parseInt(textEl.closest('.pi-obj-attain-item')?.dataset.objIdx, 10);
+                const val = textEl.textContent.trim();
+                if (isNaN(idx) || !val || val === textEl.dataset.orig) { textEl.textContent = textEl.dataset.orig; return; }
+                saveObjectiveField(idx, { text: val });
+            });
+        });
+
+        container.querySelectorAll('.pi-obj-attain-item--editable [data-obj-toggle-committed]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.closest('.pi-obj-attain-item')?.dataset.objIdx, 10);
+                if (isNaN(idx)) return;
+                const cur = (store.get('piInfo')?.objectives || [])[idx]?.committed || false;
+                saveObjectiveField(idx, { committed: !cur });
+            });
+        });
+
+        container.querySelectorAll('.pi-obj-attain-item--editable [data-obj-edit-bv]').forEach(bvEl => {
+            bvEl.dataset.orig = bvEl.textContent;
+            bvEl.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { e.preventDefault(); bvEl.blur(); }
+                else if (e.key === 'Escape') { e.preventDefault(); bvEl.textContent = bvEl.dataset.orig; bvEl.blur(); }
+            });
+            bvEl.addEventListener('blur', () => {
+                const idx = parseInt(bvEl.closest('.pi-obj-attain-item')?.dataset.objIdx, 10);
+                const n = Math.max(0, Math.min(10, parseInt(bvEl.textContent, 10) || 0));
+                if (isNaN(idx) || String(n) === bvEl.dataset.orig) { bvEl.textContent = bvEl.dataset.orig; return; }
+                bvEl.textContent = String(n);
+                saveObjectiveField(idx, { bv: n });
+            });
+        });
+    }
 }
 
 // ── Strip "Sprints du PI courant" ───────────────────────────────────────────

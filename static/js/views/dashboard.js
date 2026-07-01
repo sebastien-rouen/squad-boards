@@ -798,7 +798,7 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, d
         const dates = `${_fmtShort(s.startDate)} → ${_fmtShort(s.endDate)}`;
         const goalText = (s.goal || '').trim();
         const goalHtml = goalText
-            ? `<div class="pi-sprint-card-goal">🎯 ${esc(goalText)}</div>`
+            ? `<div class="pi-sprint-card-goal">${esc(goalText)}</div>`
             : `<div class="pi-sprint-card-goal pi-sprint-card-goal--empty">Aucun objectif défini</div>`;
 
         // Sprint clos : tickets non terminés à la clôture = "glissés" — ils sont restés dans ce

@@ -125,8 +125,16 @@
                 <button id="btn-create" class="btn btn-primary" data-tooltip="Nouveau ticket (N)">
                     + Nouveau
                 </button>
-                <button id="btn-cal-sync" class="btn-icon cal-sync-badge" data-tooltip="Synchroniser les agendas ICS" aria-label="Synchroniser les agendas ICS" hidden>
-                    <svg class="icon"><use href="#i-calendar"/></svg>
+                <button id="btn-cal-sync" class="cal-banner-week-btn cal-sync-badge" data-tooltip="Semaine — vue détaillée" aria-label="Voir la semaine" hidden>
+                    <span class="cal-mini" aria-hidden="true">
+                        <span class="cal-mini-hdr" data-cal-month></span>
+                        <span class="cal-mini-day" data-cal-day></span>
+                        <span class="cal-mini-wday" data-cal-wday></span>
+                    </span>
+                    <span class="cal-mini-label">
+                        <span class="cal-mini-label-main">Semaine</span>
+                        <span class="cal-mini-label-sub" data-cal-sublabel>vue détaillée</span>
+                    </span>
                     <span class="cal-sync-dot" aria-hidden="true"></span>
                 </button>
                 <div class="btn-split">
@@ -153,6 +161,10 @@
                         <button class="sync-menu-item" id="more-my-tickets">◉&nbsp; Mes tickets</button>
                     </div>
                 </div>
+            </div>
+            <!-- Barre de progression sync JIRA / calendrier (non-bloquante) -->
+            <div id="topbar-sync-bar" class="topbar-sync-bar" aria-hidden="true">
+                <div id="topbar-sync-fill" class="topbar-sync-bar__fill"></div>
             </div>
         </header>
         <!-- Bandeau agenda du jour — global (visible sur toutes les vues si des calendriers ICS existent) -->

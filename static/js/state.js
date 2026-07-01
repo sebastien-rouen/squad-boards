@@ -46,6 +46,9 @@ export const store = new Store({
     syncing: false,
     lastSync: localStorage.getItem('sb-lastSync') || null,
     searchQuery: '',
+    syncProgress: null,  // 0-100 pendant la sync, null sinon
+    syncType: null,       // 'jira' | 'calendar' | null
+    syncLabel: '',        // label de la phase en cours
 
     // Data
     tickets: [],

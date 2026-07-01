@@ -371,6 +371,31 @@ body { display: flex; }
     color: var(--text-muted);
 }
 
+/* ── Topbar sync progress bar ──────────────────────────────────────────────── */
+.topbar-sync-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 1;
+}
+.topbar-sync-bar.is-active { opacity: 1; }
+.topbar-sync-bar__fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #818cf8));
+    border-radius: 0 2px 2px 0;
+    transition: width 0.5s ease;
+}
+.topbar-sync-bar[data-type="calendar"] .topbar-sync-bar__fill {
+    background: linear-gradient(90deg, #22c55e, #34d399);
+}
+
 /* ── App / Main ────────────────────────────────────────────────────────────── */
 .app {
     margin-left: var(--sidebar-w);

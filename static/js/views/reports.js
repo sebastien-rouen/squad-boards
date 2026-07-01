@@ -332,6 +332,9 @@ export function renderReports(container) {
                     }
                 }
                 _scrollToSection(item.dataset.tl, true);
+                // Met à jour le hash pour pouvoir revenir directement sur cette section
+                // (ex: #reports/Fuego/sondage) — écouté par app.js (store.on('reportsSection')).
+                store.set('reportsSection', item.dataset.tl);
             });
         });
         // Surbrillance de l'item courant selon la section visible
@@ -431,12 +434,24 @@ export function renderReports(container) {
 
         // Repositionne sur la section lue avant un re-render (ex. changement de format),
         // une fois les sous-rendus (sondage/pifist/calendrier) posés → pas de saut de scroll.
-        if (_restoreSectionId) {
-            const id = _restoreSectionId;
+        // Sinon, navigation directe via hash (#reports/<team>/<section>, ex. lien partagé ou
+        // timeline) : on déplie/scroll vers la section ciblée.
+        const _targetId = _restoreSectionId || store.get('reportsSection');
+        if (_targetId) {
+            const wasHash = !_restoreSectionId;
             _restoreSectionId = null;
+            const target = container.querySelector(`#report-sec-${_targetId}`);
+            if (target?.tagName === 'DETAILS') target.open = true;
+            else if (wasHash) {
+                const body = container.querySelector(`[data-body="${_targetId}"]`);
+                if (body?.classList.contains('collapsed')) {
+                    body.classList.remove('collapsed');
+                    target?.classList.add('is-open');
+                }
+            }
             requestAnimationFrame(() => {
-                _scrollToSection(id, false);
-                tlItems.forEach(i => i.classList.toggle('is-active', i.dataset.tl === id));
+                _scrollToSection(_targetId, false);
+                tlItems.forEach(i => i.classList.toggle('is-active', i.dataset.tl === _targetId));
             });
         }
     });

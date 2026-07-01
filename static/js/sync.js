@@ -38,35 +38,27 @@ export function clearExcludedTeams() {
     localStorage.removeItem(EXCLUDED_TEAMS_KEY);
 }
 
-// ── Progress UI ───────────────────────────────────────────────────────────────
-let _syncTimerStart = 0;
-let _syncTimerInterval = null;
+// ── Progress UI (header bar — non-bloquant) ───────────────────────────────────
+let _hideProgressTimer = null;
 
 function showProgress() {
-    document.getElementById('sync-overlay')?.classList.remove('hidden');
-    _syncTimerStart = Date.now();
-    const timerEl = document.getElementById('sync-timer');
-    if (timerEl) timerEl.textContent = '0s';
-    clearInterval(_syncTimerInterval);
-    _syncTimerInterval = setInterval(() => {
-        const el = document.getElementById('sync-timer');
-        if (!el) return;
-        const s = Math.floor((Date.now() - _syncTimerStart) / 1000);
-        el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
-    }, 1000);
+    clearTimeout(_hideProgressTimer);
+    store.set('syncType', 'jira');
+    store.set('syncProgress', 2);
+    store.set('syncLabel', 'Initialisation…');
 }
 function hideProgress() {
-    clearInterval(_syncTimerInterval);
-    _syncTimerInterval = null;
-    document.getElementById('sync-overlay')?.classList.add('hidden');
+    // Remonte à 100 % pour compléter visuellement, puis efface après transition
+    store.set('syncProgress', 100);
+    _hideProgressTimer = setTimeout(() => {
+        store.set('syncProgress', null);
+        store.set('syncType', null);
+        store.set('syncLabel', '');
+    }, 600);
 }
 function setProgress(pct, label, detail = '') {
-    const fill = document.getElementById('sync-fill');
-    const labelEl = document.getElementById('sync-label');
-    const detailEl = document.getElementById('sync-detail');
-    if (fill) fill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
-    if (labelEl) labelEl.textContent = label;
-    if (detailEl) detailEl.textContent = detail;
+    store.set('syncProgress', Math.min(100, Math.max(0, pct)));
+    store.set('syncLabel', label);
 }
 
 /**

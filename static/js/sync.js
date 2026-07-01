@@ -1073,7 +1073,7 @@ function transformIssue(issue, teamName, sprint, storyPointsField, boardStatusMa
         points,
         priority: f.priority?.name?.toLowerCase() || 'medium',
         sprint: sprint?.id || null,
-        sprintName: sprint?.name || null,
+        sprintName: sprint?.name || _sprintName || null,
         piSprint,
         flagged,
         labels: f.labels || [],

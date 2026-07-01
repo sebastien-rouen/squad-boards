@@ -4,7 +4,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast, supportWorkingDays, supportDaysForMember, initials } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { renderCycleTime } from '../components/charts.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
@@ -345,6 +345,37 @@ export function renderDashboard(container) {
             </div>
         </div>
 
+        <!-- Widget : qui est en support aujourd'hui -->
+        ${(() => {
+            const todayIso = new Date().toISOString().slice(0, 10);
+            const support  = store.get('support') || [];
+            const teamObjects = store.get('teamObjects') || [];
+            const curEntries = support.filter(s => s.weekStart <= todayIso && s.weekEnd >= todayIso);
+            if (!curEntries.length) return '';
+            // Pour chaque entrée, filtre les membres qui couvrent réellement aujourd'hui
+            const oncall = curEntries.flatMap(entry => {
+                const wd     = supportWorkingDays(entry.weekStart);
+                const todayWd = wd.find(d => d.iso === todayIso);
+                if (!todayWd) return [];
+                return (entry.members || []).filter(m => {
+                    const days = supportDaysForMember(entry, m);
+                    return days.includes(todayWd.index);
+                }).map(m => ({ name: m, team: entry.team, color: (teamObjects.find(o => o.name === entry.team) || {}).color || '#64748b' }));
+            });
+            if (!oncall.length) return '';
+            const chips = oncall.map(({ name, color }) => {
+                const ini = initials(name);
+                return `<span class="db-oncall-chip" title="${esc(name)}" style="--chip-color:${color}">
+                    <span class="db-oncall-avatar" style="background:${color}">${esc(ini)}</span>
+                    <span class="db-oncall-name">${esc(name)}</span>
+                </span>`;
+            }).join('');
+            return `<div class="db-oncall-bar">
+                <span class="db-oncall-label">🛎️ Support aujourd'hui</span>
+                <div class="db-oncall-chips">${chips}</div>
+            </div>`;
+        })()}
+
         <!-- Team Cards — affiché seulement si >1 équipe -->
         ${teams.length > 1 ? (() => {
             const _isBuf = isBufferItem;
@@ -579,6 +610,14 @@ export function renderDashboard(container) {
         row.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(row.dataset.ticket));
     });
 
+    // Détail des tickets par sprint (strip PI) → ouvre le ticket au clic
+    container.querySelectorAll('.pi-sprint-card-ticket').forEach(row => {
+        row.addEventListener('click', e => {
+            e.stopPropagation();
+            window.__squadBoard?.openTicketModal?.(row.dataset.ticket);
+        });
+    });
+
     // Champ discret : seuil de stagnation (jours) → persiste et re-render
     const staleInput = container.querySelector('#stuck-stale-days');
     staleInput?.addEventListener('change', () => {
@@ -728,12 +767,22 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, d
 
     const _stateLabel = st => st === 'closed' ? 'Terminé' : st === 'active' ? 'En cours' : 'À venir';
 
+    // Groupes affichés dans le détail de chaque carte sprint — ordre : US, Buffer, Action
+    // (Action = tout ticket qui n'est ni une US ni un item taggé "buffer", ex. task/bug/ops/debt).
+    const _GROUPS = [
+        { key: 'us',     label: 'US',     icon: '📗', test: t => !isBufferItem(t) && t.type === 'story' },
+        { key: 'buffer', label: 'Buffer', icon: '🧯', test: t => isBufferItem(t) },
+        { key: 'action', label: 'Action', icon: '🛠️', test: t => !isBufferItem(t) && t.type !== 'story' },
+    ];
+    const _byRank = (a, b) => (a.rank ?? 9999) - (b.rank ?? 9999);
+
     const cards = piSprints.map(s => {
         const st = s.state || (s.endDate && s.endDate < today ? 'closed' : (s.startDate && s.startDate > today ? 'future' : 'active'));
         // Compteur de points pour ce sprint (filtré par équipe si sélectionnée)
         let pts = 0, donePts = 0;
+        let ts2 = [];
         if (allTickets && s.name) {
-            const ts2 = allTickets.filter(t =>
+            ts2 = allTickets.filter(t =>
                 (t.sprintName === s.name || (Array.isArray(t.allSprints) && t.allSprints.includes(s.name)))
                 && (team === 'all' || !team || t.team === team)
             );
@@ -752,6 +801,48 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, d
             ? `<div class="pi-sprint-card-goal">🎯 ${esc(goalText)}</div>`
             : `<div class="pi-sprint-card-goal pi-sprint-card-goal--empty">Aucun objectif défini</div>`;
 
+        // Sprint clos : tickets non terminés à la clôture = "glissés" — ils sont restés dans ce
+        // sprint (allSprints) mais ont continué leur vie ailleurs (sprintName actuel différent,
+        // ou simplement jamais clos). On les repère pour les distinguer dans la liste.
+        const _slippedTo = t => (st === 'closed' && t.status !== 'done')
+            ? (t.sprintName && t.sprintName !== s.name ? t.sprintName : null)
+            : undefined; // undefined = non concerné (pas un sprint clos, ou ticket fini)
+        const slippedCount = st === 'closed' ? ts2.filter(t => t.status !== 'done').length : 0;
+
+        // Détail des tickets : groupés par catégorie (US / Buffer / Action), triés par rank.
+        const groupsHtml = _GROUPS.map(g => {
+            const items = ts2.filter(g.test).sort(_byRank);
+            if (!items.length) return '';
+            const planned  = sumBy(items, t => t.points);
+            const inProg   = sumBy(items.filter(t => t.status === 'inprog'), t => t.points);
+            const groupDone = sumBy(items.filter(t => t.status === 'done'), t => t.points);
+            return `<div class="pi-sprint-card-group">
+                <div class="pi-sprint-card-group-hd">
+                    <span class="pi-sprint-card-group-label">${g.icon} ${g.label} <span class="pi-sprint-card-group-count">(${items.length})</span></span>
+                    <span class="pi-sprint-card-group-pts">${planned} pts<span class="sep">·</span>${inProg} en cours<span class="sep">·</span>${groupDone} fait</span>
+                </div>
+                <div class="pi-sprint-card-group-list">
+                    ${items.map(t => {
+                        const to = _slippedTo(t);
+                        const slipped = to !== undefined;
+                        return `<div class="pi-sprint-card-ticket${slipped ? ' pi-sprint-card-ticket--slipped' : ''}" data-ticket="${esc(t.id)}" title="${esc(t.title || '')}${slipped ? (to ? ` · Glissé vers ${esc(to)}` : ' · Non terminé à la clôture') : ''}">
+                        <span class="status-dot-sm" style="background:var(--status-${t.status || 'todo'})"></span>
+                        <span class="pi-sprint-card-ticket-id">${esc(t.id)}</span>
+                        <span class="pi-sprint-card-ticket-title">${esc(t.title || '')}</span>
+                        ${slipped ? `<span class="pi-sprint-card-ticket-slip">↪${to ? esc(to) : ''}</span>` : ''}
+                        <span class="pi-sprint-card-ticket-pts">${t.points || '—'}</span>
+                    </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+        }).join('');
+        const ticketsHtml = ts2.length
+            ? `<details class="pi-sprint-card-tickets"${(st === 'future' || st === 'active' || slippedCount) ? ' open' : ''}>
+                <summary>Tickets <span class="pi-sprint-card-tickets-count">(${ts2.length})</span>${slippedCount ? ` <span class="pi-sprint-card-slip-count">⚠ ${slippedCount} glissé${slippedCount > 1 ? 's' : ''}</span>` : ''}</summary>
+                ${groupsHtml}
+            </details>`
+            : '';
+
         return `<div class="pi-sprint-card pi-sprint-card--${st}" title="${esc(s.name)} · ${dates}">
             <div class="pi-sprint-card-hdr">
                 <span class="pi-sprint-card-state pi-sprint-card-state--${st}">${_stateIcon(st)} ${_stateLabel(st)}</span>
@@ -764,6 +855,7 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, d
                 <span><strong>${donePts}</strong><span class="sep">/</span>${pts} <small>pts</small></span>
                 <span class="pi-sprint-card-pct">${ratio}%</span>
             </div>${ratioBar}` : ''}
+            ${ticketsHtml}
         </div>`;
     }).join('');
 

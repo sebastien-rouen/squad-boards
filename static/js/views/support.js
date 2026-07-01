@@ -10,6 +10,7 @@ import {
     deriveMembersFromAbsences, generateSupportRotation, buildSupportPiWeeks, supportAbsenceDays,
     initials, hashColor,
     SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
+    supportWorkingDays, supportDaysForMember,
     isMemberSupportActive, effectiveRosterForPi, teamNameMatches, getCurrentPi,
 } from '../utils.js';
 import * as api from '../api.js';
@@ -419,11 +420,18 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
             const state = isCurrent ? 'current' : isPast ? 'past' : 'future';
             const stateLbl = isCurrent ? 'EN COURS' : isPast ? 'PASSÉ 🔒' : 'À VENIR';
             const rotMembers = (rot?.members || []).filter(m => derivedNames.has(m));
+            const _wd = supportWorkingDays(w.weekStart);
             const memberCells = rotMembers.map(m => {
                 const absent = supportAbsenceDays(m, w.weekStart, w.weekEnd, absences) >= 3;
+                const days = supportDaysForMember(rot, m);
+                // Couverture partielle → badge des jours (semaine pleine = pas de badge).
+                const dayBadge = (days.length && days.length < 5)
+                    ? `<span class="sup-row-member-days" title="Jours de support">${days.map(di => _wd[di]?.letter || '').join('')}</span>`
+                    : '';
                 return `<div class="sup-row-member${absent ? ' is-absent' : ''}" title="${esc(m)}${absent ? ' · absent ≥ 3j' : ''}">
                     ${_avatar(m, 24)}
                     <span class="sup-row-member-name">${esc(m)}</span>
+                    ${dayBadge}
                     ${absent ? '<span class="sup-row-member-flag">absent</span>' : ''}
                 </div>`;
             }).join('');
@@ -521,10 +529,18 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
         </div>`;
     };
 
+    const supView = localStorage.getItem('sup-pi-view') || 'table';
+    const viewToggle = `
+        <div class="sup-view-toggle" role="tablist">
+            <button class="sup-view-btn${supView === 'table' ? ' is-active' : ''}" data-sup-view="table" title="Vue tableau">☰ Tableau</button>
+            <button class="sup-view-btn${supView === 'timeline' ? ' is-active' : ''}" data-sup-view="timeline" title="Vue timeline jour par jour">▦ Timeline</button>
+        </div>`;
+
     return `<div class="pi-section mb-4">
         <div class="sup-tl-hdr">
             <h3 class="pi-section-title">Rotation du PI ${displayPiNum || ''}</h3>
             <div class="sup-tl-hdr-actions">
+                ${viewToggle}
                 ${hiddenPastCount > 0 || showPast ? `
                 <button class="btn btn-sm btn-ghost sup-show-past-btn${showPast ? ' is-on' : ''}" id="sup-toggle-past"
                         title="${showPast ? 'Masquer les semaines passées' : `Afficher les ${hiddenPastCount} semaine(s) passée(s)`}">
@@ -533,12 +549,98 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
             </div>
         </div>
         <p class="text-xs text-muted mb-2">Règles : membre absent ≥ 3j ignoré · jamais 2 semaines consécutives · semaines passées verrouillées · équité par compteur.</p>
-        ${targetTeams.map(_panel).join('') || '<p class="text-muted text-sm">Aucune équipe à afficher.</p>'}
+        ${supView === 'timeline'
+            ? _renderTimeline(targetTeams, teamObjects, visibleWeeks, support, absences, members, today, displayPiNum)
+            : (targetTeams.map(_panel).join('') || '<p class="text-muted text-sm">Aucune équipe à afficher.</p>')}
     </div>`;
+}
+
+/** Timeline jour par jour : lignes = membres, colonnes = jours ouvrés du PI. */
+function _renderTimeline(teams, teamObjects, weeks, support, absences, members, today, piNum) {
+    if (!weeks.length) return '<p class="text-muted text-sm">Aucune semaine à afficher.</p>';
+    const _norm = s => (s || '').toLowerCase().trim();
+    const _matchTeam = (a, b) => { const ta = _norm(a), tb = _norm(b); return ta === tb || (ta && tb && (ta.includes(tb) || tb.includes(ta))); };
+
+    // Jours ouvrés pour chaque semaine
+    const weekDays = weeks.map(w => ({ week: w, days: supportWorkingDays(w.weekStart) }));
+
+    // Membres par équipe (from absences CSV)
+    const allAbsences = absences || [];
+    const allMembers  = members  || [];
+    const derived = (name) => ({ name });
+
+    const groupHtml = teams.map(team => {
+        const tObj  = teamObjects.find(o => o.name === team);
+        const color = tObj?.color || '#6366f1';
+        const teamSupport = support.filter(s => _matchTeam(s.team, team));
+        // Roster: membres qui apparaissent au moins dans une entrée de support de cette équipe
+        const memberSet = new Set();
+        for (const s of teamSupport) (s.members || []).forEach(m => memberSet.add(m));
+        const teamMembers = [...memberSet].sort((a, b) => a.localeCompare(b, 'fr'));
+        if (!teamMembers.length) return '';
+
+        // En-têtes : semaines (colspan = nb jours ouvrés)
+        const wkHeaders = weekDays.map(({ week, days }) => {
+            const isCur = today >= week.weekStart && today <= week.weekEnd;
+            return `<th colspan="${days.length}" class="sup-tl-wk-th${isCur ? ' sup-tl-wk-current' : ''}">${week.label}</th>`;
+        }).join('');
+        // Sous-en-têtes : lettres des jours
+        const dayHeaders = weekDays.flatMap(({ week, days }) => days.map(d => {
+            const isToday = d.iso === today;
+            return `<th class="sup-tl-day-th${isToday ? ' sup-tl-day-today' : ''}" title="${d.iso}">${d.letter}</th>`;
+        })).join('');
+
+        // Lignes membres
+        const rows = teamMembers.map(name => {
+            const cells = weekDays.flatMap(({ week, days }) => {
+                const entry = teamSupport.find(s => s.weekStart === week.weekStart);
+                const memberDays = supportDaysForMember(entry, name);
+                return days.map(d => {
+                    const on = memberDays.includes(d.index);
+                    const isToday = d.iso === today;
+                    const style = on ? `background:${color};border-color:${color}` : '';
+                    return `<td class="sup-tl-day${on ? ' on' : ''}${isToday ? ' today' : ''}" style="${style}" title="${name} — ${d.iso}${on ? ' ✓' : ''}"></td>`;
+                });
+            }).join('');
+            const ini = initials(name);
+            return `<tr>
+                <td class="sup-tl-member"><span class="sup-avatar sup-avatar--xs" style="background:${hashColor(name)}">${esc(ini)}</span> ${esc(name)}</td>
+                ${cells}
+            </tr>`;
+        }).join('');
+
+        return `<div class="sup-tl-group">
+            <div class="sup-tl-group-label" style="border-left:4px solid ${color}">
+                <span style="color:${color}">●</span> ${esc(team)}
+            </div>
+            <div class="sup-tl-table-wrap">
+                <table class="sup-tl-table">
+                    <thead>
+                        <tr><th class="sup-tl-member-th">Membre</th>${wkHeaders}</tr>
+                        <tr><th></th>${dayHeaders}</tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        </div>`;
+    }).join('');
+
+    return `<div class="sup-timeline">${groupHtml || '<p class="text-muted text-sm">Aucune donnée.</p>'}</div>`;
 }
 
 function _wirePiTimeline(container) {
     const _rerender = () => { if (typeof window.__squadBoard?.rerenderView === 'function') window.__squadBoard.rerenderView(); };
+
+    // Toggle tableau / timeline — met aussi à jour le hash (item 4)
+    container.querySelectorAll('[data-sup-view]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            localStorage.setItem('sup-pi-view', btn.dataset.supView);
+            // Notifie app.js de mettre à jour le hash via pushHash
+            window.__squadBoard?.pushHash?.();
+            _rerender();
+        });
+    });
+
     container.querySelector('#sup-toggle-past')?.addEventListener('click', () => {
         const cur = localStorage.getItem('sup-show-past') === 'true';
         localStorage.setItem('sup-show-past', String(!cur));

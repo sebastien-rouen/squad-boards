@@ -1,3 +1,27 @@
+## [3.103.0] - 2026-07-02
+
+### Feat : dashboard oncall, Slack webhook, timeline, raccourcis clavier, scroll memory
+
+**2 — Widget "En support aujourd'hui" (Dashboard)** : bandeau avatars+noms des membres en support ce jour précis (granularité jour via `supportDaysForMember`). S'affiche uniquement si des membres couvrent aujourd'hui.
+
+**4 — Envoi direct Slack** : endpoint `/api/slack/send` ([slack.py](app/routers/slack.py)) proxy httpx. Settings → Intégrations : section **Slack** avec URL webhook, Tester, Effacer — même pattern que JIRA. Bouton **💬 Slack** dans chaque panneau rotation (visible si webhook configuré).
+
+**6 — Timeline visuelle (vue Support)** : toggle **☰ Tableau / ▦ Timeline**. Vue Timeline : ligne par membre, colonne par jour ouvré du PI, cellule colorée = jour de support. Semaine + jour courants surlignés. Colonne Membre sticky.
+
+**7 — Raccourcis clavier** : `←`/`→` déplace le focus entre pastilles jours dans une ligne. `Shift+Espace` = toggle toute la semaine.
+
+**8 — Scroll memory** : scroll horizontal sauvegardé en `localStorage` (`rot-scroll-{team}`) avant le repli du panneau, restauré à l'ouverture.
+
+## [3.102.0] - 2026-07-01
+
+### Feat : rotation support à la granularité jour (mini-strip Lun→Ven)
+- **Constat** : la grille de rotation ne s'assignait qu'à la **semaine entière**. Impossible de modéliser une couverture intra-semaine (ex. « Léa lundi→mercredi, Karim jeudi→vendredi ») pourtant courante en pratique.
+- **Modèle** ([people.py](app/models/people.py), [migrations.py](app/migrations.py)) : nouvelle colonne JSON `member_days` sur `supportrotation` (`{ "Nom": [0..4] }`, index = position du jour ouvré dans la fenêtre `[week_start, week_end]`). **Additif et rétro-compatible** : un membre présent dans `members` sans entrée `member_days` = semaine pleine. Exposée en `memberDays` via [serializers.py](app/serializers.py) + `field_map` du routeur ([support.py](app/routers/support.py)) ; propagée dans l'import ([data.py](app/routers/data.py)).
+- **Helpers** ([utils.js](static/js/utils.js)) : `supportWorkingDays(weekStart)` (les 5 jours ouvrés de la fenêtre, dans l'ordre chronologique réel — donc `V L M M J` pour une équipe qui bascule le vendredi) et `supportDaysForMember(entry, name)` (résout les jours effectifs avec fallback semaine pleine).
+- **Édition** ([settings.js](static/js/views/settings.js)) : chaque cellule devient un mini-strip de 5 pastilles jour. **Clic** = un jour ; **double-clic** = toute la semaine (remplit/vide). Normalisation auto : 0 jour → hors support ; 5 jours → semaine pleine (pas d'entrée `member_days`) ; sinon partiel.
+- **Lecture** ([pi.js](static/js/views/pi.js)) : vue PI compacte — semaine pleine = `✓`, couverture partielle = mini-strip. Le message « 📋 Copier » (Slack/Teams) précise les jours pour les membres partiels. La vue Support ([support.js](static/js/views/support.js)) badge les jours quand la couverture n'est pas pleine.
+- **Note** : `members` reste la source de vérité « qui est en support cette semaine » (compteurs, golden export inchangés) ; `member_days` ne fait que raffiner.
+
 ## [3.101.0] - 2026-06-29
 
 ### Feat : édition inline des objectifs PI depuis le Dashboard (texte, statut, commis/stretch, BV)

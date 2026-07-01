@@ -2,6 +2,53 @@
 /* ══════════════════════════════════════════════════════════════════════════════
    VIEW: Dashboard
    ══════════════════════════════════════════════════════════════════════════════ */
+/* Widget "En support aujourd'hui" */
+.db-oncall-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-2) var(--sp-3);
+    margin-bottom: var(--sp-3);
+    background: color-mix(in srgb, var(--primary) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+    border-radius: var(--r-lg);
+}
+.db-oncall-label {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+.db-oncall-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.db-oncall-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px 3px 3px;
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--chip-color, var(--primary)) 30%, var(--border));
+    border-radius: var(--r-full);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    box-shadow: var(--shadow-xs);
+}
+.db-oncall-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 9px;
+    font-weight: var(--fw-bold);
+    color: #fff;
+    flex-shrink: 0;
+}
+.db-oncall-name { color: var(--text); }
+
 .dashboard-metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -54,7 +101,7 @@
     font-weight: 500;
     opacity: 0.55;
 }
-.mc-has-tooltip { cursor: default; }
+.mc-has-tooltip { cursor: help; }
 
 /* ── Metric card tooltip ───────────────────────────────────────────────────── */
 .mc-tt {

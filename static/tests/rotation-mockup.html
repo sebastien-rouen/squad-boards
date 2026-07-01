@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Rotation support : semaines auto-dérivées vs mini-strip jours</title>
+<style>
+/* Tokens repris de static/css/tokens.css (light) pour un rendu natif */
+:root {
+    --primary:#2563eb; --primary-bg:#eff6ff;
+    --surface:#fff; --surface-hover:#f8fafc; --surface-alt:#f1f5f9;
+    --bg:#f1f5f9; --bg-alt:#e2e8f0;
+    --text:#0f172a; --text-muted:#94a3b8;
+    --border:#e2e8f0;
+    --success:#16a34a; --warning:#f59e0b; --warning-bg:#fffbeb; --danger:#dc2626; --danger-bg:#fef2f2;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --r-sm:4px; --r-md:8px;
+    --fs-xs:0.6875rem; --fs-sm:0.8125rem; --fw-medium:500; --fw-semibold:600; --fw-bold:700;
+    --tr-fast:100ms ease;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+}
+* { box-sizing:border-box; }
+body { font-family:var(--font); background:var(--bg); color:var(--text); margin:0; padding:24px; }
+h1 { font-size:1.25rem; margin:0 0 4px; }
+.sub { color:var(--text-muted); font-size:var(--fs-sm); margin-bottom:20px; }
+.cols { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
+@media (max-width:1100px){ .cols { grid-template-columns:1fr; } }
+.variant-title { font-size:var(--fs-sm); font-weight:var(--fw-semibold); margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+.variant-tag { font-size:10px; font-weight:var(--fw-semibold); text-transform:uppercase; padding:2px 8px; border-radius:999px; }
+.tag-a { background:color-mix(in srgb,var(--success) 15%,transparent); color:var(--success); }
+.tag-b { background:color-mix(in srgb,var(--primary) 15%,transparent); color:var(--primary); }
+.variant-note { font-size:var(--fs-xs); color:var(--text-muted); margin:0 0 10px; }
+
+/* ── rot-panel (repris de support-rotation.css) ── */
+.rot-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); margin-bottom:var(--sp-2); overflow:hidden; }
+.rot-panel-hdr { display:flex; align-items:center; gap:var(--sp-2); padding:var(--sp-2) var(--sp-3); min-height:40px; }
+.rot-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.rot-name { font-weight:var(--fw-semibold); font-size:var(--fs-sm); }
+.rot-sum { font-size:var(--fs-xs); color:var(--text-muted); margin-left:var(--sp-1); }
+.rot-panel-body { padding:0 var(--sp-2) var(--sp-3); overflow-x:auto; }
+.rot-grid { width:100%; border-collapse:collapse; font-size:var(--fs-xs); }
+.rot-grid th, .rot-grid td { border:1px solid var(--border); padding:3px; text-align:center; vertical-align:middle; }
+.rot-member-th { width:110px; min-width:110px; text-align:left; padding-left:var(--sp-2); font-weight:var(--fw-medium); background:var(--bg); }
+.rot-member-td { text-align:left; padding-left:var(--sp-2); white-space:nowrap; }
+.rot-wk-th { padding:4px 6px; min-width:52px; }
+.rot-wk-label { display:block; font-weight:var(--fw-semibold); font-size:var(--fs-xs); }
+.rot-wk-dates { display:block; color:var(--text-muted); font-size:9px; margin-top:1px; }
+.rot-wk-current { background:var(--primary-bg)!important; }
+.rot-cell-current { background:var(--primary-bg); }
+.rot-cell-absent { background:var(--danger-bg); }
+.rot-cell-partial { background:var(--warning-bg); }
+.rot-abs-badge { display:block; font-size:9px; color:var(--warning); line-height:1; margin-bottom:2px; }
+.rot-abs-badge.full { color:var(--danger); }
+.rot-chip { width:28px; height:22px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bg);
+    cursor:pointer; font-size:11px; font-weight:var(--fw-semibold); display:inline-flex; align-items:center; justify-content:center;
+    transition:border-color var(--tr-fast),background var(--tr-fast),color var(--tr-fast); }
+.rot-chip:hover { border-color:var(--primary); }
+.rot-count-row td { font-size:10px; font-weight:var(--fw-semibold); color:var(--text-muted); background:var(--bg); }
+.rot-count-ok { color:var(--success)!important; }
+.rot-count-partial { color:var(--warning)!important; }
+
+/* ── Variante B : mini-strip jours ── */
+.rot-wk-th.strip { min-width:96px; }
+.rot-daylabels { display:flex; gap:2px; justify-content:center; margin-top:3px; }
+.rot-daylabels span { width:16px; font-size:8px; color:var(--text-muted); text-align:center; }
+.rot-wk-head-btn { background:none; border:none; cursor:pointer; padding:1px 4px; border-radius:var(--r-sm); font:inherit; color:inherit; }
+.rot-wk-head-btn:hover { background:var(--surface-hover); }
+.rot-strip { display:flex; gap:2px; justify-content:center; }
+.rot-day { width:16px; height:20px; border:1px solid var(--border); border-radius:3px; background:var(--bg);
+    cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--text-muted);
+    transition:all var(--tr-fast); }
+.rot-day:hover { border-color:var(--primary); }
+.rot-day.on { font-weight:var(--fw-bold); }
+.rot-day.we { opacity:.35; pointer-events:none; background:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 6px); }
+.legend { margin-top:24px; font-size:var(--fs-xs); color:var(--text-muted); display:flex; gap:18px; flex-wrap:wrap; }
+.legend b { color:var(--text); font-weight:var(--fw-semibold); }
+.controls { margin-bottom:16px; }
+.controls button { font:inherit; font-size:var(--fs-sm); padding:6px 12px; border:1px solid var(--border); background:var(--surface); border-radius:var(--r-md); cursor:pointer; }
+.controls button:hover { border-color:var(--primary); color:var(--primary); }
+</style>
+</head>
+<body>
+<h1>Rotation support — comparatif visuel</h1>
+<p class="sub">Deux équipes avec des jours de bascule différents (Alpha démarre vendredi, Beta démarre mercredi). Données fictives. Les cases sont cliquables.</p>
+
+<div class="controls">
+    <button onclick="document.body.classList.toggle('dark')">🌗 Basculer thème (aperçu)</button>
+</div>
+
+<div class="cols">
+    <!-- ══ Variante A ══ -->
+    <div>
+        <p class="variant-title"><span class="variant-tag tag-a">Retenu</span> A · Semaines auto-dérivées</p>
+        <p class="variant-note">Identique à l'existant, mais les colonnes sont calculées depuis la date de début de sprint de chaque équipe. Plus de réglage « Lun/Mer/Ven » à choisir.</p>
+        <div id="variantA"></div>
+    </div>
+
+    <!-- ══ Variante B ══ -->
+    <div>
+        <p class="variant-title"><span class="variant-tag tag-b">À évaluer</span> B · Semaine = mini-strip jours</p>
+        <p class="variant-note">Chaque semaine contient 5 pastilles jour (Lun→Ven). Clic sur le libellé de semaine = coche toute la semaine ; clic sur une pastille = un seul jour. Week-ends hachurés/désactivés.</p>
+        <div id="variantB"></div>
+    </div>
+</div>
+
+<div class="legend">
+    <span><b>✓</b> jour/semaine de support</span>
+    <span><span style="display:inline-block;width:12px;height:12px;background:var(--primary-bg);border:1px solid var(--border);vertical-align:-2px"></span> semaine courante</span>
+    <span><span style="display:inline-block;width:12px;height:12px;background:var(--warning-bg);border:1px solid var(--border);vertical-align:-2px"></span> absence partielle</span>
+    <span><span style="display:inline-block;width:12px;height:12px;background:var(--danger-bg);border:1px solid var(--border);vertical-align:-2px"></span> absent</span>
+</div>
+
+<script>
+// ── Données fictives ────────────────────────────────────────────────
+const TEAMS = [
+    { name:'Équipe Alpha', color:'#2563eb', start:'2026-06-05', // vendredi
+      members:['Léa Martin','Tom Dubois','Inès Rey','Karim Belkacem'], mpw:2, curWeek:1 },
+    { name:'Équipe Beta',  color:'#16a34a', start:'2026-06-03', // mercredi
+      members:['Zoé Nardi','Hugo Petit','Sam Okafor'], mpw:1, curWeek:0 },
+];
+const DAYS = ['L','M','M','J','V'];
+function addDays(iso,n){ const d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function fmtCap(iso){ const d=new Date(iso+'T00:00:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; }
+function weeksOf(team, n=4){ const w=[]; for(let i=0;i<n;i++){ const s=addDays(team.start,i*7);
+    w.push({ label:`29.${Math.floor(i/2)+1}.${i%2+1}`, start:s, end:addDays(s,6) }); } return w; }
+// état sélection : "team|week" -> Set(dayIndex 0-4)  (variante B) ;  "team|week" -> bool (variante A)
+const selDays = {}; const selWeeks = {};
+// pré-remplissage démo
+selWeeks['0|0']=['Léa Martin','Inès Rey']; selWeeks['0|1']=['Tom Dubois']; selWeeks['0|2']=['Karim Belkacem','Léa Martin'];
+selWeeks['1|0']=['Zoé Nardi']; selWeeks['1|1']=['Hugo Petit']; selWeeks['1|3']=['Sam Okafor'];
+const dayPick = { // variante B démo : qq jours partiels
+    '0|0|Léa Martin':[0,1,2], '0|0|Inès Rey':[0,1,2,3,4], '0|1|Tom Dubois':[3,4],
+    '0|2|Karim Belkacem':[0,1,2,3,4], '0|2|Léa Martin':[0,1], '1|0|Zoé Nardi':[0,1,2,3,4],
+    '1|1|Hugo Petit':[0,1,2,3,4], '1|3|Sam Okafor':[2,3,4],
+};
+// absences démo : "team|member" -> {week: 'partial'|'full'}
+const absences = { '0|Tom Dubois':{1:'full'}, '0|Inès Rey':{2:'partial'}, '1|Sam Okafor':{0:'partial'} };
+
+// ── Variante A : grille semaines ────────────────────────────────────
+function renderA(){
+    let html='';
+    for(let ti=0; ti<TEAMS.length; ti++){
+        const t=TEAMS[ti], wks=weeksOf(t);
+        const th = wks.map((w,wi)=>`<th class="rot-wk-th ${wi===t.curWeek?'rot-wk-current':''}">
+            <span class="rot-wk-label">${w.label}</span><span class="rot-wk-dates">${fmtCap(w.start)}</span></th>`).join('');
+        const rows = t.members.map(m=>{
+            const cells=wks.map((w,wi)=>{
+                const abs=(absences[`${ti}|${m}`]||{})[wi];
+                const on=(selWeeks[`${ti}|${wi}`]||[]).includes(m);
+                const cls=['rot-cell',abs==='full'?'rot-cell-absent':'',abs==='partial'?'rot-cell-partial':'',wi===t.curWeek?'rot-cell-current':''].filter(Boolean).join(' ');
+                const badge=abs?`<span class="rot-abs-badge ${abs==='full'?'full':''}">${abs==='full'?'5j':'2j'}</span>`:'';
+                return `<td class="${cls}">${badge}<span class="rot-chip" data-a="${ti}|${wi}|${m}"
+                    style="${on?`background:${t.color}22;color:${t.color};border-color:${t.color}`:''}">${on?'✓':''}</span></td>`;
+            }).join('');
+            return `<tr><td class="rot-member-td">${m}</td>${cells}</tr>`;
+        }).join('');
+        const countRow = wks.map((w,wi)=>{ const c=(selWeeks[`${ti}|${wi}`]||[]).length;
+            const cls=c===t.mpw?'rot-count-ok':c>0?'rot-count-partial':'';
+            return `<td class="${cls}">${c}/${t.mpw}</td>`; }).join('');
+        html+=`<div class="rot-panel" style="border-left:3px solid ${t.color}">
+            <div class="rot-panel-hdr"><span class="rot-dot" style="background:${t.color}"></span>
+                <span class="rot-name">${t.name}</span>
+                <span class="rot-sum">${t.members.length} membres · démarre ${new Date(t.start+'T00:00:00').toLocaleDateString('fr',{weekday:'long'})}</span></div>
+            <div class="rot-panel-body"><table class="rot-grid">
+                <thead><tr><th class="rot-member-th">Membre</th>${th}</tr></thead>
+                <tbody>${rows}</tbody>
+                <tfoot><tr class="rot-count-row"><td class="rot-member-th">Total</td>${countRow}</tr></tfoot>
+            </table></div></div>`;
+    }
+    document.getElementById('variantA').innerHTML=html;
+}
+
+// ── Variante B : mini-strip jours ───────────────────────────────────
+function renderB(){
+    let html='';
+    for(let ti=0; ti<TEAMS.length; ti++){
+        const t=TEAMS[ti], wks=weeksOf(t);
+        const th = wks.map((w,wi)=>`<th class="rot-wk-th strip ${wi===t.curWeek?'rot-wk-current':''}">
+            <button class="rot-wk-head-btn" data-wkall="${ti}|${wi}"><span class="rot-wk-label">${w.label}</span>
+            <span class="rot-wk-dates">${fmtCap(w.start)}</span></button>
+            <span class="rot-daylabels">${DAYS.map(d=>`<span>${d}</span>`).join('')}</span></th>`).join('');
+        const rows = t.members.map(m=>{
+            const cells=wks.map((w,wi)=>{
+                const abs=(absences[`${ti}|${m}`]||{})[wi];
+                const picked=dayPick[`${ti}|${wi}|${m}`]||[];
+                const cls=['rot-cell',abs==='full'?'rot-cell-absent':'',abs==='partial'?'rot-cell-partial':'',wi===t.curWeek?'rot-cell-current':''].filter(Boolean).join(' ');
+                const strip=DAYS.map((d,di)=>{ const on=picked.includes(di);
+                    return `<span class="rot-day ${on?'on':''}" data-b="${ti}|${wi}|${m}|${di}"
+                        style="${on?`background:${t.color}22;color:${t.color};border-color:${t.color}`:''}">${on?'✓':''}</span>`;
+                }).join('');
+                return `<td class="${cls}"><span class="rot-strip">${strip}</span></td>`;
+            }).join('');
+            return `<tr><td class="rot-member-td">${m}</td>${cells}</tr>`;
+        }).join('');
+        html+=`<div class="rot-panel" style="border-left:3px solid ${t.color}">
+            <div class="rot-panel-hdr"><span class="rot-dot" style="background:${t.color}"></span>
+                <span class="rot-name">${t.name}</span>
+                <span class="rot-sum">${t.members.length} membres · granularité jour</span></div>
+            <div class="rot-panel-body"><table class="rot-grid">
+                <thead><tr><th class="rot-member-th">Membre</th>${th}</tr></thead>
+                <tbody>${rows}</tbody>
+            </table></div></div>`;
+    }
+    document.getElementById('variantB').innerHTML=html;
+}
+
+// ── Interactions ────────────────────────────────────────────────────
+document.addEventListener('click', e=>{
+    const a=e.target.closest('[data-a]');
+    if(a){ const [ti,wi,m]=a.dataset.a.split('|'); const k=`${ti}|${wi}`;
+        const arr=selWeeks[k]||(selWeeks[k]=[]); const i=arr.indexOf(m);
+        i<0?arr.push(m):arr.splice(i,1); renderA(); return; }
+    const b=e.target.closest('[data-b]');
+    if(b){ const [ti,wi,m,di]=b.dataset.b.split('|'); const k=`${ti}|${wi}|${m}`;
+        const arr=dayPick[k]||(dayPick[k]=[]); const n=+di; const i=arr.indexOf(n);
+        i<0?arr.push(n):arr.splice(i,1); renderB(); return; }
+    const all=e.target.closest('[data-wkall]');
+    if(all){ const [ti,wi]=all.dataset.wkall.split('|'); const t=TEAMS[ti];
+        // toggle : si tous les membres ont les 5 jours → vide, sinon remplit
+        const full=t.members.every(m=>(dayPick[`${ti}|${wi}|${m}`]||[]).length===5);
+        t.members.forEach(m=>{ dayPick[`${ti}|${wi}|${m}`]= full?[]:[0,1,2,3,4]; });
+        renderB(); return; }
+});
+renderA(); renderB();
+</script>
+</body>
+</html>

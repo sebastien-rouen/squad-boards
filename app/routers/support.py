@@ -13,7 +13,8 @@ router = make_crud_router(
     model=SupportRotation, serializer=_support_dict, prefix="/api/support",
     tag="support", not_found="Rotation non trouvee", with_list=False,
     field_map={"weekLabel": "week_label", "weekStart": "week_start", "weekEnd": "week_end",
-               "membersPerWeek": "members_per_week", "weekMode": "week_mode"},
+               "membersPerWeek": "members_per_week", "weekMode": "week_mode",
+               "memberDays": "member_days"},
 )
 
 
@@ -34,6 +35,7 @@ async def create_support(request: Request, session: Session = Depends(get_sessio
         week_start=body.get("weekStart", ""),
         week_end=body.get("weekEnd", ""),
         members=body.get("members", []),
+        member_days=body.get("memberDays", {}),
         locked=body.get("locked", False),
         unlocked=body.get("unlocked", False),
         members_per_week=body.get("membersPerWeek", 2),
@@ -61,6 +63,7 @@ async def bulk_create_support(request: Request, session: Session = Depends(get_s
             week_start=d.get("weekStart", ""),
             week_end=d.get("weekEnd", ""),
             members=d.get("members", []),
+            member_days=d.get("memberDays", {}),
             locked=d.get("locked", False),
             unlocked=d.get("unlocked", False),
             members_per_week=d.get("membersPerWeek", 2),

@@ -12,6 +12,13 @@
 @media (max-width: 1200px) {
     .settings-section--wide { width: 100%; }
 }
+/* Rotation support : grille dense (semaines × jours) → largeur maximale selon le device */
+.settings-section--rotation {
+    width: min(1800px, calc(100vw - 300px));
+}
+@media (max-width: 1200px) {
+    .settings-section--rotation { width: 100%; }
+}
 
 /* ── Tabs Settings (navigation horizontale colorée, pleine largeur) ─────── */
 .settings-tabs {

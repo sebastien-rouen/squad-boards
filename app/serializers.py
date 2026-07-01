@@ -157,6 +157,7 @@ def _support_dict(s: SupportRotation) -> dict:
         "id": s.id, "team": s.team, "weekLabel": s.week_label,
         "weekStart": s.week_start, "weekEnd": s.week_end,
         "members": s.members or [],
+        "memberDays": s.member_days or {},
         "locked": s.locked, "unlocked": s.unlocked, "membersPerWeek": s.members_per_week,
         "weekMode": s.week_mode,
         "updatedAt": s.updated_at,

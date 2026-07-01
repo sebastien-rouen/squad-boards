@@ -255,6 +255,20 @@ function jiraHeaders() {
     return h;
 }
 
+// ── Slack Incoming Webhook ────────────────────────────────────────────────────
+export const SLACK_LS_KEYS = { webhook: 'sb-slack-webhook' };
+export function getSlackWebhook() { return (localStorage.getItem(SLACK_LS_KEYS.webhook) || '').trim(); }
+export function setSlackWebhook(url) {
+    const v = (url || '').trim();
+    v ? localStorage.setItem(SLACK_LS_KEYS.webhook, v) : localStorage.removeItem(SLACK_LS_KEYS.webhook);
+}
+/** Envoie un message texte vers le webhook Slack via le proxy backend (contourne CORS). */
+export async function sendSlackMessage(text, webhook) {
+    const url = webhook || getSlackWebhook();
+    if (!url) throw new Error('Aucun webhook Slack configuré (Paramètres → Intégrations → Slack)');
+    return request('/api/slack/send', { method: 'POST', body: JSON.stringify({ webhook: url, text }) });
+}
+
 export const jiraGet = (path, params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/jira/${path}${qs ? '?' + qs : ''}`, { headers: jiraHeaders() });

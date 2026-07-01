@@ -1439,6 +1439,33 @@ export function supportAbsenceDays(memberName, weekStart, weekEnd, absences) {
         .reduce((sum, a) => sum + (a.days || 0), 0);
 }
 
+/**
+ * Niveau d'absence d'un membre pour un jour ouvré précis (ISO YYYY-MM-DD).
+ * Cherche dans les absences qui couvrent ce jour ; une absence couvre le jour
+ * si startDate ≤ iso ≤ endDate. La durée `days` est la durée **totale** de
+ * l'absence (peut couvrir plusieurs jours). Pour un jour donné on la ramène
+ * à une demi-journée si days/nbJoursCoverts < 1.
+ * @returns {'full'|'half'|null}
+ */
+export function supportAbsenceDayLevel(memberName, iso, absences) {
+    const dayMs = 86400000;
+    const hits = (absences || []).filter(a =>
+        a.memberName === memberName && a.startDate <= iso && a.endDate >= iso
+    );
+    if (!hits.length) return null;
+    // Somme les fractions de jours d'absence qui tombent sur ce jour précis
+    let total = 0;
+    for (const a of hits) {
+        const start = new Date(a.startDate + 'T00:00:00');
+        const end   = new Date(a.endDate   + 'T00:00:00');
+        const span  = Math.max(1, Math.round((end - start) / dayMs) + 1);
+        total += (a.days || 1) / span;
+    }
+    if (total >= 0.9) return 'full';
+    if (total >= 0.4) return 'half';
+    return null;
+}
+
 // Jour de la semaine ISO → index getDay() (0 = dim, 1 = lun, …, 5 = ven).
 // Modes supportés côté backend : monday | wednesday | friday (cf. SupportRotation.week_mode).
 export const SUPPORT_WEEK_MODES = {
@@ -1452,6 +1479,47 @@ export const SUPPORT_WEEK_MODE_DEFAULT = 'friday';   // 1er jour de sprint sur l
 export function getSupportWeekMode(team) {
     const stored = (typeof localStorage !== 'undefined' && team) ? localStorage.getItem(`rot-mode-${team}`) : null;
     return (stored && SUPPORT_WEEK_MODES[stored]) ? stored : SUPPORT_WEEK_MODE_DEFAULT;
+}
+
+// ── Granularité jour (variante mini-strip) ──────────────────────────────────
+// getDay() (0=dim … 6=sam) → lettre FR. Un membre couvre 5 jours ouvrés max/semaine.
+const _DOW_LETTER = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+
+/**
+ * Jours ouvrés (Lun→Ven) contenus dans la fenêtre 7 jours [weekStart, weekStart+6].
+ * Toute fenêtre de 7 jours consécutifs contient exactement 5 jours ouvrés, quel que
+ * soit le jour de bascule de l'équipe. L'index (0-4) = position chronologique et sert
+ * de clé stable dans `memberDays` (indépendant du weekMode).
+ * @param {string} weekStart  ISO YYYY-MM-DD
+ * @returns {Array<{index:number, iso:string, letter:string}>}
+ */
+export function supportWorkingDays(weekStart) {
+    if (!weekStart) return [];
+    const base = new Date(weekStart + 'T00:00:00');
+    const out = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(base); d.setDate(base.getDate() + i);
+        const dow = d.getDay();
+        if (dow === 0 || dow === 6) continue;               // saute samedi/dimanche
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        out.push({ index: out.length, iso, letter: _DOW_LETTER[dow] });
+    }
+    return out;
+}
+
+/**
+ * Jours effectifs d'un membre pour une semaine donnée.
+ * Fallback rétro-compatible : un membre présent dans `members` mais absent de
+ * `memberDays` = semaine pleine (les 5 jours ouvrés).
+ * @returns {number[]} indices de jours ouvrés (0-4), triés
+ */
+export function supportDaysForMember(entry, memberName) {
+    if (!entry) return [];
+    const md = entry.memberDays || entry.member_days || {};
+    if (Object.prototype.hasOwnProperty.call(md, memberName)) {
+        return [...(md[memberName] || [])].sort((a, b) => a - b);
+    }
+    return (entry.members || []).includes(memberName) ? [0, 1, 2, 3, 4] : [];
 }
 
 // ── Membres exclus du support (rôles non éligibles : Manager, RTE, PO, …) ──

@@ -29,6 +29,7 @@ def run_migrations(engine):
         ("sprintconfig", "team_sprints",  "ALTER TABLE sprintconfig ADD COLUMN team_sprints JSON DEFAULT '[]'"),
         ("supportrotation", "locked",     "ALTER TABLE supportrotation ADD COLUMN locked BOOLEAN DEFAULT 0"),
         ("supportrotation", "unlocked",   "ALTER TABLE supportrotation ADD COLUMN unlocked BOOLEAN DEFAULT 0"),
+        ("supportrotation", "member_days", "ALTER TABLE supportrotation ADD COLUMN member_days JSON DEFAULT '{}'"),
         ("piconfig", "pi_members",        "ALTER TABLE piconfig ADD COLUMN pi_members JSON DEFAULT '{}'"),
         ("piconfig", "pi_objectives",     "ALTER TABLE piconfig ADD COLUMN pi_objectives JSON DEFAULT '{}'"),
         ("piconfig", "pi_baselines",      "ALTER TABLE piconfig ADD COLUMN pi_baselines JSON DEFAULT '{}'"),

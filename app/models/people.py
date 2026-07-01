@@ -28,6 +28,9 @@ class SupportRotation(SQLModel, table=True):
     week_start: str = ""
     week_end: str = ""
     members: list[str] = Field(default=[], sa_column=Column(JSON))
+    # Raffinement jour (variante mini-strip) : { "Nom Membre": [0..4] } où l'index = position
+    # du jour ouvré dans la fenêtre [week_start, week_end]. Absent ⇒ membre en semaine pleine.
+    member_days: dict = Field(default={}, sa_column=Column(JSON))
     locked: bool = False          # verrou manuel (futur) — préservé lors d'un shuffle
     unlocked: bool = False        # déverrou exceptionnel d'une semaine passée — la rend modifiable
     members_per_week: int = 2

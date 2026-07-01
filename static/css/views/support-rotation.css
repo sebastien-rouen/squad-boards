@@ -34,7 +34,7 @@
 .rot-grid th,
 .rot-grid td {
     border: 1px solid var(--border);
-    padding: 3px 3px;
+    padding: 3px 8px;
     text-align: center;
     min-width: 44px;
     vertical-align: middle;
@@ -87,7 +87,17 @@
 .rot-wk-th { padding: 4px 6px; position: relative; }
 .rot-wk-label { display: block; font-weight: var(--fw-semibold); font-size: var(--fs-xs); }
 .rot-wk-dates { display: block; color: var(--text-muted); font-size: 9px; margin-top: 1px; }
-.rot-wk-current { background: var(--primary-bg) !important; }
+.rot-wk-current {
+    background: color-mix(in srgb, var(--danger) 10%, transparent) !important;
+    border-bottom: 2px solid var(--danger) !important;
+}
+.rot-wk-current .rot-wk-label {
+    color: var(--danger);
+    font-weight: var(--fw-bold);
+}
+.rot-wk-current .rot-wk-dates {
+    color: color-mix(in srgb, var(--danger) 70%, var(--text-muted));
+}
 /* Verrouillage des semaines */
 .rot-wk-past { background: var(--surface-alt, var(--surface-hover)); }
 .rot-wk-locked { background: color-mix(in srgb, var(--warning) 8%, transparent) !important; }
@@ -108,7 +118,7 @@
 
 /* Cellules */
 .rot-cell { position: relative; }
-.rot-cell-current { background: var(--primary-bg); }
+.rot-cell-current { background: color-mix(in srgb, var(--danger) 6%, transparent); }
 .rot-cell-locked { background: var(--surface-alt, var(--surface-hover)); }
 .rot-cell-locked .rot-chip-locked {
     opacity: 0.4; cursor: not-allowed;
@@ -144,6 +154,89 @@
 }
 .rot-chip:hover { border-color: var(--primary); color: var(--primary); }
 .rot-chip-on { font-weight: var(--fw-bold); }
+
+/* Mini-strip jours (granularité intra-semaine) */
+.rot-strip {
+    display: inline-flex;
+    gap: 3px;
+    justify-content: center;
+    align-items: center;
+}
+.rot-day {
+    width: 16px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: var(--fw-medium);
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color var(--tr-fast), background var(--tr-fast), color var(--tr-fast);
+}
+.rot-day:hover:not(.rot-day-locked):not(.rot-day-abs-full) { border-color: var(--primary); color: var(--primary); }
+
+/* En support ce jour → vert */
+.rot-day.on {
+    background: color-mix(in srgb, var(--success) 18%, transparent);
+    border-color: var(--success);
+    color: var(--success);
+    font-weight: var(--fw-bold);
+}
+
+/* Congé journée complète → rouge barré */
+.rot-day.rot-day-abs-full {
+    background: color-mix(in srgb, var(--danger) 16%, transparent) !important;
+    border-color: color-mix(in srgb, var(--danger) 45%, transparent) !important;
+    color: var(--danger) !important;
+    text-decoration: line-through;
+    cursor: not-allowed;
+}
+
+/* Congé demi-journée → orange rayé en diagonale */
+.rot-day.rot-day-abs-half {
+    background:
+        linear-gradient(
+            135deg,
+            transparent 38%,
+            color-mix(in srgb, var(--warning) 55%, transparent) 38%,
+            color-mix(in srgb, var(--warning) 55%, transparent) 62%,
+            transparent 62%
+        ),
+        color-mix(in srgb, var(--warning) 12%, transparent) !important;
+    border-color: color-mix(in srgb, var(--warning) 60%, transparent) !important;
+    color: var(--warning) !important;
+    font-weight: var(--fw-semibold);
+}
+
+/* En support + absent → absence prime visuellement, texte barré en plus */
+.rot-day.on.rot-day-abs-full {
+    background: color-mix(in srgb, var(--danger) 22%, transparent) !important;
+    border-color: var(--danger) !important;
+    color: var(--danger) !important;
+    text-decoration: line-through;
+}
+.rot-day.on.rot-day-abs-half {
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--success) 14%, transparent) 38%,
+            color-mix(in srgb, var(--warning) 50%, transparent) 38%,
+            color-mix(in srgb, var(--warning) 50%, transparent) 62%,
+            color-mix(in srgb, var(--success) 14%, transparent) 62%
+        ) !important;
+    border-color: var(--warning) !important;
+    color: var(--warning) !important;
+}
+
+.rot-day-locked { opacity: 0.4; cursor: not-allowed; border-style: dashed; }
+/* Variante lecture seule (vue PI) : pas d'interaction */
+.rot-strip-ro .rot-day { pointer-events: none; }
 
 /* Ligne totaux */
 .rot-count-row td { font-size: 10px; font-weight: var(--fw-semibold); color: var(--text-muted); background: var(--bg); }

@@ -7,6 +7,7 @@ import * as api from '../api.js';
 import {
     esc, fmtDate, fmtRelative, toast, deriveMembersFromAbsences, generateSupportRotation,
     buildSupportPiWeeks, SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
+    supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel,
     isMemberSupportActive, setMemberSupportActive, getInactiveSupportMembers,
     friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi, promptModal, choiceModal,
     exportChoiceModal, arrayToCsv, diagramFrameHtml, teamNameMatches,
@@ -1162,7 +1163,7 @@ export function renderSettings(container) {
         </div>
 
         <!-- ═══ Support Rotation ═══ -->
-        <div class="settings-section collapsed" id="section-rotation">
+        <div class="settings-section settings-section--wide settings-section--rotation collapsed" id="section-rotation">
             <div class="settings-section-header" data-stg-toggle>
                 <div><h3>Rotation Support (${support.length} semaines)</h3><p>Grille par équipe — cliquez pour affecter les membres semaine par semaine</p></div>
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
@@ -1742,6 +1743,39 @@ export function renderSettings(container) {
             </div>
         </div>
 
+        <!-- ═══ Slack ═══ -->
+        <div class="settings-section">
+            <div class="settings-section-header" data-stg-toggle>
+                <div><h3>Slack (optionnel)</h3><p>Envoi direct des rotations support dans un canal Slack</p></div>
+                <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
+            </div>
+            <div class="settings-section-body">
+                <div class="sync-cfg-block">
+                    <div class="sync-cfg-title">Incoming Webhook</div>
+                    <div class="sync-cfg-hint">Créez un Incoming Webhook dans votre Slack App (api.slack.com → Votre app → Incoming Webhooks → Activate). L'URL est stockée en localStorage. Le bouton <strong>💬 Slack</strong> dans chaque panneau de rotation l'utilisera pour envoyer directement dans le canal cible.</div>
+                    <div class="sync-cfg-row">
+                        <div class="sync-cfg-label">
+                            <span class="sync-cfg-icon">🔗</span>
+                            <div>
+                                <div class="sync-cfg-name">URL Webhook</div>
+                                <div class="sync-cfg-desc">ex : <code>https://hooks.slack.com/services/T.../B.../...</code></div>
+                            </div>
+                        </div>
+                        <div class="sync-cfg-input-wrap">
+                            <input type="url" id="slack-webhook" class="input sync-cfg-input" style="min-width:340px"
+                                placeholder="https://hooks.slack.com/services/..."
+                                value="${esc(api.getSlackWebhook())}">
+                        </div>
+                    </div>
+                    <div class="sync-cfg-actions">
+                        <button class="btn btn-primary btn-sm" id="btn-save-slack">Enregistrer</button>
+                        <button class="btn btn-ghost btn-sm" id="btn-test-slack">🧪 Tester</button>
+                        ${api.getSlackWebhook() ? `<button class="btn btn-ghost btn-sm" id="btn-reset-slack">Effacer</button>` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ═══ Data ═══ -->
         <div class="settings-section">
             <div class="settings-section-header" data-stg-toggle><h3>Données</h3><svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg></div>
@@ -1851,6 +1885,28 @@ export function renderSettings(container) {
         api.setJiraCreds({ url: '', user: '', token: '' });
         await window.__squadBoard?.applyJiraConfig?.();
         toast('Connexion réinitialisée (valeurs du .env)', 'success');
+        reloadAndRender(container);
+    });
+
+    // ── Slack webhook ─────────────────────────────────────────────────────────
+    container.querySelector('#btn-save-slack')?.addEventListener('click', () => {
+        const url = container.querySelector('#slack-webhook')?.value || '';
+        api.setSlackWebhook(url);
+        toast(url ? 'Webhook Slack enregistré' : 'Webhook supprimé', 'success');
+        reloadAndRender(container);
+    });
+    container.querySelector('#btn-test-slack')?.addEventListener('click', async () => {
+        const btn = container.querySelector('#btn-test-slack');
+        const old = btn.textContent; btn.disabled = true; btn.textContent = '…';
+        try {
+            await api.sendSlackMessage('🧪 Test depuis Squad Board — rotation support');
+            toast('Message envoyé avec succès ✓', 'success');
+        } catch (e) { toast(e.message, 'error', 6000); }
+        finally { btn.disabled = false; btn.textContent = old; }
+    });
+    container.querySelector('#btn-reset-slack')?.addEventListener('click', () => {
+        api.setSlackWebhook('');
+        toast('Webhook Slack supprimé', 'info');
         reloadAndRender(container);
     });
 
@@ -3587,7 +3643,15 @@ export function renderSettings(container) {
     const _activeTeam = store.get('team');
     const _hasTeam = _activeTeam && _activeTeam !== 'all';
 
-    if (_incomingSection === 'rotation' && _hasTeam) {
+    // Normalise les slugs complets vers leurs alias courts utilisés dans les checks ci-dessous
+    const _sectionKey = {
+        'rotation-support': 'rotation', 'rotation': 'rotation',
+        'absences-conges': 'absences',  'absences': 'absences',
+        'slack-optionnel': 'slack',
+        'plugin-jira-optionnel': 'jira',
+    }[_incomingSection] || _incomingSection;
+
+    if (_sectionKey === 'rotation' && _hasTeam) {
         // Dépiler le panneau rotation de l'équipe
         _rotSetCollapsed(_activeTeam, false);
         requestAnimationFrame(() => {
@@ -3596,12 +3660,12 @@ export function renderSettings(container) {
         });
     }
 
-    if (_incomingSection === 'membres' && _hasTeam) {
+    if (_sectionKey === 'membres' && _hasTeam) {
         const mf = container.querySelector('#member-filter');
         if (mf) { mf.value = _activeTeam; _memberFilterRows(); }
     }
 
-    if ((_incomingSection === 'absences-conges' || _incomingSection?.startsWith('absences')) && _hasTeam) {
+    if ((_sectionKey === 'absences' || _incomingSection?.startsWith('absences')) && _hasTeam) {
         const af = container.querySelector('#abs-filter');
         const afc = container.querySelector('#abs-filter-count');
         if (af) {
@@ -3654,7 +3718,7 @@ function _settingsApplyTabs(container) {
     const TAB_GROUPS = [
         { label: 'Équipe',        slugs: ['lignes-produit-groupes', 'equipes', 'membres', 'capacite-dev-de-travail-par-role', 'absences-conges'] },
         { label: 'Planning',      slugs: ['sprint-pi', 'rotation-support', 'faits-marquants', 'rappels-ceremonies'] },
-        { label: 'Intégrations',  slugs: ['calendriers-ics', 'plugin-jira-optionnel'] },
+        { label: 'Intégrations',  slugs: ['calendriers-ics', 'plugin-jira-optionnel', 'slack-optionnel'] },
         { label: 'Système',       slugs: ['donnees', 'a-propos'] },
     ];
 
@@ -3774,7 +3838,23 @@ function _rotRenderPanels(container, support) {
     const teamNames   = (selGroup?.teams?.length)
         ? allTeamNames.filter(t => selGroup.teams.includes(t))
         : allTeamNames;
+    // Préserve le scroll horizontal de chaque panneau : innerHTML le remettrait à 0,
+    // ce qui ferait "sauter" la grille quand on coche un jour dans une semaine hors écran.
+    const scrollByPanel = {};
+    panelsEl.querySelectorAll('.rot-panel').forEach(p => {
+        const wrap = p.querySelector('.table-wrap');
+        if (wrap && p.id) scrollByPanel[p.id] = wrap.scrollLeft;
+    });
     panelsEl.innerHTML = _rotPanelsHtml(teamNames, teamObjects, support, rotMembers, absences);
+    panelsEl.querySelectorAll('.rot-panel').forEach(p => {
+        const wrap = p.querySelector('.table-wrap');
+        if (!wrap) return;
+        const team = p.dataset.rotTeam || '';
+        const saved = p.id in scrollByPanel
+            ? scrollByPanel[p.id]
+            : parseInt(localStorage.getItem(`rot-scroll-${team}`) || '0', 10);
+        if (saved > 0) wrap.scrollLeft = saved;
+    });
     _rotWirePanelEvents(container);
 }
 
@@ -3816,7 +3896,14 @@ function _rotWirePanelEvents(container) {
     // Collapse toggle (pas d'appel API)
     container.querySelectorAll('[data-rot-toggle]').forEach(hdr => {
         hdr.addEventListener('click', () => {
-            _rotSetCollapsed(hdr.dataset.rotToggle, !_rotIsCollapsed(hdr.dataset.rotToggle));
+            const team = hdr.dataset.rotToggle;
+            // Sauvegarde scroll avant de plier (innerHTML le perdrait sinon)
+            if (!_rotIsCollapsed(team)) {
+                const panel = container.querySelector(`#rot-panel-${CSS.escape(team)}`);
+                const wrap = panel?.querySelector('.table-wrap');
+                if (wrap && wrap.scrollLeft > 0) localStorage.setItem(`rot-scroll-${team}`, String(wrap.scrollLeft));
+            }
+            _rotSetCollapsed(team, !_rotIsCollapsed(team));
             _rotRenderPanels(container, store.get('support') || []);
         });
     });
@@ -3889,25 +3976,56 @@ function _rotWirePanelEvents(container) {
         });
     });
 
-    // Toggle cellule membre ↔ semaine
-    container.querySelectorAll('[data-rot-cell]:not([disabled])').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const { rotCell: team, member, weekStart, weekEnd, weekLabel } = btn.dataset;
+    // Toggle jour de support d'un membre (mini-strip).
+    // Clic simple = un jour ; double-clic = toute la semaine (remplit/vide).
+    container.querySelectorAll('[data-rot-day]:not([disabled])').forEach(btn => {
+
+        // Empêche le focus au clic (évite que le navigateur scrolle la cellule "into view").
+        btn.addEventListener('pointerdown', e => { e.preventDefault(); });
+
+        const persist = async (newDays) => {
+            const { rotDay: team, member, weekStart, weekEnd, weekLabel } = btn.dataset;
             const support  = store.get('support') || [];
             const existing = support.find(s => s.team === team && s.weekStart === weekStart);
+            const clean = [...new Set(newDays)].filter(d => d >= 0 && d <= 4).sort((a, b) => a - b);
+            const baseMembers = existing?.members || [];
+            const baseDays    = { ...(existing?.memberDays || {}) };
+            let members;
+            if (clean.length === 0) {
+                members = baseMembers.filter(m => m !== member);
+                delete baseDays[member];
+            } else {
+                members = baseMembers.includes(member) ? baseMembers : [...baseMembers, member];
+                if (clean.length === 5) delete baseDays[member];
+                else                    baseDays[member] = clean;
+            }
             try {
                 if (existing) {
-                    const cur = existing.members || [];
-                    const newMembers = cur.includes(member)
-                        ? cur.filter(m => m !== member)
-                        : [...cur, member];
-                    await api.updateSupport(existing.id, { members: newMembers });
+                    await api.updateSupport(existing.id, { members, memberDays: baseDays });
                 } else {
                     const mpw = parseInt(localStorage.getItem(`rot-mpw-${team}`)) || 2;
-                    await api.createSupport({ team, weekLabel, weekStart, weekEnd, members: [member], weekMode: getSupportWeekMode(team), membersPerWeek: mpw });
+                    await api.createSupport({ team, weekLabel, weekStart, weekEnd, members, memberDays: baseDays, weekMode: getSupportWeekMode(team), membersPerWeek: mpw });
                 }
                 await _rotRefreshPanels(container);
             } catch (e) { toast(e.message, 'error'); }
+        };
+
+        const curDays = () => {
+            const { rotDay: team, member, weekStart } = btn.dataset;
+            const existing = (store.get('support') || []).find(s => s.team === team && s.weekStart === weekStart);
+            return supportDaysForMember(existing, member);
+        };
+
+        // e.detail : 1 = clic simple, 2 = deuxième clic d'un double-clic.
+        // On ignore le clic simple si le navigateur va enchaîner avec dblclick (detail >= 2).
+        btn.addEventListener('click', e => {
+            if (e.detail >= 2) return;
+            const di = parseInt(btn.dataset.dayIndex, 10);
+            const days = curDays();
+            persist(days.includes(di) ? days.filter(d => d !== di) : [...days, di]);
+        });
+        btn.addEventListener('dblclick', () => {
+            persist(curDays().length === 5 ? [] : [0, 1, 2, 3, 4]);
         });
     });
 
@@ -3942,6 +4060,44 @@ function _rotWirePanelEvents(container) {
                 toast(`Rotation ${team} supprimee`, 'info');
                 await _rotRefreshPanels(container);
             } catch (e) { toast(e.message, 'error'); }
+        });
+    });
+
+    // ── Envoyer directement sur Slack ────────────────────────────────────────
+    container.querySelectorAll('[data-rot-slack]').forEach(btn => {
+        btn.addEventListener('click', async e => {
+            e.stopPropagation();
+            const old = btn.textContent; btn.disabled = true; btn.textContent = '…';
+            try {
+                const msg = _rotBuildCopyMessage(btn.dataset.rotSlack);
+                await api.sendSlackMessage(msg);
+                btn.textContent = '✓ Envoyé !';
+                setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 1800);
+            } catch (err) {
+                toast(err.message, 'error', 6000);
+                btn.textContent = old; btn.disabled = false;
+            }
+        });
+    });
+
+    // ── Raccourcis clavier sur les pastilles jour ─────────────────────────────
+    // ← / → : déplace le focus vers le jour précédent/suivant dans la même ligne.
+    // Shift+Espace : toggle toute la semaine (équivalent double-clic).
+    container.querySelectorAll('[data-rot-day]:not([disabled])').forEach(btn => {
+        btn.addEventListener('keydown', e => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                const row = btn.closest('tr');
+                if (!row) return;
+                const days = [...row.querySelectorAll('.rot-day:not([disabled])')];
+                const idx  = days.indexOf(btn);
+                const next = e.key === 'ArrowRight' ? days[idx + 1] : days[idx - 1];
+                if (next) { next.focus(); next.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+            }
+            if (e.key === ' ' && e.shiftKey) {
+                e.preventDefault();
+                btn.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+            }
         });
     });
 
@@ -4310,7 +4466,7 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
     const summaryHtml = `<span class="rot-sum">${memberSummary}${piLabel ? ` · ${piLabel}` : ''} · <span style="color:${summaryColor}">${filledWeeks}/${allWeeks.length} sem.</span></span>`;
 
     if (collapsed) {
-        return `<div class="rot-panel" id="rot-panel-${esc(teamName)}" style="border-left:3px solid ${teamColor}">
+        return `<div class="rot-panel" id="rot-panel-${esc(teamName)}" data-rot-team="${esc(teamName)}" style="border-left:3px solid ${teamColor}">
             <div class="rot-panel-hdr" data-rot-toggle="${esc(teamName)}">
                 <span class="rot-chevron">▶</span>
                 <span class="rot-dot" style="background:${teamColor}"></span>
@@ -4364,9 +4520,6 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
         const partial = absDays > 0 && !absent;
         const isCur   = today >= w.weekStart && today <= w.weekEnd;
         const { isLocked, isPast } = _weekLockState(w);
-        const absBadge = absDays > 0
-            ? `<span class="rot-abs-badge${absent ? ' rot-abs-full' : ''}" title="${absDays}j congé">${absDays % 1 ? absDays.toFixed(1) : absDays}j</span>`
-            : '';
         const cls = [
             'rot-cell',
             absent  ? 'rot-cell-absent'  : '',
@@ -4377,17 +4530,25 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
         ].filter(Boolean).join(' ');
         // Semaine verrouillée (passée ou manuelle) → cellule non éditable
         const lockTitle = isPast ? 'Semaine passée — verrouillée' : 'Semaine verrouillée';
-        return `<td class="${cls}">
-            ${absBadge}
-            <button class="rot-chip${sel ? ' rot-chip-on' : ''}${isLocked ? ' rot-chip-locked' : ''}"
-                style="${sel ? `background:${teamColor}22;color:${teamColor};border-color:${teamColor}` : ''}"
-                ${isLocked ? `disabled title="${lockTitle}"` : ''}
-                data-rot-cell="${esc(teamName)}"
+        const days = sel ? supportDaysForMember(entry, member) : [];
+        const wd = supportWorkingDays(w.weekStart);
+        const strip = wd.map(d => {
+            const on  = days.includes(d.index);
+            const abs = supportAbsenceDayLevel(member, d.iso, absences);
+            const absCls = abs ? ` rot-day-abs-${abs}` : '';
+            const absTitle = abs === 'full' ? ' (absent)' : abs === 'half' ? ' (½j congé)' : '';
+            return `<button class="rot-day${on ? ' on' : ''}${absCls}${isLocked ? ' rot-day-locked' : ''}"
+                ${isLocked ? `disabled title="${lockTitle}"` : `title="${d.letter}${absTitle} — clic: ce jour · double-clic: toute la semaine"`}
+                data-rot-day="${esc(teamName)}"
                 data-member="${esc(member)}"
+                data-day-index="${d.index}"
                 data-week-start="${w.weekStart}"
                 data-week-end="${w.weekEnd}"
                 data-week-label="${w.label}"
-            >${sel ? '✓' : isLocked ? '·' : '+'}</button>
+            >${d.letter}</button>`;
+        }).join('');
+        return `<td class="${cls}">
+            <span class="rot-strip">${strip}</span>
         </td>`;
     };
 
@@ -4432,7 +4593,7 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
         ${allWeeks.map(w => mkCountCell(w, showNext)).join('')}
     </tr>`;
 
-    return `<div class="rot-panel" id="rot-panel-${esc(teamName)}" style="border-left:3px solid ${teamColor}">
+    return `<div class="rot-panel" id="rot-panel-${esc(teamName)}" data-rot-team="${esc(teamName)}" style="border-left:3px solid ${teamColor}">
         <div class="rot-panel-hdr" data-rot-toggle="${esc(teamName)}">
             <span class="rot-chevron">▼</span>
             <span class="rot-dot" style="background:${teamColor}"></span>
@@ -4450,7 +4611,8 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
                         ).join('')}
                     </select>
                 </label>
-                <button class="btn btn-sm btn-secondary rot-btn" data-rot-copy="${esc(teamName)}" title="Copier un message de rotation prêt à coller (Slack/Teams). Clic droit = personnaliser le libellé.">📋 Copier</button>
+                <button class="btn btn-sm btn-secondary rot-btn" data-rot-copy="${esc(teamName)}" title="Copier un message de rotation prêt à coller. Clic droit = personnaliser le libellé.">📋 Copier</button>
+                ${api.getSlackWebhook() ? `<button class="btn btn-sm btn-secondary rot-btn" data-rot-slack="${esc(teamName)}" title="Envoyer la rotation dans Slack">💬 Slack</button>` : ''}
                 <button class="btn btn-sm btn-secondary rot-btn" data-rot-shuffle="${esc(teamName)}" title="Générer automatiquement en respectant les congés">🎲 Shuffle</button>
                 <button class="btn btn-sm btn-danger rot-btn" data-rot-clear="${esc(teamName)}" title="Effacer la rotation de cette équipe">✕</button>
             </div>

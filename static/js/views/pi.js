@@ -4,9 +4,9 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
-import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy } from '../components/sondage.js';
+import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAGE_INTRO } from '../components/sondage.js';
 import { renderRoam } from './roam.js';
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
@@ -323,8 +323,8 @@ export function renderPI(container) {
                 <div class="mc-tt-head">🎯 Objectifs · détail</div>
                 ${objectivesFiltered.length ? objectivesFiltered.map(o => `
                 <div class="mc-tt-row">
-                    <span><span style="color:${o.status === 'done' ? 'var(--success)' : 'var(--text-muted)'}">${o.status === 'done' ? '✓' : '○'}</span> ${esc(o.title || '—')}</span>
-                    <strong style="color:${o.businessValue ? 'var(--warning)' : 'var(--text-muted)'}">${o.businessValue ? o.businessValue + ' BV' : '—'}</strong>
+                    <span><span style="color:${o.status === 'done' ? 'var(--success)' : 'var(--text-muted)'}">${o.status === 'done' ? '✓' : '○'}</span> ${esc(o.text || '—')}</span>
+                    <strong style="color:${o.bv ? 'var(--warning)' : 'var(--text-muted)'}">${o.bv ? o.bv + ' BV' : '—'}</strong>
                 </div>`).join('') : '<div class="mc-tt-empty">Aucun objectif</div>'}
             </div>
             <div class="mc-tt" id="mc-tt-blocked">
@@ -2281,31 +2281,33 @@ function renderSupportRota(el, { teams, teamObjects }) {
                 const cells = allWeeks.map(w => {
                     const entry  = teamSupport.find(s => s.weekStart === w.weekStart);
                     const sel    = entry && (entry.members || []).includes(m.name);
-                    const absDays = absences.filter(a =>
-                        a.memberName === m.name && _matchTeam(a.team, teamName) &&
-                        a.startDate <= w.weekEnd && a.endDate >= w.weekStart
-                    ).reduce((s, a) => {
-                        const st = a.startDate > w.weekStart ? a.startDate : w.weekStart;
-                        const en = a.endDate   < w.weekEnd   ? a.endDate   : w.weekEnd;
-                        const ad = Math.max(1, Math.round((new Date(a.endDate) - new Date(a.startDate)) / 86400000) + 1);
-                        const wd = Math.max(0, Math.round((new Date(en) - new Date(st)) / 86400000) + 1);
-                        return s + (a.days || 0) * (wd / ad);
-                    }, 0);
-                    const absent  = absDays >= 2.5;
-                    const partial = absDays > 0 && !absent;
-                    const isCur   = today >= w.weekStart && today <= w.weekEnd;
-                    const absBadge = absDays > 0
-                        ? `<span class="rot-abs-badge${absent ? ' rot-abs-full' : ''}">${absDays % 1 ? absDays.toFixed(1) : absDays}j</span>`
-                        : '';
+                    const isCur  = today >= w.weekStart && today <= w.weekEnd;
+                    const wdList = supportWorkingDays(w.weekStart);
+                    // Détermine absent/partial à la semaine à partir des jours individuels
+                    const dayLevels = wdList.map(d => supportAbsenceDayLevel(m.name, d.iso, absences));
+                    const absCount  = dayLevels.filter(l => l === 'full').length + dayLevels.filter(l => l === 'half').length * 0.5;
+                    const absent    = absCount >= 2.5;
+                    const partial   = absCount > 0 && !absent;
                     const cls = ['rot-cell', absent ? 'rot-cell-absent' : '', partial ? 'rot-cell-partial' : '', isCur ? 'rot-cell-current' : '', showNext ? 'rot-cell-next-pi' : ''].filter(Boolean).join(' ');
-                    // Cellule figée : span au lieu de button
-                    return `<td class="${cls}">
-                        ${absBadge}
-                        <span class="rot-chip${sel ? ' rot-chip-on' : ''}"
-                            style="${sel ? `background:${color}22;color:${color};border-color:${color}` : ''}">
-                            ${sel ? '✓' : ''}
-                        </span>
-                    </td>`;
+                    // Cellule figée. Semaine pleine → ✓ compact ; couverture partielle ou absences → strip.
+                    const days = sel ? supportDaysForMember(entry, m.name) : [];
+                    const needsStrip = days.length > 0 && days.length < 5;
+                    const hasAnyAbs  = dayLevels.some(Boolean);
+                    let inner;
+                    if (!sel && !hasAnyAbs) {
+                        inner = `<span class="rot-chip"></span>`;
+                    } else if (sel && days.length === 5 && !hasAnyAbs) {
+                        inner = `<span class="rot-chip rot-chip-on" style="background:${color}22;color:${color};border-color:${color}">✓</span>`;
+                    } else {
+                        inner = `<span class="rot-strip rot-strip-ro">${wdList.map((d, i) => {
+                            const on  = days.includes(d.index);
+                            const abs = dayLevels[i];
+                            const absCls = abs ? ` rot-day-abs-${abs}` : '';
+                            return `<span class="rot-day${on ? ' on' : ''}${absCls}"
+                                title="${d.letter}${abs === 'full' ? ' (absent)' : abs === 'half' ? ' (½j congé)' : ''}">${d.letter}</span>`;
+                        }).join('')}</span>`;
+                    }
+                    return `<td class="${cls}">${inner}</td>`;
                 }).join('');
                 const count = supportCounts[m.name] || 0;
                 const countBadge = count > 0 ? `<span class="rot-pass-count" title="${count} passage${count > 1 ? 's' : ''} en support">×${count}</span>` : '';
@@ -2431,10 +2433,20 @@ function renderSupportRota(el, { teams, teamObjects }) {
                 const roleLabel = localStorage.getItem(`rot-label-${teamName}`) || 'Support N3 OPS';
                 const _fmtD = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
                 const _sn = n => { const nm = _fmtMemberName(n); const p = nm.trim().split(/\s+/); return p.length < 2 ? `@${nm}` : `@${p[0]} ${p.slice(1).join(' ').toUpperCase()}`; };
+                const _dowFull = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
                 const lines = [`🎧 *${roleLabel} — PI${targetPiNum || '?'}*`, ''];
                 for (const w of piWeeks) {
                     const entry = teamSup.find(s => s.weekStart === w.weekStart);
-                    const members = (entry?.members || []).map(_sn).join(', ');
+                    const wd = supportWorkingDays(w.weekStart);
+                    const members = (entry?.members || []).map(n => {
+                        const days = supportDaysForMember(entry, n);
+                        // Semaine pleine → juste le nom ; couverture partielle → précise les jours.
+                        if (days.length && days.length < 5) {
+                            const labels = days.map(di => { const iso = wd[di]?.iso; return iso ? _dowFull[new Date(iso + 'T00:00:00').getDay()] : ''; }).filter(Boolean).join('/');
+                            return `${_sn(n)} (${labels})`;
+                        }
+                        return _sn(n);
+                    }).join(', ');
                     lines.push(`  • ${w.label} (${_fmtD(w.weekStart)} → ${_fmtD(w.weekEnd)}) : ${members || '—'}`);
                 }
                 navigator.clipboard.writeText(lines.join('\n'))
@@ -2706,123 +2718,6 @@ function renderFist(el, { teams, objectives = [] }) {
     ], objectives);
 }
 
-// ── Vote de confiance par objectif (#4) ───────────────────────────────────────
-async function _renderConfidenceByObjective(el, objectives) {
-    if (!objectives.length) return;
-
-    const SCALE = [
-        { value: 1, label: '✊', color: 'var(--danger)' },
-        { value: 2, label: '✌️', color: '#f97316' },
-        { value: 3, label: '🤟', color: 'var(--warning)' },
-        { value: 4, label: '🖖', color: '#22c55e' },
-        { value: 5, label: '🖐️', color: 'var(--success)' },
-    ];
-
-    const sprintInfo = store.get('sprintInfo');
-    const piInfo     = store.get('piInfo');
-    // getCurrentPi (sprint actif > piInfo.number) — pas piInfo.number seul, sinon piNum reste
-    // vide/obsolète quand piInfo n'a pas encore été configuré/resynchronisé, et les sprints
-    // générés ici retombent sur le format générique "S1" au lieu de "30.1" (le vote est alors
-    // enregistré sous un piSprint qui ne matche plus rien côté affichage).
-    const piNum      = getCurrentPi({ sprintInfo, piInfo }) || 0;
-    const piOff      = store.get('piOffset') || 0;
-    const piNumEff   = piNum ? Math.max(1, piNum + piOff) : 0;
-    const piCfg      = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNumEff}`) || 'null'); } catch { return null; } })();
-    const sprintsCnt = piCfg?.sprintsPerPI || piInfo?.sprintsPerPI || 0;
-    const defaultSpr = (sprintInfo?.name || '').match(/(\d+\.\d+)/)?.[1] || '';
-    const piSprints  = sprintsCnt > 0
-        ? [...Array(sprintsCnt)].map((_, i) => piNumEff ? `${piNumEff}.${i + 1}` : `S${i + 1}`)
-        : [];
-
-    const wrap = document.createElement('div');
-    wrap.className = 'card mt-4';
-    wrap.innerHTML = `
-        <div class="card-header">
-            <span class="card-title">🎯 Confiance par objectif</span>
-            <div class="flex gap-2 items-center">
-                ${piSprints.length
-                    ? `<select class="select select-sm" id="conf-sprint">
-                          <option value="">- Sprint -</option>
-                          ${piSprints.map(s => `<option value="${esc(s)}"${s === defaultSpr ? ' selected' : ''}>${esc(s)}</option>`).join('')}
-                       </select>`
-                    : `<input class="input input-sm" id="conf-sprint" value="${esc(defaultSpr)}" placeholder="Sprint…" style="width:90px">`
-                }
-                <select class="select select-sm" id="conf-team">
-                    ${(store.get('teams') || []).map(t => `<option value="${esc(t)}"${t === store.get('team') ? ' selected' : ''}>${esc(t)}</option>`).join('')}
-                </select>
-            </div>
-        </div>
-        <div id="conf-obj-list" class="conf-obj-list"></div>
-    `;
-    el.appendChild(wrap);
-
-    async function refreshConf() {
-        const sprint  = wrap.querySelector('#conf-sprint')?.value.trim() || '';
-        const allVotes = await api.getMood({ type: 'confidence' });
-        const filtered = sprint ? allVotes.filter(v => (v.piSprint || '') === sprint) : allVotes;
-        // group by objective (note field) + team if selected
-        const selTeam = wrap.querySelector('#conf-team')?.value || '';
-        const votesForTeam = selTeam ? filtered.filter(v => v.team === selTeam) : filtered;
-        const byObj = {};
-        for (const v of votesForTeam) {
-            const key = v.note || '—';
-            if (!byObj[key]) byObj[key] = [];
-            byObj[key].push(v);
-        }
-        const listEl = wrap.querySelector('#conf-obj-list');
-        if (!listEl) return;
-
-        listEl.innerHTML = objectives.map(o => {
-            const key    = (o.text || '').trim() || o.title || '—';
-            const votes  = byObj[key] || [];
-            const avg    = votes.length ? Math.round(votes.reduce((s, v) => s + v.value, 0) / votes.length * 10) / 10 : 0;
-            const color  = avg >= 4 ? 'var(--success)' : avg >= 3 ? 'var(--warning)' : avg ? 'var(--danger)' : 'var(--text-muted)';
-            const bars   = SCALE.map(s => {
-                const cnt = votes.filter(v => v.value === s.value).length;
-                const flex = votes.length ? cnt / votes.length : 0;
-                return flex ? `<span class="vr-seg" style="flex:${flex};background:${s.color}" title="${esc(s.label)}: ${cnt}"></span>` : '';
-            }).join('');
-            return `
-            <div class="conf-obj-row" data-obj="${esc(key)}">
-                <div class="conf-obj-info">
-                    <span class="conf-obj-text">${esc(o.text || o.title || '—')}</span>
-                    ${o.team ? `<span class="conf-obj-team">${esc(o.team)}</span>` : ''}
-                </div>
-                <div class="conf-vote-btns">
-                    ${SCALE.map(s => `<button class="conf-vote-btn" data-val="${s.value}" title="${s.desc || s.value}" style="--cc:${s.color}">${s.label}</button>`).join('')}
-                </div>
-                <div class="conf-obj-result">
-                    ${avg ? `<span class="conf-avg" style="color:${color}">${avg}<span class="conf-avg-unit">/5</span></span>` : '<span class="conf-no-vote">—</span>'}
-                    <div class="vr-distrib conf-distrib">${bars || '<span class="vr-distrib-empty"></span>'}</div>
-                    <span class="conf-count">${votes.length ? `${votes.length}v` : ''}</span>
-                </div>
-            </div>`;
-        }).join('');
-
-        // Wire vote buttons
-        listEl.querySelectorAll('.conf-obj-row').forEach(row => {
-            row.querySelectorAll('.conf-vote-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const sprint  = wrap.querySelector('#conf-sprint')?.value.trim() || '';
-                    const teamVal = wrap.querySelector('#conf-team')?.value;
-                    if (!sprint) { toast('Sélectionnez un sprint pour voter', 'warning'); return; }
-                    if (!teamVal) { toast('Sélectionnez une équipe', 'warning'); return; }
-                    btn.disabled = true;
-                    try {
-                        await api.createMood({ type: 'confidence', team: teamVal, value: parseInt(btn.dataset.val), piSprint: sprint, note: row.dataset.obj });
-                        toast('Vote enregistré', 'success');
-                        await refreshConf();
-                    } catch { toast('Erreur lors du vote', 'error'); btn.disabled = false; }
-                });
-            });
-        });
-    }
-
-    await refreshConf();
-    wrap.querySelector('#conf-sprint')?.addEventListener('change', refreshConf);
-    wrap.querySelector('#conf-team')?.addEventListener('change', refreshConf);
-}
-
 // Re-synchronise le store global (moodVotes/fistVotes) après un vote/suppression dans le
 // panneau de vote — sinon seule la vue locale (refreshResults, re-fetch direct) est à jour ;
 // le panneau latéral (infopanel.js) et les cellules mood de Health restent sur l'instantané
@@ -2843,9 +2738,9 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
     // ── Config centralisée Sprint + PI (voir <!-- ═══ Sprint + PI Config ═══ -->) ──
     const sprintInfo    = store.get('sprintInfo');
     const piInfo        = store.get('piInfo');
-    // getCurrentPi (sprint actif > piInfo.number), même correctif que _renderConfidenceByObjective
-    // ci-dessus — évite un piSprint enregistré en "S1" générique qui ne matchera plus jamais
-    // le label "NN.N" affiché ailleurs (panneau latéral, résultats du sondage).
+    // getCurrentPi (sprint actif > piInfo.number) — évite un piSprint enregistré en "S1"
+    // générique qui ne matchera plus jamais le label "NN.N" affiché ailleurs (panneau
+    // latéral, résultats du sondage).
     const _basePiNum    = getCurrentPi({ sprintInfo, piInfo }) || 0;
     const _piOff        = store.get('piOffset') || 0;
     const piNum         = _basePiNum ? Math.max(1, _basePiNum + _piOff) : '';
@@ -2866,6 +2761,7 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
             <div class="card-header">
                 <span class="card-title">Voter</span>
                 <button class="btn btn-secondary btn-xs btn-copy-vote-slack" title="Copier les résultats pour Slack">📋 Copier Slack</button>
+                <button class="btn btn-icon btn-xs btn-vote-help" title="A quoi sert ce vote ?">❓</button>
             </div>
             <div class="vote-layout">
                 <div class="vote-fields">
@@ -3057,12 +2953,56 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
         '📋 Copier Slack'
     );
 
+    // Petit rappel de l'utilité du vote (popover) — texte court + échelle détaillée pour le
+    // Fist of Five (mêmes données que le guide affiché dans les rapports, voir sondage.js).
+    el.querySelector('.btn-vote-help')?.addEventListener('click', e => {
+        e.stopPropagation();
+        document.querySelector('.vote-help-popover')?.remove();
+        const pop = document.createElement('div');
+        pop.className = 'vote-help-popover';
+        const scaleHtml = type === 'fist'
+            ? `<div class="fist-scale-guide">
+                ${FIST_SCALE.map(r => `
+                <div class="fist-scale-row">
+                    <span class="fist-scale-emoji">${r.emoji}</span>
+                    <div class="fist-scale-text">
+                        <span class="fist-scale-label">${esc(r.label)}</span>
+                        <span class="fist-scale-desc">${esc(r.text)}</span>
+                    </div>
+                </div>`).join('')}
+               </div>`
+            : '';
+        pop.innerHTML = `
+            <p class="vote-help-intro">${esc(SONDAGE_INTRO[type] || '')}</p>
+            ${scaleHtml}`;
+        pop.style.position = 'fixed';
+        pop.style.visibility = 'hidden';
+        document.body.appendChild(pop);
+        const btn  = e.currentTarget;
+        const r    = btn.getBoundingClientRect();
+        const gap  = 8;
+        const pw   = pop.offsetWidth;
+        const ph   = pop.offsetHeight;
+        // Placement sur le côté du bouton (droite par défaut, gauche si pas assez de place) —
+        // pas en dessous, sinon ça déborde en bas de page quand le bouton est bas dans la vue.
+        const spaceRight = window.innerWidth - r.right;
+        const onLeft = spaceRight < pw + gap && r.left > pw + gap;
+        const left = onLeft ? (r.left - pw - gap) : Math.min(r.right + gap, window.innerWidth - pw - 4);
+        const top  = Math.max(4, Math.min(r.top, window.innerHeight - ph - 4));
+        pop.style.left = `${Math.max(4, left)}px`;
+        pop.style.top  = `${top}px`;
+        pop.style.visibility = 'visible';
+        const _close = ev => {
+            if (!pop.contains(ev.target) && ev.target !== btn) {
+                pop.remove();
+                document.removeEventListener('click', _close);
+            }
+        };
+        requestAnimationFrame(() => document.addEventListener('click', _close));
+    });
+
     // État initial
     syncVoteBtns();
     await refreshResults();
 
-    // Après le Fist of Five, ajouter le panel de confiance par objectif (#4)
-    if (type === 'fist' && objectives.length) {
-        await _renderConfidenceByObjective(el, objectives);
-    }
 }

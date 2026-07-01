@@ -365,6 +365,7 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
                 week_start=d.get("weekStart", ""),
                 week_end=d.get("weekEnd", ""),
                 members=d.get("members", []),
+                member_days=d.get("memberDays", {}),
             )
             session.merge(s)
         counts["support"] = len(items)

@@ -94,6 +94,10 @@ function pushHash() {
         // Format : roadmap/<team|all|group:X>/<tab>  — tab toujours présent pour éviter ambiguïté
         const tab = store.get('roadmapTab') || 'current';
         hash = `roadmap/${teamPart}/${tab}`;
+    } else if (view === 'reports') {
+        // Format : reports/<team|all|group:X>/<section>  — section toujours présente pour éviter ambiguïté
+        const sec = store.get('reportsSection') || 'metriques';
+        hash = `reports/${teamPart}/${sec}`;
     } else if (view === 'settings') {
         // Settings : pas de team, mais on inclut le slug de la tab active si défini
         const sec = store.get('settingsSection');
@@ -110,6 +114,12 @@ function pushHash() {
         else if (pick || layoutPart) hash += '/all';
         if (pick) hash += '/' + encodeURIComponent(pick);
         if (layoutPart) hash += '/' + layoutPart;
+    } else if (view === 'support') {
+        // Support : team[/timeline|table] — vue timeline dans le hash (item 4)
+        if (group) hash += '/' + teamPart;
+        else if (team && team !== 'all') hash += '/' + teamPart;
+        const supView = localStorage.getItem('sup-pi-view');
+        if (supView && supView !== 'table') hash += '/' + supView;
     } else {
         if (group) hash += '/' + teamPart;
         else if (team && team !== 'all') hash += '/' + teamPart;
@@ -166,12 +176,38 @@ function applyHash() {
         const _sep   = hd.indexOf('~') >= 0 ? '~' : (hd.indexOf('?') >= 0 ? '?' : null);
         const _bqPos = _sep ? hd.indexOf(_sep) : -1;
         const _hClean = _bqPos >= 0 ? hd.slice(0, _bqPos) : hd;
-        if (_bqPos >= 0) store.set('backlogHashQuery', hd.slice(_bqPos + 1));
+        if (_bqPos >= 0) {
+            store.set('backlogHashQuery', hd.slice(_bqPos + 1));
+            // Migration legacy ? → ~ : remplace l'URL sans créer d'entrée historique (item 6)
+            if (_sep === '?') {
+                history.replaceState(null, '', '#' + hd.slice(0, _bqPos) + '~' + hd.slice(_bqPos + 1));
+            }
+        }
         const parts = _hClean.split('/');
         // Redirections legacy → nouvelles vues unifiées
         if (parts[0] === 'kanban')     { parts[0] = 'sprint'; store.set('boardMode', 'kanban'); }
         if (parts[0] === 'picalendar') { parts[0] = 'pi';     store.set('piTab', 'calendar'); }
         const view = parts[0];
+        // Aliases courts pour les sections Settings (item 3)
+        // Permet #settings/slack, #settings/rotation, etc. en plus des slugs complets
+        const SETTINGS_ALIASES = {
+            'rotation':    'rotation-support',
+            'slack':       'slack-optionnel',
+            'jira':        'plugin-jira-optionnel',
+            'absences':    'absences-conges',
+            'sprint':      'sprint-pi',
+            'calendriers': 'calendriers-ics',
+            'donnees':     'donnees',
+        };
+        if (view === 'settings' && parts[1]) {
+            const raw1 = decodeURIComponent(parts[1]);
+            const resolved = SETTINGS_ALIASES[raw1] || raw1;
+            if (resolved !== raw1) {
+                parts[1] = resolved;
+                history.replaceState(null, '', `#settings/${resolved}`);
+            }
+        }
+
         if (view && VIEW_RENDERERS[view]) {
             _applyingHash = true;
             store.set('view', view);
@@ -203,6 +239,7 @@ function applyHash() {
                         const off = parts[3] !== undefined ? parseInt(parts[3], 10) : 0;
                         store.set('piOffset', isNaN(off) ? 0 : off);
                     } else if (view === 'roadmap') store.set('roadmapTab', decodeURIComponent(parts[2]));
+                    else if (view === 'reports') store.set('reportsSection', decodeURIComponent(parts[2]));
                     else if (view === 'sprint') {
                         // parts[2..3] = sprintPick et/ou layout (swimlanes|list).
                         // Les modes sont des mots réservés → on les distingue d'un nom de sprint.
@@ -217,6 +254,15 @@ function applyHash() {
                 }
                 // Si pas de parts[2] sur sprint → reset le sprint pick (au cas où on était sur un autre sprint)
                 if (view === 'sprint' && !parts[2]) store.set('sprintPick', null);
+                // Si pas de parts[2] sur reports/roadmap → applique un onglet par défaut (item 2)
+                if (view === 'reports'  && !parts[2]) store.set('reportsSection', 'metriques');
+                if (view === 'roadmap'  && !parts[2]) store.set('roadmapTab', 'current');
+                // Vue timeline support dans le hash : #support/<team>/timeline (item 4)
+                if (view === 'support'  && parts[2] === 'timeline') {
+                    localStorage.setItem('sup-pi-view', 'timeline');
+                } else if (view === 'support' && parts[2] === 'table') {
+                    localStorage.setItem('sup-pi-view', 'table');
+                }
             }
             _applyingHash = false;
         }
@@ -266,6 +312,22 @@ function applyHash() {
     }
 }
 
+// ── Titres de vues (document.title) ──────────────────────────────────────────
+const VIEW_TITLES = {
+    dashboard: 'Dashboard', sprint: 'Sprint Board', backlog: 'Backlog',
+    pi: 'PI Planning', roadmap: 'Roadmap', health: 'Health',
+    retro: 'Rétro', support: 'Support', roam: 'Risques ROAM',
+    atlas: 'Atlas', agenda: 'Agenda', reports: 'Rapports',
+    settings: 'Paramètres', team: 'Équipe',
+};
+function _updateTitle() {
+    const view  = store.get('view') || 'dashboard';
+    const team  = store.get('team');
+    const label = VIEW_TITLES[view] || view;
+    const teamPart = (team && team !== 'all') ? ` · ${team}` : '';
+    document.title = `${label}${teamPart} — Squad Board`;
+}
+
 // ── Render active view ────────────────────────────────────────────────────────
 function renderView() {
     const view = store.get('view');
@@ -278,10 +340,17 @@ function renderView() {
         const renderer = VIEW_RENDERERS[view];
         if (renderer) {
             renderer(content);
+        } else if (view) {
+            // Hash invalide — affiche un toast et redirige vers le Dashboard
+            toast(`Vue inconnue : « ${view} » — redirection vers le Dashboard`, 'warning', 4000);
+            history.replaceState(null, '', '#dashboard');
+            store.set('view', 'dashboard');
+            renderDashboard(content);
         } else {
             content.innerHTML = `<div class="empty-state"><h3>Vue inconnue</h3></div>`;
         }
     }
+    _updateTitle();
     updateInfoPanel();
     checkSyncStale();
 }
@@ -654,6 +723,9 @@ async function init() {
     // Navigation listeners : re-render + mise à jour du hash
     // Reset du piOffset au changement de vue (pour repartir sur le PI courant à chaque navigation)
     store.on('boardMode', () => { if (store.get('view') === 'sprint') { renderView(); pushHash(); } });
+    // Mémorise la section consultée dans le hash sans re-render (le scroll-spy de reports.js
+    // gère déjà l'affichage — un re-render ici ferait sauter le scroll).
+    store.on('reportsSection', () => { if (store.get('view') === 'reports') pushHash(); });
     store.on('view',  () => { if (!_applyingHash) store.set('piOffset', 0); renderView(); pushHash(); });
     store.on('team',  () => { renderView(); pushHash(); });
     store.on('group', () => { renderView(); pushHash(); });

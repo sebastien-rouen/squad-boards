@@ -678,31 +678,24 @@
 .vr-del:hover { background: var(--danger-bg); color: var(--danger); }
 @media (hover: none) { .vr-del { opacity: 1; } }
 
-/* Confiance par objectif (#4) */
-.conf-obj-list { display: flex; flex-direction: column; padding: 8px 16px 12px; gap: 6px; }
-.conf-obj-row {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    padding: 8px 10px; border-radius: var(--r-md);
-    border: 1px solid var(--border); background: var(--surface);
-    transition: border-color var(--tr-fast);
+/* Popover d'aide (Mood/ROTI, Fist of Five) — déclenché par .btn-vote-help */
+.vote-help-popover {
+    z-index: 200;
+    width: min(360px, calc(100vw - 16px));
+    max-height: 70vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-lg);
+    padding: var(--sp-3);
 }
-.conf-obj-row:hover { border-color: var(--primary); }
-.conf-obj-info { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 2px; }
-.conf-obj-text { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text); }
-.conf-obj-team { font-size: 10px; color: var(--text-muted); }
-.conf-vote-btns { display: flex; gap: 4px; }
-.conf-vote-btn {
-    background: var(--bg-alt); border: 1px solid var(--border);
-    border-radius: var(--r-md); padding: 3px 7px; cursor: pointer; font-size: 16px;
-    transition: all var(--tr-fast);
+.vote-help-intro {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 var(--sp-2);
 }
-.conf-vote-btn:hover { border-color: var(--cc, var(--primary)); transform: scale(1.15); background: var(--surface); }
-.conf-obj-result { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.conf-avg { font-size: 15px; font-weight: var(--fw-bold); }
-.conf-avg-unit { font-size: 10px; font-weight: 400; color: var(--text-muted); }
-.conf-no-vote { font-size: var(--fs-sm); color: var(--text-muted); }
-.conf-distrib { min-width: 50px; }
-.conf-count { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.vote-help-popover .fist-scale-guide { margin: 0; }
 
 /* Vote buttons (mood / fist) */
 .vote-btn {

@@ -7,6 +7,7 @@ import { store } from '../state.js';
 import { NAV_ITEMS } from '../config.js';
 import { esc, debounce, statusBadge, getCurrentPi, getSprintForTeam, relevantCalendars, lastCalendarSync } from '../utils.js';
 import { toggleFavoritesDropdown } from './favorites.js';
+import { openCalWeekModal } from './cal_banner.js';
 
 let _topbarInited = false;
 export function initTopbar() {
@@ -129,10 +130,19 @@ export function initTopbar() {
     updatePiSelector();
 
     // ── Badge de fraîcheur des agendas ICS (à côté du Sync JIRA) ────────────────
-    // Les calendriers ICS n'ont pas d'auto-refresh (seul JIRA en a un) : on signale
-    // ici quand la dernière synchro dépasse le seuil, et un clic relance la synchro.
     const CAL_STALE_HOURS = 6;
     const calBtn = document.getElementById('btn-cal-sync');
+
+    // Initialise le mini-calendrier avec la date du jour
+    if (calBtn) {
+        const _now = new Date();
+        const _months = ['JAN','FÉV','MAR','AVR','MAI','JUIN','JUIL','AOÛ','SEP','OCT','NOV','DÉC'];
+        const _wdays  = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
+        calBtn.querySelector('[data-cal-month]').textContent = _months[_now.getMonth()];
+        calBtn.querySelector('[data-cal-day]').textContent   = _now.getDate();
+        calBtn.querySelector('[data-cal-wday]').textContent  = _wdays[_now.getDay()];
+    }
+
     function updateCalFreshness() {
         if (!calBtn) return;
         const cals = store.get('calendars') || [];
@@ -146,9 +156,11 @@ export function initTopbar() {
         const lastTxt = last
             ? new Date(last).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
             : 'jamais';
+        const subLabel = calBtn.querySelector('[data-cal-sublabel]');
+        if (subLabel) subLabel.textContent = stale ? 'sync requise' : 'vue détaillée';
         calBtn.dataset.tooltip = stale
-            ? `Agendas ICS possiblement périmés (synchro : ${lastTxt}) — cliquer pour rafraîchir`
-            : `Agendas ICS à jour (synchro : ${lastTxt}) — cliquer pour rafraîchir`;
+            ? `Agendas ICS périmés (synchro : ${lastTxt}) — cliquer pour rafraîchir`
+            : `Semaine — vue détaillée (synchro : ${lastTxt})`;
     }
     const _runCalSync = async (scope) => {
         if (calBtn.classList.contains('cal-sync-spin')) return;
@@ -197,8 +209,9 @@ export function initTopbar() {
 
     calBtn?.addEventListener('click', () => {
         if (calBtn.classList.contains('cal-sync-spin')) return;
+        // Agendas frais → ouvrir la vue semaine ; périmés → déclencher la synchro
+        if (!calBtn.classList.contains('cal-sync-badge--stale')) { openCalWeekModal(); return; }
         const team = store.get('team');
-        // Pas de filtre équipe actif → "toutes" et "équipe" seraient identiques, on sync direct.
         if (!team || team === 'all') { _runCalSync('all'); return; }
         _openCalSyncMenu(calBtn, team);
     });
@@ -206,6 +219,28 @@ export function initTopbar() {
     store.on('calendarEvents', updateCalFreshness);
     store.on('team',           updateCalFreshness);
     updateCalFreshness();
+
+    // ── Barre de progression sync en fond de topbar ────────────────────────────
+    const syncBarWrap = document.getElementById('topbar-sync-bar');
+    const syncBarFill = document.getElementById('topbar-sync-fill');
+
+    function updateSyncBar() {
+        if (!syncBarWrap || !syncBarFill) return;
+        const pct  = store.get('syncProgress');
+        const type = store.get('syncType');
+        const lbl  = store.get('syncLabel');
+        const active = pct !== null && pct !== undefined;
+        syncBarWrap.classList.toggle('is-active', active);
+        if (active) {
+            syncBarFill.style.width = `${pct}%`;
+            syncBarWrap.dataset.type = type || 'jira';
+            syncBarWrap.dataset.tooltip = lbl || (type === 'calendar' ? 'Sync calendriers…' : 'Sync JIRA…');
+        }
+    }
+    store.on('syncProgress', updateSyncBar);
+    store.on('syncType',     updateSyncBar);
+    store.on('syncLabel',    updateSyncBar);
+    updateSyncBar();
 
     // Search
     const doSearch = debounce(query => {

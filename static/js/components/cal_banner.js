@@ -330,14 +330,6 @@ export function renderCalBanner(wrap) {
         ${offChips ? `<span class="cal-banner-split-sep"></span>${_halfGroupHtml('🚫 Absents', offChips)}` : ''}
     </div>`;
 
-    // Mini calendrier d'aujourd'hui dans le bouton "Voir la semaine"
-    const nowDate = new Date();
-    const _months = ['JAN','FÉV','MAR','AVR','MAI','JUIN','JUIL','AOÛ','SEP','OCT','NOV','DÉC'];
-    const _wdayShort = ['DIM','LUN','MAR','MER','JEU','VEN','SAM'];
-    const todayMonth = _months[nowDate.getMonth()];
-    const todayDay = nowDate.getDate();
-    const todayWday = _wdayShort[nowDate.getDay()];
-
     wrap.innerHTML = `
         <div class="cal-banner">
             <span class="cal-banner-icon">📅</span>
@@ -349,24 +341,12 @@ export function renderCalBanner(wrap) {
                     aria-expanded="${collapsed ? 'false' : 'true'}">
                 <svg class="icon icon-sm cal-banner-collapse-icon${collapsed ? '' : ' cal-banner-collapse-icon--open'}"><use href="#i-chevron-down"/></svg>
             </button>
-            <button class="cal-banner-week-btn" title="Voir la semaine — ${esc(_fmtDay(nowDate))}">
-                <span class="cal-mini" aria-hidden="true">
-                    <span class="cal-mini-hdr">${todayMonth}</span>
-                    <span class="cal-mini-day">${todayDay}</span>
-                    <span class="cal-mini-wday">${todayWday}</span>
-                </span>
-                <span class="cal-mini-label">
-                    <span class="cal-mini-label-main">Semaine</span>
-                    <span class="cal-mini-label-sub">vue détaillée</span>
-                </span>
-            </button>
         </div>`;
 
     wrap.querySelector('#cal-banner-collapse-btn')?.addEventListener('click', () => {
         localStorage.setItem(_CAL_BANNER_COLLAPSED_KEY, collapsed ? '0' : '1');
         renderCalBanner(wrap);
     });
-    wrap.querySelector('.cal-banner-week-btn')?.addEventListener('click', () => _openWeekModal(filtered));
     // Chips liés à un event précis (data-ev-idx posé par _chip) → ouvrent la semaine en surlignant
     // cet event. Les chips groupés (_offGroupChip, sans data-ev-idx) ouvrent juste la semaine.
     wrap.querySelectorAll('.cal-chip[data-ev-idx]').forEach(chip => {
@@ -1564,7 +1544,21 @@ export async function syncCalendars(scope = 'team') {
     const all = store.get('calendars') || [];
     const relevant = scope === 'all' ? all : relevantCalendars(all, team);
     if (!relevant.length) { toast('Aucun calendrier ICS à synchroniser', 'info'); return 0; }
-    const results = await Promise.allSettled(relevant.map(c => api.refreshCalendar(c.id)));
+
+    store.set('syncType', 'calendar');
+    store.set('syncProgress', 5);
+    store.set('syncLabel', `Sync calendriers (${relevant.length})…`);
+
+    let done = 0;
+    const results = await Promise.allSettled(relevant.map(async c => {
+        try { return await api.refreshCalendar(c.id); }
+        finally {
+            done++;
+            store.set('syncProgress', Math.round(5 + (done / relevant.length) * 80));
+        }
+    }));
+
+    store.set('syncProgress', 90);
     const ok = results.filter(r => r.status === 'fulfilled').length;
     const ko = results.length - ok;
     const [freshCals, freshEvents] = await Promise.all([
@@ -1573,6 +1567,14 @@ export async function syncCalendars(scope = 'team') {
     ]);
     store.set('calendars', freshCals);
     store.set('calendarEvents', freshEvents);
+
+    store.set('syncProgress', 100);
+    setTimeout(() => {
+        store.set('syncProgress', null);
+        store.set('syncType', null);
+        store.set('syncLabel', '');
+    }, 600);
+
     toast(`${ok} calendrier${ok > 1 ? 's' : ''} synchronisé${ok > 1 ? 's' : ''}${ko ? ` (${ko} en échec)` : ''}`, ko ? 'warning' : 'success');
     return ok;
 }

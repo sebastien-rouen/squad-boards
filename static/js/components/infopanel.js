@@ -4,10 +4,9 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam, relevantCalendars, lastCalendarSync, isBufferItem, getCurrentPi, typeBadge, teamCapacity, wipThreshold, extractSprintLabel, effectiveRosterForPi, teamNameMatches } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam, isBufferItem, getCurrentPi, typeBadge, teamCapacity, wipThreshold, extractSprintLabel, effectiveRosterForPi, teamNameMatches } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
 import { loadReminders, REMINDER_DEFS } from '../views/settings.js';
-import { openCalWeekModal } from './cal_banner.js';
 import { openAlertModal } from './alert_modal.js';
 import { collapseCharts, enterDailyMode } from '../views/sprint.js';
 
@@ -347,46 +346,6 @@ export function updateInfoPanel() {
         </div>`;
     }
 
-    // ── Statuts (sous les Alertes) ─────────────────────────────────────────
-    html += `
-    <div class="panel-card">
-        <div class="panel-title">Statuts</div>
-        <div class="panel-list">
-            ${['todo','inprog','review','test','blocked','done'].map(s => {
-                const count = statusCounts[s] || 0;
-                if (!count) return '';
-                const tooltipRows = (ticketsByStatus[s] || []).map(t => {
-                    const idEl = jiraUrl
-                        ? `<a class="ticket-id sb-tooltip-id" href="${jiraUrl}/browse/${esc(t.id)}" target="_blank" rel="noopener">${esc(t.id)}</a>`
-                        : `<span class="ticket-id sb-tooltip-id">${esc(t.id)}</span>`;
-                    return `<div class="sb-tooltip-row">${idEl}${typeBadge(t.type, { size: '2xs' })}<span class="sb-tooltip-title truncate flex-1" data-open-ticket="${esc(t.id)}">${esc(t.title?.slice(0, 30))}</span>${t.points ? `<span class="sb-tooltip-pts badge badge-points badge-2xs" data-open-ticket="${esc(t.id)}">${t.points}</span>` : ''}</div>`;
-                }).join('');
-                return `<div class="panel-list-item">
-                    <span><span class="status-dot-sm" style="background:var(--status-${s})"></span>${esc(STATUS_LABELS[s])}</span>
-                    <strong>${count}</strong>
-                    <div class="sb-tooltip">${tooltipRows}</div>
-                </div>`;
-            }).join('')}
-        </div>
-    </div>`;
-
-    // ── Calendrier (raccourci semaine) ────────────────────────────────────
-    if (calendars.length) {
-        const relCals = relevantCalendars(calendars, team);
-        const lastSync = lastCalendarSync(calendars, team);
-        const lastTxt = lastSync
-            ? new Date(lastSync).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-            : 'jamais';
-        html += `
-        <button class="panel-card panel-card-action" id="panel-open-cal" title="Voir la semaine — dernière synchro : ${esc(lastTxt)}">
-            <span class="panel-card-action-icon">📅</span>
-            <span class="panel-card-action-text">
-                <span class="panel-card-action-label">Voir le calendrier</span>
-                <span class="panel-card-action-sub">${relCals.length} cal. · sync ${esc(lastTxt)}</span>
-            </span>
-        </button>`;
-    }
-
     // ── Features ── (libellés de contexte équipe + PI pour l'état vide)
     const _teamLabel = (!team || team === 'all') ? 'toutes les équipes' : team, _piLabel = curPiNum ? `PI #${curPiNum}` : 'ce PI';
     if (!features.length) {
@@ -594,8 +553,6 @@ export function updateInfoPanel() {
 }
 
 function _attachPanelEvents(el) {
-    el.querySelector('#panel-open-cal')?.addEventListener('click', () => openCalWeekModal());
-
     // Alertes proactives cliquables → ouvre la modal d'action
     el.querySelectorAll('[data-alert-action]').forEach(row => {
         row.addEventListener('click', () => {

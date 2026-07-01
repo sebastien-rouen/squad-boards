@@ -25,6 +25,14 @@
 .cal-sync-badge.cal-sync-spin .icon {
     animation: cal-sync-rot 0.8s linear infinite;
 }
+/* Dot de fraîcheur sur le bouton mini-calendrier (topbar) */
+.cal-banner-week-btn.cal-sync-badge {
+    position: relative;
+}
+.cal-banner-week-btn.cal-sync-badge .cal-sync-dot {
+    top: 5px;
+    right: 5px;
+}
 @keyframes cal-sync-rot {
     to { transform: rotate(360deg); }
 }

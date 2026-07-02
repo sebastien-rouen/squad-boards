@@ -879,7 +879,9 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .stage-flow-seg:active { transform: translateY(0); }
 
 /* ── Modale de détail d'une colonne de flux ──────────────────────────────────── */
-.stage-detail-modal { max-width: 480px; }
+.stage-detail-modal { max-width: 640px; grid-template-columns: 1fr; }
+.stage-detail-hdr { display: flex; align-items: center; gap: var(--sp-3); }
+.stage-detail-icon { font-size: 20px; }
 .stage-detail-breakdown {
     margin-top: var(--sp-3);
     display: flex;
@@ -892,15 +894,16 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     gap: var(--sp-2);
     padding: 4px var(--sp-2);
     border-radius: var(--r-sm);
+    border-left: 3px solid transparent;
     background: var(--surface-2);
     font-size: var(--fs-sm);
 }
 .stage-detail-status { flex: 1 1 auto; color: var(--text); text-transform: capitalize; }
 .stage-detail-count  { color: var(--text-muted); font-size: var(--fs-xs); }
-.stage-detail-avg    { font-weight: var(--fw-bold); color: var(--text); min-width: 5ch; text-align: right; }
+.stage-detail-avg    { font-weight: var(--fw-bold); min-width: 6ch; text-align: right; }
 .stage-detail-tickets {
     margin-top: var(--sp-3);
-    max-height: 260px;
+    max-height: 320px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -908,24 +911,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
     padding-top: var(--sp-2);
 }
-.stage-detail-ticket-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    padding: 4px var(--sp-2);
-    border-radius: var(--r-sm);
-    background: none;
-    border: none;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-    text-align: left;
-    width: 100%;
-}
-.stage-detail-ticket-row:hover { background: var(--surface-2); }
-.stage-detail-ticket-id    { color: var(--primary); font-weight: var(--fw-semibold); font-size: var(--fs-xs); flex: 0 0 auto; }
-.stage-detail-ticket-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); }
-.stage-detail-ticket-days  { flex: 0 0 auto; color: var(--text-muted); font-size: var(--fs-xs); }
+.stage-detail-tickets .stuck-row { grid-template-columns: auto auto minmax(0, 1fr) auto auto auto; }
 .stage-detail-more { text-align: center; padding: var(--sp-1); color: var(--text-muted); font-size: var(--fs-xs); }
 
 /* ── Champ numérique discret inline (ex: seuil de stagnation) ────────────────── */
@@ -1001,6 +987,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .stuck-state--review  { background: color-mix(in srgb, var(--status-review, #8b5cf6) 14%, transparent); color: var(--status-review, #8b5cf6); }
 .stuck-state--test    { background: color-mix(in srgb, var(--status-test, var(--warning)) 16%, transparent); color: var(--status-test, var(--warning)); }
 .stuck-state--todo    { background: var(--surface-2); color: var(--text-muted); border-color: color-mix(in srgb, var(--border) 70%, transparent); }
+.stuck-state--done    { background: color-mix(in srgb, var(--status-done) 14%, transparent); color: var(--status-done); }
 .stuck-lead {
     font-size: var(--fs-xs);
     color: var(--text-muted);

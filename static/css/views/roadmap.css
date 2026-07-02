@@ -177,6 +177,12 @@
     font-weight: var(--fw-medium);
 }
 .next-pi-card-proxy { border-style: dashed; border-color: rgba(139, 92, 246, 0.5); }
+.badge-link {
+    cursor: pointer;
+    font-family: inherit;
+    transition: filter var(--tr-fast);
+}
+.badge-link:hover { filter: brightness(0.92); }
 .npi-feat-proxy > .npi-feat-hd { background: rgba(139, 92, 246, 0.04); }
 .next-pi-card-hd {
     display: flex;
@@ -240,42 +246,26 @@
     color: var(--text);
 }
 
-/* ── Next PI diagnostic panel ─────────────────────────────────────────────── */
-.next-pi-diag {
-    margin-top: var(--sp-4);
-    border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-    background: var(--surface);
-    font-size: var(--fs-xs);
-}
-.next-pi-diag summary {
-    padding: var(--sp-2) var(--sp-3);
-    cursor: pointer;
-    font-weight: var(--fw-semibold);
-    color: var(--text-muted);
-    user-select: none;
-}
-.next-pi-diag-body {
-    padding: var(--sp-2) var(--sp-3) var(--sp-3);
+.next-pi-card-drill {
     display: flex;
-    flex-direction: column;
-    gap: var(--sp-1);
-}
-.next-pi-diag-row {
-    display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: var(--sp-1) var(--sp-2);
-    border-radius: var(--r-sm);
-    gap: var(--sp-4);
-}
-.next-pi-diag-row.diag-warn { background: color-mix(in srgb, var(--warning) 12%, transparent); }
-.next-pi-diag-row.diag-ok   { background: color-mix(in srgb, var(--success) 12%, transparent); }
-.next-pi-diag-row code { font-family: var(--font-mono); background: var(--surface-hover); padding: 1px 4px; border-radius: 3px; }
-.next-pi-diag-hint {
+    gap: var(--sp-1);
+    width: 100%;
     margin-top: var(--sp-2);
+    padding: var(--sp-1) 0;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--border);
     color: var(--text-muted);
-    font-style: italic;
+    font-size: var(--fs-xs);
+    cursor: pointer;
+}
+.next-pi-card-drill:hover { color: var(--text); }
+.next-pi-card.expanded .next-pi-card-drill .npi-chevron { transform: rotate(90deg); }
+.next-pi-card .npi-children {
+    margin: 0 calc(-1 * var(--sp-4)) calc(-1 * var(--sp-4));
+    border-top: 1px solid var(--border);
+    background: var(--bg-alt);
 }
 
 /* ── Next PI sub-view toggle (Cartes / Liste) ────────────────────────────── */
@@ -335,7 +325,7 @@
 
 .npi-feat-hd {
     display: grid;
-    grid-template-columns: 16px auto auto 1fr auto auto auto 88px auto;
+    grid-template-columns: 16px auto auto auto 1fr auto auto auto 88px auto;
     align-items: center;
     gap: var(--sp-3);
     padding: var(--sp-3) var(--sp-4);
@@ -344,7 +334,7 @@
     transition: background var(--tr-fast);
 }
 @media (max-width: 900px) {
-    .npi-feat-hd { grid-template-columns: 16px auto 1fr auto auto 80px auto; }
+    .npi-feat-hd { grid-template-columns: 16px auto auto 1fr auto auto 80px auto; }
     .npi-feat-key, .npi-feat-leader { display: none; }
 }
 
@@ -476,6 +466,69 @@
     white-space: nowrap;
     min-width: 40px;
 }
+.npi-child-pts-missing {
+    color: var(--warning, #f59e0b);
+    font-weight: var(--fw-semibold);
+}
+
+.missing-pts-chip {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--warning, #f59e0b);
+    background: color-mix(in srgb, var(--warning, #f59e0b) 12%, transparent);
+    padding: 1px 8px;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+.missing-pts-inline {
+    color: var(--warning, #f59e0b);
+    font-weight: var(--fw-semibold);
+}
+
+.npi-child-empty {
+    padding: var(--sp-3) var(--sp-4) var(--sp-3) calc(var(--sp-4) + 20px);
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* ── Backlog health — KPI cliquables + détail dépliable ──────────────────── */
+.rm-health-kpi-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    background: none;
+    border: none;
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: background var(--tr-fast);
+}
+.rm-health-kpi-btn:hover:not(:disabled) { background: var(--surface-hover); }
+.rm-health-kpi-btn:disabled { cursor: default; opacity: 0.6; }
+.rm-health-kpi-btn.active { background: var(--surface-hover); outline: 1px solid var(--border); }
+
+.rm-health-detail {
+    margin-top: var(--sp-3);
+    border-top: 1px solid var(--border);
+    padding-top: var(--sp-2);
+}
+.rm-health-detail.hidden { display: none; }
+
+.rm-health-ticket {
+    display: grid;
+    grid-template-columns: 80px 1fr auto;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: background var(--tr-fast);
+}
+.rm-health-ticket:hover { background: var(--surface-hover); }
+
+.rm-team-row { cursor: pointer; transition: background var(--tr-fast); }
+.rm-team-row:hover { background: var(--surface-hover); }
 
 
 /* ── Timeline multi-PI (vue long terme #27) ─────────────────────────────────── */
@@ -494,7 +547,15 @@
     border-radius: var(--r-md);
     overflow: hidden;
 }
-.rm-tl-col--current { border-color: var(--primary); }
+/* Etat temporel de colonne — même traitement border/width/bgcolor que .pi-sprint-card--* (support.css) */
+.rm-tl-col--past { opacity: 0.7; }
+.rm-tl-col--current {
+    background: color-mix(in srgb, var(--primary) 12%, var(--bg-alt));
+    border-color: var(--primary);
+    border-width: 2px;
+    box-shadow: 0 0 0 1px var(--primary), 0 4px 12px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.rm-tl-col--future { border-style: dashed; }
 .rm-tl-col--selected { box-shadow: 0 0 0 2px var(--primary) inset; }
 .rm-tl-hd {
     display: flex;
@@ -502,7 +563,7 @@
     gap: 2px;
     width: 100%;
     padding: var(--sp-2) var(--sp-3);
-    background: var(--surface);
+    background: transparent;
     border: none;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
@@ -511,11 +572,26 @@
 }
 .rm-tl-hd:hover { background: var(--surface-hover); }
 .rm-tl-hd-pi { font-weight: 700; font-size: var(--fs-sm); }
-.rm-tl-hd-cur {
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    color: var(--primary);
-    margin-left: 4px;
+.rm-tl-hd-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    align-self: flex-start;
+    font-size: 9px;
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: var(--r-full);
+}
+.rm-tl-hd-state--past {
+    background: color-mix(in srgb, var(--success) 12%, transparent);
+    color: var(--success);
+}
+.rm-tl-hd-state--current { background: var(--primary); color: #fff; }
+.rm-tl-hd-state--future {
+    background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+    color: var(--text-muted);
 }
 .rm-tl-hd-count { font-size: var(--fs-xs); color: var(--text-muted); }
 .rm-tl-cards {
@@ -548,6 +624,13 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+.rm-tl-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    margin-top: 2px;
 }
 .rm-tl-empty, .rm-tl-more {
     font-size: var(--fs-xs);

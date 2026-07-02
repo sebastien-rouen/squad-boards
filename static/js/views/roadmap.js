@@ -4,8 +4,8 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, deriveMembersFromAbsences, rollupStatus, computeVelocityHistory, getCurrentPi, extractPiNum, computeVelocityBreakdown, statusBadge } from '../utils.js';
-import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, deriveMembersFromAbsences, rollupStatus, computeVelocityHistory, getCurrentPi, extractPiNum, computeVelocityBreakdown, statusBadge, typeBadge } from '../utils.js';
+import { STATUS_LABELS, TEAM_COLORS, TYPE_ICONS } from '../config.js';
 import { renderVelocityChart } from '../components/charts.js';
 import { renderItemDepGraph, extractDependencyEdges } from '../components/dep_graph.js';
 import * as api from '../api.js';
@@ -193,9 +193,9 @@ export function renderRoadmap(container) {
     const predict = _computePredictability(allTickets, members, absences, piInfo, sprintInfo, team);
 
     // Backlog health KPIs
-    const noEpic = tickets.filter(t => !t.epic && t.status !== 'done').length;
-    const noPoints = tickets.filter(t => !t.points && t.status !== 'done').length;
-    const noPriority = tickets.filter(t => (!t.priority || t.priority === 'medium') && t.status !== 'done').length;
+    const noEpicTickets = tickets.filter(t => !t.epic && t.status !== 'done');
+    const noPointsTickets = tickets.filter(t => !t.points && t.status !== 'done');
+    const noPriorityTickets = tickets.filter(t => (!t.priority || t.priority === 'medium') && t.status !== 'done');
 
     // Team allocation (features per team)
     const teamAlloc = teams.map((t, i) => {
@@ -245,8 +245,8 @@ export function renderRoadmap(container) {
         ${_multiPiTimelineHtml(features, _basePi, _piOffset, teamObjects)}
 
         ${isNextPi
-            ? _nextPiSectionHtml(nextPiFeatureData, nextPiTag, nextPiLabel, _buildDiag(allFeatures, allTickets, nextPiTag, nextPiFeatureData.length, nextPiFeatureData.filter(f => f._piInherited).length), viewMode, allTickets, epics, teamObjects, store.get('jiraUrl') || null)
-            : _currentPiSectionHtml(featureData, noEpic, noPoints, noPriority, teamAlloc, totalPts, velocityHistory)
+            ? _nextPiSectionHtml(nextPiFeatureData, nextPiTag, nextPiLabel, _buildDiag(allFeatures, allTickets, nextPiTag, nextPiFeatureData.length, nextPiFeatureData.filter(f => f._piInherited).length), viewMode, allTickets, epics, teamObjects, store.get('jiraUrl') || null, _basePi)
+            : _currentPiSectionHtml(featureData, noEpicTickets, noPointsTickets, noPriorityTickets, teamAlloc, totalPts, velocityHistory)
         }
     `;
 
@@ -270,12 +270,21 @@ export function renderRoadmap(container) {
         });
     });
 
+    // ── Badge "héritée" → saute au PI d'origine de la feature ──────────────────
+    container.querySelectorAll('[data-jump-pi]').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const o = parseInt(btn.dataset.jumpPi, 10);
+            if (!Number.isNaN(o)) store.set('piOffset', o);
+        });
+    });
+
     if (isNextPi) {
         if (viewMode === 'next-list') {
-            // List view: expand/collapse feature accordions (skip clic sur drag-handle)
+            // List view: expand/collapse feature accordions (skip clic sur drag-handle / badge héritée)
             container.querySelectorAll('.npi-feat-hd').forEach(hd => {
                 hd.addEventListener('click', e => {
-                    if (e.target.closest('.drag-handle')) return;
+                    if (e.target.closest('.drag-handle') || e.target.closest('[data-jump-pi]')) return;
                     const feat = hd.closest('.npi-feat');
                     feat.classList.toggle('expanded');
                     feat.querySelector('.npi-children')?.classList.toggle('hidden');
@@ -289,11 +298,26 @@ export function renderRoadmap(container) {
                 });
             });
         } else {
-            // Card view: card click → modal (skip clic sur drag-handle)
+            // Card view: card click → modal (skip clic sur drag-handle / drill-down / badge héritée)
             container.querySelectorAll('.next-pi-card').forEach(el => {
                 el.addEventListener('click', e => {
-                    if (e.target.closest('.drag-handle')) return;
+                    if (e.target.closest('.drag-handle') || e.target.closest('[data-drill-toggle]') || e.target.closest('.npi-child') || e.target.closest('[data-jump-pi]')) return;
                     window.__squadBoard?.openTicketModal?.(el.dataset.featureId);
+                });
+            });
+            // Card view: drill-down toggle → déplie/replie les tickets enfants sans ouvrir la modal
+            container.querySelectorAll('.next-pi-card [data-drill-toggle]').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    const card = btn.closest('.next-pi-card');
+                    card.classList.toggle('expanded');
+                    card.querySelector('.npi-children')?.classList.toggle('hidden');
+                });
+            });
+            container.querySelectorAll('.next-pi-card .npi-child[data-ticket-id]').forEach(el => {
+                el.addEventListener('click', e => {
+                    e.stopPropagation();
+                    window.__squadBoard?.openTicketModal?.(el.dataset.ticketId);
                 });
             });
         }
@@ -308,6 +332,27 @@ export function renderRoadmap(container) {
         });
     });
 
+    // ── Backlog health : KPI cliquable → déplie la liste des tickets concernés ──
+    container.querySelectorAll('.rm-health-kpi-btn[data-health-kpi]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const key = btn.dataset.healthKpi;
+            const detail = container.querySelector(`.rm-health-detail[data-health-detail="${key}"]`);
+            if (!detail) return;
+            const willOpen = detail.classList.contains('hidden');
+            container.querySelectorAll('.rm-health-detail').forEach(d => d.classList.add('hidden'));
+            container.querySelectorAll('.rm-health-kpi-btn').forEach(b => b.classList.remove('active'));
+            if (willOpen) { detail.classList.remove('hidden'); btn.classList.add('active'); }
+        });
+    });
+    container.querySelectorAll('.rm-health-ticket[data-ticket-id]').forEach(el => {
+        el.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(el.dataset.ticketId));
+    });
+
+    // ── Allocation par équipe : clic sur une ligne → filtre la page sur cette équipe ──
+    container.querySelectorAll('.rm-team-row[data-team-name]').forEach(el => {
+        el.addEventListener('click', () => store.set('team', el.dataset.teamName));
+    });
+
     // ── Drag & drop ranking (factorisé pour PI courant + PI suivant cartes + liste) ─
     _wireFeatureDrag(container, '#feature-drag-list', '.feature-draggable');
     _wireFeatureDrag(container, '.next-pi-grid',     '.next-pi-card');
@@ -317,15 +362,43 @@ export function renderRoadmap(container) {
     requestAnimationFrame(() => {
         const svg = container.querySelector('#dep-graph');
         if (svg) renderItemDepGraph(svg, featureData, teamObjects);
+        const svgNext = container.querySelector('#dep-graph-next');
+        if (svgNext) renderItemDepGraph(svgNext, nextPiFeatureData, teamObjects);
         if (velocityHistory.length) renderVelocityChart('chart-rm-velocity', velocityHistory);
     });
 }
 
+// Children = tickets ENFANTS d'une feature/epic dans le PI cible.
+// - Proxy-epic (f est un epic) : tickets directement parentés à f.id
+// - Feature normale : tickets via la chaîne epic → feature, avec fallback direct
+//   (cas où le ticket pointe directement la feature sans passer par un epic)
+function _childrenForFeature(f, allTickets, epics, piTag) {
+    if (f._piProxy === 'epic') {
+        return allTickets.filter(t => t.piSprint === piTag && t.epic === f.id);
+    }
+    const featEpics = epics.filter(e => e.feature === f.id);
+    let children = allTickets.filter(t =>
+        t.piSprint === piTag && t.epic && featEpics.some(e => e.id === t.epic)
+    );
+    if (!children.length) {
+        // Cas où certaines équipes parente directement le ticket à la feature
+        children = allTickets.filter(t => t.piSprint === piTag && t.epic === f.id);
+    }
+    return children;
+}
+
 // ── Next PI section HTML ──────────────────────────────────────────────────────
-function _nextPiSectionHtml(features, piTag, piLabel, diag, viewMode, allTickets, epics, teamObjects, jiraUrl = null) {
+function _nextPiSectionHtml(features, piTag, piLabel, diag, viewMode, allTickets, epics, teamObjects, jiraUrl = null, basePi = null) {
     const heading   = esc(piTag || piLabel);
     const count     = features.length;
     const countLabel = `${count} feature${count !== 1 ? 's' : ''} planifie${count !== 1 ? 'es' : 'e'}`;
+    const missingPtsCount = features.reduce(
+        (n, f) => n + _childrenForFeature(f, allTickets, epics, piTag).filter(t => !t.points).length,
+        0
+    );
+    const missingPtsChip = missingPtsCount
+        ? `<span class="missing-pts-chip" title="Tickets sans story points, à chiffrer">⚠ ${missingPtsCount} sans points</span>`
+        : '';
     const isListView = viewMode === 'next-list';
 
     const subToggle = `
@@ -338,54 +411,16 @@ function _nextPiSectionHtml(features, piTag, piLabel, diag, viewMode, allTickets
             </button>
         </div>`;
 
-    const diagHtml = diag ? `
-        <details class="next-pi-diag mt-3">
-            <summary>Diagnostic base de donnees</summary>
-            <div class="next-pi-diag-body">
-                <div class="next-pi-diag-row">
-                    <span>Features en base (total)</span><strong>${diag.totalFeatures}</strong>
-                </div>
-                <div class="next-pi-diag-row ${diag.featuresNextPi === 0 ? 'diag-warn' : 'diag-ok'}">
-                    <span>Features avec piSprint = <code>${esc(piTag || '?')}</code> (total base)</span><strong>${diag.featuresNextPi}</strong>
-                </div>
-                ${diag.featuresNextPiFiltered !== null ? `
-                <div class="next-pi-diag-row ${diag.featuresNextPiFiltered === 0 && diag.featuresNextPi > 0 ? 'diag-warn' : ''}">
-                    <span>Features visibles (après filtre équipe)</span><strong>${diag.featuresNextPiFiltered}</strong>
-                </div>` : ''}
-                ${diag.featuresInherited > 0 ? `
-                <div class="next-pi-diag-row diag-ok">
-                    <span>dont features héritées (children en <code>${esc(piTag || '?')}</code>)</span><strong>${diag.featuresInherited}</strong>
-                </div>` : ''}
-                ${diag.teamDistribution.length ? `
-                <div class="next-pi-diag-row ${diag.featuresNextPiFiltered === 0 && diag.featuresNextPi > 0 ? 'diag-warn' : ''}">
-                    <span>Equipes des features ${esc(piTag || '')} (champ <code>team</code>)</span>
-                    <strong>${diag.teamDistribution.map(([t, n]) => `<code>${esc(t)}</code> (${n})`).join(' ')}</strong>
-                </div>` : ''}
-                <div class="next-pi-diag-row ${diag.featuresNullPi > 0 ? 'diag-warn' : ''}">
-                    <span>Features sans piSprint (null)</span><strong>${diag.featuresNullPi}</strong>
-                </div>
-                <div class="next-pi-diag-row">
-                    <span>PI values distinctes</span>
-                    <strong>${diag.piValues.length ? diag.piValues.map(v => `<code>${esc(v)}</code>`).join(' ') : '—'}</strong>
-                </div>
-                <div class="next-pi-diag-row">
-                    <span>Tickets avec piSprint = <code>${esc(piTag || '?')}</code></span><strong>${diag.ticketsNextPi}</strong>
-                </div>
-                ${diag.ticketTypesNextPi.length ? `<div class="next-pi-diag-row">
-                    <span>Types</span>
-                    <strong>${diag.ticketTypesNextPi.map(([t, n]) => `${esc(t)}: ${n}`).join(', ')}</strong>
-                </div>` : ''}
-                <div class="next-pi-diag-hint">Si "Features sans piSprint" est eleve, verifiez le champ Sprint dans Parametres → Plugin JIRA.</div>
-            </div>
-        </details>` : '';
-
     const cardsHtml = features.map(f => {
         const ptsPct = f.ptsPct || 0;
+        const children = _childrenForFeature(f, allTickets, epics, piTag);
+        const childCount = children.length;
         return `
         <div class="next-pi-card${f._piInherited ? ' next-pi-card-inherited' : ''}${f._piProxy ? ' next-pi-card-proxy' : ''}"
              data-feature-id="${esc(f.id)}"${f._piProxy ? ' data-proxy="1"' : ' draggable="true"'}>
             <div class="next-pi-card-hd">
                 ${!f._piProxy ? '<span class="drag-handle" title="Glisser pour réordonner">⠿</span>' : ''}
+                ${typeBadge(f.type, { size: '2xs' })}
                 <span class="next-pi-badge">${esc(f.piSprint || piTag || piLabel)}</span>
                 ${(() => {
                     const s = f.rolledStatus || f.status;
@@ -394,7 +429,7 @@ function _nextPiSectionHtml(features, piTag, piLabel, diag, viewMode, allTickets
                         : `Statut JIRA`;
                     return `<span class="badge badge-${esc(s)}" title="${esc(tip)}">${esc(STATUS_LABELS[s] || s)}</span>`;
                 })()}
-                ${f._piInherited ? `<span class="badge badge-inherited" title="Cette feature est etiquetee ${esc(f.piSprint || '')} mais a des tickets en ${esc(piTag || '')}">héritée</span>` : ''}
+                ${f._piInherited ? _inheritedBadgeHtml(f, piTag, basePi) : ''}
                 ${f._piProxy === 'epic' ? `<span class="badge badge-proxy" title="Epic affiche comme proxy-feature (pas de Feature JIRA parente)">epic</span>` : ''}
             </div>
             <div class="next-pi-card-title">${esc(f.title)}</div>
@@ -415,13 +450,20 @@ function _nextPiSectionHtml(features, piTag, piLabel, diag, viewMode, allTickets
             <div class="progress progress-xs" style="margin-top:var(--sp-1)">
                 <div class="progress-bar ${progressColor(ptsPct)}" style="width:${ptsPct}%"></div>
             </div>
+            <button type="button" class="next-pi-card-drill" data-drill-toggle>
+                <svg class="npi-chevron icon icon-xs"><use href="#i-chevron-right"/></svg>
+                ${childCount} ticket${childCount !== 1 ? 's' : ''}
+            </button>
+            <div class="npi-children hidden">
+                ${childCount ? _childRowsHtml(children) : `<div class="npi-child-empty">Aucun ticket enfant rattaché à cette feature.</div>`}
+            </div>
         </div>`;
     }).join('');
 
     const teamFilterActive = diag && diag.featuresNextPiFiltered === 0 && diag.featuresNextPi > 0;
     const body = count
         ? (isListView
-            ? _nextPiListHtml(features, allTickets, epics, teamObjects, piTag, jiraUrl)
+            ? _nextPiListHtml(features, allTickets, epics, teamObjects, piTag, jiraUrl, basePi)
             : `<div class="next-pi-grid">${cardsHtml}</div>`)
         : teamFilterActive
             ? `<div class="empty-state">
@@ -439,6 +481,15 @@ function _nextPiSectionHtml(features, piTag, piLabel, diag, viewMode, allTickets
                 Causes possibles : (1) vos features sont etiquetees d'un PI anterieur (le badge <em>héritée</em> s'affichera apres re-synchronisation grace au correctif epic→feature) ; (2) les tickets PI suivant n'ont pas d'epic JIRA parent.</p>` : ''}
                </div>`;
 
+    const _depEdges = extractDependencyEdges(features);
+    const depGraphSection = _depEdges.length ? `
+        <div class="pi-section">
+            <h3 class="pi-section-title">Graphe de dépendances ${heading} <span class="text-xs text-muted">(liens inter-équipes en rouge)</span></h3>
+            <div class="card" style="overflow:auto">
+                <svg id="dep-graph-next" class="dep-graph-svg"></svg>
+            </div>
+        </div>` : '';
+
     return `
         <div class="pi-section">
             <div class="pi-section-hdr">
@@ -446,63 +497,62 @@ function _nextPiSectionHtml(features, piTag, piLabel, diag, viewMode, allTickets
                 <div class="flex items-center gap-3">
                     ${subToggle}
                     <span class="text-xs text-muted">${countLabel}</span>
+                    ${missingPtsChip}
                 </div>
             </div>
             ${body}
-            ${diagHtml}
+        </div>
+        ${depGraphSection}`;
+}
+
+const NPI_STATUS_DOT_COLORS = {
+    done:   'var(--success)',
+    inprog: 'var(--primary)',
+    review: '#f59e0b',
+    test:   '#06b6d4',
+    blocked:'var(--danger)',
+    todo:   'var(--border)',
+};
+// Badge "héritée" — cliquable pour sauter au PI d'origine de la feature quand celui-ci est
+// calculable (basePi connu + piSprint parsable), sinon simple badge informatif.
+function _inheritedBadgeHtml(f, piTag, basePi, sizeCls = '') {
+    const tip = `Cette feature est etiquetee ${esc(f.piSprint || '')} mais a des tickets en ${esc(piTag || '')}`;
+    const originPiNum = basePi ? extractPiNum(f.piSprint) : null;
+    if (!originPiNum) return `<span class="badge badge-inherited${sizeCls}" title="${tip}">héritée</span>`;
+    const offset = originPiNum - basePi;
+    return `<button type="button" class="badge badge-inherited${sizeCls} badge-link" data-jump-pi="${offset}" title="${tip} — cliquer pour ouvrir ${esc(f.piSprint)}">héritée ↗</button>`;
+}
+
+// Rendu des lignes "ticket enfant" — réutilisé par la vue liste ET la vue cartes (drill-down).
+function _childRowsHtml(children) {
+    return children.map(t => {
+        const dotColor = NPI_STATUS_DOT_COLORS[t.status] || NPI_STATUS_DOT_COLORS.todo;
+        const typeIcon = TYPE_ICONS[t.type] || '✦';
+        const hasPts = !!t.points;
+        const pts = hasPts ? `${t.points} pt${t.points > 1 ? 's' : ''}` : '⚠ à chiffrer';
+        return `
+        <div class="npi-child" data-ticket-id="${esc(t.id)}">
+            <span class="npi-status-dot" style="background:${dotColor}"></span>
+            <span class="npi-child-type" title="${esc(t.type)}">${typeIcon}</span>
+            <span class="npi-child-key">${esc(t.id)}</span>
+            <span class="npi-child-title">${esc(t.title)}</span>
+            <span class="npi-child-leader">${esc(t.leader || '—')}</span>
+            <span class="npi-child-pts${hasPts ? '' : ' npi-child-pts-missing'}" title="${hasPts ? '' : 'Story points manquants sur ce ticket'}">${pts}</span>
         </div>`;
+    }).join('');
 }
 
 // ── Next PI list view HTML ────────────────────────────────────────────────────
-function _nextPiListHtml(features, allTickets, epics, teamObjects, piTag, jiraUrl = null) {
-    const STATUS_DOT_COLORS = {
-        done:   'var(--success)',
-        inprog: 'var(--primary)',
-        review: '#f59e0b',
-        test:   '#06b6d4',
-        blocked:'var(--danger)',
-        todo:   'var(--border)',
-    };
-    const TYPE_ICONS = { bug: '🐛', task: '✦', story: '◈', feature: '★', epic: '⬡' };
+function _nextPiListHtml(features, allTickets, epics, teamObjects, piTag, jiraUrl = null, basePi = null) {
 
     const rows = features.map(f => {
         const tObj = teamObjects.find(t => t.name === f.team);
         const teamColor = tObj?.color || 'var(--text-muted)';
         const ptsPct = f.ptsPct || 0;
 
-        // Children = tickets ENFANTS de cette feature/epic dans le PI cible.
-        // - Proxy-epic (f est un epic) : tickets directement parentés à f.id
-        // - Feature normale : tickets via la chaîne epic → feature, avec fallback direct
-        //   (cas où le ticket pointe directement la feature sans passer par un epic)
-        let children;
-        if (f._piProxy === 'epic') {
-            children = allTickets.filter(t => t.piSprint === piTag && t.epic === f.id);
-        } else {
-            const featEpics = epics.filter(e => e.feature === f.id);
-            children = allTickets.filter(t =>
-                t.piSprint === piTag && t.epic && featEpics.some(e => e.id === t.epic)
-            );
-            if (!children.length) {
-                // Cas où certaines équipes parente directement le ticket à la feature
-                children = allTickets.filter(t => t.piSprint === piTag && t.epic === f.id);
-            }
-        }
+        const children = _childrenForFeature(f, allTickets, epics, piTag);
         const childCount = children.length;
-
-        const childRows = children.map(t => {
-            const dotColor = STATUS_DOT_COLORS[t.status] || STATUS_DOT_COLORS.todo;
-            const typeIcon = TYPE_ICONS[t.type] || '✦';
-            const pts = t.points ? `${t.points} pt${t.points > 1 ? 's' : ''}` : '—';
-            return `
-            <div class="npi-child" data-ticket-id="${esc(t.id)}">
-                <span class="npi-status-dot" style="background:${dotColor}"></span>
-                <span class="npi-child-type" title="${esc(t.type)}">${typeIcon}</span>
-                <span class="npi-child-key">${esc(t.id)}</span>
-                <span class="npi-child-title">${esc(t.title)}</span>
-                <span class="npi-child-leader">${esc(t.leader || '—')}</span>
-                <span class="npi-child-pts">${pts}</span>
-            </div>`;
-        }).join('');
+        const childRows = _childRowsHtml(children);
 
         return `
         <div class="npi-feat${f._piInherited ? ' npi-feat-inherited' : ''}${f._piProxy ? ' npi-feat-proxy' : ''}"
@@ -511,6 +561,7 @@ function _nextPiListHtml(features, allTickets, epics, teamObjects, piTag, jiraUr
             <div class="npi-feat-hd">
                 <svg class="npi-chevron icon icon-xs"><use href="#i-chevron-right"/></svg>
                 ${!f._piProxy ? '<span class="drag-handle" title="Glisser pour réordonner">⠿</span>' : ''}
+                ${typeBadge(f.type, { size: '2xs' })}
                 ${(() => {
                     const s = f.rolledStatus || f.status;
                     const tip = f.rolledStatus && f.rolledStatus !== f.status
@@ -518,7 +569,7 @@ function _nextPiListHtml(features, allTickets, epics, teamObjects, piTag, jiraUr
                         : `Statut JIRA`;
                     return `<span class="badge badge-${esc(s)} badge-sm" title="${esc(tip)}">${esc(STATUS_LABELS[s] || s)}</span>`;
                 })()}
-                ${f._piInherited ? `<span class="badge badge-inherited badge-sm" title="Etiquetee ${esc(f.piSprint || '')} mais a des tickets en ${esc(piTag || '')}">héritée</span>` : ''}
+                ${f._piInherited ? _inheritedBadgeHtml(f, piTag, basePi, ' badge-sm') : ''}
                 ${f._piProxy === 'epic' ? `<span class="badge badge-proxy badge-sm" title="Epic affiche comme proxy-feature">epic</span>` : ''}
                 ${jiraUrl
                     ? `<a class="npi-feat-key npi-feat-key-link" href="${esc(jiraUrl)}/browse/${esc(f.id)}" target="_blank" rel="noopener" title="Ouvrir ${esc(f.id)} dans JIRA" onclick="event.stopPropagation()">${esc(f.id)}<svg class="npi-feat-key-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
@@ -533,7 +584,9 @@ function _nextPiListHtml(features, allTickets, epics, teamObjects, piTag, jiraUr
                     </div>
                 </div>
             </div>
-            ${childCount ? `<div class="npi-children hidden">${childRows}</div>` : ''}
+            ${childCount
+                ? `<div class="npi-children hidden">${childRows}</div>`
+                : `<div class="npi-children hidden"><div class="npi-child-empty">Aucun ticket enfant rattaché à cette feature.</div></div>`}
         </div>`;
     }).join('');
 
@@ -712,17 +765,25 @@ function _buildDiag(features, allTickets, nextPiTag, filteredCount = null, inher
 }
 
 // ── Current PI section HTML ───────────────────────────────────────────────────
-function _currentPiSectionHtml(featureData, noEpic, noPoints, noPriority, teamAlloc, totalPts, velocityHistory) {
+function _currentPiSectionHtml(featureData, noEpicTickets, noPointsTickets, noPriorityTickets, teamAlloc, totalPts, velocityHistory) {
+    const noEpic = noEpicTickets.length;
+    const noPoints = noPointsTickets.length;
+    const noPriority = noPriorityTickets.length;
     // Dépendances réelles (liens JIRA bloquants) entre les features du PI — out-degree par feature.
     const _depEdges = extractDependencyEdges(featureData);
     const _depOut = {};
     _depEdges.forEach(e => { _depOut[e.from] = (_depOut[e.from] || 0) + 1; });
+    const featuresMissingPts = featureData.filter(f => !f.pts).length;
+    const missingPtsChip = featuresMissingPts
+        ? `<span class="missing-pts-chip" title="Features sans story points, à chiffrer">⚠ ${featuresMissingPts} sans points</span>`
+        : '';
     const featureRows = featureData.length
         ? featureData.map(f => `
             <div class="feature-row feature-draggable" draggable="true" data-feature-id="${esc(f.id)}" data-ticket-id="${esc(f.id)}">
                 <span class="drag-handle" title="Glisser">⠿</span>
                 <span class="feature-id">${esc(f.id)}</span>
                 <span class="feature-title truncate">${esc(f.title)}</span>
+                ${typeBadge(f.type, { size: '2xs' })}
                 ${(() => {
                     const s = f.rolledStatus || f.status;
                     const tip = f.rolledStatus && f.rolledStatus !== f.status
@@ -733,11 +794,20 @@ function _currentPiSectionHtml(featureData, noEpic, noPoints, noPriority, teamAl
                 <div class="feature-progress">
                     <div class="progress progress-xs"><div class="progress-bar ${progressColor(f.progress)}" style="width:${f.progress}%"></div></div>
                 </div>
-                <span class="text-xs text-muted">${f.donePts}/${f.pts} pts</span>
+                <span class="text-xs${f.pts ? ' text-muted' : ' missing-pts-inline'}" title="${f.pts ? '' : 'Story points manquants sur cette feature'}">${f.donePts}/${f.pts} pts</span>
                 <span class="feature-team">${esc(f.team || '-')}</span>
                 ${_depOut[f.id] ? `<span class="dep-badge" title="Dépend de ${_depOut[f.id]} autre(s) feature(s) (liens JIRA bloquants)">⇒ ${_depOut[f.id]}</span>` : ''}
             </div>`).join('')
         : '<div class="empty-state"><p>Aucune feature</p></div>';
+
+    // Liste dépliable des tickets concernés par un KPI de santé backlog — clic sur le KPI
+    // pour dérouler, clic sur un ticket → modal (cohérent avec les autres listes de la page).
+    const _healthTicketRows = (list) => list.map(t => `
+        <div class="rm-health-ticket" data-ticket-id="${esc(t.id)}">
+            <span class="npi-child-key">${esc(t.id)}</span>
+            <span class="npi-child-title">${esc(t.title)}</span>
+            <span class="npi-child-leader">${esc(t.leader || t.assignee || '—')}</span>
+        </div>`).join('');
 
     const depGraphSection = _depEdges.length ? `
         <div class="pi-section">
@@ -748,7 +818,7 @@ function _currentPiSectionHtml(featureData, noEpic, noPoints, noPriority, teamAl
         </div>` : '';
 
     const teamRows = teamAlloc.map(t => `
-        <tr>
+        <tr class="rm-team-row" data-team-name="${esc(t.name)}" title="Filtrer sur ${esc(t.name)}">
             <td><span class="inline-flex-center"><span class="team-dot" style="background:${esc(t.color)}"></span>${esc(t.name)}</span></td>
             <td>${t.ticketCount}</td>
             <td>${t.pts}</td>
@@ -769,26 +839,32 @@ function _currentPiSectionHtml(featureData, noEpic, noPoints, noPriority, teamAl
         <div class="card mb-4" style="padding:var(--sp-3) var(--sp-4)">
             <div class="card-header" style="margin-bottom:var(--sp-2)"><span class="card-title">Sante du backlog</span></div>
             <div class="flex gap-4 flex-wrap">
-                <div class="flex items-center gap-2">
+                <button type="button" class="rm-health-kpi-btn" data-health-kpi="epic" ${noEpic ? '' : 'disabled'}>
                     <span class="health-kpi" style="color:${noEpic > 5 ? 'var(--danger)' : noEpic > 0 ? 'var(--warning)' : 'var(--success)'}">${noEpic}</span>
                     <span class="text-sm text-muted">sans epic</span>
-                </div>
-                <div class="flex items-center gap-2">
+                </button>
+                <button type="button" class="rm-health-kpi-btn" data-health-kpi="points" ${noPoints ? '' : 'disabled'}>
                     <span class="health-kpi" style="color:${noPoints > 5 ? 'var(--danger)' : noPoints > 0 ? 'var(--warning)' : 'var(--success)'}">${noPoints}</span>
                     <span class="text-sm text-muted">sans estimation</span>
-                </div>
-                <div class="flex items-center gap-2">
+                </button>
+                <button type="button" class="rm-health-kpi-btn" data-health-kpi="priority" ${noPriority ? '' : 'disabled'}>
                     <span class="health-kpi" style="color:${noPriority > 10 ? 'var(--warning)' : 'var(--text)'}">${noPriority}</span>
                     <span class="text-sm text-muted">priorite par defaut</span>
-                </div>
+                </button>
             </div>
+            <div class="rm-health-detail hidden" data-health-detail="epic">${_healthTicketRows(noEpicTickets)}</div>
+            <div class="rm-health-detail hidden" data-health-detail="points">${_healthTicketRows(noPointsTickets)}</div>
+            <div class="rm-health-detail hidden" data-health-detail="priority">${_healthTicketRows(noPriorityTickets)}</div>
         </div>
 
         <!-- Feature Timeline (draggable for ranking) -->
         <div class="pi-section">
             <div class="pi-section-hdr">
                 <h3 class="pi-section-title">Features</h3>
-                <span class="text-xs text-muted">Glisser pour reordonner</span>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-muted">Glisser pour reordonner</span>
+                    ${missingPtsChip}
+                </div>
             </div>
             <div class="card card-flush" id="feature-drag-list">
                 ${featureRows}
@@ -834,21 +910,29 @@ function _multiPiTimelineHtml(features, basePi, piOffset, teamObjects) {
         const list = (byPi.get(n) || []).sort((a, b) => (a.rank || 0) - (b.rank || 0));
         const isCurrent = n === basePi;
         const isSelected = n === selectedPi;
+        // Etat temporel de la colonne — même code couleur que pi-sprint-card (support.js/dashboard.js) :
+        // passé = success/vert, courant = primary, futur = muted.
+        const temporalState = isCurrent ? 'current' : (n < basePi ? 'past' : 'future');
         const done = list.filter(f => f.status === 'done').length;
+        const pts = sumBy(list, f => f.points);
         const cards = list.length
             ? list.slice(0, 40).map(f => `
                 <button class="rm-tl-card" data-feature-id="${esc(f.id)}" style="--tcol:${esc(tcol(f.team))}" title="${esc(f.title || '')}${f.team ? ' · ' + esc(f.team) : ''}">
                     <span class="rm-tl-card-id">${esc(f.id)}</span>
                     <span class="rm-tl-card-title">${esc((f.title || '').slice(0, 48))}</span>
-                    <span class="badge badge-${esc(f.status)} badge-sm">${esc(STATUS_LABELS[f.status] || f.status)}</span>
+                    <div class="rm-tl-card-foot">
+                        ${typeBadge(f.type, { size: '2xs' })}
+                        <span class="badge badge-${esc(f.status)} badge-sm">${esc(STATUS_LABELS[f.status] || f.status)}</span>
+                    </div>
                 </button>`).join('')
                 + (list.length > 40 ? `<div class="rm-tl-more">+${list.length - 40} autres…</div>` : '')
             : '<div class="rm-tl-empty">Aucune feature</div>';
         return `
-        <div class="rm-tl-col${isCurrent ? ' rm-tl-col--current' : ''}${isSelected ? ' rm-tl-col--selected' : ''}">
+        <div class="rm-tl-col rm-tl-col--${temporalState}${isSelected ? ' rm-tl-col--selected' : ''}">
             <button class="rm-tl-hd" data-pi-offset="${n - basePi}" title="Voir le détail de PI${n} ci-dessous">
-                <span class="rm-tl-hd-pi">PI${n}${isCurrent ? ' <span class="rm-tl-hd-cur">courant</span>' : ''}</span>
-                <span class="rm-tl-hd-count">${list.length} feat.${done ? ` · ${done} ✓` : ''}</span>
+                <span class="rm-tl-hd-state rm-tl-hd-state--${temporalState}">${temporalState === 'past' ? '✓ passé' : temporalState === 'current' ? '● courant' : '○ futur'}</span>
+                <span class="rm-tl-hd-pi">PI${n}</span>
+                <span class="rm-tl-hd-count">${list.length} feat.${done ? ` · ${done} ✓` : ''}${pts ? ` · ${pts} pts` : ''}</span>
             </button>
             <div class="rm-tl-cards">${cards}</div>
         </div>`;

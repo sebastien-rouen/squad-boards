@@ -337,7 +337,7 @@ export function computeStageFlowDetail(groupKey, tickets) {
             entry.totalDays += days;
             byRawStatus.set(rawKey, entry);
         }
-        if (sum > 0) ticketRows.push({ id: t.id, title: t.title || '', days: Math.round(sum * 10) / 10, jiraStatus: t.jiraStatus || matchedRaw || '' });
+        if (sum > 0) ticketRows.push({ ticket: t, days: Math.round(sum * 10) / 10, jiraStatus: t.jiraStatus || matchedRaw || '' });
     }
     ticketRows.sort((a, b) => b.days - a.days);
     const rows = [...byRawStatus.values()]

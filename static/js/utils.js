@@ -291,9 +291,14 @@ export const STAGE_FLOW_GROUPS = [
 ];
 
 // ── Tickets exclus du calcul de flux (ex: tickets récurrents "OPS" créés chaque PI qui
-// faussent la moyenne) ── Stockage : localStorage `stageflow-excluded` = JSON array d'IDs.
+// faussent la moyenne) ── Stockage : localStorage `stageflow-excluded` = JSON array d'IDs
+// (exclusion ticket par ticket) + `stageflow-excluded-patterns` = JSON array de regex
+// (source string, testées sur le titre, insensible à la casse — ex: "mouf-mouf" exclut tout
+// ticket dont le titre contient ce texte, même recréé avec un nouvel ID à chaque PI).
 // Global (pas par équipe) — même pattern que getInactiveSupportMembers().
 const _STAGEFLOW_EXCLUDED_KEY = 'stageflow-excluded';
+const _STAGEFLOW_PATTERNS_KEY = 'stageflow-excluded-patterns';
+
 export function getExcludedFlowTicketIds() {
     try { return JSON.parse(localStorage.getItem(_STAGEFLOW_EXCLUDED_KEY) || '[]'); }
     catch { return []; }
@@ -310,20 +315,51 @@ export function setFlowTicketExcluded(id, excluded) {
     localStorage.setItem(_STAGEFLOW_EXCLUDED_KEY, JSON.stringify(list));
 }
 
+export function getExcludedFlowPatterns() {
+    try { return JSON.parse(localStorage.getItem(_STAGEFLOW_PATTERNS_KEY) || '[]'); }
+    catch { return []; }
+}
+export function addExcludedFlowPattern(pattern) {
+    const p = (pattern || '').trim();
+    if (!p) return;
+    const list = getExcludedFlowPatterns();
+    if (!list.some(x => x.toLowerCase() === p.toLowerCase())) {
+        list.push(p);
+        localStorage.setItem(_STAGEFLOW_PATTERNS_KEY, JSON.stringify(list));
+    }
+}
+export function removeExcludedFlowPattern(pattern) {
+    const list = getExcludedFlowPatterns().filter(x => x !== pattern);
+    localStorage.setItem(_STAGEFLOW_PATTERNS_KEY, JSON.stringify(list));
+}
+/** Motif regex (parmi getExcludedFlowPatterns()) qui matche ce titre, ou null. Regex invalide → ignorée. */
+export function matchingExcludedFlowPattern(title) {
+    for (const p of getExcludedFlowPatterns()) {
+        try { if (new RegExp(p, 'i').test(title || '')) return p; } catch { /* regex invalide, ignorée */ }
+    }
+    return null;
+}
+/** Un ticket est exclu s'il est exclu individuellement OU si son titre matche un motif actif. */
+export function isTicketExcludedFromFlow(ticket) {
+    if (!ticket) return { excluded: false, pattern: null };
+    if (isFlowTicketExcluded(ticket.id)) return { excluded: true, pattern: null };
+    const pattern = matchingExcludedFlowPattern(ticket.title);
+    return { excluded: !!pattern, pattern };
+}
+
 /**
  * Durée moyenne (jours) passée par les tickets dans chaque colonne de flux suivie
  * (Revue, En cours de dév, En cours de test, À livrer en qualif, À livrer en prod).
  * Basé sur ticket.stageDurations (durées cumulées par statut JIRA brut, calculées au sync
  * depuis le changelog complet — cf sync.js transformIssue). Ne retourne que les colonnes
  * réellement présentes dans le workflow de l'équipe (au moins un ticket concerné).
- * Les tickets exclus via setFlowTicketExcluded() sont ignorés du calcul.
+ * Les tickets exclus (par ID ou par motif — cf isTicketExcludedFromFlow) sont ignorés du calcul.
  */
 export function computeStageFlow(tickets) {
-    const excluded = getExcludedFlowTicketIds();
     return STAGE_FLOW_GROUPS.map(g => {
         const perTicket = [];
         for (const t of (tickets || [])) {
-            if (excluded.includes(t.id)) continue;
+            if (isTicketExcludedFromFlow(t).excluded) continue;
             const sd = t.stageDurations || t.stage_durations || {};
             let sum = 0;
             for (const [rawKey, days] of Object.entries(sd)) {
@@ -341,17 +377,17 @@ export function computeStageFlow(tickets) {
  * Détail d'une colonne de flux (pour la modale ouverte au clic sur un segment) : répartition
  * par libellé JIRA brut (nb tickets, durée moyenne) + liste des tickets concernés triée par
  * durée décroissante. Réutilise STAGE_FLOW_GROUPS (même matching que computeStageFlow).
- * Les tickets exclus (setFlowTicketExcluded) sont retirés de la répartition/moyenne (cohérent
- * avec computeStageFlow) mais restent listés (flag `excluded: true`) pour pouvoir les réinclure.
+ * Les tickets exclus (par ID ou par motif) sont retirés de la répartition/moyenne (cohérent
+ * avec computeStageFlow) mais restent listés (flag `excluded`/`excludedPattern`) pour pouvoir
+ * les réinclure (ou retirer le motif qui les exclut).
  */
 export function computeStageFlowDetail(groupKey, tickets) {
     const group = STAGE_FLOW_GROUPS.find(g => g.key === groupKey);
     if (!group) return { byRawStatus: [], tickets: [] };
-    const excludedIds = getExcludedFlowTicketIds();
     const byRawStatus = new Map();
     const ticketRows = [];
     for (const t of (tickets || [])) {
-        const isExcluded = excludedIds.includes(t.id);
+        const { excluded: isExcluded, pattern: excludedPattern } = isTicketExcludedFromFlow(t);
         const sd = t.stageDurations || t.stage_durations || {};
         let sum = 0;
         let matchedRaw = null;
@@ -365,7 +401,7 @@ export function computeStageFlowDetail(groupKey, tickets) {
             entry.totalDays += days;
             byRawStatus.set(rawKey, entry);
         }
-        if (sum > 0) ticketRows.push({ ticket: t, days: Math.round(sum * 10) / 10, jiraStatus: t.jiraStatus || matchedRaw || '', excluded: isExcluded });
+        if (sum > 0) ticketRows.push({ ticket: t, days: Math.round(sum * 10) / 10, jiraStatus: t.jiraStatus || matchedRaw || '', excluded: isExcluded, excludedPattern });
     }
     ticketRows.sort((a, b) => (a.excluded === b.excluded ? b.days - a.days : (a.excluded ? 1 : -1)));
     const rows = [...byRawStatus.values()]

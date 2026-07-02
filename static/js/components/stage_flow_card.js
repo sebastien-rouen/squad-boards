@@ -10,13 +10,15 @@
  * Reprend le style visuel du schéma "Lead time & Cycle time" (classes .lct-*). Chaque
  * segment est cliquable : ouvre une modale de détail qui reprend la charte des tickets
  * (icône de type, couleur de statut, pastille buffer) et la liste `.stuck-row` déjà
- * utilisée par la card "Tickets bloqués ou stagnants" (cf bindStageFlowCard). Chaque
- * ticket peut y être exclu du calcul (ex: ticket récurrent créé à chaque PI qui fausse
- * la moyenne) — persisté via setFlowTicketExcluded (utils.js), la card se rafraîchit
- * immédiatement pour refléter le nouveau calcul.
+ * utilisée par la card "Tickets bloqués ou stagnants" (cf bindStageFlowCard).
+ *
+ * Exclusion du calcul : un ticket peut être exclu individuellement (bouton 🚫 par ligne)
+ * ou via un motif regex appliqué au titre (ex: "mouf-mouf" exclut tout ticket recréé
+ * chaque PI avec ce texte dans le titre, même avec un nouvel ID). Persisté en localStorage
+ * (utils.js), la card se rafraîchit immédiatement après chaque changement.
  */
 
-import { esc, toast, computeStageFlow, computeStageFlowDetail, isBufferItem, getStatusLabel, isFlowTicketExcluded, setFlowTicketExcluded } from '../utils.js';
+import { esc, toast, promptModal, computeStageFlow, computeStageFlowDetail, isBufferItem, getStatusLabel, isFlowTicketExcluded, setFlowTicketExcluded, getExcludedFlowPatterns, addExcludedFlowPattern, removeExcludedFlowPattern } from '../utils.js';
 import { TYPE_ICONS } from '../config.js';
 
 const STAGE_ICONS = {
@@ -82,6 +84,19 @@ export function bindStageFlowCard(container, tickets) {
 
 const MAX_ROWS = 25;
 
+function _renderPatternsBar() {
+    const patterns = getExcludedFlowPatterns();
+    return `
+        <div class="stage-detail-patterns">
+            <span class="stage-detail-patterns-lbl">Motifs exclus (titre) :</span>
+            ${patterns.map(p => `
+                <span class="stage-detail-pattern-chip">${esc(p)}
+                    <button type="button" class="stage-detail-pattern-rm" data-remove-pattern="${esc(p)}" title="Retirer ce motif">×</button>
+                </span>`).join('')}
+            <button type="button" class="btn btn-ghost btn-sm" data-act="add-pattern">+ motif</button>
+        </div>`;
+}
+
 function _renderStageDetailBody(groupKey, tickets, color) {
     const { byRawStatus, tickets: rows } = computeStageFlowDetail(groupKey, tickets);
     const activeCount = rows.filter(r => !r.excluded).length;
@@ -91,6 +106,7 @@ function _renderStageDetailBody(groupKey, tickets, color) {
     const countLabel = `${activeCount} ticket${activeCount > 1 ? 's' : ''} concerné${activeCount > 1 ? 's' : ''}`
         + (excludedCount > 0 ? ` · ${excludedCount} exclu${excludedCount > 1 ? 's' : ''} du calcul` : '');
     return { rows, countLabel, html: `
+        ${_renderPatternsBar()}
         <div class="stage-detail-breakdown">
             ${byRawStatus.map(r => `
                 <div class="stage-detail-row" style="border-left-color:${color}">
@@ -101,9 +117,12 @@ function _renderStageDetailBody(groupKey, tickets, color) {
             ${!byRawStatus.length ? '<p class="text-muted text-sm">Tous les tickets de cette colonne sont exclus du calcul.</p>' : ''}
         </div>
         <div class="stage-detail-tickets">
-            ${visible.map(({ ticket: t, days, jiraStatus, excluded }) => {
+            ${visible.map(({ ticket: t, days, jiraStatus, excluded, excludedPattern }) => {
                 const typeIcon = TYPE_ICONS[t.type] ? `${TYPE_ICONS[t.type]} ` : '';
                 const bufferTag = isBufferItem(t) ? ' <span title="Buffer" style="color:#8B5CF6">🛡️</span>' : '';
+                const toggleHtml = excludedPattern
+                    ? `<span class="stage-flow-exclude-btn stage-flow-exclude-btn--tag is-excluded" title="Exclu via le motif «${esc(excludedPattern)}» — retirer le motif ci-dessus pour le réinclure">🏷️</span>`
+                    : `<button type="button" class="stage-flow-exclude-btn${excluded ? ' is-excluded' : ''}" data-toggle-ticket="${esc(t.id)}" title="${excluded ? 'Réinclure dans le calcul' : 'Exclure ce ticket du calcul (ex: ticket récurrent qui fausse la moyenne)'}">${excluded ? '↩' : '🚫'}</button>`;
                 return `
                 <div class="stuck-row${excluded ? ' stuck-row--excluded' : ''}" data-ticket-id="${esc(t.id)}" title="${excluded ? 'Exclu du calcul — ' : ''}Ouvrir ${esc(t.id)}">
                     <span class="stuck-dot" style="background:var(--status-${esc(t.status)}, var(--text-muted))"></span>
@@ -112,7 +131,7 @@ function _renderStageDetailBody(groupKey, tickets, color) {
                     <span class="stuck-state stuck-state--${esc(t.status)}">${esc(jiraStatus || getStatusLabel(t))}</span>
                     <span class="stuck-lead${t.leader ? '' : ' stuck-lead--none'}">${esc(t.leader || 'Non assigné')}</span>
                     <span class="stuck-age" style="${excluded ? '' : `color:${color};border-color:color-mix(in srgb, ${color} 35%, transparent);background:color-mix(in srgb, ${color} 12%, transparent)`}">${days} j</span>
-                    <button type="button" class="stage-flow-exclude-btn${excluded ? ' is-excluded' : ''}" data-toggle-ticket="${esc(t.id)}" title="${excluded ? 'Réinclure dans le calcul' : 'Exclure du calcul (ex: ticket récurrent qui fausse la moyenne)'}">${excluded ? '↩' : '🚫'}</button>
+                    ${toggleHtml}
                 </div>`;
             }).join('')}
             ${hiddenCount > 0 ? `<div class="stage-detail-more">+${hiddenCount} autre${hiddenCount > 1 ? 's' : ''}</div>` : ''}
@@ -163,6 +182,28 @@ function _openStageFlowDetail(groupKey, tickets, refreshCard) {
     document.addEventListener('keydown', onKey);
     ov.addEventListener('click', e => {
         if (e.target === ov || e.target.closest('[data-act="close"]')) return close();
+
+        if (e.target.closest('[data-act="add-pattern"]')) {
+            promptModal('Exclure par motif', {
+                message: 'Tout ticket dont le titre contient ce texte (regex, insensible à la casse) sera exclu du calcul de flux — utile pour un ticket récurrent recréé à chaque PI avec un nouvel ID.',
+                placeholder: 'ex: mouf-mouf',
+            }).then(pattern => {
+                if (!pattern) return;
+                addExcludedFlowPattern(pattern);
+                toast(`Motif « ${pattern} » ajouté — tickets correspondants exclus`, 'info');
+                rerender();
+                refreshCard();
+            });
+            return;
+        }
+        const rmPattern = e.target.closest('[data-remove-pattern]');
+        if (rmPattern) {
+            removeExcludedFlowPattern(rmPattern.dataset.removePattern);
+            toast('Motif retiré', 'info');
+            rerender();
+            refreshCard();
+            return;
+        }
         const toggleBtn = e.target.closest('[data-toggle-ticket]');
         if (toggleBtn) {
             const id = toggleBtn.dataset.toggleTicket;

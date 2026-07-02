@@ -91,9 +91,11 @@ function pushHash() {
         const piOffset = store.get('piOffset') || 0;
         hash = `pi/${teamPart}/${tab}${piOffset !== 0 ? '/' + piOffset : ''}`;
     } else if (view === 'roadmap') {
-        // Format : roadmap/<team|all|group:X>/<tab>  — tab toujours présent pour éviter ambiguïté
+        // Format : roadmap/<team|all|group:X>/<tab>[/piOffset]  — tab toujours présent pour éviter
+        // ambiguïté, piOffset omis si 0 (PI courant)
         const tab = store.get('roadmapTab') || 'current';
-        hash = `roadmap/${teamPart}/${tab}`;
+        const piOffset = store.get('piOffset') || 0;
+        hash = `roadmap/${teamPart}/${tab}${piOffset !== 0 ? '/' + piOffset : ''}`;
     } else if (view === 'reports') {
         // Format : reports/<team|all|group:X>/<section>  — section toujours présente pour éviter ambiguïté
         const sec = store.get('reportsSection') || 'metriques';
@@ -238,7 +240,12 @@ function applyHash() {
                         // parts[3] = piOffset si présent
                         const off = parts[3] !== undefined ? parseInt(parts[3], 10) : 0;
                         store.set('piOffset', isNaN(off) ? 0 : off);
-                    } else if (view === 'roadmap') store.set('roadmapTab', decodeURIComponent(parts[2]));
+                    } else if (view === 'roadmap') {
+                        store.set('roadmapTab', decodeURIComponent(parts[2]));
+                        // parts[3] = piOffset si présent
+                        const off = parts[3] !== undefined ? parseInt(parts[3], 10) : 0;
+                        store.set('piOffset', isNaN(off) ? 0 : off);
+                    }
                     else if (view === 'reports') store.set('reportsSection', decodeURIComponent(parts[2]));
                     else if (view === 'sprint') {
                         // parts[2..3] = sprintPick et/ou layout (swimlanes|list).

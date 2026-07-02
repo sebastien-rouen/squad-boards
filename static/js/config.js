@@ -73,6 +73,19 @@ export const TYPE_LABELS = {
     feature: 'Feature',
 };
 
+// Icônes de TYPE — source unique (cf. typeBadge() dans utils.js). Reprend le jeu déjà utilisé
+// par modal.js/backlog.js ; évite la divergence historique avec l'ancien jeu de roadmap.js.
+export const TYPE_ICONS = {
+    story: '✨',
+    bug: '🐛',
+    task: '✅',
+    support: '🎯',
+    ops: '⚙️',
+    debt: '🏚️',
+    epic: '⚡',
+    feature: '🚀',
+};
+
 export const TEAM_COLORS = [
     '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
     '#8b5cf6', '#06b6d4', '#f97316', '#ec4899',

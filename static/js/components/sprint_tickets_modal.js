@@ -9,7 +9,7 @@
 
 import { store } from '../state.js';
 import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem } from '../utils.js';
-import { STATUS_LABELS, STATUS_ORDER, STATUS_MAP } from '../config.js';
+import { STATUS_LABELS, STATUS_ORDER, STATUS_MAP, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { renderBurndown, renderBurnup } from './charts.js';
 
@@ -2378,17 +2378,5 @@ function _typeIcon(type, labels = []) {
         if (labels.some(l => /^(CoP|CommunityOfPractice)$/i.test(l))) return '🤝';
         if (labels.some(l => /^Adapt$/i.test(l)))             return '🔧';
     }
-    switch ((type || '').toLowerCase()) {
-        case 'bug':      return '🐛';
-        case 'story':    return '📖';
-        case 'task':     return '✓';
-        case 'spike':    return '🔬';
-        case 'epic':     return '🧭';
-        case 'feature':  return '✨';
-        case 'ops':      return '⚙️';
-        case 'debt':     return '💸';
-        case 'support':  return '🆘';  // support / incident
-        case 'incident': return '🆘';
-        default:         return '◇';
-    }
+    return TYPE_ICONS[(type || '').toLowerCase()] || '◇';
 }

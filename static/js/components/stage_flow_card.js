@@ -10,10 +10,13 @@
  * Reprend le style visuel du schéma "Lead time & Cycle time" (classes .lct-*). Chaque
  * segment est cliquable : ouvre une modale de détail qui reprend la charte des tickets
  * (icône de type, couleur de statut, pastille buffer) et la liste `.stuck-row` déjà
- * utilisée par la card "Tickets bloqués ou stagnants" (cf bindStageFlowCard).
+ * utilisée par la card "Tickets bloqués ou stagnants" (cf bindStageFlowCard). Chaque
+ * ticket peut y être exclu du calcul (ex: ticket récurrent créé à chaque PI qui fausse
+ * la moyenne) — persisté via setFlowTicketExcluded (utils.js), la card se rafraîchit
+ * immédiatement pour refléter le nouveau calcul.
  */
 
-import { esc, computeStageFlow, computeStageFlowDetail, isBufferItem, getStatusLabel } from '../utils.js';
+import { esc, toast, computeStageFlow, computeStageFlowDetail, isBufferItem, getStatusLabel, isFlowTicketExcluded, setFlowTicketExcluded } from '../utils.js';
 import { TYPE_ICONS } from '../config.js';
 
 const STAGE_ICONS = {
@@ -64,20 +67,64 @@ export function stageFlowCardHtml(tickets) {
 
 /** Wire les clics sur les segments de la card (à appeler après insertion dans le DOM). */
 export function bindStageFlowCard(container, tickets) {
+    const refresh = () => {
+        const card = container.querySelector('.stage-flow-card');
+        if (!card) return;
+        const html = stageFlowCardHtml(tickets);
+        if (!html) { card.remove(); return; }
+        card.outerHTML = html;
+        bindStageFlowCard(container, tickets);
+    };
     container.querySelectorAll('.stage-flow-seg[data-stage-key]').forEach(seg => {
-        seg.addEventListener('click', () => _openStageFlowDetail(seg.dataset.stageKey, tickets));
+        seg.addEventListener('click', () => _openStageFlowDetail(seg.dataset.stageKey, tickets, refresh));
     });
 }
 
-function _openStageFlowDetail(groupKey, tickets) {
+const MAX_ROWS = 25;
+
+function _renderStageDetailBody(groupKey, tickets, color) {
     const { byRawStatus, tickets: rows } = computeStageFlowDetail(groupKey, tickets);
-    if (!rows.length) return;
+    const activeCount = rows.filter(r => !r.excluded).length;
+    const excludedCount = rows.length - activeCount;
+    const visible = rows.slice(0, MAX_ROWS);
+    const hiddenCount = rows.length - visible.length;
+    const countLabel = `${activeCount} ticket${activeCount > 1 ? 's' : ''} concerné${activeCount > 1 ? 's' : ''}`
+        + (excludedCount > 0 ? ` · ${excludedCount} exclu${excludedCount > 1 ? 's' : ''} du calcul` : '');
+    return { rows, countLabel, html: `
+        <div class="stage-detail-breakdown">
+            ${byRawStatus.map(r => `
+                <div class="stage-detail-row" style="border-left-color:${color}">
+                    <span class="stage-detail-status">${esc(r.rawStatus)}</span>
+                    <span class="stage-detail-count">${r.count} ticket${r.count > 1 ? 's' : ''}</span>
+                    <span class="stage-detail-avg" style="color:${color}">${r.avgDays} j moy.</span>
+                </div>`).join('')}
+            ${!byRawStatus.length ? '<p class="text-muted text-sm">Tous les tickets de cette colonne sont exclus du calcul.</p>' : ''}
+        </div>
+        <div class="stage-detail-tickets">
+            ${visible.map(({ ticket: t, days, jiraStatus, excluded }) => {
+                const typeIcon = TYPE_ICONS[t.type] ? `${TYPE_ICONS[t.type]} ` : '';
+                const bufferTag = isBufferItem(t) ? ' <span title="Buffer" style="color:#8B5CF6">🛡️</span>' : '';
+                return `
+                <div class="stuck-row${excluded ? ' stuck-row--excluded' : ''}" data-ticket-id="${esc(t.id)}" title="${excluded ? 'Exclu du calcul — ' : ''}Ouvrir ${esc(t.id)}">
+                    <span class="stuck-dot" style="background:var(--status-${esc(t.status)}, var(--text-muted))"></span>
+                    <span class="stuck-id">${esc(t.id)}</span>
+                    <span class="stuck-title">${typeIcon}${esc(t.title || '')}${bufferTag}</span>
+                    <span class="stuck-state stuck-state--${esc(t.status)}">${esc(jiraStatus || getStatusLabel(t))}</span>
+                    <span class="stuck-lead${t.leader ? '' : ' stuck-lead--none'}">${esc(t.leader || 'Non assigné')}</span>
+                    <span class="stuck-age" style="${excluded ? '' : `color:${color};border-color:color-mix(in srgb, ${color} 35%, transparent);background:color-mix(in srgb, ${color} 12%, transparent)`}">${days} j</span>
+                    <button type="button" class="stage-flow-exclude-btn${excluded ? ' is-excluded' : ''}" data-toggle-ticket="${esc(t.id)}" title="${excluded ? 'Réinclure dans le calcul' : 'Exclure du calcul (ex: ticket récurrent qui fausse la moyenne)'}">${excluded ? '↩' : '🚫'}</button>
+                </div>`;
+            }).join('')}
+            ${hiddenCount > 0 ? `<div class="stage-detail-more">+${hiddenCount} autre${hiddenCount > 1 ? 's' : ''}</div>` : ''}
+        </div>` };
+}
+
+function _openStageFlowDetail(groupKey, tickets, refreshCard) {
     const label = STAGE_LABELS[groupKey] || groupKey;
     const icon = STAGE_ICONS[groupKey] || '';
     const color = STAGE_COLORS[groupKey] || 'var(--text-muted)';
-    const MAX_ROWS = 25;
-    const visible = rows.slice(0, MAX_ROWS);
-    const hiddenCount = rows.length - visible.length;
+    const first = _renderStageDetailBody(groupKey, tickets, color);
+    if (!first.rows.length) return;
 
     const ov = document.createElement('div');
     ov.className = 'confirm-overlay';
@@ -88,33 +135,10 @@ function _openStageFlowDetail(groupKey, tickets) {
                     <span class="confirm-icon stage-detail-icon" style="background:color-mix(in srgb, ${color} 16%, transparent);color:${color}">${icon}</span>
                     <div>
                         <div class="confirm-title">${esc(label)}</div>
-                        <span class="text-xs text-muted">${rows.length} ticket${rows.length > 1 ? 's' : ''} concerné${rows.length > 1 ? 's' : ''}</span>
+                        <span class="text-xs text-muted" data-role="count-label">${esc(first.countLabel)}</span>
                     </div>
                 </div>
-                <div class="stage-detail-breakdown">
-                    ${byRawStatus.map(r => `
-                        <div class="stage-detail-row" style="border-left-color:${color}">
-                            <span class="stage-detail-status">${esc(r.rawStatus)}</span>
-                            <span class="stage-detail-count">${r.count} ticket${r.count > 1 ? 's' : ''}</span>
-                            <span class="stage-detail-avg" style="color:${color}">${r.avgDays} j moy.</span>
-                        </div>`).join('')}
-                </div>
-                <div class="stage-detail-tickets">
-                    ${visible.map(({ ticket: t, days, jiraStatus }) => {
-                        const typeIcon = TYPE_ICONS[t.type] ? `${TYPE_ICONS[t.type]} ` : '';
-                        const bufferTag = isBufferItem(t) ? ' <span title="Buffer" style="color:#8B5CF6">🛡️</span>' : '';
-                        return `
-                        <button type="button" class="stuck-row" data-ticket-id="${esc(t.id)}" title="Ouvrir ${esc(t.id)}">
-                            <span class="stuck-dot" style="background:var(--status-${esc(t.status)}, var(--text-muted))"></span>
-                            <span class="stuck-id">${esc(t.id)}</span>
-                            <span class="stuck-title">${typeIcon}${esc(t.title || '')}${bufferTag}</span>
-                            <span class="stuck-state stuck-state--${esc(t.status)}">${esc(jiraStatus || getStatusLabel(t))}</span>
-                            <span class="stuck-lead${t.leader ? '' : ' stuck-lead--none'}">${esc(t.leader || 'Non assigné')}</span>
-                            <span class="stuck-age" style="color:${color};border-color:color-mix(in srgb, ${color} 35%, transparent);background:color-mix(in srgb, ${color} 12%, transparent)">${days} j</span>
-                        </button>`;
-                    }).join('')}
-                    ${hiddenCount > 0 ? `<div class="stage-detail-more">+${hiddenCount} autre${hiddenCount > 1 ? 's' : ''}</div>` : ''}
-                </div>
+                <div data-role="content">${first.html}</div>
             </div>
             <div class="confirm-actions">
                 <button class="btn btn-ghost btn-sm" data-act="close">Fermer</button>
@@ -122,6 +146,13 @@ function _openStageFlowDetail(groupKey, tickets) {
         </div>`;
     document.body.appendChild(ov);
     requestAnimationFrame(() => ov.classList.add('visible'));
+
+    const rerender = () => {
+        const { rows, countLabel, html } = _renderStageDetailBody(groupKey, tickets, color);
+        if (!rows.length) { close(); return; }
+        ov.querySelector('[data-role="count-label"]').textContent = countLabel;
+        ov.querySelector('[data-role="content"]').innerHTML = html;
+    };
 
     const close = () => {
         ov.classList.remove('visible');
@@ -132,6 +163,16 @@ function _openStageFlowDetail(groupKey, tickets) {
     document.addEventListener('keydown', onKey);
     ov.addEventListener('click', e => {
         if (e.target === ov || e.target.closest('[data-act="close"]')) return close();
+        const toggleBtn = e.target.closest('[data-toggle-ticket]');
+        if (toggleBtn) {
+            const id = toggleBtn.dataset.toggleTicket;
+            const nowExcluded = !isFlowTicketExcluded(id);
+            setFlowTicketExcluded(id, nowExcluded);
+            toast(nowExcluded ? `${id} exclu du calcul de flux` : `${id} réinclus dans le calcul`, 'info');
+            rerender();
+            refreshCard();
+            return;
+        }
         const ticketRow = e.target.closest('.stuck-row[data-ticket-id]');
         if (ticketRow) {
             close();

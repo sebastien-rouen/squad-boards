@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Homogénéisation couleurs/style par type de ticket</title>
+<style>
+/* Tokens repris de static/css/tokens.css (light) pour un rendu natif */
+:root {
+    --primary:#2563eb; --primary-bg:#eff6ff;
+    --surface:#fff; --surface-hover:#f8fafc; --surface-alt:#f1f5f9;
+    --bg:#f1f5f9; --bg-alt:#e2e8f0;
+    --text:#0f172a; --text-muted:#64748b; --text-secondary:#475569;
+    --border:#e2e8f0;
+    --success:#16a34a; --warning:#f59e0b; --warning-bg:#fffbeb; --danger:#dc2626; --danger-bg:#fef2f2;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px;
+    --r-sm:4px; --r-md:8px; --r-lg:10px; --r-full:9999px;
+    --fs-xs:0.6875rem; --fs-sm:0.8125rem; --fw-medium:500; --fw-semibold:600; --fw-bold:700;
+    --tr-fast:100ms ease;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+
+    /* ── Couleurs de TYPE — source unique : static/css/tokens.css ── */
+    --type-story:   #3b82f6;
+    --type-bug:     #ef4444;
+    --type-task:    #f59e0b;
+    --type-support: #8b5cf6;
+    --type-ops:     #06b6d4;
+    --type-debt:    #f97316;
+    --type-epic:    #6366f1;
+    --type-feature: #059669;
+}
+* { box-sizing:border-box; }
+body { font-family:var(--font); background:var(--bg); color:var(--text); margin:0; padding:24px 24px 80px; }
+h1 { font-size:1.3rem; margin:0 0 4px; }
+h2 { font-size:1rem; margin:28px 0 4px; }
+.sub { color:var(--text-muted); font-size:var(--fs-sm); margin-bottom:8px; max-width:900px; line-height:1.5; }
+.finding {
+    background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--r-md);
+    padding: var(--sp-3) var(--sp-4); margin: 16px 0 24px; font-size: var(--fs-sm); max-width: 900px; line-height:1.6;
+}
+.finding b { color:#92400e; }
+code { background:var(--bg-alt); padding:1px 5px; border-radius:4px; font-family:var(--font-mono); font-size:0.85em; }
+
+/* ── Tabs ── */
+.tabs { display:flex; gap:6px; margin:20px 0 24px; flex-wrap:wrap; position:sticky; top:0; background:var(--bg); padding:12px 0; z-index:5; }
+.tab-btn {
+    font:inherit; font-size:var(--fs-sm); font-weight:var(--fw-semibold); padding:8px 16px;
+    border:1px solid var(--border); background:var(--surface); border-radius:var(--r-full); cursor:pointer;
+    transition: all var(--tr-fast);
+}
+.tab-btn:hover { border-color:var(--primary); }
+.tab-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+.opt-desc { font-size:var(--fs-sm); color:var(--text-secondary); max-width:900px; margin:0 0 20px; line-height:1.5; }
+.opt-desc b { color:var(--text); }
+
+.demo-block { margin-bottom:28px; }
+.demo-label { font-size:var(--fs-xs); font-weight:var(--fw-bold); text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); margin-bottom:8px; }
+
+/* ═══════════════════════════ Composants réels (repris des CSS du site) ═══════════════════════════ */
+
+/* -- rm-tl-card (roadmap.css) -- */
+.tl-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:8px; max-width:940px; }
+.rm-tl-card {
+    display:flex; flex-direction:column; gap:2px; padding:var(--sp-2);
+    background:var(--surface); border:none; border-left:3px solid var(--tcol, var(--text-muted));
+    border-radius:var(--r-sm); text-align:left; box-shadow:0 1px 2px rgba(0,0,0,.04);
+}
+.rm-tl-card-id { font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--text-muted); }
+.rm-tl-card-title { font-size:var(--fs-xs); line-height:1.25; }
+.rm-tl-card-foot { display:flex; align-items:center; justify-content:space-between; margin-top:4px; }
+
+/* -- feature-row (pi-planning.css) -- */
+.fr-list { max-width:940px; border:1px solid var(--border); border-radius:var(--r-md); overflow:hidden; background:var(--surface); }
+.feature-row { display:flex; align-items:center; gap:var(--sp-3); padding:var(--sp-3); border-bottom:1px solid var(--border); }
+.feature-row:last-child { border-bottom:none; }
+.feature-id { font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--text-muted); min-width:76px; }
+.feature-title { flex:1; font-size:var(--fs-sm); font-weight:var(--fw-medium); }
+
+/* -- modal header (base.css) -- */
+.mdl-mock { max-width:640px; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--surface); box-shadow:var(--shadow-md); overflow:hidden; }
+.mdl-mock-hdr { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--border); }
+.mdl-ticket-id { font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--text-muted); }
+.mdl-title-span { font-size:var(--fs-sm); font-weight:var(--fw-medium); flex:1; }
+.mdl-mock-body { padding:12px 14px; font-size:var(--fs-xs); color:var(--text-muted); }
+
+/* -- table row (backlog.css style) -- */
+.tbl-mock { max-width:940px; border-collapse:collapse; width:100%; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); overflow:hidden; }
+.tbl-mock th { text-align:left; font-size:var(--fs-xs); color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; padding:8px 12px; background:var(--bg-alt); }
+.tbl-mock td { padding:8px 12px; font-size:var(--fs-sm); border-top:1px solid var(--border); }
+.tbl-mock tr:first-child td { border-top:none; }
+.tbl-id { font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--text-muted); }
+
+/* ═══════════════════════════ Badge de base (existant, non modifié) ═══════════════════════════ */
+.badge { display:inline-flex; align-items:center; gap:3px; border-radius:var(--r-sm); padding:2px 7px; font-size:var(--fs-xs); font-weight:var(--fw-semibold); line-height:1.4; white-space:nowrap; }
+
+/* ═══════════════════════════ OPTION A — Icône + pastille pleine (pill compacte) ═══════════════════════════ */
+.optA .type-chip {
+    display:inline-flex; align-items:center; gap:4px;
+    background:var(--tc); color:#fff; border-radius:var(--r-full);
+    padding:2px 8px 2px 6px; font-size:10px; font-weight:var(--fw-bold); text-transform:uppercase; letter-spacing:.03em;
+}
+.optA .rm-tl-card { border-left-color:var(--tc); }
+.optA .feature-row { border-left:3px solid var(--tc); padding-left:calc(var(--sp-3) - 3px); }
+.optA .mdl-mock { border-top:3px solid var(--tc); }
+.optA .tbl-mock tr[data-t] td:first-child { border-left:3px solid var(--tc); }
+
+/* ═══════════════════════════ OPTION B — Icône seule, pastille circulaire discrète ═══════════════════════════ */
+.optB .type-dot {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:20px; height:20px; border-radius:50%; background:color-mix(in srgb, var(--tc) 16%, transparent);
+    font-size:11px; flex-shrink:0;
+}
+.optB .rm-tl-card { border-left-color:var(--tc); }
+.optB .feature-row { border-left:none; }
+.optB .mdl-mock { border-top:none; }
+
+/* ═══════════════════════════ OPTION C — Fond teinté (wash) + bordure ═══════════════════════════ */
+.optC .type-tint {
+    background: color-mix(in srgb, var(--tc) 8%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--tc) 30%, var(--border));
+}
+.optC .type-chip {
+    display:inline-flex; align-items:center; gap:4px;
+    background: color-mix(in srgb, var(--tc) 14%, transparent); color:var(--tc);
+    border-radius:var(--r-sm); padding:2px 7px; font-size:10px; font-weight:var(--fw-bold);
+    text-transform:uppercase; letter-spacing:.03em;
+}
+.optC .rm-tl-card { border-left-color:var(--tc); }
+.optC .feature-row { border-left:3px solid var(--tc); padding-left:calc(var(--sp-3) - 3px); }
+
+/* ═══════════════════════════ OPTION D — badge-type existant + icône ajoutée (extension minimale) ═══════════════════════════ */
+.optD .badge-type-ext {
+    background:var(--tc); color:#fff; text-transform:uppercase; letter-spacing:.04em;
+    font-size:0.625rem; font-weight:var(--fw-bold); padding:2px 7px 2px 5px; border-radius:var(--r-sm);
+    display:inline-flex; align-items:center; gap:3px;
+}
+.optD .rm-tl-card { border-left-color: var(--text-muted); } /* team conservée telle quelle */
+
+/* ── Légende / notes ── */
+.legend { margin-top:20px; font-size:var(--fs-xs); color:var(--text-muted); max-width:900px; line-height:1.6; }
+.legend b { color:var(--text); }
+.swatches { display:flex; gap:14px; flex-wrap:wrap; margin:10px 0 20px; }
+.swatch { display:flex; align-items:center; gap:6px; font-size:var(--fs-xs); }
+.swatch i { width:12px; height:12px; border-radius:3px; display:inline-block; }
+</style>
+</head>
+<body>
+
+<h1>Mockup — Homogénéisation couleurs/style par type de ticket</h1>
+<p class="sub">Roadmap (cartes PI suivant &amp; feature-row), modale de détail, tableaux — 4 options pour un traitement visuel cohérent des types <b>Feature · Epic · US (story) · Story tech (debt) · OPS · Bug</b>. Choisis une option ci-dessous.</p>
+
+<div class="finding">
+    <b>Constat actuel :</b> le design system a déjà une source de vérité pour les <b>couleurs</b> (<code>--type-story/bug/task/support/ops/debt/epic/feature</code> dans <code>tokens.css</code>) et les <b>labels</b> (<code>TYPE_LABELS</code> dans <code>config.js</code>), exposée via le helper unique <code>typeBadge()</code> — mais <b>pas d'icône</b>.
+    Pire : deux jeux d'icônes divergents coexistent selon les fichiers — <code>roadmap.js</code> (<code>✦ ◈ ★ ⬡</code>) vs <code>modal.js</code>/<code>backlog.js</code> (<code>✨ 🐛 ✅ 🎯 ⚙️ 🏚️ ⚡ 🚀</code>, ces deux-là déjà alignés entre eux). Les options ci-dessous reprennent ce second jeu (déjà majoritaire) comme base commune.
+</div>
+
+<div class="swatches">
+    <div class="swatch"><i style="background:var(--type-feature)"></i>Feature 🚀</div>
+    <div class="swatch"><i style="background:var(--type-epic)"></i>Epic ⚡</div>
+    <div class="swatch"><i style="background:var(--type-story)"></i>US (story) ✨</div>
+    <div class="swatch"><i style="background:var(--type-debt)"></i>Story tech ⚙️</div>
+    <div class="swatch"><i style="background:var(--type-ops)"></i>OPS 🛠️</div>
+    <div class="swatch"><i style="background:var(--type-bug)"></i>Bug 🐛</div>
+</div>
+
+<div class="tabs">
+    <button class="tab-btn active" data-tab="A">Option A — Pastille pleine + icône</button>
+    <button class="tab-btn" data-tab="B">Option B — Icône discrète (dot)</button>
+    <button class="tab-btn" data-tab="C">Option C — Fond teinté (wash)</button>
+    <button class="tab-btn" data-tab="D">Option D — Extension du badge-type existant</button>
+</div>
+
+<!-- ═══════════════════════════ OPTION A ═══════════════════════════ -->
+<div class="tab-panel active optA" id="panel-A">
+    <p class="opt-desc"><b>Pastille pleine couleur + icône</b>, en préfixe de chaque élément (carte, ligne, header modale, cellule tableau). Le plus visible / le plus proche du <code>badge-type</code> actuel mais avec icône. Remplace l'accent "équipe" (bordure gauche) par l'accent "type" sur les cartes roadmap — l'équipe reste visible via le chip texte.</p>
+    <div id="demoA"></div>
+</div>
+
+<!-- ═══════════════════════════ OPTION B ═══════════════════════════ -->
+<div class="tab-panel optB" id="panel-B">
+    <p class="opt-desc"><b>Icône seule dans une pastille circulaire discrète</b> (16% opacité de la couleur type), sans texte redondant avec le label déjà présent ailleurs (badge statut, titre). Le plus sobre — laisse la bordure gauche des cartes à la couleur équipe (comportement actuel inchangé), l'icône type vient en complément non-intrusif.</p>
+    <div id="demoB"></div>
+</div>
+
+<!-- ═══════════════════════════ OPTION C ═══════════════════════════ -->
+<div class="tab-panel optC" id="panel-C">
+    <p class="opt-desc"><b>Fond légèrement teinté (wash 8%) + bordure fine + chip icône/label</b>. Look "carte catégorisée" façon Trello/Linear — le plus lisible en scan rapide sur une longue liste, mais plus lourd visuellement si beaucoup de types différents se côtoient.</p>
+    <div id="demoC"></div>
+</div>
+
+<!-- ═══════════════════════════ OPTION D ═══════════════════════════ -->
+<div class="tab-panel optD" id="panel-D">
+    <p class="opt-desc"><b>Extension minimale du <code>badge-type</code> existant</b> : on garde exactement le badge actuel (couleur pleine, texte) et on ajoute juste l'icône unifiée devant le label — zéro changement de layout dans les vues qui l'utilisent déjà (modale, tableaux, chips de filtre backlog). Les cartes roadmap/feature-row gagnent simplement ce même badge en plus, sans toucher à l'accent équipe existant (bordure gauche = équipe, inchangée).</p>
+    <div id="demoD"></div>
+</div>
+
+<div class="legend">
+    <b>Portée si validé :</b> un seul jeu d'icônes (<code>TYPE_ICONS</code> déplacé dans <code>config.js</code> aux côtés de <code>TYPE_LABELS</code>), consommé par <code>typeBadge()</code> dans <code>utils.js</code> — supprime la divergence <code>roadmap.js</code> vs <code>modal.js</code>/<code>backlog.js</code> et applique le même rendu partout (cartes PI suivant, feature-row, modale, tableaux backlog/reports).
+</div>
+
+<script>
+const TYPES = [
+    { key:'feature', label:'Feature',    icon:'🚀', color:'var(--type-feature)', id:'FT-1234', title:'Portail libre-service clients' },
+    { key:'epic',    label:'Epic',       icon:'⚡', color:'var(--type-epic)',    id:'EP-2201', title:'Migration base de données PostgreSQL' },
+    { key:'story',   label:'US',         icon:'✨', color:'var(--type-story)',   id:'US-3390', title:"En tant qu'utilisateur, je veux réinitialiser mon mot de passe" },
+    { key:'debt',    label:'Story tech', icon:'⚙️', color:'var(--type-debt)',    id:'DT-4102', title:'Refactoring du client HTTP legacy' },
+    { key:'ops',     label:'OPS',        icon:'🛠️', color:'var(--type-ops)',     id:'OPS-5560', title:'Rotation des certificats TLS' },
+    { key:'bug',     label:'Bug',        icon:'🐛', color:'var(--type-bug)',     id:'BUG-6677', title:"Erreur 500 sur l'export CSV" },
+];
+const TEAM_COLOR = '#10b981';
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function cardsHtml(variant) {
+    return `<div class="demo-block"><div class="demo-label">rm-tl-card (timeline roadmap)</div><div class="tl-grid">` +
+        TYPES.map(t => {
+            const tcVar = `style="--tc:${t.color};${variant==='B' ? `--tcol:${TEAM_COLOR}` : `--tcol:${t.color}`}"`;
+            const prefix = variant==='A' ? `<span class="type-chip" style="--tc:${t.color}">${t.icon} ${t.label}</span>`
+                : variant==='B' ? `<span class="type-dot" style="--tc:${t.color}" title="${t.label}">${t.icon}</span>`
+                : variant==='C' ? `<span class="type-chip" style="--tc:${t.color}">${t.icon} ${t.label}</span>`
+                : `<span class="badge-type-ext" style="--tc:${t.color}">${t.icon} ${t.label}</span>`;
+            return `<button class="rm-tl-card ${variant==='C'?'type-tint':''}" ${tcVar}>
+                <div class="rm-tl-card-id">${t.id}</div>
+                <div class="rm-tl-card-title">${esc(t.title)}</div>
+                <div class="rm-tl-card-foot">${prefix}<span class="badge" style="background:var(--success);color:#fff">Termine</span></div>
+            </button>`;
+        }).join('') + `</div></div>`;
+}
+
+function rowsHtml(variant) {
+    return `<div class="demo-block"><div class="demo-label">feature-row (liste Features PI courant)</div><div class="fr-list">` +
+        TYPES.map(t => {
+            const style = `style="--tc:${t.color}"`;
+            const prefix = variant==='A' ? `<span class="type-chip" style="--tc:${t.color}">${t.icon} ${t.label}</span>`
+                : variant==='B' ? `<span class="type-dot" style="--tc:${t.color}" title="${t.label}">${t.icon}</span>`
+                : variant==='C' ? `<span class="type-chip" style="--tc:${t.color}">${t.icon} ${t.label}</span>`
+                : `<span class="badge-type-ext" style="--tc:${t.color}">${t.icon} ${t.label}</span>`;
+            return `<div class="feature-row ${variant==='C'?'type-tint':''}" ${style}>
+                ${prefix}
+                <span class="feature-id">${t.id}</span>
+                <span class="feature-title">${esc(t.title)}</span>
+                <span class="badge" style="background:var(--bg-alt);color:var(--text-secondary)">Fuego</span>
+            </div>`;
+        }).join('') + `</div></div>`;
+}
+
+function modalHtml(variant) {
+    const t = TYPES[0]; // Feature — exemple unique (header modale = un seul ticket)
+    const style = `style="--tc:${t.color}"`;
+    const prefix = variant==='A' ? `<span class="type-chip" style="--tc:${t.color}">${t.icon} ${t.label}</span>`
+        : variant==='B' ? `<span class="type-dot" style="--tc:${t.color}" title="${t.label}">${t.icon}</span>`
+        : variant==='C' ? `<span class="type-chip" style="--tc:${t.color}">${t.icon} ${t.label}</span>`
+        : `<span class="badge-type-ext" style="--tc:${t.color}">${t.icon} ${t.label}</span>`;
+    return `<div class="demo-block"><div class="demo-label">Header modale de détail ticket</div>
+        <div class="mdl-mock ${variant==='C'?'type-tint':''}" ${style}>
+            <div class="mdl-mock-hdr">
+                ${prefix}
+                <span class="mdl-ticket-id">${t.id}</span>
+                <span class="mdl-title-span">${esc(t.title)}</span>
+                <span class="badge" style="background:var(--success);color:#fff">Termine</span>
+            </div>
+            <div class="mdl-mock-body">Epic · Responsable · Points · Priorité · Commentaires…</div>
+        </div>
+    </div>`;
+}
+
+function tableHtml(variant) {
+    return `<div class="demo-block"><div class="demo-label">Tableau (backlog / reports)</div>
+        <table class="tbl-mock"><thead><tr><th>ID</th><th>Type</th><th>Titre</th><th>Statut</th></tr></thead><tbody>` +
+        TYPES.map(t => {
+            const prefix = variant==='A' ? `<span class="type-chip" style="--tc:${t.color}">${t.icon} ${t.label}</span>`
+                : variant==='B' ? `<span class="type-dot" style="--tc:${t.color}" title="${t.label}">${t.icon}</span>`
+                : variant==='C' ? `<span class="type-chip" style="--tc:${t.color}">${t.icon} ${t.label}</span>`
+                : `<span class="badge-type-ext" style="--tc:${t.color}">${t.icon} ${t.label}</span>`;
+            return `<tr data-t style="--tc:${t.color}"><td class="tbl-id">${t.id}</td><td>${prefix}</td><td>${esc(t.title)}</td><td><span class="badge" style="background:var(--bg-alt);color:var(--text-secondary)">A faire</span></td></tr>`;
+        }).join('') + `</tbody></table></div>`;
+}
+
+['A','B','C','D'].forEach(v => {
+    document.getElementById('demo' + v).innerHTML = cardsHtml(v) + rowsHtml(v) + modalHtml(v) + tableHtml(v);
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+});
+</script>
+</body>
+</html>

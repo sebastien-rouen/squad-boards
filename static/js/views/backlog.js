@@ -6,7 +6,7 @@ import { store }                                          from '../state.js';
 import * as api                                           from '../api.js';
 import { esc, fmtRelative, hashColor, initials,
          toast, filterByTeam }                           from '../utils.js';
-import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS }       from '../config.js';
+import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS, TYPE_ICONS } from '../config.js';
 import { openCreateModal }                                from '../components/modal.js';
 import { loadFilters, saveFilters,
          applyFilters, clearFilters, hasActiveFilters }   from '../components/backlog-filters.js';
@@ -22,10 +22,6 @@ const LS_HIERARCHY = 'sb-backlog-hierarchy';
 
 const HIER_LABELS = { off: 'Plat', epic: 'Épics', full: 'Complet' };
 
-const TYPE_ICONS = {
-    story: '✨', bug: '🐛', task: '✅', support: '🎯',
-    ops: '⚙️', debt: '🏚️', epic: '⚡', feature: '🚀',
-};
 const PRIO_COLORS = {
     low:      'var(--status-todo,   #94a3b8)',
     medium:   'var(--status-inprog, #3b82f6)',
@@ -606,14 +602,14 @@ function _buildHierarchyRows(tickets, epicMap, featureMap, mode) {
 // ── Parent row (epic / feature) ────────────────────────────────────────────────
 function _parentRowHtml(item, type, depth, childSP, childCount, searchTerm, teamColorMap) {
     const indent    = depth * 22;
-    const icon      = type === 'feature' ? '🚀' : '⚡';
+    const icon      = TYPE_ICONS[type] || '⚡';
     const teamColor = teamColorMap.get(item.team) || '#94a3b8';
     const spHtml    = childSP
         ? `<span class="bl-pts">${childSP}</span>`
         : `<span class="bl-pts bl-pts--empty">–</span>`;
     return `<tr class="bl-parent-row bl-parent-row--${type}" data-parent-id="${esc(item.id || '')}" data-parent-type="${type}" tabindex="0">
         <td class="td-check"></td>
-        <td class="td-type"><span class="bl-type-dot" style="background:color-mix(in srgb,${type === 'feature' ? 'var(--primary)' : 'var(--warning,#f59e0b)'} 15%,transparent)">${icon}</span></td>
+        <td class="td-type"><span class="bl-type-dot" style="background:color-mix(in srgb,var(--type-${type},#94a3b8) 15%,transparent)">${icon}</span></td>
         <td class="bl-id-cell">${esc(item.id || '')}</td>
         <td class="td-title">
             <div class="bl-title-wrap" style="padding-left:${indent}px">

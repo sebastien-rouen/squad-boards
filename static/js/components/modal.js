@@ -6,7 +6,7 @@
 import { store } from '../state.js';
 import * as api from '../api.js';
 import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge } from '../utils.js';
-import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS } from '../config.js';
+import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS, TYPE_ICONS } from '../config.js';
 
 const overlay = () => document.getElementById('modal-overlay');
 const titleEl = () => document.getElementById('modal-title');
@@ -1733,7 +1733,6 @@ function wireContrib(container) {
 // Create Ticket
 // ══════════════════════════════════════════════════════════════════════════════
 
-const TYPE_ICONS = { story:'✨', bug:'🐛', task:'✅', support:'🎯', ops:'⚙️', debt:'🏚️', epic:'⚡', feature:'🚀' };
 const PRIORITY_CFG = [
     { val:'low',      label:'↓ Faible'   },
     { val:'medium',   label:'○ Moyen'    },

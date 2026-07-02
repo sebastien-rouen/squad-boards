@@ -746,22 +746,27 @@ body { display: flex; }
 .badge-blocked { background: var(--status-blocked-bg); color: var(--status-blocked); }
 .badge-done    { background: var(--status-done-bg); color: var(--status-done); }
 
+/* Chip "wash" (option C retenue) : fond teinté 14% + texte/bordure couleur du type — pas de
+   remplissage plein blanc-sur-couleur. Chaque .badge-<type> pose --tc puis hérite du style commun. */
 .badge-type {
     font-size: 0.625rem;
     font-weight: var(--fw-bold);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: white;
-    padding: 2px 6px;
+    padding: 2px 7px;
+    background: color-mix(in srgb, var(--tc, var(--text-muted)) 14%, transparent);
+    color: var(--tc, var(--text-muted));
+    border: 1px solid color-mix(in srgb, var(--tc, var(--text-muted)) 30%, transparent);
+    border-radius: var(--r-sm);
 }
-.badge-story   { background: var(--type-story); }
-.badge-bug     { background: var(--type-bug); }
-.badge-task    { background: var(--type-task); }
-.badge-support { background: var(--type-support); }
-.badge-ops     { background: var(--type-ops); }
-.badge-debt    { background: var(--type-debt); }
-.badge-epic    { background: var(--type-epic); }
-.badge-feature { background: var(--type-feature); }
+.badge-story   { --tc: var(--type-story); }
+.badge-bug     { --tc: var(--type-bug); }
+.badge-task    { --tc: var(--type-task); }
+.badge-support { --tc: var(--type-support); }
+.badge-ops     { --tc: var(--type-ops); }
+.badge-debt    { --tc: var(--type-debt); }
+.badge-epic    { --tc: var(--type-epic); }
+.badge-feature { --tc: var(--type-feature); }
 
 .badge-points {
     background: var(--bg-alt);

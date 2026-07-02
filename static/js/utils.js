@@ -2,7 +2,7 @@
  * Shared utility functions.
  */
 
-import { STATUS_MAP, STATUS_LABELS, TYPE_MAP, TYPE_LABELS, WIP_STATUSES } from './config.js';
+import { STATUS_MAP, STATUS_LABELS, TYPE_MAP, TYPE_LABELS, TYPE_ICONS, WIP_STATUSES } from './config.js';
 
 /**
  * Retourne le label d'affichage du statut d'un ticket.
@@ -33,11 +33,12 @@ export function getStatusLabel(ticket) {
 export function typeBadge(type, opts = {}) {
     const t = type || '';
     const label = opts.label != null ? opts.label : (TYPE_LABELS[t] || t || '?');
+    const icon  = TYPE_ICONS[t] ? `${TYPE_ICONS[t]} ` : '';
     const size  = opts.size ? ` badge-${opts.size}` : '';
     const extra = opts.extra ? ` ${opts.extra}` : '';
     const title = opts.title === false ? '' : ` title="${esc(label)}"`;
     const attrs = opts.attrs ? ` ${opts.attrs}` : '';
-    return `<span class="badge badge-type badge-${esc(t)}${size}${extra}"${title}${attrs}>${esc(label)}</span>`;
+    return `<span class="badge badge-type badge-${esc(t)}${size}${extra}"${title}${attrs}>${icon}${esc(label)}</span>`;
 }
 
 /**

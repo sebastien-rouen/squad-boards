@@ -1547,7 +1547,8 @@ export async function syncCalendars(scope = 'team') {
 
     store.set('syncType', 'calendar');
     store.set('syncProgress', 5);
-    store.set('syncLabel', `Sync calendriers (${relevant.length})…`);
+    store.set('syncLabel', `Synchronisation des agendas…`);
+    store.set('syncDetail', `0 / ${relevant.length} calendrier${relevant.length > 1 ? 's' : ''}`);
 
     let done = 0;
     const results = await Promise.allSettled(relevant.map(async c => {
@@ -1555,10 +1556,12 @@ export async function syncCalendars(scope = 'team') {
         finally {
             done++;
             store.set('syncProgress', Math.round(5 + (done / relevant.length) * 80));
+            store.set('syncDetail', `${done} / ${relevant.length} calendrier${relevant.length > 1 ? 's' : ''} — ${c.name || c.label || c.id}`);
         }
     }));
 
     store.set('syncProgress', 90);
+    store.set('syncLabel', 'Rafraichissement des evenements…');
     const ok = results.filter(r => r.status === 'fulfilled').length;
     const ko = results.length - ok;
     const [freshCals, freshEvents] = await Promise.all([
@@ -1569,10 +1572,13 @@ export async function syncCalendars(scope = 'team') {
     store.set('calendarEvents', freshEvents);
 
     store.set('syncProgress', 100);
+    store.set('syncLabel', 'Agendas synchronises !');
+    store.set('syncDetail', `${ok} reussi${ok > 1 ? 's' : ''}${ko ? ` · ${ko} en echec` : ''}`);
     setTimeout(() => {
         store.set('syncProgress', null);
         store.set('syncType', null);
         store.set('syncLabel', '');
+        store.set('syncDetail', '');
     }, 600);
 
     toast(`${ok} calendrier${ok > 1 ? 's' : ''} synchronisé${ok > 1 ? 's' : ''}${ko ? ` (${ko} en échec)` : ''}`, ko ? 'warning' : 'success');

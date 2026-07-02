@@ -183,6 +183,8 @@ export function initTopbar() {
         _calSyncMenu.innerHTML = `
             <button class="sync-menu-item" data-scope="team">👥 Équipe « ${esc(team)} » seulement</button>
             <button class="sync-menu-item" data-scope="all">🌍 Tous les calendriers</button>
+            <hr class="sync-menu-sep">
+            <button class="sync-menu-item" data-action="view-week">📅 Voir la semaine</button>
         `;
         document.body.appendChild(_calSyncMenu);
         const r = anchor.getBoundingClientRect();
@@ -191,10 +193,9 @@ export function initTopbar() {
         _calSyncMenu.style.right = `${window.innerWidth - r.right}px`;
         _calSyncMenu.style.zIndex = '9000';
         _calSyncMenu.addEventListener('click', e => {
-            const btn = e.target.closest('[data-scope]');
-            if (!btn) return;
-            _closeCalSyncMenu();
-            _runCalSync(btn.dataset.scope);
+            const scopeBtn = e.target.closest('[data-scope]');
+            if (scopeBtn) { _closeCalSyncMenu(); _runCalSync(scopeBtn.dataset.scope); return; }
+            if (e.target.closest('[data-action="view-week"]')) { _closeCalSyncMenu(); openCalWeekModal(); }
         });
         setTimeout(() => {
             const onOut = (e) => {
@@ -220,26 +221,53 @@ export function initTopbar() {
     store.on('team',           updateCalFreshness);
     updateCalFreshness();
 
-    // ── Barre de progression sync en fond de topbar ────────────────────────────
+    // ── Barre + carte de progression sync (JIRA / calendrier), en fond de topbar ─
     const syncBarWrap = document.getElementById('topbar-sync-bar');
     const syncBarFill = document.getElementById('topbar-sync-fill');
+    const syncCard      = document.getElementById('sync-card');
+    const syncCardTitle = document.getElementById('sync-card-title');
+    const syncCardPct   = document.getElementById('sync-card-pct');
+    const syncCardFill  = document.getElementById('sync-card-fill');
+    const syncCardLabel = document.getElementById('sync-card-label');
+    const syncCardDetail = document.getElementById('sync-card-detail');
+    const SYNC_TITLES = { jira: 'Synchronisation JIRA', calendar: 'Synchronisation Agenda' };
+    const SYNC_ICONS  = { jira: 'i-sync', calendar: 'i-calendar' };
 
     function updateSyncBar() {
         if (!syncBarWrap || !syncBarFill) return;
-        const pct  = store.get('syncProgress');
-        const type = store.get('syncType');
-        const lbl  = store.get('syncLabel');
+        const pct    = store.get('syncProgress');
+        const type   = store.get('syncType');
+        const lbl    = store.get('syncLabel');
+        const detail = store.get('syncDetail');
         const active = pct !== null && pct !== undefined;
+
         syncBarWrap.classList.toggle('is-active', active);
         if (active) {
             syncBarFill.style.width = `${pct}%`;
             syncBarWrap.dataset.type = type || 'jira';
             syncBarWrap.dataset.tooltip = lbl || (type === 'calendar' ? 'Sync calendriers…' : 'Sync JIRA…');
         }
+
+        if (!syncCard) return;
+        syncCard.classList.toggle('is-active', active);
+        if (active) {
+            syncCard.dataset.type = type || 'jira';
+            syncCard.setAttribute('aria-hidden', 'false');
+            syncCardTitle.textContent = SYNC_TITLES[type] || SYNC_TITLES.jira;
+            syncCard.querySelector('.sync-card__icon use')?.setAttribute('href', `#${SYNC_ICONS[type] || SYNC_ICONS.jira}`);
+            syncCardPct.textContent = `${Math.round(pct)}%`;
+            syncCardFill.style.width = `${pct}%`;
+            syncCardLabel.textContent = lbl || '';
+            syncCardDetail.textContent = detail || '';
+            syncCardDetail.classList.toggle('is-empty', !detail);
+        } else {
+            syncCard.setAttribute('aria-hidden', 'true');
+        }
     }
     store.on('syncProgress', updateSyncBar);
     store.on('syncType',     updateSyncBar);
     store.on('syncLabel',    updateSyncBar);
+    store.on('syncDetail',   updateSyncBar);
     updateSyncBar();
 
     // Search

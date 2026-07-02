@@ -396,6 +396,118 @@ body { display: flex; }
     background: linear-gradient(90deg, #22c55e, #34d399);
 }
 
+/* ── Carte de progression sync (detail JIRA / Agenda) ─────────────────────────── */
+.sync-card {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: var(--sp-4, 16px);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3, 12px);
+    width: 300px;
+    max-width: calc(100vw - 32px);
+    padding: var(--sp-3, 12px) var(--sp-4, 16px);
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: var(--r-lg, 12px);
+    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.25), 0 2px 8px -2px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 60;
+}
+.sync-card.is-active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+.sync-card__icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary);
+}
+.sync-card.is-active .sync-card__icon svg {
+    animation: sync-card-spin 1.1s linear infinite;
+}
+.sync-card[data-type="calendar"] .sync-card__icon {
+    background: color-mix(in srgb, #22c55e 15%, transparent);
+    color: #16a34a;
+}
+@keyframes sync-card-spin {
+    to { transform: rotate(360deg); }
+}
+.sync-card__body {
+    flex: 1;
+    min-width: 0;
+}
+.sync-card__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-2, 8px);
+    margin-bottom: 6px;
+}
+.sync-card__title {
+    font-size: var(--fs-sm, 13px);
+    font-weight: var(--fw-semibold, 600);
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sync-card__pct {
+    flex-shrink: 0;
+    font-size: var(--fs-xs, 11px);
+    font-weight: var(--fw-semibold, 600);
+    font-variant-numeric: tabular-nums;
+    color: var(--primary);
+}
+.sync-card[data-type="calendar"] .sync-card__pct {
+    color: #16a34a;
+}
+.sync-card__bar {
+    height: 5px;
+    background: var(--bg-alt);
+    border-radius: var(--r-full, 999px);
+    overflow: hidden;
+    margin-bottom: 7px;
+}
+.sync-card__bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: var(--r-full, 999px);
+    background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 65%, #818cf8));
+    transition: width 0.4s ease;
+}
+.sync-card[data-type="calendar"] .sync-card__bar-fill {
+    background: linear-gradient(90deg, #22c55e, #34d399);
+}
+.sync-card__label {
+    font-size: var(--fs-xs, 12px);
+    font-weight: var(--fw-medium, 500);
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sync-card__detail {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 1.3em;
+}
+.sync-card__detail.is-empty { visibility: hidden; }
+
 /* ── App / Main ────────────────────────────────────────────────────────────── */
 .app {
     margin-left: var(--sidebar-w);

@@ -166,6 +166,21 @@
             <div id="topbar-sync-bar" class="topbar-sync-bar" aria-hidden="true">
                 <div id="topbar-sync-fill" class="topbar-sync-bar__fill"></div>
             </div>
+            <!-- Carte de progression sync JIRA / calendrier — detail lisible, non-bloquant -->
+            <div id="sync-card" class="sync-card" aria-hidden="true" role="status">
+                <div class="sync-card__icon">
+                    <svg class="icon"><use href="#i-sync"/></svg>
+                </div>
+                <div class="sync-card__body">
+                    <div class="sync-card__head">
+                        <span class="sync-card__title" id="sync-card-title">Synchronisation</span>
+                        <span class="sync-card__pct" id="sync-card-pct">0%</span>
+                    </div>
+                    <div class="sync-card__bar"><div class="sync-card__bar-fill" id="sync-card-fill"></div></div>
+                    <div class="sync-card__label" id="sync-card-label"></div>
+                    <div class="sync-card__detail" id="sync-card-detail"></div>
+                </div>
+            </div>
         </header>
         <!-- Bandeau agenda du jour — global (visible sur toutes les vues si des calendriers ICS existent) -->
         <div id="global-cal-banner"></div>

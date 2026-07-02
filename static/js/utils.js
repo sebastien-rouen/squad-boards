@@ -279,14 +279,15 @@ export function daysInCurrentColumn(ticket) {
 }
 
 // Groupes de colonnes suivis par l'indicateur de flux (Dashboard/PI Planning) — matching sur les
-// libellés JIRA bruts stockés dans ticket.stageDurations (clés en minuscules, cf sync.js). Ordre
-// important : "prod" doit être testé après exclusion de "preprod"/"préprod".
-const STAGE_FLOW_GROUPS = [
-    { key: 'qualif', label: 'À livrer en qualif', test: k => k.includes('qualif') },
-    { key: 'prod', label: 'À livrer en prod', test: k => k.includes('prod') && !k.includes('preprod') && !k.includes('préprod') },
+// libellés JIRA bruts stockés dans ticket.stageDurations (clés en minuscules, cf sync.js).
+// Ordre = ordre chronologique d'affichage (dev → test → review → qualif → prod). Le test "prod"
+// exclut "preprod"/"préprod" pour ne pas les confondre.
+export const STAGE_FLOW_GROUPS = [
+    { key: 'dev', label: 'En cours de dév', test: k => /d[eé]velopp|development/.test(k) },
     { key: 'test', label: 'En cours de test', test: k => /test|recette|uat/.test(k) },
     { key: 'review', label: 'Revue', test: k => /revue|review|relecture/.test(k) },
-    { key: 'dev', label: 'En cours de dév', test: k => /d[eé]velopp|development/.test(k) },
+    { key: 'qualif', label: 'À livrer en qualif', test: k => k.includes('qualif') },
+    { key: 'prod', label: 'À livrer en prod', test: k => k.includes('prod') && !k.includes('preprod') && !k.includes('préprod') },
 ];
 
 /**
@@ -311,6 +312,38 @@ export function computeStageFlow(tickets) {
         const avgDays = Math.round((perTicket.reduce((a, b) => a + b, 0) / perTicket.length) * 10) / 10;
         return { key: g.key, label: g.label, avgDays, count: perTicket.length };
     }).filter(Boolean);
+}
+
+/**
+ * Détail d'une colonne de flux (pour la modale ouverte au clic sur un segment) : répartition
+ * par libellé JIRA brut (nb tickets, durée moyenne) + liste des tickets concernés triée par
+ * durée décroissante. Réutilise STAGE_FLOW_GROUPS (même matching que computeStageFlow).
+ */
+export function computeStageFlowDetail(groupKey, tickets) {
+    const group = STAGE_FLOW_GROUPS.find(g => g.key === groupKey);
+    if (!group) return { byRawStatus: [], tickets: [] };
+    const byRawStatus = new Map();
+    const ticketRows = [];
+    for (const t of (tickets || [])) {
+        const sd = t.stageDurations || t.stage_durations || {};
+        let sum = 0;
+        let matchedRaw = null;
+        for (const [rawKey, days] of Object.entries(sd)) {
+            if (!group.test(rawKey)) continue;
+            sum += days;
+            if (!matchedRaw || days > (sd[matchedRaw] || 0)) matchedRaw = rawKey;
+            const entry = byRawStatus.get(rawKey) || { rawStatus: rawKey, count: 0, totalDays: 0 };
+            entry.count += 1;
+            entry.totalDays += days;
+            byRawStatus.set(rawKey, entry);
+        }
+        if (sum > 0) ticketRows.push({ id: t.id, title: t.title || '', days: Math.round(sum * 10) / 10, jiraStatus: t.jiraStatus || matchedRaw || '' });
+    }
+    ticketRows.sort((a, b) => b.days - a.days);
+    const rows = [...byRawStatus.values()]
+        .map(r => ({ ...r, avgDays: Math.round((r.totalDays / r.count) * 10) / 10 }))
+        .sort((a, b) => b.totalDays - a.totalDays);
+    return { byRawStatus: rows, tickets: ticketRows };
 }
 
 /** Calculate percentage, clamped 0-100. */

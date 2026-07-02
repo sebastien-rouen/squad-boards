@@ -9,7 +9,7 @@ import { TEAM_COLORS } from '../config.js';
 import { renderCycleTime } from '../components/charts.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
 import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
-import { stageFlowCardHtml } from '../components/stage_flow_card.js';
+import { stageFlowCardHtml, bindStageFlowCard } from '../components/stage_flow_card.js';
 
 export function renderDashboard(container) {
     const team = store.get('team');
@@ -605,6 +605,7 @@ export function renderDashboard(container) {
         renderCycleTime('chart-cycletime', tickets);
         mountVelocityChart({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax });
         bindActivityClicks(container);
+        bindStageFlowCard(container, displayTickets);
     });
 
     // Liste "bloqués / stagnants" → ouvre le ticket au clic

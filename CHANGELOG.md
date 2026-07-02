@@ -1,3 +1,14 @@
+## [3.105.0] - 2026-07-02
+
+### Feat : carte de progression détaillée pour la sync JIRA / Agenda
+
+**Constat** : la sync JIRA/calendrier n'affichait qu'une fine barre de 3px en bas de topbar, avec le détail de phase uniquement visible via tooltip au survol — et surtout, le paramètre `detail` passé à `setProgress()` dans [sync.js](static/js/sync.js) n'était jamais persisté en store (silencieusement perdu).
+
+- **[state.js](static/js/state.js)** : nouvelle clé `syncDetail`.
+- **[sync.js](static/js/sync.js)** : `setProgress()` persiste désormais le détail ; message final "Import terminé !".
+- **[cal_banner.js](static/js/components/cal_banner.js)** : `syncCalendars()` publie un détail live (compteur + nom du calendrier en cours, puis résumé succès/échec).
+- **[index.html](static/index.html)**, **[topbar.js](static/js/components/topbar.js)**, **[base.css](static/css/base.css)** : nouvelle carte flottante `#sync-card` sous la topbar (icône animée, titre, %, barre, libellé de phase, détail) — bleu pour JIRA, vert pour Agenda.
+
 ## [3.104.0] - 2026-07-02
 
 ### Feat : widget support remonté en tête, card "Temps par colonne" (flux inter-étapes)

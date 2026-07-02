@@ -12,7 +12,7 @@ import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
 import { registerExternalChart } from '../components/charts.js';
 import { updateInfoPanel } from '../components/infopanel.js';
-import { stageFlowCardHtml } from '../components/stage_flow_card.js';
+import { stageFlowCardHtml, bindStageFlowCard } from '../components/stage_flow_card.js';
 
 let _activeTab = 'objectives';
 let _objUnlocked  = false; // déverrouillage manuel des objectifs sur PI passé
@@ -765,6 +765,8 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
             <button class="btn btn-secondary btn-sm" id="pi-obj-add">+ Ajouter un objectif</button>
         </div>` : ''}
     `;
+
+    bindStageFlowCard(el, tickets);
 
     // ── Déverrouillage PI passé ───────────────────────────────────────────────
     el.querySelector('.pi-obj-unlock-btn')?.addEventListener('click', () => {

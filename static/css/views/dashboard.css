@@ -882,6 +882,39 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .stage-detail-modal { max-width: 640px; grid-template-columns: 1fr; }
 .stage-detail-hdr { display: flex; align-items: center; gap: var(--sp-3); }
 .stage-detail-icon { font-size: 20px; }
+.stage-detail-patterns {
+    margin-top: var(--sp-3);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: var(--sp-2);
+    background: var(--surface-2);
+    border-radius: var(--r-sm);
+}
+.stage-detail-patterns-lbl { font-size: var(--fs-xs); color: var(--text-muted); }
+.stage-detail-pattern-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 2px 9px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    font-size: var(--fs-xs);
+    color: var(--text);
+}
+.stage-detail-pattern-rm {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 50%;
+}
+.stage-detail-pattern-rm:hover { background: var(--danger-bg); color: var(--danger); }
 .stage-detail-breakdown {
     margin-top: var(--sp-3);
     display: flex;
@@ -926,6 +959,8 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 }
 .stage-flow-exclude-btn:hover     { opacity: 1; background: var(--surface-2); }
 .stage-flow-exclude-btn.is-excluded { opacity: 1; color: var(--primary); }
+.stage-flow-exclude-btn--tag { cursor: help; }
+.stage-flow-exclude-btn--tag:hover { background: none; }
 .stage-detail-more { text-align: center; padding: var(--sp-1); color: var(--text-muted); font-size: var(--fs-xs); }
 
 /* ── Champ numérique discret inline (ex: seuil de stagnation) ────────────────── */

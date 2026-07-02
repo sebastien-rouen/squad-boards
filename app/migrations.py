@@ -18,6 +18,7 @@ def run_migrations(engine):
         ("ticket",  "cycle_time_days",  "ALTER TABLE ticket ADD COLUMN cycle_time_days INTEGER DEFAULT 0"),
         ("ticket",  "lead_time_days",   "ALTER TABLE ticket ADD COLUMN lead_time_days INTEGER DEFAULT 0"),
         ("ticket",  "jira_status",      "ALTER TABLE ticket ADD COLUMN jira_status TEXT DEFAULT ''"),
+        ("ticket",  "stage_durations",  "ALTER TABLE ticket ADD COLUMN stage_durations JSON DEFAULT '{}'"),
         ("piconfig", "sprints_per_pi",  "ALTER TABLE piconfig ADD COLUMN sprints_per_pi INTEGER DEFAULT 5"),
         ("piconfig", "sprint_duration", "ALTER TABLE piconfig ADD COLUMN sprint_duration INTEGER DEFAULT 14"),
         ("piconfig", "velocity_target",    "ALTER TABLE piconfig ADD COLUMN velocity_target INTEGER"),

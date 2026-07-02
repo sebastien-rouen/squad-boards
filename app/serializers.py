@@ -30,6 +30,7 @@ def _ticket_dict(t: Ticket) -> dict:
         "resolvedDate": t.resolved_date,
         "cycleTimeDays": t.cycle_time_days or 0,
         "leadTimeDays": t.lead_time_days or 0,
+        "stageDurations": t.stage_durations or {},
     }
 
 

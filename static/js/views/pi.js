@@ -12,6 +12,7 @@ import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
 import { registerExternalChart } from '../components/charts.js';
 import { updateInfoPanel } from '../components/infopanel.js';
+import { stageFlowCardHtml } from '../components/stage_flow_card.js';
 
 let _activeTab = 'objectives';
 let _objUnlocked  = false; // déverrouillage manuel des objectifs sur PI passé
@@ -582,7 +583,7 @@ function _commitmentPanelHtml(commit, baseline, canCapture) {
 }
 
 // ── Objectives tab ────────────────────────────────────────────────────────────
-function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurrentPi, piNum, featureList = [] }) {
+function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurrentPi, piNum, featureList = [], tickets = [] }) {
     const allTeams   = teams || store.get('teams') || [];
     const allTObjs   = teamObjects || store.get('teamObjects') || [];
     const team       = store.get('team');
@@ -748,6 +749,7 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
             <span class="pi-obj-gauge-pct" style="color:${globalCol}">${globalDone}/${globalTotal} · ${globalPct}%</span>
         </div>` : ''}
         ${_commitmentPanelHtml(_commit, _baselineRaw, _canCapture)}
+        ${stageFlowCardHtml(tickets)}
         <div class="pi-obj-toolbar">
             ${!showAll
                 ? `<span class="chip" style="background:var(--primary-bg);color:var(--primary)">${esc(team)}</span>`
@@ -767,7 +769,7 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
     // ── Déverrouillage PI passé ───────────────────────────────────────────────
     el.querySelector('.pi-obj-unlock-btn')?.addEventListener('click', () => {
         _objUnlocked = true;
-        renderObjectives(el, { objectives, piInfo, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
+        renderObjectives(el, { objectives, piInfo, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList, tickets });
     });
 
     // ── Capture de la baseline de commitment (#12) ────────────────────────────
@@ -786,7 +788,7 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
                 [String(piNum)]: { capturedAt: new Date().toISOString(), committedPts, features: piFeats } };
             store.set('piInfo', pi);
             toast(`Baseline figée — ${piFeats.length} features, ${committedPts} SP`, 'success');
-            renderObjectives(el, { objectives, piInfo: pi, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList });
+            renderObjectives(el, { objectives, piInfo: pi, teams: allTeams, teamObjects: allTObjs, isCurrentPi, piNum, featureList, tickets });
         } catch (e) { toast(e.message, 'error'); }
     });
 

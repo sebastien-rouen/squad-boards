@@ -198,6 +198,7 @@
     gap: var(--sp-4);
 }
 .dashboard-grid .card { min-height: 300px; }
+.dashboard-grid .stage-flow-card { min-height: auto; grid-column: 1 / -1; }
 
 /* ── PI Objectives attainment (dashboard) ────────────────────────────── */
 .pi-obj-attain {
@@ -855,6 +856,16 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     letter-spacing: 0.02em;
 }
 .lct-lead strong { color: var(--text); }
+
+/* ── Card "Temps par colonne" (flux inter-étapes) ────────────────────────────── */
+.stage-flow-card .lct-flow { flex-wrap: wrap; }
+.stage-flow-seg { flex: 1 1 120px; }
+.stage-flow-count { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px; }
+.stage-flow-seg--dev    { background: color-mix(in srgb, var(--status-inprog) 16%, transparent); border: 1px solid color-mix(in srgb, var(--status-inprog) 45%, transparent); }
+.stage-flow-seg--review { background: color-mix(in srgb, var(--status-review, #8b5cf6) 16%, transparent); border: 1px solid color-mix(in srgb, var(--status-review, #8b5cf6) 45%, transparent); }
+.stage-flow-seg--test   { background: color-mix(in srgb, var(--status-test, #06b6d4) 16%, transparent); border: 1px solid color-mix(in srgb, var(--status-test, #06b6d4) 45%, transparent); }
+.stage-flow-seg--qualif { background: color-mix(in srgb, var(--status-done) 14%, transparent); border: 1px solid color-mix(in srgb, var(--status-done) 40%, transparent); }
+.stage-flow-seg--prod   { background: color-mix(in srgb, var(--status-done) 22%, transparent); border: 1px solid color-mix(in srgb, var(--status-done) 55%, transparent); }
 
 /* ── Champ numérique discret inline (ex: seuil de stagnation) ────────────────── */
 .inline-num-edit {

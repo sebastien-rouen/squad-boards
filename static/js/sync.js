@@ -1040,6 +1040,39 @@ function transformIssue(issue, teamName, sprint, storyPointsField, boardStatusMa
         ? Math.max(1, Math.round((new Date(resolvedDate) - new Date(f.created)) / msPerDay))
         : 0;
 
+    // Durées cumulées (jours) passées dans chaque statut JIRA brut — rejoue tout le changelog
+    // pour l'indicateur de flux par colonne (Dashboard/PI Planning). Un statut revisité plusieurs
+    // fois voit ses durées additionnées. Clé = libellé JIRA brut normalisé (minuscules, trim).
+    const stageDurations = {};
+    if (issue.changelog?.histories?.length) {
+        const statusChanges = [];
+        for (const history of issue.changelog.histories) {
+            for (const item of (history.items || [])) {
+                if (item.field !== 'status') continue;
+                statusChanges.push({
+                    date: history.created,
+                    from: (item.fromString || '').toLowerCase().trim(),
+                    to: (item.toString || '').toLowerCase().trim(),
+                });
+            }
+        }
+        statusChanges.sort((a, b) => new Date(a.date) - new Date(b.date));
+        const _addDuration = (name, fromMs, toMs) => {
+            if (!name || !(toMs > fromMs)) return;
+            stageDurations[name] = Math.round(((stageDurations[name] || 0) + (toMs - fromMs) / msPerDay) * 10) / 10;
+        };
+        let curStatus = statusChanges[0]?.from || jiraStatusName.toLowerCase().trim();
+        let curSinceMs = new Date(f.created).getTime();
+        const endMs = resolvedDate ? new Date(resolvedDate).getTime() : Date.now();
+        for (const chg of statusChanges) {
+            const chgMs = new Date(chg.date).getTime();
+            _addDuration(curStatus, curSinceMs, chgMs);
+            curStatus = chg.to;
+            curSinceMs = chgMs;
+        }
+        _addDuration(curStatus, curSinceMs, endMs);
+    }
+
     // PI extraction — 4 sources in priority order:
     // 1. Team sprint name ("Fuego - Ite 29.3")
     // 2. Dedicated PI Sprint custom field (SAFe JIRA)
@@ -1089,6 +1122,7 @@ function transformIssue(issue, teamName, sprint, storyPointsField, boardStatusMa
         resolvedDate: resolvedDate || null,
         cycleTimeDays,
         leadTimeDays,
+        stageDurations,
     };
 }
 

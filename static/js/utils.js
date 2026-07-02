@@ -290,17 +290,40 @@ export const STAGE_FLOW_GROUPS = [
     { key: 'prod', label: 'À livrer en prod', test: k => k.includes('prod') && !k.includes('preprod') && !k.includes('préprod') },
 ];
 
+// ── Tickets exclus du calcul de flux (ex: tickets récurrents "OPS" créés chaque PI qui
+// faussent la moyenne) ── Stockage : localStorage `stageflow-excluded` = JSON array d'IDs.
+// Global (pas par équipe) — même pattern que getInactiveSupportMembers().
+const _STAGEFLOW_EXCLUDED_KEY = 'stageflow-excluded';
+export function getExcludedFlowTicketIds() {
+    try { return JSON.parse(localStorage.getItem(_STAGEFLOW_EXCLUDED_KEY) || '[]'); }
+    catch { return []; }
+}
+export function isFlowTicketExcluded(id) {
+    return !!id && getExcludedFlowTicketIds().includes(id);
+}
+export function setFlowTicketExcluded(id, excluded) {
+    if (!id) return;
+    const list = getExcludedFlowTicketIds();
+    const idx = list.indexOf(id);
+    if (excluded) { if (idx < 0) list.push(id); }
+    else          { if (idx >= 0) list.splice(idx, 1); }
+    localStorage.setItem(_STAGEFLOW_EXCLUDED_KEY, JSON.stringify(list));
+}
+
 /**
  * Durée moyenne (jours) passée par les tickets dans chaque colonne de flux suivie
  * (Revue, En cours de dév, En cours de test, À livrer en qualif, À livrer en prod).
  * Basé sur ticket.stageDurations (durées cumulées par statut JIRA brut, calculées au sync
  * depuis le changelog complet — cf sync.js transformIssue). Ne retourne que les colonnes
  * réellement présentes dans le workflow de l'équipe (au moins un ticket concerné).
+ * Les tickets exclus via setFlowTicketExcluded() sont ignorés du calcul.
  */
 export function computeStageFlow(tickets) {
+    const excluded = getExcludedFlowTicketIds();
     return STAGE_FLOW_GROUPS.map(g => {
         const perTicket = [];
         for (const t of (tickets || [])) {
+            if (excluded.includes(t.id)) continue;
             const sd = t.stageDurations || t.stage_durations || {};
             let sum = 0;
             for (const [rawKey, days] of Object.entries(sd)) {
@@ -318,13 +341,17 @@ export function computeStageFlow(tickets) {
  * Détail d'une colonne de flux (pour la modale ouverte au clic sur un segment) : répartition
  * par libellé JIRA brut (nb tickets, durée moyenne) + liste des tickets concernés triée par
  * durée décroissante. Réutilise STAGE_FLOW_GROUPS (même matching que computeStageFlow).
+ * Les tickets exclus (setFlowTicketExcluded) sont retirés de la répartition/moyenne (cohérent
+ * avec computeStageFlow) mais restent listés (flag `excluded: true`) pour pouvoir les réinclure.
  */
 export function computeStageFlowDetail(groupKey, tickets) {
     const group = STAGE_FLOW_GROUPS.find(g => g.key === groupKey);
     if (!group) return { byRawStatus: [], tickets: [] };
+    const excludedIds = getExcludedFlowTicketIds();
     const byRawStatus = new Map();
     const ticketRows = [];
     for (const t of (tickets || [])) {
+        const isExcluded = excludedIds.includes(t.id);
         const sd = t.stageDurations || t.stage_durations || {};
         let sum = 0;
         let matchedRaw = null;
@@ -332,14 +359,15 @@ export function computeStageFlowDetail(groupKey, tickets) {
             if (!group.test(rawKey)) continue;
             sum += days;
             if (!matchedRaw || days > (sd[matchedRaw] || 0)) matchedRaw = rawKey;
+            if (isExcluded) continue;
             const entry = byRawStatus.get(rawKey) || { rawStatus: rawKey, count: 0, totalDays: 0 };
             entry.count += 1;
             entry.totalDays += days;
             byRawStatus.set(rawKey, entry);
         }
-        if (sum > 0) ticketRows.push({ ticket: t, days: Math.round(sum * 10) / 10, jiraStatus: t.jiraStatus || matchedRaw || '' });
+        if (sum > 0) ticketRows.push({ ticket: t, days: Math.round(sum * 10) / 10, jiraStatus: t.jiraStatus || matchedRaw || '', excluded: isExcluded });
     }
-    ticketRows.sort((a, b) => b.days - a.days);
+    ticketRows.sort((a, b) => (a.excluded === b.excluded ? b.days - a.days : (a.excluded ? 1 : -1)));
     const rows = [...byRawStatus.values()]
         .map(r => ({ ...r, avgDays: Math.round((r.totalDays / r.count) * 10) / 10 }))
         .sort((a, b) => b.totalDays - a.totalDays);

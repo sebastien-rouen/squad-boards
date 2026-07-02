@@ -276,6 +276,7 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
                 resolved_date=d.get("resolvedDate"),
                 cycle_time_days=d.get("cycleTimeDays") or 0,
                 lead_time_days=d.get("leadTimeDays") or 0,
+                stage_durations=d.get("stageDurations") or {},
             )
             session.merge(t)
         counts["tickets"] = len(items)

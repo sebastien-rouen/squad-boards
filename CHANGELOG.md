@@ -1,3 +1,15 @@
+## [3.104.0] - 2026-07-02
+
+### Feat : widget support remonté en tête, card "Temps par colonne" (flux inter-étapes)
+
+**Widget "En support aujourd'hui"** : remonté tout en haut du Dashboard ([dashboard.js](static/js/views/dashboard.js)), avant le bandeau sprint et les métriques — visible immédiatement sans scroller.
+
+**Card "Temps par colonne"** ([stage_flow_card.js](static/js/components/stage_flow_card.js)) : durée moyenne (jours) réellement passée par les tickets dans chaque étape du workflow — Revue, En cours de dév, En cours de test, À livrer en qualif, à livrer en prod. Reprend le style visuel du schéma "Lead time & Cycle time". N'affiche que les colonnes réellement présentes dans le workflow de l'équipe. Intégrée au Dashboard (scope PI sélectionné via `piOffset`) et à l'onglet Objectifs de PI Planning.
+- **Constat** : `à livrer en qualif` et `à livrer en prod` sont fondus dans le statut `done` (voir `STATUS_MAP`) — indissociables des tickets réellement clos. Distingués ici via le libellé JIRA brut (`jiraStatus`), sans toucher au mapping de statut existant utilisé par ailleurs (board, filtres…).
+- **Backend** ([core.py](app/models/core.py), [migrations.py](app/migrations.py), [serializers.py](app/serializers.py)) : nouvelle colonne JSON `ticket.stage_durations` (`{ "revue": 2.5, ... }`, jours cumulés par statut JIRA brut), exposée en `stageDurations`.
+- **Sync** ([sync.js](static/js/sync.js)) : rejoue le changelog complet de chaque ticket pour cumuler les durées par statut visité (un statut revisité plusieurs fois voit ses durées additionnées).
+- **Agrégation** ([utils.js](static/js/utils.js)) : `computeStageFlow(tickets)` — moyenne par colonne suivie, ne retourne que celles ayant au moins un ticket concerné.
+
 ## [3.103.0] - 2026-07-02
 
 ### Feat : dashboard oncall, Slack webhook, timeline, raccourcis clavier, scroll memory

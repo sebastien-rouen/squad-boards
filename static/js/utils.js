@@ -278,6 +278,41 @@ export function daysInCurrentColumn(ticket) {
     return { days, sinceIso, source };
 }
 
+// Groupes de colonnes suivis par l'indicateur de flux (Dashboard/PI Planning) — matching sur les
+// libellés JIRA bruts stockés dans ticket.stageDurations (clés en minuscules, cf sync.js). Ordre
+// important : "prod" doit être testé après exclusion de "preprod"/"préprod".
+const STAGE_FLOW_GROUPS = [
+    { key: 'qualif', label: 'À livrer en qualif', test: k => k.includes('qualif') },
+    { key: 'prod', label: 'À livrer en prod', test: k => k.includes('prod') && !k.includes('preprod') && !k.includes('préprod') },
+    { key: 'test', label: 'En cours de test', test: k => /test|recette|uat/.test(k) },
+    { key: 'review', label: 'Revue', test: k => /revue|review|relecture/.test(k) },
+    { key: 'dev', label: 'En cours de dév', test: k => /d[eé]velopp|development/.test(k) },
+];
+
+/**
+ * Durée moyenne (jours) passée par les tickets dans chaque colonne de flux suivie
+ * (Revue, En cours de dév, En cours de test, À livrer en qualif, À livrer en prod).
+ * Basé sur ticket.stageDurations (durées cumulées par statut JIRA brut, calculées au sync
+ * depuis le changelog complet — cf sync.js transformIssue). Ne retourne que les colonnes
+ * réellement présentes dans le workflow de l'équipe (au moins un ticket concerné).
+ */
+export function computeStageFlow(tickets) {
+    return STAGE_FLOW_GROUPS.map(g => {
+        const perTicket = [];
+        for (const t of (tickets || [])) {
+            const sd = t.stageDurations || t.stage_durations || {};
+            let sum = 0;
+            for (const [rawKey, days] of Object.entries(sd)) {
+                if (g.test(rawKey)) sum += days;
+            }
+            if (sum > 0) perTicket.push(sum);
+        }
+        if (!perTicket.length) return null;
+        const avgDays = Math.round((perTicket.reduce((a, b) => a + b, 0) / perTicket.length) * 10) / 10;
+        return { key: g.key, label: g.label, avgDays, count: perTicket.length };
+    }).filter(Boolean);
+}
+
 /** Calculate percentage, clamped 0-100. */
 export function pct(part, total) {
     if (!total) return 0;

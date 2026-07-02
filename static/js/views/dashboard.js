@@ -9,6 +9,7 @@ import { TEAM_COLORS } from '../config.js';
 import { renderCycleTime } from '../components/charts.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
 import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
+import { stageFlowCardHtml } from '../components/stage_flow_card.js';
 
 export function renderDashboard(container) {
     const team = store.get('team');
@@ -196,6 +197,37 @@ export function renderDashboard(container) {
     });
 
     container.innerHTML = `
+        <!-- Widget : qui est en support aujourd'hui -->
+        ${(() => {
+            const todayIso = new Date().toISOString().slice(0, 10);
+            const support  = store.get('support') || [];
+            const teamObjects = store.get('teamObjects') || [];
+            const curEntries = support.filter(s => s.weekStart <= todayIso && s.weekEnd >= todayIso);
+            if (!curEntries.length) return '';
+            // Pour chaque entrée, filtre les membres qui couvrent réellement aujourd'hui
+            const oncall = curEntries.flatMap(entry => {
+                const wd     = supportWorkingDays(entry.weekStart);
+                const todayWd = wd.find(d => d.iso === todayIso);
+                if (!todayWd) return [];
+                return (entry.members || []).filter(m => {
+                    const days = supportDaysForMember(entry, m);
+                    return days.includes(todayWd.index);
+                }).map(m => ({ name: m, team: entry.team, color: (teamObjects.find(o => o.name === entry.team) || {}).color || '#64748b' }));
+            });
+            if (!oncall.length) return '';
+            const chips = oncall.map(({ name, color }) => {
+                const ini = initials(name);
+                return `<span class="db-oncall-chip" title="${esc(name)}" style="--chip-color:${color}">
+                    <span class="db-oncall-avatar" style="background:${color}">${esc(ini)}</span>
+                    <span class="db-oncall-name">${esc(name)}</span>
+                </span>`;
+            }).join('');
+            return `<div class="db-oncall-bar">
+                <span class="db-oncall-label">🛎️ Support aujourd'hui</span>
+                <div class="db-oncall-chips">${chips}</div>
+            </div>`;
+        })()}
+
         ${(sprintInfo && piOffset === 0) ? (() => {
             // Calcul positionnel du sprint : où en est-on dans la durée ?
             const _parse = s => { const d = String(s || '').slice(0,10); return d ? new Date(`${d}T00:00:00`).getTime() : NaN; };
@@ -344,37 +376,6 @@ export function renderDashboard(container) {
                 <span class="metric-sub">tickets actifs sans lead</span>
             </div>
         </div>
-
-        <!-- Widget : qui est en support aujourd'hui -->
-        ${(() => {
-            const todayIso = new Date().toISOString().slice(0, 10);
-            const support  = store.get('support') || [];
-            const teamObjects = store.get('teamObjects') || [];
-            const curEntries = support.filter(s => s.weekStart <= todayIso && s.weekEnd >= todayIso);
-            if (!curEntries.length) return '';
-            // Pour chaque entrée, filtre les membres qui couvrent réellement aujourd'hui
-            const oncall = curEntries.flatMap(entry => {
-                const wd     = supportWorkingDays(entry.weekStart);
-                const todayWd = wd.find(d => d.iso === todayIso);
-                if (!todayWd) return [];
-                return (entry.members || []).filter(m => {
-                    const days = supportDaysForMember(entry, m);
-                    return days.includes(todayWd.index);
-                }).map(m => ({ name: m, team: entry.team, color: (teamObjects.find(o => o.name === entry.team) || {}).color || '#64748b' }));
-            });
-            if (!oncall.length) return '';
-            const chips = oncall.map(({ name, color }) => {
-                const ini = initials(name);
-                return `<span class="db-oncall-chip" title="${esc(name)}" style="--chip-color:${color}">
-                    <span class="db-oncall-avatar" style="background:${color}">${esc(ini)}</span>
-                    <span class="db-oncall-name">${esc(name)}</span>
-                </span>`;
-            }).join('');
-            return `<div class="db-oncall-bar">
-                <span class="db-oncall-label">🛎️ Support aujourd'hui</span>
-                <div class="db-oncall-chips">${chips}</div>
-            </div>`;
-        })()}
 
         <!-- Team Cards — affiché seulement si >1 équipe -->
         ${teams.length > 1 ? (() => {
@@ -559,6 +560,7 @@ export function renderDashboard(container) {
                 </div>
                 <div class="chart-container chart-h-md"><canvas id="chart-cycletime"></canvas></div>
             </div>
+            ${stageFlowCardHtml(displayTickets)}
             <div class="health-velo-host">
                 ${_veloTeamChips}
                 ${velocityCardHtml({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax })}

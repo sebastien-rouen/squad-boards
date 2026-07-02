@@ -88,6 +88,7 @@ async def update_ticket(ticket_id: str, request: Request, session: Session = Dep
         "sprintName": "sprint_name", "piSprint": "pi_sprint",
         "epic": "epic_id", "recentChanges": "recent_changes",
         "assignee": "leader", "jiraStatus": "jira_status",
+        "stageDurations": "stage_durations",
     }
     for key, val in body.items():
         attr = field_map.get(key, key)

@@ -61,6 +61,9 @@ class Ticket(SQLModel, table=True):
     resolved_date: Optional[str] = None
     cycle_time_days: int = 0
     lead_time_days: int = 0
+    # Durée cumulée (jours) passée par statut JIRA brut (ex: "revue" → 2.5) — calculée
+    # au sync depuis le changelog complet, clé = jiraStatus normalisé en minuscules.
+    stage_durations: dict = Field(default={}, sa_column=Column(JSON))
 
 
 class Feature(SQLModel, table=True):

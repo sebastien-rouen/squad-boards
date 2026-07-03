@@ -1,3 +1,36 @@
+## [3.107.0] - 2026-07-03
+
+### Feat : import/export en masse de la rotation support (par PI)
+
+**Constat** : l'affectation de la rotation support se faisait uniquement semaine par semaine (carte
+"Affecter rapidement") ou jour par jour dans la grille — aucun moyen de saisir/relire d'un coup toute
+la rotation d'un PI (plusieurs équipes × plusieurs semaines).
+
+- **[utils.js](static/js/utils.js)** : nouvelle modale générique à 2 onglets `ioTabModal()` (famille
+  `.confirm-overlay`) ; `SUPPORT_WEEK_MODES` étend les jours de démarrage de semaine supportés à
+  Lundi/Mardi/Mercredi/Jeudi/Vendredi (auparavant seuls Lundi/Mercredi/Vendredi étaient disponibles,
+  ce qui forçait certaines équipes sur une approximation à ±1-3 jours de leur vrai jour de rotation).
+- **[settings.js](static/js/views/settings.js)** : bouton "🔄 Import / Export" dans la section
+  Rotation Support. Format texte `Equipe;Semaine;Membres` (semaine = date de début réelle, pas le
+  n° de sprint — chaque équipe peut démarrer un jour différent ; membres séparés par `|`, suffixe
+  `:Lu,Ma,…` pour une présence partielle). Validation ligne à ligne avec suggestions de correction
+  (distance de Levenshtein) pour les noms inconnus, applicables individuellement ou en masse
+  ("Accepter les corrections uniques"), avertissements non bloquants pour les dates hors grille avec
+  diagnostic de la semaine valide la plus proche. L'écrasement supprime aussi les entrées orphelines
+  du PI (ex. anciennes dates générées avant correction du mode semaine d'une équipe).
+- **[base.css](static/css/base.css)** : styles modale import/export, chips de suggestion, résultats
+  de validation (scrollables).
+- **[app/models/people.py](app/models/people.py)** : commentaire `week_mode` mis à jour (5 jours).
+
+## [3.106.0] - 2026-07-03
+
+### Fix : double redirection sur `#settings/rotation`
+
+**Constat** : ouvrir `#settings/rotation` déclenchait une redirection en cascade vers `#settings/rotation-support` puis `#settings/lignes-produit-groupes` — le slug `rotation-support` n'existe nulle part dans le DOM (la section a l'id figé `section-rotation`, donc le slug réel est `rotation`), donc le système de tabs ne trouvait jamais la cible et retombait sur le 1er onglet en réécrivant le hash.
+
+- **[app.js](static/js/app.js)** : suppression de l'alias `'rotation': 'rotation-support'` (le slug court `rotation` correspond déjà au slug réel, l'alias n'avait pas lieu d'être).
+- **[settings.js](static/js/views/settings.js)** : `TAB_GROUPS` (groupe "Planning") utilise désormais `rotation` au lieu de `rotation-support` pour matcher le slug réel de la section.
+
 ## [3.105.0] - 2026-07-02
 
 ### Feat : carte de progression détaillée pour la sync JIRA / Agenda

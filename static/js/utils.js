@@ -878,6 +878,58 @@ export function exportChoiceModal(title, items, opts = {}) {
 }
 
 /**
+ * Modale à 2 onglets (Import / Export) — réutilise `.confirm-overlay`/`.confirm-modal` mais reste
+ * ouverte tant que l'utilisateur ne la ferme pas explicitement (pas de `Promise` résolue à la
+ * fermeture comme les autres modales de cette famille) : le contenu HTML des onglets et toute la
+ * logique métier (parsing, validation, appels API) restent à la charge de l'appelant, qui câble ses
+ * propres listeners sur les éléments de `overlay` juste après l'ouverture.
+ * @param {string} title
+ * @param {object} opts { importHtml, exportHtml, initialTab? }
+ * @returns {{overlay: HTMLElement, close: () => void}}
+ */
+export function ioTabModal(title, opts = {}) {
+    const { importHtml = '', exportHtml = '', initialTab = 'import' } = opts;
+    const ov = document.createElement('div');
+    ov.className = 'confirm-overlay';
+    ov.innerHTML = `
+        <div class="confirm-modal confirm-modal--io" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+            <div class="confirm-body">
+                <div class="confirm-title">${esc(title)}</div>
+                <div class="tabs io-modal-tabs">
+                    <button type="button" class="tab${initialTab === 'import' ? ' active' : ''}" data-io-tab="import">📥 Import</button>
+                    <button type="button" class="tab${initialTab === 'export' ? ' active' : ''}" data-io-tab="export">📤 Export</button>
+                </div>
+                <div class="io-modal-pane" data-io-pane="import"${initialTab !== 'import' ? ' hidden' : ''}>${importHtml}</div>
+                <div class="io-modal-pane" data-io-pane="export"${initialTab !== 'export' ? ' hidden' : ''}>${exportHtml}</div>
+            </div>
+            <div class="confirm-actions">
+                <button class="btn btn-ghost btn-sm" data-act="close">Fermer</button>
+            </div>
+        </div>`;
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add('visible'));
+    const close = () => {
+        ov.classList.remove('visible');
+        ov.addEventListener('transitionend', () => ov.remove(), { once: true });
+        document.removeEventListener('keydown', onKey);
+    };
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    ov.addEventListener('click', e => {
+        if (e.target === ov) return close();
+        const act = e.target.closest('[data-act]')?.dataset.act;
+        if (act === 'close') return close();
+        const tabBtn = e.target.closest('[data-io-tab]');
+        if (tabBtn) {
+            const tab = tabBtn.dataset.ioTab;
+            ov.querySelectorAll('[data-io-tab]').forEach(b => b.classList.toggle('active', b.dataset.ioTab === tab));
+            ov.querySelectorAll('[data-io-pane]').forEach(p => { p.hidden = p.dataset.ioPane !== tab; });
+        }
+    });
+    return { overlay: ov, close };
+}
+
+/**
  * Convertit un tableau d'objets plats en CSV (Excel-compatible : BOM + délimiteur `;`).
  * Colonnes = union des clés de tous les objets, dans leur ordre d'apparition. Une valeur
  * array/object est sérialisée en JSON dans sa cellule (pas d'éclatement en sous-colonnes).
@@ -1600,10 +1652,13 @@ export function supportAbsenceDayLevel(memberName, iso, absences) {
 }
 
 // Jour de la semaine ISO → index getDay() (0 = dim, 1 = lun, …, 5 = ven).
-// Modes supportés côté backend : monday | wednesday | friday (cf. SupportRotation.week_mode).
+// Un des 5 jours ouvrés — chaque équipe peut démarrer sa semaine de support un jour différent
+// (`week_mode`, string libre côté backend, cf. app/models/people.py).
 export const SUPPORT_WEEK_MODES = {
     monday:    { dow: 1, label: 'Lun → Dim' },
+    tuesday:   { dow: 2, label: 'Mar → Lun' },
     wednesday: { dow: 3, label: 'Mer → Mar' },
+    thursday:  { dow: 4, label: 'Jeu → Mer' },
     friday:    { dow: 5, label: 'Ven → Jeu' },
 };
 export const SUPPORT_WEEK_MODE_DEFAULT = 'friday';   // 1er jour de sprint sur la plupart des équipes

@@ -193,7 +193,6 @@ function applyHash() {
         // Aliases courts pour les sections Settings (item 3)
         // Permet #settings/slack, #settings/rotation, etc. en plus des slugs complets
         const SETTINGS_ALIASES = {
-            'rotation':    'rotation-support',
             'slack':       'slack-optionnel',
             'jira':        'plugin-jira-optionnel',
             'absences':    'absences-conges',

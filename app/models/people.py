@@ -34,5 +34,5 @@ class SupportRotation(SQLModel, table=True):
     locked: bool = False          # verrou manuel (futur) — préservé lors d'un shuffle
     unlocked: bool = False        # déverrou exceptionnel d'une semaine passée — la rend modifiable
     members_per_week: int = 2
-    week_mode: str = "monday"    # monday | friday | wednesday
+    week_mode: str = "monday"    # monday | tuesday | wednesday | thursday | friday
     updated_at: str = Field(default_factory=_now)

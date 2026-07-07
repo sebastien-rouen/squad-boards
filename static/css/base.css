@@ -553,35 +553,49 @@ body { display: flex; }
     gap: var(--sp-3);
     flex-shrink: 0;
 }
-.topbar-kebab { display: none; }   /* visible uniquement < 1024px (voir media query) */
+/* Kebab toujours visible : Favoris + Mes tickets vivent dans son menu à toutes les tailles,
+   et sont joignables via la command palette (Ctrl+K). Les boutons autonomes sont masqués. */
+.topbar-kebab { display: inline-flex; }
+#btn-favorites, #btn-my-tickets { display: none !important; }
+/* Sync JIRA en icône seule — la sync complète reste dans le menu déroulant + la palette */
+#btn-sync .btn-label { display: none; }
 
-/* ── Search ────────────────────────────────────────────────────────────────── */
-.search-box {
+/* ── Search trigger (ouvre la command palette Ctrl+K) ───────────────────────── */
+.search-trigger {
     display: flex;
     align-items: center;
     gap: var(--sp-2);
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: var(--r-full);
-    padding: var(--sp-1) var(--sp-3);
+    padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-3);
     max-width: 360px;
     width: 100%;
-    transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    transition: border-color var(--tr-fast), box-shadow var(--tr-fast), color var(--tr-fast);
 }
-.search-box:focus-within {
+.search-trigger:hover,
+.search-trigger:focus-visible {
     border-color: var(--border-focus);
     box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
-}
-.search-box .icon { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
-.search-box input {
-    border: none;
-    background: none;
-    outline: none;
-    width: 100%;
-    font-size: var(--fs-sm);
     color: var(--text);
+    outline: none;
 }
-.search-box input::placeholder { color: var(--text-muted); }
+.search-trigger .icon { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
+.search-trigger__label { flex: 1; text-align: left; }
+.search-trigger__kbd { display: inline-flex; gap: 2px; flex-shrink: 0; }
+.search-trigger__kbd kbd {
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px 5px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--bg-subtle, var(--surface));
+    color: var(--text-muted);
+    font-family: inherit;
+}
 
 /* ── Content Layout ────────────────────────────────────────────────────────── */
 .content-layout {
@@ -1630,6 +1644,11 @@ body { display: flex; }
     margin: 4px 0 4px var(--sp-4);
 }
 .io-suggest-lbl { color: var(--text-muted); }
+.io-group-fixes-title {
+    font-weight: var(--fw-semibold);
+    color: var(--text);
+    margin: 6px 0 2px;
+}
 .io-chip {
     border: 1px solid var(--primary);
     border-radius: var(--r-full);
@@ -2902,13 +2921,14 @@ summary { cursor: pointer; }
     .topbar { padding: 0 var(--sp-4); }
     /* Recherche conservée sur tablette/mobile ; board/PI repliés (déjà cachés) */
     .topbar-center { display: flex; flex: 1; justify-content: flex-start; }
-    .topbar-center .search-box { max-width: none; flex: 1; }
+    /* Sur tablette/mobile, l'espace est compté : bouton compact (icône seule) */
+    .topbar-center .search-trigger__label,
+    .topbar-center .search-trigger__kbd { display: none; }
+    .topbar-center .search-trigger { max-width: max-content; flex: 0 0 auto; padding: var(--sp-1) var(--sp-2); }
     #board-mode-host, #pi-selector-host { display: none; }
     .content { padding: var(--sp-4); }
     .btn-label { display: none; }
-    /* Le kebab prend le relais des actions secondaires */
-    .topbar-kebab { display: inline-flex; }
-    #btn-favorites, #btn-my-tickets { display: none; }
+    /* Kebab + Favoris/Mes tickets : déjà gérés en base (visibles à toutes les tailles) */
 }
 
 @media (max-width: 640px) {
@@ -3186,3 +3206,153 @@ textarea.input {
     transition: opacity 0.12s ease;
 }
 .app-tooltip.visible { opacity: 1; }
+
+/* ── Icône d'aide « ? » + popover explicatif (components/help_popover.js) ────── */
+.card-help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    padding: 0;
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    line-height: 1;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--border) 55%, transparent);
+    border: none;
+    border-radius: 50%;
+    cursor: help;
+    vertical-align: middle;
+    transition: background 0.12s, color 0.12s;
+}
+.card-help-btn:hover { background: var(--primary); color: #fff; }
+
+.help-popover-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10040;
+    background: rgba(0, 0, 0, 0.4);
+}
+.help-popover {
+    z-index: 10050;
+    max-width: min(520px, calc(100vw - 24px));
+    padding: 0;
+    /* Fond « sexy » : léger dégradé teinté + deux halos radiaux diffus (thémé clair/sombre
+       via color-mix sur les variables), le tout au-dessus de la surface de base. */
+    background:
+        radial-gradient(130% 120% at 0% 0%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 55%),
+        radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--status-review, #8b5cf6) 12%, transparent), transparent 50%),
+        linear-gradient(160deg, color-mix(in srgb, var(--primary) 4%, var(--surface)), var(--surface));
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+    border-radius: var(--r-lg, var(--r-md));
+    box-shadow: 0 12px 32px -8px color-mix(in srgb, var(--primary) 30%, rgba(0, 0, 0, 0.35)),
+                0 2px 8px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    animation: help-pop-in 0.16s ease-out;
+}
+@keyframes help-pop-in {
+    from { opacity: 0; transform: translateY(4px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.help-popover--sheet { animation: help-sheet-in 0.2s ease-out; }
+@keyframes help-sheet-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+/* Fin liseré lumineux en haut, pour le côté « carte premium ». */
+.help-popover::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 70%, transparent), color-mix(in srgb, var(--status-review, #8b5cf6) 70%, transparent), transparent);
+    pointer-events: none;
+}
+.help-popover--sheet {
+    position: fixed;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 520px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+.help-popover-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.help-popover-title { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--text); }
+.help-popover-close {
+    border: none;
+    background: none;
+    font-size: var(--fs-lg);
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 2px;
+}
+.help-popover-close:hover { color: var(--danger); }
+.help-popover-body { padding: var(--sp-3); }
+.help-popover-note {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+.help-popover-note strong { color: var(--text); }
+
+/* ── Schémas SVG des popovers d'aide (help_popover.js) ───────────────────────── */
+.help-diagram {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    padding: var(--sp-2);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    border-radius: var(--r-md);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+/* Textes génériques (taille pensée pour l'échelle réduite du popover) */
+.hd-lbl       { fill: var(--text); font-size: 17px; font-weight: 600; }
+.hd-metric    { fill: var(--text); font-size: 19px; font-weight: 700; }
+.hd-metric-sm { fill: var(--text-secondary); font-size: 16px; font-weight: 600; }
+.hd-sub       { fill: var(--text-muted); font-size: 14px; }
+.hd-strong    { fill: var(--text); font-size: 15px; font-weight: 700; }
+.hd-val       { fill: var(--text); font-size: 14px; font-weight: 700; }
+.hd-red        { fill: #ef4444; }
+.hd-red-stroke { stroke: #ef4444; stroke-width: 1.5; }
+/* Accolades, axes, marqueurs */
+.hd-bracket   { fill: none; stroke: var(--text-muted); stroke-width: 1.5; }
+.hd-axis      { stroke: var(--text-muted); stroke-width: 1.2; }
+.hd-axis-head { fill: var(--text-muted); }
+.hd-marker    { stroke: var(--text-muted); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.hd-avg       { stroke: var(--text-secondary); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.hd-target    { stroke: #eab308; stroke-width: 1.5; stroke-dasharray: 5 4; }
+/* Étapes (schéma lead/cycle) */
+.hd-seg { stroke-width: 1.5; }
+.hd-seg--backlog { fill: color-mix(in srgb, #eab308 22%, var(--surface)); stroke: color-mix(in srgb, #eab308 55%, transparent); }
+.hd-seg--dev     { fill: color-mix(in srgb, var(--success) 22%, var(--surface)); stroke: color-mix(in srgb, var(--success) 55%, transparent); }
+.hd-seg--review  { fill: color-mix(in srgb, var(--status-review, #8b5cf6) 20%, var(--surface)); stroke: color-mix(in srgb, var(--status-review, #8b5cf6) 55%, transparent); }
+.hd-seg--deploy  { fill: color-mix(in srgb, #3b82f6 20%, var(--surface)); stroke: color-mix(in srgb, #3b82f6 55%, transparent); }
+/* Bandes de risque (aging-wip, sla) */
+.hd-band-ok   { fill: color-mix(in srgb, var(--success) 20%, var(--surface)); stroke: color-mix(in srgb, var(--success) 50%, transparent); stroke-width: 1.2; }
+.hd-band-warn { fill: color-mix(in srgb, var(--warning) 22%, var(--surface)); stroke: color-mix(in srgb, var(--warning) 50%, transparent); stroke-width: 1.2; }
+.hd-band-crit { fill: color-mix(in srgb, var(--danger) 20%, var(--surface));  stroke: color-mix(in srgb, var(--danger) 50%, transparent);  stroke-width: 1.2; }
+/* Barres (temps par colonne, vélocité) */
+.hd-bar { stroke-width: 1; }
+.hd-bar--dev    { fill: color-mix(in srgb, var(--status-inprog) 55%, transparent); }
+.hd-bar--test   { fill: color-mix(in srgb, var(--status-test, #06b6d4) 55%, transparent); }
+.hd-bar--review { fill: color-mix(in srgb, var(--status-review, #8b5cf6) 55%, transparent); }
+.hd-bar--qualif { fill: color-mix(in srgb, var(--status-done) 45%, transparent); }
+.hd-bar--prod   { fill: color-mix(in srgb, var(--status-done) 65%, transparent); }
+.hd-bar--velo   { fill: color-mix(in srgb, var(--primary) 55%, transparent); }
+.hd-bar--current { fill: none; stroke: color-mix(in srgb, var(--primary) 55%, transparent); stroke-width: 1.5; stroke-dasharray: 4 3; }

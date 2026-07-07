@@ -1,3 +1,170 @@
+## [3.118.0] - 2026-07-07
+
+### UX : roster « Membres » de la fiche équipe compacté (équipes nombreuses)
+
+- **[team.js](static/js/views/team.js)** : les chips membres n'affichent plus le rôle en inline
+  (avatar + nom seulement) ; le rôle passe en **tooltip enrichie** (`Nom — Rôle`) et un `data-role`
+  est exposé.
+- **[team.css](static/css/views/team.css)** : chips plus petits (padding/gap/avatar réduits, `fs-xs`),
+  roster **sans plafond de largeur** (`max-width: none`) pour tenir ~5-6 membres par ligne au lieu de 2
+  — hauteur visuelle fortement réduite pour une équipe de 14. Ajout d'un **point discret** sur les
+  membres ayant un rôle défini et d'un léger `translateY` au survol.
+
+## [3.117.0] - 2026-07-07
+
+### UX : topbar épurée — actions secondaires déléguées à la command palette + kebab
+
+- **[cmdpalette.js](static/js/components/cmdpalette.js)** : 3 nouvelles actions rapides —
+  **Nouveau ticket** ➕, **Basculer « Mes tickets »** ◉, **Ouvrir les vues favorites** ★ (le dropdown
+  s'ancre sur le kebab). La palette devient le point d'entrée unique de ces actions.
+- **[base.css](static/css/base.css)** :
+  - **Sync JIRA en icône seule** (label `JIRA 14j` masqué à toutes les tailles) — la sync complète
+    reste joignable via la flèche du split *et* la palette. Gros gain de largeur dans `topbar-right`.
+  - **Kebab visible à toutes les tailles** : Favoris + Mes tickets vivent désormais dans son menu (et
+    dans la palette) en permanence ; les boutons autonomes `#btn-favorites` / `#btn-my-tickets` sont
+    masqués. Les règles dupliquées de la media query < 1024px sont supprimées.
+
+## [3.116.0] - 2026-07-07
+
+### UX : bande « Cap de l'équipe » — Objectif de sprint ⟷ Objectifs du PI (2 colonnes)
+
+- **[dashboard.js](static/js/views/dashboard.js)** : les Objectifs PI sont désormais présentés dans une
+  bande **« Cap de l'équipe »** en **2 colonnes responsives** (Objectif du sprint | Objectifs du PI, PI
+  plus large en `1.2fr`, empilées < 720 px) pour montrer le parallèle itération ⟷ trimestre. Les deux
+  colonnes partagent le même langage visuel (accent haut + en-tête « eyebrow »). La colonne PI bascule
+  en **état vide explicite** quand l'équipe du user n'a aucun objectif sur le PI (« Aucun objectif PI
+  pour {équipe} » + action « Définir dans PI Planning »). Édition inline des objectifs conservée.
+- **Fusion sprint-header** : la `sprint-goal-line` est supprimée et les éléments de `sprint-header-top`
+  (nom du sprint, jour restant, stats pts/écart/mood/fist) sont **déplacés dans la carte « Objectif du
+  sprint »**. Le bandeau sprint ne conserve que la timeline (barre de progression + événements) et les
+  sprints du PI (`.sprint-header--timeline`).
+- **[dashboard.css](static/css/views/dashboard.css)** : styles `.goals-band` / `.goals-grid` / `.gb-*`
+  (dont `.gb-sprint-name`, `.gb-stats` / `.gb-stat`).
+- **[static/mockups/goals-parallel-mockup.html](static/mockups/goals-parallel-mockup.html)** *(nouveau)* :
+  maquette autonome interactive ayant servi à valider la proposition (états plein / vide, thème).
+
+## [3.115.0] - 2026-07-07
+
+### UX : topbar allégée — la search-box devient un bouton qui ouvre la command palette
+
+- **[index.html](static/index.html)** : suppression de la `search-box` (champ + résultats inline,
+  redondants avec la command palette) au profit d'un **bouton `#btn-search`** (icône loupe + label +
+  hint `Ctrl K`) qui ouvre directement la palette.
+- **[cmdpalette.js](static/js/components/cmdpalette.js)** : expose `openCmdPalette()` (API publique).
+- **[topbar.js](static/js/components/topbar.js)** : retrait de toute la logique de recherche inline
+  (`doSearch`, `renderSearchResults`, raccourci `Ctrl+K` local, gestion `Escape`/blur) ; le bouton
+  câble `openCmdPalette()`. Le `Ctrl+K` reste géré globalement par la palette.
+- **[base.css](static/css/base.css)** : styles `.search-trigger` (+ variante compacte tablette/mobile)
+  remplaçant `.search-box`.
+- **[state.js](static/js/state.js)** : suppression de l'état `searchQuery` devenu orphelin.
+
+## [3.114.0] - 2026-07-07
+
+### UX : schémas d'aide plus lisibles + Objectifs PI remontés et compactés
+
+- **[base.css](static/css/base.css)** : textes des schémas SVG d'aide agrandis (`.hd-*`, +3/4 px) et
+  popover élargi (440→520 px) pour une meilleure lisibilité.
+- **[dashboard.js](static/js/views/dashboard.js)** : le bloc **Objectifs PI** (atteinte /
+  Predictability score SAFe) est extrait en const et **remonté au-dessus du bandeau sprint** (au lieu
+  d'être sous les métriques).
+- **[dashboard.css](static/css/views/dashboard.css)** : card Objectifs PI **compactée** (paddings,
+  marges, score 32→26 px, gaps de liste et d'items réduits, titre de section resserré) pour prendre
+  moins de place.
+
+## [3.113.0] - 2026-07-07
+
+### Feat : card "SLA Review" (respect du délai de cycle time)
+
+- **[sla_review_card.js](static/js/components/sla_review_card.js)** *(nouveau)* : nouvelle card
+  Dashboard qui fixe une **attente de service (SLE)** sur le cycle time — « 85% des tickets terminés en
+  ≤ X jours » — et affiche le **taux de conformité** réel en RAG (vert ≥85% / ambre ≥70% / rouge),
+  une barre avec le repère de cible à 85%, les percentiles P50/P85, et la **liste des tickets hors
+  cible** (clic → ouverture). Le seuil X est **éditable** (champ discret persisté en localStorage) ;
+  par défaut il vaut le **P85 observé** (mode « auto ») tant qu'aucun objectif volontaire n'est saisi.
+  Exclusions de flux respectées. Icône d'aide « ? » (schéma SLA déjà préparé en 3.112.0).
+- **[dashboard.js](static/js/views/dashboard.js)** : montage de la card entre le schéma Lead/Cycle et
+  la liste des tickets bloqués/stagnants.
+- **[dashboard.css](static/css/views/dashboard.css)** : styles `.sla-*`.
+
+## [3.112.0] - 2026-07-07
+
+### Feat : icônes d'aide « ? » généralisées (Aging WIP, Temps par colonne, Vélocité) + repositionnement
+
+- **[help_popover.js](static/js/components/help_popover.js)** : le helper devient **auto-câblé** via un
+  registre par clé (`data-help-key`) et un écouteur délégué unique `initHelpPopovers()` (appelé une fois
+  dans [app.js](static/js/app.js), comme `initTooltips`) — plus aucun wiring par vue. Nouveaux schémas
+  SVG thémés : **Ancienneté du travail en cours** (bandes P50/P85), **Temps par colonne** (durée par
+  étape), **Vélocité** (points/sprint + moyenne + objectif + sprint en cours non compté) et **SLA
+  Review** (distribution + seuil SLE, prêt pour une future card). Classes SVG génériques `.hd-*`.
+- **[aging_wip_card.js](static/js/components/aging_wip_card.js)** : card renommée en français
+  **« Ancienneté du travail en cours »** (au lieu de « Aging WIP »), avec icône « ? ».
+- **[stage_flow_card.js](static/js/components/stage_flow_card.js)**, **[velocity_card.js](static/js/components/velocity_card.js)** :
+  icône « ? » ajoutée aux titres.
+- **[dashboard.js](static/js/views/dashboard.js)** : la card Ancienneté du travail en cours est
+  déplacée **à côté du graphique Vélocité** (dans la grille des charts) au lieu d'être en pleine largeur.
+
+## [3.111.0] - 2026-07-07
+
+### Feat : icône d'aide « ? » + schéma SVG Lead time / Cycle time (popover pédagogique)
+
+**Constat** : la card "Lead time & Cycle time" affichait les chiffres sans expliquer la différence
+entre les deux métriques (source fréquente de confusion : lead time inclut l'attente en backlog, pas
+le cycle time).
+
+- **[help_popover.js](static/js/components/help_popover.js)** *(nouveau)* : composant réutilisable —
+  `helpIconHtml()` (petite icône « ? »), `openHelpPopover()` (bulle cliquable, positionnée près de
+  l'ancre sur desktop, **feuille centrée avec fond assombri sur mobile** ; fermeture clic extérieur /
+  Échap / scroll), et `lctDiagramSvg()` : schéma SVG coloré **thémé clair/sombre** (Backlog →
+  Développement → Revue → Déploiement) avec les accolades Lead Time / Change Lead Time / Cycle Time et
+  le repère « First Commit ».
+- **[dashboard.js](static/js/views/dashboard.js)** : icône « ? » ajoutée au titre de la card, ouvrant
+  le schéma au clic (desktop + mobile).
+- **[base.css](static/css/base.css)** : styles `.card-help-btn`, `.help-popover*` et `.lctd-*`
+  (réutilisables pour d'autres cards). Fond soigné du popover : léger dégradé teinté + halos radiaux
+  diffus + liséré lumineux en haut + animation d'apparition, le tout thémé clair/sombre via
+  `color-mix`. Le schéma repose sur un panneau discret pour le détacher du fond.
+
+## [3.110.0] - 2026-07-07
+
+### Feat : flow efficiency, tendance de débit et card "Aging WIP" (métriques de flux)
+
+**Constat** : le Dashboard affichait déjà lead/cycle time, débit 7j, vélocité et temps par colonne,
+mais tout en **moyenne** et de façon **descriptive** — aucun indicateur du gaspillage (temps d'attente
+vs travail réel), ni de vision **proactive** du travail en cours qui vieillit anormalement (la card
+"Tickets bloqués/stagnants" est réactive : elle attend qu'un ticket soit déjà en retard).
+
+- **[dashboard.js](static/js/views/dashboard.js)** : nouveau KPI **Flow efficiency** = cycle time /
+  lead time (part du temps réellement passée à travailler le ticket plutôt qu'à attendre en file ;
+  repère : ~15% courant, 40%+ bon), affiché à la fois en metric-card colorée (RAG) et en barre dans le
+  schéma Lead/Cycle time. La metric-card **Débit (7j)** gagne une **tendance ↗/↘** vs la semaine
+  précédente.
+- **[aging_wip_card.js](static/js/components/aging_wip_card.js)** *(nouveau)* : card **Aging WIP** —
+  chaque ticket en cours est positionné dans sa colonne actuelle (dev, test, revue, qualif, prod) avec
+  son âge (issu de `stageDurations`), comparé au **P50/P85 des tickets déjà terminés** dans la même
+  colonne : vert `< P50`, ambre `P50–P85`, rouge `≥ P85` (sort de la zone habituelle → à débloquer).
+  Tickets bloqués marqués 🚫, clic → ouverture du ticket. Exclusions de flux respectées (cohérent avec
+  "Temps par colonne"). Montée sur le Dashboard et la vue PI Planning ([pi.js](static/js/views/pi.js)).
+- **[dashboard.css](static/css/views/dashboard.css)** : styles `.metric-trend`, `.lct-floweff*` et
+  `.aging-wip-*` (chargés globalement, donc valides aussi côté PI Planning).
+
+## [3.109.0] - 2026-07-03
+
+### Feat : bouton copie Slack par jour dans l'entête agenda-table
+
+**Constat** : la page Agenda proposait déjà une copie Slack pour le support, les absences et la semaine complète, mais aucun moyen de copier le récap d'un seul jour — pattern déjà en place dans la modale Calendrier ([cal_banner.js](static/js/components/cal_banner.js#L773)) via `.cal-day-copy-btn`.
+
+- **[agenda.js](static/js/views/agenda.js)** : bouton `.agenda-day-copy-btn` (📋) ajouté dans chaque `<th class="agenda-day-col">`, sur le même modèle visuel/comportemental que `.cal-day-copy-btn` (icône discrète, visible au survol de la colonne, `✓` puis retour à `📋` après copie). Le message Slack généré reprend le support et les absences (store + OFF calendrier) du jour, filtrés sur l'équipe active — mêmes emojis/format que le récap semaine existant.
+- **Complément** : ajout des invitations de l'agenda du jour (réunions calendrier hors OFF), groupées Matin/Après-midi avec horaires et lien visio détecté — même format que `_buildDaySlack()` dans [cal_banner.js](static/js/components/cal_banner.js#L978), pour un contenu réellement équivalent au bouton de la modale Calendrier.
+- **Complément** : les congés/absences du jour sont désormais regroupés par type (une ligne `emoji *Type* : @A, @B, @C` par type au lieu d'une ligne par personne) — même principe de concaténation que la ligne `🎧 *Support*`.
+
+## [3.108.0] - 2026-07-03
+
+### Fix : agenda-table — fond support étalé sur toute la ligne au lieu des seuls jours concernés
+
+**Constat** : dans la page Agenda, une personne de support jeudi-vendredi voyait aussi ses cellules lundi-mercredi colorées, car la règle CSS `.agenda-support-row td` appliquait le fond à **toutes** les cellules de la ligne dès qu'un membre était support au moins un jour de la semaine — alors que le JS ([agenda.js](static/js/views/agenda.js#L111-L113)) ne pose déjà l'inline `background` que sur les `<td class="agenda-cell--support">` correspondant aux jours réels.
+
+- **[agenda.css](static/css/views/agenda.css)** : sélecteur restreint à `.agenda-support-row td.agenda-cell--support` — le fond ne s'applique plus qu'aux jours effectivement en support.
+
 ## [3.107.0] - 2026-07-03
 
 ### Feat : import/export en masse de la rotation support (par PI)

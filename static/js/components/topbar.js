@@ -5,17 +5,16 @@
 
 import { store } from '../state.js';
 import { NAV_ITEMS } from '../config.js';
-import { esc, debounce, statusBadge, getCurrentPi, getSprintForTeam, relevantCalendars, lastCalendarSync } from '../utils.js';
+import { esc, getCurrentPi, getSprintForTeam, relevantCalendars, lastCalendarSync } from '../utils.js';
 import { toggleFavoritesDropdown } from './favorites.js';
 import { openCalWeekModal } from './cal_banner.js';
+import { openCmdPalette } from './cmdpalette.js';
 
 let _topbarInited = false;
 export function initTopbar() {
     if (_topbarInited) return;
     _topbarInited = true;
     const viewTitle = document.getElementById('view-title');
-    const searchInput = document.getElementById('search-input');
-    const searchBox = document.getElementById('search-box');
 
     // Title → Breadcrumb cliquable : View > Team/Group > Context (sprint name si dispo)
     function updateTitle() {
@@ -270,22 +269,8 @@ export function initTopbar() {
     store.on('syncDetail',   updateSyncBar);
     updateSyncBar();
 
-    // Search
-    const doSearch = debounce(query => {
-        store.set('searchQuery', query);
-        renderSearchResults(query);
-    }, 200);
-
-    searchInput.addEventListener('input', () => doSearch(searchInput.value.trim()));
-    searchInput.addEventListener('focus', () => {
-        if (searchInput.value.trim()) renderSearchResults(searchInput.value.trim());
-    });
-
-    document.addEventListener('click', e => {
-        if (!searchBox.contains(e.target)) {
-            searchBox.querySelector('.search-results')?.remove();
-        }
-    });
+    // Search → ouvre la command palette (Ctrl+K)
+    document.getElementById('btn-search')?.addEventListener('click', () => openCmdPalette());
 
     // Create button
     document.getElementById('btn-create')?.addEventListener('click', () => {
@@ -310,59 +295,5 @@ export function initTopbar() {
             if (openCreateModal) openCreateModal({ team: store.get('team') !== 'all' ? store.get('team') : '' });
             return;
         }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-            e.preventDefault();
-            searchInput.focus();
-            searchInput.select();
-        }
-        if (e.key === 'Escape' && document.activeElement === searchInput) {
-            searchInput.blur();
-            searchInput.value = '';
-            store.set('searchQuery', '');
-            searchBox.querySelector('.search-results')?.remove();
-        }
-    });
-}
-
-function renderSearchResults(query) {
-    const searchBox = document.getElementById('search-box');
-    let panel = searchBox.querySelector('.search-results');
-    if (!query) { panel?.remove(); return; }
-
-    const tickets = store.get('tickets') || [];
-    const q = query.toLowerCase();
-    const matches = tickets.filter(t =>
-        t.id?.toLowerCase().includes(q) ||
-        t.title?.toLowerCase().includes(q) ||
-        (t.leader || t.assignee || '').toLowerCase().includes(q)
-    ).slice(0, 10);
-
-    if (!panel) {
-        panel = document.createElement('div');
-        panel.className = 'search-results';
-        searchBox.style.position = 'relative';
-        searchBox.appendChild(panel);
-    }
-
-    if (!matches.length) {
-        panel.innerHTML = '<div class="search-result-item text-muted">Aucun resultat</div>';
-        return;
-    }
-
-    panel.innerHTML = matches.map(t => `
-        <div class="search-result-item" data-id="${esc(t.id)}">
-            <span class="ticket-id">${esc(t.id)}</span>
-            <span class="truncate">${esc(t.title)}</span>
-            ${statusBadge(t)}
-        </div>
-    `).join('');
-
-    panel.querySelectorAll('.search-result-item').forEach(el => {
-        el.addEventListener('click', () => {
-            window.__squadBoard?.openTicketModal?.(el.dataset.id);
-            panel.remove();
-            const searchInput = document.getElementById('search-input');
-            if (searchInput) searchInput.value = '';
-        });
     });
 }

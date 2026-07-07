@@ -33,8 +33,10 @@
 }
 .team-id-header-info h2 { margin: 0; }
 
-/* Roster — aligné à droite, trié par rôle, clic → fiche membre (Atlas). */
-.team-id-roster { flex: 1 1 320px; max-width: 480px; margin-left: auto; }
+/* Roster — aligné à droite, trié par rôle, clic → fiche membre (Atlas).
+   Chips compacts (avatar + prénom, rôle en tooltip) pour tenir plus de monde par ligne
+   et limiter la hauteur quand l'équipe est nombreuse (14+). */
+.team-id-roster { flex: 1 1 340px; max-width: none; margin-left: auto; }
 .team-id-roster-label {
     display: block;
     font-size: var(--fs-xs);
@@ -49,23 +51,38 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
-    gap: var(--sp-2);
+    gap: 6px;
 }
 .team-id-member-chip {
     display: inline-flex;
     align-items: center;
-    gap: var(--sp-1);
-    font-size: var(--fs-sm);
+    gap: 5px;
+    font-size: var(--fs-xs);
     background: var(--surface-hover);
     border: 1px solid var(--border);
     border-radius: var(--r-full);
-    padding: 3px 10px 3px 4px;
+    padding: 2px 9px 2px 2px;
     cursor: pointer;
-    transition: background var(--tr-fast), border-color var(--tr-fast);
+    transition: background var(--tr-fast), border-color var(--tr-fast), transform var(--tr-fast);
 }
-.team-id-member-chip:hover { background: var(--primary-bg); border-color: var(--primary); }
-.team-id-member-name { font-weight: var(--fw-medium); }
-.team-id-member-role { color: var(--text-muted); font-size: var(--fs-xs); }
+.team-id-member-chip:hover {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+.team-id-member-chip .assignee-avatar { width: 22px; height: 22px; font-size: 0.5rem; }
+.team-id-member-name { font-weight: var(--fw-medium); white-space: nowrap; }
+/* Point discret = membre avec un rôle défini (le rôle reste lisible en tooltip) */
+.team-id-member-chip.has-role .team-id-member-name::after {
+    content: '';
+    display: inline-block;
+    width: 5px; height: 5px;
+    margin-left: 5px;
+    border-radius: 50%;
+    background: var(--primary);
+    opacity: 0.55;
+    vertical-align: middle;
+}
 .team-id-roster-former {
     margin-top: var(--sp-3);
     padding-top: var(--sp-2);

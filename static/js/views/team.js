@@ -118,10 +118,9 @@ export function renderTeam(container) {
                 <div class="team-id-roster-list">
                     ${sortedMembers.length
                         ? sortedMembers.map(m => `
-                            <button type="button" class="team-id-member-chip" data-member="${esc(m.name)}" title="${esc(m.role || 'Voir la fiche membre')}">
+                            <button type="button" class="team-id-member-chip${m.role ? ' has-role' : ''}" data-member="${esc(m.name)}" data-role="${esc(m.role || '')}" title="${esc(m.role ? `${m.name} — ${m.role}` : m.name)}">
                                 <span class="assignee-avatar" style="background:${hashColor(m.name)}">${esc(initials(m.name))}</span>
                                 <span class="team-id-member-name">${esc(m.name)}</span>
-                                ${m.role ? `<span class="team-id-member-role">${esc(m.role)}</span>` : ''}
                             </button>`).join('')
                         : '<span class="text-muted text-sm">Aucun membre — importer les absences pour peupler la liste.</span>'}
                 </div>

@@ -77,6 +77,21 @@ const ACTIONS = [
         run: () => window.__squadBoard?.handleJiraImport?.('full'),
     },
     {
+        id: 'create-ticket', label: 'Nouveau ticket', icon: '➕',
+        keywords: 'nouveau créer create ticket ajouter new issue',
+        run: () => document.getElementById('btn-create')?.click(),
+    },
+    {
+        id: 'toggle-my-tickets', label: 'Basculer « Mes tickets » (filtre par assigné·e)', icon: '◉',
+        keywords: 'mes tickets my filtre assigne leader moi',
+        run: () => document.getElementById('btn-my-tickets')?.click(),
+    },
+    {
+        id: 'open-favorites', label: 'Ouvrir les vues favorites', icon: '★',
+        keywords: 'favoris favorites vues saved étoile enregistrées',
+        run: () => import('./favorites.js').then(m => m.toggleFavoritesDropdown(document.getElementById('btn-topbar-more'))),
+    },
+    {
         id: 'toggle-theme', label: 'Basculer thème clair / sombre', icon: '🌓',
         keywords: 'theme dark light sombre clair mode',
         run: () => {
@@ -193,6 +208,10 @@ export function initCmdPalette() {
         _debounce = setTimeout(() => _search(e.target.value.trim()), DEBOUNCE_MS);
     });
 }
+
+// ── API publique ────────────────────────────────────────────────────────────
+/** Ouvre la command palette (utilisé par le bouton de recherche du topbar). */
+export function openCmdPalette() { _open(); }
 
 // ── Open / close ──────────────────────────────────────────────────────────────
 function _isOpen() { return !_overlay()?.classList.contains('cmd-hidden'); }

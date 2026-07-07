@@ -108,10 +108,11 @@
                 <h1 id="view-title" class="topbar-title">Dashboard</h1>
             </div>
             <div class="topbar-center">
-                <div class="search-box" id="search-box">
+                <button class="search-trigger" id="btn-search" data-tooltip="Rechercher (Ctrl+K)" aria-label="Rechercher">
                     <svg class="icon"><use href="#i-search"/></svg>
-                    <input type="search" id="search-input" placeholder="Rechercher... (Ctrl+K)" autocomplete="off">
-                </div>
+                    <span class="search-trigger__label">Rechercher…</span>
+                    <span class="search-trigger__kbd"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+                </button>
                 <!-- Toggle Scrum / Kanban — visible sur la vue Board -->
                 <div id="board-mode-host" hidden></div>
                 <!-- Sélecteur PI (PI-2..PI+2), visible uniquement sur pi/roadmap/… -->

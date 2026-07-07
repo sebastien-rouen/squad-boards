@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, getCurrentPi, effectiveRosterForPi, teamNameMatches } from '../utils.js';
+import { esc, getCurrentPi, effectiveRosterForPi, teamNameMatches, toast } from '../utils.js';
 
 const ABSENCE_CONFIG = {
     conge:     { label: 'Congé',     color: '#991b1b', bg: '#fecaca' },
@@ -458,7 +458,8 @@ export function renderAgenda(container) {
                         <th class="agenda-member-col">Membre</th>
                         ${days.map((d, i) => `
                             <th class="agenda-day-col${dayIsos[i] === today ? ' agenda-today' : ''}">
-                                ${_dayHeader(d)}
+                                <span class="agenda-day-hdr-label">${_dayHeader(d)}</span>
+                                <button class="agenda-day-copy-btn" data-day-idx="${i}" title="Copier l'agenda du jour (Slack)">📋</button>
                             </th>
                         `).join('')}
                     </tr>
@@ -629,6 +630,84 @@ export function renderAgenda(container) {
             await navigator.clipboard.writeText(lines.join('\n').trimEnd());
             if (btn) _copyDone(btn, '📋 Semaine');
         } catch {}
+    });
+
+    // ── Day copy (par colonne du header) ────────────────────────────────────
+    // Même contenu que le bouton .cal-day-copy-btn (cal_banner.js) : invitations groupées
+    // Matin/Après-midi avec lien visio — complété ici par le support et les absences (store)
+    // déjà exposés sur cette page.
+    const _DAY_LABELS_FULL = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+    const _isOffTitle = title => /-\s*[^-]*\bOFF\s*$/i.test(title || '');
+    const _VISIO_DOMAINS = /https?:\/\/(?:[\w-]+\.)*(?:meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|zoom\.us|whereby\.com|webex\.com|chime\.aws|bluejeans\.com|visio\.[\w.-]+|gotomeeting\.com|jit\.si|meet\.jit\.si)\/\S+/i;
+    const _extractVisioLink = ev => {
+        if (ev.url) { const m = ev.url.match(_VISIO_DOMAINS); if (m) return m[0]; }
+        const loc = (ev.location || '').trim();
+        if (loc) {
+            const m = loc.match(_VISIO_DOMAINS);
+            if (m) return m[0];
+            if (/^https?:\/\//i.test(loc)) return loc;
+            if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}\/\S+/i.test(loc)) return `https://${loc}`;
+        }
+        const desc = (ev.description || '').replace(/&nbsp;/g, ' ');
+        const dm = desc.match(_VISIO_DOMAINS);
+        if (dm) return dm[0].replace(/[)\].,;]+$/, '');
+        return null;
+    };
+    const _h = d => `${String(d.getHours()).padStart(2, '0')}h${String(d.getMinutes()).padStart(2, '0')}`;
+    const _fmtEvSlack = ev => {
+        const s = new Date(ev.start), e = new Date(ev.end);
+        const time = `${_h(s)}-${_h(e)}`;
+        const link = _extractVisioLink(ev) || (ev.url && /^https?:\/\//i.test(ev.url) ? ev.url : null);
+        return link ? `  • ${time} : ${ev.title} ${link}` : `  • ${time} : ${ev.title}`;
+    };
+
+    container.querySelectorAll('.agenda-day-copy-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const i = parseInt(btn.dataset.dayIdx, 10);
+            const dayIso = dayIsos[i];
+            const dayFmt = days[i].toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+            const lines = [`:date: AGENDA DU JOUR - *${_DAY_LABELS_FULL[i]} ${dayFmt}*`, ''];
+
+            // Support du jour
+            const daySupport = [..._supportForDay(dayIso)];
+            if (daySupport.length) lines.push(`🎧 *Support* : ${_atNames(daySupport)}`, '');
+
+            // Invitations de l'agenda du jour (mêmes règles/format que .cal-day-copy-btn)
+            const dayEvs  = (currentTeam && currentTeam !== 'all'
+                ? calendarEvents.filter(e => !e.team || e.team === currentTeam)
+                : calendarEvents
+            ).filter(e => new Date(e.start).toISOString().slice(0, 10) === dayIso);
+            const regular = dayEvs.filter(e => !_isOffTitle(e.title) && !e.allDay).sort((a, b) => a.start.localeCompare(b.start));
+            const matin   = regular.filter(e => new Date(e.start).getHours() < 12);
+            const aprem   = regular.filter(e => new Date(e.start).getHours() >= 12);
+            if (matin.length) { lines.push(':sunrise: Matin'); matin.forEach(ev => lines.push(_fmtEvSlack(ev))); lines.push(''); }
+            if (aprem.length) { lines.push(':sunny: Après-midi'); aprem.forEach(ev => lines.push(_fmtEvSlack(ev))); lines.push(''); }
+
+            // Absences (store) + OFF calendrier du jour — regroupées par type (membres concaténés)
+            const _absGroups = new Map(); // label -> { emoji, names }
+            for (const m of filteredMembers) {
+                const abs = _absOnDay(absences, m.name, dayIso);
+                if (abs) {
+                    const emoji = _ABS_EMOJI[abs.type] || '📌';
+                    const cfg   = ABSENCE_CONFIG[abs.type] || ABSENCE_CONFIG.autre;
+                    if (!_absGroups.has(cfg.label)) _absGroups.set(cfg.label, { emoji, names: [] });
+                    _absGroups.get(cfg.label).names.push(m.name);
+                }
+            }
+            const offNames = offByDay[dayIso] || [];
+            if (offNames.length) _absGroups.set('OFF', { emoji: '🏖️', names: [...offNames] });
+
+            const dayAbsLines = [..._absGroups].map(([label, g]) => `${g.emoji} *${label}* : ${_atNames(g.names)}`);
+            if (dayAbsLines.length) { lines.push(...dayAbsLines); lines.push(''); }
+
+            try {
+                await navigator.clipboard.writeText(lines.join('\n').trimEnd());
+                btn.textContent = '✓';
+                setTimeout(() => { btn.textContent = '📋'; }, 1600);
+            } catch {
+                toast('Copie impossible', 'error');
+            }
+        });
     });
 
     // ── Unhide all ───────────────────────────────────────────────────────────

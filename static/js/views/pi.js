@@ -13,6 +13,7 @@ import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '.
 import { registerExternalChart } from '../components/charts.js';
 import { updateInfoPanel } from '../components/infopanel.js';
 import { stageFlowCardHtml, bindStageFlowCard } from '../components/stage_flow_card.js';
+import { agingWipCardHtml, bindAgingWipCard } from '../components/aging_wip_card.js';
 
 let _activeTab = 'objectives';
 let _objUnlocked  = false; // déverrouillage manuel des objectifs sur PI passé
@@ -750,6 +751,7 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
         </div>` : ''}
         ${_commitmentPanelHtml(_commit, _baselineRaw, _canCapture)}
         ${stageFlowCardHtml(tickets)}
+        ${agingWipCardHtml(tickets)}
         <div class="pi-obj-toolbar">
             ${!showAll
                 ? `<span class="chip" style="background:var(--primary-bg);color:var(--primary)">${esc(team)}</span>`
@@ -767,6 +769,7 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
     `;
 
     bindStageFlowCard(el, tickets);
+    bindAgingWipCard(el);
 
     // ── Déverrouillage PI passé ───────────────────────────────────────────────
     el.querySelector('.pi-obj-unlock-btn')?.addEventListener('click', () => {

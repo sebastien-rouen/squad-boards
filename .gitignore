@@ -6,6 +6,7 @@ data/*.json
 data/*.db
 data/*.db-journal
 data/*.db-wal
+data/uploads/
 !data/.gitkeep
 
 # Environnement

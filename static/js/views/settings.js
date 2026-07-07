@@ -3162,6 +3162,7 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
         const { overlay, close } = ioTabModal('Import / Export — Rotation Support', { importHtml, exportHtml });
         let validated = null;
         let currentLines = [];   // synchronisé avec le textarea — muté par les chips de correction
+        let lastGroups = new Map(); // recalculé à chaque _runCheck — regroupe les occurrences d'un même nom inconnu
 
         // Remplace le nom inconnu d'un jeton (préserve le suffixe `:Lu,Ma` s'il y en a un) dans
         // `currentLines[lineIdx]`, sans relancer la validation (appelé en boucle par l'auto-fix).
@@ -3191,22 +3192,36 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
             const singleFixes = errors.flatMap(e => (e.unresolved || [])
                 .filter(u => u.candidates.length === 1)
                 .map(u => ({ lineIdx: e.lineIdx, tokenIdx: u.tokenIdx, nameRaw: u.nameRaw, suggest: u.candidates[0] })));
+            // Regroupe les occurrences d'un même nom inconnu (même normalisation) sur TOUTES les
+            // lignes → un seul jeu de chips à traiter au lieu de répéter la correction ligne par ligne.
+            const groups = new Map();
+            errors.forEach(e => (e.unresolved || []).forEach(u => {
+                const key = _norm(u.nameRaw);
+                if (!groups.has(key)) groups.set(key, { nameRaw: u.nameRaw, candidates: u.candidates, occ: [] });
+                groups.get(key).occ.push({ lineIdx: e.lineIdx, tokenIdx: u.tokenIdx });
+            }));
+            lastGroups = groups;
             const box = overlay.querySelector('#sup-io-result');
             if (box) {
                 box.hidden = false;
                 const teamsAffected = [...new Set(valid.map(r => r.team))];
-                const _errLine = e => `<li>Ligne ${e.lineNo} : ${esc(e.message)}${e.unresolved?.length ? `
-                    ${e.unresolved.filter(u => u.candidates.length).map(u => `
+                const _errLine = e => `<li>Ligne ${e.lineNo} : ${esc(e.message)}</li>`;
+                const groupedHtml = groups.size ? `
+                    <div class="io-group-fixes-title">Corrections groupées (${groups.size} nom${groups.size > 1 ? 's' : ''} distinct${groups.size > 1 ? 's' : ''}) :</div>
+                    ${[...groups.entries()].map(([key, g]) => `
                         <div class="io-suggest-chips">
-                            <span class="io-suggest-lbl">${esc(u.nameRaw)} →</span>
-                            ${u.candidates.map(c => `<button type="button" class="io-chip" data-line-idx="${e.lineIdx}" data-token-idx="${u.tokenIdx}" data-name-raw="${esc(u.nameRaw)}" data-suggest="${esc(c)}">${esc(c)}</button>`).join('')}
-                        </div>`).join('')}` : ''}</li>`;
+                            <span class="io-suggest-lbl">${esc(g.nameRaw)} <em>(${g.occ.length}×)</em> →</span>
+                            ${g.candidates.length
+                                ? g.candidates.map(c => `<button type="button" class="io-chip" data-group-key="${esc(key)}" data-suggest="${esc(c)}">${esc(c)}</button>`).join('')
+                                : '<span class="text-muted text-xs">aucune suggestion</span>'}
+                        </div>`).join('')}` : '';
                 box.innerHTML = `
                     ${!results.length ? '<div class="io-result-err">❌ Aucune ligne détectée.</div>' : ''}
                     ${valid.length ? `<div class="io-result-ok">✅ ${valid.length} ligne${valid.length > 1 ? 's' : ''} valide${valid.length > 1 ? 's' : ''} — ${teamsAffected.length} équipe${teamsAffected.length > 1 ? 's' : ''} : ${teamsAffected.map(esc).join(', ')}</div>` : ''}
                     ${warnings.length ? `<div class="io-result-warn">⚠️ ${warnings.length} avertissement${warnings.length > 1 ? 's' : ''} (ligne${warnings.length > 1 ? 's' : ''} ignorée${warnings.length > 1 ? 's' : ''}, n'empêche(nt) pas l'écrasement) :<ul>${warnings.map(w => `<li>Ligne ${w.lineNo} : ${esc(w.message)}</li>`).join('')}</ul></div>` : ''}
                     ${errors.length ? `<div class="io-result-err">❌ ${errors.length} erreur${errors.length > 1 ? 's' : ''} (à corriger avant écrasement) :
                         ${singleFixes.length ? `<button type="button" class="btn btn-primary btn-xs" id="sup-io-autofix" style="margin:4px 0">✨ Accepter ${singleFixes.length} correction${singleFixes.length > 1 ? 's' : ''} unique${singleFixes.length > 1 ? 's' : ''}</button>` : ''}
+                        ${groupedHtml}
                         <ul>${errors.map(_errLine).join('')}</ul></div>` : ''}
                 `;
             }
@@ -3227,8 +3242,9 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
             _runCheck();
         });
 
-        // Clic sur une chip de suggestion (correction unitaire) ou sur "Accepter les corrections
-        // uniques" (applique en une fois toutes les erreurs n'ayant qu'une seule suggestion possible).
+        // Clic sur "Accepter les corrections uniques" (tout ce qui n'a qu'une seule suggestion
+        // possible, toutes occurrences confondues) ou sur une chip groupée (corrige TOUTES les
+        // occurrences du même nom inconnu, sur toutes les lignes, en un clic).
         overlay.querySelector('#sup-io-result')?.addEventListener('click', e => {
             if (e.target.closest('#sup-io-autofix')) {
                 const errors = (validated || []).filter(r => r.status === 'error');
@@ -3238,10 +3254,11 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
                 _runCheck();
                 return;
             }
-            const chip = e.target.closest('.io-chip');
+            const chip = e.target.closest('.io-chip[data-group-key]');
             if (!chip) return;
-            const { lineIdx, tokenIdx, suggest } = chip.dataset;
-            _applyFix(parseInt(lineIdx, 10), parseInt(tokenIdx, 10), suggest);
+            const { groupKey, suggest } = chip.dataset;
+            const group = lastGroups.get(groupKey);
+            if (group) group.occ.forEach(o => _applyFix(o.lineIdx, o.tokenIdx, suggest));
             _runCheck();
         });
 

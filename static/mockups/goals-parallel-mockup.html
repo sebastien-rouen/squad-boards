@@ -1,0 +1,290 @@
+<title>Maquette — Sprint Goal ⟷ Objectifs PI</title>
+<style>
+  :root {
+    --primary:#2563eb; --primary-bg:#eff6ff;
+    --surface:#ffffff; --surface-2:#f8fafc; --bg:#f1f5f9;
+    --text:#0f172a; --text-secondary:#475569; --text-muted:#94a3b8;
+    --border:#e2e8f0;
+    --status-inprog:#3b82f6; --status-review:#8b5cf6; --status-done:#10b981;
+    --success:#16a34a; --warning:#f59e0b; --danger:#dc2626;
+    --success-text:#047857; --amber-text:#b45309; --indigo-text:#4338ca;
+    --r-sm:4px; --r-md:8px; --r-lg:12px;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --primary:#3b82f6; --primary-bg:#1e3a5f;
+      --surface:#1e293b; --surface-2:#0f172a; --bg:#0f172a;
+      --text:#f1f5f9; --text-secondary:#cbd5e1; --text-muted:#64748b;
+      --border:#334155;
+      --success-text:#6ee7b7; --amber-text:#fcd34d; --indigo-text:#a5b4fc;
+      --shadow-sm:0 1px 3px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --primary:#3b82f6; --primary-bg:#1e3a5f;
+    --surface:#1e293b; --surface-2:#0f172a; --bg:#0f172a;
+    --text:#f1f5f9; --text-secondary:#cbd5e1; --text-muted:#64748b;
+    --border:#334155;
+    --success-text:#6ee7b7; --amber-text:#fcd34d; --indigo-text:#a5b4fc;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.4);
+  }
+  :root[data-theme="light"]{
+    --primary:#2563eb; --primary-bg:#eff6ff;
+    --surface:#ffffff; --surface-2:#f8fafc; --bg:#f1f5f9;
+    --text:#0f172a; --text-secondary:#475569; --text-muted:#94a3b8;
+    --border:#e2e8f0;
+    --success-text:#047857; --amber-text:#b45309; --indigo-text:#4338ca;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.5;
+    -webkit-font-smoothing:antialiased;padding:var(--sp-6) var(--sp-4) var(--sp-10);}
+  .wrap{max-width:1040px;margin:0 auto;}
+  .page-hd{margin-bottom:var(--sp-5);}
+  .page-hd h1{font-size:1.4rem;margin:0 0 4px;letter-spacing:-.01em;text-wrap:balance;}
+  .page-hd p{margin:0;color:var(--text-secondary);font-size:.9rem;max-width:60ch;}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;
+    margin:var(--sp-4) 0 var(--sp-5);padding:var(--sp-2);
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);}
+  .toolbar .seg{display:inline-flex;background:var(--surface-2);border-radius:var(--r-md);padding:3px;gap:2px;}
+  .toolbar button{font:inherit;font-size:.8rem;font-weight:600;cursor:pointer;
+    border:none;background:none;color:var(--text-secondary);padding:6px 12px;border-radius:6px;}
+  .toolbar button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm);}
+  .toolbar .spacer{flex:1;}
+  .toolbar .lbl{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
+    font-weight:700;padding-left:var(--sp-2);}
+
+  /* ── Canvas façon dashboard ────────────────────────────────── */
+  .canvas{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-lg);
+    padding:var(--sp-5);}
+
+  /* ══ LE COMPOSANT PROPOSÉ ══════════════════════════════════════ */
+  .goals{display:flex;flex-direction:column;gap:var(--sp-3);}
+  .goals-head{display:flex;align-items:baseline;gap:var(--sp-3);flex-wrap:wrap;}
+  .goals-head h2{margin:0;font-size:.78rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:.07em;color:var(--text-secondary);}
+  .goals-head .flow{font-size:.75rem;color:var(--text-muted);display:inline-flex;align-items:center;gap:6px;}
+  .goals-head .flow b{color:var(--text-secondary);font-weight:600;}
+
+  .goals-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:var(--sp-4);
+    align-items:stretch;}
+  @media (max-width:720px){ .goals-grid{grid-template-columns:1fr;} }
+
+  .gcard{position:relative;background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow:hidden;
+    display:flex;flex-direction:column;min-width:0;}
+  .gcard::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;
+    background:var(--accent,var(--primary));}
+  .gcard-hd{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;
+    padding:var(--sp-3) var(--sp-4);
+    background:color-mix(in srgb,var(--accent,var(--primary)) 7%,transparent);
+    border-bottom:1px solid var(--border);}
+  .eyebrow{font-size:.8rem;font-weight:700;color:var(--text);display:inline-flex;align-items:center;gap:6px;}
+  .eyebrow .em{font-size:.95rem;}
+  .hd-spacer{flex:1;}
+  .gcard-body{padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3);flex:1;}
+
+  /* chips & pills partagés */
+  .chip{font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:999px;
+    background:var(--surface-2);color:var(--text-secondary);border:1px solid var(--border);
+    font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .pill{font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    padding:3px 8px;border-radius:999px;}
+  .pill--warn{background:color-mix(in srgb,var(--warning) 16%,transparent);color:var(--amber-text);}
+  .score{font-size:1.35rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;}
+  .score--warn{color:var(--warning);} .score--good{color:var(--success);} .score--bad{color:var(--danger);}
+
+  /* Objectif de sprint */
+  .goal-text{font-size:.95rem;color:var(--text);margin:0;text-wrap:pretty;}
+  .sprint-empty{font-size:.9rem;color:var(--text-muted);font-style:italic;margin:0;}
+  .mini{display:flex;flex-direction:column;gap:6px;margin-top:auto;}
+  .mini-row{display:flex;align-items:center;gap:var(--sp-2);font-size:.72rem;color:var(--text-secondary);}
+  .mini-row .k{width:52px;color:var(--text-muted);}
+  .mini-track{flex:1;height:7px;border-radius:999px;background:color-mix(in srgb,var(--border) 60%,transparent);
+    overflow:hidden;position:relative;}
+  .mini-fill{height:100%;border-radius:999px;}
+  .mini-fill--pts{background:var(--status-inprog);}
+  .mini-fill--time{background:color-mix(in srgb,var(--text-muted) 60%,transparent);}
+  .mini-row .v{width:38px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);}
+  .delta{font-size:.72rem;font-weight:700;}
+  .delta--ahead{color:var(--success);} .delta--behind{color:var(--danger);}
+
+  /* Barre d'atteinte PI */
+  .attain{display:flex;flex-direction:column;gap:5px;}
+  .attain-sub{display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-muted);}
+  .attain-sub b{color:var(--text-secondary);}
+  .attain-track{position:relative;height:10px;border-radius:999px;
+    background:color-mix(in srgb,var(--border) 60%,transparent);overflow:hidden;}
+  .attain-fill{height:100%;border-radius:999px;background:var(--accent,var(--primary));}
+  .attain-target{position:absolute;top:-2px;bottom:-2px;left:80%;width:2px;background:var(--text);opacity:.45;}
+
+  /* Liste objectifs PI */
+  .obj-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+  .obj{display:grid;grid-template-columns:20px 1fr auto auto;gap:var(--sp-2);align-items:center;
+    padding:5px 9px;border-radius:var(--r-sm);background:var(--surface-2);font-size:.83rem;}
+  .obj .ic{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:.7rem;font-weight:800;}
+  .obj--done .ic{background:color-mix(in srgb,var(--status-done) 20%,transparent);color:var(--success-text);}
+  .obj--inprog .ic{background:color-mix(in srgb,var(--status-inprog) 20%,transparent);color:var(--indigo-text);}
+  .obj--todo .ic{background:color-mix(in srgb,var(--text-muted) 22%,transparent);color:var(--text-muted);}
+  .obj .txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+  .obj--done .txt{color:var(--text-secondary);}
+  .kind{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+    padding:2px 7px;border-radius:999px;}
+  .kind--commit{background:color-mix(in srgb,var(--primary) 15%,transparent);color:var(--primary);}
+  .kind--stretch{background:color-mix(in srgb,var(--text-muted) 18%,transparent);color:var(--text-muted);}
+  .bv{font-size:.7rem;color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .bv b{color:var(--text);font-weight:700;}
+
+  /* Empty state PI */
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;gap:6px;padding:var(--sp-5) var(--sp-4);
+    border:1.5px dashed color-mix(in srgb,var(--border) 90%,var(--text-muted));
+    border-radius:var(--r-md);background:color-mix(in srgb,var(--surface-2) 60%,transparent);}
+  .empty .em{font-size:1.6rem;}
+  .empty-title{margin:2px 0 0;font-size:.9rem;font-weight:700;color:var(--text);}
+  .empty-sub{margin:0;font-size:.78rem;color:var(--text-muted);max-width:34ch;}
+  .btn{margin-top:6px;font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;
+    padding:7px 14px;border-radius:var(--r-md);border:1px solid var(--border);
+    background:var(--surface);color:var(--primary);}
+  .btn:hover{background:var(--primary-bg);}
+  .btn--primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+  .notes{margin-top:var(--sp-6);display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--sp-3);}
+  .note{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);}
+  .note h3{margin:0 0 4px;font-size:.8rem;letter-spacing:.02em;}
+  .note p{margin:0;font-size:.8rem;color:var(--text-secondary);}
+  :focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+
+<div class="wrap">
+  <div class="page-hd">
+    <h1>Sprint Goal ⟷ Objectifs PI — proposition</h1>
+    <p>Une bande « Cap de l'équipe » qui met en parallèle l'objectif de l'itération et les objectifs du trimestre (PI), sur 2 colonnes qui s'empilent sur mobile. Bascule les états ci-dessous ; réduis la fenêtre pour voir le responsive.</p>
+  </div>
+
+  <div class="toolbar" role="group" aria-label="Aperçu">
+    <span class="lbl">État PI</span>
+    <div class="seg" id="seg-state">
+      <button class="on" data-state="full">Avec objectifs</button>
+      <button data-state="empty">Aucun objectif PI</button>
+    </div>
+    <span class="spacer"></span>
+    <span class="lbl">Thème</span>
+    <div class="seg" id="seg-theme">
+      <button class="on" data-theme="light">Clair</button>
+      <button data-theme="dark">Sombre</button>
+    </div>
+  </div>
+
+  <div class="canvas">
+    <section class="goals">
+      <div class="goals-head">
+        <h2>Cap de l'équipe</h2>
+        <span class="flow">Du trimestre à l'itération&nbsp;·&nbsp;<b>PI #30</b>&nbsp;→&nbsp;<b>Ité 30.1</b></span>
+      </div>
+
+      <div class="goals-grid">
+        <!-- ─────────── Objectif du sprint ─────────── -->
+        <article class="gcard" style="--accent:var(--primary)">
+          <header class="gcard-hd">
+            <span class="eyebrow"><span class="em">🎯</span>Objectif du sprint</span>
+            <span class="hd-spacer"></span>
+            <span class="chip">Fuego · Ité 30.1</span>
+            <span class="pill pill--warn">J-4</span>
+          </header>
+          <div class="gcard-body">
+            <p class="goal-text">Stabiliser le tunnel de paiement et livrer le parcours KYC v2 en qualif.</p>
+            <div class="mini">
+              <div class="mini-row">
+                <span class="k">Points</span>
+                <span class="mini-track"><span class="mini-fill mini-fill--pts" style="width:62%"></span></span>
+                <span class="v">62%</span>
+              </div>
+              <div class="mini-row">
+                <span class="k">Temps</span>
+                <span class="mini-track"><span class="mini-fill mini-fill--time" style="width:70%"></span></span>
+                <span class="v">70%</span>
+              </div>
+              <div class="mini-row" style="justify-content:flex-end">
+                <span class="delta delta--behind">↘ 8% de retard sur le temps écoulé</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ─────────── Objectifs du PI ─────────── -->
+        <article class="gcard" id="pi-card" style="--accent:var(--warning)">
+          <header class="gcard-hd">
+            <span class="eyebrow"><span class="em">🏔️</span>Objectifs du PI&nbsp;#30 — Fuego</span>
+            <span class="hd-spacer"></span>
+            <span class="score score--warn" id="pi-score">67%</span>
+          </header>
+          <div class="gcard-body" id="pi-body"><!-- injecté --></div>
+        </article>
+      </div>
+    </section>
+  </div>
+
+  <div class="notes">
+    <div class="note"><h3>🪞 Le parallèle</h3><p>Les deux colonnes partagent le même langage (accent latéral, bandeau teinté) : on lit « voici le cap du trimestre, voici la tranche de ce sprint ».</p></div>
+    <div class="note"><h3>📱 Responsive</h3><p>2 colonnes ≥ 720&nbsp;px, empilées en dessous (PI sous le sprint). Aucune scroll horizontale.</p></div>
+    <div class="note"><h3>🚩 État vide</h3><p>Si l'équipe du user n'a aucun objectif PI, un encart pointillé le signale explicitement + action « Définir ».</p></div>
+    <div class="note"><h3>🎨 Cohérence</h3><p>Score, barre d'atteinte (cible 80%), badges Commis/Stretch, BV — repris tels quels du composant actuel.</p></div>
+  </div>
+</div>
+
+<script>
+  const full = `
+    <div class="attain">
+      <div class="attain-sub"><span>Atteinte <b>5/8 BV commis</b> · +2 stretch</span><span><b>67%</b> / cible 80%</span></div>
+      <div class="attain-track"><span class="attain-fill" style="width:67%"></span><span class="attain-target"></span></div>
+    </div>
+    <ul class="obj-list">
+      <li class="obj obj--done"><span class="ic">✓</span><span class="txt">Migration facturation SEPA</span><span class="kind kind--commit">Commis</span><span class="bv">BV <b>8</b></span></li>
+      <li class="obj obj--inprog"><span class="ic">◐</span><span class="txt">Nouveau parcours KYC v2</span><span class="kind kind--commit">Commis</span><span class="bv">BV <b>7</b></span></li>
+      <li class="obj obj--inprog"><span class="ic">◐</span><span class="txt">Refonte du tunnel de paiement</span><span class="kind kind--commit">Commis</span><span class="bv">BV <b>6</b></span></li>
+      <li class="obj obj--todo"><span class="ic">○</span><span class="txt">Dashboard fraude temps réel</span><span class="kind kind--stretch">Stretch</span><span class="bv">BV <b>5</b></span></li>
+      <li class="obj obj--todo"><span class="ic">○</span><span class="txt">Export comptable multi-devises</span><span class="kind kind--stretch">Stretch</span><span class="bv">BV <b>3</b></span></li>
+    </ul>`;
+
+  const empty = `
+    <div class="empty">
+      <span class="em">🗺️</span>
+      <p class="empty-title">Aucun objectif PI pour votre équipe</p>
+      <p class="empty-sub">Rien d'enregistré pour <strong>Fuego</strong> sur le PI&nbsp;#30. Sans objectif, pas de score d'atteinte à suivre.</p>
+      <button class="btn btn--primary">+ Définir dans PI Planning</button>
+    </div>`;
+
+  const body = document.getElementById('pi-body');
+  const card = document.getElementById('pi-card');
+  const score = document.getElementById('pi-score');
+  function setState(s){
+    if(s==='empty'){
+      body.innerHTML = empty;
+      card.style.setProperty('--accent','var(--text-muted)');
+      score.style.display='none';
+    } else {
+      body.innerHTML = full;
+      card.style.setProperty('--accent','var(--warning)');
+      score.style.display='';
+    }
+  }
+  setState('full');
+
+  document.getElementById('seg-state').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b)return;
+    [...e.currentTarget.children].forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    setState(b.dataset.state);
+  });
+  document.getElementById('seg-theme').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b)return;
+    [...e.currentTarget.children].forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    document.documentElement.setAttribute('data-theme',b.dataset.theme);
+  });
+</script>

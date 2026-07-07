@@ -18,8 +18,9 @@
  * (utils.js), la card se rafraîchit immédiatement après chaque changement.
  */
 
-import { esc, toast, promptModal, computeStageFlow, computeStageFlowDetail, isBufferItem, getStatusLabel, isFlowTicketExcluded, setFlowTicketExcluded, getExcludedFlowPatterns, addExcludedFlowPattern, removeExcludedFlowPattern } from '../utils.js';
+import { esc, toast, promptModal, computeStageFlow, computeStageFlowDetail, isBufferItem, getStatusLabel, isFlowTicketExcluded, setFlowTicketExcluded, getExcludedFlowPatterns, addExcludedFlowPattern, removeExcludedFlowPattern, extractPiNum } from '../utils.js';
 import { TYPE_ICONS } from '../config.js';
+import { helpIconHtml } from './help_popover.js';
 
 const STAGE_ICONS = {
     dev: '💻',
@@ -51,8 +52,11 @@ export function stageFlowCardHtml(tickets) {
     return `
         <div class="card stage-flow-card">
             <div class="card-header">
-                <span class="card-title">⏳ Temps par colonne</span>
-                <span class="card-subtitle">Durée moyenne passée dans chaque étape — cliquer pour le détail</span>
+                <div>
+                    <span class="card-title">⏳ Temps par colonne ${helpIconHtml({ key: 'stage-flow', label: 'Comprendre le temps par colonne' })}</span>
+                    <span class="card-subtitle">Durée moyenne passée dans chaque étape — cliquer pour le détail</span>
+                </div>
+                <button type="button" class="btn btn-ghost btn-xs stage-flow-copy-all" title="Copier le détail de toutes les colonnes (Slack)">📋 Copier</button>
             </div>
             <div class="lct-schema">
                 <div class="lct-flow">
@@ -79,6 +83,12 @@ export function bindStageFlowCard(container, tickets) {
     };
     container.querySelectorAll('.stage-flow-seg[data-stage-key]').forEach(seg => {
         seg.addEventListener('click', () => _openStageFlowDetail(seg.dataset.stageKey, tickets, refresh));
+    });
+    container.querySelector('.stage-flow-copy-all')?.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(_buildAllStagesCopyText(tickets));
+            toast('Résumé de toutes les colonnes copié — collable dans Slack', 'success');
+        } catch (err) { toast('Copie impossible : ' + err.message, 'error'); }
     });
 }
 
@@ -138,6 +148,70 @@ function _renderStageDetailBody(groupKey, tickets, color) {
         </div>` };
 }
 
+// Déduit les PI/sprints concernés à partir d'un ensemble de tickets (source unique extractPiNum).
+function _piSprintLines(ticketList) {
+    const sprintNames = [...new Set(ticketList.flatMap(t =>
+        [t.sprintName || t.piSprint, ...(Array.isArray(t.allSprints) ? t.allSprints : [])].filter(Boolean)
+    ))].sort();
+    const piNums = [...new Set(sprintNames.map(extractPiNum).filter(Boolean))].sort((a, b) => a - b);
+    return [
+        piNums.length ? `PI concerné${piNums.length > 1 ? 's' : ''} : ${piNums.join(', ')}` : '',
+        sprintNames.length ? `Sprint${sprintNames.length > 1 ? 's' : ''} : ${sprintNames.join(', ')}` : '',
+    ].filter(Boolean);
+}
+
+// Bloc texte d'une seule colonne : titre + moyenne, puis liste des tickets actifs (id, titre,
+// durée) triés du plus long au plus court pour repérer d'un coup d'œil ce qui traîne.
+function _buildStageBlockText(groupKey, rows) {
+    const label = STAGE_LABELS[groupKey] || groupKey;
+    const icon = STAGE_ICONS[groupKey] || '';
+    const active = rows.filter(r => !r.excluded);
+    const avg = active.length ? active.reduce((sum, r) => sum + r.days, 0) / active.length : 0;
+    return [
+        `${icon} ${label} — ${active.length} ticket${active.length > 1 ? 's' : ''}, ${avg.toFixed(1)} j en moyenne`,
+        ...active
+            .slice()
+            .sort((a, b) => b.days - a.days)
+            .map(({ ticket: t, days }) => `- ${t.id} (🕰️ ${days.toFixed(1)} j) ${t.title || '(sans titre)'}`),
+    ].join('\n');
+}
+
+// Texte Slack-friendly pour UNE colonne (détail ouvert au clic sur un segment) : préfixe
+// [CYCLE TIME] (chaque colonne suivie est une tranche du cycle time, entre "Démarré" et
+// "Terminé" — cf schéma Lead time & Cycle time du Dashboard), PI/sprints concernés, explication
+// du calcul, puis le bloc de la colonne.
+function _buildStageFlowCopyText(groupKey, rows) {
+    const active = rows.filter(r => !r.excluded);
+    return [
+        '📣 [CYCLE TIME]',
+        ..._piSprintLines(active.map(r => r.ticket)),
+        '',
+        'Calcul : durée moyenne (en jours) passée par chaque ticket dans cette colonne, de son entrée à sa sortie.',
+        '',
+        _buildStageBlockText(groupKey, rows),
+    ].join('\n');
+}
+
+// Texte Slack-friendly pour TOUTES les colonnes de la card (bouton "Copier" du header) : même
+// préfixe/PI-sprints une seule fois en tête, puis un bloc par colonne dans l'ordre chronologique.
+function _buildAllStagesCopyText(tickets) {
+    const groups = computeStageFlow(tickets);
+    const allActiveTickets = [];
+    const blocks = groups.map(g => {
+        const { tickets: rows } = computeStageFlowDetail(g.key, tickets);
+        allActiveTickets.push(...rows.filter(r => !r.excluded).map(r => r.ticket));
+        return _buildStageBlockText(g.key, rows);
+    });
+    return [
+        '📣 [CYCLE TIME]',
+        ..._piSprintLines(allActiveTickets),
+        '',
+        'Calcul : durée moyenne (en jours) passée par chaque ticket dans chaque colonne du workflow, de son entrée à sa sortie.',
+        '',
+        blocks.join('\n\n'),
+    ].join('\n');
+}
+
 function _openStageFlowDetail(groupKey, tickets, refreshCard) {
     const label = STAGE_LABELS[groupKey] || groupKey;
     const icon = STAGE_ICONS[groupKey] || '';
@@ -160,15 +234,18 @@ function _openStageFlowDetail(groupKey, tickets, refreshCard) {
                 <div data-role="content">${first.html}</div>
             </div>
             <div class="confirm-actions">
+                <button class="btn btn-secondary btn-sm" data-act="copy">📋 Copier</button>
                 <button class="btn btn-ghost btn-sm" data-act="close">Fermer</button>
             </div>
         </div>`;
     document.body.appendChild(ov);
     requestAnimationFrame(() => ov.classList.add('visible'));
 
+    let currentRows = first.rows;
     const rerender = () => {
         const { rows, countLabel, html } = _renderStageDetailBody(groupKey, tickets, color);
         if (!rows.length) { close(); return; }
+        currentRows = rows;
         ov.querySelector('[data-role="count-label"]').textContent = countLabel;
         ov.querySelector('[data-role="content"]').innerHTML = html;
     };
@@ -180,8 +257,17 @@ function _openStageFlowDetail(groupKey, tickets, refreshCard) {
     };
     const onKey = e => { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
-    ov.addEventListener('click', e => {
+    ov.addEventListener('click', async e => {
         if (e.target === ov || e.target.closest('[data-act="close"]')) return close();
+
+        const copyBtn = e.target.closest('[data-act="copy"]');
+        if (copyBtn) {
+            try {
+                await navigator.clipboard.writeText(_buildStageFlowCopyText(groupKey, currentRows));
+                toast('Résumé copié — collable dans Slack', 'success');
+            } catch (err) { toast('Copie impossible : ' + err.message, 'error'); }
+            return;
+        }
 
         if (e.target.closest('[data-act="add-pattern"]')) {
             promptModal('Exclure par motif', {

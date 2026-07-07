@@ -22,6 +22,7 @@ import { initTopbar } from './components/topbar.js';
 import { initModal } from './components/modal.js';
 import { initCmdPalette } from './components/cmdpalette.js';
 import { initTooltips } from './components/tooltip.js';
+import { initHelpPopovers } from './components/help_popover.js';
 import { toggleFavoritesDropdown } from './components/favorites.js';
 import { initTeamSwitcher, openTeamSwitcher } from './components/team_switcher.js';
 import { openCurrentSprintReview, openCurrentSprintDemo } from './components/sprint_tickets_modal.js';
@@ -575,6 +576,7 @@ async function init() {
     initCmdPalette();
     initTeamSwitcher();
     initTooltips();
+    initHelpPopovers();
     initChartZoom();
     initDiagramZoom();
     window.__squadBoard = window.__squadBoard || {};

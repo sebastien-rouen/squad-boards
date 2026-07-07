@@ -7,10 +7,10 @@
 
 ## ✅ TODO
 
-- [ ] Ajouter le moyen de mettre le TOKEN et URL de JIRA dans la page Paramètres au lieu du `.env` pour le rendre plus facilement modifiable par l'utilisateur.
-- [ ] Dans la modal Calendrier, ajouter un séparateur aussi pour les évènements qui sont sur la journée, et les afficher en haut sur une petite ligne, tronquée mais avec du détail lors du hover.
 - [ ] **#13 — Confidence vote → tendance (début vs fin de PI)** — le vote de confiance par objectif (#4, 3.13.0) est instantané. Stocker un horodatage / phase (`start|end`) pour tracer la **courbe de confiance** sur le PI. Réutiliser le stockage `type=confidence` existant en ajoutant un champ phase.
 - [ ] **Historique des niveaux Atlas** (évolution dans le temps d'une compétence) — nécessiterait une table d'historique.
+- [ ] **Refonte design du Dashboard** — retenir une direction parmi les maquettes ([static/mockups/dashboard-directions.html](static/mockups/dashboard-directions.html), 7 pistes A→G) et la répercuter sur le vrai Dashboard. Piste favorite pressentie : **G · Flux éditorial** (sections aérées + deux flux Pilotage / Équipe-risques). Principe : aéré entre sections, resserré entre cards.
+- [ ] **Généraliser les helpers « ? » + tooltips** sur les cards/KPI du Dashboard (popover avec schéma SVG explicatif, **bordure conique « en spirale »**, fond `--surface-3` ; tooltips au survol des indicateurs) — prototypés dans la maquette ci-dessus, à porter dans l'app (réutiliser [help_popover.js](static/js/components/help_popover.js) + [tooltip.js](static/js/components/tooltip.js)).
 
 <details>
 <summary>✅ Items TODO terminés</summary>

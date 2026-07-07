@@ -13,6 +13,7 @@
 
 import { esc } from '../utils.js';
 import { renderVelocityChart } from './charts.js';
+import { helpIconHtml } from './help_popover.js';
 
 // Limite l'historique aux N derniers sprints (lisibilité quand le périmètre est large).
 function _cap(vh, maxPoints) {
@@ -25,7 +26,7 @@ export function velocityCardHtml({ velocityHistory = [], currentSprintEntry = nu
     if (!vh.length && !cur) {
         return `
         <div class="card velocity-card velocity-card--empty">
-            <div class="card-header"><span class="card-title">📈 Vélocité</span></div>
+            <div class="card-header"><span class="card-title">📈 Vélocité ${helpIconHtml({ key: 'velocity', label: 'Comprendre la vélocité' })}</span></div>
             <div class="chart-container chart-h-md velocity-empty">
                 <div class="velocity-empty-inner">
                     <span class="velocity-empty-icon">📊</span>
@@ -70,7 +71,7 @@ export function velocityCardHtml({ velocityHistory = [], currentSprintEntry = nu
         <div class="card velocity-card ${accentCls}">
             <div class="velocity-card-hdr">
                 <div class="velocity-card-title">
-                    <span class="card-title">📈 Vélocité</span>
+                    <span class="card-title">📈 Vélocité ${helpIconHtml({ key: 'velocity', label: 'Comprendre la vélocité' })}</span>
                     <span class="velocity-card-sub">${vh.length} sprint${vh.length > 1 ? 's' : ''} clos${cur ? ` + 1 en cours <small>(non comptés)</small>` : ''} · moy. ${avg3} pts/sprint</span>
                 </div>
                 <div class="velocity-kpis">

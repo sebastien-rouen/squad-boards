@@ -87,13 +87,31 @@
     text-align: left !important;
     width: 200px;
 }
-.agenda-day-col { min-width: 110px; }
+.agenda-day-col { min-width: 110px; position: relative; }
 .agenda-day-col.agenda-today,
 .agenda-table thead th.agenda-today {
     background: var(--primary-bg);
     color: var(--primary) !important;
     font-weight: var(--fw-bold) !important;
 }
+.agenda-day-hdr-label { display: inline-block; }
+.agenda-day-copy-btn {
+    flex-shrink: 0;
+    font-size: 11px;
+    line-height: 1;
+    margin-left: var(--sp-1);
+    padding: 1px 4px;
+    border-radius: var(--r-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+    vertical-align: middle;
+}
+.agenda-day-col:hover .agenda-day-copy-btn { opacity: 1; }
+.agenda-day-copy-btn:hover { background: var(--surface-hover); border-color: var(--border); }
 
 /* Team header rows */
 .agenda-team-row td {
@@ -309,8 +327,8 @@
     flex-shrink: 0;
 }
 .agenda-support-row .agenda-name-text { font-weight: var(--fw-semibold); }
-/* Fond de la ligne entière via CSS var posée sur le <tr> par supportPal.row */
-.agenda-support-row td { background: var(--support-row-bg, rgba(254,249,195,.50)); }
+/* Fond uniquement sur les jours réellement en support (CSS var posée sur le <tr> par supportPal.row) */
+.agenda-support-row td.agenda-cell--support { background: var(--support-row-bg, rgba(254,249,195,.50)); }
 .agenda-legend-support {
     background: #fef9c3;
     color: #92400e;

@@ -14,6 +14,10 @@ Réorganisation du Dashboard suivant la maquette retenue ([static/mockups/dashbo
 - **[dashboard.css](static/css/views/dashboard.css)** : `.dash-streams` / `.dash-stream*` — **aéré entre
   les deux flux** (`gap` large), **resserré entre les cards** d'un flux (gap serré, marges propres
   neutralisées). Empilement en une colonne < 1024 px. En-têtes de flux à liseré coloré.
+- **Ajustements** : les 2 rangées de KPI (primaires + secondaires) repassent en **pleine largeur
+  au-dessus des deux flux** (évite l'orphelin/le blanc quand elles s'empilaient en demi-colonne, et
+  rééquilibre le flux gauche = 4 charts vs droite = 4 blocs). Bande « Cap de l'équipe » **compactée**
+  (paddings, score PI, liste d'objectifs, carte sprint) pour se rapprocher du mockup.
 
 ## [3.120.0] - 2026-07-08
 

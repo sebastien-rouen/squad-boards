@@ -524,11 +524,7 @@ export function renderDashboard(container) {
             </div>`;
         })() : ''}
 
-        <!-- ═══ Deux flux thématiques (refonte F) : Pilotage & flux · Équipe & risques ═══ -->
-        <div class="dash-streams">
-        <section class="dash-stream">
-            <header class="dash-stream-hd"><h2>🚀 Pilotage &amp; flux</h2><span class="dash-stream-sub">rythme &amp; traversée</span></header>
-
+        <!-- KPI de synthèse (pleine largeur, au-dessus des deux flux) -->
         <!-- KPI primaires -->
         <div class="dashboard-metrics">
             <div class="metric-card mc-primary">
@@ -591,7 +587,12 @@ export function renderDashboard(container) {
             </div>
         </div>
 
-        <!-- Charts de flux — empilés dans le flux Pilotage -->
+        <!-- ═══ Deux flux thématiques (refonte F) : Pilotage & flux · Équipe & risques ═══ -->
+        <div class="dash-streams">
+        <section class="dash-stream">
+            <header class="dash-stream-hd"><h2>🚀 Pilotage &amp; flux</h2><span class="dash-stream-sub">rythme &amp; traversée</span></header>
+
+        <!-- Charts de flux -->
         <div class="dash-stream-cards">
             <div class="card">
                 <div class="card-header">

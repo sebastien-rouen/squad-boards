@@ -2588,6 +2588,51 @@ tr:hover td { background: var(--surface-hover); }
     white-space: nowrap;
 }
 
+/* ── Agenda (événements calendrier) dans la palette ─────────────────────────── */
+.cmd-ev-when {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.cmd-ev-visio {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    border-radius: 99px;
+    padding: 1px 7px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.cmd-ev-att {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 1px 7px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.cmd-ev-copy {
+    font-size: 12px;
+    opacity: 0.5;
+    flex-shrink: 0;
+    transition: opacity var(--tr-fast);
+}
+.cmd-item:hover .cmd-ev-copy,
+.cmd-item--active .cmd-ev-copy { opacity: 1; }
+.cmd-ev-copyall .cmd-item-title { color: var(--primary); font-weight: var(--fw-semibold); }
+.cmd-ev-more {
+    padding: var(--sp-1) var(--sp-4) var(--sp-2);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 .cmd-empty {
     padding: var(--sp-8) var(--sp-4);
     text-align: center;

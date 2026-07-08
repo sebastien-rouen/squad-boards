@@ -20,6 +20,31 @@ def _dt_to_utc(dt) -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _parse_attendees(comp) -> list[str]:
+    """Extrait les participants d'un VEVENT : nom affiché (CN) si présent, sinon email
+    (préfixe `mailto:` retiré). Dédupliqué, limité à 50 pour éviter les listes énormes."""
+    raw = comp.get("ATTENDEE")
+    if not raw:
+        return []
+    if not isinstance(raw, list):
+        raw = [raw]
+    out: list[str] = []
+    for a in raw:
+        name = ""
+        params = getattr(a, "params", None)
+        if params:
+            name = str(params.get("CN", "") or "").strip().strip('"')
+        if not name:
+            name = str(a).strip()
+            if name.lower().startswith("mailto:"):
+                name = name[7:]
+        if name and name not in out:
+            out.append(name)
+        if len(out) >= 50:
+            break
+    return out
+
+
 def _parse_ics_events(ics_text: str) -> list[dict]:
     """
     Parse un flux ICS et développe les événements récurrents (RRULE) dans une
@@ -85,6 +110,7 @@ def _parse_ics_events(ics_text: str) -> list[dict]:
             desc  = str(comp.get("DESCRIPTION", "") or "")[:500]
             loc   = str(comp.get("LOCATION",    "") or "")
             url   = str(comp.get("URL",         "") or "")
+            attendees = _parse_attendees(comp)
 
             dtstart = comp.get("DTSTART")
             if not dtstart:
@@ -124,7 +150,7 @@ def _parse_ics_events(ics_text: str) -> list[dict]:
                 # s doit être aware (UTC) — isoformat produit ".../+00:00" parsable JS
                 return {
                     "uid": uid, "title": title, "description": desc, "location": loc,
-                    "url": url,
+                    "url": url, "attendees": attendees,
                     "start": s.isoformat(), "end": (s + duration).isoformat(),
                     "allDay": is_all_day, "recurring": r,
                 }

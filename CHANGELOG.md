@@ -1,3 +1,45 @@
+## [3.120.0] - 2026-07-08
+
+### UX : copie d'événements agenda en liste compacte (1 ligne / event, triée)
+
+- **[cmdpalette.js](static/js/components/cmdpalette.js)** : la copie d'événements agenda passe d'un
+  bloc multi-lignes par événement à **une seule ligne par événement**, format
+  `• 🗓️ 09/06/2026 à 14h00 - Titre 🔗 https://…` (date en `JJ/MM/AAAA`, heure omise si journée entière,
+  **URL de visio en clair et cliquable** au collage — sans parenthèses pour ne pas casser le lien). La
+  copie est **toujours triée par ordre chronologique croissant** (avant, le
+  tri suivait l'affichage « à venir d'abord »). Description et participants retirés de la copie pour
+  rester compact (participants toujours visibles via le badge `👥 N` dans la liste).
+
+## [3.119.1] - 2026-07-08
+
+### Fix : recherche agenda (Ctrl+K) désormais non scopée à l'équipe
+
+- **[cmdpalette.js](static/js/components/cmdpalette.js)** : `_searchEvents` filtrait les événements
+  par l'équipe courante — or les événements portent l'équipe de leur **calendrier** (ex. les 14
+  « [School OPS] » sont tagués `Fuego`). Résultat : aucun résultat si l'utilisateur n'était pas sur
+  cette équipe. La recherche agenda parcourt désormais **tous** les calendriers (le badge équipe garde
+  le contexte), et fonctionne aussi quand des filtres tickets (`team:`…) sont présents.
+
+## [3.119.0] - 2026-07-08
+
+### Feat : recherche d'événements agenda dans la command palette (Ctrl+K) + copie
+
+- **[cmdpalette.js](static/js/components/cmdpalette.js)** : la recherche `Ctrl+K` inspecte désormais
+  les **événements calendrier** (ICS) par titre, scopés à l'équipe courante. Un groupe **📅 Agenda**
+  liste les occurrences correspondantes (à venir d'abord, puis passées), avec l'heure et un badge
+  **🔗 visio** quand un lien de visioconférence est détecté.
+  - **Clic sur un événement** → copie son détail dans le presse-papier (titre, date/heure, lien visio,
+    lieu, description/participants). La palette **reste ouverte** pour enchaîner les copies.
+  - Ligne **« Copier les N événements »** → copie toutes les correspondances d'un coup (ex. tous les
+    « School »), même au-delà des 40 affichées.
+- **[ics.py](app/services/ics.py)** : parsing du champ **`ATTENDEE`** des VEVENT (nom `CN` si présent,
+  sinon email sans `mailto:`, dédupliqué, max 50) exposé en `attendees[]` sur chaque événement.
+  → un **badge `👥 N`** apparaît sur les lignes de résultat et une ligne **`👥 Participants : …`** est
+  ajoutée à la copie. *(⚠️ nécessite une re-synchro des calendriers ICS pour peupler les événements
+  existants.)*
+- **[base.css](static/css/base.css)** : styles du groupe Agenda (`.cmd-ev-when`, `.cmd-ev-visio`,
+  `.cmd-ev-att`, `.cmd-ev-copy`, `.cmd-ev-copyall`, `.cmd-ev-more`).
+
 ## [3.118.0] - 2026-07-07
 
 ### UX : roster « Membres » de la fiche équipe compacté (équipes nombreuses)

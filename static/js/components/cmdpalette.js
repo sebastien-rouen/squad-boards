@@ -40,6 +40,67 @@ function _copySlackTpl(kind) {
 
 let _debounce = null;
 let _history  = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+// Événements agenda du dernier search (pour copie au clic) — [{ ev, score }]
+let _eventMatches = [];
+
+// ── Agenda : recherche + copie d'événements calendrier (ICS) ──────────────────
+const _CMD_VISIO_RE = /https?:\/\/(?:[\w-]+\.)*(?:meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|zoom\.us|whereby\.com|webex\.com|chime\.aws|bluejeans\.com|gotomeeting\.com|meet\.jit\.si|jit\.si|visio\.[\w.-]+)\/\S+/i;
+const _hm = d => `${String(d.getHours()).padStart(2, '0')}h${String(d.getMinutes()).padStart(2, '0')}`;
+
+function _eventVisio(ev) {
+    for (const src of [ev.url, ev.location, ev.description]) {
+        if (!src) continue;
+        const m = String(src).replace(/&nbsp;/g, ' ').match(_CMD_VISIO_RE);
+        if (m) return m[0].replace(/[)\].,;]+$/, '');
+    }
+    if (ev.url && /^https?:\/\//i.test(ev.url)) return ev.url;
+    if (ev.location && /^https?:\/\//i.test(ev.location)) return ev.location;
+    return null;
+}
+
+/** Cherche les événements calendrier dont le titre matche `text`.
+ * Volontairement NON scopé à l'équipe courante : la recherche agenda doit trouver
+ * un événement (ex. "School") quel que soit le calendrier/équipe — le badge équipe
+ * sur chaque résultat rappelle le contexte. */
+function _searchEvents(text) {
+    if (!text) return [];
+    const events = store.get('calendarEvents') || [];
+    const out = [];
+    for (const ev of events) {
+        const s = _score(ev.title, text);
+        if (s > 0) out.push({ ev, score: s });
+    }
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const t0 = todayStart.getTime();
+    out.sort((a, b) => {
+        const fa = new Date(a.ev.start).getTime(), fb = new Date(b.ev.start).getTime();
+        const af = fa >= t0, bf = fb >= t0;
+        if (af !== bf) return af ? -1 : 1;   // à venir d'abord
+        return af ? fa - fb : fb - fa;       // à venir croissant, passé décroissant
+    });
+    return out;
+}
+
+/** Ligne compacte copiable : « • 🗓️ 09/06/2026 à 14h00 - Titre 🔗 https://… ».
+ * L'URL de visio est mise en clair (et en fin de ligne, sans parenthèses) pour rester
+ * cliquable une fois collée dans Slack/Teams. */
+function _formatEventForCopy(ev) {
+    const s = new Date(ev.start);
+    const dateStr = s.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const when = ev.allDay ? dateStr : `${dateStr} à ${_hm(s)}`;
+    const visio = _eventVisio(ev);
+    return `• 🗓️ ${when} - ${ev.title}${visio ? ` 🔗 ${visio}` : ''}`;
+}
+
+function _copyEvents(list) {
+    if (!list.length) return;
+    // Copie toujours triée par ordre chronologique croissant
+    const sorted = [...list].sort((a, b) => new Date(a.start) - new Date(b.start));
+    const txt = sorted.map(_formatEventForCopy).join('\n');
+    navigator.clipboard.writeText(txt)
+        .then(() => toast(sorted.length > 1 ? `📋 ${sorted.length} événements copiés` : '📋 Événement copié', 'success', 2200))
+        .catch(() => toast('Copie impossible', 'error'));
+}
 
 // ── DOM helpers ─────────────────────────────────────────────────────────────
 const _overlay  = () => document.getElementById('cmd-overlay');
@@ -378,11 +439,14 @@ function _search(q) {
         }
     }
 
+    // Agenda — événements calendrier (traités à part pour ne pas être tronqués par le slice global)
+    _eventMatches = _searchEvents(text);
+
     results.sort((a, b) => b.score - a.score);
     const top = results.slice(0, MAX_RESULTS);
 
     if (q.length >= 3) _saveHistory(q);
-    _renderResults(top, text);
+    _renderResults(top, text, _eventMatches);
 }
 
 // ── Render results ─────────────────────────────────────────────────────────────
@@ -396,10 +460,48 @@ function _highlight(text, term) {
     return esc(text).replace(new RegExp(`(${safe})`, 'gi'), '<mark class="cmd-hl">$1</mark>');
 }
 
-function _renderResults(results, term) {
+const _EV_MAX_ROWS = 40;
+
+/** Bloc HTML du groupe Agenda (événements calendrier) + ligne "copier tout". */
+function _renderEventsGroup(evMatches, term) {
+    if (!evMatches.length) return { html: '', count: 0 };
+    const shown = evMatches.slice(0, _EV_MAX_ROWS);
+    let html = `<div class="cmd-group-label">📅 Agenda <span class="cmd-group-count">${evMatches.length}</span></div>`;
+    // Ligne "copier tout" — copie l'ensemble des correspondances (pas seulement l'affichage)
+    html += `<div class="cmd-item cmd-ev-copyall" data-group="event-copyall" tabindex="-1">
+        <span class="cmd-item-icon">📋</span>
+        <span class="cmd-item-title">Copier les ${evMatches.length} événement${evMatches.length > 1 ? 's' : ''}${term ? ` « ${_highlight(term, term)} »` : ''} (titre, visio, infos)</span>
+    </div>`;
+    shown.forEach(({ ev }, idx) => {
+        const s = new Date(ev.start);
+        const when = ev.allDay
+            ? s.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+            : `${s.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${_hm(s)}`;
+        const visio = _eventVisio(ev);
+        const visioBadge = visio ? `<span class="cmd-ev-visio" title="${esc(visio)}">🔗 visio</span>` : '';
+        const nAtt = Array.isArray(ev.attendees) ? ev.attendees.length : 0;
+        const attBadge = nAtt ? `<span class="cmd-ev-att" title="${esc(ev.attendees.join(', '))}">👥 ${nAtt}</span>` : '';
+        const teamBadge  = ev.team ? `<span class="cmd-meta">${esc(ev.team)}</span>` : '';
+        html += `<div class="cmd-item" data-group="event" data-idx="${idx}" tabindex="-1">
+            <span class="cmd-item-icon">📅</span>
+            <span class="cmd-item-title">${_highlight(ev.title, term)}</span>
+            <span class="cmd-ev-when">${esc(when)}</span>
+            ${visioBadge}
+            ${attBadge}
+            ${teamBadge}
+            <span class="cmd-ev-copy" title="Copier cet événement">📋</span>
+        </div>`;
+    });
+    if (evMatches.length > shown.length) {
+        html += `<div class="cmd-ev-more">+ ${evMatches.length - shown.length} autres — utilise « Copier tout » pour les récupérer</div>`;
+    }
+    return { html, count: shown.length };
+}
+
+function _renderResults(results, term, evMatches = []) {
     const el = _results();
     if (!el) return;
-    if (!results.length) {
+    if (!results.length && !evMatches.length) {
         el.innerHTML = `<div class="cmd-empty">Aucun résultat</div>`;
         _countEl() && (_countEl().textContent = '');
         return;
@@ -446,6 +548,11 @@ function _renderResults(results, term) {
             total++;
         }
     }
+
+    // Groupe Agenda (événements calendrier) — en fin de liste, non tronqué par le slice global
+    const evBlock = _renderEventsGroup(evMatches, term);
+    html += evBlock.html;
+    total += evBlock.count;
 
     el.innerHTML = html;
     _countEl() && (_countEl().textContent = `${total} résultat${total > 1 ? 's' : ''}`);
@@ -502,6 +609,21 @@ function _activate(el, e) {
         _close();
         if (action) {
             try { action.run(); } catch (err) { console.error('[cmd] action failed:', err); }
+        }
+        return;
+    }
+
+    // Agenda — copie sans fermer la palette (permet d'enchaîner plusieurs copies)
+    if (group === 'event-copyall') {
+        _copyEvents(_eventMatches.map(m => m.ev));
+        return;
+    }
+    if (group === 'event') {
+        const ev = _eventMatches[parseInt(el.dataset.idx, 10)]?.ev;
+        if (ev) {
+            _copyEvents([ev]);
+            const badge = el.querySelector('.cmd-ev-copy');
+            if (badge) { badge.textContent = '✓'; setTimeout(() => { badge.textContent = '📋'; }, 1400); }
         }
         return;
     }

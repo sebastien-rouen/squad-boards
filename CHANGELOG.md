@@ -1,3 +1,82 @@
+## [3.122.1] - 2026-07-09
+
+### Sprint Review : barres Lead/Cycle par ticket + fix objectif manquant
+
+- **Barre de progression par ticket réalisé** (section Lead Time & Cycle Time,
+  [sprint_tickets_modal.js](static/js/components/sprint_tickets_modal.js) `_leadCycleSectionHtml`) : pour chaque
+  ticket terminé mesurable, une barre horizontale = son Lead Time, dont le **remplissage vert = Cycle Time**
+  (travail effectif) et le reste **ambre hachuré = attente en backlog**. Triées du Lead le plus long au plus
+  court, **clé JIRA cliquable + titre du ticket** (tronqué avec ellipsis, titre complet au survol), valeurs
+  `Lead / Cycle` à droite. Échelle **robuste** (3× le Lead médian) pour qu'un ticket resté des mois en backlog
+  n'écrase pas les autres ; les tickets hors échelle sont marqués d'une pastille lisible « hors échelle ›› »
+  en conservant leur valeur exacte. Légende Cycle / Attente.
+- **Fix — objectif de sprint manquant dans la Review/Demo ouvertes depuis la modale** : le bouton 📋 Review (et
+  📺 Demo) de la modale sprint affichait « Aucun objectif explicite… » alors que le même compte-rendu ouvert
+  via la palette (`open-sprint-review`) fonctionnait. Cause : l'objet `sprint` fourni par le chart vélocité
+  (`computeVelocityHistory` / `computeCurrentSprintEntry`) ne porte ni `goal` ni `startDate`, contrairement au
+  teamSprint résolu par `_resolveCurrentSprint`. Ajout d'un helper `_enrichSprintMeta(sprint)` appelé à
+  l'ouverture de la modale : complète `goal`, `startDate`, `plannedEndDate`, `completeDate`, `jiraBoardId`
+  depuis `store.sprintInfo.teamSprints` (match nom + équipe) sans écraser les champs déjà calculés. Bénéficie à
+  tous les exports (Review, Demo, texte, MD, HTML).
+- **Fix — « PI Predictabilité 0 % » trompeur** : le score de prédictibilité (BV livrée ÷ BV engagée) s'affichait
+  à 0 % en plein PI, quand tous les objectifs sont encore `inprog`/`todo`. Or la prédictibilité SAFe n'a de sens
+  qu'à la clôture du PI. Le score n'est désormais affiché que s'il est **> 0** (mode Demo, résumé Slack et
+  en-tête HTML de la Review). Tant que rien n'est livré, seule la ligne honnête « BV livrée 0/27 » subsiste.
+
+## [3.122.0] - 2026-07-09
+
+### Sprint Review : nouvelle section « ⏱️ Lead Time & Cycle Time »
+
+Ajout d'une section pédagogique dans le compte-rendu Sprint Review Confluence-ready
+([sprint_tickets_modal.js](static/js/components/sprint_tickets_modal.js), `_leadCycleSectionHtml`), insérée juste
+après les Métriques.
+
+- **Schéma explicatif autonome** : réplique le diagramme de la tooltip d'aide
+  ([help_popover.js](static/js/components/help_popover.js) `lctDiagramSvg`) — bande à 4 étapes (Backlog →
+  Développement → Revue → Déploiement) avec les accolades *Lead Time* / *Change Lead Time* / *Cycle Time* et le
+  repère rouge *First Commit*. Couleurs inline (aucune dépendance CSS externe) pour rester valide dans le HTML
+  exporté. Le schéma est **annoté avec les valeurs réelles du sprint** (Lead/Cycle médians, temps d'attente
+  backlog).
+- **4 cartes de métriques** : Lead Time médian, Cycle Time médian, Temps d'attente (Lead − Cycle) et Flow
+  efficiency (Cycle ÷ Lead, code couleur : vert ≥ 40 %, orange < 25 %). Source `t.leadTimeDays` /
+  `t.cycleTimeDays`, mêmes champs que la card Lead/Cycle du Dashboard.
+- **Médianes** (et non moyennes) pour être robuste aux tickets exceptionnellement anciens en backlog (un seul
+  ticket resté ~500 j fausserait la moyenne du Lead Time).
+- Note explicative Lead vs Cycle vs Flow efficiency, avec repères métier. Si le sprint n'a aucun ticket terminé
+  avec délai mesurable, le schéma reste affiché (documentation) et les cartes sont remplacées par un message.
+
+## [3.121.1] - 2026-07-08
+
+### Fix : stats de la modale sprint (`sb-modal-stats`) alignées sur la vue Health
+
+Incohérence entre les cellules Vélo/Buffer de [health.js](static/js/views/health.js) et les cartes de la
+modale [sprint_tickets_modal.js](static/js/components/sprint_tickets_modal.js) pour un même sprint/équipe.
+Vérifié sur 25 sprints Gabbiano (avant : jusqu'à 3 écarts par sprint ; après : 0).
+
+- **Vélocité** : la carte faisait `sprint.velocity || ptsDone` → la snapshot JIRA figée à la clôture
+  primait, et pouvait contredire la carte « Story Points » de la même modale (ex Ité 29.4 : Vélocité 9
+  vs Story Points 11/11). Passe à `doneCount ? ptsDone : (sprint.velocity || 0)` — **priorité aux
+  tickets Done locaux**, snapshot JIRA en fallback, exactement comme Health (`vPts`).
+- **« Buffer (estimé) »** : la carte affichait `sprint.estimated` (= **engagement total** Greenhopper),
+  pas les points des tickets label Buffer → nombre sans rapport avec la colonne 🛡 Buffer de Health, et
+  « % réalisé » aberrant (ex Ité 28.4 : 200 %). Découpée en **deux cartes** :
+  - **« Engagé (estimé) »** = `sprint.estimated`, `% réalisé` recalculé sur `veloPts` (plus sur la
+    snapshot brute).
+  - **« 🛡 Buffer »** = Buffer *réalisé* = points des tickets Buffer Done locaux, fallback snapshot JIRA
+    `sprint.bufferPoints` — même mesure que la colonne Buffer de Health (`bPts`).
+- **Suppression des doublons** : la carte « Engagé (estimé) » n'est affichée que si l'engagement diffère
+  du périmètre courant (`sprint.estimated !== ptsTotal`). Sur un sprint actif, où `estimated` est
+  reconstitué = somme des tickets, elle répétait à l'identique le dénominateur de « Story Points » et
+  les nombres de la Vélocité (ex Ité 30.2 : trois cartes autour de 19/21/90 %). Le sous-titre de la
+  carte Vélocité n'affiche « / N engagés » que dans ce même cas distinct. Sprint actif : 3 cartes nettes.
+- **Carte 🛡 Buffer toujours visible** (y compris « 0 pts · aucun buffer »), comme la colonne Buffer de Health.
+- **Cohérence des exports** : extraction d'un helper unique `_sprintStats(sprint, tickets)` (source
+  partagée). Les 5 sorties de la modale — rapport texte Slack, Markdown, HTML autonome, mode Demo et
+  Sprint Review Confluence — utilisent désormais la **même** sémantique (Vélocité = Done local prioritaire,
+  « Engagé (estimé) » conditionnel, « 🛡 Buffer » = Buffer réalisé). Auparavant elles reproduisaient les
+  anciens bugs (`sprint.velocity || ptsDone`, « Buffer (estimé) » = engagement, « Tickets Buffer » = tous
+  les tickets Buffer). Ajout d'une colonne « Story Points » à la Sprint Review (texte + HTML).
+
 ## [3.121.0] - 2026-07-08
 
 ### UX : refonte Dashboard en deux flux thématiques (direction F)

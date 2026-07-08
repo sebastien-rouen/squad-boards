@@ -126,12 +126,77 @@ function _ticketsOfSprint(sprint) {
 }
 
 /**
+ * Statistiques dérivées d'un sprint, SOURCE UNIQUE partagée par la modale et tous ses
+ * exports (texte, Markdown, HTML, Demo). Sémantique alignée sur la vue Health :
+ *  - `veloPts`   = points des tickets Done locaux en priorité, snapshot JIRA `velocity` en fallback.
+ *  - `estimated` = engagement JIRA (Greenhopper `estimated`) ; `engageDistinct` vrai seulement s'il
+ *                  diffère du périmètre courant `ptsTotal` (sinon la carte « Engagé » ferait doublon).
+ *  - `bufferRealised` = Buffer *réalisé* = points des tickets Buffer Done, fallback snapshot
+ *                  `bufferPoints` — même mesure que la colonne 🛡 Buffer de Health.
+ *
+ * @param {object} sprint
+ * @param {Array}  tickets
+ */
+function _sprintStats(sprint, tickets) {
+    const total     = tickets.length;
+    const ptsTotal  = sumBy(tickets, t => t.points);
+    const ptsDone   = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
+    const doneCount = tickets.filter(t => t.status === 'done').length;
+    const estimated = sprint.estimated || 0;
+
+    const veloPts        = doneCount ? ptsDone : (sprint.velocity || 0);
+    const engagePct      = estimated > 0 ? Math.round((veloPts / estimated) * 100) : null;
+    const engageDistinct = estimated > 0 && estimated !== ptsTotal;
+
+    const bufferTickets  = tickets.filter(isBufferItem);
+    const bufferPts      = sumBy(bufferTickets, t => t.points);
+    const bufDonePts     = sumBy(bufferTickets.filter(t => t.status === 'done'), t => t.points);
+    const bufferRealised = bufDonePts > 0 ? bufDonePts : (sprint.bufferPoints || 0);
+    const bufferRealShare = estimated > 0 ? Math.round((bufferRealised / estimated) * 100) : 0;
+
+    return {
+        total, ptsTotal, ptsDone, doneCount,
+        completionPct: pct(doneCount, total),
+        ptsPct: pct(ptsDone, ptsTotal),
+        estimated, veloPts, engagePct, engageDistinct,
+        bufferTickets, bufferPts, bufferRealised, bufferRealShare,
+    };
+}
+
+/**
+ * Complète un objet sprint issu du chart vélocité (`computeVelocityHistory` /
+ * `computeCurrentSprintEntry`) avec les champs présents uniquement dans les
+ * `teamSprints` bruts — notamment `goal` et `startDate`. Sans ça, la Sprint Review /
+ * le mode Demo ouverts depuis la modale affichaient « Aucun objectif explicite… »
+ * alors que le chemin palette (`_resolveCurrentSprint`) livre le teamSprint complet.
+ * Les champs déjà calculés côté modale (velocity/estimated live) ne sont pas écrasés.
+ */
+function _enrichSprintMeta(sprint) {
+    if (!sprint?.name || (sprint.goal != null && sprint.startDate)) return sprint;
+    const arr = store.get('sprintInfo')?.teamSprints;
+    if (!Array.isArray(arr)) return sprint;
+    const teamOk = s => !sprint.team || sprint.team === 'all' || s.team === sprint.team;
+    const match = arr.find(s => s.name === sprint.name && teamOk(s)) || arr.find(s => s.name === sprint.name);
+    if (!match) return sprint;
+    return {
+        goal: match.goal,
+        startDate: match.startDate,
+        plannedEndDate: match.plannedEndDate,
+        completeDate: match.completeDate,
+        jiraBoardId: match.jiraBoardId,
+        ...sprint,
+        endDate: sprint.endDate || match.endDate,
+    };
+}
+
+/**
  * Ouvre la modal pour un sprint donné.
  *
  * @param {object} sprint  `{ name, team, velocity, estimated, endDate, isCurrent, jiraId, jiraIds }`
  */
 export function openSprintTicketsModal(sprint) {
     if (!sprint?.name) return;
+    sprint = _enrichSprintMeta(sprint);
     _closeModal();
 
     const allTickets = store.get('tickets') || [];
@@ -159,18 +224,12 @@ function _renderShell(sprint, tickets, opts = {}) {
     const loading = !!opts.loading;
     const teamFilter = sprint.team && sprint.team !== 'all';
 
-    // Stats
-    const total = tickets.length;
-    const ptsTotal = sumBy(tickets, t => t.points);
-    const ptsDone  = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
-    const doneCount = tickets.filter(t => t.status === 'done').length;
-    const completionPct = pct(doneCount, total);
-    const ptsPct = pct(ptsDone, ptsTotal);
-
-    // Buffer label : somme des points des tickets ayant le label "Buffer"
-    const bufferTickets = tickets.filter(isBufferItem);
-    const bufferPts = sumBy(bufferTickets, t => t.points);
-    const bufferShare = sprint.estimated > 0 ? Math.round((bufferPts / sprint.estimated) * 100) : 0;
+    // Stats — source unique partagée avec les exports (voir _sprintStats)
+    const {
+        total, ptsTotal, ptsDone, doneCount, completionPct, ptsPct,
+        veloPts, engagePct, engageDistinct,
+        bufferTickets, bufferRealised, bufferRealShare,
+    } = _sprintStats(sprint, tickets);
 
     // Groupé par statut, ordre STATUS_ORDER
     const byStatus = new Map();
@@ -226,8 +285,8 @@ function _renderShell(sprint, tickets, opts = {}) {
             <div class="sb-modal-stats">
                 <div class="sb-stat-card sb-stat-card--primary">
                     <span class="sb-stat-lbl">Vélocité</span>
-                    <span class="sb-stat-val">${sprint.velocity || ptsDone}<small>pts</small></span>
-                    <span class="sb-stat-sub">livré${sprint.estimated ? ` / ${sprint.estimated} estimés` : ''}</span>
+                    <span class="sb-stat-val">${veloPts}<small>pts</small></span>
+                    <span class="sb-stat-sub">${engageDistinct ? `livré / ${sprint.estimated} engagés` : 'livré'}</span>
                 </div>
                 <div class="sb-stat-card">
                     <span class="sb-stat-lbl">Tickets</span>
@@ -239,12 +298,17 @@ function _renderShell(sprint, tickets, opts = {}) {
                     <span class="sb-stat-val">${ptsDone}<small>/${ptsTotal || '—'}</small></span>
                     <span class="sb-stat-sub">${ptsPct}% livrés</span>
                 </div>
-                ${sprint.estimated && sprint.velocity ? `
-                <div class="sb-stat-card sb-stat-card--buffer" title="Total des Story Points engagés en début de sprint (snapshot JIRA Velocity)">
-                    <span class="sb-stat-lbl">Buffer (estimé)</span>
+                ${engageDistinct ? `
+                <div class="sb-stat-card" title="Story Points engagés en début de sprint (snapshot JIRA Velocity « estimated ») — distinct du périmètre actuel de ${ptsTotal} pts">
+                    <span class="sb-stat-lbl">Engagé (estimé)</span>
                     <span class="sb-stat-val">${sprint.estimated}<small>pts</small></span>
-                    <span class="sb-stat-sub">${Math.round((sprint.velocity / sprint.estimated) * 100)}% réalisé</span>
+                    <span class="sb-stat-sub">${engagePct != null ? `${engagePct}% réalisé` : 'engagement sprint'}</span>
                 </div>` : ''}
+                <div class="sb-stat-card sb-stat-card--buffer" title="Points des tickets label Buffer terminés (capacité réservée réalisée) — même mesure que la colonne 🛡 Buffer de la vue Health">
+                    <span class="sb-stat-lbl">🛡 Buffer</span>
+                    <span class="sb-stat-val">${bufferRealised}<small>pts</small></span>
+                    <span class="sb-stat-sub">${bufferRealised === 0 ? 'aucun buffer' : `${bufferTickets.length ? `${bufferTickets.length} ticket${bufferTickets.length > 1 ? 's' : ''}` : 'snapshot JIRA'}${bufferRealShare ? ` · ${bufferRealShare}% de l'engagé` : ''}`}</span>
+                </div>
             </div>
             ${_canRenderBurndown(sprint, tickets) ? `
             <div class="sb-modal-burndown">
@@ -648,15 +712,10 @@ function _buildSprintReport(sprint, tickets) {
         return `${jiraBase.replace(/\/$/, '')}/browse/${key}`;
     };
 
-    const total = tickets.length;
-    const ptsTotal = sumBy(tickets, t => t.points);
-    const ptsDone  = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
-    const doneCount = tickets.filter(t => t.status === 'done').length;
-
-    const bufferTickets = tickets.filter(isBufferItem);
-    const bufferPts = sumBy(bufferTickets, t => t.points);
-    const bufferShare = sprint.estimated > 0 ? Math.round((bufferPts / sprint.estimated) * 100) : 0;
-    const realisedPct = sprint.estimated > 0 ? Math.round(((sprint.velocity || ptsDone) / sprint.estimated) * 100) : null;
+    const {
+        total, ptsTotal, ptsDone, doneCount, veloPts, engagePct, engageDistinct,
+        estimated, bufferRealised, bufferRealShare,
+    } = _sprintStats(sprint, tickets);
 
     const lines = [];
     // Entête
@@ -664,9 +723,9 @@ function _buildSprintReport(sprint, tickets) {
     lines.push('');
     // Stats sur une seule ligne
     const statRow = [];
-    if (sprint.estimated > 0) statRow.push(`Buffer (estimé) : ${sprint.estimated} pts`);
-    statRow.push(`Vélocité : ${sprint.velocity || ptsDone} pts${realisedPct != null ? ` (${realisedPct}% réalisé)` : ''}`);
-    if (bufferPts > 0) statRow.push(`🛡️ Tickets Buffer : ${bufferPts} pts${bufferShare ? ` (${bufferShare}% du buffer estimé)` : ''}`);
+    statRow.push(`Vélocité : ${veloPts} pts${engageDistinct ? ` / ${estimated} engagés (${engagePct}% réalisé)` : ''}`);
+    if (engageDistinct) statRow.push(`Engagé (estimé) : ${estimated} pts`);
+    statRow.push(`🛡️ Buffer : ${bufferRealised} pts${bufferRealShare ? ` (${bufferRealShare}% de l'engagé)` : ''}`);
     lines.push('• ' + statRow.join('  ·  '));
     lines.push(`• Tickets : ${doneCount}/${total || '—'} terminés  ·  Story Points : ${ptsDone}/${ptsTotal || '—'}`);
     lines.push('');
@@ -716,14 +775,10 @@ function _buildSprintReportMd(sprint, tickets) {
     const jiraLink = (key) => !jiraBase || !key ? `\`${key}\`` :
         `[\`${key}\`](${jiraBase.replace(/\/$/, '')}/browse/${key})`;
 
-    const total = tickets.length;
-    const ptsTotal = sumBy(tickets, t => t.points);
-    const ptsDone  = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
-    const doneCount = tickets.filter(t => t.status === 'done').length;
-    const bufferTickets = tickets.filter(isBufferItem);
-    const bufferPts = sumBy(bufferTickets, t => t.points);
-    const bufferShare = sprint.estimated > 0 ? Math.round((bufferPts / sprint.estimated) * 100) : 0;
-    const realisedPct = sprint.estimated > 0 ? Math.round(((sprint.velocity || ptsDone) / sprint.estimated) * 100) : null;
+    const {
+        total, ptsTotal, ptsDone, doneCount, veloPts, engagePct, engageDistinct,
+        estimated, bufferRealised, bufferRealShare,
+    } = _sprintStats(sprint, tickets);
 
     const lines = [];
     lines.push(`# 📊 ${sprint.name}`);
@@ -734,9 +789,9 @@ function _buildSprintReportMd(sprint, tickets) {
     lines.push('');
     lines.push('| Métrique | Valeur |');
     lines.push('|---|---|');
-    if (sprint.estimated > 0) lines.push(`| Buffer (estimé) | **${sprint.estimated} pts** |`);
-    lines.push(`| Vélocité (livré) | **${sprint.velocity || ptsDone} pts**${realisedPct != null ? ` *(${realisedPct}% réalisé)*` : ''} |`);
-    if (bufferPts > 0) lines.push(`| 🛡️ Tickets Buffer | **${bufferPts} pts**${bufferShare ? ` *(${bufferShare}% du buffer estimé)*` : ''} |`);
+    lines.push(`| Vélocité (livré) | **${veloPts} pts**${engageDistinct ? ` *(${engagePct}% de l'engagé)*` : ''} |`);
+    if (engageDistinct) lines.push(`| Engagé (estimé) | **${estimated} pts** |`);
+    lines.push(`| 🛡️ Buffer | **${bufferRealised} pts**${bufferRealShare ? ` *(${bufferRealShare}% de l'engagé)*` : ''} |`);
     lines.push(`| Tickets terminés | **${doneCount}/${total || '—'}** |`);
     lines.push(`| Story Points livrés | **${ptsDone}/${ptsTotal || '—'}** |`);
     lines.push('');
@@ -789,14 +844,10 @@ function _buildSprintReportHtml(sprint, tickets) {
         ? `<span class="key">${esc(key)}</span>`
         : `<a class="key" href="${jiraBase.replace(/\/$/, '')}/browse/${esc(key)}" target="_blank" rel="noopener">${esc(key)}</a>`;
 
-    const total = tickets.length;
-    const ptsTotal = sumBy(tickets, t => t.points);
-    const ptsDone  = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
-    const doneCount = tickets.filter(t => t.status === 'done').length;
-    const bufferTickets = tickets.filter(isBufferItem);
-    const bufferPts = sumBy(bufferTickets, t => t.points);
-    const bufferShare = sprint.estimated > 0 ? Math.round((bufferPts / sprint.estimated) * 100) : 0;
-    const realisedPct = sprint.estimated > 0 ? Math.round(((sprint.velocity || ptsDone) / sprint.estimated) * 100) : null;
+    const {
+        total, ptsTotal, ptsDone, doneCount, veloPts, engagePct, engageDistinct,
+        estimated, bufferTickets, bufferRealised, bufferRealShare,
+    } = _sprintStats(sprint, tickets);
 
     const byStatus = new Map();
     for (const t of tickets) {
@@ -899,21 +950,9 @@ footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e2e8f0; fon
 <div class="stats">
     <div class="stat stat--primary">
         <div class="lbl">Vélocité</div>
-        <div class="val">${sprint.velocity || ptsDone}<small>pts</small></div>
-        <div class="sub">livré${sprint.estimated ? ` · ${realisedPct}% du plan` : ''}</div>
+        <div class="val">${veloPts}<small>pts</small></div>
+        <div class="sub">${engageDistinct ? `livré · ${engagePct}% de l'engagé` : 'livré'}</div>
     </div>
-    ${sprint.estimated ? `
-    <div class="stat stat--buffer">
-        <div class="lbl">▮ Buffer (estimé)</div>
-        <div class="val">${sprint.estimated}<small>pts</small></div>
-        <div class="sub">snapshot JIRA</div>
-    </div>` : ''}
-    ${bufferPts > 0 ? `
-    <div class="stat stat--buffer-label">
-        <div class="lbl">🛡️ Tickets Buffer</div>
-        <div class="val">${bufferPts}<small>pts</small></div>
-        <div class="sub">${bufferTickets.length} ticket${bufferTickets.length > 1 ? 's' : ''}${bufferShare ? ` · ${bufferShare}% du buffer estimé` : ''}</div>
-    </div>` : ''}
     <div class="stat">
         <div class="lbl">Tickets</div>
         <div class="val">${doneCount}<small>/${total || '—'}</small></div>
@@ -923,6 +962,17 @@ footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e2e8f0; fon
         <div class="lbl">Story Points</div>
         <div class="val">${ptsDone}<small>/${ptsTotal || '—'}</small></div>
         <div class="sub">${pct(ptsDone, ptsTotal)}% livrés</div>
+    </div>
+    ${engageDistinct ? `
+    <div class="stat">
+        <div class="lbl">Engagé (estimé)</div>
+        <div class="val">${estimated}<small>pts</small></div>
+        <div class="sub">${engagePct}% réalisé</div>
+    </div>` : ''}
+    <div class="stat stat--buffer-label">
+        <div class="lbl">🛡️ Buffer</div>
+        <div class="val">${bufferRealised}<small>pts</small></div>
+        <div class="sub">${bufferRealised === 0 ? 'aucun buffer' : `${bufferTickets.length ? `${bufferTickets.length} ticket${bufferTickets.length > 1 ? 's' : ''}` : 'snapshot JIRA'}${bufferRealShare ? ` · ${bufferRealShare}% de l'engagé` : ''}`}</div>
     </div>
 </div>
 
@@ -988,9 +1038,8 @@ export function openDemoMode(sprint, tickets) {
         .sort((a, b) => (b.points || 0) - (a.points || 0));
     const ptsDone = sumBy(doneTickets, t => t.points);
     const ptsTotal = sumBy(tickets, t => t.points);
-    const realisedPct = sprint.estimated > 0
-        ? Math.round(((sprint.velocity || ptsDone) / sprint.estimated) * 100)
-        : pct(ptsDone, ptsTotal);
+    const { veloPts, engagePct } = _sprintStats(sprint, tickets);
+    const realisedPct = engagePct != null ? engagePct : pct(ptsDone, ptsTotal);
     const stateLabel = sprint.isCurrent ? 'En cours' : 'Clôturé';
 
     // PI Objectives — filtrés par équipe si sprint.team défini, sinon tous
@@ -1089,7 +1138,7 @@ export function openDemoMode(sprint, tickets) {
 
             <div class="demo-stats">
                 <div class="demo-stat demo-stat--big">
-                    <div class="demo-stat-val">${sprint.velocity || ptsDone}</div>
+                    <div class="demo-stat-val">${veloPts}</div>
                     <div class="demo-stat-lbl">Story Points livrés</div>
                 </div>
                 <div class="demo-stat">
@@ -1106,7 +1155,7 @@ export function openDemoMode(sprint, tickets) {
                     <div class="demo-stat-val">${doneBufferDemo.length}<span class="demo-stat-sub">/${bufferTicketsDemo.length}</span></div>
                     <div class="demo-stat-lbl">🛡️ Buffer · ${bufferPtsDoneDemo}/${bufferPtsTotalDemo} pts</div>
                 </div>` : ''}
-                ${piScore != null ? `
+                ${piScore > 0 ? `
                 <div class="demo-stat demo-stat--pi">
                     <div class="demo-stat-val">${piScore}%</div>
                     <div class="demo-stat-lbl">PI Predictabilité</div>
@@ -1423,6 +1472,127 @@ export function openDemoMode(sprint, tickets) {
     document.addEventListener('keydown', onKey);
 }
 
+// ── Section Lead Time / Cycle Time pour la Sprint Review ─────────────────────
+// Reproduit le schéma explicatif de la tooltip d'aide (help_popover.lctDiagramSvg)
+// en version autonome (couleurs inline, aucune dépendance CSS externe) ET l'annote
+// avec les valeurs réelles du sprint. Basé sur les MÉDIANES : robustes aux tickets
+// exceptionnellement anciens en backlog (un seul ticket resté 500 j fausserait la
+// moyenne du Lead Time). Champs source : `t.leadTimeDays` / `t.cycleTimeDays`
+// (mêmes que la card Lead/Cycle du Dashboard).
+function _leadCycleSectionHtml(tickets, link = (k) => esc(k)) {
+    const _median = (arr) => {
+        if (!arr.length) return 0;
+        const s = [...arr].sort((a, b) => a - b);
+        const m = Math.floor(s.length / 2);
+        return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2 * 10) / 10;
+    };
+    const _fmtD = (v) => `${String(v).replace('.', ',')} j`;
+
+    const doneCT = tickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
+    const ltVals = doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
+    const n      = doneCT.length;
+    const ctMed  = _median(doneCT.map(t => t.cycleTimeDays));
+    const ltMed  = _median(ltVals);
+    const waitMed = Math.max(0, Math.round((ltMed - ctMed) * 10) / 10);
+    const flowEff = ltMed > 0 ? Math.round((ctMed / ltMed) * 100) : null;
+    const flowCls = flowEff == null ? '' : flowEff >= 40 ? 'metric--ok' : flowEff < 25 ? 'metric--warn' : '';
+
+    const cards = n === 0
+        ? `<p class="empty">Aucune donnée de délai disponible pour ce sprint — le Lead/Cycle time est reconstruit depuis l'historique JIRA des tickets terminés.</p>`
+        : `<div class="metrics">
+        <div class="metric">
+            <div class="lbl">Lead Time médian</div>
+            <div class="val">${_fmtD(ltMed)}</div>
+            <div class="sub">création → livraison</div>
+        </div>
+        <div class="metric metric--ok">
+            <div class="lbl">Cycle Time médian</div>
+            <div class="val">${_fmtD(ctMed)}</div>
+            <div class="sub">démarrage → fin</div>
+        </div>
+        <div class="metric">
+            <div class="lbl">Temps d'attente</div>
+            <div class="val">${_fmtD(waitMed)}</div>
+            <div class="sub">Lead − Cycle · file backlog</div>
+        </div>
+        ${flowEff != null ? `<div class="metric ${flowCls}">
+            <div class="lbl">Flow efficiency</div>
+            <div class="val">${flowEff}%</div>
+            <div class="sub">part réellement travaillée</div>
+        </div>` : ''}
+    </div>`;
+
+    // Schéma 4 étapes + accolades Lead / Change Lead / Cycle Time (cf tooltip d'aide),
+    // annoté avec les médianes du sprint.
+    const svg = `<div class="lct-schema"><svg class="lct-diagram" viewBox="0 0 720 220" role="img" aria-label="Schéma Lead time et Cycle time" width="100%">
+        <text x="360" y="18" text-anchor="middle" fill="#0f172a" font-size="15" font-weight="700">Lead Time${n ? ` · ${_fmtD(ltMed)} médian` : ''}</text>
+        <path d="M10 40 V32 H710 V40" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="300" y="60" text-anchor="middle" fill="#ef4444" font-size="13" font-weight="700">First Commit</text>
+        <text x="515" y="60" text-anchor="middle" fill="#475569" font-size="13" font-weight="600">Change Lead Time</text>
+        <path d="M300 80 V72 H710 V80" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+        <rect x="10"  y="95" width="240" height="60" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+        <rect x="250" y="95" width="150" height="60" rx="6" fill="#dcfce7" stroke="#22c55e" stroke-width="1.5"/>
+        <rect x="400" y="95" width="160" height="60" rx="6" fill="#ede9fe" stroke="#8b5cf6" stroke-width="1.5"/>
+        <rect x="560" y="95" width="150" height="60" rx="6" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="130" y="121" text-anchor="middle" fill="#0f172a" font-size="14" font-weight="600">Backlog</text>
+        <text x="130" y="141" text-anchor="middle" fill="#b45309" font-size="11.5">${n ? `≈ ${_fmtD(waitMed)} d'attente` : "file d'attente"}</text>
+        <text x="325" y="129" text-anchor="middle" fill="#0f172a" font-size="14" font-weight="600">Développement</text>
+        <text x="480" y="129" text-anchor="middle" fill="#0f172a" font-size="14" font-weight="600">Revue de code</text>
+        <text x="635" y="129" text-anchor="middle" fill="#0f172a" font-size="14" font-weight="600">Déploiement</text>
+        <line x1="300" y1="82" x2="300" y2="93" stroke="#ef4444" stroke-width="1.5"/>
+        <path d="M300 96 l-4 -7 h8 z" fill="#ef4444"/>
+        <path d="M250 165 V173 H710 V165" fill="none" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="480" y="197" text-anchor="middle" fill="#0f172a" font-size="15" font-weight="700">Cycle Time${n ? ` · ${_fmtD(ctMed)} médian` : ''}</text>
+    </svg></div>`;
+
+    // Barre par ticket réalisé : longueur = Lead Time (échelle = plus grand Lead du sprint),
+    // remplissage vert = Cycle Time (travail effectif), reste ambre = attente en backlog.
+    // Trié du Lead le plus long au plus court (met en tête les tickets qui ont le plus attendu).
+    let perTicket = '';
+    if (n > 0) {
+        const rows = doneCT
+            .map(t => {
+                const lt = t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays;
+                const ct = Math.min(t.cycleTimeDays, lt);   // garde-fou : cycle ≤ lead
+                return { t, lt, ct, wait: Math.max(0, lt - ct) };
+            })
+            .sort((a, b) => b.lt - a.lt);
+        // Échelle ROBUSTE = 3× le Lead médian : évite qu'un ticket resté des mois en backlog
+        // n'écrase visuellement tous les autres. Les tickets qui dépassent l'échelle sont
+        // marqués « ›› » et gardent leur valeur chiffrée exacte.
+        const scaleMax = Math.max(1, ltMed > 0 ? ltMed * 3 : Math.max(...rows.map(r => r.lt)));
+        const bars = rows.map(({ t, lt, ct, wait }) => {
+            const over = lt > scaleMax;
+            const cyclePct = Math.min((ct / scaleMax) * 100, 100);
+            const waitPct  = Math.min((wait / scaleMax) * 100, 100 - cyclePct);
+            const eff = lt > 0 ? Math.round((ct / lt) * 100) : 0;
+            const title = `${esc(t.id)} — ${esc(t.title || '')} · Lead ${_fmtD(lt)} · Cycle ${_fmtD(ct)} · attente ${_fmtD(wait)} · flow ${eff}%`;
+            return `<div class="lct-tk" title="${title}">
+            <div class="lct-tk-meta">
+                <span class="lct-tk-id">${link(t.id)}</span>
+                <span class="lct-tk-title">${esc(t.title || '(sans titre)')}</span>
+            </div>
+            <div class="lct-tk-track">
+                <div class="lct-tk-wait" style="width:${waitPct.toFixed(1)}%"></div>
+                <div class="lct-tk-cycle" style="width:${Math.max(cyclePct, 1.5).toFixed(1)}%">${cyclePct >= 12 ? `${ct}` : ''}</div>
+                ${over ? '<span class="lct-tk-over" title="Lead au-delà de l échelle de mesure">hors échelle ››</span>' : ''}
+            </div>
+            <span class="lct-tk-num${over ? ' lct-tk-num--over' : ''}">${lt}<small> / ${ct} j</small></span>
+        </div>`;
+        }).join('');
+        perTicket = `
+<h3 class="lct-h3">Par ticket réalisé <span class="lct-legend"><i class="lct-sw lct-sw--cycle"></i>Cycle (travail) <i class="lct-sw lct-sw--wait"></i>Attente backlog</span></h3>
+<div class="lct-tickets">${bars}</div>`;
+    }
+
+    return `
+<h2>⏱️ Lead Time &amp; Cycle Time${n ? `<span class="badge">${n} ticket${n > 1 ? 's' : ''} mesuré${n > 1 ? 's' : ''}</span>` : ''}</h2>
+${cards}
+${svg}
+<p class="lct-note"><strong>Lead time</strong> = de la création du ticket à sa livraison, <em>temps d'attente en backlog compris</em>. <strong>Cycle time</strong> = du démarrage effectif du travail à la fin — ce que l'équipe maîtrise réellement. L'écart entre les deux = le temps passé en file d'attente avant priorisation ; le <strong>Flow efficiency</strong> (Cycle ÷ Lead) mesure la part du délai réellement consacrée au travail (repère : ~15 % courant, 40 %+ excellent).${n ? ` Valeurs <strong>médianes</strong> sur les ${n} ticket${n > 1 ? 's' : ''} terminé${n > 1 ? 's' : ''} du sprint (robustes aux tickets exceptionnellement anciens).` : ''}</p>
+${perTicket}`;
+}
+
 // ── Sprint Review template (Confluence-ready) — ouvre dans un nouvel onglet ──
 // Format orienté COMMUNICATION : objectif, réalisations, métriques, points
 // d'attention pour la rétro, à reporter au prochain sprint, next steps (vide à
@@ -1437,13 +1607,10 @@ function _buildSprintReviewHtml(sprint, tickets) {
         ? `<strong>${esc(key)}</strong>`
         : `<a href="${jiraBase.replace(/\/$/, '')}/browse/${esc(key)}" target="_blank">${esc(key)}</a>`;
 
-    const total = tickets.length;
-    const ptsTotal = sumBy(tickets, t => t.points);
-    const ptsDone  = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
-    const doneCount = tickets.filter(t => t.status === 'done').length;
-    const realisedPct = sprint.estimated > 0 ? Math.round(((sprint.velocity || ptsDone) / sprint.estimated) * 100) : null;
-    const bufferTickets = tickets.filter(isBufferItem);
-    const bufferPts = sumBy(bufferTickets, t => t.points);
+    const {
+        total, ptsTotal, ptsDone, doneCount, veloPts, engagePct, engageDistinct,
+        estimated, bufferTickets, bufferRealised, bufferRealShare,
+    } = _sprintStats(sprint, tickets);
 
     // ── Résolution feature parente (chaîne ticket → epic → feature) ─────────
     const allEpics    = store.get('epics') || [];
@@ -1633,15 +1800,16 @@ function _buildSprintReviewHtml(sprint, tickets) {
     }
     slackParts.push(
         `\n📊 Métriques\n` +
-        `   • Vélocité : ${sprint.velocity || ptsDone} pts${realisedPct != null ? ` (${realisedPct}% du buffer)` : ''}\n` +
+        `   • Vélocité : ${veloPts} pts${engageDistinct ? ` / ${estimated} engagés (${engagePct}% réalisé)` : ''}\n` +
         `   • Tickets : ${doneCount}/${total || '-'} (${pct(doneCount, total)}% terminés)` +
-        (bufferPts > 0 ? `\n   • 🛡️ Buffer : ${bufferPts} pts sur ${bufferTickets.length} ticket${bufferTickets.length > 1 ? 's' : ''}` : '')
+        `   ·   Story Points : ${ptsDone}/${ptsTotal || '-'}` +
+        (bufferRealised > 0 ? `\n   • 🛡️ Buffer : ${bufferRealised} pts${bufferRealShare ? ` (${bufferRealShare}% de l'engagé)` : ''}` : '')
     );
     if (piObjs.length) {
         slackParts.push(
             `\n🎯 PI Objectives - ${piDoneCt}/${piObjs.length} livré${piDoneCt > 1 ? 's' : ''}` +
             (piCommitTotal > 0 ? ` · BV ${piCommitDone + piStretchDone}/${piCommitTotal}` : '') +
-            (piScore != null ? ` · Predictability ${piScore}%` : '')
+            (piScore > 0 ? ` · Predictability ${piScore}%` : '')
         );
     }
     if (piSprints.length) {
@@ -1762,6 +1930,30 @@ h2 .badge { display: inline-block; margin-left: 8px; padding: 1px 9px; border-ra
 .metric .sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
 .metric--ok .val { color: #047857; }
 .metric--warn .val { color: #b45309; }
+
+/* ── Lead Time / Cycle Time ────────────────────────────────────────────── */
+.lct-schema { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 14px 10px; margin: 12px 0; overflow-x: auto; }
+.lct-diagram { display: block; max-width: 660px; margin: 0 auto; }
+.lct-note { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; color: #475569; background: #f8fafc; border-left: 3px solid #cbd5e1; padding: 10px 16px; border-radius: 0 8px 8px 0; margin: 10px 0; }
+.lct-note strong { color: #0f172a; }
+.lct-h3 { font-family: system-ui, sans-serif; font-size: 13.5px; font-weight: 700; color: #334155; margin: 18px 0 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+.lct-legend { font-weight: 500; font-size: 11.5px; color: #64748b; display: inline-flex; align-items: center; gap: 6px; }
+.lct-sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin: 0 3px 0 8px; vertical-align: -1px; }
+.lct-sw--cycle { background: #22c55e; }
+.lct-sw--wait { background: #fcd34d; }
+.lct-tickets { font-family: system-ui, sans-serif; margin: 6px 0; }
+.lct-tk { display: grid; grid-template-columns: minmax(0, 210px) 1fr 74px; align-items: center; gap: 10px; padding: 5px 0; }
+.lct-tk-meta { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.lct-tk-id a, .lct-tk-id { font-family: ui-monospace, monospace; font-size: 11.5px; color: #1d4ed8; text-decoration: none; }
+.lct-tk-id a:hover { text-decoration: underline; }
+.lct-tk-title { font-size: 10.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lct-tk-track { position: relative; display: flex; height: 16px; background: #f1f5f9; border-radius: 4px; overflow: hidden; border: 1px solid #e2e8f0; }
+.lct-tk-wait { background: repeating-linear-gradient(45deg, #fde68a 0 5px, #fcd34d 5px 10px); }
+.lct-tk-cycle { background: #22c55e; color: #fff; font-size: 9.5px; font-weight: 700; line-height: 16px; text-align: center; min-width: 0; }
+.lct-tk-over { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); font-size: 9.5px; font-weight: 800; letter-spacing: .02em; color: #7c2d12; background: rgba(255,255,255,.82); border-radius: 3px; padding: 0 4px; line-height: 1.5; white-space: nowrap; }
+.lct-tk-num { font-size: 11.5px; font-variant-numeric: tabular-nums; color: #0f172a; font-weight: 600; text-align: right; }
+.lct-tk-num small { color: #22a559; font-weight: 700; }
+.lct-tk-num--over { color: #b45309; }
 
 ul.cr-tickets { list-style: none; padding: 0; margin: 8px 0; font-family: system-ui, sans-serif; }
 ul.cr-tickets li { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; font-size: 13.5px; }
@@ -2129,31 +2321,37 @@ ${sprint.goal
 <div class="metrics">
     <div class="metric metric--ok">
         <div class="lbl">Vélocité</div>
-        <div class="val">${sprint.velocity || ptsDone}<small style="font-size:11px"> pts</small></div>
-        ${realisedPct != null ? `<div class="sub">${realisedPct}% du buffer</div>` : ''}
+        <div class="val">${veloPts}<small style="font-size:11px"> pts</small></div>
+        <div class="sub">${engageDistinct ? `${engagePct}% de l'engagé` : 'livré'}</div>
     </div>
-    ${sprint.estimated ? `
-    <div class="metric">
-        <div class="lbl">Buffer (estimé)</div>
-        <div class="val">${sprint.estimated}<small style="font-size:11px"> pts</small></div>
-        <div class="sub">snapshot JIRA</div>
-    </div>` : ''}
-    ${bufferPts > 0 ? `
-    <div class="metric">
-        <div class="lbl">🛡️ Tickets Buffer</div>
-        <div class="val">${bufferPts}<small style="font-size:11px"> pts</small></div>
-        <div class="sub">${bufferTickets.length} ticket${bufferTickets.length > 1 ? 's' : ''}</div>
-    </div>` : ''}
     <div class="metric ${doneCount === total ? 'metric--ok' : ''}">
         <div class="lbl">Tickets</div>
         <div class="val">${doneCount}<small style="font-size:14px">/${total || '—'}</small></div>
         <div class="sub">${pct(doneCount, total)}% terminés</div>
     </div>
+    <div class="metric">
+        <div class="lbl">Story Points</div>
+        <div class="val">${ptsDone}<small style="font-size:14px">/${ptsTotal || '—'}</small></div>
+        <div class="sub">${pct(ptsDone, ptsTotal)}% livrés</div>
+    </div>
+    ${engageDistinct ? `
+    <div class="metric">
+        <div class="lbl">Engagé (estimé)</div>
+        <div class="val">${estimated}<small style="font-size:11px"> pts</small></div>
+        <div class="sub">${engagePct}% réalisé</div>
+    </div>` : ''}
+    <div class="metric">
+        <div class="lbl">🛡️ Buffer</div>
+        <div class="val">${bufferRealised}<small style="font-size:11px"> pts</small></div>
+        <div class="sub">${bufferRealised === 0 ? 'aucun buffer' : `${bufferTickets.length ? `${bufferTickets.length} ticket${bufferTickets.length > 1 ? 's' : ''}` : 'snapshot JIRA'}`}</div>
+    </div>
 </div>
+
+${_leadCycleSectionHtml(tickets, link)}
 
 ${piObjs.length ? `
 <h2>🎯 PI Objectives ${piInfo?.number ? `<span class="badge">PI ${piInfo.number}</span>` : ''}
-    <span class="pi-summary">✓ ${piDoneCt}/${piObjs.length}${piCommitTotal > 0 ? ` · BV livrée ${piCommitDone + piStretchDone}/${piCommitTotal}` : ''}${piScore != null ? ` · Predictability ${piScore}%` : ''}</span>
+    <span class="pi-summary">✓ ${piDoneCt}/${piObjs.length}${piCommitTotal > 0 ? ` · BV livrée ${piCommitDone + piStretchDone}/${piCommitTotal}` : ''}${piScore > 0 ? ` · Predictability ${piScore}%` : ''}</span>
 </h2>
 <div class="pi-grid">
     ${piObjs.map(o => {

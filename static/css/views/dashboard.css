@@ -1338,6 +1338,21 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .sla-meta strong { color: var(--text); }
 .sla-meta-breach { color: var(--danger); }
 
+/* ══ Compaction de la bande "Cap de l'équipe" (rapprochée du mockup) ══ */
+.goals-band .gb-goal-card--sprint { padding: var(--sp-3); }
+.goals-band .gb-hd { margin-bottom: 6px; }
+.goals-band .gb-stats { margin-bottom: var(--sp-2); gap: 5px; }
+.goals-band .gb-goal-text { font-size: .9rem; line-height: 1.4; }
+.goals-band .pi-obj-attain { padding: var(--sp-2) var(--sp-3); }
+.goals-band .pi-obj-attain-num { font-size: 22px; }
+.goals-band .pi-obj-attain-hdr { gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.goals-band .pi-obj-attain-summary { gap: 5px; }
+.goals-band .pi-obj-summary-item { padding: 2px 7px; }
+.goals-band .pi-obj-attain-bar { margin-bottom: var(--sp-2); }
+.goals-band .pi-obj-attain-list { gap: 4px; padding-top: var(--sp-2); }
+.goals-band .pi-obj-attain-item { padding: 3px 8px; font-size: var(--fs-xs); }
+.goals-band .gb-hd .gb-eyebrow { font-size: .78rem; }
+
 /* ══ Refonte F : deux flux thématiques (Pilotage & flux · Équipe & risques) ══════════════
    Principe : AÉRÉ entre les deux flux (gap large), RESSERRÉ entre les cards d'un même flux. */
 .dash-streams {

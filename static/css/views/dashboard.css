@@ -1338,3 +1338,39 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .sla-meta strong { color: var(--text); }
 .sla-meta-breach { color: var(--danger); }
 
+/* ══ Refonte F : deux flux thématiques (Pilotage & flux · Équipe & risques) ══════════════
+   Principe : AÉRÉ entre les deux flux (gap large), RESSERRÉ entre les cards d'un même flux. */
+.dash-streams {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-6);                 /* aéré entre les deux colonnes-flux */
+    align-items: start;
+    margin-bottom: var(--sp-5);
+}
+@media (max-width: 1024px) {
+    .dash-streams { grid-template-columns: 1fr; gap: var(--sp-5); }
+}
+.dash-stream {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);                 /* resserré entre les cards du flux */
+    min-width: 0;
+}
+/* Le gap gère l'espacement vertical → on neutralise les marges propres (mb-4/mt-4, marges des rangées KPI) */
+.dash-stream > * { margin-top: 0; margin-bottom: 0; }
+.dash-stream:nth-child(1) { --accent: var(--primary); }
+.dash-stream:nth-child(2) { --accent: var(--status-done); }
+.dash-stream-hd {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding-bottom: var(--sp-2);
+    border-bottom: 2px solid color-mix(in srgb, var(--accent, var(--primary)) 55%, var(--border));
+}
+.dash-stream-hd h2 { margin: 0; font-size: var(--fs-base); font-weight: var(--fw-bold); }
+.dash-stream-sub { margin-left: auto; font-size: var(--fs-xs); color: var(--text-muted); }
+.dash-stream-cards { display: flex; flex-direction: column; gap: var(--sp-3); }
+/* Rangées de métriques dans un flux (demi-largeur) : tuiles compactes qui s'adaptent */
+.dash-stream .dashboard-metrics { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 0; }
+.dash-stream .section-title { margin: var(--sp-1) 0; }
+

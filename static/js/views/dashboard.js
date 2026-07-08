@@ -360,6 +360,66 @@ export function renderDashboard(container) {
             </div>
         </section>` : '';
 
+    // Cards "Équipes" — extrait en const pour placement dans le flux droit (Équipe & risques).
+    const _teamsCards = teams.length > 1 ? (() => {
+        const _isBuf = isBufferItem;
+        return `
+        <h3 class="section-title">Équipes</h3>
+        <div class="team-cards mb-4">
+            ${teams.map((t, i) => {
+                const tt    = byTeam.get(t) || [];
+                const done  = tt.filter(x => x.status === 'done');
+                const b     = countBlocked(tt);
+                const tObj  = teamObjects.find(o => o.name === t);
+                const color = tObj?.color || TEAM_COLORS[i % TEAM_COLORS.length];
+                const netDone    = done.filter(x => !_isBuf(x));
+                const bufDone    = done.filter(x => _isBuf(x));
+                const spNetDone  = sumBy(netDone, x => x.points);
+                const spBufDone  = sumBy(bufDone, x => x.points);
+                const netAll     = tt.filter(x => !_isBuf(x));
+                const bufAll     = tt.filter(x => _isBuf(x));
+                const spNetRaw   = sumBy(netAll, x => x.points);
+                const spBufRaw   = sumBy(bufAll, x => x.points);
+                const spNetTotal = spNetRaw || 1;
+                const spBufTotal = spBufRaw || 1;
+                const netFill = Math.round(Math.min(spNetDone / spNetTotal, 1) * 100);
+                const bufFill = Math.round(Math.min(spBufDone / spBufTotal, 1) * 100);
+                const tipNet = `${spNetDone} SP nets réalisés / ${spNetRaw} estimés (${netFill}%)`;
+                const tipBuf = `${spBufDone} SP buffer réalisés / ${spBufRaw} estimés (${bufFill}%)`;
+                return `
+                <div class="team-card" style="--team-card-color:${color}">
+                    <div class="team-card-header">
+                        <span class="team-card-name inline-flex-center">
+                            <span class="team-dot" style="background:${color}"></span>
+                            ${esc(t)}
+                        </span>
+                        ${b > 0 ? `<span class="team-card-stat team-card-stat--blocked" title="${b} bloqué${b>1?'s':''}">⚠ ${b}</span>` : ''}
+                    </div>
+                    <div class="picap-sp-row dash-sp-row">
+                        <div class="picap-sp-bars">
+                            <div class="picap-sp-net" style="flex:${spNetTotal}">
+                                <div class="picap-sp-real-fill picap-sp-real-fill--net" style="width:${netFill}%" title="${esc(tipNet)}"></div>
+                                <span class="picap-sp-val">${spNetDone}</span>
+                                <span class="picap-sp-lbl">SP <em class="picap-sp-real-hint">/ ${sumBy(netAll, x => x.points)}</em></span>
+                            </div>
+                            ${spBufTotal > 1 ? `
+                            <div class="picap-sp-buf" style="flex:${spBufTotal}">
+                                <div class="picap-sp-real-fill picap-sp-real-fill--buf" style="width:${bufFill}%" title="${esc(tipBuf)}"></div>
+                                <span class="picap-sp-val">${spBufDone}</span>
+                                <span class="picap-sp-lbl">buf</span>
+                            </div>` : ''}
+                        </div>
+                        <span class="picap-sp-total">≈&thinsp;${spNetRaw + spBufRaw} SP</span>
+                    </div>
+                    <div class="team-card-stats">
+                        <span class="team-card-stat" title="Tickets terminés / total">✓ ${done.length}/${tt.length}</span>
+                        <span class="team-card-stat" title="SP réalisés / total">${spNetDone + spBufDone}/${sumBy(tt, x => x.points)} pts</span>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>`;
+    })() : '';
+
     container.innerHTML = `
         <!-- Widget : qui est en support aujourd'hui -->
         ${(() => {
@@ -464,7 +524,12 @@ export function renderDashboard(container) {
             </div>`;
         })() : ''}
 
-        <!-- Metrics row -->
+        <!-- ═══ Deux flux thématiques (refonte F) : Pilotage & flux · Équipe & risques ═══ -->
+        <div class="dash-streams">
+        <section class="dash-stream">
+            <header class="dash-stream-hd"><h2>🚀 Pilotage &amp; flux</h2><span class="dash-stream-sub">rythme &amp; traversée</span></header>
+
+        <!-- KPI primaires -->
         <div class="dashboard-metrics">
             <div class="metric-card mc-primary">
                 <span class="metric-icon">📋</span>
@@ -526,75 +591,8 @@ export function renderDashboard(container) {
             </div>
         </div>
 
-        <!-- Team Cards — affiché seulement si >1 équipe -->
-        ${teams.length > 1 ? (() => {
-            const _isBuf = isBufferItem;
-            return `
-        <h3 class="section-title">Équipes</h3>
-        <div class="team-cards mb-4">
-            ${teams.map((t, i) => {
-                const tt    = byTeam.get(t) || [];
-                const done  = tt.filter(x => x.status === 'done');
-                const b     = countBlocked(tt);
-                const tObj  = teamObjects.find(o => o.name === t);
-                const color = tObj?.color || TEAM_COLORS[i % TEAM_COLORS.length];
-
-                // SP nets (hors buffer) + SP buffer réalisés
-                const netDone    = done.filter(x => !_isBuf(x));
-                const bufDone    = done.filter(x => _isBuf(x));
-                const spNetDone  = sumBy(netDone, x => x.points);
-                const spBufDone  = sumBy(bufDone, x => x.points);
-
-                // SP totaux estimés (hors buffer) pour la largeur des barres
-                const netAll     = tt.filter(x => !_isBuf(x));
-                const bufAll     = tt.filter(x => _isBuf(x));
-                const spNetRaw   = sumBy(netAll, x => x.points);
-                const spBufRaw   = sumBy(bufAll, x => x.points);
-                const spNetTotal = spNetRaw || 1;
-                const spBufTotal = spBufRaw || 1;
-
-                const netFill = Math.round(Math.min(spNetDone / spNetTotal, 1) * 100);
-                const bufFill = Math.round(Math.min(spBufDone / spBufTotal, 1) * 100);
-
-                const tipNet = `${spNetDone} SP nets réalisés / ${spNetRaw} estimés (${netFill}%)`;
-                const tipBuf = `${spBufDone} SP buffer réalisés / ${spBufRaw} estimés (${bufFill}%)`;
-
-                return `
-                <div class="team-card" style="--team-card-color:${color}">
-                    <div class="team-card-header">
-                        <span class="team-card-name inline-flex-center">
-                            <span class="team-dot" style="background:${color}"></span>
-                            ${esc(t)}
-                        </span>
-                        ${b > 0 ? `<span class="team-card-stat team-card-stat--blocked" title="${b} bloqué${b>1?'s':''}">⚠ ${b}</span>` : ''}
-                    </div>
-                    <div class="picap-sp-row dash-sp-row">
-                        <div class="picap-sp-bars">
-                            <div class="picap-sp-net" style="flex:${spNetTotal}">
-                                <div class="picap-sp-real-fill picap-sp-real-fill--net" style="width:${netFill}%" title="${esc(tipNet)}"></div>
-                                <span class="picap-sp-val">${spNetDone}</span>
-                                <span class="picap-sp-lbl">SP <em class="picap-sp-real-hint">/ ${sumBy(netAll, x => x.points)}</em></span>
-                            </div>
-                            ${spBufTotal > 1 ? `
-                            <div class="picap-sp-buf" style="flex:${spBufTotal}">
-                                <div class="picap-sp-real-fill picap-sp-real-fill--buf" style="width:${bufFill}%" title="${esc(tipBuf)}"></div>
-                                <span class="picap-sp-val">${spBufDone}</span>
-                                <span class="picap-sp-lbl">buf</span>
-                            </div>` : ''}
-                        </div>
-                        <span class="picap-sp-total">≈&thinsp;${spNetRaw + spBufRaw} SP</span>
-                    </div>
-                    <div class="team-card-stats">
-                        <span class="team-card-stat" title="Tickets terminés / total">✓ ${done.length}/${tt.length}</span>
-                        <span class="team-card-stat" title="SP réalisés / total">${spNetDone + spBufDone}/${sumBy(tt, x => x.points)} pts</span>
-                    </div>
-                </div>`;
-            }).join('')}
-        </div>`;
-        })() : ''}
-
-        <!-- Charts row -->
-        <div class="dashboard-grid">
+        <!-- Charts de flux — empilés dans le flux Pilotage -->
+        <div class="dash-stream-cards">
             <div class="card">
                 <div class="card-header">
                     <span class="card-title">Lead time &amp; Cycle time ${helpIconHtml({ key: 'lct', label: 'Comprendre lead time vs cycle time' })}</span>
@@ -626,6 +624,12 @@ export function renderDashboard(container) {
             <!-- Aging WIP : ancienneté du travail en cours (proactif) — à côté de la Vélocité -->
             ${agingWipCardHtml(tickets)}
         </div>
+        </section>
+
+        <section class="dash-stream">
+            <header class="dash-stream-hd"><h2>👥 Équipe &amp; risques</h2><span class="dash-stream-sub">santé &amp; signaux</span></header>
+
+        ${_teamsCards}
 
         <!-- SLA Review : respect du seuil de cycle time -->
         ${slaReviewCardHtml(tickets)}
@@ -661,6 +665,8 @@ export function renderDashboard(container) {
 
         <!-- Recent Activity (composant partagé) -->
         ${renderActivityCard(tickets, { max: 15, scope: 'dashboard' })}
+        </section>
+        </div>
     `;
 
     // Render charts after DOM is ready

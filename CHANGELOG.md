@@ -1,3 +1,20 @@
+## [3.121.0] - 2026-07-08
+
+### UX : refonte Dashboard en deux flux thématiques (direction F)
+
+Réorganisation du Dashboard suivant la maquette retenue ([static/mockups/dashboard-directions.html](static/mockups/dashboard-directions.html), direction **F · Deux flux**).
+
+- **[dashboard.js](static/js/views/dashboard.js)** : sous les blocs pleine largeur conservés tels quels
+  (support du jour, bande « Cap de l'équipe », **timeline + `pi-sprints-strip` riche**), le reste passe en
+  **deux colonnes-flux** :
+  - **🚀 Pilotage & flux** (gauche) : KPI primaires + secondaires, Lead/Cycle time, Temps par colonne,
+    Vélocité, Ancienneté du WIP.
+  - **👥 Équipe & risques** (droite) : cards Équipes, SLA Review, Bloqués/stagnants, Activité récente.
+  - Cards « Équipes » extraites en const `_teamsCards` pour placement dans le flux droit.
+- **[dashboard.css](static/css/views/dashboard.css)** : `.dash-streams` / `.dash-stream*` — **aéré entre
+  les deux flux** (`gap` large), **resserré entre les cards** d'un flux (gap serré, marges propres
+  neutralisées). Empilement en une colonne < 1024 px. En-têtes de flux à liseré coloré.
+
 ## [3.120.0] - 2026-07-08
 
 ### UX : copie d'événements agenda en liste compacte (1 ligne / event, triée)

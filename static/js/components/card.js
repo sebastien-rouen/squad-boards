@@ -3,7 +3,7 @@
  * Shows leader + contributor avatars.
  */
 
-import { esc, initials, hashColor, daysInCurrentColumn, fmtDate, typeBadge } from '../utils.js';
+import { esc, initials, hashColor, daysInCurrentColumn, fmtDate, typeBadge, currentStageGroupKey } from '../utils.js';
 
 const _DWELL_SOURCE_LABEL = {
     status:  'depuis la dernière transition de statut',
@@ -14,16 +14,32 @@ const _DWELL_SOURCE_LABEL = {
 /**
  * Chip "jours dans la colonne courante" — repère visuel pour le daily.
  * Masqué pour les tickets `done` (peu actionnable) et < 2j (frais).
+ *
+ * Coloration : si des repères d'ancienneté par colonne sont fournis (`ageRefs`, issus du P50/P85
+ * des tickets déjà terminés dans la même colonne — cf computeStageAgeRefs), le seuil devient
+ * data-driven : ambre entre P50 et P85, rouge au-delà du P85 (le ticket sort de la zone habituelle
+ * de SA colonne). Sans repère fiable, on retombe sur des seuils fixes (4 j / 7 j).
  */
-function _dwellChip(ticket) {
+function _dwellChip(ticket, ageRefs) {
     if (!ticket || ticket.status === 'done') return '';
     const d = daysInCurrentColumn(ticket);
     if (!d || d.days < 2) return '';
     let zone = 'ok';
-    if (d.days >= 7) zone = 'crit';
-    else if (d.days >= 4) zone = 'warn';
+    let refTip = '';
+    const gk = currentStageGroupKey(ticket);
+    const ref = ageRefs && gk ? ageRefs[gk] : null;
+    if (ref && ref.p85 > 0 && ref.n >= 5) {
+        // Repère fiable (au moins 5 tickets terminés dans cette colonne) → coloration par percentile.
+        if (d.days >= ref.p85) zone = 'crit';
+        else if (ref.p50 > 0 && d.days >= ref.p50) zone = 'warn';
+        refTip = ` · repère colonne P50 ${ref.p50} j / P85 ${ref.p85} j`;
+    } else {
+        if (d.days >= 7) zone = 'crit';
+        else if (d.days >= 4) zone = 'warn';
+    }
     const srcLbl = _DWELL_SOURCE_LABEL[d.source] || '';
-    const title = `${d.days} jour${d.days > 1 ? 's' : ''} dans cette colonne · ${srcLbl} (${fmtDate(d.sinceIso)})`;
+    const zoneLbl = zone === 'crit' ? ' — au-delà de l\'habituel, à débloquer' : zone === 'warn' ? ' — à surveiller' : '';
+    const title = `${d.days} jour${d.days > 1 ? 's' : ''} dans cette colonne · ${srcLbl} (${fmtDate(d.sinceIso)})${refTip}${zoneLbl}`;
     return `<span class="ticket-dwell ticket-dwell--${zone}" title="${esc(title)}" aria-label="${esc(title)}">`
          + `<svg class="icon icon-xs" aria-hidden="true"><use href="#i-clock"/></svg>`
          + `<span>${d.days}j</span>`
@@ -48,7 +64,7 @@ function _staleBadge(ticket) {
 /**
  * Render a ticket card HTML string.
  */
-export function renderCard(ticket) {
+export function renderCard(ticket, { ageRefs } = {}) {
     const flagClass = ticket.flagged ? ' flagged' : '';
     const leader = ticket.leader || ticket.assignee;
     const contributors = (ticket.contributors || []).filter(c => c && c !== leader);
@@ -69,7 +85,7 @@ export function renderCard(ticket) {
             <div class="ticket-card-top">
                 ${typeBadge(ticket.type, { title: false })}
                 <div class="ticket-card-top-right">
-                    ${_dwellChip(ticket)}
+                    ${_dwellChip(ticket, ageRefs)}
                     <span class="ticket-id">${esc(ticket.id)}</span>
                 </div>
             </div>

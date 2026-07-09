@@ -10,10 +10,11 @@ import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAG
 import { renderRoam } from './roam.js';
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
-import { registerExternalChart } from '../components/charts.js';
+import { registerExternalChart, renderCycleTime } from '../components/charts.js';
 import { updateInfoPanel } from '../components/infopanel.js';
 import { stageFlowCardHtml, bindStageFlowCard } from '../components/stage_flow_card.js';
 import { agingWipCardHtml, bindAgingWipCard } from '../components/aging_wip_card.js';
+import { helpIconHtml } from '../components/help_popover.js';
 
 let _activeTab = 'objectives';
 let _objUnlocked  = false; // déverrouillage manuel des objectifs sur PI passé
@@ -238,6 +239,7 @@ export function renderPI(container) {
     const roamCount = (store.get('risks') || []).length;
     const tabs = [
         { id: 'objectives', label: `🎯 Objectifs (${objectivesFiltered.length})` },
+        { id: 'indicators', label: '📊 Indicateurs' },
         { id: 'features',   label: `📦 Features (${features.length})` },
         { id: 'capacity',   label: '⚡ Capacité' },
         { id: 'burnup',     label: '📈 Burnup' },
@@ -533,9 +535,54 @@ function renderDeps(el, { depItems = [], teamObjects = [] }) {
     bindTeamDepBoard(el, depItems);
 }
 
+// ── Onglet Indicateurs : métriques de flux du PI (Lead/Cycle time, Temps par colonne, Aging WIP) ──
+function renderIndicators(el, { tickets = [] }) {
+    // Lead time & Cycle time — même calcul et rendu que la card du Dashboard (schéma + graphe).
+    const _doneCT = tickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
+    const _ltVals = _doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
+    const avgCT = _doneCT.length ? Math.round(_doneCT.reduce((s, t) => s + t.cycleTimeDays, 0) / _doneCT.length * 10) / 10 : 0;
+    const avgLT = _ltVals.length ? Math.round(_ltVals.reduce((s, v) => s + v, 0) / _ltVals.length * 10) / 10 : 0;
+    const avgWait = Math.max(0, Math.round((avgLT - avgCT) * 10) / 10);
+    const flowEff = avgLT > 0 ? Math.round((avgCT / avgLT) * 100) : null;
+
+    el.innerHTML = `
+        <div class="pi-indicators">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Lead time &amp; Cycle time ${helpIconHtml({ key: 'lct', label: 'Comprendre lead time vs cycle time' })}</span>
+                    <span class="card-subtitle">${_doneCT.length} ticket${_doneCT.length !== 1 ? 's' : ''} terminé${_doneCT.length !== 1 ? 's' : ''}</span>
+                </div>
+                <!-- Schéma : Créé → (attente) → Démarré → (cycle time) → Terminé ; Lead time = total -->
+                <div class="lct-schema">
+                    <div class="lct-flow">
+                        <span class="lct-node"><span class="lct-node-ico">📥</span><small>Créé</small></span>
+                        <span class="lct-seg lct-seg--wait"><span class="lct-seg-lbl">Attente</span><span class="lct-seg-val">${avgWait} j</span></span>
+                        <span class="lct-node"><span class="lct-node-ico">▶️</span><small>Démarré</small></span>
+                        <span class="lct-seg lct-seg--cycle"><span class="lct-seg-lbl">Cycle time</span><span class="lct-seg-val">${avgCT} j</span></span>
+                        <span class="lct-node"><span class="lct-node-ico">✅</span><small>Terminé</small></span>
+                    </div>
+                    <div class="lct-lead"><span class="lct-lead-lbl">⟵ Lead time moyen · <strong>${avgLT} j</strong> ⟶</span></div>
+                    ${flowEff != null ? `<div class="lct-floweff" title="Flow efficiency = cycle time / lead time. Part du lead time réellement passée à travailler le ticket (le reste = attente en file). Repère : ~15% courant, 40%+ bon.">
+                        <span class="lct-floweff-lbl">⚡ Flow efficiency</span>
+                        <span class="lct-floweff-bar"><span class="lct-floweff-fill ${flowEff >= 40 ? 'is-good' : flowEff >= 25 ? 'is-ok' : 'is-low'}" style="width:${Math.min(100, flowEff)}%"></span></span>
+                        <span class="lct-floweff-val">${flowEff}%</span>
+                    </div>` : ''}
+                </div>
+                <div class="chart-container chart-h-md"><canvas id="pi-chart-cycletime"></canvas></div>
+            </div>
+            ${stageFlowCardHtml(tickets)}
+            ${agingWipCardHtml(tickets)}
+        </div>`;
+
+    requestAnimationFrame(() => renderCycleTime('pi-chart-cycletime', tickets));
+    bindStageFlowCard(el, tickets);
+    bindAgingWipCard(el);
+}
+
 function renderTabContent(el, tab, data) {
     switch (tab) {
         case 'objectives': return renderObjectives(el, data);
+        case 'indicators': return renderIndicators(el, data);
         case 'features': return renderFeatures(el, data);
         case 'capacity': return renderCapacity(el, data);
         case 'burnup': return renderBurnup(el, data);
@@ -750,8 +797,6 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
             <span class="pi-obj-gauge-pct" style="color:${globalCol}">${globalDone}/${globalTotal} · ${globalPct}%</span>
         </div>` : ''}
         ${_commitmentPanelHtml(_commit, _baselineRaw, _canCapture)}
-        ${stageFlowCardHtml(tickets)}
-        ${agingWipCardHtml(tickets)}
         <div class="pi-obj-toolbar">
             ${!showAll
                 ? `<span class="chip" style="background:var(--primary-bg);color:var(--primary)">${esc(team)}</span>`
@@ -767,9 +812,6 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
             <button class="btn btn-secondary btn-sm" id="pi-obj-add">+ Ajouter un objectif</button>
         </div>` : ''}
     `;
-
-    bindStageFlowCard(el, tickets);
-    bindAgingWipCard(el);
 
     // ── Déverrouillage PI passé ───────────────────────────────────────────────
     el.querySelector('.pi-obj-unlock-btn')?.addEventListener('click', () => {

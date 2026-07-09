@@ -68,18 +68,38 @@
     margin-top: var(--sp-2);
 }
 .sprint-header.sprint-header--2col .sprint-goal-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
     margin: 0;
-    padding: 6px 10px;
+    padding: 8px 12px 8px 10px;
     background: color-mix(in srgb, var(--primary) 8%, transparent);
     border-left: 3px solid var(--primary);
     border-radius: 0 var(--r-md) var(--r-md) 0;
     font-size: var(--fs-xs);
     color: var(--text-secondary);
-    /* Plus de troncature : goal complet, wrap sur plusieurs lignes si nécessaire */
-    white-space: pre-wrap;
-    word-break: break-word;
-    line-height: 1.4;
+    line-height: 1.45;
 }
+/* Pastille icône = signale « objectif de sprint » sans le mot ; sert aussi de gouttière à gauche */
+.sprint-header.sprint-header--2col .sprint-goal-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin-top: 1px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--primary) 16%, transparent);
+    font-size: 13px;
+    line-height: 1;
+}
+.sprint-header.sprint-header--2col .sprint-goal-text {
+    /* Préserve les retours ligne du goal (🥇 / 🥈…) sans conserver les espaces superflus */
+    white-space: pre-line;
+    word-break: break-word;
+    padding-top: 3px;
+}
+.sprint-stat--muted { color: var(--text-muted); font-style: italic; }
 @media (max-width: 720px) {
     .sprint-header.sprint-header--2col { grid-template-columns: 1fr; }
     .sprint-header.sprint-header--2col .sprint-header-col--stats { align-items: stretch; text-align: left; }
@@ -799,8 +819,27 @@
     align-items: center;
     flex-wrap: wrap;
     gap: var(--sp-2);
-    padding-bottom: var(--sp-3);
+    /* Barre de contrôle du board, juste au-dessus des cartes. COLLANTE (#1) : filtres, recherche et
+       modes d'affichage restent accessibles en scrollant un board long. Fond opaque + z-index pour
+       passer au-dessus des cartes qui défilent ; fin séparateur pour la détacher du board. */
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    padding: var(--sp-2) 0;
+    margin-bottom: var(--sp-3);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
+.qf-shown {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    padding: 2px 8px;
+    border-radius: var(--r-full);
+    background: var(--bg-alt);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.qf-shown[hidden] { display: none; }
 .quick-filters {
     display: flex;
     align-items: center;
@@ -836,8 +875,8 @@
 .qf-btn.active .qf-count { background: var(--primary); color: white; }
 .qf-search {
     flex: 1;
-    min-width: 120px;
-    max-width: 200px;
+    min-width: 160px;
+    max-width: 340px;
     padding: var(--sp-1) var(--sp-3);
     border: 1px solid var(--border);
     border-radius: var(--r-full);

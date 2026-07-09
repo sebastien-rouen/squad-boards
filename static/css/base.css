@@ -3401,3 +3401,53 @@ textarea.input {
 .hd-bar--prod   { fill: color-mix(in srgb, var(--status-done) 65%, transparent); }
 .hd-bar--velo   { fill: color-mix(in srgb, var(--primary) 55%, transparent); }
 .hd-bar--current { fill: none; stroke: color-mix(in srgb, var(--primary) 55%, transparent); stroke-width: 1.5; stroke-dasharray: 4 3; }
+
+/* ── Bandeau global "filtre actif" (ex. « Mes tickets ») — rend visible un filtre qui masque des tickets ── */
+.global-filter-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 6px var(--sp-5);
+    font-size: var(--fs-sm);
+    color: var(--amber-text);
+    background: var(--warning-bg);
+    border-bottom: 1px solid var(--warning-border);
+}
+.global-filter-banner[hidden] { display: none; }
+.gfb-ico { font-size: 15px; flex: none; }
+.gfb-txt { flex: 1; min-width: 0; }
+.gfb-txt strong { color: var(--text); }
+.gfb-clear {
+    flex: none;
+    border: 1px solid var(--warning-border);
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
+    color: var(--amber-text);
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-xs);
+    padding: 3px 10px;
+    border-radius: var(--r-full);
+    cursor: pointer;
+}
+.gfb-clear:hover { background: color-mix(in srgb, var(--warning) 22%, transparent); }
+
+/* ── Badge « périmètre + couverture de données » (metric_scope.js) ───────────── */
+.metric-scope {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin: var(--sp-2) 0 0;
+    padding: 2px 8px;
+    border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--border) 40%, transparent);
+    font-variant-numeric: tabular-nums;
+}
+.metric-scope strong { color: var(--text); font-weight: var(--fw-semibold); }
+.metric-scope--ok   { }
+.metric-scope--auto { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--amber-text); }
+.metric-scope--auto strong { color: var(--amber-text); }
+.metric-scope--low  { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.metric-scope--low strong { color: var(--danger); }
+.metric-scope-excl { text-decoration: underline dotted; text-underline-offset: 2px; cursor: help; }

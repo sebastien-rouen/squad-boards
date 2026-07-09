@@ -926,6 +926,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 
 /* ── Card "Temps par colonne" (flux inter-étapes) ────────────────────────────── */
 .stage-flow-card .lct-flow { flex-wrap: wrap; }
+.stage-flow-p85 { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; opacity: .85; margin-top: 1px; }
 .stage-flow-count { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px; }
 .stage-flow-seg--dev    { background: color-mix(in srgb, var(--status-inprog) 16%, transparent); border: 1px solid color-mix(in srgb, var(--status-inprog) 45%, transparent); }
 .stage-flow-seg--review { background: color-mix(in srgb, var(--status-review, #8b5cf6) 16%, transparent); border: 1px solid color-mix(in srgb, var(--status-review, #8b5cf6) 45%, transparent); }
@@ -1278,6 +1279,16 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     border-radius: 999px;
     vertical-align: middle;
 }
+.sla-auto-tag--warn {
+    color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 18%, transparent);
+}
+.sla-scope {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin: var(--sp-1) 0 var(--sp-2);
+}
+.sla-scope strong { color: var(--text); }
 .sla-target-auto {
     margin-left: 4px;
     padding: 1px var(--sp-2);
@@ -1388,4 +1399,74 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 /* Rangées de métriques dans un flux (demi-largeur) : tuiles compactes qui s'adaptent */
 .dash-stream .dashboard-metrics { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 0; }
 .dash-stream .section-title { margin: var(--sp-1) 0; }
+
+/* ── Card "Prévision (Monte-Carlo)" (forecast_card.js) ───────────────────────── */
+.forecast-card .card-header { align-items: flex-start; }
+.forecast-conf {
+    flex: none;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    padding: 2px 8px;
+    border-radius: var(--r-full);
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--border) 45%, transparent);
+}
+.forecast-conf--ok   { color: var(--success); background: color-mix(in srgb, var(--success) 15%, transparent); }
+.forecast-conf--warn { color: var(--amber-text); background: color-mix(in srgb, var(--warning) 16%, transparent); }
+.forecast-conf--low  { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+
+.forecast-prob {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    margin: var(--sp-2) 0;
+    border-radius: var(--r-md);
+    border-left: 4px solid var(--text-muted);
+    background: color-mix(in srgb, var(--border) 30%, transparent);
+}
+.forecast-prob--ok   { border-left-color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.forecast-prob--warn { border-left-color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.forecast-prob--crit { border-left-color: var(--danger);  background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.forecast-prob-val { font-size: var(--fs-xl); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+.forecast-prob--ok   .forecast-prob-val { color: var(--success); }
+.forecast-prob--warn .forecast-prob-val { color: var(--amber-text); }
+.forecast-prob--crit .forecast-prob-val { color: var(--danger); }
+.forecast-prob-lbl { font-size: var(--fs-sm); color: var(--text-muted); }
+
+.forecast-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--sp-2);
+    margin: var(--sp-2) 0;
+}
+.forecast-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--sp-2);
+    border-radius: var(--r-sm);
+    background: color-mix(in srgb, var(--border) 25%, transparent);
+}
+.forecast-kpi-val { font-size: var(--fs-lg); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; }
+.forecast-kpi-val small { font-size: var(--fs-xs); color: var(--text-muted); font-weight: var(--fw-normal); }
+.forecast-kpi-lbl { font-size: var(--fs-xs); color: var(--text-muted); }
+.forecast-kpi--p50 { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.forecast-kpi--p85 { background: color-mix(in srgb, var(--warning) 12%, transparent); }
+
+.forecast-runchart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 56px;
+    padding-top: var(--sp-2);
+    border-top: 1px solid var(--border);
+}
+.forecast-bar {
+    flex: 1 1 0;
+    min-width: 4px;
+    border-radius: 2px 2px 0 0;
+    background: color-mix(in srgb, var(--primary) 55%, transparent);
+}
+.forecast-bar:last-child { background: var(--primary); }
 

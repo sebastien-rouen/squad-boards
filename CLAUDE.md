@@ -8,7 +8,7 @@ Board de projet **autoporteur** (fonctionne sans JIRA). Stack :
 ## Lancer
 ```bash
 pip install -r requirements.txt
-python main.py          # http://localhost:3000  — Swagger /docs
+python main.py          # http://localhost:3001  — Swagger /docs
 ```
 
 ## Architecture backend (`app/`)

@@ -245,6 +245,9 @@ export function slaDiagramSvg() {
         La <strong>SLA/SLE</strong> (Service Level Expectation) fixe un objectif de flux : « 85% des
         tickets terminés en ≤ X jours ». On suit le <strong>taux de conformité</strong> et on liste les
         tickets qui dépassent le seuil — la version chiffrée de « ça met trop de temps ».
+        <br><strong>Seuil auto</strong> = P85 du <strong>PI précédent</strong> (référence externe) : on
+        mesure si le PI courant fait aussi bien ou mieux. Se comparer à son propre P85 donnerait
+        toujours ~85% — c'est pourquoi la référence vient de l'historique, pas du PI mesuré.
     </p>`;
 }
 

@@ -1,3 +1,78 @@
+## [3.125.0] - 2026-07-09
+
+### Card "Temps par colonne" étendue à la Rétrospective et au Mode Demo
+
+- **[retro.js](static/js/views/retro.js)** : ajout de la card `⏳ Temps par colonne` (réutilisation du
+  composant Dashboard `stageFlowCardHtml`/`bindStageFlowCard`) en tête de la page Rétrospective, calculée
+  sur les tickets du **sprint courant** de l'équipe sélectionnée (`getSprintForTeam`).
+- **[stage_flow_card.js](static/js/components/stage_flow_card.js)** : `STAGE_ICONS`/`STAGE_LABELS` exportés
+  pour être réutilisés hors du composant (Mode Demo).
+- **[sprint_tickets_modal.js](static/js/components/sprint_tickets_modal.js)** : nouvelle section
+  `_demoStageFlowHtml` (médiane P50 par étape) insérée dans le Mode Demo fullscreen (`openDemoMode`), sous
+  la card Vélocité PI — rendu compact dédié en dark (les variables CSS du composant Dashboard ne
+  s'appliquent pas sur cet overlay fixe).
+- **[sprint-tickets-modal.css](static/css/views/sprint-tickets-modal.css)** : classes `.demo-stageflow-*`
+  (même style que `.demo-vel-card`) + agrandissement des textes Burnup/Vélocité PI/Temps par colonne dans
+  le Mode Demo pour la lisibilité en présentation TV.
+
+---
+
+## [3.124.0] - 2026-07-09
+
+### Métriques de flux : justesse, confiance, aging board & prévision Monte-Carlo (4 axes)
+
+Refonte challengeante des métriques temps/colonnes/cycle time/review/dashboard/board, en 4 axes.
+
+#### Axe 2 — Aging sur les cartes du board (P85 par colonne)
+
+- **[card.js](static/js/components/card.js) `_dwellChip`** : la pastille « jours dans la colonne » se
+  colore désormais selon un **repère data-driven** — ambre entre P50 et P85, rouge au-delà du P85 des
+  tickets **déjà terminés dans la même colonne** (le ticket sort de la zone habituelle de SA colonne),
+  au lieu de seuils fixes 4 j / 7 j. Fallback sur les seuils fixes si le repère n'est pas fiable (< 5
+  tickets terminés dans la colonne). Le risque devient visible là où on travaille, pas seulement dans un graphe.
+- Nouveaux helpers partagés [utils.js](static/js/utils.js) : `currentStageGroupKey(ticket)` (colonne de
+  flux du statut courant) et `computeStageAgeRefs(tickets)` (P50/P85 par colonne depuis l'historique
+  terminé). [sprint.js](static/js/views/sprint.js) calcule les repères sur l'**historique équipe complet**
+  (`_boardAgeRefs`) et les passe à `renderCard(t, { ageRefs })` (vues colonnes + swimlane).
+
+#### Axe 3 — Confiance des chiffres (périmètre + couverture)
+
+- Nouveau composant **[metric_scope.js](static/js/components/metric_scope.js)** (`metricScopeHtml`) : badge
+  « 📐 Mesuré sur *périmètre* · X/Y tickets · N exclus (raison) », coloré selon la couverture (vert/ambre/rouge).
+  Câblé sur **Lead/Cycle time**, **Temps par colonne** et **Aging WIP** (Dashboard + onglet Indicateurs PI
+  par héritage des composants). On sait enfin sur combien de tickets — et malgré combien d'exclusions — un
+  chiffre est calculé.
+
+#### Axe 4 — Prévision Monte-Carlo « finit-on à temps ? »
+
+- Nouvelle card **[forecast_card.js](static/js/components/forecast_card.js)** (Dashboard, PI courant
+  uniquement) : simule des milliers de scénarios en tirant au sort le **débit hebdomadaire** dans
+  l'historique réel de l'équipe jusqu'à écouler les tickets restants → prévision **P50 / P85** (dates) et,
+  si la fin de sprint est connue, **probabilité de tenir l'échéance** (verte ≥ 85%, ambre ≥ 50%, rouge sinon).
+  Comptage de tickets (pas de story points) pour rester robuste quand l'estimation est partielle. Run chart
+  du débit en barres inline (autonome, sans Chart.js). Indicateur de confiance selon la profondeur d'historique.
+
+### Justesse statistique des métriques de flux (axe 1/4 « corriger les 3 faux »)
+
+- **Flow efficiency par ticket puis médiane** ([dashboard.js](static/js/views/dashboard.js)) : le taux était
+  calculé en `moyenne(cycle) / moyenne(lead)` — un **ratio de moyennes** biaisé par les gros tickets et ne
+  représentant pas le ticket typique. Il est désormais calculé **par ticket** (`cycle/lead`, borné aux tickets
+  où `cycle ≤ lead`) puis on prend la **médiane**. Le schéma Lead/Cycle et le KPI passent aussi en médianes
+  (attente médiane, cycle médian, lead médian) pour rester cohérents.
+- **« Temps par colonne » en médiane (P50) + P85** ([utils.js](static/js/utils.js) `computeStageFlow`,
+  [stage_flow_card.js](static/js/components/stage_flow_card.js)) : on affichait une **moyenne**, sensible aux
+  tickets restés bloqués très longtemps dans une étape et incohérente avec les percentiles utilisés ailleurs.
+  `computeStageFlow` expose désormais `medDays` + `p85Days` (nouveau helper exporté `percentile(arr, p)` à
+  interpolation linéaire) ; la card montre la **médiane** en valeur principale et le **P85** en repère, et le
+  texte de copie Slack liste médiane + P85 par colonne.
+- **SLA/SLE non-tautologique** ([sla_review_card.js](static/js/components/sla_review_card.js)) : le seuil « auto »
+  valait le **P85 de l'échantillon mesuré**, donc la conformité tombait mécaniquement à ~85% (on se comparait à
+  soi-même). Le seuil auto est maintenant le **P85 du PI précédent** (référence externe, ≥ 5 tickets terminés
+  requis) et la conformité est mesurée sur les tickets terminés du **PI courant** → elle répond vraiment à
+  « fait-on aussi bien ou mieux que le PI d'avant ? ». Périmètre explicite affiché (`📐 Mesuré sur PI N ·
+  x/y tickets`), tag de source (`auto · réf. PI N`) et mode **provisoire** signalé tant qu'aucun PI de référence
+  n'est assez fourni. Aide SLA mise à jour.
+
 ## [3.123.0] - 2026-07-09
 
 ### Fix : « Rafraichir tous » (calendriers, Paramètres) utilise le même loader que la synchro du header

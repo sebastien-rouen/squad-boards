@@ -6,7 +6,8 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, filterByTeam, fmtRelative, toast } from '../utils.js';
+import { esc, filterByTeam, fmtRelative, toast, getSprintForTeam } from '../utils.js';
+import { stageFlowCardHtml, bindStageFlowCard } from '../components/stage_flow_card.js';
 
 const SRC_COLOR = {
     retro:      'var(--status-inprog)',
@@ -103,6 +104,13 @@ export function renderRetro(container) {
     const total = allItems.length;
     const done  = allItems.filter(i => i.status === 'done').length;
 
+    // Tickets du sprint courant de l'équipe (pour la card "Temps par colonne" — cf dashboard)
+    const currentSprint = getSprintForTeam(team, store.get('sprintInfo'));
+    const sprintTickets = currentSprint?.name
+        ? filteredTickets.filter(t => t.sprintName === currentSprint.name
+            || (Array.isArray(t.allSprints) && t.allSprints.includes(currentSprint.name)))
+        : [];
+
     container.innerHTML = `
         <div class="flex justify-between items-center mb-4">
             <div>
@@ -111,6 +119,8 @@ export function renderRetro(container) {
             </div>
             <button class="btn btn-primary btn-sm" id="btn-add-retro">+ Action</button>
         </div>
+
+        <div class="mb-4">${stageFlowCardHtml(sprintTickets)}</div>
 
         <div class="board-swimlanes compact">
             ${SOURCES.map(src => {
@@ -230,6 +240,9 @@ export function renderRetro(container) {
     container.querySelectorAll('.retro-ticket-row').forEach(row => {
         row.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(row.dataset.ticketId));
     });
+
+    // Card "Temps par colonne" du sprint courant (cf dashboard.js)
+    bindStageFlowCard(container, sprintTickets);
 
     // Swimlane collapse
     container.querySelectorAll('.swimlane-header').forEach(h => {

@@ -8,10 +8,11 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem } from '../utils.js';
+import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem, computeStageFlow } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, STATUS_MAP, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { renderBurndown, renderBurnup } from './charts.js';
+import { STAGE_ICONS } from './stage_flow_card.js';
 
 /**
  * Helpers d'entrée pour ouvrir directement Review/Demo sur le sprint sélectionné.
@@ -1026,6 +1027,27 @@ function _miniBurndownSvg(sprint, tickets) {
     </svg>`;
 }
 
+// Version compacte dark de la card "Temps par colonne" du Dashboard (cf stage_flow_card.js),
+// pour l'insérer dans la présentation TV du Mode Demo (colonne burnup, sous la vélocité).
+function _demoStageFlowHtml(tickets) {
+    const groups = computeStageFlow(tickets);
+    if (!groups.length) return '';
+    return `<div class="demo-stageflow-card">
+        <div class="demo-stageflow-hdr">
+            <span class="demo-stageflow-title">⏳ Temps par colonne</span>
+            <span class="demo-stageflow-sub">médiane (P50) par étape</span>
+        </div>
+        <div class="demo-stageflow-row">
+            ${groups.map(g => `
+            <div class="demo-stageflow-seg" title="${g.count} ticket${g.count > 1 ? 's' : ''} concerné${g.count > 1 ? 's' : ''} — médiane ${g.medDays} j · P85 ${g.p85Days} j · moyenne ${g.avgDays} j">
+                <span class="demo-stageflow-lbl">${STAGE_ICONS[g.key] || ''} ${esc(g.label)}</span>
+                <span class="demo-stageflow-val">${g.medDays}<small> j</small></span>
+                <span class="demo-stageflow-count">${g.count} tk</span>
+            </div>`).join('')}
+        </div>
+    </div>`;
+}
+
 // ── Mode Demo fullscreen — présentation TV pour Sprint Review ─────────────
 // Affiche en plein écran les wins du sprint en gros pour une démo en salle.
 // Auto-scroll des tickets, navigation flèches, ESC pour quitter.
@@ -1344,6 +1366,7 @@ export function openDemoMode(sprint, tickets) {
                             </div>
                         </div>`;
                     })()}
+                    ${_demoStageFlowHtml(tickets)}
                 </section>
 
                 <section class="demo-wins">

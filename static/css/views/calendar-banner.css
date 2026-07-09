@@ -515,6 +515,22 @@
     font-weight: var(--fw-medium);
     border: 1px solid var(--warning-border);
 }
+/* Segments de support (repris de la page Agenda) : palette par binôme + label de plage (Lun–Mer) */
+.cal-support-seg { display: inline-flex; align-items: center; gap: 4px; }
+.cal-support-seg-range {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    color: var(--seg-range-color, #b45309);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+}
+.cal-support-seg-div { color: #fbbf24; font-weight: var(--fw-bold); flex-shrink: 0; margin: 0 2px; }
+.cal-support-seg .cal-support-bar-chip {
+    background: var(--seg-chip-bg, #fef9c3);
+    border-color: var(--seg-chip-border, var(--warning-border));
+    color: var(--seg-chip-color, #92400e);
+}
 
 /* Barre sprint sous le header — refonte esthétique cohérente avec sprint-header dashboard */
 .cal-week-sprint-bar {

@@ -13,6 +13,8 @@ import { stageFlowCardHtml, bindStageFlowCard } from '../components/stage_flow_c
 import { agingWipCardHtml, bindAgingWipCard } from '../components/aging_wip_card.js';
 import { slaReviewCardHtml, bindSlaReviewCard } from '../components/sla_review_card.js';
 import { helpIconHtml } from '../components/help_popover.js';
+import { metricScopeHtml } from '../components/metric_scope.js';
+import { forecastCardHtml } from '../components/forecast_card.js';
 
 export function renderDashboard(container) {
     const team = store.get('team');
@@ -119,13 +121,12 @@ export function renderDashboard(container) {
         const m = Math.floor(s.length / 2);
         return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2 * 10) / 10;
     };
+    const _doneAll = tickets.filter(t => t.status === 'done');
     const _doneCT = tickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
     const _ltVals = _doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
     const ctMedian = _median(_doneCT.map(t => t.cycleTimeDays));
     const ltMedian = _median(_ltVals);
-    const avgCT = _doneCT.length ? Math.round(_doneCT.reduce((s, t) => s + t.cycleTimeDays, 0) / _doneCT.length * 10) / 10 : 0;
-    const avgLT = _ltVals.length ? Math.round(_ltVals.reduce((s, v) => s + v, 0) / _ltVals.length * 10) / 10 : 0;
-    const avgWait = Math.max(0, Math.round((avgLT - avgCT) * 10) / 10);
+    const medWait = Math.max(0, Math.round((ltMedian - ctMedian) * 10) / 10);
 
     // Débit (throughput) : tickets terminés sur les 7 derniers jours (team complet) — helper unique.
     // Tendance : semaine écoulée (J-7→J0) vs semaine précédente (J-14→J-7) pour un indicateur ↗/↘.
@@ -134,13 +135,28 @@ export function renderDashboard(container) {
     const throughputTrend = throughput7 - throughputPrev7;
     // Flow efficiency = part du lead time réellement passée à travailler (cycle) vs en file d'attente.
     // Repère métier : ~15% est courant, 40%+ est bon. Faible ⇒ les tickets attendent plus qu'ils
-    // n'avancent (files, dépendances, priorisation). Basé sur les moyennes déjà calculées ci-dessus.
-    const flowEff = avgLT > 0 ? Math.round((avgCT / avgLT) * 100) : null;
+    // n'avancent (files, dépendances, priorisation).
+    // Calcul par ticket (cycle/lead) puis MÉDIANE — un ratio de moyennes (avgCT/avgLT) est biaisé
+    // par les gros tickets et ne représente pas le ticket typique.
+    const _effPerTicket = _doneCT
+        .filter(t => t.leadTimeDays > 0 && t.cycleTimeDays > 0 && t.cycleTimeDays <= t.leadTimeDays)
+        .map(t => t.cycleTimeDays / t.leadTimeDays);
+    const flowEff = _effPerTicket.length ? Math.round(_median(_effPerTicket.map(v => v * 100))) : null;
     const flowEffCls = flowEff == null ? 'mc-info'
         : flowEff >= 40 ? 'mc-done' : flowEff >= 25 ? 'mc-info' : 'mc-warning';
     // Hygiène backlog (périmètre courant) : actifs non estimés / non assignés
     const noEstimate = displayTickets.filter(t => t.status !== 'done' && !(t.points > 0)).length;
     const noAssignee = displayTickets.filter(t => t.status !== 'done' && !t.leader).length;
+
+    // Prévision Monte-Carlo « finit-on à temps ? » — uniquement pour le PI courant (le rétrospectif
+    // n'a pas de sens sur un PI passé). Débit = historique équipe complet ; reste = périmètre affiché.
+    const _forecastCard = (isCurrentPi) ? forecastCardHtml({
+        historyTickets: tickets,
+        remaining: displayTickets.filter(t => t.status !== 'done').length,
+        scopeLabel: sprintInfo ? (String(sprintInfo.name || '').match(/(\d+\.\d+)/) || [])[1] || metricScope : metricScope,
+        targetDateIso: sprintInfo?.endDate || null,
+        targetLabel: 'sprint',
+    }) : '';
 
     // ── Tickets bloqués / stagnants (même état depuis longtemps) ──────────────
     // Seuil de stagnation éditable (champ discret dans la card), persisté en localStorage.
@@ -571,7 +587,7 @@ export function renderDashboard(container) {
                 <span class="metric-icon">⚡</span>
                 <span class="metric-label">Flow efficiency</span>
                 <span class="metric-value">${flowEff == null ? '—' : `${flowEff}<span class="metric-denom"> %</span>`}</span>
-                <span class="metric-sub">${flowEff == null ? 'pas assez de tickets terminés' : `travail ${avgCT} j · attente ${avgWait} j`}</span>
+                <span class="metric-sub">${flowEff == null ? 'pas assez de tickets terminés' : `travail ${ctMedian} j · attente ${medWait} j (médianes)`}</span>
             </div>
             <div class="metric-card ${noEstimate > 0 ? 'mc-warning' : 'mc-done'}" title="Tickets actifs sans Story Points (${metricScope})">
                 <span class="metric-icon">📝</span>
@@ -598,17 +614,18 @@ export function renderDashboard(container) {
                 <div class="card-header">
                     <span class="card-title">Lead time &amp; Cycle time ${helpIconHtml({ key: 'lct', label: 'Comprendre lead time vs cycle time' })}</span>
                     <span class="card-subtitle">${_doneCT.length} ticket${_doneCT.length !== 1 ? 's' : ''} terminé${_doneCT.length !== 1 ? 's' : ''}</span>
+                    ${metricScopeHtml({ scope: 'historique équipe', measured: _doneCT.length, total: _doneAll.length, excludedReason: 'dates de cycle manquantes' })}
                 </div>
                 <!-- Schéma : Créé → (attente) → Démarré → (cycle time) → Terminé ; Lead time = total -->
                 <div class="lct-schema">
                     <div class="lct-flow">
                         <span class="lct-node"><span class="lct-node-ico">📥</span><small>Créé</small></span>
-                        <span class="lct-seg lct-seg--wait"><span class="lct-seg-lbl">Attente</span><span class="lct-seg-val">${avgWait} j</span></span>
+                        <span class="lct-seg lct-seg--wait"><span class="lct-seg-lbl">Attente</span><span class="lct-seg-val">${medWait} j</span></span>
                         <span class="lct-node"><span class="lct-node-ico">▶️</span><small>Démarré</small></span>
-                        <span class="lct-seg lct-seg--cycle"><span class="lct-seg-lbl">Cycle time</span><span class="lct-seg-val">${avgCT} j</span></span>
+                        <span class="lct-seg lct-seg--cycle"><span class="lct-seg-lbl">Cycle time</span><span class="lct-seg-val">${ctMedian} j</span></span>
                         <span class="lct-node"><span class="lct-node-ico">✅</span><small>Terminé</small></span>
                     </div>
-                    <div class="lct-lead"><span class="lct-lead-lbl">⟵ Lead time moyen · <strong>${avgLT} j</strong> ⟶</span></div>
+                    <div class="lct-lead"><span class="lct-lead-lbl">⟵ Lead time médian · <strong>${ltMedian} j</strong> ⟶</span></div>
                     ${flowEff != null ? `<div class="lct-floweff" title="Flow efficiency = cycle time / lead time. Part du lead time réellement passée à travailler le ticket (le reste = attente en file). Repère : ~15% courant, 40%+ bon.">
                         <span class="lct-floweff-lbl">⚡ Flow efficiency</span>
                         <span class="lct-floweff-bar"><span class="lct-floweff-fill ${flowEff >= 40 ? 'is-good' : flowEff >= 25 ? 'is-ok' : 'is-low'}" style="width:${Math.min(100, flowEff)}%"></span></span>
@@ -624,6 +641,8 @@ export function renderDashboard(container) {
             </div>
             <!-- Aging WIP : ancienneté du travail en cours (proactif) — à côté de la Vélocité -->
             ${agingWipCardHtml(tickets)}
+            <!-- Prévision Monte-Carlo : va-t-on finir le sprint courant à temps ? -->
+            ${_forecastCard}
         </div>
         </section>
 

@@ -2777,8 +2777,10 @@ export function renderSettings(container) {
         const btn = container.querySelector('#btn-cal-refresh-all');
         if (btn) { btn.disabled = true; btn.textContent = '⏳ Synchronisation...'; }
         try {
-            await Promise.all(calendars.map(c => api.refreshCalendar(c.id).catch(() => {})));
-            toast('Tous les calendriers synchronises', 'success');
+            // Réutilise la synchro globale (même carte de progression que le bouton du header) :
+            // pilote store.syncType/syncProgress/… + rafraichit calendars/events + toast récap.
+            const { syncCalendars } = await import('../components/cal_banner.js');
+            await syncCalendars('all');
             await _calReloadSection(container);
         } catch (e) { toast(e.message, 'error'); }
         if (btn) { btn.disabled = false; btn.textContent = '🔄 Rafraichir tous'; }

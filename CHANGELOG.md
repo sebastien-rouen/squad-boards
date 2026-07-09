@@ -1,3 +1,14 @@
+## [3.123.0] - 2026-07-09
+
+### Fix : « Rafraichir tous » (calendriers, Paramètres) utilise le même loader que la synchro du header
+
+- **[settings.js](static/js/views/settings.js)** : le bouton `#btn-cal-refresh-all` déléguait à une boucle
+  maison `Promise.all(refreshCalendar)` sans piloter la carte de progression globale. Il réutilise désormais
+  **`syncCalendars('all')`** ([cal_banner.js](static/js/components/cal_banner.js)) — exactement comme le
+  bouton `#btn-cal-sync` du header : même **carte de progression détaillée** (`store.syncType='calendar'`,
+  avancement `n / N calendriers`, libellés), rafraîchissement `calendars`/`calendarEvents` et toast récap
+  unifiés.
+
 ## [3.122.1] - 2026-07-09
 
 ### Sprint Review : barres Lead/Cycle par ticket + fix objectif manquant

@@ -5,7 +5,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, filterByTeam, filterByMine, sumBy, pct, progressColor, fmtDate, fmtRelative, sortTickets, initials, hashColor, toast, getSprintForTeam, isBufferItem, countBlocked, typeBadge, statusBadge } from '../utils.js';
+import { esc, filterByTeam, filterByMine, sumBy, pct, progressColor, fmtDate, fmtRelative, sortTickets, initials, hashColor, toast, getSprintForTeam, isBufferItem, countBlocked, typeBadge, statusBadge, computeStageAgeRefs } from '../utils.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
 import { STATUS_ORDER, STATUS_LABELS, WIP_LIMITS } from '../config.js';
 import { renderCard, bindCardClicks } from '../components/card.js';
@@ -26,6 +26,9 @@ let _qfFilter = null; // 'blocked' | 'unassigned' | 'critical' | null
 let _chartsCollapsed = localStorage.getItem('sb-charts-collapsed') === 'true';
 let _chartsMounted = false; // évite un double-montage Chart.js si la section est repliée/dépliée sans re-render complet
 let _sprintContainer = null; // référence au conteneur pour _refreshBoard
+// Contexte du board pour _refreshBoard : mêmes filtres que le rendu initial (sprint courant + snapshot
+// d'un sprint clos le cas échéant), pour ne PAS afficher les tickets d'autres sprints après un refresh.
+let _boardCtx = { sprintName: null, pastTickets: null };
 // Sprint sélectionné manuellement par l'utilisateur via le sélecteur. null = sprint actif par défaut.
 // Persisté dans store.sprintPick (consommé par pushHash → #sprint/<team>/<sprintName>) — lien partageable.
 const _getSprintPick = () => store.get('sprintPick') || null;
@@ -175,6 +178,7 @@ export function renderSprint(container) {
     // → On fetch JIRA pour avoir la photo à la clôture (Done + reportés), via cache partagé
     // avec la modal Sprint Tickets (getSprintTicketsAsync).
     let pastSprintLoading = false;
+    let _usingPastSnapshot = false;
     const _isPickedClosedSprint = pickedSprintName
         && pickedSprintName !== activeSprintName
         && sprintInfo?.name
@@ -183,6 +187,7 @@ export function renderSprint(container) {
         const cacheKey = `${team || 'all'}::${sprintInfo.name}`;
         if (_pastSprintFetched.has(cacheKey)) {
             tickets = _pastSprintFetched.get(cacheKey);
+            _usingPastSnapshot = true;
         } else if (
             !_pastSprintInflight.has(cacheKey)
             && store.get('jiraConfigured')
@@ -230,6 +235,10 @@ export function renderSprint(container) {
     const unassigned = tickets.filter(t => !t.leader && !t.assignee).length;
     const critical = tickets.filter(t => t.priority === 'critical' || t.priority === 'high').length;
 
+    // Mémorise le contexte pour _refreshBoard (mêmes filtres que ce rendu initial : sprint courant,
+    // ou snapshot JIRA figé si sprint clos) → évite d'afficher des tickets d'autres sprints au refresh.
+    _boardCtx = { sprintName: sprintInfo?.name || null, pastTickets: _usingPastSnapshot ? tickets : null };
+
     // Apply active quick filter
     let filtered = tickets;
     if (_qfFilter === 'blocked') filtered = tickets.filter(t => t.status === 'blocked');
@@ -270,7 +279,10 @@ export function renderSprint(container) {
     const done = tickets.filter(t => t.status === 'done').length;
     const totalPts = sumBy(tickets, t => t.points);
     const donePts = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
-    const completion = pct(donePts, totalPts);
+    // % d'avancement : basé sur les story points quand ils sont estimés, sinon repli sur les tickets
+    // (évite l'affichage trompeur "Pts: 0/0 (0%)" quand aucun ticket du sprint n'est estimé).
+    const hasPts = totalPts > 0;
+    const completion = hasPts ? pct(donePts, totalPts) : pct(done, total);
     // sprintCtx : startDate + durationDays calculés à partir du sprint réel pour que
     // les axes x des charts (burndown, burnup, CFD, throughput) s'étendent exactement
     // sur la durée du sprint (premier jour → dernier jour).
@@ -374,12 +386,18 @@ export function renderSprint(container) {
                         <span class="sprint-name">${esc(sprintInfo?.name || 'Sprint')}</span>
                         ${sprintInfo?.startDate ? `<span class="sprint-dates">${fmtDate(sprintInfo.startDate)} → ${fmtDate(sprintInfo.endDate)}</span>` : ''}
                     </div>
-                    ${sprintInfo?.goal ? `<div class="sprint-goal-bar"><span class="text-sm"><strong>🎯 Objectif :</strong> ${esc(sprintInfo.goal)}</span></div>` : ''}
+                    ${sprintInfo?.goal ? `<div class="sprint-goal-bar" title="Objectif de sprint">
+                        <span class="sprint-goal-icon" aria-label="Objectif de sprint">🎯</span>
+                        <span class="sprint-goal-text">${esc(sprintInfo.goal)}</span>
+                    </div>` : ''}
                 </div>
                 <div class="sprint-header-col sprint-header-col--stats">
                     <div class="sprint-stats">
-                        <div class="sprint-stat">Pts: <strong>${donePts}/${totalPts}</strong> (${completion}%)</div>
-                        <div class="sprint-stat">Tickets: <strong>${done}/${total}</strong></div>
+                        ${hasPts
+                            ? `<div class="sprint-stat">Pts: <strong>${donePts}/${totalPts}</strong> (${completion}%)</div>
+                        <div class="sprint-stat">Tickets: <strong>${done}/${total}</strong></div>`
+                            : `<div class="sprint-stat">Tickets: <strong>${done}/${total}</strong> (${completion}%)</div>
+                        <div class="sprint-stat sprint-stat--muted" title="Aucun story point estimé sur ce sprint">Pts non estimés</div>`}
                         ${bufferPts ? `<div class="sprint-stat">Buffer: <strong>${bufferDone}/${bufferPts}</strong></div>` : ''}
                     </div>
                     <div class="sprint-quick-actions">
@@ -396,25 +414,27 @@ export function renderSprint(container) {
                 </div>
                 <div class="progress progress-inline-lg sprint-progress-full" title="${completion}% terminé"><div class="progress-bar ${progressColor(completion)}" style="width:${completion}%"></div></div>
             </div>
-
-            <div class="sprint-filter-row">
-                <div class="quick-filters">
-                    <button class="qf-btn${_qfFilter === 'blocked' ? ' active' : ''}" data-qf="blocked">🚫 Bloques <span class="qf-count">${blocked}</span></button>
-                    <button class="qf-btn${_qfFilter === 'unassigned' ? ' active' : ''}" data-qf="unassigned">👤 Non assignes <span class="qf-count">${unassigned}</span></button>
-                    <button class="qf-btn${_qfFilter === 'critical' ? ' active' : ''}" data-qf="critical">🔴 Critique/High <span class="qf-count">${critical}</span></button>
-                    <input class="qf-search" id="qf-text" placeholder="🔍 Filtrer : clé, titre, leader, label, contributeur, Epic/Feature parente…" value="${esc(_qfText)}" autocomplete="off">
-                    ${_qfFilter || _qfText ? `<span class="qf-clear" id="qf-clear" title="Effacer les filtres">✕</span>` : ''}
-                </div>
-                <div class="board-modes">
-                    <button class="board-mode-btn${_boardMode === 'columns' ? ' active' : ''}" data-mode="columns" title="Colonnes">▤</button>
-                    <button class="board-mode-btn${_boardMode === 'swimlanes' ? ' active' : ''}" data-mode="swimlanes" title="Swimlanes">☰</button>
-                    <button class="board-mode-btn${_boardMode === 'list' ? ' active' : ''}" data-mode="list" title="Liste">≡</button>
-                </div>
-            </div>
         </div>
 
         <!-- Charts (collapsible) — composant partagé Scrum/Kanban -->
         ${renderBoardChartsSection({ collapsed: _chartsCollapsed, sectionId: 'charts-section' })}
+
+        <!-- Filtres & modes d'affichage — juste au-dessus du board (contrôlent directement les cartes) -->
+        <div class="sprint-filter-row">
+            <div class="quick-filters">
+                <button class="qf-btn${_qfFilter === 'blocked' ? ' active' : ''}" data-qf="blocked">🚫 Bloqués <span class="qf-count">${blocked}</span></button>
+                <button class="qf-btn${_qfFilter === 'unassigned' ? ' active' : ''}" data-qf="unassigned">👤 Non assignés <span class="qf-count">${unassigned}</span></button>
+                <button class="qf-btn${_qfFilter === 'critical' ? ' active' : ''}" data-qf="critical">🔴 Critique/High <span class="qf-count">${critical}</span></button>
+                <input class="qf-search" id="qf-text" placeholder="🔍 Filtrer : clé, titre, leader, label, contributeur, Epic/Feature parente…" value="${esc(_qfText)}" autocomplete="off">
+                ${_qfFilter || _qfText ? `<span class="qf-clear" id="qf-clear" title="Effacer les filtres">✕</span>` : ''}
+                <span class="qf-shown" id="qf-shown" hidden></span>
+            </div>
+            <div class="board-modes">
+                <button class="board-mode-btn${_boardMode === 'columns' ? ' active' : ''}" data-mode="columns" title="Colonnes">▤</button>
+                <button class="board-mode-btn${_boardMode === 'swimlanes' ? ' active' : ''}" data-mode="swimlanes" title="Swimlanes">☰</button>
+                <button class="board-mode-btn${_boardMode === 'list' ? ' active' : ''}" data-mode="list" title="Liste">≡</button>
+            </div>
+        </div>
 
         <!-- Board -->
         <div id="board-container"></div>
@@ -499,6 +519,7 @@ export function renderSprint(container) {
 
     bindCardClicks(container);
     wireDragDrop(boardContainer);
+    _updateShownCount(container, filtered.length, tickets.length);
 
     // ── Mode Daily : scroll droite→gauche (flux tiré) + flash de la colonne prioritaire ───
     if (_boardMode === 'columns' && (_dailyPendingScroll || _dailyPendingHighlight)) {
@@ -548,12 +569,20 @@ function _syncClearBtn(container) {
 function _refreshBoard(container) {
     const boardEl = container.querySelector('#board-container');
     if (!boardEl) return;
-    const team = store.get('team');
-    const allTickets = filterByTeam(store.get('tickets') || [], team);
-    let filtered = allTickets;
-    if (_qfFilter === 'blocked')    filtered = allTickets.filter(t => t.status === 'blocked');
-    else if (_qfFilter === 'unassigned') filtered = allTickets.filter(t => !t.leader && !t.assignee);
-    else if (_qfFilter === 'critical')   filtered = allTickets.filter(t => t.priority === 'critical' || t.priority === 'high');
+    // Base IDENTIQUE au rendu initial (bug historique : on repartait de store.tickets filtrés seulement
+    // par équipe → tous les sprints s'affichaient, dont des Done de sprints passés). Ici : snapshot JIRA
+    // d'un sprint clos, sinon tickets live filtrés équipe + « Mes tickets » + sprint courant.
+    let base;
+    if (_boardCtx.pastTickets) {
+        base = _boardCtx.pastTickets;
+    } else {
+        base = filterByMine(filterByTeam(store.get('tickets') || [], store.get('team')));
+        if (_boardCtx.sprintName) base = base.filter(t => (t.sprintName || '') === _boardCtx.sprintName);
+    }
+    let filtered = base;
+    if (_qfFilter === 'blocked')    filtered = base.filter(t => t.status === 'blocked');
+    else if (_qfFilter === 'unassigned') filtered = base.filter(t => !t.leader && !t.assignee);
+    else if (_qfFilter === 'critical')   filtered = base.filter(t => t.priority === 'critical' || t.priority === 'high');
     if (_qfText) {
         const q = _qfText.toLowerCase().trim();
         // Aligné sur renderSprint : matche clé, titre, leader, labels, contributors,
@@ -585,6 +614,20 @@ function _refreshBoard(container) {
     else                             renderColumnView(boardEl, filtered);
     bindCardClicks(container);
     wireDragDrop(boardEl);
+    _updateShownCount(container, filtered.length, base.length);
+}
+
+// Compteur "X / Y affichés" dans la barre de filtres — visible seulement quand un filtre rapide ou
+// une recherche masque des cartes (rend explicite ce qui est caché, écho au piège du filtre invisible).
+function _updateShownCount(container, shown, total) {
+    const el = container.querySelector('#qf-shown');
+    if (!el) return;
+    if ((_qfFilter || _qfText) && total > 0) {
+        el.textContent = `${shown} / ${total} affiché${shown > 1 ? 's' : ''}`;
+        el.hidden = false;
+    } else {
+        el.hidden = true;
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -656,8 +699,19 @@ function _ticketsForCol(col, tickets, allCols) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Repères d'ancienneté par colonne (P50/P85), calculés sur l'HISTORIQUE COMPLET de l'équipe
+// (pas seulement le sprint affiché, souvent trop peu de tickets terminés). Sert à colorer l'âge
+// des cartes du board (cf card.js _dwellChip). Recalculé à chaque rendu — peu coûteux.
+function _boardAgeRefs() {
+    try {
+        const all = filterByTeam(store.get('tickets') || [], store.get('team'));
+        return computeStageAgeRefs(all);
+    } catch { return null; }
+}
+
 function renderColumnView(el, tickets) {
     const activeCols = _activeColumns();
+    const ageRefs = _boardAgeRefs();
     // Déduplication : un ticket ne peut apparaître que dans une seule colonne
     const seen = new Set();
     const colItems = activeCols.map(col => {
@@ -677,7 +731,7 @@ function renderColumnView(el, tickets) {
         if (empty) {
             return `<div class="board-column board-column--empty"><div class="column-header col-${col.key}"><span class="col-label-text">${esc(col.label)}</span><span class="column-count">0</span></div><div class="column-cards"></div></div>`;
         }
-        return `<div class="board-column"><div class="column-header col-${col.key}"><span>${esc(col.label)}</span><span class="column-count${exceeded ? ' wip-exceeded' : ''}">${items.length}${wip ? '/' + wip : ''}${colPts ? ' · ' + colPts + 'pts' : ''}</span></div><div class="column-cards">${items.map(t => renderCard(t)).join('')}</div></div>`;
+        return `<div class="board-column"><div class="column-header col-${col.key}"><span>${esc(col.label)}</span><span class="column-count${exceeded ? ' wip-exceeded' : ''}">${items.length}${wip ? '/' + wip : ''}${colPts ? ' · ' + colPts + 'pts' : ''}</span></div><div class="column-cards">${items.map(t => renderCard(t, { ageRefs })).join('')}</div></div>`;
     }).join('')}</div>`;
 }
 
@@ -708,6 +762,7 @@ function renderListView(el, tickets) {
 }
 
 function renderSwimlaneView(el, tickets) {
+    const ageRefs = _boardAgeRefs();
     const byAssignee = new Map();
     for (const t of tickets) {
         const key = t.leader || t.assignee || 'Non assigne';
@@ -728,7 +783,7 @@ function renderSwimlaneView(el, tickets) {
         const seenSw = new Set();
         return `<div class="swimlane"><div class="swimlane-header" data-lane="${esc(name)}"><span class="inline-flex-center"><span class="assignee-avatar" style="background:${hashColor(name)};color:white;width:20px;height:20px;font-size:8px">${esc(initials(name))}</span>${esc(name)} <span class="text-xs text-muted">(${items.length} tickets, ${pts} pts, ${d} done)</span></span><svg class="icon icon-sm"><use href="#i-chevron-down"/></svg></div><div class="swimlane-body"><div class="board" class="board-compact">${activeCols.map(col => {
             const si = _ticketsForCol(col, items, activeCols).filter(t => { if (seenSw.has(t.id)) return false; seenSw.add(t.id); return true; });
-            return si.length ? `<div class="board-column" class="board-column-narrow"><div class="column-header col-${col.key}"><span>${esc(col.label)}</span><span class="column-count">${si.length}</span></div><div class="column-cards">${si.map(t => renderCard(t)).join('')}</div></div>` : '';
+            return si.length ? `<div class="board-column" class="board-column-narrow"><div class="column-header col-${col.key}"><span>${esc(col.label)}</span><span class="column-count">${si.length}</span></div><div class="column-cards">${si.map(t => renderCard(t, { ageRefs })).join('')}</div></div>` : '';
         }).join('')}</div></div></div>`;
     }).join('')}</div>`;
 

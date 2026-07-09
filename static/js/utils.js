@@ -290,6 +290,43 @@ export const STAGE_FLOW_GROUPS = [
     { key: 'prod', label: 'À livrer en prod', test: k => k.includes('prod') && !k.includes('preprod') && !k.includes('préprod') },
 ];
 
+/**
+ * Clé du groupe de flux correspondant au statut ACTUEL d'un ticket (la colonne où il se trouve
+ * maintenant), dérivée du libellé JIRA brut. Renvoie null si le statut n'est pas une colonne
+ * suivie (backlog, à faire, terminé…). Source unique partagée par la card Aging WIP et les
+ * cartes du board (coloration d'ancienneté).
+ */
+export function currentStageGroupKey(ticket) {
+    const raw = String(ticket?.jiraStatus || ticket?._jiraStatus || '').toLowerCase().trim();
+    if (!raw) return null;
+    return (STAGE_FLOW_GROUPS.find(g => g.test(raw)) || {}).key || null;
+}
+
+/**
+ * Référence d'ancienneté par colonne : distribution (P50/P85) des durées passées par les tickets
+ * DÉJÀ TERMINÉS dans chaque colonne suivie (issu de stageDurations). Sert de "Service Level
+ * Expectation" implicite pour colorer l'âge d'un ticket en cours (vert < P50, ambre P50–P85,
+ * rouge ≥ P85). Les tickets exclus du flux sont ignorés (cohérent avec computeStageFlow).
+ * @returns {{[key:string]: {p50:number, p85:number, n:number}}}
+ */
+export function computeStageAgeRefs(tickets) {
+    const done = (tickets || []).filter(t => t.status === 'done' && !isTicketExcludedFromFlow(t).excluded);
+    const refs = {};
+    for (const g of STAGE_FLOW_GROUPS) {
+        const vals = [];
+        for (const t of done) {
+            const sd = t.stageDurations || t.stage_durations || {};
+            let sum = 0;
+            for (const [rawKey, days] of Object.entries(sd)) {
+                if (g.test(rawKey)) sum += days;
+            }
+            if (sum > 0) vals.push(sum);
+        }
+        refs[g.key] = { p50: percentile(vals, 50), p85: percentile(vals, 85), n: vals.length };
+    }
+    return refs;
+}
+
 // ── Tickets exclus du calcul de flux (ex: tickets récurrents "OPS" créés chaque PI qui
 // faussent la moyenne) ── Stockage : localStorage `stageflow-excluded` = JSON array d'IDs
 // (exclusion ticket par ticket) + `stageflow-excluded-patterns` = JSON array de regex
@@ -355,6 +392,17 @@ export function isTicketExcludedFromFlow(ticket) {
  * réellement présentes dans le workflow de l'équipe (au moins un ticket concerné).
  * Les tickets exclus (par ID ou par motif — cf isTicketExcludedFromFlow) sont ignorés du calcul.
  */
+/** Percentile (interpolation linéaire) sur un tableau NON trié. Retourne 0 si vide. */
+export function percentile(arr, p) {
+    if (!arr || !arr.length) return 0;
+    const s = [...arr].sort((a, b) => a - b);
+    if (s.length === 1) return s[0];
+    const idx = (p / 100) * (s.length - 1);
+    const lo = Math.floor(idx), hi = Math.ceil(idx);
+    const v = lo === hi ? s[lo] : s[lo] + (s[hi] - s[lo]) * (idx - lo);
+    return Math.round(v * 10) / 10;
+}
+
 export function computeStageFlow(tickets) {
     return STAGE_FLOW_GROUPS.map(g => {
         const perTicket = [];
@@ -369,7 +417,11 @@ export function computeStageFlow(tickets) {
         }
         if (!perTicket.length) return null;
         const avgDays = Math.round((perTicket.reduce((a, b) => a + b, 0) / perTicket.length) * 10) / 10;
-        return { key: g.key, label: g.label, avgDays, count: perTicket.length };
+        // Médiane (P50) + P85 : plus robustes que la moyenne face aux tickets « bloqués » extrêmes,
+        // et cohérents avec les percentiles utilisés ailleurs (SLA, lead/cycle time).
+        const medDays = percentile(perTicket, 50);
+        const p85Days = percentile(perTicket, 85);
+        return { key: g.key, label: g.label, avgDays, medDays, p85Days, count: perTicket.length };
     }).filter(Boolean);
 }
 

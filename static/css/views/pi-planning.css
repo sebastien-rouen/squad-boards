@@ -508,3 +508,12 @@ details[open] .feat-buf-toggle-icon { transform: rotate(90deg); }
 .pi-commit-stat--add { color: var(--warning); font-weight: var(--fw-semibold); }
 .pi-commit-stat--rm { color: var(--danger); font-weight: var(--fw-semibold); }
 .pi-commit-saydo { margin-left: auto; font-weight: 700; }
+
+/* Onglet Indicateurs : cards de flux (Lead/Cycle, Temps par colonne, Aging WIP) en grille adaptative */
+.pi-indicators {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: var(--sp-4);
+    align-items: start;
+}
+.pi-indicators > .card { min-width: 0; }

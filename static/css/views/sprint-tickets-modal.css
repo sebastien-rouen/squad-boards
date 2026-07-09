@@ -374,14 +374,14 @@
 }
 .demo-burnup h2 {
     color: #fff;
-    font-size: 18px;
+    font-size: 21px;
     margin: 0 0 12px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     font-weight: 700;
 }
 .demo-burnup-hint {
-    font-size: 11px;
+    font-size: 13px;
     color: #fbbf24;
     font-weight: 500;
     margin-left: 8px;
@@ -424,15 +424,15 @@
     align-items: center;
     gap: 8px;
     color: #f1f5f9;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
-.demo-vel-emoji { font-size: 16px; }
+.demo-vel-emoji { font-size: 18px; }
 .demo-vel-sub {
     display: block;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
     color: #64748b;
     letter-spacing: 0;
@@ -455,14 +455,14 @@
     min-width: 70px;
 }
 .demo-vel-kpi-val {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: #f1f5f9;
     font-variant-numeric: tabular-nums;
     line-height: 1.1;
 }
 .demo-vel-kpi-lbl {
-    font-size: 9px;
+    font-size: 10px;
     color: #94a3b8;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -572,6 +572,61 @@
 .demo-spark-legend--best    { background: rgba(251,191,36,0.85); }
 .demo-spark-legend--breath  { background: rgba(74,222,128,0.6); border: 1px solid rgba(74,222,128,0.5); }
 .demo-spark-legend--future  { background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.25); }
+
+/* Card "Temps par colonne" compacte — sous la vélocité PI dans le Mode Demo (cf demo-vel-card) */
+.demo-stageflow-card {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+}
+.demo-stageflow-hdr {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.demo-stageflow-title {
+    color: #f1f5f9;
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.demo-stageflow-sub { font-size: 11px; color: #64748b; }
+.demo-stageflow-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.demo-stageflow-seg {
+    flex: 1 1 0;
+    min-width: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 6px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    cursor: help;
+}
+.demo-stageflow-lbl {
+    font-size: 12px;
+    color: #94a3b8;
+    text-align: center;
+    line-height: 1.2;
+}
+.demo-stageflow-val {
+    font-size: 19px;
+    font-weight: 700;
+    color: #60a5fa;
+    font-variant-numeric: tabular-nums;
+}
+.demo-stageflow-val small { font-size: 11px; color: #94a3b8; font-weight: 500; }
+.demo-stageflow-count { font-size: 10px; color: #64748b; }
 
 /* Boutons Sprint Review / Demo dans le header Sprint */
 .sprint-quick-actions {

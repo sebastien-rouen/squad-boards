@@ -795,21 +795,50 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
         : weekOffset < 0    ? `Il y a ${-weekOffset} semaines`
         : `Dans ${weekOffset} semaines`;
 
-    const _monKey = _dayKey(mon);
-    const _sunKey = _dayKey(sun);
-    const _supportNames = [...new Set(
-        (store.get('support') || [])
-            .filter(r => {
-                if (_currentTeam && _currentTeam !== 'all' && r.team !== _currentTeam) return false;
-                return r.weekStart <= _sunKey && r.weekEnd >= _monKey;
-            })
+    // Support de la semaine — segmenté par jour, façon page Agenda : la frontière de semaine support
+    // peut tomber en milieu de semaine (modes ven→jeu, lun→lun…), d'où des binômes différents. Chaque
+    // segment reçoit une palette cyclique (mêmes teintes que l'Agenda) exposée en CSS vars.
+    const _SUP_PAL = [
+        { chipBg: '#fef9c3', chipBorder: '#fde68a', chipColor: '#92400e', rangeColor: '#b45309' },
+        { chipBg: '#ffedd5', chipBorder: '#fed7aa', chipColor: '#9a3412', rangeColor: '#c2410c' },
+        { chipBg: '#d1fae5', chipBorder: '#a7f3d0', chipColor: '#065f46', rangeColor: '#059669' },
+    ];
+    const _SUP_ABBR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
+    const _supAll = store.get('support') || [];
+    const _supForDay = dk => new Set(
+        _supAll
+            .filter(r => (!_currentTeam || _currentTeam === 'all' || r.team === _currentTeam)
+                && r.weekStart <= dk && r.weekEnd >= dk)
             .flatMap(r => r.members || [])
-    )];
-    const _supportBarHtml = _supportNames.length
+    );
+    const _supWkKeys = days.slice(0, 5).map(_dayKey);
+    const _supSetsEq = (a, b) => a.size === b.size && [...a].every(x => b.has(x));
+    const _supSegs = [];
+    _supWkKeys.forEach((dk, i) => {
+        const mems = _supForDay(dk);
+        const last = _supSegs[_supSegs.length - 1];
+        if (last && _supSetsEq(last.members, mems)) last.idx.push(i);
+        else _supSegs.push({ idx: [i], members: mems });
+    });
+    let _supPalI = 0;
+    for (const s of _supSegs) s.pal = s.members.size ? _SUP_PAL[_supPalI++ % _SUP_PAL.length] : null;
+    const _supActive = _supSegs.filter(s => s.members.size);
+    const _supMulti = _supActive.length > 1;
+    const _supSegLbl = s => {
+        const fi = s.idx[0], li = s.idx[s.idx.length - 1];
+        return fi === li ? _SUP_ABBR[fi] : `${_SUP_ABBR[fi]}–${_SUP_ABBR[li]}`;
+    };
+    const _supportBarHtml = _supActive.length
         ? `<div class="cal-support-bar">
                <span class="cal-support-bar-icon">🎧</span>
                <span class="cal-support-bar-label">Support</span>
-               ${_supportNames.map(n => `<span class="cal-support-bar-chip">${esc(n)}</span>`).join('')}
+               ${_supActive.map((seg, i) =>
+                   `${i > 0 ? '<span class="cal-support-seg-div">·</span>' : ''}`
+                   + `<span class="cal-support-seg"${seg.pal ? ` style="--seg-chip-bg:${seg.pal.chipBg};--seg-chip-border:${seg.pal.chipBorder};--seg-chip-color:${seg.pal.chipColor};--seg-range-color:${seg.pal.rangeColor}"` : ''}>`
+                   + (_supMulti ? `<span class="cal-support-seg-range">${_supSegLbl(seg)}</span>` : '')
+                   + [...seg.members].map(n => `<span class="cal-support-bar-chip">${esc(n)}</span>`).join('')
+                   + `</span>`
+               ).join('')}
            </div>`
         : '';
 

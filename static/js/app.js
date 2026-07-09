@@ -5,7 +5,7 @@
 
 import { store } from './state.js';
 import * as api from './api.js';
-import { toast, promptModal } from './utils.js';
+import { toast, promptModal, esc } from './utils.js';
 import { seedDemoData } from './demo.js';
 import { importFromJira, getExcludedTeams, clearExcludedTeams } from './sync.js';
 
@@ -676,6 +676,26 @@ async function init() {
                 ? (on ? `Filtre actif : tickets de ${name}` : `Voir uniquement mes tickets (${name})`)
                 : 'Définir votre nom dans Paramètres → À propos';
             myBtn.style.display = name ? '' : 'none';  // caché si pas configuré
+        }
+        // Bandeau global "filtre actif" — le bouton topbar étant masqué < 1024px / déplacé dans le
+        // kebab, rien ne signalait que "Mes tickets" masquait des tickets. Ce bandeau le rend explicite
+        // sur toutes les vues, avec une action directe pour tout réafficher.
+        const fb = document.getElementById('global-filter-banner');
+        if (fb) {
+            if (on && name) {
+                fb.innerHTML = `<span class="gfb-ico">👤</span>`
+                    + `<span class="gfb-txt">Filtre actif — <strong>Mes tickets</strong> · seuls les tickets de ${esc(name)} sont affichés</span>`
+                    + `<button type="button" class="gfb-clear" id="gfb-clear">Tout afficher ✕</button>`;
+                fb.hidden = false;
+                fb.querySelector('#gfb-clear').addEventListener('click', () => {
+                    localStorage.setItem(_MY_KEY, '0');
+                    updateMyBtn();
+                    renderView();
+                });
+            } else {
+                fb.innerHTML = '';
+                fb.hidden = true;
+            }
         }
     };
     myBtn?.addEventListener('click', async () => {

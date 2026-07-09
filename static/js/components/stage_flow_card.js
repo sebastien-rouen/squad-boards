@@ -18,11 +18,12 @@
  * (utils.js), la card se rafraîchit immédiatement après chaque changement.
  */
 
-import { esc, toast, promptModal, computeStageFlow, computeStageFlowDetail, isBufferItem, getStatusLabel, isFlowTicketExcluded, setFlowTicketExcluded, getExcludedFlowPatterns, addExcludedFlowPattern, removeExcludedFlowPattern, extractPiNum } from '../utils.js';
+import { esc, toast, promptModal, computeStageFlow, computeStageFlowDetail, percentile, isBufferItem, getStatusLabel, isFlowTicketExcluded, setFlowTicketExcluded, getExcludedFlowPatterns, addExcludedFlowPattern, removeExcludedFlowPattern, extractPiNum, isTicketExcludedFromFlow } from '../utils.js';
 import { TYPE_ICONS } from '../config.js';
 import { helpIconHtml } from './help_popover.js';
+import { metricScopeHtml } from './metric_scope.js';
 
-const STAGE_ICONS = {
+export const STAGE_ICONS = {
     dev: '💻',
     review: '👀',
     test: '🧪',
@@ -41,7 +42,7 @@ const STAGE_COLORS = {
     prod: 'var(--status-done)',
 };
 
-const STAGE_LABELS = {
+export const STAGE_LABELS = {
     dev: 'En cours de dév', test: 'En cours de test', review: 'Revue',
     qualif: 'À livrer en qualif', prod: 'À livrer en prod',
 };
@@ -49,21 +50,30 @@ const STAGE_LABELS = {
 export function stageFlowCardHtml(tickets) {
     const groups = computeStageFlow(tickets);
     if (!groups.length) return '';
+    // Couverture : combien de tickets (non exclus du flux) portent au moins une durée d'étape.
+    const candidates = (tickets || []).filter(t => !isTicketExcludedFromFlow(t).excluded);
+    const measured = candidates.filter(t => {
+        const sd = t.stageDurations || t.stage_durations || {};
+        return Object.values(sd).some(d => d > 0);
+    }).length;
+    const scopeBadge = metricScopeHtml({ scope: 'historique équipe', measured, total: candidates.length, excludedReason: 'aucune durée d\'étape (changelog JIRA manquant)' });
     return `
         <div class="card stage-flow-card">
             <div class="card-header">
                 <div>
                     <span class="card-title">⏳ Temps par colonne ${helpIconHtml({ key: 'stage-flow', label: 'Comprendre le temps par colonne' })}</span>
-                    <span class="card-subtitle">Durée moyenne passée dans chaque étape — cliquer pour le détail</span>
+                    <span class="card-subtitle">Durée médiane (P50) par étape · P85 en repère — cliquer pour le détail</span>
+                    ${scopeBadge}
                 </div>
                 <button type="button" class="btn btn-ghost btn-xs stage-flow-copy-all" title="Copier le détail de toutes les colonnes (Slack)">📋 Copier</button>
             </div>
             <div class="lct-schema">
                 <div class="lct-flow">
                     ${groups.map(g => `
-                    <button type="button" class="lct-seg stage-flow-seg stage-flow-seg--${g.key}" data-stage-key="${g.key}" title="${g.count} ticket${g.count > 1 ? 's' : ''} concerné${g.count > 1 ? 's' : ''} — cliquer pour le détail">
+                    <button type="button" class="lct-seg stage-flow-seg stage-flow-seg--${g.key}" data-stage-key="${g.key}" title="${g.count} ticket${g.count > 1 ? 's' : ''} concerné${g.count > 1 ? 's' : ''} — médiane ${g.medDays} j · P85 ${g.p85Days} j · moyenne ${g.avgDays} j — cliquer pour le détail">
                         <span class="lct-seg-lbl">${STAGE_ICONS[g.key] || ''} ${esc(g.label)}</span>
-                        <span class="lct-seg-val">${g.avgDays} j</span>
+                        <span class="lct-seg-val">${g.medDays} j</span>
+                        <span class="stage-flow-p85" title="85% des tickets passent moins de ${g.p85Days} j dans cette étape">P85 ${g.p85Days} j</span>
                         <span class="stage-flow-count">${g.count} ticket${g.count > 1 ? 's' : ''}</span>
                     </button>`).join('')}
                 </div>
@@ -166,9 +176,11 @@ function _buildStageBlockText(groupKey, rows) {
     const label = STAGE_LABELS[groupKey] || groupKey;
     const icon = STAGE_ICONS[groupKey] || '';
     const active = rows.filter(r => !r.excluded);
-    const avg = active.length ? active.reduce((sum, r) => sum + r.days, 0) / active.length : 0;
+    const daysArr = active.map(r => r.days);
+    const med = percentile(daysArr, 50);
+    const p85 = percentile(daysArr, 85);
     return [
-        `${icon} ${label} — ${active.length} ticket${active.length > 1 ? 's' : ''}, ${avg.toFixed(1)} j en moyenne`,
+        `${icon} ${label} — ${active.length} ticket${active.length > 1 ? 's' : ''}, médiane ${med.toFixed(1)} j · P85 ${p85.toFixed(1)} j`,
         ...active
             .slice()
             .sort((a, b) => b.days - a.days)
@@ -206,7 +218,7 @@ function _buildAllStagesCopyText(tickets) {
         '📣 [CYCLE TIME]',
         ..._piSprintLines(allActiveTickets),
         '',
-        'Calcul : durée moyenne (en jours) passée par chaque ticket dans chaque colonne du workflow, de son entrée à sa sortie.',
+        'Calcul : durée (en jours) passée par chaque ticket dans chaque colonne du workflow, de son entrée à sa sortie — médiane (P50) et P85 par colonne (plus robustes que la moyenne).',
         '',
         blocks.join('\n\n'),
     ].join('\n');

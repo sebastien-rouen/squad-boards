@@ -21,6 +21,7 @@
 import { esc, STAGE_FLOW_GROUPS, isTicketExcludedFromFlow, getStatusLabel } from '../utils.js';
 import { TYPE_ICONS } from '../config.js';
 import { helpIconHtml } from './help_popover.js';
+import { metricScopeHtml } from './metric_scope.js';
 
 const STAGE_ICONS = { dev: '💻', test: '🧪', review: '👀', qualif: '📦', prod: '🚀' };
 
@@ -68,6 +69,8 @@ function _buildModel(tickets) {
         refs[g.key] = { p50: _pctl(vals, 50), p85: _pctl(vals, 85), n: vals.length };
     }
 
+    // Tickets actifs (ni terminés ni exclus) = candidats au positionnement dans une colonne.
+    const activeTotal = all.filter(t => t.status !== 'done').length;
     const cols = [];
     let totalWip = 0, atRisk = 0;
     for (const g of STAGE_FLOW_GROUPS) {
@@ -88,20 +91,22 @@ function _buildModel(tickets) {
         atRisk += rows.filter(r => r.band === 'crit').length;
         cols.push({ key: g.key, label: g.label, ref, rows });
     }
-    return { cols, totalWip, atRisk };
+    return { cols, totalWip, atRisk, activeTotal };
 }
 
 export function agingWipCardHtml(tickets) {
-    const { cols, totalWip, atRisk } = _buildModel(tickets);
+    const { cols, totalWip, atRisk, activeTotal } = _buildModel(tickets);
     if (!cols.length) return '';
     const sub = `${totalWip} ticket${totalWip > 1 ? 's' : ''} en cours`
         + (atRisk > 0 ? ` · <strong class="aging-wip-atrisk">${atRisk} au-delà du P85</strong>` : ' · tous dans les temps');
+    const scopeBadge = metricScopeHtml({ scope: 'WIP actuel', measured: totalWip, total: activeTotal, unit: 'tickets actifs', excludedReason: 'statut hors colonnes suivies' });
     return `
         <div class="card aging-wip-card">
             <div class="card-header">
                 <div>
                     <span class="card-title">⏳ Ancienneté du travail en cours ${helpIconHtml({ key: 'aging-wip', label: 'Comprendre l\'ancienneté du travail en cours (Aging WIP)' })}</span>
                     <span class="card-subtitle">${sub} · comparé au P50/P85 des tickets terminés</span>
+                    ${scopeBadge}
                 </div>
                 <span class="aging-wip-legend">
                     <span class="aging-wip-key aging-wip-key--ok">&lt; P50</span>

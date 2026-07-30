@@ -1029,6 +1029,38 @@ function _buildDaySlack(evs, day) {
         lines.push('');
     }
 
+    // Support du jour — même source que la barre support de la semaine (store 'support'),
+    // filtré sur l'équipe sélectionnée. Prénom seul (pas le nom complet). La transition n'est pas
+    // déduite des bornes de rotation (weekStart/weekEnd — pas fiable, cf incident précédent) mais
+    // en comparant directement les membres du jour copié à ceux de la veille : s'ils diffèrent,
+    // affiche "Sortant(s) --> Entrant(s)" plutôt qu'une simple liste.
+    const team = store.get('team');
+    const _supAllDay = store.get('support') || [];
+    const _supForDayKey = k => [...new Set(
+        _supAllDay
+            .filter(r => (!team || team === 'all' || r.team === team) && r.weekStart <= k && r.weekEnd >= k)
+            .flatMap(r => r.members || [])
+    )];
+    // Noms RH au format "NOM, Prénom" (jamais l'inverse — cf docs/regles-metier.md) : le prénom
+    // est ce qui suit la virgule. Fallback sur le 1er mot si jamais un nom sans virgule traîne.
+    const _firstName = n => {
+        const t = (n || '').trim();
+        const after = t.includes(',') ? t.split(',')[1] : t;
+        return (after || '').trim().split(/\s+/)[0] || t;
+    };
+    const dk = _dayKey(day);
+    const todaySup = _supForDayKey(dk);
+    let supportLine = '';
+    if (todaySup.length) {
+        const prevDk  = _dayKey(new Date(day.getTime() - 86400000));
+        const prevSup = _supForDayKey(prevDk);
+        const changed = prevSup.length && (prevSup.length !== todaySup.length || !prevSup.every(m => todaySup.includes(m)));
+        supportLine = changed
+            ? `${prevSup.map(_firstName).join(', ')} --> ${todaySup.map(_firstName).join(', ')}`
+            : todaySup.map(_firstName).join(', ');
+    }
+    if (supportLine) lines.push(`:shield: Support : ${supportLine}`);
+
     if (offEvs.length) {
         const names = offEvs.map(ev => {
             const name = _nameFromOff(ev.title);
@@ -1095,7 +1127,7 @@ function _wireWeekContent(overlay, allEvents, refresh, navigate, resetToToday, t
             e.stopPropagation();
             const dk = btn.dataset.dk;
             const day = new Date(dk + 'T00:00:00');
-            const dayEvs = allEvents.filter(ev => _dayKey(ev.start) === dk);
+            const dayEvs = allEvents.filter(ev => _eventCoversDay(ev, dk));
             const msg = _buildDaySlack(dayEvs, day);
             try {
                 await navigator.clipboard.writeText(msg);

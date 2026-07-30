@@ -482,6 +482,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
                     while (cStart < 1000) {
                         const r = await api.jiraGet(`rest/agile/1.0/sprint/${cs.id}/issue`, {
                             maxResults: 100, startAt: cStart,
+                            expand: 'changelog',
                             fields: `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,flagged,updated,created`,
                         });
                         const issues = r?.issues || [];

@@ -1,3 +1,189 @@
+## [3.137.0] - 2026-07-30
+
+### Dashboard : Lead time/Cycle time, débit et flow efficiency scopés au PI sélectionné
+
+- **[dashboard.js](static/js/views/dashboard.js)** : ces cards étaient calculées sur `tickets`
+  (tout l'historique équipe, filtré uniquement par équipe) — donc identiques quel que soit le PI
+  choisi via le sélecteur de la topbar (`piOffset`), contrairement au reste du dashboard. Nouveau
+  `_flowTickets` = tickets du PI affiché (`_ticketPiNum(t) === displayPiNum`, toutes les sprints du
+  PI — pas seulement le sprint courant, pour garder un échantillon suffisant), utilisé pour
+  `_doneAll`/`_doneCT`/`ctMedian`/`ltMedian`/`medWait`/`throughput7`/`flowEff` et le graphe Cycle
+  Time (`renderCycleTime`). Le badge `metric-scope` affiche maintenant `PI #NN` au lieu de
+  "historique équipe" (fallback conservé si `displayPiNum` est indisponible).
+- Effet de bord attendu : sur un PI peu actif, l'échantillon peut redevenir trop faible (mêmes
+  messages "pas assez de tickets terminés" / cases exclues) — c'est le compromis assumé pour rester
+  cohérent avec le sélecteur de PI plutôt que de figer ces cards sur l'historique complet.
+
+---
+
+## [3.136.0] - 2026-07-30
+
+### Fix : Lead time & Cycle time quasi vides (dates de cycle manquantes) sur l'historique équipe
+
+- **[sync.js](static/js/sync.js)** : la passe "sprints clos récents" (`CLOSED_TICKET_SPRINTS`, jusqu'à
+  6 sprints par défaut) — qui fournit la quasi-totalité des tickets "done" utilisés par la card
+  Lead time & Cycle time et le graphe Cycle Time — récupérait les issues **sans** `expand: 'changelog'`,
+  contrairement à la passe "sprint actif" qui l'inclut déjà. Sans changelog, `transformIssue` ne peut
+  pas déterminer `startedDate`/`resolvedDate` (basés sur les transitions de statut) → `cycleTimeDays`
+  restait à 0 pour tous les tickets clos, sauf ceux déjà vus dans le sprint actif (dédoublonnage
+  `seenTicketIds`). D'où le "1/111 tickets, 110 exclus" observé sur Fuego : seul le ticket partagé
+  entre sprint actif et historique avait un changelog exploitable. Ajout de `expand: 'changelog'` à
+  cet appel. Une resynchro complète (non "quick mode", qui saute cette passe) est nécessaire pour que
+  l'historique déjà en base récupère les dates de cycle.
+
+---
+
+## [3.135.0] - 2026-07-30
+
+### Dashboard : sprint-progress-meta détaillé (tickets, jours restants, avance/retard, bloqués)
+
+- **[dashboard.js](static/js/views/dashboard.js)** : la ligne meta au-dessus des carrés jour du
+  sprint passe d'un simple "X% pts · Y% temps" à une rangée de chips : `%` pts (coloré
+  vert/jaune/rouge), tickets terminés/total (`🎫`), `%` temps écoulé (`⏱️`), écart avance/retard
+  points vs temps si ≥ 5 points d'écart (`▲`/`▼`), jours restants avant la fin du sprint (`📆`), et
+  ticket(s) bloqué(s) le cas échéant (`🚫`). Donne un jugement direct ("on tient le rythme ?") sans
+  avoir à lire la rangée de carrés.
+- **[sprint.css](static/css/views/sprint.css)** : nouvelle classe `.sprint-progress-chip` (même
+  esprit visuel que `.sprint-ev-chip`) avec variantes `--ahead`/`--behind`/`--blocked` ; suppression
+  de `.sprint-progress-stats*` (remplacée).
+
+---
+
+## [3.134.0] - 2026-07-30
+
+### Dashboard : carrés jour du sprint colorisés passé / en cours / futur
+
+- **[dashboard.js](static/js/views/dashboard.js)** : chaque case `.sprint-day-sq` porte maintenant
+  systématiquement un état temporel (`is-past`/`is-today`/`is-future`), en plus de `is-filled` pour
+  la couleur d'avancement (points réalisés) qui vient en overlay par-dessus.
+- **[sprint.css](static/css/views/sprint.css)** : 3 traitements visuels distincts — passé (fond
+  neutre marqué = jour révolu non couvert = retard visible), aujourd'hui (teinte + anneau accent
+  primary), futur (pointillé discret atténué). La couleur d'avancement (vert/jaune/rouge) reste
+  toujours prioritaire par spécificité CSS sur ces 3 états de base.
+
+---
+
+## [3.133.0] - 2026-07-30
+
+### Dashboard : progression du sprint en carrés jour par jour
+
+- **[dashboard.js](static/js/views/dashboard.js)** : refonte de `.sprint-progress-wrap`. L'ancien
+  fill en dégradé continu (2 barres superposées temps/points + marqueur "aujourd'hui" + label %
+  flottant) devient une rangée de **carrés, un par jour calendaire du sprint** (`.sprint-day-sq`) :
+  case colorée (vert/jaune/rouge selon `progressColor(ptsPct)`) si couverte par le % de points
+  réalisés, grisée si le jour est passé sans être couverte (retard visible), anneau distinct sur la
+  case du jour, texture atténuée sur les week-ends. Le % pts / % temps écoulé migre en texte lisible
+  dans la ligne meta (`.sprint-progress-stats`) au lieu d'un label flottant sur la barre.
+- **[sprint.css](static/css/views/sprint.css)** : `.sprint-progress-wrap` devient une mini-carte
+  détachée (fond `--surface-2`, bordure, padding) au lieu de se fondre dans le `.sprint-header` ;
+  nouvelles classes `.sprint-progress-days`/`.sprint-day-sq`/`.sprint-progress-stats*` ; suppression
+  de `.sprint-progress-bar`/`.sprint-progress-time`/`.sprint-progress-pts`/`.sprint-progress-today`
+  (plus référencées).
+
+---
+
+## [3.132.0] - 2026-07-30
+
+### Agenda du jour (copie Slack) : détection de transition support par comparaison veille/jour
+
+- **[cal_banner.js](static/js/components/cal_banner.js) `_buildDaySlack`** : la détection de jour de
+  transition support ne se base plus sur les bornes `weekStart`/`weekEnd` des rotations (pas fiable
+  — une charnière de rotation ne tombe pas toujours pile sur le jour où la personne change
+  réellement). Compare désormais directement les membres support du jour copié à ceux de la veille
+  (`_supForDayKey`) : s'ils diffèrent, affiche `Sortant(s) --> Entrant(s)`, sinon la liste simple.
+
+---
+
+## [3.131.0] - 2026-07-30
+
+### Agenda du jour (copie Slack) : prénom seul pour le support + affichage des jours de transition
+
+- **[cal_banner.js](static/js/components/cal_banner.js) `_buildDaySlack`** : la ligne `:shield:
+  Support` n'affiche plus que le prénom. Noms RH stockés au format `"NOM, Prénom"`
+  ([regles-metier.md](docs/regles-metier.md)) — `_firstName` prenait initialement le 1er mot
+  (`"NOM,"`) au lieu du prénom après la virgule ; corrigé pour découper sur la virgule d'abord, avec
+  repli sur le 1er mot si jamais un nom sans virgule traîne. Sur un jour charnière entre deux
+  rotations (`weekEnd` de l'une == `weekStart` de l'autre == jour copié), le format bascule sur
+  `Sortant --> Entrant` (ex : `Mattéo --> Tanisha`) au lieu de lister les deux personnes côte à côte
+  sans distinction.
+
+---
+
+## [3.130.0] - 2026-07-30
+
+### Agenda du jour (copie Slack) : ajout du support 🛡️ au-dessus des absents
+
+- **[cal_banner.js](static/js/components/cal_banner.js) `_buildDaySlack`** : le texte copié par le
+  bouton 📋 "Copier l'agenda du jour" liste maintenant la/les personne(s) de support (`:shield:`) du
+  jour copié, pour l'équipe sélectionnée — même source de données (`store.get('support')`, rotations
+  `weekStart`/`weekEnd`/`members`) que la barre support 🎧 de la vue semaine. Ligne insérée juste
+  au-dessus de `:beach_with_umbrella: Absents`.
+
+---
+
+## [3.129.0] - 2026-07-30
+
+### Fix : barre de progression du sprint figée au clic sur une pill PI
+
+- **[settings.js](static/js/views/settings.js) `_fillSprintForm`** : le `%` écoulé
+  (`.sprint-nested-bar`/`.sprint-nested-fill`/`.sprint-nested-pct`) n'était calculé qu'au chargement
+  de la page, pour le sprint actif JIRA — cliquer sur une autre pill (`data-sprint-idx`) changeait
+  bien les dates du formulaire mais laissait l'ancienne barre/pourcentage affichés. Recalcul depuis
+  les dates du sprint sélectionné (`startEl`/`endEl`) à chaque clic, avec création à la volée de la
+  barre/pastille si le sprint initial n'en affichait pas (ex : sprint futur, 0% au chargement).
+
+---
+
+## [3.128.0] - 2026-07-30
+
+### Fix : dates Début/Fin du sprint pas alignées côte à côte
+
+- **[pi-config.css](static/css/views/pi-config.css) `.sprint-nested-grid`** : dans la grille 2 colonnes
+  (Nom du sprint / Début / Fin / Objectif), les champs `--full` (Nom, Objectif) ne spannaient les 2
+  colonnes qu'en dessous de 640px — au-dessus, l'auto-placement grid alignait "Nom du sprint" avec
+  "Début" sur la même ligne, puis "Fin" avec "Objectif" sur la suivante (diagonale, pas côte à côte).
+  Ajout de `.sprint-nested-grid .pi-cfg-field--full { grid-column: 1 / -1 }` à toutes les largeurs
+  (retrait de la règle devenue redondante dans le breakpoint 640px) pour que Début et Fin atterrissent
+  ensemble sur leur propre ligne.
+
+---
+
+## [3.127.0] - 2026-07-30
+
+### Fix : champ "Début" du sprint figé au clic sur une pill PI
+
+- **[settings.js](static/js/views/settings.js) `_fillSprintForm`** : le champ visible d'une date
+  "friendly" ([utils.js](static/js/utils.js) `friendlyDateField`) est en réalité le `<span
+  class="fdate-display">` — l'`<input type="date">` réel (`#spr-start`/`#spr-end`) est rendu
+  transparent par-dessus (`pi-config.css`) et ne sert qu'à capter le clic/la saisie. Poser
+  `startEl.value = ...` en JS ne déclenche ni `input` ni `change`, donc `wireFriendlyDates()` (qui
+  resynchronise l'affichage sur ces events) ne se réveillait jamais : cliquer sur une pill
+  (`data-sprint-idx`) mettait bien à jour la valeur réelle de l'input, mais le texte affiché restait
+  sur l'ancienne date. Ajout d'un `dispatchEvent(new Event('input', {bubbles:true}))` après
+  affectation, comme le fait déjà `_piFormFill` pour le formulaire PI. Même correctif dans
+  `_syncDateConstraints` pour la correction auto fin < début.
+
+---
+
+## [3.126.0] - 2026-07-30
+
+### Health Check : capacité prévisionnelle intégrée au hero + fix copie agenda du jour
+
+- **[health.js](static/js/views/health.js)** : la card "Capacité prévisionnelle" quitte son bloc dédié
+  sous le hero et rejoint le `health-hero` (3ᵉ colonne, à côté du score et de l'intro). Version condensée
+  (`capacity-mini`) : un seul chiffre net mis en avant (capacité nette PI), sous-titre équipe/fenêtre de
+  dates, et une ligne secondaire compacte vélocité moyenne / % absences — le détail brut vs net reste
+  disponible en tooltip plutôt qu'en grille de 4 métriques, pour désencombrer le hero.
+- **[health.css](static/css/views/health.css)** : `.health-hero` passe en grille `auto 1fr auto` (repli en
+  colonne unique sous 960px) ; remplacement des classes `.capacity-card`/`.capacity-metrics`/... par
+  `.capacity-mini` et ses sous-éléments.
+- **[cal_banner.js](static/js/components/cal_banner.js)** : le bouton "Copier l'agenda du jour" (📋) filtrait
+  les événements par `_dayKey(ev.start) === dk`, ratant les absences OFF multi-jours démarrées la veille
+  mais couvrant toujours le jour copié (elles restaient visibles dans la colonne du jour, qui utilise
+  `_eventCoversDay`). Alignement sur `_eventCoversDay` pour que le texte copié corresponde à ce qui est affiché.
+
+---
+
 ## [3.125.0] - 2026-07-09
 
 ### Card "Temps par colonne" étendue à la Rétrospective et au Mode Demo

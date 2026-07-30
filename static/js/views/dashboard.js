@@ -111,8 +111,10 @@ export function renderDashboard(container) {
     const completion = pct(done, total);
     const ptsPct = pct(donePts, totalPts);
 
-    // ── Indicateurs de flux (cycle/lead time) — calculés sur l'historique team complet ──
-    // (pas seulement le sprint courant, pour avoir assez de tickets terminés)
+    // ── Indicateurs de flux (cycle/lead time, débit, flow efficiency) — scopés au PI affiché ──
+    // (toutes les sprints du PI, pas seulement le sprint courant, pour garder un échantillon
+    // suffisant) plutôt que sur tout l'historique équipe, pour rester cohérent avec le sélecteur
+    // de PI de la topbar — avant ce changement ces cards ne bougeaient jamais selon le PI choisi.
     const _nowMs = Date.now();
     const DAY_MS = 86400000;
     const _median = arr => {
@@ -121,17 +123,19 @@ export function renderDashboard(container) {
         const m = Math.floor(s.length / 2);
         return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2 * 10) / 10;
     };
-    const _doneAll = tickets.filter(t => t.status === 'done');
-    const _doneCT = tickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
+    const _flowTickets = displayPiNum ? tickets.filter(t => _ticketPiNum(t) === displayPiNum) : tickets;
+    const _flowScopeLabel = displayPiNum ? `PI #${displayPiNum}` : 'historique équipe';
+    const _doneAll = _flowTickets.filter(t => t.status === 'done');
+    const _doneCT = _flowTickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
     const _ltVals = _doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
     const ctMedian = _median(_doneCT.map(t => t.cycleTimeDays));
     const ltMedian = _median(_ltVals);
     const medWait = Math.max(0, Math.round((ltMedian - ctMedian) * 10) / 10);
 
-    // Débit (throughput) : tickets terminés sur les 7 derniers jours (team complet) — helper unique.
-    // Tendance : semaine écoulée (J-7→J0) vs semaine précédente (J-14→J-7) pour un indicateur ↗/↘.
-    const throughput7 = throughputSince(tickets, 7);
-    const throughputPrev7 = Math.max(0, throughputSince(tickets, 14) - throughput7);
+    // Débit (throughput) : tickets terminés sur les 7 derniers jours, scopé au PI affiché — helper
+    // unique. Tendance : semaine écoulée (J-7→J0) vs semaine précédente (J-14→J-7) pour un ↗/↘.
+    const throughput7 = throughputSince(_flowTickets, 7);
+    const throughputPrev7 = Math.max(0, throughputSince(_flowTickets, 14) - throughput7);
     const throughputTrend = throughput7 - throughputPrev7;
     // Flow efficiency = part du lead time réellement passée à travailler (cycle) vs en file d'attente.
     // Repère métier : ~15% est courant, 40%+ est bon. Faible ⇒ les tickets attendent plus qu'ils
@@ -495,11 +499,68 @@ export function renderDashboard(container) {
             const _fmt = ts => isNaN(ts) ? '' : new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace(/\./g, '');
             // Nom, jour restant et stats (pts/écart/mood/fist) sont désormais dans la carte "Objectif
             // du sprint" de la bande ci-dessus ; ce bandeau ne garde que la timeline + les sprints du PI.
+
+            // Un carré par jour calendaire du sprint (au lieu d'un dégradé continu) : chaque case
+            // "rempli" représente une part du % de points réalisés (donePts/totalPts), ordonnée dans
+            // le temps — la case du jour a un anneau distinct, le week-end une texture atténuée.
+            // Donne une lecture immédiate de l'avance/retard jour par jour (façon heatmap), pas
+            // seulement un pourcentage abstrait.
+            const totalDays  = (!isNaN(sStart) && !isNaN(sEnd) && sEnd >= sStart) ? Math.round((sEnd - sStart) / 86400000) + 1 : 0;
+            const todayIdx   = totalDays ? Math.floor((now - sStart) / 86400000) : -1;
+            const filledCount = totalDays ? Math.round((ptsPct / 100) * totalDays) : 0;
+            const pcColor = progressColor(ptsPct);
+
+            // Détail meta : jours restants + écart avancement points vs temps écoulé (ahead/behind),
+            // pour donner un jugement ("on tient le rythme ?") sans avoir à lire la rangée de carrés.
+            const daysLeft = todayInSprint ? Math.max(0, Math.ceil((sEnd - now) / 86400000)) : null;
+            const deltaPct = (totalDays && timePct != null) ? ptsPct - timePct : null;
+            const daySquaresHtml = totalDays ? Array.from({ length: totalDays }, (_, i) => {
+                const dDate = new Date(sStart + i * 86400000);
+                const dow = dDate.getDay();
+                const isWeekend = dow === 0 || dow === 6;
+                const isToday   = i === todayIdx;
+                const isPast    = i < todayIdx;
+                const isFilled  = i < filledCount;
+                const dLabel = dDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+                const tip = [dLabel, isToday ? "Aujourd'hui" : isPast ? 'Passé' : 'À venir', isFilled ? 'Points réalisés' : null]
+                    .filter(Boolean).join(' · ');
+                // État temporel toujours posé (passé/aujourd'hui/futur), + is-filled en overlay
+                // pour la couleur d'avancement (points réalisés) — les 2 se cumulent.
+                const stateCls = isToday ? 'is-today' : isPast ? 'is-past' : 'is-future';
+                const cls = ['sprint-day-sq', stateCls,
+                    isFilled ? `is-filled ${pcColor}` : '',
+                    isWeekend ? 'is-weekend' : ''].filter(Boolean).join(' ');
+                return `<span class="${cls}" title="${esc(tip)}"></span>`;
+            }).join('') : '<span class="sprint-progress-days-empty">Dates de sprint indisponibles</span>';
+
             return `
         <div class="sprint-header sprint-header--timeline mb-4">
             <div class="sprint-progress-wrap">
                 <div class="sprint-progress-meta">
                     ${_sprintShort ? `<span class="sprint-progress-label" title="${esc(sprintInfo.name)}">${esc(_sprintShort)}</span>` : ''}
+                    ${totalDays ? `
+                    <span class="sprint-progress-chip sprint-progress-chip--pts" title="${donePts}/${totalPts} pts réalisés">
+                        <strong class="${pcColor}">${ptsPct}%</strong> pts
+                    </span>
+                    <span class="sprint-progress-chip sprint-progress-chip--tix" title="${done}/${total} tickets terminés${inprog ? ` · ${inprog} en cours` : ''}">
+                        🎫 ${done}/${total}
+                    </span>
+                    <span class="sprint-progress-chip sprint-progress-chip--time" title="Temps écoulé depuis le début du sprint">
+                        ⏱️ ${timePct ?? '?'}% temps
+                    </span>
+                    ${(deltaPct !== null && Math.abs(deltaPct) >= 5) ? `
+                    <span class="sprint-progress-chip sprint-progress-chip--${deltaPct > 0 ? 'ahead' : 'behind'}" title="Écart entre l'avancement points (${ptsPct}%) et le temps écoulé (${timePct}%)">
+                        ${deltaPct > 0 ? '▲' : '▼'} ${Math.abs(deltaPct)}% ${deltaPct > 0 ? "d'avance" : 'de retard'}
+                    </span>` : ''}
+                    ${daysLeft !== null ? `
+                    <span class="sprint-progress-chip sprint-progress-chip--days" title="Jours restants avant la fin du sprint">
+                        📆 ${daysLeft > 0 ? `${daysLeft} j restant${daysLeft > 1 ? 's' : ''}` : 'Dernier jour'}
+                    </span>` : ''}
+                    ${blocked > 0 ? `
+                    <span class="sprint-progress-chip sprint-progress-chip--blocked" title="${blocked} ticket${blocked > 1 ? 's' : ''} bloqué${blocked > 1 ? 's' : ''}">
+                        🚫 ${blocked} bloqué${blocked > 1 ? 's' : ''}
+                    </span>` : ''}
+                    ` : ''}
                     ${_sprintEvents.length ? `<span class="sprint-progress-events">${_sprintEvents.map(ev => {
                         const icon = _EV_ICONS[ev.type] || 'ℹ️';
                         const _fmtD = iso => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}`; };
@@ -508,11 +569,8 @@ export function renderDashboard(container) {
                         return `<span class="sprint-ev-chip sprint-ev-chip--${ev.type || 'other'}" title="${esc(tip)}">${icon} ${esc(ev.title)}</span>`;
                     }).join('')}</span>` : ''}
                 </div>
-                <div class="sprint-progress-bar" title="Avancement points : ${donePts}/${totalPts} pts (${ptsPct}%) — Temps écoulé : ${timePct ?? '?'}%">
-                    <div class="sprint-progress-time" style="width:${timePct ?? 0}%" title="Temps écoulé : ${timePct ?? '?'}%"></div>
-                    <div class="sprint-progress-pts ${progressColor(ptsPct)}" style="width:${ptsPct}%"></div>
-                    ${todayInSprint ? `<div class="sprint-progress-today" style="left:${timePct}%" title="Aujourd'hui · ${_fmt(now)}"></div>` : ''}
-                    ${ptsPct > 0 ? `<span class="sprint-progress-pts-label" style="left:${Math.min(ptsPct, 95)}%">${ptsPct}%</span>` : ''}
+                <div class="sprint-progress-days" title="Avancement points : ${donePts}/${totalPts} pts (${ptsPct}%) — Temps écoulé : ${timePct ?? '?'}%">
+                    ${daySquaresHtml}
                 </div>
                 ${!isNaN(sStart) ? `
                 <div class="sprint-progress-scale">
@@ -571,7 +629,7 @@ export function renderDashboard(container) {
 
         <!-- Secondary indicators row (flux & hygiène) -->
         <div class="dashboard-metrics dashboard-metrics--secondary">
-            <div class="metric-card mc-info" title="Tickets terminés sur les 7 derniers jours (équipe complète) — tendance vs semaine précédente (${throughputPrev7})">
+            <div class="metric-card mc-info" title="Tickets terminés sur les 7 derniers jours (${esc(_flowScopeLabel)}) — tendance vs semaine précédente (${throughputPrev7})">
                 <span class="metric-icon">🚀</span>
                 <span class="metric-label">Débit (7j)</span>
                 <span class="metric-value">${throughput7}${throughputTrend !== 0 ? `<span class="metric-trend ${throughputTrend > 0 ? 'metric-trend--up' : 'metric-trend--down'}">${throughputTrend > 0 ? '↗' : '↘'} ${throughputTrend > 0 ? '+' : ''}${throughputTrend}</span>` : ''}</span>
@@ -614,7 +672,7 @@ export function renderDashboard(container) {
                 <div class="card-header">
                     <span class="card-title">Lead time &amp; Cycle time ${helpIconHtml({ key: 'lct', label: 'Comprendre lead time vs cycle time' })}</span>
                     <span class="card-subtitle">${_doneCT.length} ticket${_doneCT.length !== 1 ? 's' : ''} terminé${_doneCT.length !== 1 ? 's' : ''}</span>
-                    ${metricScopeHtml({ scope: 'historique équipe', measured: _doneCT.length, total: _doneAll.length, excludedReason: 'dates de cycle manquantes' })}
+                    ${metricScopeHtml({ scope: _flowScopeLabel, measured: _doneCT.length, total: _doneAll.length, excludedReason: 'dates de cycle manquantes' })}
                 </div>
                 <!-- Schéma : Créé → (attente) → Démarré → (cycle time) → Terminé ; Lead time = total -->
                 <div class="lct-schema">
@@ -691,7 +749,7 @@ export function renderDashboard(container) {
 
     // Render charts after DOM is ready
     requestAnimationFrame(() => {
-        renderCycleTime('chart-cycletime', tickets);
+        renderCycleTime('chart-cycletime', _flowTickets);
         mountVelocityChart({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax });
         bindActivityClicks(container);
         bindStageFlowCard(container, displayTickets);

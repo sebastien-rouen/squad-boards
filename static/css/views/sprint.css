@@ -171,18 +171,23 @@
     line-height: 1.4;
 }
 
-/* Wrapper progression — pleine largeur sous les infos */
+/* Wrapper progression — pleine largeur sous les infos, détachée en mini-carte pour se distinguer
+   du reste du sprint-header (même esprit que .capacity-mini côté Health). */
 .sprint-progress-wrap {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
 }
-/* Ligne meta : nom court du sprint + events */
+/* Ligne meta : nom court du sprint + stats pts/temps + events */
 .sprint-progress-meta {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
     min-height: 18px;
 }
@@ -194,11 +199,46 @@
     opacity: 0.7;
     cursor: default;
 }
+/* Chips de détail (pts / tickets / temps / avance-retard / jours restants / bloqués) —
+   remplace l'ancien label flottant sur la barre, même esprit visuel que .sprint-ev-chip. */
+.sprint-progress-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    cursor: default;
+}
+.sprint-progress-chip strong { font-size: 12px; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+.sprint-progress-chip strong.green  { color: var(--success); }
+.sprint-progress-chip strong.yellow { color: var(--warning); }
+.sprint-progress-chip strong.red    { color: var(--danger); }
+.sprint-progress-chip--ahead {
+    color: var(--success-text, var(--success));
+    border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+    background: color-mix(in srgb, var(--success) 10%, var(--surface));
+}
+.sprint-progress-chip--behind {
+    color: var(--amber-text, var(--warning));
+    border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+    background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+}
+.sprint-progress-chip--blocked {
+    color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+    background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+}
 .sprint-progress-events {
     display: flex;
     align-items: center;
     gap: 4px;
     flex-wrap: wrap;
+    margin-left: auto;
 }
 .sprint-ev-chip {
     display: inline-flex;
@@ -209,7 +249,7 @@
     border-radius: 999px;
     border: 1px solid var(--border);
     color: var(--text-muted);
-    background: var(--surface-2);
+    background: var(--surface);
     white-space: nowrap;
     cursor: default;
 }
@@ -218,70 +258,54 @@
 .sprint-ev-chip--milestone{ border-color: #10b98144; color: var(--status-done); background: #10b98111; }
 .sprint-ev-chip--period   { border-color: #7c3aed44; color: #7c3aed; background: #7c3aed11; }
 .sprint-ev-chip--other    { border-color: var(--border); }
-.sprint-progress-bar {
-    position: relative;
-    height: 12px;
-    background: var(--surface-2);
-    border-radius: 6px;
-    overflow: visible;
-    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.04);
-}
-.sprint-progress-time {
-    position: absolute;
-    top: 0; left: 0; bottom: 0;
-    background: linear-gradient(90deg,
-        color-mix(in srgb, var(--primary) 18%, transparent) 0%,
-        color-mix(in srgb, var(--primary) 10%, transparent) 100%);
-    border-radius: 6px 0 0 6px;
-    transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.sprint-progress-pts {
-    position: absolute;
-    top: 0; left: 0; bottom: 0;
-    background: linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 80%, white));
-    border-radius: 6px 0 0 6px;
-    transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 1px 3px color-mix(in srgb, var(--success) 30%, transparent);
-}
-.sprint-progress-pts.red    { background: linear-gradient(90deg, var(--danger),  color-mix(in srgb, var(--danger)  80%, white)); box-shadow: 0 1px 3px color-mix(in srgb, var(--danger)  30%, transparent); }
-.sprint-progress-pts.orange { background: linear-gradient(90deg, var(--warning), color-mix(in srgb, var(--warning) 80%, white)); box-shadow: 0 1px 3px color-mix(in srgb, var(--warning) 30%, transparent); }
-.sprint-progress-pts.green  { background: linear-gradient(90deg, var(--success), color-mix(in srgb, var(--success) 80%, white)); box-shadow: 0 1px 3px color-mix(in srgb, var(--success) 30%, transparent); }
 
-/* Label % accolé à la fin du fill points */
-.sprint-progress-pts-label {
-    position: absolute;
-    top: 50%;
-    transform: translate(8px, -50%);
-    font-size: 10px;
-    font-weight: var(--fw-semibold);
-    color: var(--text-muted);
+/* Fill en carrés — un carré = un jour calendaire du sprint (au lieu d'un dégradé continu) */
+.sprint-progress-days {
+    display: flex;
+    gap: 3px;
+    height: 18px;
+}
+.sprint-progress-days-empty { font-size: 11px; color: var(--text-muted); font-style: italic; }
+.sprint-day-sq {
+    flex: 1 1 0;
+    min-width: 3px;
+    border-radius: 3px;
     background: var(--surface);
-    padding: 1px 6px;
-    border-radius: 999px;
     border: 1px solid var(--border);
-    white-space: nowrap;
-    z-index: 1;
+    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.15s ease;
+    cursor: default;
 }
-
-/* Marqueur Aujourd'hui — trait + point en haut */
-.sprint-progress-today {
-    position: absolute;
-    top: -3px; bottom: -3px;
-    width: 2px;
-    background: var(--text);
-    border-radius: 1px;
-    transform: translateX(-1px);
-    z-index: 2;
-    box-shadow: 0 0 0 1px var(--surface);
+.sprint-day-sq:hover { transform: scaleY(1.15); }
+/* État temporel — 3 traitements distincts, posés en base sur chaque case (indépendant de
+   l'avancement points ci-dessous, qui vient en overlay coloré par-dessus si couvert). */
+/* Passé — jour révolu, mais pas (ou plus) couvert par les points réalisés → écart visible (retard) */
+.sprint-day-sq.is-past {
+    background: color-mix(in srgb, var(--text-muted) 18%, var(--surface));
+    border-color: color-mix(in srgb, var(--text-muted) 35%, var(--border));
 }
-.sprint-progress-today::before {
-    content: '';
-    position: absolute;
-    top: -5px; left: -4px;
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    background: var(--text);
-    box-shadow: 0 0 0 2px var(--surface), 0 1px 4px rgb(0 0 0 / 0.2);
+/* Aujourd'hui — teinte + anneau accent, visible même si pas encore "rempli" */
+.sprint-day-sq.is-today {
+    background: color-mix(in srgb, var(--primary) 20%, var(--surface));
+    border-color: var(--primary);
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+/* Futur — à venir, style pointillé discret */
+.sprint-day-sq.is-future {
+    background: var(--surface);
+    border-style: dashed;
+    opacity: 0.65;
+}
+/* Rempli = couvert par le % de points réalisés — couleur alignée sur progressColor(), toujours
+   prioritaire sur le style temporel de base (spécificité CSS plus élevée : 3 classes vs 2). */
+.sprint-day-sq.is-filled.green  { background: var(--success); border-color: var(--success); opacity: 1; box-shadow: 0 1px 2px color-mix(in srgb, var(--success) 35%, transparent); }
+.sprint-day-sq.is-filled.yellow { background: var(--warning); border-color: var(--warning); opacity: 1; box-shadow: 0 1px 2px color-mix(in srgb, var(--warning) 35%, transparent); }
+.sprint-day-sq.is-filled.red    { background: var(--danger);  border-color: var(--danger);  opacity: 1; box-shadow: 0 1px 2px color-mix(in srgb, var(--danger) 35%, transparent); }
+/* Week-end — texture atténuée (jour non ouvré) */
+.sprint-day-sq.is-weekend {
+    background-image: repeating-linear-gradient(135deg,
+        color-mix(in srgb, var(--text-muted) 10%, transparent) 0 3px,
+        transparent 3px 6px);
 }
 
 /* Échelle dates */

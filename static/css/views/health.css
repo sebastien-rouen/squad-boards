@@ -6,7 +6,7 @@
 
 .health-hero {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
     gap: var(--sp-5);
     align-items: center;
     padding: var(--sp-5);
@@ -66,9 +66,11 @@
 .health-intro p { margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 .health-intro strong { color: var(--primary); }
 
-@media (max-width: 720px) {
+@media (max-width: 960px) {
     .health-hero { grid-template-columns: 1fr; text-align: center; }
     .health-score-wrap { justify-content: center; }
+    .capacity-mini { align-items: center; }
+    .capacity-mini-row { justify-content: center; }
 }
 
 /* Cards anomalie en grid */
@@ -206,49 +208,36 @@
 /* Sparkline du score Health (sous le label) */
 .health-score-spark { margin-top: 6px; line-height: 0; }
 
-/* Capacity card — capacité prévisionnelle du prochain sprint */
-.capacity-card {
-    padding: var(--sp-3) var(--sp-4);
-    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--surface)), var(--surface));
-    border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
-    border-radius: var(--r-lg);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-3);
-    box-shadow: var(--shadow-sm);
-}
-.capacity-hdr { display: flex; align-items: center; gap: 12px; }
-.capacity-icon { font-size: 24px; }
-.capacity-title { font-size: 14px; font-weight: 700; color: var(--text); }
-.capacity-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
-.capacity-metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: var(--sp-3);
-    padding-top: var(--sp-2);
-    border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
-}
-.capacity-metric {
+/* Capacity mini — capacité prévisionnelle du prochain PI, condensée dans le hero */
+.capacity-mini {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    min-width: 180px;
+    padding: var(--sp-3) var(--sp-4);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--surface)), var(--surface));
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+    border-radius: var(--r-md);
+}
+.capacity-mini-lbl { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.capacity-mini-lbl strong { color: var(--primary); }
+.capacity-mini-val {
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1;
     font-variant-numeric: tabular-nums;
 }
-.capacity-metric-val {
-    font-size: 22px;
-    font-weight: 800;
-    color: var(--text);
-    line-height: 1;
-}
-.capacity-metric-val small { font-size: 11px; font-weight: 500; color: var(--text-muted); margin-left: 2px; }
-.capacity-metric-lbl {
-    font-size: 10.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
+.capacity-mini-val small { font-size: 12px; font-weight: 500; color: var(--text-muted); margin-left: 2px; }
+.capacity-mini-sub { font-size: 10.5px; color: var(--text-muted); }
+.capacity-mini-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+    font-size: 11px;
     font-weight: 600;
+    color: var(--text-secondary);
 }
-.capacity-metric--main .capacity-metric-val { color: var(--primary); font-size: 28px; }
 
 /* Matrice équipes × anomalies */
 .health-matrix-wrap {

@@ -260,31 +260,13 @@ export function renderHealth(container) {
         const ratioColor = cap.ratio >= 30 ? 'var(--warning)' : cap.ratio >= 15 ? 'var(--info)' : 'var(--success)';
         const piLabel = cap.piNumber ? `PI#${cap.piNumber}` : 'prochain PI';
         return `
-            <div class="capacity-card" title="Vélocité moyenne sprint (3 derniers) × ${cap.sprintsPerPI} sprints × (1 − % absences)">
-                <div class="capacity-hdr">
-                    <span class="capacity-icon">🎯</span>
-                    <div>
-                        <div class="capacity-title">Capacité prévisionnelle — ${esc(piLabel)}</div>
-                        <div class="capacity-sub">${esc(team)} · ${cap.sprintsPerPI} sprints × ${cap.sprintDuration}j · ${_fmtD(cap.windowStart)} → ${_fmtD(cap.windowEnd)}</div>
-                    </div>
-                </div>
-                <div class="capacity-metrics">
-                    <div class="capacity-metric capacity-metric--main" title="Capacité nette = vélocité × sprints × (1 − absences)">
-                        <span class="capacity-metric-val">${cap.netCapacity}<small>pts</small></span>
-                        <span class="capacity-metric-lbl">Capacité nette PI</span>
-                    </div>
-                    <div class="capacity-metric" title="Vélocité × nb sprints, sans tenir compte des absences">
-                        <span class="capacity-metric-val">${cap.grossCapacity}<small>pts</small></span>
-                        <span class="capacity-metric-lbl">Brute (sans absences)</span>
-                    </div>
-                    <div class="capacity-metric">
-                        <span class="capacity-metric-val">${cap.avgVelocityPerSprint}<small>pts/sp</small></span>
-                        <span class="capacity-metric-lbl">Vélocité moy. (3)</span>
-                    </div>
-                    <div class="capacity-metric">
-                        <span class="capacity-metric-val" style="color:${ratioColor}">−${cap.ratio}<small>%</small></span>
-                        <span class="capacity-metric-lbl">Absences (${cap.absencesDays}j sur ${cap.totalOpenDaysTeam})</span>
-                    </div>
+            <div class="capacity-mini" title="Vélocité moyenne sprint (3 derniers) × ${cap.sprintsPerPI} sprints × (1 − % absences) — brute (sans absences) : ${cap.grossCapacity} pts">
+                <div class="capacity-mini-lbl">🎯 Capacité prévisionnelle <strong>${esc(piLabel)}</strong></div>
+                <div class="capacity-mini-val">${cap.netCapacity}<small>pts</small></div>
+                <div class="capacity-mini-sub">${esc(team)} · ${_fmtD(cap.windowStart)} → ${_fmtD(cap.windowEnd)}</div>
+                <div class="capacity-mini-row">
+                    <span>⚡ ${cap.avgVelocityPerSprint} pts/sp</span>
+                    <span style="color:${ratioColor}">🏖 −${cap.ratio}%</span>
                 </div>
             </div>`;
     })() : '';
@@ -514,9 +496,9 @@ export function renderHealth(container) {
                     <h2>🩺 Health Check</h2>
                     <p>Vue agrégée des anomalies par équipe pour le RTE / Scrum Master. <strong>Clique sur un chiffre</strong> pour ouvrir la liste des tickets concernés (avec édition rapide).</p>
                 </div>
-            </div>
 
-            ${capacityCard}
+                ${capacityCard}
+            </div>
 
             <div class="health-velo-host">
                 ${_veloTeamChips}

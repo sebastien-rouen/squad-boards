@@ -408,6 +408,9 @@
     gap: 8px;
     align-items: end;
 }
+/* Nom du sprint / Objectif occupent toute la ligne → Début et Fin atterrissent
+   ensemble sur la ligne suivante, côte à côte. */
+.sprint-nested-grid .pi-cfg-field--full { grid-column: 1 / -1; }
 .sprint-nested-actions {
     display: flex; align-items: center; gap: var(--sp-2);
     flex-wrap: wrap; margin-top: var(--sp-3);
@@ -423,6 +426,5 @@
     .pi-cfg-grid { grid-template-columns: 1fr 1fr; }
     .pi-cfg-field--full { grid-column: 1 / -1; }
     .sprint-nested-grid { grid-template-columns: 1fr 1fr; }
-    .sprint-nested-grid .pi-cfg-field--full { grid-column: 1 / -1; }
 }
 

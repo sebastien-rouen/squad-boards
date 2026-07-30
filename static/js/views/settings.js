@@ -3414,19 +3414,50 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
             if (goalEl) goalEl.value = '';
         }
 
+        // Un input.value posé en JS ne déclenche ni 'input' ni 'change' → l'overlay texte
+        // .fdate-display (seul élément visible, l'input natif est transparent, cf pi-config.css)
+        // reste figé sur l'ancienne date tant qu'on ne force pas ces events (câblés par
+        // wireFriendlyDates, appelé plus bas sur ce même container).
+        startEl?.dispatchEvent(new Event('input', { bubbles: true }));
+        endEl?.dispatchEvent(new Event('input', { bubbles: true }));
+
         // Badge source dans le header du formulaire
         const hdr = container.querySelector('.sprint-nested-label');
         if (hdr) hdr.textContent = real ? `Sprint ${label}` : `Sprint ${label} (dates estimées)`;
+
+        // Barre de progression du header : recalculée pour le sprint sélectionné (sinon elle
+        // reste figée sur le % du sprint actif au chargement de la page, même en pointant sur
+        // un autre sprint). Créée à la volée si absente (ex : sprint futur, pas de barre au départ).
+        const hdrWrap = container.querySelector('.sprint-nested-hdr');
+        if (hdrWrap && startEl?.value && endEl?.value) {
+            const startMs = new Date(startEl.value + 'T00:00:00').getTime();
+            const endMs   = new Date(endEl.value + 'T23:59:59').getTime();
+            const pct = Math.round(Math.max(0, Math.min(1, (Date.now() - startMs) / (endMs - startMs))) * 100);
+            let bar   = hdrWrap.querySelector('.sprint-nested-bar');
+            let pctEl = hdrWrap.querySelector('.sprint-nested-pct');
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.className = 'sprint-nested-bar';
+                bar.innerHTML = '<div class="sprint-nested-fill"></div>';
+                hdrWrap.appendChild(bar);
+            }
+            if (!pctEl) {
+                pctEl = document.createElement('span');
+                pctEl.className = 'sprint-nested-pct';
+                hdrWrap.appendChild(pctEl);
+            }
+            bar.title = `${pct}% écoulé`;
+            bar.querySelector('.sprint-nested-fill').style.width = `${pct}%`;
+            pctEl.textContent = `${pct}%`;
+        }
 
         // Marquer ce pill comme sélectionné
         container.querySelectorAll('.pi-sprint-pill[data-sprint-idx]').forEach(p => p.classList.remove('selected'));
         pill.classList.add('selected');
 
         // Sync contraintes min/max après remplissage
-        const startEl2 = container.querySelector('#spr-start');
-        const endEl2   = container.querySelector('#spr-end');
-        if (startEl2?.value) endEl2 && (endEl2.min = startEl2.value);
-        if (endEl2?.value)   startEl2 && (startEl2.max = endEl2.value);
+        if (startEl?.value) endEl && (endEl.min = startEl.value);
+        if (endEl?.value)   startEl && (startEl.max = endEl.value);
 
         container.querySelector('.sprint-nested-card')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     };
@@ -3449,6 +3480,7 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
             const d = new Date(startEl.value + 'T00:00:00');
             d.setDate(d.getDate() + dur - 1);
             endEl.value = d.toISOString().slice(0, 10);
+            endEl.dispatchEvent(new Event('input', { bubbles: true }));
         }
     };
     container.querySelector('#spr-start')?.addEventListener('change', _syncDateConstraints);

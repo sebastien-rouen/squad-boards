@@ -265,6 +265,10 @@
     font-family: inherit;
     outline: none;
 }
+.epic-picker-input:focus {
+    border-bottom-color: var(--border-focus);
+    box-shadow: 0 0 0 2px var(--border-focus);
+}
 .epic-picker-input::placeholder { color: var(--text-muted); font-style: italic; }
 .epic-picker-list {
     max-height: 320px;

@@ -8,7 +8,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem, computeStageFlow } from '../utils.js';
+import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem, computeStageFlow, trapFocus } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, STATUS_MAP, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { renderBurndown, renderBurnup } from './charts.js';
@@ -249,7 +249,7 @@ function _renderShell(sprint, tickets, opts = {}) {
     overlay.id = 'sprint-tickets-overlay';
     overlay.className = 'modal-overlay sb-modal-overlay';
     overlay.innerHTML = `
-        <div class="modal sb-modal" role="dialog" aria-labelledby="sb-modal-title">
+        <div class="modal sb-modal" role="dialog" aria-modal="true" aria-labelledby="sb-modal-title">
             <div class="modal-header sb-modal-header">
                 <h2 id="sb-modal-title">
                     <span class="sb-modal-icon">📊</span>
@@ -326,6 +326,7 @@ function _renderShell(sprint, tickets, opts = {}) {
         overlay.classList.add('visible');
         _maybeRenderBurndown(sprint, tickets);
     });
+    _releaseTrap = trapFocus(overlay.querySelector('.sb-modal') || overlay);
 
     // Events
     overlay.querySelector('#sb-modal-close')?.addEventListener('click', _closeModal);
@@ -368,7 +369,10 @@ function _renderShell(sprint, tickets, opts = {}) {
     document.addEventListener('keydown', onKey);
 }
 
+let _releaseTrap = null; // piège à focus (cf utils.trapFocus)
+
 function _closeModal() {
+    if (_releaseTrap) { _releaseTrap(); _releaseTrap = null; }
     const ov = document.getElementById('sprint-tickets-overlay');
     if (!ov) return;
     ov.classList.remove('visible');

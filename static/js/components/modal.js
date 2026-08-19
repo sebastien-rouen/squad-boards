@@ -5,7 +5,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge } from '../utils.js';
+import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, trapFocus } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS, TYPE_ICONS } from '../config.js';
 
 const overlay = () => document.getElementById('modal-overlay');
@@ -472,9 +472,12 @@ export function initModal() {
 
 let _modalList = [];
 let _modalIdx = -1;
+let _releaseFocusTrap = null; // piège à focus actif (cf utils.trapFocus)
 
 export function closeModal() {
     overlay().classList.add('hidden');
+    // Libère le piège à focus + restaure le focus sur l'élément déclencheur
+    if (_releaseFocusTrap) { _releaseFocusTrap(); _releaseFocusTrap = null; }
     // .above-demo (bump z-index au-dessus d'une Demo/alert ouverte) ne doit pas survivre à la
     // fermeture — sinon il reste collé et passe devant le Planning Poker (z-index 2000) sur les
     // ouvertures suivantes, même hors contexte Demo.
@@ -489,7 +492,15 @@ export function closeModal() {
         history.back();
     }
 }
-function showModal() { overlay().classList.remove('hidden'); }
+function showModal() {
+    const wasHidden = overlay().classList.contains('hidden');
+    overlay().classList.remove('hidden');
+    // Piège à focus : Tab boucle dans la modale, focus restauré à la fermeture.
+    // (Uniquement à la 1re ouverture — les navigations précédent/suivant réutilisent le piège.)
+    if (wasHidden && !_releaseFocusTrap) {
+        _releaseFocusTrap = trapFocus(document.getElementById('modal'));
+    }
+}
 
 function getMemberNames() {
     return (store.get('members') || []).map(m => m.name || m);

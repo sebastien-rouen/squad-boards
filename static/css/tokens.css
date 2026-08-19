@@ -42,6 +42,15 @@
     --status-done: #10b981;
     --status-done-bg: #ecfdf5;
 
+    /* Texte des badges de statut sur leur fond teinté — variantes foncées ≥ 4,5:1 (WCAG AA).
+       Les --status-* d'origine restent pour les usages graphiques (barres, points, bordures). */
+    --status-todo-text: #475569;
+    --status-inprog-text: #1d4ed8;
+    --status-review-text: #6d28d9;
+    --status-test-text: #0e7490;
+    --status-blocked-text: #b91c1c;
+    --status-done-text: #047857;
+
     /* Semantic */
     --success: #16a34a;
     --success-bg: #f0fdf4;
@@ -50,6 +59,7 @@
     --warning-bg: #fffbeb;
     --warning-border: #fde68a;
     --danger: #dc2626;
+    --danger-hover: #b91c1c;
     --danger-bg: #fef2f2;
     --danger-border: #fecaca;
     --info: #0284c7;
@@ -164,8 +174,16 @@
     --status-blocked-bg: #450a0a;
     --status-done-bg: #052e16;
 
+    --status-todo-text: #cbd5e1;
+    --status-inprog-text: #93c5fd;
+    --status-review-text: #c4b5fd;
+    --status-test-text: #67e8f9;
+    --status-blocked-text: #fca5a5;
+    --status-done-text: #6ee7b7;
+
     --success-bg: #052e16;
     --success-border: #166534;
+    --danger-hover: #ef4444;
     --warning-bg: #451a03;
     --warning-border: #92400e;
     --danger-bg: #450a0a;

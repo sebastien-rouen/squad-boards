@@ -2929,7 +2929,7 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
                 );
                 if (!toDelete.length) { toast('Aucun vote à supprimer', 'info'); return; }
                 const label = sprint ? `${teamName} / ${sprint}` : teamName;
-                if (!confirm(`Supprimer ${toDelete.length} vote(s) pour ${label} ?`)) return;
+                if (!(await confirmDanger('Supprimer les votes', `Supprimer ${toDelete.length} vote(s) pour ${label} ?`, { confirmLabel: 'Supprimer' }))) return;
                 await Promise.all(toDelete.map(v => api.deleteMood(v.id)));
                 toast(`${toDelete.length} vote(s) supprimé(s)`, 'success');
                 refreshResults();

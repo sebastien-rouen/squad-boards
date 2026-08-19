@@ -81,7 +81,8 @@ export function renderCard(ticket, { ageRefs } = {}) {
     const extraCount = contributors.length > 2 ? contributors.length - 2 : 0;
 
     return `
-        <div class="ticket-card${flagClass}" data-ticket-id="${esc(ticket.id)}" title="${esc(ticket.title)}" draggable="true">
+        <div class="ticket-card${flagClass}" data-ticket-id="${esc(ticket.id)}" title="${esc(ticket.title)}" draggable="true"
+             tabindex="0" role="button" aria-label="${esc(ticket.id)} · ${esc(ticket.title)} — Entrée : ouvrir · Alt+←/→ : changer de colonne">
             <div class="ticket-card-top">
                 ${typeBadge(ticket.type, { title: false })}
                 <div class="ticket-card-top-right">
@@ -119,6 +120,16 @@ export function bindCardClicks(container) {
     container.addEventListener('click', e => {
         const card = e.target.closest('.ticket-card');
         if (!card) return;
+        const { openTicketModal } = window.__squadBoard || {};
+        if (openTicketModal) openTicketModal(card.dataset.ticketId);
+    });
+    // Équivalent clavier du clic — les cartes sont focusables (tabindex=0, role=button).
+    container.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        if (e.altKey || e.ctrlKey || e.metaKey) return; // Alt+flèches = déplacement (géré par la vue)
+        const card = e.target.closest('.ticket-card');
+        if (!card || e.target !== card) return;
+        e.preventDefault();
         const { openTicketModal } = window.__squadBoard || {};
         if (openTicketModal) openTicketModal(card.dataset.ticketId);
     });

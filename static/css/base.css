@@ -75,6 +75,15 @@ body { display: flex; }
     gap: 2px;
 }
 .sidebar-nav .nav-secondary.hidden { display: none; }
+/* Pied de navigation (Paramètres) — administration, séparée du pilotage quotidien */
+.sidebar-nav .nav-footer-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: auto;
+    padding-top: var(--sp-2);
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
 /* En-tête cliquable du groupe repliable "Équipe & RH" */
 .sidebar-nav .nav-group-toggle {
     display: flex;
@@ -793,7 +802,7 @@ body { display: flex; }
     color: white;
     border-color: var(--danger);
 }
-.btn-danger:hover { background: #b91c1c; }
+.btn-danger:hover { background: var(--danger-hover); }
 
 .btn-sm { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); }
 
@@ -862,20 +871,20 @@ body { display: flex; }
 .badge-status {
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    font-size: 0.625rem;
+    font-size: var(--fs-xs);
     font-weight: var(--fw-semibold);
 }
-.badge-todo    { background: var(--status-todo-bg); color: var(--status-todo); }
-.badge-inprog  { background: var(--status-inprog-bg); color: var(--status-inprog); }
-.badge-review  { background: var(--status-review-bg); color: var(--status-review); }
-.badge-test    { background: var(--status-test-bg); color: var(--status-test); }
-.badge-blocked { background: var(--status-blocked-bg); color: var(--status-blocked); }
-.badge-done    { background: var(--status-done-bg); color: var(--status-done); }
+.badge-todo    { background: var(--status-todo-bg); color: var(--status-todo-text); }
+.badge-inprog  { background: var(--status-inprog-bg); color: var(--status-inprog-text); }
+.badge-review  { background: var(--status-review-bg); color: var(--status-review-text); }
+.badge-test    { background: var(--status-test-bg); color: var(--status-test-text); }
+.badge-blocked { background: var(--status-blocked-bg); color: var(--status-blocked-text); }
+.badge-done    { background: var(--status-done-bg); color: var(--status-done-text); }
 
 /* Chip "wash" (option C retenue) : fond teinté 14% + texte/bordure couleur du type — pas de
    remplissage plein blanc-sur-couleur. Chaque .badge-<type> pose --tc puis hérite du style commun. */
 .badge-type {
-    font-size: 0.625rem;
+    font-size: var(--fs-xs);
     font-weight: var(--fw-bold);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -1812,6 +1821,17 @@ body { display: flex; }
 .sync-menu-item--danger { color: var(--danger); }
 .sync-menu-item--danger:hover { background: rgba(239, 68, 68, 0.08); }
 .sync-menu-sep { margin: 4px 0; border: none; border-top: 1px solid var(--border-soft, var(--border)); }
+/* Sélecteur PI relayé dans le kebab mobile */
+.more-pi-selector { display: flex; flex-direction: column; }
+.more-pi-selector:empty { display: none; }
+.more-pi-label {
+    padding: 4px 12px 2px;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
 
 /* ── Bouton toggle (ex: Mes tickets) ──────────────────────────────────── */
 .btn-toggle--on {
@@ -2981,6 +3001,54 @@ summary { cursor: pointer; }
     .select { min-width: 100px; font-size: var(--fs-xs); }
     .content { padding: var(--sp-3); }
 }
+
+/* ── Cibles tactiles — écrans sans survol (mobile/tablette) : on remonte les
+   principales cibles vers les ~40-44px recommandés, sans toucher au desktop ── */
+@media (hover: none) and (pointer: coarse) {
+    .btn-sm { padding: var(--sp-2) var(--sp-3); min-height: 36px; }
+    .btn { min-height: 40px; }
+    .btn-icon { width: 44px; height: 44px; }
+    .select-sm { height: 36px; }
+    .tab { min-height: 42px; }
+    .card-help-btn { width: 28px; height: 28px; }
+}
+
+/* ── Modale « ? » raccourcis clavier ───────────────────────────────────────── */
+.sc-modal { max-width: 640px; width: min(640px, calc(100vw - 32px)); text-align: left; }
+.sc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-3); }
+.sc-head h2 { font-size: var(--fs-lg); margin: 0; }
+.sc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2) var(--sp-6); }
+@media (max-width: 560px) { .sc-grid { grid-template-columns: 1fr; } }
+.sc-group {
+    margin-top: var(--sp-3);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--primary);
+}
+.sc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: 5px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+}
+.sc-row kbd, .sc-foot kbd {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    background: var(--surface-active);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 1px 6px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.sc-foot { margin-top: var(--sp-4); font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.6; }
 
 /* ── Scrollbar ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

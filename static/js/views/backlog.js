@@ -297,7 +297,11 @@ export function renderBacklog(container) {
                 ${ticketGroups.length === 0
                     ? `<div class="bl-empty">
                            <svg class="icon"><use href="#i-list"/></svg>
-                           <p>Aucun ticket ne correspond aux filtres.</p>
+                           ${hasActiveFilters(filters)
+                               ? `<p>Aucun ticket ne correspond aux filtres actifs.</p>
+                                  <button class="btn btn-secondary btn-sm" id="bl-empty-clear">✕ Effacer les filtres</button>`
+                               : `<p>Aucun ticket dans le backlog pour ce périmètre.</p>
+                                  <p class="text-muted">Créez un ticket (<kbd>N</kbd>) ou lancez une sync JIRA.</p>`}
                        </div>`
                     : `<table class="bl-table${density === 'compact' ? ' is-compact' : ''}${hideDone ? ' hide-done' : ''}" id="bl-table">
                         <thead><tr>
@@ -839,6 +843,12 @@ function _wireEvents(container, filters, bulk, allSprints, allPIs, ticketGroups,
 
     // Reset filters
     root.querySelector('#bl-reset-filters')?.addEventListener('click', () => {
+        _openPopover = null;
+        clearFilters();
+        renderBacklog(container);
+    });
+    // Empty state avec filtres actifs → même action, au plus près du constat
+    root.querySelector('#bl-empty-clear')?.addEventListener('click', () => {
         _openPopover = null;
         clearFilters();
         renderBacklog(container);

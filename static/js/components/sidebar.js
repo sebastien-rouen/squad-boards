@@ -16,8 +16,9 @@ export function initSidebar() {
     // ── Nav order persistence (groupe Pilotage uniquement) ─────────────────────
     const _LS_NAV = 'sb-nav-order';
     const _LS_TEAM_COLLAPSED = 'sb-nav-team-collapsed';
-    const _MAIN_ITEMS = NAV_ITEMS.filter(n => n.section !== 'team');
-    const _TEAM_ITEMS = NAV_ITEMS.filter(n => n.section === 'team');
+    const _MAIN_ITEMS   = NAV_ITEMS.filter(n => n.section === 'main');
+    const _TEAM_ITEMS   = NAV_ITEMS.filter(n => n.section === 'team');
+    const _FOOTER_ITEMS = NAV_ITEMS.filter(n => n.section === 'footer');
 
     function _loadOrder() {
         try {
@@ -46,7 +47,7 @@ export function initSidebar() {
 
     function _navItemHtml(item, newCount, curView) {
         const showBadge = newCount > 0 && NOTIF_VIEWS.has(item.id);
-        const reorderable = item.section !== 'team';
+        const reorderable = item.section === 'main';
         const trailing = showBadge
             ? `<span class="nav-badge">${newCount}</span>`
             : (item.shortcut ? `<span class="nav-shortcut">${item.shortcut}</span>` : '');
@@ -54,8 +55,9 @@ export function initSidebar() {
         const grip = reorderable
             ? `<span class="nav-grip" aria-hidden="true" title="Maintenir puis glisser pour réordonner">⠿</span>`
             : '';
+        const isActive = curView === item.id;
         return `
-            <a href="#" class="nav-item${curView === item.id ? ' active' : ''}" data-view="${item.id}">
+            <a href="#" class="nav-item${isActive ? ' active' : ''}" data-view="${item.id}"${isActive ? ' aria-current="page"' : ''}>
                 <svg class="icon"><use href="#${item.icon}"/></svg>
                 <span>${item.label}</span>
                 ${grip}${trailing}
@@ -70,8 +72,9 @@ export function initSidebar() {
         const curInTeam = _TEAM_ITEMS.some(n => n.id === curView);
         // Replié par défaut (déclutter) ; seul '0' explicite force le déploiement persistant.
         const collapsed = curInTeam ? false : localStorage.getItem(_LS_TEAM_COLLAPSED) !== '0';
-        const mainHtml = _loadOrder().map(i => _navItemHtml(i, newCount, curView)).join('');
-        const teamHtml = _TEAM_ITEMS.map(i => _navItemHtml(i, newCount, curView)).join('');
+        const mainHtml   = _loadOrder().map(i => _navItemHtml(i, newCount, curView)).join('');
+        const teamHtml   = _TEAM_ITEMS.map(i => _navItemHtml(i, newCount, curView)).join('');
+        const footerHtml = _FOOTER_ITEMS.map(i => _navItemHtml(i, newCount, curView)).join('');
         nav.innerHTML = `
             <div class="nav-main">${mainHtml}</div>
             <button class="nav-group-toggle${collapsed ? '' : ' is-open'}" id="nav-team-toggle"
@@ -79,7 +82,8 @@ export function initSidebar() {
                 <svg class="icon icon-xs nav-group-chevron"><use href="#i-chevron-right"/></svg>
                 <span class="nav-group-label-txt">Équipe &amp; RH</span>
             </button>
-            <div class="nav-secondary${collapsed ? ' hidden' : ''}" id="nav-secondary">${teamHtml}</div>`;
+            <div class="nav-secondary${collapsed ? ' hidden' : ''}" id="nav-secondary">${teamHtml}</div>
+            <div class="nav-footer-group">${footerHtml}</div>`;
     }
 
     renderNav();

@@ -1,3 +1,38 @@
+## [3.139.0] - 2026-08-12
+
+### Refonte UX/UI — lots 1-5 de l'audit du 11/08
+
+- **PI épinglé** : plus de reset au changement de vue, persistant (`sb-piOffset`), badge 📌 + miroir kebab mobile.
+- **Bouton « ▶ Daily » permanent en topbar** (+ kebab) — Board + graphes repliés + timer 15 min.
+- **Navigation source unique `NAV_ITEMS`** : Ctrl+K aligné sur le menu (vues manquantes/fantômes corrigées), ROAM au menu, Rétro en Pilotage (raccourci `8`), Paramètres en pied de sidebar (`,`). Fix : Ctrl+K ne réinitialise plus l'équipe.
+- **Persistance** : Scrum/Kanban retenu (`sb-boardMode`), filtres rapides Board en sessionStorage, filtres backlog réinitialisés au changement d'équipe.
+- **Badges WCAG AA** : tokens `--status-*-text` (≥ 4,5:1 light/dark), 10 px → 11 px ; `--danger-hover`.
+- **A11y** : cartes ticket focusables (`Entrée` = ouvrir, `Alt+←/→` = déplacer — logique mutualisée `_moveTicketTo`), `trapFocus()` ([utils.js](static/js/utils.js)) sur les 3 familles de modales + restauration focus, `role="dialog"` sur la modale principale, `aria-current` sidebar, toasts `aria-live`, garde `isContentEditable` sur `N`, 5 `outline:none` compensés, 21 `confirm()` → `confirmDanger()`.
+- **Perf** : lazy loading des 16 vues (`VIEW_LOADERS` + jeton anti-course, [app.js](static/js/app.js)) ; rappels extraits dans [reminders.js](static/js/reminders.js) (l'info-panel ne tire plus settings.js ~300 KB) ; demo/sync/sprint_tickets_modal en imports dynamiques ; 15 `await import('../utils.js')` supprimés d'atlas.js ; skeleton au premier chargement.
+- **Mobile** : kebab complété (Daily, Scrum/Kanban, PI, Aide) ; cibles tactiles 36-44 px via `(hover:none)`.
+- **Aide** : modale « ? » raccourcis ([shortcuts_modal.js](static/js/components/shortcuts_modal.js)) ; empty state Backlog avec « Effacer les filtres ».
+- Fix préexistant : action Ctrl+K « Sync complète » (handleJiraImport jamais exposé).
+- Reste au backlog : migration couleurs→tokens (dont séries charts.js), `title=`→tooltip.js, autres empty states, refonte Dashboard direction F.
+
+---
+
+## [3.138.0] - 2026-08-11
+
+### Audit UX/UI complet + mockup de propositions (rien d'implémenté — à valider)
+
+- **[docs/audit-ux-2026-08-11.md](docs/audit-ux-2026-08-11.md)** : audit croisé navigation/workflows
+  scrum master + design system/accessibilité/performance. 6 bloquants P1 (reset `piOffset` à chaque
+  changement de vue, « Aller au Daily » invisible ≤ 1200 px, cartes ticket inaccessibles au clavier,
+  absence de focus trap dans les 4 familles de modales, contrastes badges 2,3:1 en 10 px, conflit
+  raccourcis chiffres sur PI), 8 frictions P2, plan en 5 lots (~6-7 j).
+- **[static/mockups/ux-optimisations.html](static/mockups/ux-optimisations.html)** : mockup autonome
+  interactif (7 onglets, thème clair/sombre) — avant/après topbar (bouton ▶ Daily, PI épinglé),
+  sidebar réorganisée (ROAM au menu, Paramètres en pied, source unique NAV_ITEMS ↔ Ctrl+K), modale
+  « ? » raccourcis fonctionnelle, badges WCAG AA, démo carte focusable clavier (Entrée = ouvrir,
+  Alt+←→ = déplacer), skeletons/empty states, plan d'implémentation.
+
+---
+
 ## [3.137.0] - 2026-07-30
 
 ### Dashboard : Lead time/Cycle time, débit et flow efficiency scopés au PI sélectionné

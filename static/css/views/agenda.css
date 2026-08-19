@@ -57,6 +57,9 @@
     color: var(--text);
     min-width: 180px;
 }
+.agenda-search:focus {
+    box-shadow: 0 0 0 2px var(--border-focus);
+}
 .agenda-search::placeholder { color: var(--text-muted); }
 
 /* Table */

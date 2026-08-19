@@ -22,7 +22,13 @@ let _boardMode = localStorage.getItem('sb-board-mode') || 'columns';
 // Initialisé depuis sessionStorage au premier render (anciennement séparé en view-search-bar
 // et qf-search — on a fusionné : qf-search est désormais l'unique champ recherche)
 let _qfText = sessionStorage.getItem('sprint-qfText') || sessionStorage.getItem('sprint-search') || '';
-let _qfFilter = null; // 'blocked' | 'unassigned' | 'critical' | null
+// Filtre rapide — persisté en sessionStorage (même politique que _qfText : survit aux
+// changements de vue/équipe pendant la session, repart à zéro au prochain onglet).
+let _qfFilter = sessionStorage.getItem('sprint-qfFilter') || null; // 'blocked' | 'unassigned' | 'critical' | null
+const _saveQfFilter = () => {
+    if (_qfFilter) sessionStorage.setItem('sprint-qfFilter', _qfFilter);
+    else sessionStorage.removeItem('sprint-qfFilter');
+};
 let _chartsCollapsed = localStorage.getItem('sb-charts-collapsed') === 'true';
 let _chartsMounted = false; // évite un double-montage Chart.js si la section est repliée/dépliée sans re-render complet
 let _sprintContainer = null; // référence au conteneur pour _refreshBoard
@@ -467,6 +473,7 @@ export function renderSprint(container) {
     container.querySelectorAll('.qf-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             _qfFilter = _qfFilter === btn.dataset.qf ? null : btn.dataset.qf;
+            _saveQfFilter();
             container.querySelectorAll('.qf-btn').forEach(b =>
                 b.classList.toggle('active', b.dataset.qf === _qfFilter));
             _syncClearBtn(container);
@@ -482,6 +489,7 @@ export function renderSprint(container) {
     });
     container.querySelector('#qf-clear')?.addEventListener('click', () => {
         _qfFilter = null; _qfText = '';
+        _saveQfFilter();
         sessionStorage.removeItem('sprint-qfText');
         container.querySelectorAll('.qf-btn').forEach(b => b.classList.remove('active'));
         _syncClearBtn(container);
@@ -802,8 +810,43 @@ function renderSwimlaneView(el, tickets) {
 // Drag & Drop
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/** Déplace un ticket vers un statut cible (mutualisé drop souris / clavier). */
+async function _moveTicketTo(ticketId, targetStatus, { refocus = false } = {}) {
+    try {
+        await api.updateTicket(ticketId, { status: targetStatus });
+        const tickets = await api.getTickets();
+        store.set('tickets', tickets);
+        toast(`${ticketId} → ${_colLabel(targetStatus)}`, 'success');
+        if (_sprintContainer) _refreshBoard(_sprintContainer);
+        else window.__squadBoard?.rerenderView?.();
+        if (refocus) {
+            // Le board a été reconstruit → on remet le focus sur la carte déplacée
+            requestAnimationFrame(() => {
+                document.querySelector(`.ticket-card[data-ticket-id="${CSS.escape(ticketId)}"]`)?.focus();
+            });
+        }
+    } catch (err) {
+        toast(`Erreur: ${err.message}`, 'error');
+    }
+}
+
 function wireDragDrop(container) {
     let draggedId = null;
+
+    // ── Équivalent clavier du drag & drop : Alt+←/→ déplace la carte focusée d'une colonne ──
+    container.addEventListener('keydown', e => {
+        if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+        const card = e.target.closest('.ticket-card');
+        if (!card) return;
+        e.preventDefault();
+        const id = card.dataset.ticketId;
+        const t = (store.get('tickets') || []).find(x => x.id === id);
+        if (!t) return;
+        const idx = STATUS_ORDER.indexOf(t.status);
+        const next = STATUS_ORDER[idx + (e.key === 'ArrowRight' ? 1 : -1)];
+        if (!next) return;
+        _moveTicketTo(id, next, { refocus: true });
+    });
 
     container.addEventListener('dragstart', e => {
         const card = e.target.closest('.ticket-card');
@@ -846,17 +889,7 @@ function wireDragDrop(container) {
         const targetStatus = STATUS_ORDER.find(s => header?.classList.contains(`col-${s}`));
         if (!targetStatus) return;
 
-        try {
-            await api.updateTicket(draggedId, { status: targetStatus });
-            // Reload data and re-render
-            const tickets = await api.getTickets();
-            store.set('tickets', tickets);
-            toast(`${draggedId} → ${_colLabel(targetStatus)}`, 'success');
-            if (_sprintContainer) _refreshBoard(_sprintContainer);
-            else window.__squadBoard?.rerenderView?.();
-        } catch (err) {
-            toast(`Erreur: ${err.message}`, 'error');
-        }
+        await _moveTicketTo(draggedId, targetStatus);
     });
 }
 

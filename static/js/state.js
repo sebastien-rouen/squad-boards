@@ -70,7 +70,12 @@ export const store = new Store({
     mobility: [],          // lignes de suivi de mobilité
     sprintInfo: null,
     velocityHistory: [],  // legacy — désormais calculé à la volée via utils.computeVelocityHistory
-    piOffset: 0,          // décalage PI sélectionné dans le topbar (-2..+2), 0 = PI courant
+    // Décalage PI sélectionné dans le topbar (-2..+2), 0 = PI courant. Épinglé : persiste
+    // entre les vues ET entre les sessions (le badge 📌 du sélecteur le rappelle).
+    piOffset: (() => { const n = parseInt(localStorage.getItem('sb-piOffset') || '0', 10); return Number.isNaN(n) ? 0 : n; })(),
+    // Board = Scrum (défaut) ou Kanban — persistant (clé distincte de 'sb-board-mode' qui
+    // stocke le LAYOUT interne du board Scrum : columns|swimlanes|list).
+    boardMode: localStorage.getItem('sb-boardMode') || 'scrum',
     sprintPick: null,     // sprint sélectionné dans la page Sprint (null = sprint actif). Synchronisé avec le hash.
     piInfo: null,
 
@@ -89,3 +94,5 @@ store.on('team', v => localStorage.setItem('sb-team', v));
 store.on('group', v => { if (v) localStorage.setItem('sb-group', v); else localStorage.removeItem('sb-group'); });
 store.on('theme', v => localStorage.setItem('sb-theme', v));
 store.on('lastSync', v => { if (v) localStorage.setItem('sb-lastSync', v); });
+store.on('piOffset', v => localStorage.setItem('sb-piOffset', String(v || 0)));
+store.on('boardMode', v => { if (v) localStorage.setItem('sb-boardMode', v); });

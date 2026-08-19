@@ -4,10 +4,11 @@
  */
 
 import { store } from './state.js';
+import { NAV_ITEMS } from './config.js';
 import * as api from './api.js';
+import { clearFilters as clearBacklogFilters } from './components/backlog-filters.js';
 import { toast, promptModal, esc } from './utils.js';
-import { seedDemoData } from './demo.js';
-import { importFromJira, getExcludedTeams, clearExcludedTeams } from './sync.js';
+// demo.js et sync.js sont chargés à la demande (seed du 1er lancement / clic sur Sync)
 
 // ── Notification helpers ──────────────────────────────────────────────────────
 const LAST_VISIT_KEY = 'squad-board-lastVisit';
@@ -22,51 +23,47 @@ import { initTopbar } from './components/topbar.js';
 import { initModal } from './components/modal.js';
 import { initCmdPalette } from './components/cmdpalette.js';
 import { initTooltips } from './components/tooltip.js';
+import { initShortcutsModal } from './components/shortcuts_modal.js';
 import { initHelpPopovers } from './components/help_popover.js';
 import { toggleFavoritesDropdown } from './components/favorites.js';
 import { initTeamSwitcher, openTeamSwitcher } from './components/team_switcher.js';
-import { openCurrentSprintReview, openCurrentSprintDemo } from './components/sprint_tickets_modal.js';
+// sprint_tickets_modal.js (Review/Demo) est chargé à la demande — wrappers lazy plus bas
 import { destroyAllCharts } from './components/charts.js';
 import { initChartZoom } from './components/chart_zoom.js';
 import { initDiagramZoom } from './components/diagram_zoom.js';
 import { updateInfoPanel } from './components/infopanel.js';
 import { renderCalBanner } from './components/cal_banner.js';
 
-import { renderDashboard } from './views/dashboard.js';
-import { renderSprint } from './views/sprint.js';
-import { renderKanban } from './views/kanban.js';
-import { renderPI } from './views/pi.js';
-import { renderRoadmap } from './views/roadmap.js';
-import { renderRetro } from './views/retro.js';
-import { renderReports } from './views/reports.js';
-import { renderSettings } from './views/settings.js';
-import { renderSupport } from './views/support.js';
-import { renderRoam } from './views/roam.js';
-import { renderPICalendar } from './views/picalendar.js';
-import { renderAgenda } from './views/agenda.js';
-import { renderHealth } from './views/health.js';
-import { renderAtlas } from './views/atlas.js';
-import { renderBacklog } from './views/backlog.js';
-import { renderTeam } from './views/team.js';
-
-const VIEW_RENDERERS = {
-    dashboard: renderDashboard,
-    sprint: renderSprint,
-    kanban: renderKanban,
-    backlog: renderBacklog,
-    pi: renderPI,
-    picalendar: renderPICalendar,
-    roadmap: renderRoadmap,
-    health: renderHealth,
-    retro: renderRetro,
-    support: renderSupport,
-    roam: renderRoam,
-    atlas: renderAtlas,
-    agenda: renderAgenda,
-    reports: renderReports,
-    settings: renderSettings,
-    team: renderTeam,
+// ── Vues en lazy loading — chaque module n'est téléchargé/parsé qu'à la première
+// visite de la vue (settings ≈ 300 KB, pi ≈ 176 KB, atlas ≈ 148 KB ne pèsent plus
+// sur le démarrage). Le renderer résolu est mémoïsé dans _loadedRenderers.
+const VIEW_LOADERS = {
+    dashboard:  () => import('./views/dashboard.js').then(m => m.renderDashboard),
+    sprint:     () => import('./views/sprint.js').then(m => m.renderSprint),
+    kanban:     () => import('./views/kanban.js').then(m => m.renderKanban),
+    backlog:    () => import('./views/backlog.js').then(m => m.renderBacklog),
+    pi:         () => import('./views/pi.js').then(m => m.renderPI),
+    picalendar: () => import('./views/picalendar.js').then(m => m.renderPICalendar),
+    roadmap:    () => import('./views/roadmap.js').then(m => m.renderRoadmap),
+    health:     () => import('./views/health.js').then(m => m.renderHealth),
+    retro:      () => import('./views/retro.js').then(m => m.renderRetro),
+    support:    () => import('./views/support.js').then(m => m.renderSupport),
+    roam:       () => import('./views/roam.js').then(m => m.renderRoam),
+    atlas:      () => import('./views/atlas.js').then(m => m.renderAtlas),
+    agenda:     () => import('./views/agenda.js').then(m => m.renderAgenda),
+    reports:    () => import('./views/reports.js').then(m => m.renderReports),
+    settings:   () => import('./views/settings.js').then(m => m.renderSettings),
+    team:       () => import('./views/team.js').then(m => m.renderTeam),
 };
+const _loadedRenderers = {};
+async function _getRenderer(view) {
+    if (_loadedRenderers[view]) return _loadedRenderers[view];
+    const loader = VIEW_LOADERS[view];
+    if (!loader) return null;
+    const renderer = await loader();
+    _loadedRenderers[view] = renderer;
+    return renderer;
+}
 
 const content = document.getElementById('content');
 
@@ -210,7 +207,7 @@ function applyHash() {
             }
         }
 
-        if (view && VIEW_RENDERERS[view]) {
+        if (view && VIEW_LOADERS[view]) {
             _applyingHash = true;
             store.set('view', view);
             if (view === 'settings') {
@@ -319,14 +316,10 @@ function applyHash() {
     }
 }
 
-// ── Titres de vues (document.title) ──────────────────────────────────────────
-const VIEW_TITLES = {
-    dashboard: 'Dashboard', sprint: 'Sprint Board', backlog: 'Backlog',
-    pi: 'PI Planning', roadmap: 'Roadmap', health: 'Health',
-    retro: 'Rétro', support: 'Support', roam: 'Risques ROAM',
-    atlas: 'Atlas', agenda: 'Agenda', reports: 'Rapports',
-    settings: 'Paramètres', team: 'Équipe',
-};
+// ── Titres de vues (document.title) — dérivés de NAV_ITEMS (source unique des libellés) ──
+const VIEW_TITLES = Object.fromEntries(NAV_ITEMS.map(n => [n.id, n.label]));
+VIEW_TITLES.kanban = 'Board';           // redirections legacy
+VIEW_TITLES.picalendar = 'PI Planning';
 function _updateTitle() {
     const view  = store.get('view') || 'dashboard';
     const team  = store.get('team');
@@ -336,26 +329,32 @@ function _updateTitle() {
 }
 
 // ── Render active view ────────────────────────────────────────────────────────
-function renderView() {
+// Async (lazy loading) : un jeton de séquence protège contre les navigations rapides —
+// seule la dernière demande de rendu écrit dans #content.
+let _renderSeq = 0;
+async function renderView() {
+    const seq = ++_renderSeq;
     const view = store.get('view');
-    destroyAllCharts();
+    let renderer = null;
     if (view === 'sprint') {
         // Board = Scrum (défaut) ou Kanban selon le toggle topbar
         const mode = store.get('boardMode') || 'scrum';
-        (mode === 'kanban' ? renderKanban : renderSprint)(content);
+        renderer = await _getRenderer(mode === 'kanban' ? 'kanban' : 'sprint');
     } else {
-        const renderer = VIEW_RENDERERS[view];
-        if (renderer) {
-            renderer(content);
-        } else if (view) {
-            // Hash invalide — affiche un toast et redirige vers le Dashboard
-            toast(`Vue inconnue : « ${view} » — redirection vers le Dashboard`, 'warning', 4000);
-            history.replaceState(null, '', '#dashboard');
-            store.set('view', 'dashboard');
-            renderDashboard(content);
-        } else {
-            content.innerHTML = `<div class="empty-state"><h3>Vue inconnue</h3></div>`;
-        }
+        renderer = await _getRenderer(view);
+    }
+    if (seq !== _renderSeq) return; // une navigation plus récente a pris la main
+    destroyAllCharts();
+    if (renderer) {
+        renderer(content);
+    } else if (view) {
+        // Hash invalide — affiche un toast et redirige vers le Dashboard
+        toast(`Vue inconnue : « ${view} » — redirection vers le Dashboard`, 'warning', 4000);
+        history.replaceState(null, '', '#dashboard');
+        store.set('view', 'dashboard'); // le listener 'view' relance renderView
+        return;
+    } else {
+        content.innerHTML = `<div class="empty-state"><h3>Vue inconnue</h3></div>`;
     }
     _updateTitle();
     updateInfoPanel();
@@ -390,8 +389,11 @@ window.__squadBoard.rerenderView = renderView;
 window.__squadBoard.store = store;
 window.__squadBoard.pushHash = pushHash;
 window.__squadBoard.applyHash = applyHash;
-window.__squadBoard.openCurrentSprintReview = openCurrentSprintReview;
-window.__squadBoard.openCurrentSprintDemo   = openCurrentSprintDemo;
+window.__squadBoard.handleJiraImport = (mode) => handleJiraImport(mode); // action Ctrl+K "Sync complète"
+window.__squadBoard.openCurrentSprintReview = (...a) =>
+    import('./components/sprint_tickets_modal.js').then(m => m.openCurrentSprintReview(...a));
+window.__squadBoard.openCurrentSprintDemo = (...a) =>
+    import('./components/sprint_tickets_modal.js').then(m => m.openCurrentSprintDemo(...a));
 
 // ── Load all data from backend ────────────────────────────────────────────────
 async function loadAllData() {
@@ -478,6 +480,7 @@ async function handleJiraImport(mode = 14) {
         return;
     }
     const isFull = mode === 'full';
+    const { importFromJira, getExcludedTeams, clearExcludedTeams } = await import('./sync.js');
     const excluded = getExcludedTeams();
     let overwrite = false;
 
@@ -543,17 +546,18 @@ async function handleJiraImport(mode = 14) {
 
 /** Affiche un skeleton sur la vue courante pendant la sync JIRA — feedback immédiat
  *  pour éviter "écran figé". Remplacé automatiquement par le re-render au succès. */
-function _showSyncSkeleton(isFull) {
+function _showSyncSkeleton(isFull, { title, sub } = {}) {
     if (!content) return;
     const blocks = isFull ? 8 : 4;
-    const label = isFull ? 'Synchronisation complète en cours…' : 'Synchronisation rapide en cours…';
+    const label = title || (isFull ? 'Synchronisation complète en cours…' : 'Synchronisation rapide en cours…');
+    const subLabel = sub || 'Le contenu se rafraîchira automatiquement à la fin.';
     content.innerHTML = `
         <div class="sync-skeleton" role="status" aria-live="polite">
             <div class="sync-skeleton-hdr">
                 <div class="sync-skeleton-spinner"></div>
                 <div>
                     <div class="sync-skeleton-title">${label}</div>
-                    <div class="sync-skeleton-sub">Le contenu se rafraîchira automatiquement à la fin.</div>
+                    <div class="sync-skeleton-sub">${subLabel}</div>
                 </div>
             </div>
             <div class="sync-skeleton-grid">
@@ -570,12 +574,15 @@ function _showSyncSkeleton(isFull) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
+    // Skeleton immédiat : l'écran n'est plus vide pendant le chargement initial des données
+    _showSyncSkeleton(false, { title: 'Chargement du board…', sub: 'Récupération des données locales.' });
     initSidebar();
     initTopbar();
     initModal();
     initCmdPalette();
     initTeamSwitcher();
     initTooltips();
+    initShortcutsModal();
     initHelpPopovers();
     initChartZoom();
     initDiagramZoom();
@@ -658,6 +665,12 @@ async function init() {
         // Favoris : on ancre le dropdown sur le kebab (le bouton d'origine est masqué < 1024px)
         if (item.id === 'more-favorites')  toggleFavoritesDropdown(moreBtn);
         if (item.id === 'more-my-tickets') document.getElementById('btn-my-tickets')?.click();
+        // Relais mobile : Scrum/Kanban (le toggle topbar est masqué < 1024px)
+        if (item.id === 'more-board-mode') {
+            store.set('boardMode', (store.get('boardMode') || 'scrum') === 'scrum' ? 'kanban' : 'scrum');
+            if (store.get('view') !== 'sprint') store.set('view', 'sprint');
+        }
+        // more-daily : géré par topbar.js (goDaily)
     });
 
     // "Mes tickets" toggle — filtre global par leader === currentUser
@@ -738,6 +751,7 @@ async function init() {
     // If database is empty, seed with demo data
     if ((store.get('tickets') || []).length === 0) {
         toast('Premier lancement - creation des donnees de demo...', 'info', 3000);
+        const { seedDemoData } = await import('./demo.js');
         const seeded = await seedDemoData();
         if (seeded) {
             await loadAllData();
@@ -749,14 +763,17 @@ async function init() {
     applyHash();
 
     // Navigation listeners : re-render + mise à jour du hash
-    // Reset du piOffset au changement de vue (pour repartir sur le PI courant à chaque navigation)
+    // Le piOffset est ÉPINGLÉ : il survit aux changements de vue (et aux reloads via state.js).
+    // Le sélecteur PI du topbar affiche un 📌 quand on n'est pas sur le PI courant.
     store.on('boardMode', () => { if (store.get('view') === 'sprint') { renderView(); pushHash(); } });
     // Mémorise la section consultée dans le hash sans re-render (le scroll-spy de reports.js
     // gère déjà l'affichage — un re-render ici ferait sauter le scroll).
     store.on('reportsSection', () => { if (store.get('view') === 'reports') pushHash(); });
-    store.on('view',  () => { if (!_applyingHash) store.set('piOffset', 0); renderView(); pushHash(); });
-    store.on('team',  () => { renderView(); pushHash(); });
-    store.on('group', () => { renderView(); pushHash(); });
+    store.on('view',  () => { renderView(); pushHash(); });
+    // Changement d'équipe/groupe = nouveau contexte → on réinitialise les filtres backlog
+    // (ils persistaient silencieusement en localStorage et donnaient un backlog vide inexpliqué).
+    store.on('team',  () => { clearBacklogFilters(); renderView(); pushHash(); });
+    store.on('group', () => { clearBacklogFilters(); renderView(); pushHash(); });
     store.on('piOffset', () => { renderView(); pushHash(); });
 
     // Boutons retour/avant du navigateur + liens <a href="#...">

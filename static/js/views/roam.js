@@ -3,7 +3,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, toast } from '../utils.js';
+import { esc, filterByTeam, toast, confirmDanger } from '../utils.js';
 import * as api from '../api.js';
 
 const QUADRANTS = [
@@ -117,7 +117,7 @@ function _render(container) {
         btn.addEventListener('click', async e => {
             e.stopPropagation();
             const id = btn.closest('[data-risk-id]')?.dataset.riskId;
-            if (!id || !confirm('Supprimer ce risque ?')) return;
+            if (!id || !(await confirmDanger('Supprimer le risque', 'Supprimer ce risque ?', { confirmLabel: 'Supprimer' }))) return;
             try {
                 await api.deleteRisk(id);
                 store.set('risks', (store.get('risks') || []).filter(r => r.id !== id));

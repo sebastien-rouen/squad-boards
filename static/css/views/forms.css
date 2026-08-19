@@ -537,6 +537,10 @@
     border-radius: var(--r-sm);
     transition: background .1s, outline .1s;
 }
+.grp-name-input:focus {
+    background: var(--surface);
+    box-shadow: 0 0 0 2px var(--border-focus);
+}
 .grp-name-input:hover { background: var(--surface); }
 .grp-name-input:focus { background: var(--surface); outline: 1.5px solid var(--primary); }
 .grp-count { flex-shrink: 0; white-space: nowrap; }

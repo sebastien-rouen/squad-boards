@@ -102,7 +102,12 @@ export function initTopbar() {
         const basePi = getCurrentPi();
         const visible = PI_VIEWS.has(view) && basePi;
         piHost.hidden = !visible;
-        if (!visible) { piHost.innerHTML = ''; return; }
+        if (!visible) {
+            piHost.innerHTML = '';
+            const mp = document.getElementById('more-pi-selector');
+            if (mp) mp.innerHTML = '';
+            return;
+        }
         const offset = store.get('piOffset') || 0;
         // 5 offsets : -2, -1, 0 (courant), +1, +2 — désactivés si PI <= 0
         const offsets = [-2, -1, 0, 1, 2].filter(o => (basePi + o) >= 1);
@@ -110,9 +115,14 @@ export function initTopbar() {
             ${offsets.map(o => {
                 const piN = basePi + o;
                 const isActive = o === offset;
-                const label = o === 0 ? `PI${piN} <small>courant</small>` : `PI${piN}`;
+                // 📌 = PI épinglé : la sélection persiste entre les vues et les sessions
+                const pin = (isActive && o !== 0) ? '📌 ' : '';
+                const label = o === 0 ? `PI${piN} <small>courant</small>` : `${pin}PI${piN}`;
                 const cls = `pi-selector-btn${isActive ? ' active' : ''}${o === 0 ? ' pi-selector-btn--current' : ''}`;
-                return `<button class="${cls}" role="tab" aria-selected="${isActive}" data-offset="${o}" title="${o === 0 ? 'PI courant' : (o > 0 ? `PI+${o}` : `PI${o}`)}">${label}</button>`;
+                const tip = isActive && o !== 0
+                    ? `PI épinglé — la sélection est conservée en changeant de vue · cliquer sur « PI${basePi} courant » pour revenir`
+                    : (o === 0 ? 'PI courant' : (o > 0 ? `PI+${o}` : `PI${o}`));
+                return `<button class="${cls}" role="tab" aria-selected="${isActive}" data-offset="${o}" title="${tip}">${label}</button>`;
             }).join('')}
         </div>`;
         piHost.querySelectorAll('[data-offset]').forEach(btn => {
@@ -121,6 +131,24 @@ export function initTopbar() {
                 if (!Number.isNaN(o)) store.set('piOffset', o);
             });
         });
+
+        // Miroir dans le kebab mobile (le sélecteur topbar est masqué < 1024px)
+        const morePi = document.getElementById('more-pi-selector');
+        if (morePi) {
+            morePi.innerHTML = `<div class="more-pi-label">PI affiché</div>`
+                + offsets.map(o => {
+                    const piN = basePi + o;
+                    const isActive = o === offset;
+                    return `<button class="sync-menu-item${isActive ? ' sync-menu-item--current' : ''}" data-offset="${o}">`
+                        + `${isActive && o !== 0 ? '📌 ' : ''}PI${piN}${o === 0 ? ' · courant' : ''}</button>`;
+                }).join('');
+            morePi.querySelectorAll('[data-offset]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const o = parseInt(btn.dataset.offset, 10);
+                    if (!Number.isNaN(o)) store.set('piOffset', o);
+                });
+            });
+        }
     }
     store.on('view',       updatePiSelector);
     store.on('piInfo',     updatePiSelector);
@@ -285,9 +313,25 @@ export function initTopbar() {
         toggleFavoritesDropdown(btnFav);
     });
 
+    // ── Bouton "▶ Daily" — permanent en topbar (+ relais kebab mobile) ──────────
+    // Bascule sur le Board, replie les graphes et affiche le timer 15 min. Auparavant
+    // uniquement accessible via l'info-panel (masqué ≤ 1200 px).
+    const goDaily = async () => {
+        const m = await import('../views/sprint.js');
+        m.collapseCharts();
+        m.enterDailyMode();
+        if (store.get('view') === 'sprint') window.__squadBoard?.rerenderView?.();
+        else store.set('view', 'sprint');
+    };
+    document.getElementById('btn-daily')?.addEventListener('click', goDaily);
+    document.getElementById('more-daily')?.addEventListener('click', goDaily);
+
     // Keyboard shortcuts
     document.addEventListener('keydown', e => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+        // Zones d'édition riche (description ticket, objectif PI, notes review…) : ne pas
+        // détourner la frappe — même garde que sidebar.js / pi.js.
+        if (e.target.isContentEditable) return;
 
         if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey && !e.altKey) {
             e.preventDefault();

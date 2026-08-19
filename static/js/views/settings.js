@@ -15,17 +15,10 @@ import {
 import { makePersonPicker } from '../components/modal.js';
 import { addExcludedTeam, getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
 
-// ── Reminder configuration ────────────────────────────────────────────────────
-const _LS_REMINDERS = 'sb-reminders';
-
-export const REMINDER_DEFS = [
-    { id: 'demo',    icon: '🎬', label: 'DEMO Sprint',          dBefore: 0,  enabled: true  },
-    { id: 'retro',   icon: '🔄', label: 'Rétrospective',        dBefore: 1,  enabled: true  },
-    { id: 'mood',    icon: '🎭', label: 'Mood Meter',           dBefore: 2,  enabled: true  },
-    { id: 'fist',    icon: '✊', label: 'Vote de confiance',    dBefore: 0,  enabled: true  },
-    { id: 'sondage', icon: '📊', label: 'Sondage équipe',       dBefore: 2,  enabled: false },
-    { id: 'planning',icon: '📋', label: 'Sprint Planning',      dBefore: 0,  enabled: false },
-];
+// ── Reminder configuration — extraite dans reminders.js (consommée par l'info-panel
+// sans charger cette vue ; re-exportée ici pour compat) ───────────────────────
+import { REMINDER_DEFS, loadReminders, saveReminders as _saveReminders } from '../reminders.js';
+export { REMINDER_DEFS, loadReminders };
 
 // ── Export (modale à choix multiples) ─────────────────────────────────────────
 // `key` mappe vers 1+ clés de la réponse /api/export (cf. _EXPORT_SPEC côté backend,
@@ -412,23 +405,7 @@ function _openImportModal(container) {
     });
 }
 
-export function loadReminders() {
-    try {
-        const saved = JSON.parse(localStorage.getItem(_LS_REMINDERS) || '{}');
-        const result = {};
-        for (const def of REMINDER_DEFS) {
-            result[def.id] = {
-                dBefore: saved[def.id]?.dBefore ?? def.dBefore,
-                enabled: saved[def.id]?.enabled ?? def.enabled,
-            };
-        }
-        return result;
-    } catch { return Object.fromEntries(REMINDER_DEFS.map(d => [d.id, { dBefore: d.dBefore, enabled: d.enabled }])); }
-}
-
-function _saveReminders(data) {
-    localStorage.setItem(_LS_REMINDERS, JSON.stringify(data));
-}
+// (loadReminders / _saveReminders : voir reminders.js)
 
 // ── CSV Absences : parser pivot (header = dates dd/mm) ──────────────────────
 // Détecte le format RH classique où chaque colonne après les 3-4 colonnes meta
@@ -1945,7 +1922,7 @@ export function renderSettings(container) {
         if (!chips.length) return;
         const toCreate = [...chips].map(c => ({ project: c.dataset.project, teams: c.dataset.teams.split(',').filter(Boolean) }));
         const names = toCreate.map(x => `${x.project} (${x.teams.join(', ')})`).join('\n');
-        if (!confirm(`Créer ${toCreate.length} groupe(s) :\n${names}`)) return;
+        if (!(await confirmDanger('Créer groupes', `Créer ${toCreate.length} groupe(s) :\n${names}`, { confirmLabel: 'Créer' }))) return;
         const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
         try {
             for (let i = 0; i < toCreate.length; i++) {
@@ -2129,7 +2106,7 @@ export function renderSettings(container) {
 
     container.querySelectorAll('.btn-del-group').forEach(btn => {
         btn.addEventListener('click', async () => {
-            if (!confirm('Supprimer ce groupe ?')) return;
+            if (!(await confirmDanger('Supprimer le groupe', 'Supprimer ce groupe ?', { confirmLabel: 'Supprimer' }))) return;
             const card = btn.closest('.grp-card');
             _grpSetSaving(card, true);
             try {
@@ -2316,10 +2293,12 @@ export function renderSettings(container) {
                 return '  · ' + t + ' (' + n + ' existant' + (n > 1 ? 's' : '') + ')';
             }).join('\n');
             const allConflict = Object.keys(importedByTeam).length === conflictTeams.length;
-            const choice = confirm(
-                '⚠️ ' + conflictTeams.length + ' équipe(s) ont déjà des objectifs pour PI ' + piNum + ' :\n' + conflictDetails + '\n\n'
-                + 'OK → Remplacer leurs objectifs existants\n'
-                + 'Annuler → ' + (allConflict ? 'Annuler l\'import' : 'Ignorer ces équipes (n\'importer que les nouvelles)')
+            const choice = await confirmDanger(
+                'Conflits d\'objectifs',
+                conflictTeams.length + ' équipe(s) ont déjà des objectifs pour PI ' + piNum + ' :\n' + conflictDetails + '\n\n'
+                + 'Remplacer → Remplacer leurs objectifs existants\n'
+                + 'Annuler → ' + (allConflict ? 'Annuler l\'import' : 'Ignorer ces équipes (n\'importer que les nouvelles)'),
+                { confirmLabel: 'Remplacer', danger: false }
             );
             replaceConflicts = choice;
             if (!choice && allConflict) {
@@ -2328,7 +2307,7 @@ export function renderSettings(container) {
             }
         } else {
             const teamList = Object.keys(importedByTeam).join(', ');
-            if (!confirm('Importer ' + parsed.length + ' objectif(s) pour PI ' + piNum + ' ?\n' + Object.keys(importedByTeam).length + ' équipe(s) : ' + teamList)) return;
+            if (!(await confirmDanger('Importer objectifs', 'Importer ' + parsed.length + ' objectif(s) pour PI ' + piNum + ' ?\n' + Object.keys(importedByTeam).length + ' équipe(s) : ' + teamList, { confirmLabel: 'Importer', danger: false }))) return;
         }
 
         let finalObjs;
@@ -2373,7 +2352,7 @@ export function renderSettings(container) {
     });
     container.querySelectorAll('.btn-del-member').forEach(btn => {
         btn.addEventListener('click', async () => {
-            if (!confirm('Supprimer ?')) return;
+            if (!(await confirmDanger('Supprimer le membre', 'Supprimer ce membre ?', { confirmLabel: 'Supprimer' }))) return;
             try {
                 await api.deleteMember(btn.dataset.id);
                 btn.closest('.item-row')?.remove();
@@ -2390,7 +2369,7 @@ export function renderSettings(container) {
             .filter(cols => cols[0])
             .map(cols => ({ name: cols[0], team: cols[1] || '', entity: cols[2] || '', role: cols[3] || '' }));
         if (!parsed.length) { toast('Aucune donnee valide', 'warning'); return; }
-        if (!confirm(`Remplacer les ${members.length} membres actuels par ${parsed.length} membres du CSV ?`)) return;
+        if (!(await confirmDanger('Remplacer tous les membres', `Remplacer les ${members.length} membres actuels par ${parsed.length} membres du CSV ?`, { confirmLabel: 'Remplacer', danger: false }))) return;
         try {
             await api.bulkMergeMembers(parsed, true);
             toast(`${parsed.length} membres importes`, 'success');
@@ -2398,7 +2377,7 @@ export function renderSettings(container) {
         } catch (e) { toast(e.message, 'error'); }
     });
     container.querySelector('#btn-clear-members')?.addEventListener('click', async () => {
-        if (!confirm('Supprimer TOUS les membres ?')) return;
+        if (!(await confirmDanger('Supprimer tous les membres', 'Supprimer TOUS les membres ?', { confirmLabel: 'Supprimer' }))) return;
         try {
             await Promise.all(members.map(m => api.deleteMember(m.id)));
             toast('Tous les membres supprimes', 'success');
@@ -2619,7 +2598,7 @@ export function renderSettings(container) {
     });
 
     container.querySelector('#btn-clear-abs')?.addEventListener('click', async () => {
-        if (!confirm('Supprimer toutes les absences ?')) return;
+        if (!(await confirmDanger('Supprimer toutes les absences', 'Supprimer toutes les absences ?', { confirmLabel: 'Supprimer' }))) return;
         try { await api.bulkCreateAbsences([], true); await reloadAndRender(container); toast('Absences supprimees', 'info'); } catch (e) { toast(e.message, 'error'); }
     });
 
@@ -2650,7 +2629,7 @@ export function renderSettings(container) {
     });
     container.querySelectorAll('.btn-del-event').forEach(btn => {
         btn.addEventListener('click', async () => {
-            if (!confirm('Supprimer ce fait marquant ?')) return;
+            if (!(await confirmDanger('Supprimer le fait marquant', 'Supprimer ce fait marquant ?', { confirmLabel: 'Supprimer' }))) return;
             try { await api.deleteEvent(btn.dataset.id); await reloadAndRender(container); } catch (e) { toast(e.message, 'error'); }
         });
     });
@@ -2767,7 +2746,7 @@ export function renderSettings(container) {
         }
         const del = e.target.closest('.btn-del-cal');
         if (del) {
-            if (!confirm('Supprimer ce calendrier ?')) return;
+            if (!(await confirmDanger('Supprimer le calendrier', 'Supprimer ce calendrier ?', { confirmLabel: 'Supprimer' }))) return;
             try { await api.deleteCalendar(del.dataset.id); await _calReloadSection(container); }
             catch (err) { toast(err.message, 'error'); }
         }
@@ -3851,8 +3830,8 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
             `• Fin: ${endDate}\n` +
             `• Objectif: ${goal ? goal.slice(0, 60) + (goal.length > 60 ? '…' : '') : '(vide)'}\n\n` +
             `Sprint JIRA ID: ${sprintInfo.jiraId}\n\n` +
-            `Cette action écrasera les valeurs côté JIRA. Continuer ?`;
-        if (!confirm(msg)) return;
+            `Cette action écrasera les valeurs côté JIRA.`;
+        if (!(await confirmDanger('Pousser vers JIRA', msg, { confirmLabel: 'Pousser', danger: false }))) return;
 
         const btn = container.querySelector('#btn-sprint-push-jira');
         const orig = btn.textContent;
@@ -4010,7 +3989,7 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
     container.querySelector('#btn-import')?.addEventListener('click', () => _openImportModal(container));
 
     container.querySelector('#btn-clear')?.addEventListener('click', async () => {
-        if (!confirm('Tout supprimer ? Irreversible.')) return;
+        if (!(await confirmDanger('Supprimer toutes les données', 'Tout supprimer ? Irréversible.', { confirmLabel: 'Supprimer' }))) return;
         try {
             await api.importAll({ tickets: [], features: [], epics: [], members: [], teams: [], groups: [], absences: [], support: [], sprint: [], pi: [] }, 'replace');
             await reloadAndRender(container);
@@ -4019,7 +3998,7 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
     });
 
     container.querySelector('#btn-seed-demo')?.addEventListener('click', async () => {
-        if (!confirm('Charger la démo complète ? Toutes les données actuelles seront remplacées.')) return;
+        if (!(await confirmDanger('Charger la démo', 'Charger la démo complète ? Toutes les données actuelles seront remplacées.', { confirmLabel: 'Charger', danger: false }))) return;
         const btn    = container.querySelector('#btn-seed-demo');
         const status = container.querySelector('#seed-demo-status');
         btn.disabled = true;
@@ -4452,7 +4431,7 @@ function _rotWirePanelEvents(container) {
     container.querySelectorAll('[data-rot-clear]').forEach(btn => {
         btn.addEventListener('click', async () => {
             const team     = btn.dataset.rotClear;
-            if (!confirm(`Supprimer toute la rotation de ${team} ?`)) return;
+            if (!(await confirmDanger('Supprimer la rotation', `Supprimer toute la rotation de ${team} ?`, { confirmLabel: 'Supprimer' }))) return;
             const support  = store.get('support') || [];
             const toDelete = support.filter(s => s.team === team);
             try {

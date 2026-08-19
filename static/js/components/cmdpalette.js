@@ -5,7 +5,7 @@
 
 import { store } from '../state.js';
 import { esc, toast, getSprintForTeam } from '../utils.js';
-import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
+import { STATUS_LABELS, TYPE_LABELS, NAV_ITEMS } from '../config.js';
 
 const HISTORY_KEY   = 'sb-cmd-history';
 const FIRST_OPEN_KEY = 'sb-cmd-seen';
@@ -108,21 +108,30 @@ const _input    = () => document.getElementById('cmd-input');
 const _results  = () => document.getElementById('cmd-results');
 const _countEl  = () => document.getElementById('cmd-count');
 
-// ── Views navigation ─────────────────────────────────────────────────────────
-const VIEWS = [
-    { id: 'dashboard',   label: 'Dashboard',          icon: '📊' },
-    { id: 'sprint',      label: 'Sprint',             icon: '🏃' },
-    { id: 'kanban',      label: 'Kanban',             icon: '📋' },
-    { id: 'pi',          label: 'PI Planning',        icon: '🗓️' },
-    { id: 'picalendar',  label: 'Calendrier PI',      icon: '📅' },
-    { id: 'roadmap',     label: 'Roadmap',            icon: '🗺️' },
-    { id: 'retro',       label: 'Rétrospective',      icon: '🔄' },
-    { id: 'support',     label: 'Support',            icon: '🛡️' },
-    { id: 'roam',        label: 'Risques ROAM',       icon: '⚠️' },
-    { id: 'agenda',      label: 'Agenda',             icon: '📆' },
-    { id: 'reports',     label: 'Rapports',           icon: '📝' },
-    { id: 'settings',    label: 'Paramètres',         icon: '⚙️' },
-];
+// ── Views navigation — dérivées de NAV_ITEMS (source unique, cf config.js) ────
+// Plus de liste locale : la palette propose exactement les vues du menu (mêmes libellés),
+// avec des alias de recherche (`keywords`) pour les anciens noms / termes anglais.
+const _VIEW_META = {
+    dashboard: { icon: '📊', keywords: 'accueil home métriques metrics' },
+    sprint:    { icon: '🏃', keywords: 'sprint kanban board daily scrum' },
+    backlog:   { icon: '📋', keywords: 'backlog liste tickets filtres' },
+    pi:        { icon: '🗓️', keywords: 'pi planning safe capacité objectifs calendrier' },
+    roadmap:   { icon: '🗺️', keywords: 'roadmap features long terme timeline' },
+    health:    { icon: '❤️', keywords: 'santé health anomalies score qualité' },
+    reports:   { icon: '📝', keywords: 'rapports reports export métriques' },
+    retro:     { icon: '🔁', keywords: 'rétro rétrospective amélioration continue postmortem cop' },
+    team:      { icon: '🪪', keywords: 'équipe team identité ateliers workshops' },
+    support:   { icon: '🛡️', keywords: 'support rotation sla astreinte' },
+    roam:      { icon: '⚠️', keywords: 'risques roam risks' },
+    atlas:     { icon: '🧭', keywords: 'atlas compétences skills appétences mobilité staffing' },
+    agenda:    { icon: '📆', keywords: 'agenda semaine absences congés calendrier' },
+    settings:  { icon: '⚙️', keywords: 'paramètres settings configuration admin' },
+};
+const VIEWS = NAV_ITEMS.map(n => ({
+    id: n.id, label: n.label,
+    icon: _VIEW_META[n.id]?.icon || '📐',
+    keywords: _VIEW_META[n.id]?.keywords || '',
+}));
 
 // ── Actions rapides — déclenchent des helpers app sans changer de vue ─────────
 // Chacune : id, label, icon, keywords (boost search), run(): void
@@ -386,7 +395,7 @@ function _search(q) {
     // Views
     if (!hasFilters && text) {
         for (const v of VIEWS) {
-            const s = _score(v.label, text);
+            const s = Math.max(_score(v.label, text), _score(v.keywords, text) * 0.85);
             if (s > 0) results.push({ group: 'view', score: s + 20, item: v });
         }
         // Actions (commandes app) — keywords boost
@@ -598,8 +607,9 @@ function _activate(el, e) {
     }
 
     if (group === 'view') {
+        // On laisse pushHash (listener store) construire le hash canonique — écrire un hash
+        // nu ici re-routait via applyHash et réinitialisait l'équipe sélectionnée.
         store.set('view', id);
-        window.location.hash = id;
         _close();
         return;
     }

@@ -119,6 +119,10 @@
                 <div id="pi-selector-host" class="pi-selector-host" hidden></div>
             </div>
             <div class="topbar-right">
+                <button id="btn-daily" class="btn btn-secondary" data-tooltip="Aller au Daily — Board, graphes repliés, timer 15 min">
+                    <svg class="icon"><use href="#i-play"/></svg>
+                    <span class="btn-label">Daily</span>
+                </button>
                 <button id="btn-my-tickets" class="btn btn-secondary btn-toggle" data-tooltip="Voir uniquement mes tickets" aria-pressed="false">
                     <span class="btn-label">Mes tickets</span>
                 </button>
@@ -158,8 +162,13 @@
                         <svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
                     </button>
                     <div id="topbar-more-menu" class="sync-menu topbar-more-menu" hidden>
+                        <button class="sync-menu-item" id="more-daily">▶&nbsp; Aller au Daily</button>
+                        <button class="sync-menu-item" id="more-board-mode">⇄&nbsp; Basculer Scrum / Kanban</button>
                         <button class="sync-menu-item" id="more-favorites">★&nbsp; Favoris</button>
                         <button class="sync-menu-item" id="more-my-tickets">◉&nbsp; Mes tickets</button>
+                        <button class="sync-menu-item" id="more-help">❔&nbsp; Aide &amp; raccourcis</button>
+                        <hr class="sync-menu-sep">
+                        <div id="more-pi-selector" class="more-pi-selector" role="group" aria-label="Choix du PI"></div>
                     </div>
                 </div>
             </div>
@@ -195,7 +204,7 @@
 
     <!-- Modal -->
     <div id="modal-overlay" class="modal-overlay hidden">
-        <div class="modal" id="modal">
+        <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <div class="modal-header">
                 <h2 id="modal-title"></h2>
                 <div class="modal-header-actions">
@@ -251,8 +260,8 @@
         </div>
     </div>
 
-    <!-- Toast Container -->
-    <div id="toast-container" class="toast-container"></div>
+    <!-- Toast Container — annoncé aux lecteurs d'écran (les erreurs passent en role="alert") -->
+    <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-relevant="additions"></div>
 
     <script type="module" src="/js/app.js"></script>
 </body>

@@ -6,9 +6,9 @@
 import { store } from '../state.js';
 import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam, isBufferItem, getCurrentPi, typeBadge, teamCapacity, wipThreshold, extractSprintLabel, effectiveRosterForPi, teamNameMatches } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
-import { loadReminders, REMINDER_DEFS } from '../views/settings.js';
+import { loadReminders, REMINDER_DEFS } from '../reminders.js';
 import { openAlertModal } from './alert_modal.js';
-import { collapseCharts, enterDailyMode } from '../views/sprint.js';
+// sprint.js est chargé à la demande (lazy loading des vues) — cf. handler "Aller au Daily"
 
 const panel = () => document.getElementById('info-panel');
 
@@ -561,11 +561,13 @@ function _attachPanelEvents(el) {
         });
     });
 
-    el.querySelector('.panel-goto-daily')?.addEventListener('click', e => {
+    el.querySelector('.panel-goto-daily')?.addEventListener('click', async e => {
         e.stopPropagation();
+        const { collapseCharts, enterDailyMode } = await import('../views/sprint.js');
         collapseCharts();
         enterDailyMode();
-        store.set('view', 'sprint');
+        if (store.get('view') === 'sprint') window.__squadBoard?.rerenderView?.();
+        else store.set('view', 'sprint');
     });
 
     el.querySelectorAll('.panel-card--clickable').forEach(card => {

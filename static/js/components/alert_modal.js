@@ -10,7 +10,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, sumBy, toast, deriveMembersFromAbsences, getStatusLabel, statusBadge, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, sumBy, toast, deriveMembersFromAbsences, getStatusLabel, statusBadge, teamCapacity, wipThreshold, countWip, trapFocus } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { ANOMALY_BY_KEY } from '../business_rules.js';
@@ -61,6 +61,7 @@ export function openAlertModal(actionable, opts = {}) {
     overlay.innerHTML = _renderModalHtml(actionable, meta, tickets, { wipDetails });
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visible'));
+    _releaseTrap = trapFocus(overlay.querySelector('.alert-modal') || overlay);
 
     // État local des modifications (id → {field: newValue})
     const dirty = new Map();
@@ -70,7 +71,10 @@ export function openAlertModal(actionable, opts = {}) {
     if (opts.updateHash !== false) _setAlertInHash(actionable);
 }
 
+let _releaseTrap = null; // piège à focus (cf utils.trapFocus)
+
 function _closeAlertModal() {
+    if (_releaseTrap) { _releaseTrap(); _releaseTrap = null; }
     const ov = document.getElementById('alert-modal-overlay');
     if (!ov) return;
     ov.classList.remove('visible');
@@ -103,7 +107,7 @@ function _renderModalHtml(actionable, meta, tickets, extra = {}) {
     // Légende capacité/WIP — uniquement pour l'anomalie WIP
     const wipLegend = actionable === 'wip' ? _renderWipLegend(extra.wipDetails || []) : '';
     return `
-        <div class="modal alert-modal" role="dialog" aria-labelledby="alert-modal-title">
+        <div class="modal alert-modal" role="dialog" aria-modal="true" aria-labelledby="alert-modal-title">
             <div class="modal-header alert-modal-header">
                 <h2 id="alert-modal-title">
                     <span class="alert-modal-icon">${meta.icon}</span>

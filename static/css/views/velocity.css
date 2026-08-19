@@ -318,6 +318,9 @@
     font-size: 12px; color: var(--text); min-width: 80px; flex: 1;
     padding: 2px 2px;
 }
+.picap-role-input:focus {
+    box-shadow: 0 0 0 2px var(--border-focus);
+}
 .picap-role-input::placeholder { color: var(--text-muted); }
 .picap-role-dropdown {
     position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 200;
@@ -375,6 +378,9 @@
     font-size: 12px; font-weight: var(--fw-semibold); color: var(--text);
     text-align: center; padding: 0;
     -moz-appearance: textfield;
+}
+.picap-base-input:focus {
+    box-shadow: 0 0 0 2px var(--border-focus);
 }
 .picap-base-input::-webkit-inner-spin-button,
 .picap-base-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }

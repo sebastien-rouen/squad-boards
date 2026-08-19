@@ -6,7 +6,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, filterByTeam, fmtRelative, toast, getSprintForTeam } from '../utils.js';
+import { esc, filterByTeam, fmtRelative, toast, getSprintForTeam, confirmDanger } from '../utils.js';
 import { stageFlowCardHtml, bindStageFlowCard } from '../components/stage_flow_card.js';
 
 const SRC_COLOR = {
@@ -227,7 +227,7 @@ export function renderRetro(container) {
     // Delete RetroItem
     container.querySelectorAll('.retro-del').forEach(btn => {
         btn.addEventListener('click', async () => {
-            if (!confirm('Supprimer ?')) return;
+            if (!(await confirmDanger('Supprimer', 'Supprimer cette action ?', { confirmLabel: 'Supprimer' }))) return;
             try {
                 await api.deleteRetro(btn.dataset.id);
                 await _reloadRetro();

@@ -10,7 +10,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, deriveMembersFromAbsences, initials, hashColor } from '../utils.js';
+import { esc, deriveMembersFromAbsences, initials, hashColor, confirmDanger, toast } from '../utils.js';
 import * as api from '../api.js';
 
 // ── Référentiels métier ───────────────────────────────────────────────────────
@@ -743,7 +743,6 @@ if (typeof document !== 'undefined' && !document._atlasFsBound) {
 async function _exportMapPng(btn, el) {
     const stage = el.querySelector('.atlas-map-stage');
     if (!stage) return;
-    const { toast } = await import('../utils.js');
     const orig = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '⏳';
@@ -1262,7 +1261,6 @@ function _renderMatrix(el) {
                 store.set('skills', [...(store.get('skills') || []), created]);
                 _renderMatrix(el); // re-render → affiche la grille dès la 1ère compétence
             } catch (err) {
-                const { toast } = await import('../utils.js');
                 toast('Erreur création compétence', 'error');
             }
         });
@@ -1871,7 +1869,6 @@ async function _saveSkill(key, team, skillId, level) {
     try {
         await api.upsertMemberSkill({ scope: _matrixScope, scopeKey: key, team, skillId, level });
     } catch (e) {
-        const { toast } = await import('../utils.js');
         toast('Erreur sauvegarde compétence', 'error');
     }
 }
@@ -1883,7 +1880,6 @@ async function _saveAppetence(key, team, appId, value) {
     try {
         await api.upsertMemberAppetence({ scope: _matrixScope, scopeKey: key, team, appetenceId: appId, value });
     } catch (e) {
-        const { toast } = await import('../utils.js');
         toast('Erreur sauvegarde appétence', 'error');
     }
 }
@@ -1966,8 +1962,7 @@ function _openMobilityModal() {
 
     // Nettoyage des lignes orphelines
     overlay.querySelector('#atlas-mob-clean')?.addEventListener('click', async () => {
-        if (!confirm(`Supprimer ${orphans.length} ligne(s) de mobilité dont le membre n'existe plus ?\n\n${orphans.map(o => '· ' + o.memberName).join('\n')}`)) return;
-        const { toast } = await import('../utils.js');
+        if (!(await confirmDanger(`Supprimer ${orphans.length} ligne(s)`, `Suppression de ${orphans.length} ligne(s) de mobilité dont le membre n'existe plus ?\n\n${orphans.map(o => '· ' + o.memberName).join('\n')}`, { confirmLabel: 'Supprimer' }))) return;
         try {
             await Promise.all(orphans.filter(o => o.id).map(o => api.deleteMobility(o.id)));
             store.set('mobility', mobility.filter(m => !orphans.includes(m)));
@@ -2054,7 +2049,6 @@ const _DEFAULT_CATALOG = [
 ];
 
 async function _seedDefaultCatalog(matrixEl) {
-    const { toast } = await import('../utils.js');
     try {
         const created = [];
         let sort = 0;
@@ -2131,7 +2125,6 @@ function _openQuickAddSkill(anchor, matrixEl) {
             _closePopovers();
             if (matrixEl) _renderMatrix(matrixEl);
         } catch (err) {
-            const { toast } = await import('../utils.js');
             toast('Erreur création compétence', 'error');
         }
     });
@@ -2185,7 +2178,6 @@ function _openItemEditPopover(anchor, kind, id, matrixEl) {
         const idx = sameCat.findIndex(i => i.id === id);
         const swapWith = sameCat[idx + dir];
         if (!swapWith) return;
-        const { toast } = await import('../utils.js');
         try {
             const s1 = item.sort ?? 0, s2 = swapWith.sort ?? 0;
             const upd = isSkill ? api.updateSkill : api.updateAppetence;
@@ -2204,7 +2196,6 @@ function _openItemEditPopover(anchor, kind, id, matrixEl) {
         const name = (fd.get('name') || '').trim();
         if (!name) return;
         const category = (fd.get('category') || '').trim() || 'Général';
-        const { toast } = await import('../utils.js');
         try {
             const updated = isSkill
                 ? await api.updateSkill(id, { name, category, color })
@@ -2216,8 +2207,7 @@ function _openItemEditPopover(anchor, kind, id, matrixEl) {
     });
 
     pop.querySelector('#atlas-edit-del').addEventListener('click', async () => {
-        if (!confirm(`Supprimer « ${item.name} » ? Les niveaux associés seront perdus.`)) return;
-        const { toast } = await import('../utils.js');
+        if (!(await confirmDanger('Supprimer', `Supprimer « ${item.name} » ? Les niveaux associés seront perdus.`, { confirmLabel: 'Supprimer' }))) return;
         try {
             if (isSkill) await api.deleteSkill(id); else await api.deleteAppetence(id);
             store.set(isSkill ? 'skills' : 'appetences', items.filter(i => i.id !== id));
@@ -2359,7 +2349,6 @@ function _openCatalogModal(matrixEl) {
             btn.textContent = 'Importer';
             btn.disabled = true;
         } catch {
-            const { toast } = await import('../utils.js');
             toast('Erreur import catalogue', 'error');
             btn.textContent = 'Importer';
             btn.disabled = false;
@@ -2412,7 +2401,6 @@ function _renderCatalogList(overlay, kind) {
             store.set(isSkill ? 'skills' : 'appetences', [...items, created]);
             _renderCatalogList(overlay, kind);
         } catch (err) {
-            const { toast } = await import('../utils.js');
             toast('Erreur création', 'error');
         }
     });
@@ -2421,7 +2409,7 @@ function _renderCatalogList(overlay, kind) {
     col.querySelectorAll('.atlas-cat-del').forEach(btn => {
         btn.addEventListener('click', async () => {
             const id = btn.dataset.id;
-            if (!confirm('Supprimer du catalogue ? Les niveaux associés seront perdus.')) return;
+            if (!(await confirmDanger('Supprimer du catalogue', 'Les niveaux associés seront perdus.', { confirmLabel: 'Supprimer' }))) return;
             try {
                 if (isSkill) await api.deleteSkill(id); else await api.deleteAppetence(id);
                 store.set(isSkill ? 'skills' : 'appetences', items.filter(i => i.id !== id));
@@ -2430,7 +2418,6 @@ function _renderCatalogList(overlay, kind) {
                 else store.set('memberAppetences', (store.get('memberAppetences') || []).filter(x => x.appetenceId !== id));
                 _renderCatalogList(overlay, kind);
             } catch (err) {
-                const { toast } = await import('../utils.js');
                 toast('Erreur suppression', 'error');
             }
         });
@@ -2551,7 +2538,6 @@ function _openSkillUpModal(scopeKey, team, skillId) {
     overlay.querySelector('#atlas-su-form').addEventListener('submit', async e => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        const { toast } = await import('../utils.js');
         try {
             const ticket = await api.createTicket({
                 title: fd.get('title'),
@@ -2707,7 +2693,6 @@ function _openAssignPicker(anchor, memberName, team) {
     pop.querySelectorAll('.atlas-assign-item').forEach(it => {
         it.addEventListener('click', async () => {
             const id = it.dataset.id;
-            const { toast } = await import('../utils.js');
             try {
                 const updated = await api.updateTicket(id, { leader: memberName });
                 store.set('tickets', (store.get('tickets') || []).map(t => t.id === id ? { ...t, leader: memberName } : t));

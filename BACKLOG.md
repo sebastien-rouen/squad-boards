@@ -1,5 +1,11 @@
 # BACKLOG — Squad Board
 
+> Dernière mise à jour : 2026-08-22
+>
+> Ce fichier ne contient que **ce qui reste à faire**. Les items soldés sont
+> dans [`docs/BACKLOG-ARCHIVE.md`](docs/BACKLOG-ARCHIVE.md) ; leur récit complet
+> vit dans [`CHANGELOG.md`](CHANGELOG.md).
+
 > Document de reprise pour une nouvelle conversation Claude. Lire en premier : [CLAUDE.md](CLAUDE.md) (conventions codebase) puis ce fichier.
 
 ---
@@ -144,66 +150,3 @@ python main.py            # port 3000
 ```
 
 ---
-
-## 📦 Historique livré (archives)
-
-<details>
-<summary>💡 PISTES D'AMÉLIORATION — PI Planning & Atlas (discutées 2026-06-04) — toutes livrées en 3.13.0</summary>
-
-### 🧭 Navigation rapide
-
-### 📊 Lisibilité PI Planning
-
-### 🗺️ Atlas interactif
-
-### 🎉 Moments d'équipe
-
-</details>
-
-<details>
-<summary>🔍 AUDIT 2026-06-22 — PI Planning, navigation, agenda, redondances, roadmap (items livrés)</summary>
-
-> Pistes issues de l'audit du 2026-06-22 (README mis à jour en `3.38.1`). Toutes validées par l'utilisateur. #13 (tendance confidence vote) reste ouvert — voir section TODO en tête de fichier.
-
-### 🎯 PI Planning : préparation & suivi
-
-### 🧭 Navigation
-- [~] **#17 — Désencombrer la topbar** · 🔍 investigué 2026-06-22, **différé** — la piste « contextualiser le sélecteur PI » est **caduque** : les 8 vues où il s'affiche (dont `agenda` et `support`) consomment toutes réellement `piOffset` pour calculer la période PI affichée → le retirer casserait l'affichage. Le reste (regroupement visuel topbar) est subjectif et nécessite un retour visuel ⇒ à traiter dans une passe UI dédiée, pas à l'aveugle.
-
-### 📅 Synchronisation agenda (header)
-
-### ♻️ Redondances (contenu & sidebar)
-
-### 🗺️ Roadmap
-
-</details>
-
-<details>
-<summary>✅ Atlas — DÉJÀ LIVRÉ ET VÉRIFIÉ (ne pas refaire)</summary>
-
-### Backend ([main.py](main.py)) — testé via curl
-- 5 tables : `Skill`, `Appetence`, `MemberSkill`, `MemberAppetence`, `MemberMobility`
-  - `MemberSkill`/`MemberAppetence` ont un champ `scope` (`member`|`team`) + `scope_key` (nom membre ou équipe)
-  - Clé logique upsert : `scope|scope_key|skill_id` (resp. `appetence_id`)
-- Endpoints REST : `/api/skills`, `/api/appetences` (CRUD), `/api/member-skills` (PUT upsert, `level=0` supprime), `/api/member-appetences` (PUT upsert), `/api/mobility` (PUT upsert par `memberName` + DELETE)
-- **Seed automatique** au démarrage (`_seed_atlas_catalog`) : 12 compétences + 6 appétences si catalogue vide
-- Intégré dans `/api/export` ET `/api/import`
-
-### Frontend
-- [static/js/views/atlas.js](static/js/views/atlas.js) — vue complète 2 onglets
-- [static/css/atlas.css](static/css/atlas.css) — styles dédiés, responsive < 900px
-- Câblage : `state.js` (clés `skills/appetences/memberSkills/memberAppetences/mobility`), `api.js` (fonctions), `app.js` (chargement non bloquant + registration `atlas: renderAtlas`), `config.js` (`NAV_ITEMS`)
-- Icônes ajoutées au sprite [static/index.html](static/index.html) : `i-network`, `i-minus`
-- CSS importé dans index.html : `<link rel="stylesheet" href="/css/atlas.css">`
-
-### Fonctionnalités opérationnelles
-- **Carte unFIX** : zoom 3 niveaux, pastilles membres colorées + halo appétence, tags appétences fortes au niveau équipe, breadcrumb, clic membre → Skills Matrix focalisée
-- **Skills Matrix** : grille éditable (clic = +1 niveau cycle 0→4, clic droit = -1, appétences cycle), scope membre/équipe, ligne couverture (heatmap SPoF), état vide enrichi avec ajout inline + "catalogue type"
-- **Gestion catalogue** (modal ⚙️) : ajouter/supprimer compétences + appétences par catégorie
-- **Action A** : double-clic cellule faible (≤2) → ticket `skill-up` pré-rempli (board, leader, plan, labels)
-- **Action B** : modal 🧭 Affectation → score `niveau×25 − charge×8 − absence + appétence forte`, top 8 classé
-- **Tableau mobilité** (modal 📋) : tableau exact demandé + export CSV
-- **Persistance optimiste** : store mis à jour avant l'API (`_saveSkill`, `_saveAppetence`)
-- Toutes les tâches P1-P4 du plan initial (robustesse, UX, fonctionnel avancé, nice-to-have) sont livrées, sauf l'historique des niveaux (voir section TODO).
-
-</details>

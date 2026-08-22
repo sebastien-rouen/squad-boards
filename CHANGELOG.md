@@ -1,3 +1,16 @@
+## [3.140.0] - 2026-08-22
+
+### Documentation
+
+- **Le BACKLOG redevient une liste de travail** : les 33 items cochés partent
+  dans `docs/BACKLOG-ARCHIVE.md`, `BACKLOG.md` ne garde que l'ouvert
+  (246 → 153 lignes, 13 items à faire). Découpe **par blocs** —
+  puce + lignes de suite — et contrôle de non-perte avant écriture : un
+  `grep -v '[x]'` aurait laissé des paragraphes orphelins sans leur titre.
+  Outillé et rejouable : `/backlog-clean squad-boards`.
+- La section « 📦 Historique livré (archives) » rejoint l'archive : son nom
+  disait déjà qu'elle n'était plus du travail.
+
 ## [3.139.0] - 2026-08-12
 
 ### Refonte UX/UI — lots 1-5 de l'audit du 11/08

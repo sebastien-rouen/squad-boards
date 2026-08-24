@@ -1,3 +1,35 @@
+## [3.141.7] - 2026-08-24
+
+### Fonctionnalité — Récapitulatif « PI vs Congés » dans Sprint & PI
+
+- Nouveau tableau sous la carte PI : pour chaque PI dont les Congés ont été importés, le **début
+  utilisé** (avec son origine : JIRA, saisi, config), le **début déduit du CSV**, les **itérations**
+  et l'**état** — ✓ aligné, ⚠ écart, 🔒 calé sur Congés. Un lien mène à la grille Rotation quand
+  au moins un PI diverge.
+- Le filtrage se fait **avant** la troncature à 6 lignes : un PI dont les Congés sont importés
+  reste listé même si JIRA connaît des boards plus récents — vérifié sur les données réelles, où
+  `PI#32`, `PI#33` et `PI#34` existent déjà comme boards de features sans aucun sprint.
+- Logique d'écart factorisée dans `piCongesDiff()` ([utils/pi-weeks.js](static/js/utils/pi-weeks.js)) :
+  **même source** pour ce récapitulatif et pour le bandeau de recalage de la grille Rotation.
+  Ajout de `listPiCfgNumbers()` et `knownPiNumbers()`.
+
+### Refactorisation — settings.js : import/export et parsing CSV extraits
+
+| Module | Contenu | Lignes |
+|---|---|---|
+| [settings-io.js](static/js/views/settings-io.js) | Catégories exportables, écriture de fichier, lecture CSV/ZIP, modale d'import | 407 |
+| [settings-absences-csv.js](static/js/views/settings-absences-csv.js) | Parser pivot RH, consolidation des jours consécutifs, résumé par membre | 211 |
+
+- `settings.js` : **4 279 → 3 698 lignes** (2 017 → 3 698 avec le reste de la journée, soit −28 %
+  depuis ce matin, hors modules extraits).
+- `_openImportModal(container, onImported)` reçoit son rafraîchissement par **injection** :
+  importer `reloadAndRender` depuis settings.js aurait créé un cycle d'imports.
+- Le parser CSV n'ayant **aucune dépendance**, il devient testable : nouveau `test-csv-conges`
+  (16 assertions) couvrant le format pivot, les demi-journées à virgule décimale, la contiguïté
+  vendredi→lundi, les bornes de PI déduites et les cas de repli.
+
+---
+
 ## [3.141.6] - 2026-08-24
 
 ### Correctif majeur — la page Support affichait les semaines d'un autre PI

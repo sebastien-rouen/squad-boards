@@ -16,7 +16,7 @@ import {
     promptModal, teamNameMatches, confirmDanger, effectiveRosterForPi,
 } from '../utils.js';
 import { loadPiCfg, savePiCfg } from '../utils/pi-config.js';
-import { buildPiWeeks, detectSprintsPerPI, jiraSprint1Start, piStartDate } from '../utils/pi-weeks.js';
+import { buildPiWeeks, detectSprintsPerPI, jiraSprint1Start, piStartDate, piCongesDiff } from '../utils/pi-weeks.js';
 
 async function _rotRefreshPanels(container) {
     const panelsEl = container.querySelector('#rot-panels');
@@ -602,29 +602,24 @@ function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
     }
 
     // ── Bandeau « Recaler ce PI sur les Congés » ─────────────────────────────
-    // L'import du CSV RH connaît les vraies dates du PI (1re et dernière colonne du pivot) mais
-    // n'écrase JAMAIS l'ancrage d'un PI déjà configuré : `weekStart` est la clé d'appariement des
-    // rotations en base, la changer les rendrait invisibles. Le recalage est donc un geste
-    // explicite, PI par PI — et réversible.
-    const _piAffiche   = _sp || curPiNum;
-    const _cfgPi       = loadPiCfg(_piAffiche);
-    const _sprintInfo  = store.get('sprintInfo');
-    const _startUtil   = piStartDate(_sprintInfo, _piAffiche);
-    const _sprintsUtil = detectSprintsPerPI(_sprintInfo, _piAffiche, store.get('piInfo')?.sprintsPerPI || 5);
-    const _recale      = !!_cfgPi?.manual?.startDate && _cfgPi.startDate === _cfgPi.startDateFromCsv;
-    const _ecartDate   = _cfgPi?.startDateFromCsv && _cfgPi.startDateFromCsv !== _startUtil;
-    const _ecartCnt    = _cfgPi?.sprintsPerPIFromCsv && _cfgPi.sprintsPerPIFromCsv !== _sprintsUtil;
+    // L'écart est calculé par piCongesDiff (utils/pi-weeks.js), la même source que le
+    // récapitulatif multi-PI de « Paramètres → Sprint & PI ». Le recalage reste un geste
+    // explicite : `weekStart` est la clé d'appariement des rotations déjà enregistrées.
+    const _piAffiche = _sp || curPiNum;
+    const _d = piCongesDiff(store.get('sprintInfo'), _piAffiche, store.get('piInfo'));
+    const _recale = _d.cale, _ecartDate = _d.ecartDate, _ecartCnt = _d.ecartCnt;
+    const _startUtil = _d.startUsed, _sprintsUtil = _d.sprintsUsed;
     let congesBanner = '';
     if (_recale) {
         congesBanner = `<div class="rot-conges-banner rot-conges-banner--on">
-            📅 <strong>PI ${esc(String(_piAffiche))}</strong> calé sur les <strong>Congés</strong> — début ${_rotFmtShort(_cfgPi.startDate)}.
+            📅 <strong>PI ${esc(String(_piAffiche))}</strong> calé sur les <strong>Congés</strong> — début ${_rotFmtShort(_d.startCsv)}.
             <button type="button" class="btn btn-xs btn-secondary" id="rot-recal-jira" data-pi="${esc(String(_piAffiche))}"
                     title="Revenir à la date du sprint .1 dans JIRA">↩ Revenir aux dates JIRA</button>
         </div>`;
     } else if (_ecartDate || _ecartCnt) {
         const details = [
-            _ecartDate ? `début <strong>${_rotFmtShort(_cfgPi.startDateFromCsv)}</strong> <span class="text-muted">(grille : ${_rotFmtShort(_startUtil)})</span>` : '',
-            _ecartCnt  ? `<strong>${_cfgPi.sprintsPerPIFromCsv}</strong> itérations <span class="text-muted">(grille : ${_sprintsUtil})</span>` : '',
+            _ecartDate ? `début <strong>${_rotFmtShort(_d.startCsv)}</strong> <span class="text-muted">(grille : ${_rotFmtShort(_startUtil)})</span>` : '',
+            _ecartCnt  ? `<strong>${_d.sprintsCsv}</strong> itérations <span class="text-muted">(grille : ${_sprintsUtil})</span>` : '',
         ].filter(Boolean).join(' · ');
         congesBanner = `<div class="rot-conges-banner">
             📅 Les <strong>Congés importés</strong> du PI ${esc(String(_piAffiche))} indiquent ${details}.

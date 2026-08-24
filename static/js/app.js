@@ -533,7 +533,14 @@ async function handleJiraImport(mode = 14) {
         }
         await loadAllData();
         const label = isFull ? 'Sync complète' : `Sync rapide ${mode}j`;
-        toast(`${label} terminée — ${result.ticketCount} tickets, ${result.featureCount} features`, 'success');
+        const bilan = `${label} terminée — ${result.ticketCount} tickets, ${result.featureCount} features`;
+        // Un import qui a perdu des appels en route n'est pas un succès : le dire, sinon un
+        // jeton expiré produit un historique de vélocité amputé sous un toast vert.
+        if (result.incidentCount) {
+            toast(`${bilan}\n⚠ ${result.incidentSummary}`, 'warning', 9000);
+        } else {
+            toast(bilan, 'success');
+        }
         renderView();
     } catch (e) {
         console.error('JIRA import error:', e);

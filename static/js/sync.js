@@ -8,6 +8,48 @@ import * as api from './api.js';
 import { mapStatus, mapType, extractTeam, toast, parseWikiMarkup } from './utils.js';
 import { SYNC_CONFIG } from './config.js';
 
+/**
+ * Collecteur d'échecs PARTIELS d'un import.
+ *
+ * Un import parcourt des dizaines de boards et de sprints ; qu'un appel échoue ne doit pas
+ * tout interrompre. Mais les `catch` muets faisaient l'inverse du bon compromis : l'import
+ * se terminait sur un toast de succès, avec un historique de vélocité amputé ou des sprints
+ * sans tickets, et rien nulle part pour le dire. Un jeton expiré produisait ainsi un import
+ * « réussi » et silencieusement creux.
+ *
+ * Les incidents sont donc regroupés par (statut HTTP, opération) et comptés : trois lignes de
+ * résumé valent mieux que deux cents lignes de console, et mieux que le silence.
+ */
+export function makeIncidents() {
+    const byKey = new Map();
+    return {
+        add(quoi, e) {
+            const status = e?.status || 0;
+            const key = `${status}|${quoi}`;
+            const cur = byKey.get(key) || { quoi, status, count: 0, message: e?.message || String(e) };
+            cur.count++;
+            byKey.set(key, cur);
+        },
+        get total() { return [...byKey.values()].reduce((n, i) => n + i.count, 0); },
+        /** Incidents groupés, du plus fréquent au moins fréquent. */
+        list() { return [...byKey.values()].sort((a, b) => b.count - a.count); },
+        /** Vrai si JIRA a refusé la connexion : la cause dominante, à dire en premier. */
+        get hasAuthFailure() { return [...byKey.values()].some(i => i.status === 401 || i.status === 403); },
+        /** Résumé court, affichable dans un toast. '' s'il ne s'est rien passé. */
+        summary() {
+            const l = this.list();
+            if (!l.length) return '';
+            const detail = l.slice(0, 3)
+                .map(i => `${i.quoi}${i.status ? ` (HTTP ${i.status})` : ''} ×${i.count}`)
+                .join(', ');
+            return `${this.total} appel${this.total > 1 ? 's' : ''} JIRA en échec — ${detail}${l.length > 3 ? '…' : ''}`
+                + (this.hasAuthFailure
+                    ? ' · JIRA a refusé la connexion : vérifier le jeton (Paramètres → Plugin JIRA)'
+                    : '');
+        },
+    };
+}
+
 // ── Équipes / lignes produit retirées (exclusion de la sync JIRA) ───────────────
 // Persistées en localStorage. Quand l'utilisateur supprime une équipe (ou une ligne
 // produit) dans Paramètres, son nom est ajouté ici pour que la sync JIRA ne la
@@ -199,6 +241,9 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
         }
     } catch { /* use defaults */ }
 
+    // Échecs partiels : collectés plutôt qu'avalés (voir makeIncidents).
+    const incidents = makeIncidents();
+
     // 2. Fetch boards (paginated, capped by maxBoards setting)
     setProgress(10, 'Recuperation des boards...', 'Scan des boards');
     let allBoards = [];
@@ -291,7 +336,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
                     try {
                         const r = await api.jiraGet(`rest/agile/1.0/board/${board.id}/sprint`, { state: st, maxResults: 10 });
                         if (r?.values?.length) _add(r.values.map(s => ({ ...s, state: s.state || st })));
-                    } catch { /* ignore */ }
+                    } catch (e) { incidents.add(`sprints ${st}`, e); }
                 }
                 // 2. Closed récents pour la vélocité historique — pagine jusqu'au bout et garde les N derniers.
                 //    ⚡ Quick mode : on saute totalement cette passe (l'historique de vélocité ne change pas
@@ -309,10 +354,11 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
                     }
                     // Ne garder que les plus récents (en fin de liste, ordre JIRA croissant)
                     _add(allClosed.slice(-CLOSED_KEEP));
-                } catch { /* ignore */ }
+                } catch (e) { incidents.add('sprints clos (historique de vélocité)', e); }
                 return [...byId.values()];
             })(),
-            api.jiraGet(`rest/agile/1.0/board/${board.id}/configuration`).catch(() => null),
+            api.jiraGet(`rest/agile/1.0/board/${board.id}/configuration`)
+                .catch(e => { incidents.add('configuration de board (colonnes)', e); return null; }),
         ]);
         allBoardSprints = sprintsResult.status === 'fulfilled' ? (sprintsResult.value || []) : [];
         boardConfig     = configResult.status  === 'fulfilled' ? configResult.value : null;
@@ -329,7 +375,10 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
                     const hasE = typeof estimated === 'number' && estimated > 0;
                     if (hasC || hasE) velocityById[sid] = { velocity: hasC ? Math.round(completed) : 0, estimated: hasE ? Math.round(estimated) : 0 };
                 }
-            } catch { /* board sans estimation → skip silencieux */ }
+            } catch (e) {
+                // 404 = board sans rapport d'estimation : cas nominal, pas un incident.
+                if (e?.status !== 404) incidents.add('rapport de vélocité', e);
+            }
         }
         return { allBoardSprints, boardConfig, velocityById };
     };
@@ -470,6 +519,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
             }
         } catch (e) {
             console.warn(`Erreur issues board ${board.name}:`, e);
+            incidents.add('tickets d’un board', e);
         }
 
         // 3a-bis. Tickets des sprints CLOS récents → disponibles en local pour l'historique
@@ -503,7 +553,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
                         if (issues.length < 100 || (r.total && cStart + issues.length >= r.total)) break;
                         cStart += issues.length;
                     }
-                } catch { /* sprint clos en échec → on continue */ }
+                } catch (e) { incidents.add('tickets d’un sprint clos', e); }
             }
         }
     }
@@ -542,6 +592,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
                 console.log(`[Squad-Board] Sprints futurs: ${seenKeys.size} tickets uniques scannes — ${nextPiAdded} ajoutes pour ${nextPiTag}`);
             } catch (e) {
                 console.warn('Next PI future sprints fetch:', e.message);
+                incidents.add('tickets des sprints futurs (PI suivant)', e);
             }
         }
     }
@@ -654,6 +705,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
         }
     } catch (e) {
         console.warn('[Squad-Board] Features JQL error:', e.message);
+        incidents.add('features (requête JQL)', e);
     }
 
     // 5. Fetch epics via JQL (paginated)
@@ -692,7 +744,10 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
         }, {});
         console.log(`[Squad-Board] Epics: ${allEpics.length} importes | ${epicsWithFeature} lies a une feature (${Math.round(epicsWithFeature * 100 / Math.max(1, allEpics.length))}%)`);
         console.table(Object.entries(epicByProject).sort((a, b) => b[1] - a[1]).map(([p, n]) => ({ project: p, count: n })));
-    } catch (e) { console.warn('[Squad-Board] Epics fetch:', e?.message || e); }
+    } catch (e) {
+        console.warn('[Squad-Board] Epics fetch:', e?.message || e);
+        incidents.add('epics', e);
+    }
 
     // 5b. PI-named-sprint pass — runs AFTER features/epics JQL so the standard rank order wins.
     // Catches projects (e.g. GCOM) that plan via sprints literally named "PI30" / "PI#30".
@@ -741,6 +796,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
                 console.log(`[Squad-Board] Sprints PI nommes (${piNames.join(', ')}): ${seen.size} uniques scannes — +${added.features} features, +${added.epics} epics, +${added.tickets} tickets`);
             } catch (e) {
                 console.warn('[Squad-Board] PI-named sprint fetch:', e?.message || e);
+                incidents.add('sprints de cadrage (PI nommés)', e);
             }
         }
     }
@@ -789,6 +845,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
                         });
                     } catch (e) {
                         console.warn('[Squad-Board] Feature children fetch batch:', e?.message || e);
+                        incidents.add('tickets rattachés à une feature', e);
                     }
                 }
                 console.log(`[Squad-Board] Enfants features PI${curPi}+PI${nextPi}+PI${nextPi2}: +${childrenAdded} tickets (${piFeatures.length} features ciblées)`);
@@ -831,6 +888,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
         });
     } catch (e) {
         console.warn('Amelioration fetch:', e.message);
+        incidents.add('améliorations', e);
     }
 
     // 6.5 Buffer historique : récupère tous les tickets `labels = Buffer` et
@@ -871,6 +929,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
         console.log(`[Squad-Board] Buffer historique : ${seenBuf.size} tickets label=Buffer scannés → ${bufferBySprintId.size} sprints renseignés`);
     } catch (e) {
         console.warn('[Squad-Board] Buffer historique : échec', e.message);
+        incidents.add('buffer historique', e);
     }
 
     // Patche les sprints clos déjà collectés avec leur bufferPoints
@@ -962,7 +1021,23 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
     setProgress(100, 'Import termine !', `${allTickets.length} tickets, ${teams.length} equipes`);
     await new Promise(r => setTimeout(r, 600));
 
-    return { ticketCount: allTickets.length, featureCount: allFeatures.length, epicCount: allEpics.length, teamCount: teams.length, boardColumns, projectTeams };
+    // Échecs partiels : tracés en console ET remontés à l'appelant, pour que l'import ne se
+    // conclue pas sur un toast de succès alors que des données manquent.
+    if (incidents.total) {
+        console.warn(`[Squad-Board] ${incidents.summary()}`);
+        for (const i of incidents.list()) {
+            console.warn(`[Squad-Board]   · ${i.quoi}${i.status ? ` HTTP ${i.status}` : ''} ×${i.count} — ${i.message}`);
+        }
+    }
+
+    return {
+        ticketCount: allTickets.length, featureCount: allFeatures.length,
+        epicCount: allEpics.length, teamCount: teams.length,
+        boardColumns, projectTeams,
+        incidents: incidents.list(),
+        incidentCount: incidents.total,
+        incidentSummary: incidents.summary(),
+    };
 }
 
 // ── Map JIRA column name → internal status key ───────────────────────────────

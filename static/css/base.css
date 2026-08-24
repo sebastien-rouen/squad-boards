@@ -1486,6 +1486,9 @@ body { display: flex; }
     pointer-events: auto;
     animation: toast-in 0.3s ease;
     max-width: 360px;
+    /* Les messages posés via textContent gardent leurs retours à la ligne : un bilan de sync
+       « terminée … » + « ⚠ N appels en échec » se lit sur deux lignes, pas sur une. */
+    white-space: pre-line;
 }
 .toast.toast-out { animation: toast-out 0.3s ease forwards; }
 .toast-success { border-left: 3px solid var(--success); }

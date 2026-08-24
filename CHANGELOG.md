@@ -1,3 +1,39 @@
+## [3.141.16] - 2026-08-24
+
+### Health — 🎯 Base capacité du PI à venir (congés + vélocité des 2 derniers PI)
+
+Nouveau calcul partagé, [utils/capacity-base.js](static/js/utils/capacity-base.js) :
+
+```
+base = vélocité moyenne/sprint (2 derniers PI) × nb de sprints × (1 − taux d'absence)
+```
+
+Deux PI plutôt qu'un pour lisser un PI accidenté (congés d'été, incident, renfort), et le
+taux d'absence déduit des congés RH réellement saisis sur la fenêtre visée.
+
+- **Matrice équipes × anomalies** — colonne **🎯 Base capacité**, affichée uniquement quand le
+  PI sélectionné est **à venir** : sur un PI passé ou courant, les colonnes mesurées disent la
+  vérité, une estimation à côté d'elles ne serait que du bruit. L'infobulle détaille tout le
+  calcul (moyenne, sprints utilisés, jours-personne absents, ratio).
+- **Modale « Sprints du PI » → Charge prévue** — pré-remplie par la base **de ce sprint**
+  (congés de sa propre fenêtre), en *italique pointillé* : c'est une **suggestion**, pas une
+  saisie, et elle n'est **pas** écrite en localStorage tant que l'utilisateur n'y a pas touché.
+  Ordre de priorité : saisie de l'équipe → engagement JIRA (`estimated > 0`) → base calculée.
+- La base du PI est la **somme des bases par sprint**, pas un ratio global appliqué au total :
+  c'est ce qui garantit que le total de la modale égale la valeur de la matrice. Vérifié sur
+  Gabbiano PI#31 : `7+10+9+8+10 = 44` des deux côtés.
+- ⚠️ **Fenêtre au-delà des congés connus** : l'import RH s'arrête au 13/11 alors que le PI#31
+  court jusqu'au 30/11. Le taux d'absence est alors un **plancher**, donc la base un
+  **plafond** — la cellule passe en orange avec un ⚠ et le dit dans l'infobulle, plutôt que
+  d'afficher un chiffre optimiste sans réserve.
+- Un sprint sans engagement JIRA affiche désormais une charge **vide** au lieu de `0` :
+  `estimated = 0` signifie « pas encore planifié », pas « capacité nulle » (le total, lui, est
+  inchangé — il ignorait déjà les valeurs vides).
+
+Relevé sur les données réelles, PI#31 : Fuego **70 pts** (−9 % ⚠), Gabbiano **44 pts** (−9 % ⚠),
+Lion **32 pts** (−20 %). Lion n'a que 2 sprints connus pour ce PI : la base ne porte que sur eux,
+et l'infobulle nomme le nombre de sprints réellement pris en compte.
+
 ## [3.141.15] - 2026-08-24
 
 ### Sprint Review & Dashboard — même angle mort que Health, même correction

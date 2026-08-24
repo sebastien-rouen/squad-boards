@@ -664,6 +664,25 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
     const activeSprintName = initialSprintName || meta.spName;
 
     // ── Tableau des sprints du PI ────────────────────────────────────────────
+    // Totaux de colonne, accumulés pendant la construction des lignes. Les sprints
+    // à venir affichent « — » (rien n'a pu se passer) : c'est une absence de mesure,
+    // pas un zéro. On compte donc aussi le nombre de valeurs réellement mesurées (`n`)
+    // pour rendre « — » quand la colonne entière est vide — un PI pas encore commencé
+    // afficherait sinon des totaux à 0 qui ressembleraient à un échec.
+    const tot = {};
+    const _num = v => (typeof v === 'number' && Number.isFinite(v)) ? v
+        : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : 0);
+    const _hasNum = v => (typeof v === 'number' && Number.isFinite(v))
+        || (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)));
+    const _add = (key, v) => {
+        const t = tot[key] || (tot[key] = { sum: 0, n: 0 });
+        if (!_hasNum(v)) return;
+        t.sum += _num(v);
+        t.n++;
+    };
+    const _totOf = key => tot[key]?.n ? String(tot[key].sum) : '<span class="htl-muted">—</span>';
+    const _totNum = key => tot[key]?.sum || 0;
+
     const sprintRows = (meta.piSprints || []).map(s => {
         const sk    = _spKey(s.name);
         const moodHtml   = _moodCellHtml(teamName, sk);
@@ -697,6 +716,17 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         const planCls = planClickable ? ' htl-cell-clickable' + _active('planned') : '', bufPlanCls = bufPlanClickable ? ' htl-cell-clickable' + _active('bufplanned') : '';
         const planHint = planClickable ? ' — cliquer pour la liste' : '', bufPlanHint = bufPlanClickable ? ' — cliquer pour la liste' : '';
         const dash = _isPastOrActive ? '0' : '<span class="htl-muted">—</span>';
+
+        // Sur un sprint à venir, `planTk`/`planPts` valent 0 mais la cellule affiche
+        // « — » : on aligne le total sur ce qui est RENDU, pas sur la valeur interne.
+        _add('charge', chargeVal);
+        _add('planTk', _isPastOrActive || planTk ? planTk : '—');
+        _add('planPts', _isPastOrActive || planPts ? planPts : '—');
+        _add('vel', vel);
+        _add('bufTk', _isPastOrActive || bufPlanTk ? bufPlanTk : '—');
+        _add('bufPts', _isPastOrActive || bufPlanPts ? bufPlanPts : '—');
+        _add('buf', buf);
+
         return `<tr class="${isRef ? 'htl-sprint-row--ref' : ''}">
             <td class="htl-spr-name">${isRef ? `<strong>${esc(s.name)}</strong>` : esc(s.name)}</td>
             <td class="htl-spr-date">${_fmtD(s.startDate)}</td>
@@ -884,6 +914,16 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                             <th class="htl-th-num htl-sub htl-buf-col" title="Points Buffer consommés">réalisée</th>
                         </tr></thead>
                         <tbody>${sprintRows || '<tr><td colspan="11" class="htl-muted text-center" style="padding:12px">Aucun sprint trouvé pour ce PI</td></tr>'}</tbody>
+                        ${sprintRows ? `<tfoot><tr class="htl-sprint-total">
+                            <td colspan="4" class="htl-total-lbl">Total PI · ${(meta.piSprints || []).length} sprint${(meta.piSprints || []).length > 1 ? 's' : ''}</td>
+                            <td class="htl-spr-num htl-total-val" id="htl-tot-charge" title="Somme des charges prévues saisies">${_totOf('charge')}</td>
+                            <td class="htl-spr-num htl-grp-start htl-total-val" title="Total des tickets engagés au lancement">${_totOf('planTk')}</td>
+                            <td class="htl-spr-num htl-total-val" title="Total de la vélocité planifiée">${_totOf('planPts')}</td>
+                            <td class="htl-spr-num htl-velo-col htl-total-val" title="Total de la vélocité réalisée${_totNum('planPts') ? ` — ${Math.round(_totNum('vel') / _totNum('planPts') * 100)} % du planifié` : ''}">${_totOf('vel')}</td>
+                            <td class="htl-spr-num htl-grp-start htl-total-val" title="Total des tickets Buffer engagés">${_totOf('bufTk')}</td>
+                            <td class="htl-spr-num htl-bufplan-col htl-total-val" title="Total du Buffer planifié">${_totOf('bufPts')}</td>
+                            <td class="htl-spr-num htl-buf-col htl-total-val" title="Total du Buffer consommé${_totNum('bufPts') ? ` — ${Math.round(_totNum('buf') / _totNum('bufPts') * 100)} % du planifié` : ''}">${_totOf('buf')}</td>
+                        </tr></tfoot>` : ''}
                     </table>
                 </div>
                 <div class="htl-section-lbl htl-tickets-hint">Détail des tickets — clique une cellule chiffrée (nb · planifié · réalisée) ci-dessus</div>
@@ -907,12 +947,32 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
     }
 
     // ── Charge prévue éditable (localStorage) ───────────────────────────────
+    // Le total de la colonne est recalculé à chaque saisie : figé, il deviendrait
+    // faux dès la première modification — un total faux est pire qu'aucun total.
+    const _refreshChargeTotal = () => {
+        const cell = overlay.querySelector('#htl-tot-charge');
+        if (!cell) return;
+        let sum = 0, n = 0;
+        overlay.querySelectorAll('.htl-charge-input').forEach(i => {
+            const v = String(i.value).trim();
+            const x = Number(v);
+            if (v !== '' && Number.isFinite(x)) { sum += x; n++; }
+        });
+        // Aucune charge saisie → « — », comme au premier rendu : un 0 laisserait
+        // croire à une capacité nulle plutôt qu'à une absence de saisie.
+        if (n) cell.textContent = String(sum);
+        else cell.innerHTML = '<span class="htl-muted">—</span>';
+    };
     overlay.querySelectorAll('.htl-charge-input').forEach(input => {
         input.addEventListener('change', () => {
             const v = input.value.trim();
-            if (v === '' || isNaN(Number(v))) return;
+            if (v === '' || isNaN(Number(v))) { _refreshChargeTotal(); return; }
             localStorage.setItem(input.dataset.chargeKey, v);
+            _refreshChargeTotal();
         });
+        // `input` couvre les flèches du champ nombre et le collage, que `change`
+        // ne remonte qu'à la perte de focus.
+        input.addEventListener('input', _refreshChargeTotal);
     });
 
     // ── Clic cellule Vélo/Buffer d'un sprint → met à jour la section tickets ──

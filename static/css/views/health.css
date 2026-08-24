@@ -401,6 +401,24 @@
     border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
     color: var(--text-secondary);
 }
+/* Ligne de total du PI — même alignement que le corps, mais détachée par un filet
+   haut et un fond, pour qu'on ne la confonde pas avec un sprint de plus. */
+.htl-sprint-table tfoot td {
+    padding: 8px 6px;
+    background: var(--surface-2);
+    border-top: 2px solid var(--border);
+    color: var(--text);
+}
+.htl-sprint-table tfoot .htl-total-lbl {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: var(--fw-semibold);
+}
+/* Les teintes de colonne (vert vélocité, violet buffer) priment sur celle du pied */
+.htl-sprint-table tfoot td.htl-velo-col { color: var(--success); }
+.htl-sprint-table tfoot td.htl-buf-col { color: #7c3aed; }
+.htl-sprint-table tfoot td.htl-bufplan-col { color: #7c3aed; }
+
 /* En-têtes groupés ⚡ Vélocité / 🛡 Buffer (ligne 1 = groupe, ligne 2 = nb/planifié/réalisée) */
 .htl-sprint-table thead th.htl-grp {
     text-align: center; font-weight: var(--fw-bold);

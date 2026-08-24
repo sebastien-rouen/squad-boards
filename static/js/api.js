@@ -10,7 +10,11 @@ async function request(path, options = {}) {
     });
     if (!resp.ok) {
         const err = await resp.json().catch(() => ({ detail: resp.statusText }));
-        throw new Error(err.detail || `HTTP ${resp.status}`);
+        const e = new Error(err.detail || `HTTP ${resp.status}`);
+        // Le code HTTP permet aux appelants de distinguer une panne d'authentification
+        // d'une absence de donnees : sans lui, un 401 se raconte comme « aucun resultat ».
+        e.status = resp.status;
+        throw e;
     }
     if (resp.status === 204) return null;
     return resp.json();
@@ -267,6 +271,25 @@ export async function sendSlackMessage(text, webhook) {
     const url = webhook || getSlackWebhook();
     if (!url) throw new Error('Aucun webhook Slack configuré (Paramètres → Intégrations → Slack)');
     return request('/api/slack/send', { method: 'POST', body: JSON.stringify({ webhook: url, text }) });
+}
+
+/**
+ * Traduit une erreur du proxy `/jira/*` en message actionnable.
+ *
+ * Un 401 ne veut pas dire « pas de données » : il dit que JIRA a refusé la connexion. Les
+ * confondre envoyait l'utilisateur vérifier sa liste de projets alors que ses identifiants
+ * étaient en cause (« Aucun board scrum pour GCOM, GDEM… » sur un HTTP 401).
+ */
+export function jiraErrorMessage(e, quoi = 'les données JIRA') {
+    const s = e?.status;
+    if (s === 401 || s === 403) {
+        return `JIRA a refusé la connexion (HTTP ${s}) en récupérant ${quoi}. `
+            + `Vérifier l'URL, l'utilisateur et le jeton dans Paramètres → Plugin JIRA `
+            + `(un jeton API expire et doit être régénéré).`;
+    }
+    if (s === 404) return `Ressource JIRA introuvable (404) en récupérant ${quoi} — vérifier l'URL de l'instance.`;
+    if (s >= 500)  return `JIRA est indisponible (HTTP ${s}) en récupérant ${quoi} — réessayer plus tard.`;
+    return `Impossible de récupérer ${quoi} : ${e?.message || e}`;
 }
 
 export const jiraGet = (path, params = {}) => {

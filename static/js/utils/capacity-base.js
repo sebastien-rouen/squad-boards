@@ -96,6 +96,23 @@ export function breathIdxOf(piSprints, sprintsPerPI) {
 /** Ce sprint est-il la respiration de son PI ? */
 export const isBreathSprint = (name, breathIdx) => breathIdx > 0 && sprintIdx(name) === breathIdx;
 
+/**
+ * Index de respiration PI par PI, pour une liste de sprints mêlant plusieurs PI.
+ * Le calcul se fait sur TOUS les sprints d'un PI (clos ou non) : sinon, un PI dont le dernier
+ * sprint n'est pas encore clos verrait l'avant-dernier promu respiration à tort.
+ * @returns {Map<number, number>} numéro de PI → index de sa respiration
+ */
+export function breathIdxByPi(sprints, sprintsPerPI) {
+    const byPi = new Map();
+    for (const s of (sprints || [])) {
+        const pi = _piNumOf(s.name || s);
+        if (pi == null) continue;
+        byPi.set(pi, Math.max(byPi.get(pi) || 0, sprintIdx(s.name || s)));
+    }
+    for (const [pi, mx] of byPi) byPi.set(pi, Math.max(mx, sprintsPerPI || 0));
+    return byPi;
+}
+
 /** Jours ouvrés (lun-ven) dans [start, end], bornes incluses. */
 export function openDaysBetween(start, end) {
     const s = new Date(_iso(start)), e = new Date(_iso(end));
@@ -143,10 +160,7 @@ export function avgVelocityOverLastPis(teamSprints, team, targetPiNum, nbPi = 2,
     if (!closed.length) return { avg: 0, sprintsUsed: 0, pis: [], total: 0, breathExcluded: 0 };
 
     const pis = [...new Set(closed.map(s => _piNumOf(s.name)))].sort((a, b) => b - a).slice(0, nbPi);
-    // Respiration : calculée PI par PI, sur TOUS ses sprints (pas seulement les clos) — un PI
-    // dont le dernier sprint n'est pas encore clos ne doit pas voir l'avant-dernier promu.
-    const breathByPi = new Map(pis.map(pi =>
-        [pi, breathIdxOf(mine.filter(s => _piNumOf(s.name) === pi), sprintsPerPI)]));
+    const breathByPi = breathIdxByPi(mine, sprintsPerPI);
 
     const used = closed.filter(s => pis.includes(_piNumOf(s.name)));
     // Dédoublonnage par label NN.N : un même sprint peut apparaître deux fois (boards multiples).

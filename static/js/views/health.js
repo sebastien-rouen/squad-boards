@@ -1247,8 +1247,10 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                 bufAll: fetched.filter(t => isBufferItem(t)),
             };
             host.innerHTML = _ticketsSection(sprintName, metric);
-        } catch {
-            host.innerHTML = `<div class="htl-loading htl-muted">Impossible de récupérer les tickets de ce sprint (JIRA indisponible ou non configuré).</div>`;
+        } catch (err) {
+            // Message issu du code HTTP : un 401 est une panne d'authentification, pas une
+            // absence de données — le dire évite de chercher au mauvais endroit.
+            host.innerHTML = `<div class="htl-loading htl-muted">${esc(api.jiraErrorMessage(err, 'les tickets de ce sprint'))}</div>`;
         }
     });
 

@@ -204,6 +204,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
     let allBoards = [];
     let startAt = 0;
     let hasMore = true;
+    let boardsError = null;   // conservé : sans lui, un 401 se raconte en « aucun board »
     const BOARDS_PAGE = 100;
     while (hasMore && allBoards.length < maxBoards) {
         try {
@@ -215,7 +216,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
             allBoards = allBoards.concat(values);
             startAt += values.length;
             hasMore = !resp.isLast && values.length > 0;
-        } catch { hasMore = false; }
+        } catch (e) { boardsError = e; hasMore = false; }
     }
 
     // Filter: only scrum boards in our projects (like JIRA-dashboard: kanban boards are ignored)
@@ -251,7 +252,12 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
 
     const _skipDetail = `${skippedCount} kanban ignorés` + (excludedBoardCount ? ` · ${excludedBoardCount} retirés` : '');
     setProgress(15, `${boards.length} equipes (scrum)`, _skipDetail);
-    if (!boards.length) throw new Error(`Aucun board scrum pour ${projects.join(', ')}`);
+    if (!boards.length) {
+        // Une liste vide a deux causes très différentes, et les confondre envoie chercher un
+        // problème de configuration de projets là où JIRA a simplement refusé la connexion.
+        if (boardsError) throw new Error(api.jiraErrorMessage(boardsError, 'la liste des boards'));
+        throw new Error(`Aucun board scrum pour ${projects.join(', ')}`);
+    }
 
     const allTickets = [];
     const allFeatures = [];

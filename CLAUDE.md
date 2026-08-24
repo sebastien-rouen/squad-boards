@@ -102,8 +102,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
   moyenne de vélocité des PI passés, ni dans le décompte des sprints du PI visé, ni comme
   charge suggérée. `breathIdxOf()` = `max(sprintsPerPI, plus grand index observé)` — ce `max`
   évite de promouvoir le dernier sprint CONNU d'un PI encore incomplet.
-  ⚠️ `pi.js::_isIpSprint` applique une règle DIFFÉRENTE (respiration si ≥ 6 sprints) ;
-  divergence assumée et commentée des deux côtés.
+  `breathIdxByPi()` est la source unique, y compris pour `_capAvgVelocity` (page Capacité de
+  pi.js) — l'ancien `_isIpSprint` (« si ≥ 6 sprints », comparé au `sprintsPerPI` configuré)
+  ne détectait jamais rien avec 5 sprints/PI, et excluait le 5ᵉ d'un PI qui en compte 6.
 - **Écart PI ↔ Congés** : `piCongesDiff()` (utils/pi-weeks.js) est la source unique du bandeau
   de recalage (Rotation) ET du récapitulatif multi-PI (Sprint & PI).
 - **Semaines d'un PI** (3.141.6) : source unique `utils/pi-weeks.js` (`buildPiWeeks`) —
@@ -123,11 +124,14 @@ python main.py          # http://localhost:3001  — Swagger /docs
   changement de vue).
 - **Modales** : toujours `role="dialog" aria-modal="true"` + `trapFocus(el)` de [utils.js](static/js/utils.js)
   (retourne un release à appeler à la fermeture). Confirmations : `confirmDanger()` — jamais `confirm()` natif.
+- **Erreurs du proxy JIRA** (3.141.19) : `request()` (api.js) porte `e.status` ; formater avec
+  `api.jiraErrorMessage(e, quoi)` — un 401/403 est une panne d'AUTHENTIFICATION, jamais une
+  absence de données (un `catch` muet le racontait en « Aucun board scrum pour … »).
 - **Convention JIRA sprint** (mémoire `project_jira_sprint_conventions`) : `Cadrage_PIXX` = cadrage, `PI#XX` = features, `PIXX` = tickets standalone.
 
 ## Tests (`npm test`)
 
-Suites `node:test` dans [tests/](tests/) — 129 tests, aucune dépendance, ~1 s. Détail :
+Suites `node:test` dans [tests/](tests/) — 145 tests, aucune dépendance, ~1 s. Détail :
 [tests/README.md](tests/README.md).
 - `node --test tests/` **échoue** sur Node 22 → toujours un motif : `node --test "tests/*.test.mjs"`.
 - Importer `tests/helpers/env.mjs` AVANT tout module applicatif (`state.js` lit `localStorage`

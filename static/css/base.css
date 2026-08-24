@@ -1,6 +1,16 @@
 /* ── Reset ──────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+html { font-size: 16px; }
+/* Empêche iOS/Android d'agrandir automatiquement le texte en paysage.
+   Firefox ne connaît pas `text-size-adjust` et n'accepte que `none | auto` sur l'alias
+   `-webkit-` : les deux formes y produisent un avertissement à chaque chargement
+   (« Propriété inconnue » / « Erreur d'analyse de la valeur »). On les réserve donc aux
+   moteurs qui en ont besoin.
+   ⚠️ Ne PAS détecter par `-webkit-hyphens` ni `-webkit-appearance` : Firefox les supporte
+   en alias, le bloc s'appliquerait quand même. `::-webkit-scrollbar` n'existe pas chez lui. */
+@supports selector(::-webkit-scrollbar) {
+    html { text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+}
 body {
     font-family: var(--font);
     font-size: var(--fs-base);

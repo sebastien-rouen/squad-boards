@@ -331,6 +331,37 @@ describe('roster du PI — un membre sorti ne pèse plus', () => {
     });
 });
 
+describe('breathIdxByPi — une respiration par PI, source unique partagee avec pi.js', () => {
+    const SPRINTS_MIXTES = [
+        { name: 'Equipe O - Ite 29.1' }, { name: 'Equipe O - Ite 29.2' },
+        { name: 'Equipe O - Ite 29.3' }, { name: 'Equipe O - Ite 29.4' },
+        { name: 'Equipe O - Ite 29.5' },
+        // Ce PI compte SIX sprints la ou la config en annonce cinq
+        { name: 'Equipe O - Ite 30.1' }, { name: 'Equipe O - Ite 30.2' },
+        { name: 'Equipe O - Ite 30.3' }, { name: 'Equipe O - Ite 30.4' },
+        { name: 'Equipe O - Ite 30.5' }, { name: 'Equipe O - Ite 30.6' },
+    ];
+
+    test('chaque PI a la sienne, meme si leur nombre de sprints differe', () => {
+        const m = cb.breathIdxByPi(SPRINTS_MIXTES, 5);
+        assert.equal(m.get(29), 5);
+        assert.equal(m.get(30), 6, 'le 6e sprint, pas le 5e annonce par la config');
+    });
+
+    test('REGRESSION : un PI plus long que la config exclut son VRAI dernier sprint', () => {
+        // Ancienne regle de pi.js : comparaison au sprintsPerPI configure, donc le 30.5
+        // etait pris pour la respiration alors que le PI va jusqu'au 30.6.
+        const m = cb.breathIdxByPi(SPRINTS_MIXTES, 5);
+        assert.equal(cb.isBreathSprint('Equipe O - Ite 30.5', m.get(30)), false);
+        assert.equal(cb.isBreathSprint('Equipe O - Ite 30.6', m.get(30)), true);
+    });
+
+    test('la config sert de plancher quand tous les sprints ne sont pas crees', () => {
+        const m = cb.breathIdxByPi([{ name: 'Equipe O - Ite 31.1' }, { name: 'Equipe O - Ite 31.2' }], 5);
+        assert.equal(m.get(31), 5, 'et non 2');
+    });
+});
+
 describe('lastKnownAbsenceDate', () => {
     test('rend la dernière date de fin connue', () => {
         assert.equal(cb.lastKnownAbsenceDate([

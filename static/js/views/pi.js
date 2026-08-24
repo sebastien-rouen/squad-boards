@@ -4,7 +4,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAGE_INTRO } from '../components/sondage.js';
 import { renderRoam } from './roam.js';
@@ -1317,22 +1317,26 @@ function _capSprintIdx(name) {
     const m = String(name || '').match(/\b\d{2,}\.(\d+)/);
     return m ? parseInt(m[1], 10) : null;
 }
-// Retourne true si le sprint est le dernier du PI ET que le PI a ≥ 6 sprints (sprint IP/innovation)
-function _isIpSprint(sprintName, sprintsPerPI) {
-    if (!sprintsPerPI || sprintsPerPI < 6) return false;
-    const idx = _capSprintIdx(sprintName);
-    return idx === sprintsPerPI;
-}
+// Sprint de respiration (IP) : le DERNIER sprint de son PI. Règle partagée avec la Base
+// capacité de Health — source unique dans utils/capacity-base.js.
+// Auparavant : « dernier sprint ET PI d'au moins 6 sprints », comparé au `sprintsPerPI`
+// CONFIGURÉ. Deux défauts : un PI de 5 sprints n'avait aucune respiration, et un PI de 6
+// voyait son 5e sprint exclu au lieu du 6e. `breathIdxByPi` retient, PI par PI,
+// max(sprintsPerPI, plus grand index réellement observé).
 
 // Calcule la vélocité moyenne historique par équipe
 // mode='pi' → moyenne sur les X PI précédents (tous sprints confondus)
 // mode='sprint' → moyenne sur les X derniers sprints
 function _capAvgVelocity(teamSprints, teamName, curPiNum, mode, count) {
-    // Exclut les sprints IP (dernier sprint d'un PI ≥ 6 sprints) : pas de vélocité de planning
+    // Exclut la respiration de chaque PI : on n'y planifie rien, sa vélocité n'est pas un
+    // repère de capacité. L'index est calculé sur TOUS les sprints de l'équipe (clos ou non),
+    // sinon un PI dont le dernier sprint n'est pas encore clos verrait l'avant-dernier promu.
     const sprintsPerPI = store.get('piInfo')?.sprintsPerPI || 5;
-    const closed = teamSprints.filter(s =>
-        s.team === teamName && s.state === 'closed' && (s.velocity || 0) > 0
-        && !_isIpSprint(s.name, sprintsPerPI)
+    const mine = teamSprints.filter(s => s.team === teamName && s.name);
+    const breathByPi = breathIdxByPi(mine, sprintsPerPI);
+    const closed = mine.filter(s =>
+        s.state === 'closed' && (s.velocity || 0) > 0
+        && !isBreathSprint(s.name, breathByPi.get(_capPiFromSprint(s.name)))
     );
     if (!closed.length) return 0;
 

@@ -1,3 +1,66 @@
+## [3.141.19] - 2026-08-24
+
+### Sprint de respiration — une seule définition pour toute l'application
+
+`pi.js::_isIpSprint` appliquait sa propre règle et avait **deux défauts** :
+
+- « respiration seulement si le PI compte ≥ 6 sprints » : avec `sprintsPerPI = 5` en
+  configuration, **aucune** respiration n'était jamais détectée — l'exclusion annoncée par le
+  commentaire ne s'appliquait donc pas du tout ;
+- la comparaison portait sur le `sprintsPerPI` **configuré** : un PI de 6 sprints voyait son
+  **5ᵉ** exclu au lieu du 6ᵉ.
+
+`breathIdxByPi()` (utils/capacity-base.js) devient la source unique : PI par PI,
+`max(sprintsPerPI, plus grand index réellement observé)`. `_capAvgVelocity` (page Capacité)
+s'y branche.
+
+⚠️ **Les moyennes de la page Capacité changent** — c'était le but : la respiration, à
+vélocité volontairement basse, les tirait vers le bas. Mesuré sur les données réelles :
+Fuego PI 29 **14 → 16** pts/sprint, Lion PI 29 **20 → 24**, Juke PI 29 **9 → 10**.
+
+### Console — un HTTP 401 ne se raconte plus en « aucun résultat »
+
+Relevé en console : `GET /jira/rest/agile/1.0/board → 401`, suivi de
+`JIRA import error: Aucun board scrum pour GCOM, GDEM, GEX, GDC, TRV`. Le message envoyait
+vérifier la liste des projets alors que JIRA avait refusé la connexion.
+
+- **Cause** : `catch { hasMore = false; }` (sync.js) avalait l'erreur de pagination des
+  boards ; la liste vide était ensuite interprétée comme « aucun board scrum ».
+- `request()` (api.js) porte désormais `e.status`, et `api.jiraErrorMessage(e, quoi)` traduit :
+  401/403 → « JIRA a refusé la connexion… vérifier l'URL, l'utilisateur et le jeton dans
+  Paramètres → Plugin JIRA (un jeton API expire) », 404 → URL d'instance, 5xx → indisponible.
+- Le lazy-fetch des sprints clos de Health (même symptôme, « JIRA indisponible ou non
+  configuré ») utilise le même message.
+- Helper placé dans `api.js` et non `sync.js` : l'erreur y naît, et Health n'a pas à importer
+  tout le plugin JIRA pour formater un message.
+
+### Console — `-webkit-text-size-adjust` (base.css)
+
+`Erreur d'analyse de la valeur pour « -webkit-text-size-adjust ». Déclaration abandonnée.`
+Firefox reconnaît l'alias mais n'en accepte que `none | auto` : le `100%` était rejeté à
+chaque chargement. Les deux formes (standard et préfixée) sont désormais réservées aux
+moteurs qui en ont besoin, via `@supports selector(::-webkit-scrollbar)`.
+
+⚠️ Détection à ne pas refaire autrement : `-webkit-hyphens` et `-webkit-appearance` sont
+**supportés par Firefox** en alias — un `@supports` bâti dessus s'y applique quand même
+(première tentative, qui ajoutait un second avertissement « Propriété text-size-adjust
+inconnue » au lieu d'en retirer un). `::-webkit-scrollbar`, lui, n'existe pas chez Firefox.
+
+### Tests — 145 au total (42 suites)
+
+- `cap-roles.test.mjs` : le correctif de 3.141.17 (« Copie impossible » en rafale) était le
+  seul vérifié par un script jetable. Vérifie qu'avec **23 rôles** un compteur ne reçoit
+  qu'**un** listener, que les sliders gardent le leur, et que la copie aboutit **sans**
+  `navigator.clipboard` (repli `execCommand`).
+- `jira-errors.test.mjs` : un 401 parle d'authentification et **jamais** d'absence de données.
+- `capacity-base` : trois cas sur `breathIdxByPi`, dont un PI plus long que la configuration.
+
+### Non traité
+
+`La mise en page a été forcée avant le chargement complet de la page` : avertissement de
+performance dû aux **29 feuilles CSS chargées en série** dans le `<head>`. Le remède est un
+regroupement des CSS — chantier à part entière, avec un risque réel sur l'ordre de cascade.
+
 ## [3.141.18] - 2026-08-24
 
 ### Base capacité — le sprint de respiration ne compte pas

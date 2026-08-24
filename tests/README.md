@@ -28,6 +28,8 @@ node --test --test-name-pattern "itérations" "tests/*.test.mjs"
 | `sprint-scope.test.mjs` | périmètre d'un sprint : engagement (reports compris) vs réalisé |
 | `capacity-base.test.mjs` | base de capacité PI : ETP par rôle, absences pondérées, respiration, roster |
 | `health-render.test.mjs` | rendu Health : matrice, modale, charge suggérée, reports barrés |
+| `cap-roles.test.mjs` | câblage `/#settings/cap-roles` : un listener par compteur, repli de copie |
+| `jira-errors.test.mjs` | messages du proxy JIRA : un 401 ne se raconte pas en « aucun résultat » |
 
 `helpers/env.mjs` installe les globales (`document`, `localStorage`, `fetch`…),
 `helpers/fixtures.mjs` fournit un jeu de données **synthétique** — aucun nom réel — mais calqué

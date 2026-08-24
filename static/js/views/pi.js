@@ -635,7 +635,7 @@ function _commitmentPanelHtml(commit, baseline, canCapture) {
 }
 
 // ── Objectives tab ────────────────────────────────────────────────────────────
-function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurrentPi, piNum, featureList = [], tickets = [] }) {
+export function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurrentPi, piNum, featureList = [], tickets = [] }) {
     // Délégation posée AVANT le rendu, une seule fois par conteneur : le bouton Enregistrer
     // reste actif même si une erreur survient plus loin dans CE rendu. Avec le seul bind
     // direct en fin de fonction, un échec intermédiaire laissait un bouton visible mais MORT

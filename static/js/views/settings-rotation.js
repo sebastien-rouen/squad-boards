@@ -836,4 +836,7 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
 
 export {
     _rotRefreshPanels, _rotWirePanelEvents, _rotPanelsHtml, _rotBuildPiWeeks, _rotSetCollapsed, _shuffleOneTeam, _jiraSprint1Start,
+    // Exposés pour la suite de tests (tests/rotation.test.mjs) : sans eux, il fallait
+    // fabriquer une copie « sonde » du module à chaque exécution.
+    _detectSprintsPerPI, _rotFirstWorkday,
 };

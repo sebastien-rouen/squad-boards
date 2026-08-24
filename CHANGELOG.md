@@ -1,3 +1,34 @@
+## [3.141.9] - 2026-08-24
+
+### Maquette — carte « Calendrier de l'équipe » sur #team (rien d'implémenté — à valider)
+
+- **[static/mockups/team/](static/mockups/team/)** : la page `#team/Fuego` en miroir (vrais
+  `team.css` et vraies données — 15 membres, couleur `#ec4899`, fiche d'identité vide comme
+  en base), avec une carte 📅 ajoutée. Elle rend le rythme de l'équipe **visible**,
+  **exportable** et **remaniable** au même endroit que sa fiche.
+- **Visible** : grille horaire en deux lectures — *Itération 30.6* (les 11 jours ouvrés réels)
+  et *Semaine type* (le bon niveau pour décider d'une cadence). Barre de charge au-dessus,
+  recalculée à chaque modification : 13 h 44 de rituels par semaine, 21 h 16 de libre.
+- **Exportable** : `.ics` (un `VEVENT` par rituel, `RRULE`, `CRLF` RFC 5545, `TZID=Europe/Paris`
+  — relisible par `services/ics.py`, la boucle est fermée), `.csv` (point-virgule + BOM pour
+  Excel FR), copie Slack groupée par cadence, et impression via `@media print`.
+- **Remaniable** : glisser-déposer (colonne = jour, position verticale = heure au quart d'heure
+  près), équivalents clavier (`←→` jour, `↑↓` 15 min, `Suppr`), panneau d'édition (titre,
+  famille, cadence, jour, heure, durée), ajout / duplication / désactivation. Une barre d'état
+  liste les écarts avec les calendriers détectés et permet de rétablir la détection. Rien n'est
+  écrit en base : le brouillon vit en `localStorage`.
+- **Défaut trouvé en produisant le fichier** : le daily de Fuego ne se tient pas le lundi
+  (remplacé par le Weekly), soit 9 jours sur 11. L'export ICS produisait pourtant
+  `BYDAY=MO,TU,WE,TH,FR` — réimporté dans Google Agenda, il aurait **recréé deux dailies
+  fantômes par itération**. Les jours systématiquement sautés sont désormais retirés du `BYDAY`,
+  et les trois exports le disent (`tous les jours sauf lundi` en CSV, `(sauf lundi)` en Slack).
+- Le [README](static/mockups/team/README.md) pose 5 points à trancher, dont le plus structurant :
+  **où vit la cadence** — une table `team_ritual` (deuxième référentiel, qui divergera de Google)
+  ou un export seul (Squad Board aide à préparer, Google reste la source). Sans réponse au sens
+  de la synchro, l'édition écrase ou se fait écraser.
+
+---
+
 ## [3.141.8] - 2026-08-24
 
 ### Refactorisation — section Plugin JIRA extraite de settings.js

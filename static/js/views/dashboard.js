@@ -4,7 +4,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast, supportWorkingDays, supportDaysForMember, initials } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast, supportWorkingDays, supportDaysForMember, initials } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { renderCycleTime } from '../components/charts.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
@@ -934,13 +934,18 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, d
         let pts = 0, donePts = 0;
         let ts2 = [];
         if (allTickets && s.name) {
+            // Périmètre ENGAGÉ : reports compris. `t.sprintName` seul ne montrerait que les
+            // tickets restés — donc, sur un sprint clos, uniquement ses réussites.
+            // `null` = matching sur le nom EXACT : sans filtre d'équipe (team === 'all'),
+            // la tolérance par clé NN.N ferait entrer le sprint 30.1 des autres équipes.
             ts2 = allTickets.filter(t =>
-                (t.sprintName === s.name || (Array.isArray(t.allSprints) && t.allSprints.includes(s.name)))
-                && (team === 'all' || !team || t.team === team)
+                belongedToSprint(t, s.name, null) && (team === 'all' || !team || t.team === team)
             );
             for (const t of ts2) {
                 pts += (t.points || 0);
-                if (t.status === 'done') donePts += (t.points || 0);
+                // RÉALISÉ : seulement ce qui a été fini DANS le sprint. Un ticket reporté puis
+                // terminé ailleurs créditerait ce sprint de travail fait après sa clôture.
+                if (t.status === 'done' && isInSprint(t, s.name, null)) donePts += (t.points || 0);
             }
         }
         const ratio = pts ? Math.round(donePts / pts * 100) : 0;
@@ -953,13 +958,16 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, d
             ? `<div class="pi-sprint-card-goal">${esc(goalText)}</div>`
             : `<div class="pi-sprint-card-goal pi-sprint-card-goal--empty">Aucun objectif défini</div>`;
 
-        // Sprint clos : tickets non terminés à la clôture = "glissés" — ils sont restés dans ce
-        // sprint (allSprints) mais ont continué leur vie ailleurs (sprintName actuel différent,
-        // ou simplement jamais clos). On les repère pour les distinguer dans la liste.
-        const _slippedTo = t => (st === 'closed' && t.status !== 'done')
-            ? (t.sprintName && t.sprintName !== s.name ? t.sprintName : null)
-            : undefined; // undefined = non concerné (pas un sprint clos, ou ticket fini)
-        const slippedCount = st === 'closed' ? ts2.filter(t => t.status !== 'done').length : 0;
+        // Tickets "glissés" — engagés ici, pas livrés ici. Deux cas : le ticket a été REPORTÉ
+        // vers un autre sprint (JIRA le déplace à la clôture) — et cela compte même s'il est
+        // `done` aujourd'hui, car il l'a été ailleurs ; ou il est resté sans être terminé.
+        // `undefined` = non concerné · `null` = resté non fini · sinon le sprint d'arrivée.
+        const _slippedTo = t => {
+            const moved = carriedOverTo(t, s.name, null);
+            if (moved) return moved;
+            return (st === 'closed' && t.status !== 'done') ? null : undefined;
+        };
+        const slippedCount = ts2.filter(t => _slippedTo(t) !== undefined).length;
 
         // Détail des tickets : groupés par catégorie (US / Buffer / Action), triés par rank.
         const groupsHtml = _GROUPS.map(g => {
@@ -981,7 +989,7 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, d
                         <span class="status-dot-sm" style="background:var(--status-${t.status || 'todo'})"></span>
                         <span class="pi-sprint-card-ticket-id">${esc(t.id)}</span>
                         <span class="pi-sprint-card-ticket-title">${esc(t.title || '')}</span>
-                        ${slipped ? `<span class="pi-sprint-card-ticket-slip">↪${to ? esc(to) : ''}</span>` : ''}
+                        ${slipped ? `<span class="pi-sprint-card-ticket-slip">↪${to ? esc(extractSprintLabel(to) || to) : ''}</span>` : ''}
                         <span class="pi-sprint-card-ticket-pts">${t.points || '—'}</span>
                     </div>`;
                     }).join('')}

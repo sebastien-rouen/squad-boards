@@ -9,8 +9,10 @@ export * from './utils/dom.js';
 export * from './utils/wiki.js';
 export * from './utils/modals.js';
 export * from './utils/support.js';
+export * from './utils/sprint-scope.js';
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
+import { extractSprintLabel } from './utils/sprint-scope.js';   // usages internes à ce fichier
 import { getInactiveSupportMembers } from './utils/support.js';   // usages internes à ce fichier
 
 
@@ -649,18 +651,8 @@ export function extractPiNum(name) {
     return m ? parseInt(m[1], 10) : 0;
 }
 
-/**
- * Extrait le label complet "NN.N" d'un nom de sprint (ex: "Team G - Ité 30.1" → "30.1").
- * À utiliser pour matcher `v.piSprint` (votes mood/fist) — NE JAMAIS reconstruire ce label à
- * la main depuis `piInfo.number` + index de sprint : si `piInfo.number` est vide/obsolète, la
- * reconstruction produit un label tronqué (ex: ".1") qui ne matche plus aucun vote (footgun
- * constaté : panneau latéral "Aucun vote · .1" alors que des votes existaient bien sur 30.1).
- * @returns {string} le label "NN.N", ou '' si non extractible.
- */
-export function extractSprintLabel(name) {
-    const m = String(name || '').match(/(\d+\.\d+)/);
-    return m ? m[1] : '';
-}
+// `extractSprintLabel` a rejoint utils/sprint-scope.js (même famille : le périmètre d'un
+// sprint) et reste ré-exporté ci-dessus — les imports depuis '../utils.js' sont inchangés.
 
 /**
  * SOURCE UNIQUE du "PI courant". À utiliser partout (topbar, settings, dashboard, …)

@@ -27,6 +27,9 @@ body {
     --k-ops-bg: #f1f5f9;
     --k-ops-text: #475569;
     --k-off: #f59e0b;             /* ambre — absences / OFF */
+    --k-free: #10b981;            /* vert — temps NON réuni, ce qui reste pour produire */
+    --k-free-bg: #ecfdf5;
+    --k-free-text: #047857;
 }
 [data-theme="dark"] {
     --k-scrum: #60a5fa;
@@ -39,10 +42,14 @@ body {
     --k-ops-bg: #1e293b;
     --k-ops-text: #cbd5e1;
     --k-off: #fbbf24;
+    --k-free: #34d399;
+    --k-free-bg: #052e16;
+    --k-free-text: #6ee7b7;
 }
 .k-scrum { --kc: var(--k-scrum); --kbg: var(--k-scrum-bg); --ktx: var(--k-scrum-text); }
 .k-safe  { --kc: var(--k-safe);  --kbg: var(--k-safe-bg);  --ktx: var(--k-safe-text); }
 .k-ops   { --kc: var(--k-ops);   --kbg: var(--k-ops-bg);   --ktx: var(--k-ops-text); }
+.k-free  { --kc: var(--k-free);  --kbg: var(--k-free-bg);  --ktx: var(--k-free-text); }
 
 /* ── Barre de maquette ──────────────────────────────────────────────────────── */
 .mk-top {
@@ -96,10 +103,20 @@ body {
     max-width: var(--content-max);
     margin: 0 auto;
     padding: var(--sp-5);
+    /* Un enfant plus large que la scène (frise, grille horaire) doit pouvoir défiler
+       ici plutôt que déborder de la page. `min-width:0` sur les grilles enfants ne
+       suffit pas quand le contenu impose son `max-content`. */
+    overflow-x: auto;
 }
-/* Vue « mobile » : la scène se contraint à 390px, comme un iPhone 14 */
+/* Vue « mobile » : un vrai viewport de téléphone — 390 × 780, avec SON propre scroll.
+   Sans hauteur ni overflow, le contenu débordait hors du cadre et donnait l'illusion
+   d'une page qui ne défile pas. */
 body.is-mobile .mk-stage {
+    width: 390px;
     max-width: 390px;
+    height: min(780px, 82vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border: 1px solid var(--border);
     border-radius: var(--r-xl);
     margin-top: var(--sp-4);
@@ -237,6 +254,37 @@ body.is-mobile .mk-stage {
     font-variant-numeric: tabular-nums;
     opacity: 0.75;
     font-weight: var(--fw-normal);
+}
+
+/* ── Décalage d'itération (bac à sable) ─────────────────────────────────────── */
+.shift-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    padding: var(--sp-2) var(--sp-3);
+    margin-bottom: var(--sp-4);
+    background: var(--surface);
+    border: 1px dashed var(--border-hover);
+    border-radius: var(--r-md);
+    font-size: var(--fs-xs);
+    color: var(--text-secondary);
+}
+.shift-bar-label { font-weight: var(--fw-semibold); color: var(--text); }
+.shift-bar-hint { color: var(--text-muted); }
+.shift-value {
+    padding: 2px 8px;
+    border-radius: var(--r-full);
+    background: var(--surface-active);
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+}
+.shift-value--on { background: var(--warning-bg); color: var(--amber-text); }
+.shift-warn {
+    margin-left: auto;
+    color: var(--amber-text);
+    font-weight: var(--fw-semibold);
 }
 
 /* ── Badge de récurrence — l'élément clé demandé ────────────────────────────── */

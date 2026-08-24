@@ -18,6 +18,8 @@
     const DAY_LONG  = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 
     const parse   = iso => new Date(`${iso}T12:00:00`);
+    const iso     = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const shiftIso = (day, n) => { const d = parse(day); d.setDate(d.getDate() + n); return iso(d); };
     const dayIdx  = iso => parse(iso).getDay();
     const ddmm    = iso => parse(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
     const dayName = iso => DAY_SHORT[dayIdx(iso)];
@@ -133,31 +135,54 @@
         return base;
     }
 
-    // ── Absences ────────────────────────────────────────────────────────────
-    /** Nombre de personnes absentes un jour donné (congés saisis + « X - OFF » du calendrier). */
-    function absentOn(dayIso) {
-        const names = new Set((D.off[dayIso] || []).map(n => n.toLowerCase()));
-        for (const a of D.absences) {
-            if (a.start <= dayIso && a.end >= dayIso) names.add(a.name.toLowerCase());
-        }
-        return names.size;
-    }
+    // ── Absences & support ──────────────────────────────────────────────────
+    /** Jour SOURCE correspondant à un jour AFFICHÉ : quand tout est décalé de +1,
+     *  ce qui s'affiche le 25 vient du 24. Absences et support se lisent à la source. */
+    const srcDay = day => state.shift ? shiftIso(day, -state.shift) : day;
+
+    /** Noms des personnes absentes un jour donné (congés saisis + « X - OFF » du calendrier). */
     function absentNames(dayIso) {
-        const out = new Set(D.off[dayIso] || []);
+        const s = srcDay(dayIso);
+        const out = new Set(D.off[s] || []);
         for (const a of D.absences) {
-            if (a.start <= dayIso && a.end >= dayIso) {
+            if (a.start <= s && a.end >= s) {
                 // « BOUCHET, Jérôme » → « Jérôme »
                 out.add(a.name.includes(',') ? a.name.split(',')[1].trim() : a.name);
             }
         }
         return [...out];
     }
+    const absentOn = dayIso => absentNames(dayIso).length;
 
-    // ── Filtres ─────────────────────────────────────────────────────────────
-    const state = { kinds: new Set(['scrum', 'safe', 'ops']), hideRecurring: false };
+    /** Membres de la rotation support couvrant ce jour, en prénom seul. */
+    function supportOn(dayIso) {
+        const s = srcDay(dayIso);
+        const rot = D.support.find(r => r.start <= s && r.end >= s);
+        return (rot?.members || []).map(n => n.includes(',') ? n.split(',')[1].trim() : n);
+    }
 
+    // ── Filtres & décalage ──────────────────────────────────────────────────
+    const state = { kinds: new Set(['scrum', 'safe', 'ops']), hideRecurring: false, shift: 0 };
+
+    /** Événements filtrés, décalés de `state.shift` jours calendaires.
+     *  Le décalage sert à éprouver la vue : un jour férié, une itération repoussée,
+     *  et l'on voit tout de suite ce qui bascule sur un week-end ou déborde des bornes. */
     function visible() {
-        return D.events.filter(e => state.kinds.has(e.kind) && !(state.hideRecurring && e.freq));
+        const kept = D.events.filter(e => state.kinds.has(e.kind) && !(state.hideRecurring && e.freq));
+        if (!state.shift) return kept;
+        return kept.map(e => ({ ...e, day: shiftIso(e.day, state.shift) }));
+    }
+
+    /** Ce que le décalage courant fait sortir de la vue : week-ends et hors-bornes. */
+    function shiftImpact() {
+        const days = new Set(workDays(D.iteration.start, D.iteration.end));
+        const out = { weekend: 0, outside: 0 };
+        for (const e of visible()) {
+            if (days.has(e.day)) continue;
+            const wd = dayIdx(e.day);
+            if (wd === 0 || wd === 6) out.weekend++; else out.outside++;
+        }
+        return out;
     }
 
     /** Construit la barre de filtres et rebranche `onChange` à chaque clic. */
@@ -277,10 +302,11 @@
 
     window.MK = {
         D, KINDS, DAY_SHORT, DAY_LONG, esc,
-        parse, dayIdx, ddmm, dayName, dayFull, longDate, workDays, weekGroups, startsWeek,
+        parse, iso, shiftIso, dayIdx, ddmm, dayName, dayFull, longDate,
+        workDays, weekGroups, startsWeek,
         stripEmoji, durLabel, isFullDay,
         recurringRituals, oneShots, byDay, cadence,
-        absentOn, absentNames,
-        state, visible, mountFilters, iterationHead, mountSlack, slackHeader,
+        absentOn, absentNames, supportOn, srcDay,
+        state, visible, shiftImpact, mountFilters, iterationHead, mountSlack, slackHeader,
     };
 })();

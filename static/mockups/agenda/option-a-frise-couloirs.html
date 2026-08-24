@@ -11,13 +11,19 @@
 <link rel="stylesheet" href="shell.css">
 <style>
 /* ── Frise en couloirs ─────────────────────────────────────────────────────── */
+/* Le wrapper scrolle dans LES DEUX axes et borne sa hauteur : c'est ce qui rend
+   effectifs les `position:sticky` des en-têtes (top) et des couloirs (left) —
+   sticky se cale sur le conteneur de défilement le plus proche. Avec
+   `overflow-y:hidden`, la frise était simplement tronquée en bas. */
 .tl-wrap {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: auto;
+    max-height: min(70vh, 720px);
+    overscroll-behavior: contain;
 }
+body.is-mobile .tl-wrap { max-height: 58vh; }
 .tl-grid {
     display: grid;
     grid-template-columns: 148px repeat(var(--days), minmax(132px, 1fr));
@@ -237,6 +243,7 @@ body.is-mobile .tl-grid { grid-template-columns: 96px repeat(var(--days), 148px)
         <a href="option-a-frise-couloirs.html" aria-current="page">A · Frise en couloirs</a>
         <a href="option-b-agenda-dense.html">B · Agenda dense</a>
         <a href="option-c-cadence.html">C · Cadence &amp; jalons</a>
+        <a href="option-d-synthese.html">D · Synthèse</a>
     </div>
     <span class="mk-grow"></span>
 </nav>
@@ -274,16 +281,12 @@ body.is-mobile .tl-grid { grid-template-columns: 96px repeat(var(--days), 148px)
 (function () {
     'use strict';
     const { D, KINDS, esc, dayName, ddmm, workDays, weekGroups, startsWeek, durLabel,
-            isFullDay, cadence, absentNames, visible, mountFilters, iterationHead,
-            mountSlack, slackHeader, byDay } = window.MK;
+            isFullDay, cadence, absentNames, supportOn, visible, mountFilters,
+            iterationHead, mountSlack, slackHeader, byDay } = window.MK;
 
     const days = workDays(D.iteration.start, D.iteration.end);
     const tl = document.getElementById('tl');
     tl.style.setProperty('--days', days.length);
-
-    // Support de la semaine : map jour → membres de la rotation
-    const supportOn = day => (D.support.find(s => s.start <= day && s.end >= day)?.members || [])
-        .map(n => n.includes(',') ? n.split(',')[1].trim() : n);
 
     function evHtml(ev) {
         const cls = [

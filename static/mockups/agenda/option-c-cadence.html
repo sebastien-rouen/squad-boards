@@ -8,164 +8,9 @@
 <link rel="stylesheet" href="../../css/tokens.css">
 <link rel="stylesheet" href="../../css/base.css">
 <link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="parts.css">
 <style>
-/* ── Tuiles de charge ──────────────────────────────────────────────────────── */
-.load {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--sp-3);
-    margin-bottom: var(--sp-4);
-}
-body.is-mobile .load { grid-template-columns: 1fr; }
-@media (max-width: 860px) { .load { grid-template-columns: 1fr; } }
-.load-tile {
-    padding: var(--sp-4);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-}
-.load-label {
-    font-size: var(--fs-xs);
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: var(--fw-semibold);
-}
-.load-value {
-    font-size: var(--fs-2xl);
-    font-weight: var(--fw-bold);
-    line-height: 1.1;
-    margin-top: var(--sp-1);
-    font-variant-numeric: tabular-nums;
-}
-.load-value small {
-    font-size: var(--fs-sm);
-    font-weight: var(--fw-normal);
-    color: var(--text-muted);
-}
-.load-sub {
-    font-size: var(--fs-xs);
-    color: var(--text-secondary);
-    margin-top: var(--sp-2);
-    line-height: var(--lh-normal);
-}
-.load-bar {
-    display: flex;
-    height: 10px;
-    border-radius: var(--r-full);
-    overflow: hidden;
-    margin-top: var(--sp-3);
-    background: var(--surface-active);
-}
-.load-bar span { background: var(--kc); }
-.load-split {
-    display: flex;
-    gap: var(--sp-3);
-    flex-wrap: wrap;
-    margin-top: var(--sp-2);
-    font-size: var(--fs-xs);
-    color: var(--text-secondary);
-}
-.load-split b { font-variant-numeric: tabular-nums; }
-
-/* ── Section ───────────────────────────────────────────────────────────────── */
-.sec { margin-bottom: var(--sp-6); }
-.sec-head {
-    display: flex;
-    align-items: baseline;
-    gap: var(--sp-3);
-    flex-wrap: wrap;
-    margin-bottom: var(--sp-3);
-}
-.sec-head h3 { margin: 0; font-size: var(--fs-lg); }
-.sec-head p { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
-
-/* ── Grille « semaine type » ───────────────────────────────────────────────── */
-.grid-wrap {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-    padding: var(--sp-3);
-    overflow-x: auto;
-}
-.wgrid {
-    display: grid;
-    grid-template-columns: 46px repeat(5, minmax(150px, 1fr));
-    gap: 0;
-    min-width: max-content;
-}
-.wgrid-head {
-    padding: 0 var(--sp-2) var(--sp-2);
-    font-size: var(--fs-sm);
-    font-weight: var(--fw-semibold);
-    text-transform: capitalize;
-    border-bottom: 1px solid var(--border);
-}
-.wgrid-hours {
-    position: relative;
-    border-right: 1px solid var(--border);
-}
-.wgrid-hour {
-    position: absolute;
-    right: var(--sp-2);
-    transform: translateY(-50%);
-    font-size: var(--fs-xs);
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-}
-.wgrid-col {
-    position: relative;
-    border-right: 1px solid var(--border);
-    background-image: repeating-linear-gradient(
-        to bottom,
-        var(--border) 0, var(--border) 1px,
-        transparent 1px, transparent var(--hour-h)
-    );
-}
-.wgrid-col:last-child { border-right: none; }
-
-.rit {
-    position: absolute;
-    left: 3px;
-    right: 3px;
-    padding: 3px 6px;
-    border-radius: var(--r-sm);
-    border: 1px solid color-mix(in srgb, var(--kc) 35%, transparent);
-    border-left: 3px solid var(--kc);
-    background: var(--kbg);
-    overflow: hidden;
-    cursor: default;
-}
-.rit-title {
-    display: block;
-    font-size: var(--fs-xs);
-    font-weight: var(--fw-semibold);
-    color: var(--text);
-    line-height: 1.25;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.rit-meta {
-    display: block;
-    font-size: 10px;
-    color: var(--ktx);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-/* Un rituel qui ne tombe qu'une semaine sur deux : hachures légères */
-.rit--biweekly {
-    background-image: repeating-linear-gradient(
-        135deg,
-        transparent 0, transparent 5px,
-        color-mix(in srgb, var(--kc) 12%, transparent) 5px,
-        color-mix(in srgb, var(--kc) 12%, transparent) 10px
-    );
-}
-
-/* ── Frise des jalons ──────────────────────────────────────────────────────── */
+/* ── Frise des jalons — propre à cette option ──────────────────────────────── */
 .miles {
     position: relative;
     background: var(--surface);
@@ -173,6 +18,7 @@ body.is-mobile .load { grid-template-columns: 1fr; }
     border-radius: var(--r-lg);
     padding: var(--sp-5) var(--sp-4) var(--sp-4);
     overflow-x: auto;
+    overscroll-behavior-x: contain;
 }
 .miles-track {
     position: relative;
@@ -242,37 +88,6 @@ body.is-mobile .load { grid-template-columns: 1fr; }
 }
 .mile-card span { color: var(--ktx); font-variant-numeric: tabular-nums; }
 .mile-empty { font-size: var(--fs-xs); color: var(--text-muted); }
-
-/* ── Liste de rituels (repli mobile de la grille) ──────────────────────────── */
-.rit-list { display: none; }
-body.is-mobile .grid-wrap { display: none; }
-body.is-mobile .rit-list { display: block; }
-@media (max-width: 780px) {
-    .grid-wrap { display: none; }
-    .rit-list { display: block; }
-}
-.rit-group { margin-bottom: var(--sp-3); }
-.rit-group > h4 {
-    margin: 0 0 var(--sp-2);
-    font-size: var(--fs-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
-}
-.rit-item {
-    display: flex;
-    align-items: baseline;
-    gap: var(--sp-2);
-    padding: var(--sp-2) var(--sp-3);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--kc);
-    border-radius: var(--r-md);
-    margin-bottom: 4px;
-    font-size: var(--fs-sm);
-}
-.rit-item b { font-weight: var(--fw-semibold); }
-.rit-item small { margin-left: auto; color: var(--text-muted); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -284,6 +99,7 @@ body.is-mobile .rit-list { display: block; }
         <a href="option-a-frise-couloirs.html">A · Frise en couloirs</a>
         <a href="option-b-agenda-dense.html">B · Agenda dense</a>
         <a href="option-c-cadence.html" aria-current="page">C · Cadence &amp; jalons</a>
+        <a href="option-d-synthese.html">D · Synthèse</a>
     </div>
     <span class="mk-grow"></span>
 </nav>
@@ -294,7 +110,8 @@ body.is-mobile .rit-list { display: block; }
         <p>Le pari : une itération, ce sont <strong>deux choses de nature différente</strong> qu’on gagne à ne pas mélanger.
            D’un côté un <strong>rythme</strong> qui se répète — le daily, le weekly, l’ART Sync — qu’on affiche une seule fois
            avec sa cadence. De l’autre les <strong>jalons</strong> qui n’arrivent qu’une fois et qui donnent sa forme à
-           l’itération. En prime, ce que ce rythme coûte réellement en heures de réunion par semaine.</p>
+           l’itération. En prime, ce que ce rythme coûte réellement en heures de réunion par semaine — et ce qu’il
+           laisse de libre.</p>
     </div>
 
     <header class="it-head" id="it-head"></header>
@@ -323,134 +140,23 @@ body.is-mobile .rit-list { display: block; }
         <span class="mk-legend-item k-scrum"><span class="mk-legend-swatch"></span> Scrum · équipe</span>
         <span class="mk-legend-item k-safe"><span class="mk-legend-swatch"></span> SAFe · train ERPC</span>
         <span class="mk-legend-item k-ops"><span class="mk-legend-swatch"></span> Métier &amp; Ops</span>
+        <span class="mk-legend-item k-free"><span class="mk-legend-swatch"></span> Temps libre</span>
         <span class="mk-legend-item">Hachures = une semaine sur deux</span>
     </div>
 </main>
 
 <script src="data.js"></script>
 <script src="shell.js"></script>
+<script src="parts.js"></script>
 <script>
 (function () {
     'use strict';
-    const { D, KINDS, esc, dayIdx, dayName, dayFull, ddmm, workDays, durLabel, isFullDay,
-            cadence, visible, mountFilters, iterationHead, mountSlack, slackHeader,
-            recurringRituals, oneShots, stripEmoji, DAY_LONG } = window.MK;
+    const { D, KINDS, esc, dayName, dayFull, ddmm, workDays, startsWeek, durLabel,
+            isFullDay, cadence, visible, mountFilters, iterationHead, mountSlack,
+            slackHeader, recurringRituals, oneShots, stripEmoji } = window.MK;
+    const { renderLoad, renderRhythm, weeklyLoad, hrs } = window.MKParts;
 
     const days = workDays(D.iteration.start, D.iteration.end);
-    const H_START = 9 * 60, H_END = 18.5 * 60;      // amplitude de la grille
-    const PX_PER_MIN = 0.62;                         // 1 h ≈ 37 px
-    const GRID_H = (H_END - H_START) * PX_PER_MIN;
-
-    /** Combien de fois par semaine ce rituel tombe — pour la charge hebdo. */
-    const perWeek = f => f === 'tous les jours' ? 5
-        : f === '1x/sem.' ? 1
-        : f === '1x/ité.' ? 0.5
-        : f === '1x/mois' ? 0.23 : 0;
-
-    // ── Tuiles de charge ────────────────────────────────────────────────────
-    function renderLoad(rituals, milestones) {
-        const minsBy = { scrum: 0, safe: 0, ops: 0 };
-        for (const r of rituals) minsBy[r.kind] += r.durMin * perWeek(r.freq);
-        const total = minsBy.scrum + minsBy.safe + minsBy.ops;
-        const pct = k => total ? Math.round(minsBy[k] / total * 100) : 0;
-        const hrs = m => `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, '0')}`;
-
-        document.getElementById('load').innerHTML = `
-            <div class="load-tile">
-                <div class="load-label">Rituels récurrents</div>
-                <div class="load-value">${hrs(total)} <small>/ semaine</small></div>
-                <div class="load-sub">Créneaux ouverts, en assistant à tout — les CoP et les syncs
-                    du train ne concernent pas tout le monde.</div>
-                <div class="load-bar">
-                    ${['scrum', 'safe', 'ops'].map(k => minsBy[k]
-                        ? `<span class="${KINDS[k].cls}" style="width:${pct(k)}%" title="${esc(KINDS[k].label)} : ${hrs(minsBy[k])}"></span>` : '').join('')}
-                </div>
-                <div class="load-split">
-                    ${['scrum', 'safe', 'ops'].map(k => `<span>${KINDS[k].dot} ${esc(KINDS[k].short)} <b>${pct(k)} %</b></span>`).join('')}
-                </div>
-            </div>
-            <div class="load-tile">
-                <div class="load-label">Cadence du train</div>
-                <div class="load-value">${rituals.filter(r => r.kind === 'safe').length} <small>rituels SAFe</small></div>
-                <div class="load-sub">${hrs(minsBy.safe)} par semaine imposés par le train ERPC —
-                    le reste appartient à l’équipe.</div>
-            </div>
-            <div class="load-tile">
-                <div class="load-label">Jalons de l’itération</div>
-                <div class="load-value">${milestones.length} <small>évènements ponctuels</small></div>
-                <div class="load-sub">${milestones.filter(m => m.kind === 'safe').length} viennent du train
-                    (I&amp;A, PI Planning, journées Innovation).</div>
-            </div>`;
-    }
-
-    // ── Grille « semaine type » ─────────────────────────────────────────────
-    /** Répartit en colonnes les rituels qui se chevauchent, façon agenda. */
-    function layout(list) {
-        const sorted = [...list].sort((a, b) => a.startMin - b.startMin || b.durMin - a.durMin);
-        const cols = [];
-        for (const r of sorted) {
-            let c = cols.findIndex(col => col[col.length - 1].startMin + col[col.length - 1].durMin <= r.startMin);
-            if (c === -1) { cols.push([r]); c = cols.length - 1; } else cols[c].push(r);
-            r._col = c;
-        }
-        for (const r of sorted) r._cols = cols.length;
-        return sorted;
-    }
-
-    function renderGrid(rituals) {
-        const byDayIdx = [[], [], [], [], []];       // lun(0) → ven(4)
-        for (const r of rituals) {
-            if (r.freq === 'tous les jours') byDayIdx.forEach(col => col.push(r));
-            else {
-                const i = dayIdx(r.days[0]) - 1;
-                if (i >= 0 && i < 5) byDayIdx[i].push(r);
-            }
-        }
-
-        let html = '<div></div>' + [1, 2, 3, 4, 5]
-            .map(i => `<div class="wgrid-head">${esc(DAY_LONG[i])}</div>`).join('');
-
-        html += `<div class="wgrid-hours" style="height:${GRID_H}px">`;
-        for (let h = 9; h <= 18; h++) {
-            html += `<span class="wgrid-hour" style="top:${(h * 60 - H_START) * PX_PER_MIN}px">${h}h</span>`;
-        }
-        html += '</div>';
-
-        for (let i = 0; i < 5; i++) {
-            html += `<div class="wgrid-col" style="height:${GRID_H}px;--hour-h:${60 * PX_PER_MIN}px">`;
-            for (const r of layout(byDayIdx[i])) {
-                const top = Math.max(0, (r.startMin - H_START) * PX_PER_MIN);
-                const h = Math.max(20, Math.min(r.durMin, H_END - r.startMin) * PX_PER_MIN);
-                const w = 100 / r._cols;
-                html += `<div class="rit ${KINDS[r.kind].cls} ${r.freq === '1x/ité.' ? 'rit--biweekly' : ''}"
-                              style="top:${top}px;height:${h}px;left:calc(${r._col * w}% + 3px);width:calc(${w}% - 6px)"
-                              title="${esc(r.title)} — ${esc(cadence(r))} (${esc(durLabel(r.durMin))})">
-                    <span class="rit-title">${esc(stripEmoji(r.title))}</span>
-                    <span class="rit-meta">${esc(r.start)} · ${esc(r.freq)}</span>
-                </div>`;
-            }
-            html += '</div>';
-        }
-        document.getElementById('wgrid').innerHTML = html;
-
-        // Repli mobile : la même information en liste, groupée par cadence
-        const order = ['tous les jours', '1x/sem.', '1x/ité.', '1x/mois'];
-        const groups = new Map();
-        for (const r of rituals) {
-            const g = order.includes(r.freq) ? r.freq : 'autre cadence';
-            if (!groups.has(g)) groups.set(g, []);
-            groups.get(g).push(r);
-        }
-        document.getElementById('rit-list').innerHTML = [...groups.entries()]
-            .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
-            .map(([g, list]) => `<div class="rit-group">
-                <h4>${esc(g)} · ${list.length}</h4>
-                ${list.map(r => `<div class="rit-item ${KINDS[r.kind].cls}">
-                    <b>${esc(stripEmoji(r.title))}</b>
-                    <small>${esc(r.freq === 'tous les jours' ? r.start : `${dayName(r.days[0])} ${r.start}`)} · ${esc(durLabel(r.durMin))}</small>
-                </div>`).join('')}
-            </div>`).join('');
-    }
 
     // ── Frise des jalons ────────────────────────────────────────────────────
     function renderMiles(milestones) {
@@ -464,7 +170,7 @@ body.is-mobile .rit-list { display: block; }
         el.innerHTML = days.map((d, i) => {
             const list = map.get(d) || [];
             const kindCls = list.length ? KINDS[list[0].kind].cls : '';
-            return `<div class="mile-day ${kindCls} ${list.length ? 'mile-day--has' : ''} ${i === 5 ? 'mile-day--week2' : ''} ${d === D.today ? 'mile-day--today' : ''}">
+            return `<div class="mile-day ${kindCls} ${list.length ? 'mile-day--has' : ''} ${startsWeek(d, i) ? 'mile-day--week2' : ''} ${d === D.today ? 'mile-day--today' : ''}">
                 <span class="mile-dot"></span>
                 <span class="mile-date">${esc(dayName(d))} ${esc(ddmm(d))}</span>
                 ${list.length
@@ -481,8 +187,8 @@ body.is-mobile .rit-list { display: block; }
         const evs = visible();
         const rituals = recurringRituals(evs);
         const milestones = oneShots(evs);
-        renderLoad(rituals, milestones);
-        renderGrid(rituals);
+        renderLoad(document.getElementById('load'), rituals, milestones);
+        renderRhythm(document.getElementById('wgrid'), document.getElementById('rit-list'), rituals);
         renderMiles(milestones);
         document.getElementById('rit-count').textContent =
             `${rituals.length} rituels récurrents, affichés une seule fois avec leur cadence`;
@@ -509,8 +215,8 @@ body.is-mobile .rit-list { display: block; }
             lines.push(`    ${KINDS[m.kind].dot} ${isFullDay(m) ? 'journée' : m.start} · ${m.title}`);
         }
 
-        const mins = rituals.reduce((s, r) => s + r.durMin * perWeek(r.freq), 0);
-        lines.push('', `_Soit ${Math.floor(mins / 60)} h ${String(Math.round(mins % 60)).padStart(2, '0')} de créneaux de rituels par semaine — si on assiste à tout._`);
+        const L = weeklyLoad(rituals);
+        lines.push('', `_${hrs(L.busy)} de créneaux de rituels par semaine — si on assiste à tout. Reste ${hrs(L.free)} sur une base de ${hrs(L.base)}._`);
         return lines.join('\n');
     }
 

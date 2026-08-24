@@ -4256,13 +4256,18 @@ async function _shuffleOneTeam(teamName) {
     const mpw      = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
     const teamMode = getSupportWeekMode(teamName);
     // `selectedWeeks` = les semaines RÉELLEMENT affichées par la grille pour le PI
-    // épinglé (cf. _rotBuildPiWeeks + _rotRenderPanel). Ne jamais retomber sur
-    // curWeeks/nextWeeks ici : ce couple ne connaît que « PI courant » et « PI+1 »,
-    // calculés depuis une autre ancre. Au-delà de +1, ou dès que le PI cible a son
-    // propre startDate (JIRA / pi-cfg-N) ou un nombre de sprints différent, les
-    // `weekStart` produits ne correspondaient plus à ceux de la grille — qui apparie
-    // sur `s.weekStart === w.weekStart`. La rotation était bien créée, mais sur des
-    // semaines invisibles : toast de succès, grille inchangée.
+    // épinglé. Ne jamais retomber sur curWeeks/nextWeeks : les deux séries n'ont pas
+    // la même ancre. buildSupportPiWeeks() SNAPPE la date de début sur le jour de la
+    // semaine du mode ; la branche `_targetStart` de _rotBuildPiWeeks() utilise la
+    // date JIRA BRUTE du sprint <PI>.1, sans snap. Sur PI 31 (JIRA : dimanche
+    // 2026-09-06) la grille listait 06/09, 13/09… quand le shuffle écrivait 04/09,
+    // 11/09… (vendredi snappé) : zéro weekStart commun, dans les trois modes de
+    // semaine. La grille apparie sur `s.weekStart === w.weekStart`, donc la rotation
+    // était bien créée en base — toast de succès — mais sur des semaines que le
+    // panneau n'affiche jamais. Vu de l'utilisateur : « le Shuffle ne fait rien ».
+    // Au passage, nextWeeks ne connaît que PI+1 et hérite du nombre de sprints du PI
+    // courant : sur PI 30 (6 sprints) → PI 31 (5), il produisait 12 semaines au lieu
+    // de 10, et restait bloqué sur PI+1 pour un offset de +2.
     const { selectedWeeks, selectedPiNum } = _rotBuildPiWeeks(teamName);
     const weeks = selectedWeeks || [];
     if (!weeks.length) return { ok: false, reason: `Aucune semaine calculée pour le PI ${selectedPiNum || '?'} — vérifier la date de début du PI` };

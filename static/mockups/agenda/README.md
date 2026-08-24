@@ -235,9 +235,15 @@ un choix pour chacun, il est révisable.
 - Les maquettes ajoutent trois familles de couleurs (`--k-scrum`, `--k-safe`, `--k-ops`)
   qui **n'existent pas encore** dans `tokens.css`. Elles sont définies dans `shell.css`,
   light et dark. À promouvoir en tokens si une option est retenue.
-- `base.css` pose `body { display: flex }` pour le shell sidebar + main du site ;
-  `shell.css` le neutralise puisque la maquette est une page autonome. Sans conséquence
-  pour le site.
+- `base.css` configure le `body` pour le shell du site : `display:flex`, `height:100vh`
+  et surtout **`overflow:hidden`** — dans l'application, c'est `.main` qui défile, pas la
+  page. `shell.css` lève les trois, sans quoi **rien ne peut défiler** et le bas des options
+  longues reste inatteignable. Sans conséquence pour le site : la surcharge est locale aux
+  maquettes.
+- Corollaire à connaître si ces vues sont intégrées : un `overflow-x:auto` isolé fait passer
+  `overflow-y` à `auto` par la spec CSS, ce qui recrée un conteneur de défilement piégeux.
+  D'où le choix de laisser `.mk-stage` sans `overflow` en desktop et de confier le
+  défilement horizontal aux enfants larges (frise, grille horaire, sparkline).
 - Les maquettes n'utilisent pas les modules ES du site (`state.js`, `utils.js`) : elles
   sont volontairement autonomes pour rester ouvrables en `file://`. La logique réutilisable
   (`weekGroups`, déduction de fréquence, classification, format Slack) est isolée dans
@@ -264,7 +270,17 @@ Pour régénérer sur une autre équipe ou une autre itération, il suffit de re
 
 ## Vérification
 
-La logique des trois options a été exécutée sous Node avec un DOM factice
-(rendu des trois vues + génération des trois récaps Slack) : aucune erreur, aucun
-`undefined` dans le HTML produit. Le rendu visuel, lui, reste à juger dans le navigateur —
-c'est tout l'objet de ces maquettes.
+La logique des quatre options a été exécutée sous Node avec un DOM factice : rendu des
+quatre vues et génération des quatre récaps Slack, sans erreur ni `undefined` dans le HTML
+produit. Le décalage est testé séparément sur `−1`, `+1`, `+2` et le retour à `0` — les
+évènements tombent bien aux dates attendues, les absences suivent, et l'invariant
+`charge + temps libre = base hebdomadaire` tient à chaque pas.
+
+Deux erreurs trouvées par cette passe plutôt qu'à l'œil :
+
+- le découpage en paquets de 5 jours ouvrés, qui plaçait la césure des semaines au mauvais
+  endroit pour une itération démarrant un vendredi ;
+- la barre de charge qui comptait encore, sous décalage, des rituels tombés le week-end que
+  la grille du rythme avait déjà écartés — deux chiffres contradictoires à l'écran.
+
+Le rendu visuel, lui, reste à juger dans le navigateur — c'est tout l'objet de ces maquettes.

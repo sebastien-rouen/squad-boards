@@ -89,7 +89,7 @@ body.is-mobile .load { grid-template-columns: 1fr; }
 .sec-head h3 { margin: 0; font-size: var(--fs-lg); }
 .sec-head p { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
 
-/* ── 3. Grille « semaine type » (le rythme) ────────────────────────────────── */
+/* ── 3. Grille du rythme, sur toute l'itération ────────────────────────────── */
 .grid-wrap {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -98,19 +98,38 @@ body.is-mobile .load { grid-template-columns: 1fr; }
     overflow-x: auto;
     overscroll-behavior-x: contain;
 }
+/* Deux colonnes : la gouttière des heures, puis le corps qui porte les N jours.
+   Le corps est à la fois une grille (le fond quadrillé) et un repère de
+   positionnement absolu (les rituels, placés en % de sa largeur totale) — c'est
+   ce qui permet à une bande de traverser plusieurs jours d'un seul tenant. */
 .wgrid {
     display: grid;
-    grid-template-columns: 46px repeat(5, minmax(150px, 1fr));
+    grid-template-columns: 46px 1fr;
     gap: 0;
     min-width: max-content;
 }
+.wgrid-heads,
+.wgrid-body {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), minmax(104px, 1fr));
+}
+.wgrid-body { position: relative; }
 .wgrid-head {
     padding: 0 var(--sp-2) var(--sp-2);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     font-weight: var(--fw-semibold);
     text-transform: capitalize;
     border-bottom: 1px solid var(--border);
+    line-height: 1.3;
 }
+.wgrid-head small {
+    display: block;
+    font-weight: var(--fw-normal);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+.wgrid-head--today { color: var(--primary); }
+.wgrid-head--week { border-left: 2px solid var(--border-hover); }
 .wgrid-hours {
     position: relative;
     border-right: 1px solid var(--border);
@@ -124,7 +143,6 @@ body.is-mobile .load { grid-template-columns: 1fr; }
     font-variant-numeric: tabular-nums;
 }
 .wgrid-col {
-    position: relative;
     border-right: 1px solid var(--border);
     background-image: repeating-linear-gradient(
         to bottom,
@@ -133,11 +151,11 @@ body.is-mobile .load { grid-template-columns: 1fr; }
     );
 }
 .wgrid-col:last-child { border-right: none; }
+.wgrid-col--week { border-left: 2px solid var(--border-hover); }
+.wgrid-col--today { background-color: color-mix(in srgb, var(--primary) 5%, transparent); }
 
 .rit {
     position: absolute;
-    left: 3px;
-    right: 3px;
     padding: 3px 6px;
     border-radius: var(--r-sm);
     border: 1px solid color-mix(in srgb, var(--kc) 35%, transparent);
@@ -145,6 +163,46 @@ body.is-mobile .load { grid-template-columns: 1fr; }
     background: var(--kbg);
     overflow: hidden;
     cursor: default;
+    z-index: 2;
+}
+
+/* Rituel quasi quotidien : une bande continue qui traverse les jours consécutifs
+   où il a bien lieu. Les interruptions sont porteuses de sens — chez Fuego le
+   daily saute le lundi, remplacé par le weekly : une ligne pleine mentirait. */
+.rit-band {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 0 var(--sp-2);
+    border-radius: var(--r-full);
+    border: 1px solid color-mix(in srgb, var(--kc) 40%, transparent);
+    border-left: 3px solid var(--kc);
+    background: var(--kbg);
+    overflow: hidden;
+    white-space: nowrap;
+    z-index: 1;
+    cursor: default;
+}
+.rit-band-title {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.rit-band-meta {
+    font-size: 10px;
+    color: var(--ktx);
+    font-variant-numeric: tabular-nums;
+}
+/* Le trait qui matérialise la continuité quand la bande est trop fine pour du texte */
+.rit-band::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--kc) 45%, transparent);
 }
 .rit-title {
     display: block;
@@ -165,16 +223,6 @@ body.is-mobile .load { grid-template-columns: 1fr; }
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* Un rituel qui ne tombe qu'une semaine sur deux : hachures légères */
-.rit--biweekly {
-    background-image: repeating-linear-gradient(
-        135deg,
-        transparent 0, transparent 5px,
-        color-mix(in srgb, var(--kc) 12%, transparent) 5px,
-        color-mix(in srgb, var(--kc) 12%, transparent) 10px
-    );
-}
-
 /* Repli de la grille horaire en liste — petit écran */
 .rit-list { display: none; }
 body.is-mobile .grid-wrap { display: none; }

@@ -424,12 +424,16 @@ export function renderHealth(container) {
         // aucune anomalie mais peu confiante dans les objectifs mérite autant l'attention,
         // et ce signal-là ne sort d'aucune règle automatique — seule l'équipe le donne.
         // Moyenne sur TOUT le PI (pas le sprint) : c'est la portée du Fist of Five.
+        // Cliquable dès que le PI a un sprint, MÊME sans aucun vote : une équipe qui n'a
+        // pas voté est précisément celle qu'on veut emmener vers la saisie, et la modale
+        // est la seule surface de vote. Un `has-val` conditionné aux votes fermerait la
+        // porte à ceux qui en ont le plus besoin.
         const fistKeys = (cellMeta.piSprints || []).map(s => _spKey(s.name));
         const fistN    = voteCount('fist', tm, fistKeys);
-        const fistCell = `<td class="health-cell health-fist-cell${fistN ? ' has-val' : ''}"
+        const fistCell = `<td class="health-cell health-fist-cell${fistKeys.length ? ' has-val' : ''}"
             data-metric="velocity" data-meta-id="${esc(tm)}"
-            title="✊ Confiance dans les objectifs du PI — ${esc(tm)}${fistN ? '' : '\nAucun vote enregistré'} — cliquer pour ouvrir le détail et voter">
-            ${voteTotalHtml('fist', tm, fistKeys, '<span class="health-cell-zero">—</span>')}
+            title="✊ Confiance dans les objectifs du PI — ${esc(tm)}${fistN ? '' : '\nAucun vote enregistré'}${fistKeys.length ? '\nCliquer pour ouvrir le détail et voter' : ''}">
+            ${voteTotalHtml('fist', tm, fistKeys, `<span class="health-cell-zero" title="Aucun vote">${fistKeys.length ? '+ voter' : '—'}</span>`)}
         </td>`;
         const vPts = cellMeta.vPts, bPts = cellMeta.bPts;
         const hasSprint = !!cellMeta.spName || cellMeta.done.length > 0;
@@ -778,8 +782,27 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
     // pour planned/bufplanned, courants sinon.
     const _ptsFor = (tk, metric, sprintStart) => _isPlanMetric(metric) ? _pointsAtLaunch(tk, sprintStart) : (tk.points || 0);
 
+    // Un ticket engagé au lancement mais non terminé = engagement non tenu. On ne le
+    // signale QUE sur les métriques d'engagement (planned/bufplanned) : dans une liste
+    // « Done », un non-done n'existe pas, et dans « tous les tickets » ce serait du bruit.
+    // `sprintClosed` distingue le définitif du provisoire — voir _missCls.
+    const _isMissed = (tk, metric) => _isPlanMetric(metric) && tk.status !== 'done';
+    // Sprint clos → l'engagement est manqué pour de bon : barré. Sprint en cours → encore
+    // rattrapable : orange seul, barrer reviendrait à condamner un ticket encore vivant.
+    const _missCls = (tk, metric, sprintClosed) => !_isMissed(tk, metric) ? ''
+        : (sprintClosed ? ' htl-ticket-row--missed htl-ticket-row--missed-final' : ' htl-ticket-row--missed');
+    const _missCount = (items, metric) => items.filter(tk => _isMissed(tk, metric)).length;
+    // Compteur de manqués sur l'en-tête d'un groupe — muet quand tout a été tenu, pour
+    // que la présence même du chiffre soit le signal.
+    const _missMetaHtml = (items, metric, sprintClosed) => {
+        const n = _missCount(items, metric);
+        if (!n) return '';
+        const lbl = sprintClosed ? 'non réalisé' : 'en cours';
+        return ` · <span class="htl-grp-missed" title="${esc(`${n} ticket${n > 1 ? 's' : ''} engagé${n > 1 ? 's' : ''} au lancement ${sprintClosed ? "et non terminé" + (n > 1 ? 's' : '') + " à la clôture du sprint" : "pas encore terminé" + (n > 1 ? 's' : '')}`)}">${n} ✗ ${lbl}${n > 1 && sprintClosed ? 's' : ''}</span>`;
+    };
+
     const _ACTIONRETRO_KEY = '__actionretro__';
-    const _ticketRowsHtml = (list, metric, sprintStart, isPastOrActive) => {
+    const _ticketRowsHtml = (list, metric, sprintStart, isPastOrActive, sprintClosed) => {
         if (!list.length) return `<tr><td colspan="6" class="text-muted text-center" style="padding:16px">Aucun ticket ${_METRIC_EMPTY[metric] || ''}</td></tr>`;
         // Regroupe les tickets par parent (epic/feature) — un bloc par parent, trié par points décroissants.
         // Les tickets ActionRetro (actions de rétro, pas de Story Points attendu) sont isolés dans
@@ -809,9 +832,20 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
             const ptsHtml = (launchPts || reestimated)
                 ? `<span class="htl-pts-chip${tk.status === 'done' ? ' htl-pts-chip--done' : ''}${reestimated ? ' htl-pts-chip--reest' : ''}"${reestimated ? ` title="Réestimé pendant le sprint : ${launchPts} pts au lancement → ${curPts} pts actuels"` : ''}>${ptsLabel}</span>`
                 : (isPastOrActive ? '0' : '<span class="htl-muted">—</span>');
-            return `<tr class="htl-ticket-row${tk.status === 'done' ? ' htl-ticket-row--done' : ''}" data-open-ticket="${esc(tk.id || '')}" title="Voir le détail du ticket">
+            const missed = _isMissed(tk, metric);
+            const rowTitle = missed
+                ? (sprintClosed
+                    ? 'Engagé au lancement mais NON réalisé — le sprint est clos. Cliquer pour le détail du ticket'
+                    : 'Engagé au lancement, pas encore terminé — le sprint est en cours. Cliquer pour le détail du ticket')
+                : 'Voir le détail du ticket';
+            const doneCell = tk.status === 'done'
+                ? '<span class="htl-done-yes" title="Terminé">✓</span>'
+                : missed
+                    ? `<span class="htl-done-miss" title="${sprintClosed ? 'Non réalisé' : 'Pas encore terminé'}">✗</span>`
+                    : '<span class="htl-done-no" title="Non terminé">·</span>';
+            return `<tr class="htl-ticket-row${tk.status === 'done' ? ' htl-ticket-row--done' : ''}${_missCls(tk, metric, sprintClosed)}" data-open-ticket="${esc(tk.id || '')}" title="${esc(rowTitle)}">
                 <td class="htl-id">${esc(tk.id || '—')}</td>
-                <td class="htl-done">${tk.status === 'done' ? '<span class="htl-done-yes" title="Terminé">✓</span>' : '<span class="htl-done-no" title="Non terminé">·</span>'}</td>
+                <td class="htl-done">${doneCell}</td>
                 <td class="htl-title">${esc(tk.title || '')}</td>
                 <td class="htl-buf-flag">${isBuf ? '<span title="Ticket Buffer">🛡️</span>' : ''}</td>
                 <td class="htl-pts">${ptsHtml}</td>
@@ -830,7 +864,7 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                     ? `<span class="htl-parent-chip" style="--pc:${pc}" data-open-ticket="${esc(parentKey)}" title="Parent : ${esc(parentKey)}${parentTitle ? ' — ' + esc(parentTitle) : ''} — cliquer pour voir le détail">${esc(lbl)}</span>`
                     : '<span class="htl-muted">Sans parent</span>';
             const groupRow = `<tr class="htl-grp-row"${pc ? ` style="--pc:${pc}"` : ''}>
-                <td colspan="6" class="htl-grp-cell">${head}<span class="htl-grp-meta">${items.length} ticket${items.length !== 1 ? 's' : ''} · ${items.filter(x => x.status === 'done').length} ✓ · ${_gpts(items)} pts</span></td>
+                <td colspan="6" class="htl-grp-cell">${head}<span class="htl-grp-meta">${items.length} ticket${items.length !== 1 ? 's' : ''} · ${items.filter(x => x.status === 'done').length} ✓${_missMetaHtml(items, metric, sprintClosed)} · ${_gpts(items)} pts</span></td>
             </tr>`;
             // Tri intra-groupe : tickets terminés d'abord, puis points décroissants
             const sorted = items.slice().sort((a, b) => {
@@ -855,6 +889,9 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         // qu'un "—" — cohérent avec le tableau récapitulatif des sprints ci-dessus.
         const spState = (meta.piSprints || []).find(s => s.name === sprintName)?.state;
         const isPastOrActive = spState === 'active' || spState === 'closed';
+        // Clos = le sprint est passé : ce qui n'est pas fait ne le sera plus dans ce sprint.
+        const sprintClosed = spState === 'closed';
+        const missN = _missCount(list, metric);
         const tot = list.reduce((s, t) => s + _ptsFor(t, metric, sprintStart), 0);
         // Si au moins un ticket a été réestimé pendant le sprint, le total "au lancement" seul
         // masquerait l'écart — on affiche aussi le total courant, même format que les chips de ligne.
@@ -867,13 +904,14 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                 <span class="htl-tickets-hdr-title">${_METRIC_TITLE[metric] || _METRIC_TITLE.velocity}</span>
                 ${sprintName ? `<span class="htl-tickets-hdr-sprint">${esc(sprintName)}</span>` : ''}
                 <span class="htl-tickets-hdr-badge"${totTitle}>${list.length} ticket${list.length !== 1 ? 's' : ''} · ${totLabel} pts</span>
+                ${missN ? `<span class="htl-tickets-hdr-missed" title="${esc(`${missN} ticket${missN > 1 ? 's' : ''} engagé${missN > 1 ? 's' : ''} au lancement ${sprintClosed ? 'et non terminé' + (missN > 1 ? 's' : '') + " à la clôture — l'engagement n'a pas été tenu" : 'et pas encore terminé' + (missN > 1 ? 's' : '') + ' — le sprint est en cours'}`)}">✗ ${missN} ${sprintClosed ? `non réalisé${missN > 1 ? 's' : ''}` : 'en cours'}</span>` : ''}
             </div>
             <table class="htl-table">
                 <thead><tr>
                     <th>ID</th><th title="Terminé">✓</th><th>Titre</th>
                     <th title="Ticket Buffer">🛡️</th><th>Pts</th><th>Responsable</th>
                 </tr></thead>
-                <tbody>${_ticketRowsHtml(list, metric, sprintStart, isPastOrActive)}</tbody>
+                <tbody>${_ticketRowsHtml(list, metric, sprintStart, isPastOrActive, sprintClosed)}</tbody>
                 ${list.length ? `<tfoot><tr>
                     <td colspan="4" class="htl-total-lbl">Total</td>
                     <td class="htl-total-val${totReest ? ' htl-total-val--reest' : ''}"${totTitle}>${totLabel}</td>

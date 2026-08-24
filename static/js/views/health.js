@@ -103,6 +103,26 @@ function _moodCellHtml(team, sprintKey) {
     return `<span class="htl-mood-val ${cls}" ${attrs} title="${esc(tip)}">${_face(avg)} ${avg} <span class="htl-mood-count">(${n})</span></span>`;
 }
 
+// Mood moyen sur TOUT le PI, pour la ligne de total du tableau des sprints.
+// Moyenne pondérée par le nombre de votes (on repart des votes bruts), pas moyenne
+// des moyennes : un sprint à 12 votes et un sprint à 2 ne pèsent pas pareil.
+// Non cliquable, contrairement aux cellules par sprint : on ne vote pas sur un total.
+function _moodTotalHtml(team, sprintKeys) {
+    const keys = new Set(sprintKeys);
+    const votes = _lastMoodVotes.filter(v => v.team === team && keys.has(v.piSprint));
+    const moods = votes.map(v => parseInt(v.value) || 0).filter(Boolean);
+    const n = moods.length;
+    if (!n) return '<span class="htl-muted">—</span>';
+    const avg = Math.round((moods.reduce((a, b) => a + b, 0) / n) * 10) / 10;
+    const dist = [1, 2, 3, 4, 5].map(v => moods.filter(m => m === v).length);
+    const voted = new Set(votes.map(v => v.piSprint)).size;
+    const tip = `Mood moyen du PI · ${team}\nMoyenne ${avg}/5 · ${n} vote${n > 1 ? 's' : ''} `
+        + `sur ${voted} sprint${voted > 1 ? 's' : ''} / ${sprintKeys.length}\n`
+        + [5, 4, 3, 2, 1].map(v => `${_face(v)} ${v} : ${dist[v - 1]}`).join('\n');
+    const cls = avg >= 4 ? 'htl-mood--good' : avg >= 3 ? 'htl-mood--ok' : 'htl-mood--bad';
+    return `<span class="htl-mood-val ${cls}" title="${esc(tip)}">${_face(avg)} ${avg} <span class="htl-mood-count">(${n})</span></span>`;
+}
+
 const SEV_COLOR = { danger: 'var(--danger)', warning: 'var(--warning)', info: 'var(--info)' };
 const SEV_BG    = {
     danger:  'color-mix(in srgb, var(--danger) 12%, transparent)',
@@ -915,7 +935,8 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                         </tr></thead>
                         <tbody>${sprintRows || '<tr><td colspan="11" class="htl-muted text-center" style="padding:12px">Aucun sprint trouvé pour ce PI</td></tr>'}</tbody>
                         ${sprintRows ? `<tfoot><tr class="htl-sprint-total">
-                            <td colspan="4" class="htl-total-lbl">Total PI · ${(meta.piSprints || []).length} sprint${(meta.piSprints || []).length > 1 ? 's' : ''}</td>
+                            <td colspan="3" class="htl-total-lbl">Total PI · ${(meta.piSprints || []).length} sprint${(meta.piSprints || []).length > 1 ? 's' : ''}</td>
+                            <td class="htl-spr-mood htl-total-mood" id="htl-tot-mood">${_moodTotalHtml(teamName, (meta.piSprints || []).map(s => _spKey(s.name)))}</td>
                             <td class="htl-spr-num htl-total-val" id="htl-tot-charge" title="Somme des charges prévues saisies">${_totOf('charge')}</td>
                             <td class="htl-spr-num htl-grp-start htl-total-val" title="Total des tickets engagés au lancement">${_totOf('planTk')}</td>
                             <td class="htl-spr-num htl-total-val" title="Total de la vélocité planifiée">${_totOf('planPts')}</td>
@@ -1068,6 +1089,13 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                     // Remplace la cellule par sa version recalculée (moyenne + nb votes + tooltip)
                     const td = target.closest('.htl-spr-mood');
                     if (td) td.innerHTML = _moodCellHtml(moodTeam, sprintKey);
+                    // …et le mood moyen du PI, sinon le total contredirait la ligne
+                    // qu'on vient de modifier juste au-dessus.
+                    const totCell = overlay.querySelector('#htl-tot-mood');
+                    if (totCell) {
+                        totCell.innerHTML = _moodTotalHtml(moodTeam,
+                            (meta.piSprints || []).map(s => _spKey(s.name)));
+                    }
                     toast?.('Vote enregistré', 'success');
                 } catch { toast?.('Erreur lors du vote mood', 'error'); }
             });

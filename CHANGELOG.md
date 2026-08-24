@@ -49,6 +49,16 @@
   mesurées, et un `0` d'un sprint clos reste bien un `0`.
 - **Le total de la charge prévue se recalcule à la saisie** (`input` + `change`) : la colonne
   est éditable, un total figé serait devenu faux dès la première modification.
+- **Mood moyen du PI** dans la colonne Mood du pied — même rendu que les cellules
+  (visage + note + nombre de votes), avec en infobulle la distribution 1→5 et le nombre de
+  sprints ayant reçu au moins un vote (`2 sprints / 5`).
+  - **Moyenne pondérée par le nombre de votes**, recalculée depuis les votes bruts, et non
+    moyenne des moyennes : 12 votes à 4 et 2 votes à 2 donnent **3,7** — la moyenne des
+    moyennes aurait affiché 3,0 et fait passer un PI plutôt bon pour un PI moyen.
+  - Non cliquable, contrairement aux cellules par sprint : on vote sur un sprint, pas sur un
+    total. `—` quand aucun vote n'a été enregistré.
+  - Recalculé après chaque vote, sinon le total aurait contredit la ligne modifiée juste
+    au-dessus.
 - Le pied reprend les teintes de colonne (vert vélocité, violet buffer) et les liserés de
   groupe, pour rester aligné avec le corps du tableau — vérifié colonne par colonne.
 

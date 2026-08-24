@@ -414,6 +414,11 @@
     letter-spacing: 0.04em;
     font-weight: var(--fw-semibold);
 }
+/* Mood moyen du PI : aligné à gauche comme la colonne, mais non cliquable —
+   on vote sur un sprint, pas sur un total. */
+.htl-sprint-table tfoot td.htl-total-mood { text-align: left; }
+.htl-sprint-table tfoot td.htl-total-mood .htl-mood-val { cursor: help; }
+
 /* Les teintes de colonne (vert vélocité, violet buffer) priment sur celle du pied */
 .htl-sprint-table tfoot td.htl-velo-col { color: var(--success); }
 .htl-sprint-table tfoot td.htl-buf-col { color: #7c3aed; }

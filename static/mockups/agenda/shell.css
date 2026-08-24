@@ -6,10 +6,15 @@
    de typage Scrum / SAFe / Ops, qui n'existent pas encore dans le site.
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* base.css met `body { display:flex }` pour le shell sidebar+main du site :
-   on le neutralise, la maquette est une page autonome. */
+/* base.css configure le body pour le shell du site : `display:flex`, `height:100vh`
+   et surtout `overflow:hidden` — c'est `.main` qui défile, pas la page. La maquette
+   est une page autonome : sans lever ces trois-là, RIEN ne peut défiler, et le bas
+   des options longues restait inatteignable. */
 body {
     display: block;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
     background: var(--bg);
     color: var(--text);
     font-family: var(--font);
@@ -99,14 +104,14 @@ body {
 }
 
 /* ── Scène : simule la largeur de la zone de contenu du site ─────────────────── */
+/* Pas d'`overflow` ici en desktop : la spec CSS transforme un `overflow-x:auto`
+   isolé en `overflow-y:auto` calculé, ce qui recrée un conteneur de défilement
+   piégeux. Les enfants larges (frise, grille horaire, sparkline) portent déjà
+   leur propre `overflow-x`. */
 .mk-stage {
     max-width: var(--content-max);
     margin: 0 auto;
     padding: var(--sp-5);
-    /* Un enfant plus large que la scène (frise, grille horaire) doit pouvoir défiler
-       ici plutôt que déborder de la page. `min-width:0` sur les grilles enfants ne
-       suffit pas quand le contenu impose son `max-content`. */
-    overflow-x: auto;
 }
 /* Vue « mobile » : un vrai viewport de téléphone — 390 × 780, avec SON propre scroll.
    Sans hauteur ni overflow, le contenu débordait hors du cadre et donnait l'illusion

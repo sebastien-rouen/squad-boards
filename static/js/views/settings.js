@@ -4255,8 +4255,17 @@ async function _shuffleOneTeam(teamName) {
     if (!activeMembers.length) return { ok: false, reason: `Tous les membres de "${teamName}" sont inactifs pour le support` };
     const mpw      = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
     const teamMode = getSupportWeekMode(teamName);
-    const { curWeeks, nextWeeks } = _rotBuildPiWeeks(teamName);
-    const weeks = _rotPiOff() > 0 ? nextWeeks : curWeeks;
+    // `selectedWeeks` = les semaines RÉELLEMENT affichées par la grille pour le PI
+    // épinglé (cf. _rotBuildPiWeeks + _rotRenderPanel). Ne jamais retomber sur
+    // curWeeks/nextWeeks ici : ce couple ne connaît que « PI courant » et « PI+1 »,
+    // calculés depuis une autre ancre. Au-delà de +1, ou dès que le PI cible a son
+    // propre startDate (JIRA / pi-cfg-N) ou un nombre de sprints différent, les
+    // `weekStart` produits ne correspondaient plus à ceux de la grille — qui apparie
+    // sur `s.weekStart === w.weekStart`. La rotation était bien créée, mais sur des
+    // semaines invisibles : toast de succès, grille inchangée.
+    const { selectedWeeks, selectedPiNum } = _rotBuildPiWeeks(teamName);
+    const weeks = selectedWeeks || [];
+    if (!weeks.length) return { ok: false, reason: `Aucune semaine calculée pour le PI ${selectedPiNum || '?'} — vérifier la date de début du PI` };
     const existingSupport = (store.get('support') || []).filter(s => s.team === teamName);
     const rotations = generateSupportRotation({
         team: teamName, weeks, memberNames: activeMembers, absences, existingSupport,
@@ -4266,6 +4275,7 @@ async function _shuffleOneTeam(teamName) {
     return {
         ok: true,
         weeks: weeks.length,
+        piNum: selectedPiNum,
         preserved: rotations.filter(r => r._autoLocked || r.locked).length,
     };
 }
@@ -4417,9 +4427,12 @@ function _rotWirePanelEvents(container) {
             try {
                 const result = await _shuffleOneTeam(team);
                 if (!result.ok) { toast(result.reason, 'warning'); return; }
+                // Le PI est nommé dans le toast : c'est le seul repère qui permette de
+                // voir tout de suite qu'on a généré sur le PI épinglé, et pas un autre.
+                const piTag = result.piNum ? ` — PI ${result.piNum}` : '';
                 const msg = result.preserved
-                    ? `Rotation générée pour ${team} (${result.weeks} sem., ${result.preserved} préservées)`
-                    : `Rotation générée pour ${team} (${result.weeks} semaines)`;
+                    ? `Rotation générée pour ${team}${piTag} (${result.weeks} sem., ${result.preserved} préservées)`
+                    : `Rotation générée pour ${team}${piTag} (${result.weeks} semaines)`;
                 toast(msg, 'success');
                 await _rotRefreshPanels(container);
             } catch (e) { toast(e.message, 'error'); }

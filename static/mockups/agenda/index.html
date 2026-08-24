@@ -15,11 +15,18 @@
 
 .opts {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
     gap: var(--sp-4);
     margin-bottom: var(--sp-8);
 }
-@media (max-width: 1000px) { .opts { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .opts { grid-template-columns: 1fr; } }
+
+/* La synthèse est mise en avant : c'est celle que je recommande */
+.opt--reco { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.opt--reco .opt-tag::after {
+    content: ' · recommandée';
+    color: var(--success-text);
+}
 
 .opt {
     display: flex;
@@ -139,6 +146,7 @@
         <a href="option-a-frise-couloirs.html">A · Frise en couloirs</a>
         <a href="option-b-agenda-dense.html">B · Agenda dense</a>
         <a href="option-c-cadence.html">C · Cadence &amp; jalons</a>
+        <a href="option-d-synthese.html">D · Synthèse</a>
     </div>
     <span class="mk-grow"></span>
     <button class="btn btn-secondary btn-sm" id="theme">🌓 Thème</button>
@@ -151,7 +159,8 @@
            absent, qui est de support. Ce qu’elle ne montre pas, c’est <strong>le déroulé de l’itération</strong> — où
            tombent le planning, la rétro, l’ART Sync, l’I&amp;A — ni ce qui relève du rythme de l’équipe
            par opposition à la cadence imposée par le train.</p>
-        <p>Trois directions sont proposées ci-dessous. Elles partagent la même grammaire visuelle et le même
+        <p>Quatre directions sont proposées ci-dessous — trois explorations et <strong>une synthèse</strong> qui
+           reprend ce qui a convaincu dans chacune. Elles partagent la même grammaire visuelle et le même
            bouton « Copier pour Slack », et sont toutes alimentées par <strong>les vraies données de l’équipe
            Fuego sur l’itération 30.6</strong>, extraites de <code>data/board.db</code>. Rien n’est inventé :
            ce que tu vois est ce que produirait la fonctionnalité.</p>
@@ -240,15 +249,43 @@
                 <span class="opt-for"><b>Pour</b> arbitrer : « on passe combien de temps en cérémonies, et pour qui ? »</span>
             </div>
         </a>
+
+        <a class="opt opt--reco" href="option-d-synthese.html">
+            <div class="opt-preview">
+                <div class="pv-lines" style="margin-bottom:3px">
+                    <span class="pv-line k-free" style="border-left-color:var(--k-free);background:color-mix(in srgb,var(--k-free) 15%,transparent)"></span>
+                </div>
+                <div class="pv-grid" style="height:38px">
+                    <span class="pv-gcol"><span class="pv-gev" style="top:4px;height:6px;background:var(--k-scrum)"></span></span>
+                    <span class="pv-gcol"><span class="pv-gev" style="top:4px;height:6px;background:var(--k-scrum)"></span></span>
+                    <span class="pv-gcol"><span class="pv-gev" style="top:4px;height:6px;background:var(--k-scrum)"></span><span class="pv-gev" style="top:18px;height:12px;background:var(--k-safe)"></span></span>
+                    <span class="pv-gcol"><span class="pv-gev" style="top:4px;height:6px;background:var(--k-scrum)"></span></span>
+                    <span class="pv-gcol"><span class="pv-gev" style="top:4px;height:6px;background:var(--k-scrum)"></span><span class="pv-gev" style="top:14px;height:16px;background:var(--k-safe)"></span></span>
+                </div>
+                <div class="pv-lines">
+                    <span class="pv-line k-scrum"></span>
+                    <span class="pv-line k-safe"></span>
+                    <span class="pv-line k-ops"></span>
+                </div>
+            </div>
+            <div class="opt-body">
+                <span class="opt-tag">Option D</span>
+                <h2>Synthèse</h2>
+                <p>Le coût en tête (temps libre compris), le rythme au milieu — repliable — puis l’agenda
+                   dense chronologique. Avec un bouton pour décaler l’itération et éprouver la vue.</p>
+                <span class="opt-for"><b>Pour</b> tout le monde : la vue par défaut si une seule doit être codée.</span>
+            </div>
+        </a>
     </div>
 
     <div class="info">
         <div class="info-card">
-            <h3>Ce que les trois options partagent</h3>
+            <h3>Ce que les options partagent</h3>
             <ul>
                 <li><b>Deux familles colorées.</b> Bleu = rituels de l’équipe (daily, planning, rétro, refinement).
                     Violet = cadence du train ERPC (ART Sync, Coach Sync, CoP, I&amp;A, PI Planning).
-                    Une troisième teinte ardoise isole le métier / ops / MEP, qui ne relève ni de l’un ni de l’autre.</li>
+                    Une troisième teinte ardoise isole le métier / ops / MEP, qui ne relève ni de l’un ni de l’autre.
+                    Un quatrième vert, dans les tuiles de charge, marque le <b>temps libre</b> — ce qui reste pour produire.</li>
                 <li><b>La récurrence affichée en toutes lettres</b> — <code>tous les jours</code>, <code>1x/sem.</code>,
                     <code>1x/ité.</code>, <code>1x/mois</code> — déduite de l’écart médian entre occurrences,
                     pas d’une RRULE qu’on ne stocke pas encore.</li>

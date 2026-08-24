@@ -12,7 +12,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, deriveMembersFromAbsences, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -74,6 +74,49 @@ function _pointsAtLaunch(t, sprintStart) {
     return (!isNaN(launch) && launch > 0) ? launch : (t.points || 0);
 }
 
+/**
+ * Détail complet du calcul de la Base capacité, en clair.
+ *
+ * La première question devant un chiffre de capacité est « qui as-tu compté ? » — d'où la
+ * liste NOMINATIVE avec le rôle et son %, et la mention explicite de ceux qui pèsent 0.
+ * Sans elle, impossible de savoir si un Product Owner ou un architecte gonfle l'effectif.
+ */
+function _capacityTip(cap, team, piNum, lastAbsence) {
+    const s = cap.staff || { members: [], counted: 0, ignored: 0, unknownRole: 0 };
+    const pctTxt = Math.round(cap.ratio * 100);
+    const L = [];
+    L.push(`🎯 BASE CAPACITÉ PI#${piNum} — ${team}`);
+    L.push('');
+    L.push(`1. Vélocité réalisée : ${cap.velocityTotal} pts sur ${cap.sprintsUsed} sprints clos`);
+    L.push(`   des PI ${cap.pis.join(' et ')} → moyenne ${cap.avg.toFixed(1)} pts/sprint`);
+    L.push('');
+    L.push(`2. Effectif compté : ${s.etp.toFixed(2)} ETP (et non ${s.members.length} personnes)`);
+    for (const m of s.members) {
+        const flag = m.pct === 0 ? ' ✗ exclu' : (m.unknownRole ? ' ⚠ rôle inconnu → 100 % par défaut' : '');
+        L.push(`   ${m.pct === 0 ? '·' : '•'} ${m.name} — ${m.role || '(sans rôle)'} ${m.pct} %${flag}`);
+    }
+    if (s.ignored) L.push(`   → ${s.ignored} personne${s.ignored > 1 ? 's' : ''} à 0 % : comptée${s.ignored > 1 ? 's' : ''} ni dans l'effectif, ni dans les absences.`);
+    L.push(`   Réglable dans Paramètres → Capacité dev — % de travail par rôle.`);
+    L.push('');
+    L.push(`3. Disponibilité sur le PI : ${cap.absencesDays.toFixed(1)} j d'absence pondérés`);
+    L.push(`   sur ${(cap.openDays * s.etp).toFixed(1)} j-ETP ouvrés (${cap.openDays} j ouvrés × ${s.etp.toFixed(2)} ETP)`);
+    L.push(`   → ${pctTxt} % d'indisponibilité`);
+    L.push('');
+    L.push(`= ${cap.avg.toFixed(1)} × ${cap.dated || cap.sprintsCount} sprint${(cap.dated || cap.sprintsCount) > 1 ? 's' : ''} = ${cap.gross} pts bruts, − ${pctTxt} % → ${cap.points} pts`);
+    if (cap.capped) {
+        L.push('');
+        L.push(`⚠ Les congés connus s'arrêtent au ${_fmtD(lastAbsence)}, avant la fin du PI :`);
+        L.push(`  le taux d'absence est un plancher, donc cette base un plafond.`);
+    }
+    if (s.unknownRole) {
+        L.push('');
+        L.push(`⚠ ${s.unknownRole} membre${s.unknownRole > 1 ? 's' : ''} sans rôle connu, compté${s.unknownRole > 1 ? 's' : ''} à 100 %.`);
+    }
+    L.push('');
+    L.push('Repère de PI Planning, pas un engagement.');
+    return L.join('\n');
+}
+
 // Badge état coloré pour le tableau sprints : bleu=en cours, vert=clos/terminé, gris=à venir
 function _stateBadge(state) {
     const map = {
@@ -117,6 +160,24 @@ export function renderHealth(container) {
     const _showCapacity = !!targetPiNum && targetPiNum > currentPiNum;
     const _lastAbsence  = lastKnownAbsenceDate(absences);
     _lastKnownAbsence   = _lastAbsence;
+    // Rôles : la capacité se compte en ETP, pas en têtes. `roleCapacity` vient des
+    // Paramètres → « Capacité dev — % de travail par rôle » (/#settings/cap-roles) ;
+    // l'appartenance à une équipe vient des absences (CSV RH), le rôle de la table members.
+    const _rolePctMap   = piInfo?.roleCapacity || {};
+    // `deriveMembersFromAbsences` joint sur (nom, équipe) : quelqu'un qui pose des congés sur
+    // une équipe sans y être déclaré en ressort SANS rôle, donc compté à 100 % par défaut.
+    // On complète par son rôle connu ailleurs — c'est ce que ferait un humain devant la liste,
+    // et cela évite de compter un Product Owner comme un dev à plein temps.
+    const _roleAnywhere = new Map();
+    for (const m of members) if (m.name && m.role) _roleAnywhere.set(m.name, m.role);
+    const _effMembers = deriveMembersFromAbsences(absences, members)
+        .map(m => m.role ? m : { ...m, role: _roleAnywhere.get(m.name) || '' });
+    // Même pondération par rôle pour le PI et pour chaque sprint : sans elle, les congés
+    // d'un Product Owner (0 %) rogneraient une capacité à laquelle il ne contribue pas.
+    const _pctOfFor = cap => {
+        const byName = new Map((cap?.staff?.members || []).map(m => [m.name, m.pct]));
+        return name => (byName.has(name) ? byName.get(name) : 100);
+    };
     // La colonne ✊ Confiance porte sur le PI entier, pas sur le sprint mesuré à côté :
     // son sous-titre nomme donc toujours le PI, y compris à l'offset 0.
     const _piColLabel = targetPiNum ? `PI#${targetPiNum}` : '';
@@ -407,13 +468,16 @@ export function renderHealth(container) {
                 const capBase = piCapacityBase({
                     teamSprints: sprintInfo.teamSprints || [],
                     piSprints, team: tm, absences, targetPiNum, lastAbsenceDate: _lastAbsence,
+                    teamMembers: _effMembers.filter(m => m.team === tm),
+                    rolePctMap: _rolePctMap,
                 });
                 const capBySprint = {};
                 if (capBase) {
                     for (const sp of piSprints) {
                         const b = sprintCapacityBase({
                             avg: capBase.avg, sprint: sp, absences, team: tm,
-                            teamSize: capBase.teamSize, lastAbsenceDate: _lastAbsence,
+                            etp: capBase.etp, pctOf: _pctOfFor(capBase),
+                            lastAbsenceDate: _lastAbsence,
                         });
                         if (b) capBySprint[sp.name] = b;
                     }
@@ -479,15 +543,7 @@ export function renderHealth(container) {
                 return `<td class="health-cell health-capa-cell" title="${esc(`Base capacité — ${tm}\nAucune vélocité mesurée sur les PI précédents, ou aucun sprint connu pour le PI#${targetPiNum}`)}">
                     <span class="health-cell-zero">—</span></td>`;
             }
-            const tip = `🎯 Base capacité PI#${targetPiNum} — ${tm}\n`
-                + `Vélocité moyenne ${capBase.avg.toFixed(1)} pts/sprint `
-                + `(${capBase.sprintsUsed} sprints clos des PI ${capBase.pis.join(' et ')})\n`
-                + `× ${capBase.dated || capBase.sprintsCount} sprint${(capBase.dated || capBase.sprintsCount) > 1 ? 's' : ''} = ${capBase.gross} pts bruts\n`
-                + `− ${Math.round(capBase.ratio * 100)} % d'absences (${capBase.absencesDays} j sur `
-                + `${capBase.openDays * capBase.teamSize} j-personne, équipe de ${capBase.teamSize})\n`
-                + `= ${capBase.points} pts`
-                + (capBase.capped ? `\n\n⚠ Les congés connus s'arrêtent au ${_fmtD(_lastAbsence)}, avant la fin du PI : le taux d'absence est un plancher, la base un plafond.` : '')
-                + `\n\nRepère de PI Planning, pas un engagement.`;
+            const tip = _capacityTip(capBase, tm, targetPiNum, _lastAbsence);
             return `<td class="health-cell health-capa-cell has-val${capBase.capped ? ' health-capa-cell--capped' : ''}" title="${esc(tip)}">
                 ${capBase.points}<span class="health-metric-unit">pts</span><span class="health-metric-count">−${Math.round(capBase.ratio * 100)} %${capBase.capped ? ' ⚠' : ''}</span>
             </td>`;
@@ -779,7 +835,10 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         const chargeTitle = chargeSuggested
             ? `🎯 Base de capacité suggérée : ${capSp.points} pts\n`
                 + `Vélocité moyenne ${meta.capBase.avg.toFixed(1)} pts/sprint (${meta.capBase.sprintsUsed} sprints clos des PI ${meta.capBase.pis.join(' et ')})\n`
-                + `− ${Math.round(capSp.ratio * 100)} % d'absences sur ce sprint (${capSp.absencesDays} j sur ${capSp.openDays * capSp.teamSize} j-personne)`
+                + `− ${Math.round(capSp.ratio * 100)} % d'absences sur ce sprint (${capSp.absencesDays.toFixed(1)} j pondérés sur ${(capSp.openDays * capSp.etp).toFixed(1)} j-ETP)\n`
+                + `Effectif : ${capSp.etp.toFixed(2)} ETP — ${meta.capBase.staff.counted} personne${meta.capBase.staff.counted > 1 ? 's' : ''} comptée${meta.capBase.staff.counted > 1 ? 's' : ''}`
+                + (meta.capBase.staff.ignored ? `, ${meta.capBase.staff.ignored} à 0 % (rôle exclu)` : '')
+                + ` — détail dans l'infobulle 🎯 Base capacité de la matrice`
                 + (capSp.capped ? `\n⚠ Congés connus jusqu'au ${_fmtD(_lastKnownAbsence)} seulement : absences sous-estimées, base optimiste.` : '')
                 + `\n\nRepère de PI Planning — saisir une valeur pour la remplacer.`
             : "Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)";

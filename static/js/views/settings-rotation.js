@@ -10,7 +10,7 @@
 import { store } from '../state.js';
 import * as api from '../api.js';
 import {
-    esc, toast, deriveMembersFromAbsences, generateSupportRotation, buildSupportPiWeeks,
+    esc, toast, copyToClipboard, deriveMembersFromAbsences, generateSupportRotation, buildSupportPiWeeks,
     SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode, supportWorkingDays,
     supportDaysForMember, supportAbsenceDayLevel, isMemberSupportActive, setMemberSupportActive,
     promptModal, teamNameMatches, confirmDanger, effectiveRosterForPi,
@@ -372,9 +372,9 @@ function _rotWirePanelEvents(container) {
             e.stopPropagation();
             const team = btn.dataset.rotCopy;
             const msg  = _rotBuildCopyMessage(team);
-            navigator.clipboard.writeText(msg)
-                .then(() => toast('Message de rotation copié', 'success'))
-                .catch(() => toast('Copie impossible', 'error'));
+            // Même repli que la copie de liste ci-dessous : `navigator.clipboard` est absent
+            // hors contexte sécurisé, et l'appeler nu y lève une TypeError non rattrapable.
+            copyToClipboard(msg, 'Message de rotation copié');
         });
         // Clic droit → personnaliser le libellé du rôle (ex: "Support N3 OPS")
         btn.addEventListener('contextmenu', async e => {
@@ -393,21 +393,26 @@ function _rotWirePanelEvents(container) {
         });
     });
 
-    // ── Capacité dev — sliders % par rôle ────────────────────────────────────
-    let _roleSaveTimer = null;
-    container.querySelectorAll('.cap-role-slider').forEach(slider => {
-    // Clic sur "N membres" → copie la liste
+    // Clic sur « N membres » → copie la liste.
+    // ⚠️ Ce câblage était imbriqué DANS le forEach des sliders juste en dessous : chaque
+    // rôle réattachait un listener à TOUS les compteurs, donc un seul clic déclenchait
+    // autant de copies — et autant de toasts — qu'il y a de rôles configurés (23 en prod).
+    // Il doit rester en dehors, un listener par élément.
     container.querySelectorAll('.cap-role-count--tip').forEach(el => {
         el.addEventListener('click', e => {
             e.stopPropagation();
             const text = el.dataset.copy;
             if (!text) return;
-            navigator.clipboard.writeText(text)
-                .then(() => toast('Liste copiée', 'success'))
-                .catch(() => toast('Copie impossible', 'error'));
+            // `copyToClipboard` (utils) gère le repli execCommand : `navigator.clipboard` est
+            // absent hors contexte sécurisé (accès en http par IP LAN), et l'appeler
+            // directement y lève une TypeError synchrone qu'aucun .catch() ne rattrape.
+            copyToClipboard(text, 'Liste copiée');
         });
     });
 
+    // ── Capacité dev — sliders % par rôle ────────────────────────────────────
+    let _roleSaveTimer = null;
+    container.querySelectorAll('.cap-role-slider').forEach(slider => {
         slider.addEventListener('input', () => {
             const pct   = parseInt(slider.value, 10);
             // Mise à jour visuelle immédiate

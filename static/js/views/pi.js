@@ -4,7 +4,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAGE_INTRO } from '../components/sondage.js';
 import { renderRoam } from './roam.js';
@@ -1303,12 +1303,9 @@ function _capGetHistoryCount() { return parseInt(localStorage.getItem(CAP_HISTOR
 function _capGetRolePct() {
     return store.get('piInfo')?.roleCapacity || {};
 }
-// % effectif d'un rôle (100 si non configuré)
-function _capRolePct(role, rolePctMap) {
-    if (!role) return 100;
-    const v = rolePctMap[role];
-    return (v !== undefined && v !== null) ? v : 100;
-}
+// % effectif d'un rôle (100 si non configuré) — règle partagée avec la Base capacité de
+// Health, d'où la source unique dans utils/capacity-base.js : deux copies divergeraient.
+const _capRolePct = roleCapacityPct;
 
 // Extrait le numéro de PI depuis un nom de sprint ("Fuego - Ité 28.3" → 28)
 function _capPiFromSprint(name) {

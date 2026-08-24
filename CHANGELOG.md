@@ -34,6 +34,26 @@
 
 ---
 
+## [3.141.11] - 2026-08-24
+
+### Health — ligne de total dans la modale des sprints du PI
+
+- **`.htl-sprint-table` gagne un `<tfoot>`** qui totalise les 7 colonnes chiffrées : charge
+  prévue, ⚡ vélocité (nb / planifié / réalisée) et 🛡 buffer (nb / planifié / réalisée).
+  Le libellé rappelle le nombre de sprints du PI, et les infobulles des colonnes « réalisée »
+  donnent le **ratio réalisé / planifié** sur l'ensemble du PI.
+- **Un total vide s'affiche « — », pas « 0 ».** Sur un PI qui n'a pas commencé — Gabbiano
+  PI 31, dont les 5 sprints sont `future` — toutes les cellules affichent déjà `—` ; des
+  totaux à 0 y auraient ressemblé à un échec mesuré plutôt qu'à une absence de mesure. La
+  ligne suit donc la même règle que les cellules : on compte les valeurs réellement
+  mesurées, et un `0` d'un sprint clos reste bien un `0`.
+- **Le total de la charge prévue se recalcule à la saisie** (`input` + `change`) : la colonne
+  est éditable, un total figé serait devenu faux dès la première modification.
+- Le pied reprend les teintes de colonne (vert vélocité, violet buffer) et les liserés de
+  groupe, pour rester aligné avec le corps du tableau — vérifié colonne par colonne.
+
+---
+
 ## [3.141.10] - 2026-08-24
 
 ### Maquette #team — verrou des rituels imposés + les 13 équipes

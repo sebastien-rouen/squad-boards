@@ -71,6 +71,61 @@ function _pointsAtLaunch(t, sprintStart) {
     return (!isNaN(launch) && launch > 0) ? launch : (t.points || 0);
 }
 
+/**
+ * Sprints par lesquels un ticket est PASSÉ — pas seulement celui où il se trouve.
+ *
+ * À la clôture d'un sprint, JIRA DÉPLACE les tickets non terminés vers le suivant :
+ * leur `sprintName` change. Un sprint passé ne contient donc plus, localement, que les
+ * tickets qui y ont été finis — les engagements non tenus s'effacent tout seuls
+ * (mesuré sur le PI 30 : 1050 tickets reportés, soit 54 % du périmètre engagé).
+ *
+ * L'historique le conserve : chaque changement de champ « Sprint » porte dans son `to`
+ * la liste CUMULATIVE des sprints d'appartenance. On en fait l'union, une fois par
+ * ticket (WeakMap) : reparser ce JSON pour chaque couple (équipe, sprint) coûterait
+ * bien trop cher sur ~2000 tickets.
+ */
+const _sprintHistCache = new WeakMap();
+function _sprintsOfTicket(t) {
+    let h = _sprintHistCache.get(t);
+    if (h) return h;
+    const names = new Set(), keys = new Set();
+    const add = n => {
+        const s = String(n || '').trim();
+        if (!s) return;
+        names.add(s);
+        const k = _spKey(s);
+        if (k) keys.add(k);
+    };
+    add(t.sprintName || t.sprint_name);
+    for (const ch of (t.recentChanges || t.recent_changes || [])) {
+        if (String(ch.field || '').toLowerCase() !== 'sprint') continue;
+        for (const part of String(ch.to || '').split(',')) add(part);
+    }
+    h = { names, keys };
+    _sprintHistCache.set(t, h);
+    return h;
+}
+
+/** Le ticket est-il ACTUELLEMENT dans ce sprint ? (matching tolérant nom ↔ clé NN.N) */
+const _isInSprint = (t, spName, spk) => {
+    const tn = t.sprintName || t.sprint_name || '';
+    return tn === spName || (!!spk && _spKey(tn) === spk);
+};
+
+/** Le ticket a-t-il appartenu à ce sprint, maintenant ou par le passé ? */
+const _belongedToSprint = (t, spName, spk) => {
+    const h = _sprintsOfTicket(t);
+    return h.names.has(spName) || (!!spk && h.keys.has(spk));
+};
+
+/**
+ * Sprint vers lequel le ticket a été REPORTÉ, '' s'il est resté. Un report est un
+ * engagement non tenu dans le sprint d'origine — même si le ticket a été terminé plus
+ * tard ailleurs : son statut actuel ne dit rien de ce qui s'est passé DANS ce sprint-là.
+ */
+const _carriedOverTo = (t, spName) =>
+    _isInSprint(t, spName, _spKey(spName)) ? '' : (t.sprintName || t.sprint_name || '');
+
 // Badge état coloré pour le tableau sprints : bleu=en cours, vert=clos/terminé, gris=à venir
 function _stateBadge(state) {
     const map = {
@@ -299,12 +354,16 @@ export function renderHealth(container) {
                     .sort((a, b) => (b.endDate||'').localeCompare(a.endDate||''))[0];
         }
 
-        // Tickets Done de l'équipe dans le périmètre PI courant
+        // Périmètre du sprint de référence. `spTickets` = tout ce qui a été ENGAGÉ, reports
+        // compris (voir _sprintsOfTicket) ; `done` = ce qui a réellement été fini DANS le
+        // sprint, donc les seuls tickets qui y sont restés.
         const spName    = ref?.name || '';
+        const _refKey   = _spKey(spName);
         const spTickets = spName
-            ? piTickets.filter(t => t.team === tm && (t.sprintName === spName || t.sprint_name === spName))
+            ? allTickets.filter(t => t.team === tm && _belongedToSprint(t, spName, _refKey))
             : piTickets.filter(t => t.team === tm);
-        const done    = spTickets.filter(t => t.status === 'done');
+        const done    = spTickets.filter(t => t.status === 'done'
+            && (!spName || _isInSprint(t, spName, _refKey)));
         const bufDone = done.filter(t => isBufferItem(t));
 
         // Vélocité : calculé depuis les tickets Done locaux dès qu'on en a (source la plus à
@@ -344,13 +403,15 @@ export function renderHealth(container) {
         const sprintTickets = {};
         for (const sp of piSprints) {
             const spk  = _spKey(sp.name);
-            const spTk = piTickets.filter(t => {
-                if (t.team !== tm) return false;
-                const tn = t.sprintName || t.sprint_name || '';
-                return tn === sp.name || (spk && _spKey(tn) === spk);
-            });
-            const spDone = spTk.filter(t => t.status === 'done');
-            // Périmètre engagé "au lancement" de ce sprint (done ou non) — pour les colonnes Prévu.
+            // Périmètre ENGAGÉ : on part de `allTickets` et non de `piTickets`, car un ticket
+            // reporté porte le sprint d'ARRIVÉE — souvent d'un autre PI — et le filtre PI le
+            // ferait disparaître du sprint où il avait pourtant été engagé. Le sprint étant
+            // ici nommé explicitement, ce filtre est de toute façon redondant.
+            const spTk = allTickets.filter(t => t.team === tm && _belongedToSprint(t, sp.name, spk));
+            // Vélocité RÉALISÉE : uniquement les tickets restés dans le sprint. Compter les
+            // reportés terminés ailleurs gonflerait la vélocité d'un sprint avec du travail
+            // fait après sa clôture — le contraire de ce qu'elle mesure.
+            const spDone = spTk.filter(t => t.status === 'done' && _isInSprint(t, sp.name, spk));
             const spBufAll = spTk.filter(t => isBufferItem(t));
             sprintTickets[sp.name] = {
                 done:    spDone,
@@ -786,23 +847,30 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
     // signale QUE sur les métriques d'engagement (planned/bufplanned) : dans une liste
     // « Done », un non-done n'existe pas, et dans « tous les tickets » ce serait du bruit.
     // `sprintClosed` distingue le définitif du provisoire — voir _missCls.
-    const _isMissed = (tk, metric) => _isPlanMetric(metric) && tk.status !== 'done';
+    // Deux façons de ne pas tenir un engagement : le ticket est resté sans être terminé,
+    // ou il a été REPORTÉ vers un autre sprint. Le second cas compte même si le ticket est
+    // `done` aujourd'hui : il l'a été ailleurs, après coup — pas dans ce sprint.
+    const _isMissed = (tk, metric, sprintName) => _isPlanMetric(metric)
+        && (tk.status !== 'done' || !!_carriedOverTo(tk, sprintName));
     // Sprint clos → l'engagement est manqué pour de bon : barré. Sprint en cours → encore
     // rattrapable : orange seul, barrer reviendrait à condamner un ticket encore vivant.
-    const _missCls = (tk, metric, sprintClosed) => !_isMissed(tk, metric) ? ''
-        : (sprintClosed ? ' htl-ticket-row--missed htl-ticket-row--missed-final' : ' htl-ticket-row--missed');
-    const _missCount = (items, metric) => items.filter(tk => _isMissed(tk, metric)).length;
+    const _missCls = (tk, metric, ctx) => !_isMissed(tk, metric, ctx.sprintName) ? ''
+        : (ctx.sprintClosed ? ' htl-ticket-row--missed htl-ticket-row--missed-final' : ' htl-ticket-row--missed');
+    const _missCount = (items, metric, ctx) => items.filter(tk => _isMissed(tk, metric, ctx.sprintName)).length;
     // Compteur de manqués sur l'en-tête d'un groupe — muet quand tout a été tenu, pour
     // que la présence même du chiffre soit le signal.
-    const _missMetaHtml = (items, metric, sprintClosed) => {
-        const n = _missCount(items, metric);
+    const _missMetaHtml = (items, metric, ctx) => {
+        const n = _missCount(items, metric, ctx);
         if (!n) return '';
-        const lbl = sprintClosed ? 'non réalisé' : 'en cours';
-        return ` · <span class="htl-grp-missed" title="${esc(`${n} ticket${n > 1 ? 's' : ''} engagé${n > 1 ? 's' : ''} au lancement ${sprintClosed ? "et non terminé" + (n > 1 ? 's' : '') + " à la clôture du sprint" : "pas encore terminé" + (n > 1 ? 's' : '')}`)}">${n} ✗ ${lbl}${n > 1 && sprintClosed ? 's' : ''}</span>`;
+        const lbl = ctx.sprintClosed ? 'non réalisé' : 'en cours';
+        return ` · <span class="htl-grp-missed" title="${esc(`${n} ticket${n > 1 ? 's' : ''} engagé${n > 1 ? 's' : ''} au lancement ${ctx.sprintClosed ? "et non terminé" + (n > 1 ? 's' : '') + " à la clôture du sprint (non fini sur place, ou reporté ailleurs)" : "pas encore terminé" + (n > 1 ? 's' : '')}`)}">${n} ✗ ${lbl}${n > 1 && ctx.sprintClosed ? 's' : ''}</span>`;
     };
 
     const _ACTIONRETRO_KEY = '__actionretro__';
-    const _ticketRowsHtml = (list, metric, sprintStart, isPastOrActive, sprintClosed) => {
+    // `ctx` = { sprintName, sprintStart, isPastOrActive, sprintClosed } — regroupé plutôt
+    // qu'égrené en paramètres positionnels, que la moindre insertion rendrait fragiles.
+    const _ticketRowsHtml = (list, metric, ctx) => {
+        const { sprintStart, isPastOrActive } = ctx;
         if (!list.length) return `<tr><td colspan="6" class="text-muted text-center" style="padding:16px">Aucun ticket ${_METRIC_EMPTY[metric] || ''}</td></tr>`;
         // Regroupe les tickets par parent (epic/feature) — un bloc par parent, trié par points décroissants.
         // Les tickets ActionRetro (actions de rétro, pas de Story Points attendu) sont isolés dans
@@ -829,24 +897,31 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
             const launchPts = _isPlanMetric(metric) ? _pointsAtLaunch(tk, sprintStart) : curPts;
             const reestimated = _isPlanMetric(metric) && launchPts !== curPts;
             const ptsLabel = reestimated ? `${launchPts}→${curPts}` : String(launchPts || '');
+            const missed  = _isMissed(tk, metric, ctx.sprintName);
+            // Un chip vert sur un engagement non tenu dirait « fait » alors qu'il ne l'a pas
+            // été dans ce sprint — le statut `done` d'un reporté vaut pour un autre sprint.
             const ptsHtml = (launchPts || reestimated)
-                ? `<span class="htl-pts-chip${tk.status === 'done' ? ' htl-pts-chip--done' : ''}${reestimated ? ' htl-pts-chip--reest' : ''}"${reestimated ? ` title="Réestimé pendant le sprint : ${launchPts} pts au lancement → ${curPts} pts actuels"` : ''}>${ptsLabel}</span>`
+                ? `<span class="htl-pts-chip${tk.status === 'done' && !missed ? ' htl-pts-chip--done' : ''}${reestimated ? ' htl-pts-chip--reest' : ''}"${reestimated ? ` title="Réestimé pendant le sprint : ${launchPts} pts au lancement → ${curPts} pts actuels"` : ''}>${ptsLabel}</span>`
                 : (isPastOrActive ? '0' : '<span class="htl-muted">—</span>');
-            const missed = _isMissed(tk, metric);
-            const rowTitle = missed
-                ? (sprintClosed
-                    ? 'Engagé au lancement mais NON réalisé — le sprint est clos. Cliquer pour le détail du ticket'
-                    : 'Engagé au lancement, pas encore terminé — le sprint est en cours. Cliquer pour le détail du ticket')
-                : 'Voir le détail du ticket';
-            const doneCell = tk.status === 'done'
-                ? '<span class="htl-done-yes" title="Terminé">✓</span>'
-                : missed
-                    ? `<span class="htl-done-miss" title="${sprintClosed ? 'Non réalisé' : 'Pas encore terminé'}">✗</span>`
+            // Sprint d'arrivée d'un report — l'afficher évite la question qui suit
+            // immédiatement le constat : « et il est passé où, celui-là ? »
+            const moved   = _isPlanMetric(metric) ? _carriedOverTo(tk, ctx.sprintName) : '';
+            const movedK  = _spKey(moved) || moved;
+            const rowTitle = !missed ? 'Voir le détail du ticket'
+                : moved
+                    ? `Engagé au lancement puis REPORTÉ vers « ${moved} »${tk.status === 'done' ? ' — terminé depuis, mais pas dans ce sprint' : ''}. Cliquer pour le détail du ticket`
+                    : (ctx.sprintClosed
+                        ? 'Engagé au lancement mais NON réalisé — le sprint est clos. Cliquer pour le détail du ticket'
+                        : 'Engagé au lancement, pas encore terminé — le sprint est en cours. Cliquer pour le détail du ticket');
+            const doneCell = missed
+                ? `<span class="htl-done-miss" title="${esc(moved ? 'Reporté vers ' + moved : ctx.sprintClosed ? 'Non réalisé' : 'Pas encore terminé')}">✗</span>`
+                : tk.status === 'done'
+                    ? '<span class="htl-done-yes" title="Terminé">✓</span>'
                     : '<span class="htl-done-no" title="Non terminé">·</span>';
-            return `<tr class="htl-ticket-row${tk.status === 'done' ? ' htl-ticket-row--done' : ''}${_missCls(tk, metric, sprintClosed)}" data-open-ticket="${esc(tk.id || '')}" title="${esc(rowTitle)}">
+            return `<tr class="htl-ticket-row${tk.status === 'done' ? ' htl-ticket-row--done' : ''}${_missCls(tk, metric, ctx)}" data-open-ticket="${esc(tk.id || '')}" title="${esc(rowTitle)}">
                 <td class="htl-id">${esc(tk.id || '—')}</td>
                 <td class="htl-done">${doneCell}</td>
-                <td class="htl-title">${esc(tk.title || '')}</td>
+                <td class="htl-title">${esc(tk.title || '')}${moved ? `<span class="htl-moved-chip" title="${esc(`Reporté vers « ${moved} »`)}">↪ ${esc(movedK)}</span>` : ''}</td>
                 <td class="htl-buf-flag">${isBuf ? '<span title="Ticket Buffer">🛡️</span>' : ''}</td>
                 <td class="htl-pts">${ptsHtml}</td>
                 <td class="htl-who">${who ? esc(who) : '<span class="htl-muted">—</span>'}</td>
@@ -864,7 +939,7 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                     ? `<span class="htl-parent-chip" style="--pc:${pc}" data-open-ticket="${esc(parentKey)}" title="Parent : ${esc(parentKey)}${parentTitle ? ' — ' + esc(parentTitle) : ''} — cliquer pour voir le détail">${esc(lbl)}</span>`
                     : '<span class="htl-muted">Sans parent</span>';
             const groupRow = `<tr class="htl-grp-row"${pc ? ` style="--pc:${pc}"` : ''}>
-                <td colspan="6" class="htl-grp-cell">${head}<span class="htl-grp-meta">${items.length} ticket${items.length !== 1 ? 's' : ''} · ${items.filter(x => x.status === 'done').length} ✓${_missMetaHtml(items, metric, sprintClosed)} · ${_gpts(items)} pts</span></td>
+                <td colspan="6" class="htl-grp-cell">${head}<span class="htl-grp-meta">${items.length} ticket${items.length !== 1 ? 's' : ''} · ${items.filter(x => x.status === 'done' && !_isMissed(x, metric, ctx.sprintName)).length} ✓${_missMetaHtml(items, metric, ctx)} · ${_gpts(items)} pts</span></td>
             </tr>`;
             // Tri intra-groupe : tickets terminés d'abord, puis points décroissants
             const sorted = items.slice().sort((a, b) => {
@@ -891,7 +966,9 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         const isPastOrActive = spState === 'active' || spState === 'closed';
         // Clos = le sprint est passé : ce qui n'est pas fait ne le sera plus dans ce sprint.
         const sprintClosed = spState === 'closed';
-        const missN = _missCount(list, metric);
+        const ctx = { sprintName, sprintStart, isPastOrActive, sprintClosed };
+        const missN = _missCount(list, metric, ctx);
+        const movedN = _isPlanMetric(metric) ? list.filter(t => _carriedOverTo(t, sprintName)).length : 0;
         const tot = list.reduce((s, t) => s + _ptsFor(t, metric, sprintStart), 0);
         // Si au moins un ticket a été réestimé pendant le sprint, le total "au lancement" seul
         // masquerait l'écart — on affiche aussi le total courant, même format que les chips de ligne.
@@ -904,14 +981,14 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                 <span class="htl-tickets-hdr-title">${_METRIC_TITLE[metric] || _METRIC_TITLE.velocity}</span>
                 ${sprintName ? `<span class="htl-tickets-hdr-sprint">${esc(sprintName)}</span>` : ''}
                 <span class="htl-tickets-hdr-badge"${totTitle}>${list.length} ticket${list.length !== 1 ? 's' : ''} · ${totLabel} pts</span>
-                ${missN ? `<span class="htl-tickets-hdr-missed" title="${esc(`${missN} ticket${missN > 1 ? 's' : ''} engagé${missN > 1 ? 's' : ''} au lancement ${sprintClosed ? 'et non terminé' + (missN > 1 ? 's' : '') + " à la clôture — l'engagement n'a pas été tenu" : 'et pas encore terminé' + (missN > 1 ? 's' : '') + ' — le sprint est en cours'}`)}">✗ ${missN} ${sprintClosed ? `non réalisé${missN > 1 ? 's' : ''}` : 'en cours'}</span>` : ''}
+                ${missN ? `<span class="htl-tickets-hdr-missed" title="${esc(`${missN} ticket${missN > 1 ? 's' : ''} engagé${missN > 1 ? 's' : ''} au lancement ${sprintClosed ? 'et non tenu' + (missN > 1 ? 's' : '') + " à la clôture — l'engagement n'a pas été honoré" : 'et pas encore terminé' + (missN > 1 ? 's' : '') + ' — le sprint est en cours'}${movedN ? `\n\ndont ${movedN} reporté${movedN > 1 ? 's' : ''} vers un autre sprint (JIRA les déplace à la clôture ; ils sont reconstitués depuis l'historique du champ Sprint)` : ''}`)}">✗ ${missN} ${sprintClosed ? `non réalisé${missN > 1 ? 's' : ''}` : 'en cours'}${movedN ? ` <span class="htl-hdr-moved">↪ ${movedN}</span>` : ''}</span>` : ''}
             </div>
             <table class="htl-table">
                 <thead><tr>
                     <th>ID</th><th title="Terminé">✓</th><th>Titre</th>
                     <th title="Ticket Buffer">🛡️</th><th>Pts</th><th>Responsable</th>
                 </tr></thead>
-                <tbody>${_ticketRowsHtml(list, metric, sprintStart, isPastOrActive, sprintClosed)}</tbody>
+                <tbody>${_ticketRowsHtml(list, metric, ctx)}</tbody>
                 ${list.length ? `<tfoot><tr>
                     <td colspan="4" class="htl-total-lbl">Total</td>
                     <td class="htl-total-val${totReest ? ' htl-total-val--reest' : ''}"${totTitle}>${totLabel}</td>

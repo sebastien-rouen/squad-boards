@@ -19,6 +19,7 @@
     const PX_PER_MIN = 0.62;
     const GRID_H = (H_END - H_START) * PX_PER_MIN;
     const SNAP = 15;
+    const MAX_LANES = 4;          // au-delà, les blocs s'empilent en cascade
 
     const FREQS = ['tous les jours', '1x/sem.', '1x/ité.', '1x/mois'];
     const perWeek = f => f === 'tous les jours' ? 5 : f === '1x/sem.' ? 1
@@ -52,6 +53,13 @@
     /** Transforme les rituels détectés en RÈGLES modifiables — le bon niveau
      *  pour remanier : on édite le rituel, pas chacune de ses occurrences.
      *  Les rituels SAFe arrivent verrouillés : c'est le train qui les impose. */
+    /** Un créneau qui prend la journée n'est pas une réunion de 8 h : « Livraison en
+     *  prod » chez Estafette dure 1440 min et pesait à lui seul 24 h de charge hebdo. */
+    const isAllDay = r => r.allDay || r.durMin >= 360;
+    /** « Deep work — pas de réunion » est l'INVERSE d'une réunion : du temps protégé.
+     *  Le compter en charge était un contresens (8 h/sem chez Estafette). */
+    const FOCUS_RE = /deep\s*work|pas de r[ée]union|no meeting|focus|sans r[ée]union/i;
+
     function baseline() {
         return ritualsOf(T.events).map((r, i) => ({
             id: `r${i}`,
@@ -62,6 +70,8 @@
             durMin: r.durMin,
             freq: r.freq,
             enabled: true,
+            allDay: isAllDay(r),
+            focus: FOCUS_RE.test(r.title),
             locked: r.kind === 'safe',
             // Jours de semaine systématiquement sautés (le daily de Fuego saute le
             // lundi). Dédupliqué : l'itération compte deux lundis, la règle un seul.
@@ -173,17 +183,39 @@
                           style="--hour-h:${60 * PX_PER_MIN}px"></div>`;
         });
         C.forEach((c, i) => {
-            for (const r of layout(blocksFor(c))) {
-                const top = Math.max(0, (r.startMin - H_START) * PX_PER_MIN);
+            const all = blocksFor(c);
+            // Les journées entières sortent du flux horaire : en bandeau sous l'en-tête.
+            // Sinon un « Livraison en prod » de 1440 min recouvre la colonne entière et
+            // force tous les autres rituels du jour à se partager quelques pixels.
+            const fullDays = all.filter(r => r.allDay);
+            fullDays.forEach((r, k) => {
+                const cls = ['rit', 'rit--allday', KINDS[r.kind].cls,
+                    r.id === selectedId ? 'rit--selected' : '',
+                    r.enabled ? '' : 'rit--off', r.locked ? 'rit--locked' : ''].filter(Boolean).join(' ');
+                html += `<div class="${cls}" tabindex="0" role="button" data-id="${esc(r.id)}"
+                              aria-label="${esc(r.title)}, journée entière"
+                              style="top:${k * 17}px;height:15px;left:calc(${pct(i)}% + 3px);width:calc(${pct(1)}% - 6px)"
+                              title="${esc(r.title)} — journée entière${r.locked ? ' · 🔒 imposé' : ''}">
+                    <span class="rit-title">${r.locked ? '<span class="rit-lock">🔒</span> ' : ''}${esc(r.title)}</span>
+                </div>`;
+            });
+            const offset = fullDays.length * 17;
+            for (const r of layout(all.filter(r => !r.allDay))) {
+                const top = Math.max(offset, (r.startMin - H_START) * PX_PER_MIN);
                 const h = Math.max(20, Math.min(r.durMin, H_END - r.startMin) * PX_PER_MIN);
-                const w = pct(1) / r._lanes;
+                // Au-delà de 4 voies, les blocs cesseraient d'être lisibles : ils
+                // s'empilent alors en cascade, le survol ramène au premier plan.
+                const shown = Math.min(r._lanes, MAX_LANES);
+                const w = pct(1) / shown;
+                const lane = r._lane % shown;
+                const cascade = Math.floor(r._lane / shown) * 5;
                 const cls = ['rit', KINDS[r.kind].cls,
                     r.id === selectedId ? 'rit--selected' : '',
                     r.enabled ? '' : 'rit--off',
                     r.locked ? 'rit--locked' : ''].filter(Boolean).join(' ');
                 html += `<div class="${cls}" tabindex="0" role="button" data-id="${esc(r.id)}"
                               aria-label="${esc(r.title)}, ${esc(hFr(r.startMin))}, ${esc(durLabel(r.durMin))}${r.locked ? ', imposé par le train' : ''}"
-                              style="top:${top}px;height:${h}px;left:calc(${pct(i) + r._lane * w}% + 3px);width:calc(${w}% - 6px)"
+                              style="top:${top}px;height:${h}px;left:calc(${pct(i) + lane * w}% + ${3 + cascade}px);width:calc(${w}% - 6px);z-index:${2 + Math.floor(r._lane / shown)}"
                               title="${esc(r.title)} — ${esc(hFr(r.startMin))} · ${esc(durLabel(r.durMin))} · ${esc(r.freq)}${r.locked ? ' · 🔒 imposé par le train' : ''}">
                     <span class="rit-title">${r.locked ? '<span class="rit-lock">🔒</span> ' : ''}${esc(r.title)}</span>
                     <span class="rit-meta">${esc(hFr(r.startMin))} · ${esc(r.freq)}</span>
@@ -205,29 +237,48 @@
             </div>`).join('');
     }
 
-    function renderLoadBar() {
+    /** Charge hebdomadaire, en ne comptant que ce qui est vraiment une réunion :
+     *  ni les journées bloquées, ni les créneaux de travail protégé. */
+    function weekLoad() {
         const by = { scrum: 0, safe: 0, ops: 0 };
-        for (const r of model) if (r.enabled) by[r.kind] += r.durMin * perWeek(r.freq);
+        let protectedMin = 0, allDays = 0;
+        for (const r of model) {
+            if (!r.enabled) continue;
+            if (r.allDay) { allDays += perWeek(r.freq); continue; }
+            if (r.focus) { protectedMin += r.durMin * perWeek(r.freq); continue; }
+            by[r.kind] += r.durMin * perWeek(r.freq);
+        }
         const busy = by.scrum + by.safe + by.ops;
-        const free = Math.max(0, WEEK_MINUTES - busy);
+        return { by, busy, protectedMin, allDays,
+                 free: Math.max(0, WEEK_MINUTES - busy - protectedMin) };
+    }
+
+    function renderLoadBar() {
+        const L = weekLoad();
         const pc = v => Math.round(v / WEEK_MINUTES * 100);
         const seg = (cls, v, label) => v <= 0 ? '' :
-            `<span class="${cls}" style="width:${v / WEEK_MINUTES * 100}%" title="${esc(label)} : ${esc(hrs(v))}"></span>`;
-        const over = busy > WEEK_MINUTES;
+            `<span class="${cls}" style="width:${Math.min(100, v / WEEK_MINUTES * 100)}%" title="${esc(label)} : ${esc(hrs(v))}"></span>`;
+        const over = L.busy + L.protectedMin > WEEK_MINUTES;
+        const extras = [];
+        if (L.protectedMin) extras.push(`${hrs(L.protectedMin)} de travail protégé`);
+        if (L.allDays) extras.push(`${Math.round(L.allDays * 10) / 10} journée(s) bloquée(s) par semaine`);
         document.getElementById('tcal-load').innerHTML = `
-            <div class="load-label">Charge de rituels — ${esc(T.team)}</div>
-            <div class="load-value">${esc(hrs(busy))} <small>/ semaine · ${over ? 'plus de créneaux que d’heures ouvrées' : `${esc(hrs(free))} de libre`}</small></div>
+            <div class="load-label">Charge de réunions — ${esc(T.team)}</div>
+            <div class="load-value">${esc(hrs(L.busy))} <small>/ semaine · ${over ? 'au-delà de la semaine ouvrée' : `${esc(hrs(L.free))} de libre`}</small></div>
+            ${extras.length ? `<div class="load-sub">Hors charge : ${esc(extras.join(' · '))} — un créneau « pas de réunion » protège du temps, il n’en consomme pas.</div>` : ''}
             <div class="load-bar">
-                ${seg(KINDS.scrum.cls, by.scrum, KINDS.scrum.label)}
-                ${seg(KINDS.safe.cls, by.safe, KINDS.safe.label)}
-                ${seg(KINDS.ops.cls, by.ops, KINDS.ops.label)}
-                ${seg('k-free', free, 'Temps libre')}
+                ${seg(KINDS.scrum.cls, L.by.scrum, KINDS.scrum.label)}
+                ${seg(KINDS.safe.cls, L.by.safe, KINDS.safe.label)}
+                ${seg(KINDS.ops.cls, L.by.ops, KINDS.ops.label)}
+                ${seg('k-focus', L.protectedMin, 'Travail protégé')}
+                ${seg('k-free', L.free, 'Temps libre')}
             </div>
             <div class="load-split">
-                <span>🔵 Scrum <b>${pc(by.scrum)} %</b></span>
-                <span>🟣 SAFe <b>${pc(by.safe)} %</b></span>
-                <span>⚪ Ops <b>${pc(by.ops)} %</b></span>
-                <span class="${over ? 'is-over' : 'is-free'}">${over ? '🔴 Dépassement' : '🟢 Libre'} <b>${over ? pc(busy - WEEK_MINUTES) : pc(free)} %</b></span>
+                <span>🔵 Scrum <b>${pc(L.by.scrum)} %</b></span>
+                <span>🟣 SAFe <b>${pc(L.by.safe)} %</b></span>
+                <span>⚪ Ops <b>${pc(L.by.ops)} %</b></span>
+                ${L.protectedMin ? `<span class="is-focus">🟦 Protégé <b>${pc(L.protectedMin)} %</b></span>` : ''}
+                <span class="${over ? 'is-over' : 'is-free'}">${over ? '🔴 Dépassement' : '🟢 Libre'} <b>${over ? pc(L.busy + L.protectedMin - WEEK_MINUTES) : pc(L.free)} %</b></span>
             </div>`;
     }
 
@@ -526,7 +577,7 @@
     render();
 
     window.TCAL = {
-        occurrences, diff, ctx, baseline, selectTeam, render,
+        occurrences, diff, ctx, baseline, selectTeam, render, weekLoad,
         icsText: () => X.icsText(model, ctx()),
         csvText: () => X.csvText(model, ctx()),
         slackText: () => X.slackText(model, ctx()),

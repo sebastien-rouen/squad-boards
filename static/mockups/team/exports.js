@@ -32,7 +32,16 @@
                        `PRODID:-//Squad Board//Calendrier ${ctx.team}//FR`, 'CALSCALE:GREGORIAN'];
         for (const r of model) {
             if (!r.enabled) continue;
-            const first = (ctx.occurrences(r)[0] || ctx.days[0] || ctx.iteration.start).replace(/-/g, '');
+            const firstIso = ctx.occurrences(r)[0] || ctx.days[0] || ctx.iteration.start;
+            const first = firstIso.replace(/-/g, '');
+            // Une journée entière s'écrit en DATE, pas en DATE-TIME : sinon l'agenda
+            // affiche une réunion de 24 h au lieu d'un bandeau sur la journée.
+            const allDay = r.allDay;
+            const nextDay = (() => {
+                const d = new Date(`${firstIso}T12:00:00`);
+                d.setDate(d.getDate() + 1);
+                return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+            })();
             const st = `${first}T${pad(Math.floor(r.startMin / 60))}${pad(r.startMin % 60)}00`;
             const endMin = r.startMin + r.durMin;
             const en = `${first}T${pad(Math.floor(endMin / 60))}${pad(endMin % 60)}00`;
@@ -48,8 +57,9 @@
             lines.push('BEGIN:VEVENT',
                 `UID:${r.id}-${ctx.slug}@squad-board`,
                 `DTSTAMP:${stamp}`,
-                `DTSTART;TZID=Europe/Paris:${st}`,
-                `DTEND;TZID=Europe/Paris:${en}`,
+                ...(allDay
+                    ? [`DTSTART;VALUE=DATE:${first}`, `DTEND;VALUE=DATE:${nextDay}`]
+                    : [`DTSTART;TZID=Europe/Paris:${st}`, `DTEND;TZID=Europe/Paris:${en}`]),
                 `RRULE:${rule}`,
                 `SUMMARY:${r.title.replace(/[,;\\]/g, m => '\\' + m)}`,
                 `CATEGORIES:${KINDS[r.kind].short}${r.locked ? ',Imposé ART' : ''}`,

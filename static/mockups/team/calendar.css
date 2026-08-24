@@ -141,6 +141,32 @@
 
 /* Charge supérieure à la semaine ouvrée : la barre n'a plus de vert à montrer */
 .load-split span.is-over { color: var(--danger); font-weight: var(--fw-semibold); }
+.load-split span.is-focus { color: var(--cyan-text); font-weight: var(--fw-semibold); }
+
+/* Travail protégé — ni réunion, ni temps libre : une catégorie à part */
+.k-focus { --kc: var(--status-test); --kbg: var(--status-test-bg); --ktx: var(--status-test-text); }
+.load-bar span.k-focus {
+    background-image: repeating-linear-gradient(
+        45deg,
+        transparent 0, transparent 3px,
+        color-mix(in srgb, var(--surface) 50%, transparent) 3px,
+        color-mix(in srgb, var(--surface) 50%, transparent) 6px
+    );
+}
+
+/* Journée entière : bandeau en haut de colonne, hors du flux horaire */
+.rit--allday {
+    display: flex;
+    align-items: center;
+    border-radius: var(--r-full);
+    padding: 0 var(--sp-2);
+    font-size: 10px;
+    z-index: 4;
+}
+.rit--allday .rit-title { font-size: 10px; }
+
+/* Blocs empilés en cascade : le survol ramène au premier plan */
+.wgrid-body .rit:hover { z-index: 8 !important; box-shadow: var(--shadow-md); }
 
 /* ── Panneau d'édition ─────────────────────────────────────────────────────── */
 .tcal-edit {

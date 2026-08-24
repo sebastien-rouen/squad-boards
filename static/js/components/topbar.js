@@ -9,6 +9,7 @@ import { esc, getCurrentPi, getSprintForTeam, relevantCalendars, lastCalendarSyn
 import { toggleFavoritesDropdown } from './favorites.js';
 import { openCalWeekModal } from './cal_banner.js';
 import { openCmdPalette } from './cmdpalette.js';
+import { dismissSyncReport } from '../sync.js';
 
 let _topbarInited = false;
 export function initTopbar() {
@@ -257,6 +258,8 @@ export function initTopbar() {
     const syncCardFill  = document.getElementById('sync-card-fill');
     const syncCardLabel = document.getElementById('sync-card-label');
     const syncCardDetail = document.getElementById('sync-card-detail');
+    const syncCardIncidents = document.getElementById('sync-card-incidents');
+    const syncCardClose     = document.getElementById('sync-card-close');
     const SYNC_TITLES = { jira: 'Synchronisation JIRA', calendar: 'Synchronisation Agenda' };
     const SYNC_ICONS  = { jira: 'i-sync', calendar: 'i-calendar' };
 
@@ -287,14 +290,61 @@ export function initTopbar() {
             syncCardLabel.textContent = lbl || '';
             syncCardDetail.textContent = detail || '';
             syncCardDetail.classList.toggle('is-empty', !detail);
+            renderSyncIncidents();
         } else {
             syncCard.setAttribute('aria-hidden', 'true');
         }
+    }
+
+    /**
+     * Rapport des échecs partiels d'import — la carte reste ouverte dessus, car un import
+     * incomplet ne se raconte pas en trois secondes de toast. Le détail vivait jusqu'ici
+     * uniquement dans la console, où personne ne va le chercher.
+     */
+    function renderSyncIncidents() {
+        if (!syncCardIncidents) return;
+        const list = store.get('syncIncidents') || [];
+        syncCard.classList.toggle('has-incidents', list.length > 0);
+        if (syncCardClose) syncCardClose.hidden = list.length === 0;
+        if (!list.length) {
+            syncCardIncidents.hidden = true;
+            syncCardIncidents.textContent = '';
+            return;
+        }
+        syncCardIncidents.hidden = false;
+        syncCardIncidents.textContent = '';
+        const auth = list.some(i => i.status === 401 || i.status === 403);
+        if (auth) {
+            const aide = document.createElement('p');
+            aide.className = 'sync-card__incidents-hint';
+            // La cause dominante en premier : tant que le jeton est refusé, le reste découle.
+            aide.textContent = 'JIRA a refusé la connexion. Vérifier l’URL, l’utilisateur et le '
+                + 'jeton dans Paramètres → Plugin JIRA (un jeton API expire).';
+            syncCardIncidents.appendChild(aide);
+        }
+        const ul = document.createElement('ul');
+        ul.className = 'sync-card__incidents-list';
+        for (const i of list) {
+            const li = document.createElement('li');
+            const quoi = document.createElement('span');
+            quoi.className = 'sync-card__incident-what';
+            quoi.textContent = i.quoi;                    // textContent : jamais d'innerHTML ici
+            const meta = document.createElement('span');
+            meta.className = 'sync-card__incident-meta';
+            meta.textContent = `${i.status ? `HTTP ${i.status}` : 'réseau'} · ×${i.count}`;
+            li.append(quoi, meta);
+            li.title = i.message || '';
+            ul.appendChild(li);
+        }
+        syncCardIncidents.appendChild(ul);
     }
     store.on('syncProgress', updateSyncBar);
     store.on('syncType',     updateSyncBar);
     store.on('syncLabel',    updateSyncBar);
     store.on('syncDetail',   updateSyncBar);
+    store.on('syncIncidents', updateSyncBar);
+    // Le rapport ne se referme pas tout seul : c'est l'utilisateur qui décide quand il a lu.
+    syncCardClose?.addEventListener('click', () => dismissSyncReport());
     updateSyncBar();
 
     // Search → ouvre la command palette (Ctrl+K)

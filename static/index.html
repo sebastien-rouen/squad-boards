@@ -189,7 +189,14 @@
                     <div class="sync-card__bar"><div class="sync-card__bar-fill" id="sync-card-fill"></div></div>
                     <div class="sync-card__label" id="sync-card-label"></div>
                     <div class="sync-card__detail" id="sync-card-detail"></div>
+                    <!-- Rapport des échecs partiels : la carte reste ouverte à la fin d'un
+                         import incomplet, le temps de lire ce qui a échoué. -->
+                    <div class="sync-card__incidents" id="sync-card-incidents" hidden></div>
                 </div>
+                <button type="button" class="sync-card__close" id="sync-card-close"
+                        aria-label="Fermer le rapport de synchronisation" hidden>
+                    <svg class="icon icon-sm"><use href="#i-x"/></svg>
+                </button>
             </div>
         </header>
         <!-- Bandeau agenda du jour — global (visible sur toutes les vues si des calendriers ICS existent) -->

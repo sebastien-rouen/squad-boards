@@ -527,6 +527,78 @@ body { display: flex; }
 }
 .sync-card__detail.is-empty { visibility: hidden; }
 
+/* ── Rapport d'échecs partiels d'import ───────────────────────────────────────
+   La carte s'élargit et reste ouverte : un import incomplet mérite d'être lu, pas
+   entrevu. Le libellé et le détail cessent d'être tronqués sur une ligne, sinon la
+   raison de l'échec serait coupée en plein milieu. */
+.sync-card.has-incidents {
+    width: 380px;
+    border-left: 3px solid var(--warning);
+}
+.sync-card.has-incidents .sync-card__label,
+.sync-card.has-incidents .sync-card__detail {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+.sync-card.has-incidents .sync-card__bar-fill { background: var(--warning); }
+
+.sync-card__incidents {
+    margin-top: var(--sp-2, 8px);
+    padding-top: var(--sp-2, 8px);
+    border-top: 1px solid var(--border);
+    /* Beaucoup d'incidents distincts ne doivent pas faire déborder la carte de l'écran. */
+    max-height: 190px;
+    overflow-y: auto;
+}
+.sync-card__incidents-hint {
+    margin: 0 0 var(--sp-2, 8px);
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--warning);
+    font-weight: var(--fw-medium, 500);
+}
+.sync-card__incidents-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.sync-card__incidents-list li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-2, 8px);
+    font-size: 11px;
+    cursor: help;                      /* le title porte le message brut de l'erreur */
+}
+.sync-card__incident-what {
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sync-card__incident-meta {
+    flex-shrink: 0;
+    color: var(--warning);
+    font-weight: var(--fw-semibold, 600);
+    font-variant-numeric: tabular-nums;
+}
+.sync-card__close {
+    flex-shrink: 0;
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-radius: var(--r-sm, 6px);
+    line-height: 0;
+}
+.sync-card__close:hover { color: var(--text); background: var(--surface-2); }
+
 /* ── App / Main ────────────────────────────────────────────────────────────── */
 .app {
     margin-left: var(--sidebar-w);

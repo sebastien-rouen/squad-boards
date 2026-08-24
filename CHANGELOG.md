@@ -1,8 +1,35 @@
+## [3.141.1] - 2026-08-24
+
+### Correctif — Shuffle de rotation sans effet sur un PI épinglé
+
+- **`#settings/rotation` → 🎲 Shuffle ne remplissait pas la grille dès qu'un PI autre que
+  le courant était sélectionné** (ex. PI 31 pour Fuego) : toast « Rotation générée », grille
+  inchangée. `_shuffleOneTeam()` générait sur `curWeeks`/`nextWeeks` alors que la grille
+  affiche `selectedWeeks`, et **les deux séries n'ont pas la même ancre** :
+  `buildSupportPiWeeks()` snappe la date de début sur le jour de la semaine du mode, tandis
+  que la branche `_targetStart` de `_rotBuildPiWeeks()` prend la date JIRA brute du sprint
+  `<PI>.1`. Sur PI 31 (JIRA : **dimanche 2026-09-06**) la grille listait 06/09, 13/09… quand
+  le shuffle écrivait 04/09, 11/09… — **zéro `weekStart` commun dans les trois modes de
+  semaine**. La rotation était bien créée en base, mais sur des semaines jamais affichées,
+  l'appariement se faisant sur `s.weekStart === w.weekStart`.
+- Le shuffle utilise désormais `selectedWeeks` — la même source que l'affichage. Corrige
+  aussi deux effets de bord de `nextWeeks` : il ne connaît que PI+1 (donc un offset de +2
+  visait le mauvais PI) et hérite du nombre de sprints du PI courant (PI 30 en a 6, PI 31
+  en a 5 → 12 semaines générées au lieu de 10, débordant sur le PI suivant).
+- Garde-fou : si aucune semaine n'est calculée, message explicite au lieu d'un succès
+  silencieux. Le toast nomme le PI visé (`Rotation générée pour Fuego — PI 31 (10 semaines)`).
+- Même correction pour le **Shuffle de groupe**, qui passe par la même fonction.
+- ⚠️ Non traité (décision produit) : les semaines d'un PI dont la `startDate` vient de JIRA
+  ne sont pas snappées sur le mode de semaine — d'où des semaines qui démarrent un dimanche
+  sur PI 31. Snapper changerait l'ancrage des rotations déjà enregistrées.
+
+---
+
 ## [3.141.0] - 2026-08-24
 
 ### Maquettes — vue itération de l'agenda (rien d'implémenté — à valider)
 
-- **[static/mockups/agenda/](static/mockups/agenda/)** : 3 directions pour visualiser une
+- **[static/mockups/agenda/](static/mockups/agenda/)** : 4 directions pour visualiser une
   itération dans `/agenda` quand une équipe est sélectionnée — évènements **Scrum** et **SAFe**
   différenciés par couleur, récurrences affichées (`1x/sem.`, `1x/ité.`…), bouton **Copier pour
   Slack** avec aperçu avant copie.
@@ -12,6 +39,23 @@
     par jour ; rituels quotidiens/hebdo sortis en préambule du récap Slack.
   - **C — cadence & jalons** : semaine type des rituels récurrents (affichés une seule fois avec
     leur cadence) + frise des évènements ponctuels + coût hebdomadaire des cérémonies.
+  - **D — synthèse (recommandée)** : tuiles de charge, puis « ⏱️ Le rythme » repliable, puis
+    l'agenda dense chronologique. Son récap Slack est le plus court à information égale (le
+    daily y apparaît une fois, contre dix dans celui de A).
+- **Temps libre** dans la barre de charge (B, C, D) : la barre se lit sur la semaine entière,
+  base explicite de 35 h — sur l'Ité 30.6 de Fuego, 13 h 44 de rituels et 21 h 16 de libre.
+  Sans ce quatrième segment, 100 % de la barre valait 100 % de réunions, ce qui donnait une
+  impression fausse de saturation.
+- **Décalage d'itération** (option D) : `− 1 j` / `+ 1 j` déplace tous les évènements et
+  recalcule charge, semaine type, agenda et récap. Bac à sable pour éprouver la vue ; un
+  bandeau annonce ce qui sort du cadre (`⚠️ 15 sur un week-end`). Aucune donnée modifiée.
+- **Fix scroll** : `base.css` pose `body { overflow:hidden; height:100vh }` (dans le site,
+  c'est `.main` qui défile). Neutraliser `display:flex` ne suffisait pas — rien ne pouvait
+  défiler et le bas des options longues restait inatteignable. Le mode 📱 simule désormais un
+  vrai viewport 390 × 780 avec son propre défilement, et la frise de A borne sa hauteur pour
+  que ses en-têtes `sticky` fonctionnent.
+- **Briques factorisées** dans `parts.css` / `parts.js` (tuiles de charge, grille du rythme,
+  agenda dense) : partagées par B, C et D plutôt que recopiées trois fois.
 - **Alimentées par des données réelles** extraites de `data/board.db` (équipe Fuego, Ité 30.6 —
   51 évènements, 3 semaines calendaires), doublons inter-calendriers compris : ils sont signalés,
   pas masqués.

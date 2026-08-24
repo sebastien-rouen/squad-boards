@@ -664,6 +664,24 @@
 .htl-done-miss { color: var(--warning); font-weight: var(--fw-bold); }
 /* Compteur de manqués sur l'en-tête d'un groupe de parent */
 .htl-grp-missed { color: var(--warning); font-weight: var(--fw-bold); }
+/* Sprint d'arrivée d'un ticket reporté — jamais barré, contrairement au titre : c'est la
+   réponse au « il est passé où ? », elle doit rester lisible. */
+.htl-moved-chip {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 0 6px;
+    font-size: 10px;
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+    color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+    border-radius: 999px;
+    text-decoration: none !important;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.htl-hdr-moved { font-weight: var(--fw-bold); opacity: .85; }
 
 /* En-tête de groupe « parent » : un bloc par epic/feature, coloré via --pc.
    Mix plus marqué que l'ancien 8% — sinon la couleur par parent était trop subtile

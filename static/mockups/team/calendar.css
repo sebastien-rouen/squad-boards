@@ -107,6 +107,41 @@
 /* Colonne survolée pendant le glisser */
 .wgrid-col--drop { background-color: color-mix(in srgb, var(--primary) 10%, transparent); }
 
+/* ── Rituel verrouillé — imposé par le train, pas décidé dans l'équipe ─────── */
+.rit--locked {
+    cursor: default;
+    border-style: dashed;
+    border-left-style: solid;
+}
+.rit--locked .rit-title { opacity: 0.92; }
+.rit-lock { font-size: 9px; }
+
+/* ── Sélecteur d'équipe ────────────────────────────────────────────────────── */
+.tcal-team-select {
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    color: var(--text);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    max-width: 280px;
+}
+.tcal-team-select:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+.tcal-sub {
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+.tcal-warn { color: var(--amber-text); font-weight: var(--fw-semibold); }
+
+/* Charge supérieure à la semaine ouvrée : la barre n'a plus de vert à montrer */
+.load-split span.is-over { color: var(--danger); font-weight: var(--fw-semibold); }
+
 /* ── Panneau d'édition ─────────────────────────────────────────────────────── */
 .tcal-edit {
     margin-top: var(--sp-3);

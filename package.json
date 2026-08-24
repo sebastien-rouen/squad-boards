@@ -5,6 +5,7 @@
   "description": "Board de projet autoporteur — outillage qualité front (dev uniquement, aucun build runtime).",
   "type": "module",
   "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
     "lint": "npm run lint:js && npm run lint:css",
     "lint:js": "eslint static/js",
     "lint:css": "stylelint \"static/css/**/*.css\"",

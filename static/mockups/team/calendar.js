@@ -1,68 +1,84 @@
 /* ════════════════════════════════════════════════════════════════════════════
    Carte « Calendrier de l'équipe » — visible, exportable, remaniable.
-   S'appuie sur le socle des maquettes agenda (../agenda/shell.js + parts.js)
-   pour le typage Scrum/SAFe/Ops, la déduction de cadence et les dates.
+   Fonctionne pour les 13 équipes : chacune a son itération, son roster et sa
+   cadence (cf. data-teams.js). Les exports vivent dans exports.js.
    Script classique, pour rester ouvrable en file://.
    ════════════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
 
-    const { D, KINDS, esc, dayIdx, dayName, ddmm, workDays, startsWeek, durLabel,
-            recurringRituals, visible, DAY_LONG } = window.MK;
+    const { KINDS, esc, dayIdx, dayName, ddmm, workDays, startsWeek, durLabel, DAY_LONG } = window.MK;
     const { hrs, WEEK_MINUTES } = window.MKParts;
+    const X = window.TCALX;
 
-    const T = window.TEAM_MOCK;
-    const LS = 'sb-mockup-team-cal';
+    const TEAMS = window.TEAMS_MOCK;
+    const LS_TEAM = 'sb-mockup-team-cal:team';
+    const lsKey = t => `sb-mockup-team-cal:${t}`;
 
     const H_START = 9 * 60, H_END = 18.5 * 60;
     const PX_PER_MIN = 0.62;
     const GRID_H = (H_END - H_START) * PX_PER_MIN;
-    const SNAP = 15;                                  // minutes
+    const SNAP = 15;
 
-    const days = workDays(D.iteration.start, D.iteration.end);
     const FREQS = ['tous les jours', '1x/sem.', '1x/ité.', '1x/mois'];
     const perWeek = f => f === 'tous les jours' ? 5 : f === '1x/sem.' ? 1
         : f === '1x/ité.' ? 0.5 : f === '1x/mois' ? 0.23 : 0;
-
     const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-    const hFr  = m => `${String(Math.floor(m / 60)).padStart(2, '0')}h${String(m % 60).padStart(2, '0')}`;
+    const hFr = X.hFr;
 
-    // ── Modèle éditable ─────────────────────────────────────────────────────
-    /** Part des rituels réellement détectés dans les calendriers de l'équipe et
-     *  les transforme en RÈGLES modifiables (jour de semaine + heure + cadence),
-     *  ce qui est le bon niveau pour remanier : on édite le rituel, pas chacune
-     *  de ses occurrences. */
+    // ── État ────────────────────────────────────────────────────────────────
+    let T = null;            // équipe courante (entrée de TEAMS_MOCK)
+    let days = [];           // jours ouvrés de son itération
+    let model = [];
+    let selectedId = null;
+    let view = 'iteration';
+
+    /** Rituels récurrents d'une équipe, dédupliqués par (titre, jour, heure).
+     *  Même règle que `recurringRituals` du socle agenda, mais paramétrée par
+     *  l'équipe : ici chaque équipe a ses propres évènements et son itération. */
+    function ritualsOf(events) {
+        const map = new Map();
+        for (const ev of events) {
+            if (!ev.freq) continue;
+            const key = `${ev.title}|${ev.freq === 'tous les jours' ? '*' : dayIdx(ev.day)}|${ev.start}`;
+            if (!map.has(key)) map.set(key, { ...ev, days: [] });
+            map.get(key).days.push(ev.day);
+        }
+        const rank = { 'tous les jours': 0, '1x/sem.': 1, '1x/ité.': 2, '1x/mois': 3 };
+        return [...map.values()].sort((a, b) => (rank[a.freq] ?? 9) - (rank[b.freq] ?? 9)
+            || dayIdx(a.days[0]) - dayIdx(b.days[0]) || a.startMin - b.startMin);
+    }
+
+    /** Transforme les rituels détectés en RÈGLES modifiables — le bon niveau
+     *  pour remanier : on édite le rituel, pas chacune de ses occurrences.
+     *  Les rituels SAFe arrivent verrouillés : c'est le train qui les impose. */
     function baseline() {
-        return recurringRituals(visible()).map((r, i) => ({
+        return ritualsOf(T.events).map((r, i) => ({
             id: `r${i}`,
             title: r.title,
             kind: r.kind,
-            dow: r.freq === 'tous les jours' ? 0 : dayIdx(r.days[0]),   // 0 = tous les jours ouvrés
+            dow: r.freq === 'tous les jours' ? 0 : dayIdx(r.days[0]),
             startMin: r.startMin,
             durMin: r.durMin,
             freq: r.freq,
             enabled: true,
-            // Jours de SEMAINE systématiquement sautés (le daily de Fuego saute le lundi).
-            // Dédupliqué : l'itération compte deux lundis, la règle n'en retient qu'un.
+            locked: r.kind === 'safe',
+            // Jours de semaine systématiquement sautés (le daily de Fuego saute le
+            // lundi). Dédupliqué : l'itération compte deux lundis, la règle un seul.
             skipDays: r.freq === 'tous les jours'
                 ? [...new Set(days.filter(d => !r.days.includes(d)).map(dayIdx))]
                 : [],
         }));
     }
 
-    let model = [];
-    let selectedId = null;
-    let view = 'iteration';      // iteration | week
-
-    function load() {
-        const base = baseline();
+    function loadModel() {
         try {
-            const saved = JSON.parse(localStorage.getItem(LS) || 'null');
+            const saved = JSON.parse(localStorage.getItem(lsKey(T.team)) || 'null');
             if (saved && Array.isArray(saved.model) && saved.model.length) return saved.model;
         } catch { /* stockage illisible : on repart de la détection */ }
-        return base;
+        return baseline();
     }
-    const save = () => localStorage.setItem(LS, JSON.stringify({ model }));
+    const save = () => localStorage.setItem(lsKey(T.team), JSON.stringify({ model }));
 
     // ── Différences avec la détection d'origine ─────────────────────────────
     function diff() {
@@ -79,6 +95,7 @@
             if (r.durMin !== b.durMin) ch.push(`${durLabel(b.durMin)} → ${durLabel(r.durMin)}`);
             if (r.freq !== b.freq) ch.push(`${b.freq} → ${r.freq}`);
             if (r.kind !== b.kind) ch.push(`${KINDS[b.kind].short} → ${KINDS[r.kind].short}`);
+            if (r.locked !== b.locked) ch.push(r.locked ? 'verrouillé' : '🔓 déverrouillé');
             if (ch.length) out.push(`✏️ ${r.title} — ${ch.join(', ')}`);
         }
         for (const b of base.values()) {
@@ -87,7 +104,6 @@
         return out;
     }
 
-    // ── Projection sur les jours réels de l'itération ───────────────────────
     /** Quels jours de l'itération porte ce rituel, compte tenu de sa cadence. */
     function occurrences(r) {
         if (!r.enabled) return [];
@@ -95,29 +111,25 @@
         const hits = days.filter(d => dayIdx(d) === r.dow);
         if (r.freq === '1x/sem.') return hits;
         if (r.freq === '1x/ité.') return hits.filter((_, i) => i % 2 === 0);
-        return hits.slice(0, 1);                                        // 1x/mois
+        return hits.slice(0, 1);
     }
 
-    const load7 = () => model.filter(r => r.enabled)
-        .reduce((s, r) => s + r.durMin * perWeek(r.freq), 0);
+    const ctx = () => ({
+        team: T.team, iteration: T.iteration, days, occurrences, perWeek,
+        slug: T.team.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-'),
+    });
 
-    // ── Rendu de la grille ──────────────────────────────────────────────────
+    // ── Rendu ───────────────────────────────────────────────────────────────
     function cols() {
         return view === 'iteration'
             ? days.map(d => ({ key: d, label: dayName(d), sub: ddmm(d), dow: dayIdx(d) }))
             : [1, 2, 3, 4, 5].map(i => ({ key: `w${i}`, label: DAY_LONG[i], sub: '', dow: i }));
     }
 
-    /** Blocs à poser dans chaque colonne, selon la vue. */
     function blocksFor(col) {
-        return model.filter(r => {
-            if (view === 'week') {
-                return r.freq === 'tous les jours'
-                    ? !r.skipDays.includes(col.dow)
-                    : r.dow === col.dow;
-            }
-            return occurrences(r).includes(col.key);
-        });
+        return model.filter(r => view === 'week'
+            ? (r.freq === 'tous les jours' ? !r.skipDays.includes(col.dow) : r.dow === col.dow)
+            : occurrences(r).includes(col.key));
     }
 
     function layout(list) {
@@ -141,8 +153,8 @@
 
         let html = '<div></div><div class="wgrid-heads">';
         C.forEach((c, i) => {
-            const week = view === 'iteration' && startsWeek(c.key, i);
-            html += `<div class="wgrid-head ${week ? 'wgrid-head--week' : ''} ${c.key === D.today ? 'wgrid-head--today' : ''}">
+            const wk = view === 'iteration' && startsWeek(c.key, i);
+            html += `<div class="wgrid-head ${wk ? 'wgrid-head--week' : ''}">
                 ${esc(c.label)}${c.sub ? `<small>${esc(c.sub)}</small>` : ''}
             </div>`;
         });
@@ -156,21 +168,24 @@
 
         html += `<div class="wgrid-body" id="tcal-body" style="height:${GRID_H}px">`;
         C.forEach((c, i) => {
-            const week = view === 'iteration' && startsWeek(c.key, i);
-            html += `<div class="wgrid-col ${week ? 'wgrid-col--week' : ''} ${c.key === D.today ? 'wgrid-col--today' : ''}"
-                          data-col="${i}" style="--hour-h:${60 * PX_PER_MIN}px"></div>`;
+            const wk = view === 'iteration' && startsWeek(c.key, i);
+            html += `<div class="wgrid-col ${wk ? 'wgrid-col--week' : ''}" data-col="${i}"
+                          style="--hour-h:${60 * PX_PER_MIN}px"></div>`;
         });
         C.forEach((c, i) => {
             for (const r of layout(blocksFor(c))) {
                 const top = Math.max(0, (r.startMin - H_START) * PX_PER_MIN);
                 const h = Math.max(20, Math.min(r.durMin, H_END - r.startMin) * PX_PER_MIN);
                 const w = pct(1) / r._lanes;
-                html += `<div class="rit ${KINDS[r.kind].cls} ${r.id === selectedId ? 'rit--selected' : ''} ${r.enabled ? '' : 'rit--off'}"
-                              tabindex="0" role="button" data-id="${esc(r.id)}" data-col="${i}"
-                              aria-label="${esc(r.title)}, ${esc(hFr(r.startMin))}, ${esc(durLabel(r.durMin))}"
+                const cls = ['rit', KINDS[r.kind].cls,
+                    r.id === selectedId ? 'rit--selected' : '',
+                    r.enabled ? '' : 'rit--off',
+                    r.locked ? 'rit--locked' : ''].filter(Boolean).join(' ');
+                html += `<div class="${cls}" tabindex="0" role="button" data-id="${esc(r.id)}"
+                              aria-label="${esc(r.title)}, ${esc(hFr(r.startMin))}, ${esc(durLabel(r.durMin))}${r.locked ? ', imposé par le train' : ''}"
                               style="top:${top}px;height:${h}px;left:calc(${pct(i) + r._lane * w}% + 3px);width:calc(${w}% - 6px)"
-                              title="${esc(r.title)} — ${esc(hFr(r.startMin))} · ${esc(durLabel(r.durMin))} · ${esc(r.freq)}">
-                    <span class="rit-title">${esc(r.title)}</span>
+                              title="${esc(r.title)} — ${esc(hFr(r.startMin))} · ${esc(durLabel(r.durMin))} · ${esc(r.freq)}${r.locked ? ' · 🔒 imposé par le train' : ''}">
+                    <span class="rit-title">${r.locked ? '<span class="rit-lock">🔒</span> ' : ''}${esc(r.title)}</span>
                     <span class="rit-meta">${esc(hFr(r.startMin))} · ${esc(r.freq)}</span>
                 </div>`;
             }
@@ -185,12 +200,11 @@
             .map(r => `<div class="tcal-list-item ${KINDS[r.kind].cls} ${r.enabled ? '' : 'tcal-list-item--off'}"
                             data-id="${esc(r.id)}" role="button" tabindex="0"
                             aria-selected="${r.id === selectedId}">
-                <b>${esc(r.title)}</b>
-                <small>${esc(r.dow ? DAY_LONG[r.dow] : 'tous les jours')} ${esc(hFr(r.startMin))} · ${esc(r.freq)}</small>
+                <b>${r.locked ? '🔒 ' : ''}${esc(r.title)}</b>
+                <small>${esc(X.whenLabel(r))} · ${esc(r.freq)}</small>
             </div>`).join('');
     }
 
-    // ── Charge et état ──────────────────────────────────────────────────────
     function renderLoadBar() {
         const by = { scrum: 0, safe: 0, ops: 0 };
         for (const r of model) if (r.enabled) by[r.kind] += r.durMin * perWeek(r.freq);
@@ -199,9 +213,10 @@
         const pc = v => Math.round(v / WEEK_MINUTES * 100);
         const seg = (cls, v, label) => v <= 0 ? '' :
             `<span class="${cls}" style="width:${v / WEEK_MINUTES * 100}%" title="${esc(label)} : ${esc(hrs(v))}"></span>`;
+        const over = busy > WEEK_MINUTES;
         document.getElementById('tcal-load').innerHTML = `
-            <div class="load-label">Charge de rituels</div>
-            <div class="load-value">${esc(hrs(busy))} <small>/ semaine · ${esc(hrs(free))} de libre</small></div>
+            <div class="load-label">Charge de rituels — ${esc(T.team)}</div>
+            <div class="load-value">${esc(hrs(busy))} <small>/ semaine · ${over ? 'plus de créneaux que d’heures ouvrées' : `${esc(hrs(free))} de libre`}</small></div>
             <div class="load-bar">
                 ${seg(KINDS.scrum.cls, by.scrum, KINDS.scrum.label)}
                 ${seg(KINDS.safe.cls, by.safe, KINDS.safe.label)}
@@ -212,13 +227,14 @@
                 <span>🔵 Scrum <b>${pc(by.scrum)} %</b></span>
                 <span>🟣 SAFe <b>${pc(by.safe)} %</b></span>
                 <span>⚪ Ops <b>${pc(by.ops)} %</b></span>
-                <span class="is-free">🟢 Libre <b>${pc(free)} %</b></span>
+                <span class="${over ? 'is-over' : 'is-free'}">${over ? '🔴 Dépassement' : '🟢 Libre'} <b>${over ? pc(busy - WEEK_MINUTES) : pc(free)} %</b></span>
             </div>`;
     }
 
     function renderStatus() {
         const d = diff();
         const el = document.getElementById('tcal-status');
+        const locked = model.filter(r => r.locked).length;
         el.className = `tcal-status ${d.length ? 'tcal-status--dirty' : ''}`;
         el.innerHTML = d.length
             ? `<div>
@@ -228,61 +244,77 @@
                <span class="tcal-status-actions">
                    <button class="btn btn-secondary btn-sm" id="tcal-reset">↺ Rétablir la détection</button>
                </span>`
-            : `<span>Calendrier conforme aux invitations détectées — glisse un rituel pour le remanier.</span>`;
+            : `<span>Calendrier conforme aux invitations détectées — glisse un rituel pour le remanier.
+                 ${locked ? `<strong>${locked} rituels 🔒</strong> imposés par le train (déverrouillables au cas par cas).` : ''}</span>`;
     }
 
-    // ── Panneau d'édition ───────────────────────────────────────────────────
     function renderEdit() {
         const el = document.getElementById('tcal-edit');
         const r = model.find(x => x.id === selectedId);
         if (!r) { el.hidden = true; return; }
         el.hidden = false;
-        el.className = `tcal-edit ${KINDS[r.kind].cls}`;
+        el.className = `tcal-edit ${KINDS[r.kind].cls} ${r.locked ? 'tcal-edit--locked' : ''}`;
+        const dis = r.locked ? 'disabled' : '';
         el.innerHTML = `
+            ${r.locked ? `<p class="tcal-locked-note">🔒 <strong>Imposé par le train ERPC.</strong>
+                La cadence de l’ART ne se décide pas dans l’équipe — déverrouille si tu sais ce que tu fais.</p>` : ''}
             <div class="tcal-edit-row">
                 <div class="tcal-field tcal-field--title">
                     <label for="e-title">Rituel</label>
-                    <input id="e-title" type="text" value="${esc(r.title)}">
+                    <input id="e-title" type="text" value="${esc(r.title)}" ${dis}>
                 </div>
                 <div class="tcal-field">
                     <label for="e-kind">Famille</label>
-                    <select id="e-kind">
+                    <select id="e-kind" ${dis}>
                         ${Object.entries(KINDS).map(([k, m]) =>
                             `<option value="${k}" ${k === r.kind ? 'selected' : ''}>${esc(m.label)}</option>`).join('')}
                     </select>
                 </div>
                 <div class="tcal-field">
                     <label for="e-freq">Cadence</label>
-                    <select id="e-freq">
+                    <select id="e-freq" ${dis}>
                         ${FREQS.map(f => `<option value="${esc(f)}" ${f === r.freq ? 'selected' : ''}>${esc(f)}</option>`).join('')}
                     </select>
                 </div>
                 <div class="tcal-field">
                     <label for="e-dow">Jour</label>
-                    <select id="e-dow" ${r.freq === 'tous les jours' ? 'disabled' : ''}>
+                    <select id="e-dow" ${r.freq === 'tous les jours' || r.locked ? 'disabled' : ''}>
                         ${[1, 2, 3, 4, 5].map(i => `<option value="${i}" ${i === r.dow ? 'selected' : ''}>${esc(DAY_LONG[i])}</option>`).join('')}
                     </select>
                 </div>
                 <div class="tcal-field">
                     <label for="e-start">Heure</label>
-                    <input id="e-start" type="time" step="300" value="${hhmm(r.startMin)}">
+                    <input id="e-start" type="time" step="300" value="${hhmm(r.startMin)}" ${dis}>
                 </div>
                 <div class="tcal-field">
                     <label for="e-dur">Durée (min)</label>
-                    <input id="e-dur" type="number" min="15" max="480" step="15" value="${r.durMin}" style="width:88px">
+                    <input id="e-dur" type="number" min="15" max="480" step="15" value="${r.durMin}" style="width:88px" ${dis}>
                 </div>
                 <span class="tcal-edit-actions">
-                    <button class="btn btn-secondary btn-sm" id="e-toggle">${r.enabled ? '⏸️ Désactiver' : '▶️ Réactiver'}</button>
+                    <button class="btn ${r.locked ? 'btn-primary' : 'btn-secondary'} btn-sm" id="e-lock">
+                        ${r.locked ? '🔓 Déverrouiller' : '🔒 Verrouiller'}
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="e-toggle" ${dis}>${r.enabled ? '⏸️ Désactiver' : '▶️ Réactiver'}</button>
                     <button class="btn btn-secondary btn-sm" id="e-dup">⧉ Dupliquer</button>
-                    <button class="btn btn-danger btn-sm" id="e-del">🗑️ Supprimer</button>
+                    <button class="btn btn-danger btn-sm" id="e-del" ${dis}>🗑️ Supprimer</button>
                 </span>
             </div>
             <p class="tcal-hint">
-                Glisse le bloc pour le déplacer, ou au clavier : <kbd>←</kbd> <kbd>→</kbd> changent de jour,
-                <kbd>↑</kbd> <kbd>↓</kbd> décalent de 15 min, <kbd>Suppr</kbd> retire le rituel.
+                ${r.locked
+                    ? 'Rituel verrouillé : ni glisser ni éditer. Le cadenas reste réversible.'
+                    : 'Glisse le bloc pour le déplacer, ou au clavier : <kbd>←</kbd> <kbd>→</kbd> changent de jour, <kbd>↑</kbd> <kbd>↓</kbd> décalent de 15 min, <kbd>Suppr</kbd> retire le rituel.'}
             </p>`;
 
-        const upd = (fn) => { fn(); save(); render(); };
+        const upd = fn => { fn(); save(); render(); };
+        // Le cadenas reste actif même verrouillé — c'est lui qui rend la main
+        el.querySelector('#e-lock').addEventListener('click', () => upd(() => { r.locked = !r.locked; }));
+        el.querySelector('#e-dup').addEventListener('click', () => upd(() => {
+            const copy = { ...r, id: `n${Date.now()}`, title: `${r.title} (copie)`, locked: false };
+            model.push(copy);
+            selectedId = copy.id;
+        }));
+        if (r.locked) return;
+
         el.querySelector('#e-title').addEventListener('input', e => {
             r.title = e.target.value; save(); renderGrid(); renderList(); renderStatus();
         });
@@ -299,18 +331,23 @@
         }));
         el.querySelector('#e-dur').addEventListener('change', e => upd(() => { r.durMin = Math.max(15, +e.target.value || 15); }));
         el.querySelector('#e-toggle').addEventListener('click', () => upd(() => { r.enabled = !r.enabled; }));
-        el.querySelector('#e-dup').addEventListener('click', () => upd(() => {
-            const copy = { ...r, id: `n${Date.now()}`, title: `${r.title} (copie)` };
-            model.push(copy);
-            selectedId = copy.id;
-        }));
         el.querySelector('#e-del').addEventListener('click', () => upd(() => {
             model = model.filter(x => x.id !== r.id);
             selectedId = null;
         }));
     }
 
+    function renderHeader() {
+        const it = T.iteration;
+        document.getElementById('tcal-view-ite').textContent =
+            it.fallback ? 'Fenêtre de référence' : `Itération ${it.short}`;
+        document.getElementById('tcal-sub').innerHTML = it.fallback
+            ? `<span class="tcal-warn">Aucun sprint actif pour ${esc(T.team)}</span> — fenêtre de référence du ${esc(ddmm(it.start))} au ${esc(ddmm(it.end))}, ${days.length} jours ouvrés.`
+            : `${esc(it.name)} — du ${esc(ddmm(it.start))} au ${esc(ddmm(it.end))}, ${days.length} jours ouvrés.`;
+    }
+
     function render() {
+        renderHeader();
         renderGrid();
         renderList();
         renderLoadBar();
@@ -318,12 +355,11 @@
         renderEdit();
     }
 
-    // ── Sélection, glisser-déposer, clavier ─────────────────────────────────
+    // ── Interactions ────────────────────────────────────────────────────────
     function colFromX(bodyEl, clientX) {
         const rect = bodyEl.getBoundingClientRect();
         const N = cols().length;
-        const i = Math.floor((clientX - rect.left) / rect.width * N);
-        return Math.max(0, Math.min(N - 1, i));
+        return Math.max(0, Math.min(N - 1, Math.floor((clientX - rect.left) / rect.width * N)));
     }
 
     function bindGrid() {
@@ -338,9 +374,9 @@
             renderEdit();
             wrap.querySelectorAll('.rit--selected').forEach(el => el.classList.remove('rit--selected'));
             block.classList.add('rit--selected');
+            if (r.locked) return;                       // verrouillé : sélection seule
 
             const body = document.getElementById('tcal-body');
-            const rect = body.getBoundingClientRect();
             const startY = e.clientY;
             const originMin = r.startMin;
             let moved = false;
@@ -350,21 +386,16 @@
 
             const onMove = ev => {
                 moved = true;
-                // Heure : position verticale, arrondie au quart d'heure
                 const dMin = (ev.clientY - startY) / PX_PER_MIN;
-                let min = Math.round((originMin + dMin) / SNAP) * SNAP;
-                min = Math.max(H_START, Math.min(H_END - r.durMin, min));
-                r.startMin = min;
-                // Jour : colonne survolée
+                r.startMin = Math.max(H_START, Math.min(H_END - r.durMin,
+                    Math.round((originMin + dMin) / SNAP) * SNAP));
                 const ci = colFromX(body, ev.clientX);
                 const col = cols()[ci];
                 if (col && r.freq !== 'tous les jours') r.dow = col.dow;
                 body.querySelectorAll('.wgrid-col').forEach((c, i) =>
                     c.classList.toggle('wgrid-col--drop', i === ci));
-                // Retour visuel immédiat sans re-rendre toute la grille
                 block.style.top = `${(r.startMin - H_START) * PX_PER_MIN}px`;
                 block.querySelector('.rit-meta').textContent = `${hFr(r.startMin)} · ${r.freq}`;
-                void rect;
             };
             const onUp = () => {
                 block.releasePointerCapture(e.pointerId);
@@ -383,6 +414,7 @@
             const r = model.find(x => x.id === block.dataset.id);
             if (!r) return;
             selectedId = r.id;
+            if (r.locked) { renderEdit(); return; }
             const step = { ArrowUp: -SNAP, ArrowDown: SNAP }[e.key];
             if (step !== undefined) {
                 r.startMin = Math.max(H_START, Math.min(H_END - r.durMin, r.startMin + step));
@@ -408,99 +440,6 @@
         });
     }
 
-    // ── Exports ─────────────────────────────────────────────────────────────
-    const pad = n => String(n).padStart(2, '0');
-    const ICS_DAY = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
-
-    /** Première date de l'itération portant ce rituel — sert de DTSTART. */
-    function firstDate(r) {
-        const occ = occurrences(r);
-        return occ[0] || days[0];
-    }
-
-    function icsText() {
-        const stamp = `${D.iteration.start.replace(/-/g, '')}T090000`;
-        const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0',
-                       `PRODID:-//Squad Board//Calendrier ${T.team}//FR`, 'CALSCALE:GREGORIAN'];
-        for (const r of model) {
-            if (!r.enabled) continue;
-            const d = firstDate(r).replace(/-/g, '');
-            const st = `${d}T${pad(Math.floor(r.startMin / 60))}${pad(r.startMin % 60)}00`;
-            const endMin = r.startMin + r.durMin;
-            const en = `${d}T${pad(Math.floor(endMin / 60))}${pad(endMin % 60)}00`;
-            // Un « quotidien » qui saute des jours doit les exclure du BYDAY, sinon
-            // l'export réintroduit dans l'agenda des occurrences qui n'existent pas :
-            // chez Fuego le daily ne se tient pas le lundi (remplacé par le weekly).
-            const byday = [1, 2, 3, 4, 5].filter(i => !(r.skipDays || []).includes(i))
-                .map(i => ICS_DAY[i]).join(',');
-            const rule = r.freq === 'tous les jours' ? `FREQ=WEEKLY;BYDAY=${byday || 'MO,TU,WE,TH,FR'}`
-                : r.freq === '1x/sem.' ? `FREQ=WEEKLY;BYDAY=${ICS_DAY[r.dow]}`
-                : r.freq === '1x/ité.' ? `FREQ=WEEKLY;INTERVAL=2;BYDAY=${ICS_DAY[r.dow]}`
-                : `FREQ=MONTHLY;BYDAY=1${ICS_DAY[r.dow]}`;
-            lines.push('BEGIN:VEVENT',
-                `UID:${r.id}-${T.team.toLowerCase()}@squad-board`,
-                `DTSTAMP:${stamp}`,
-                `DTSTART;TZID=Europe/Paris:${st}`,
-                `DTEND;TZID=Europe/Paris:${en}`,
-                `RRULE:${rule}`,
-                `SUMMARY:${r.title.replace(/[,;\\]/g, m => '\\' + m)}`,
-                `CATEGORIES:${KINDS[r.kind].short}`,
-                'END:VEVENT');
-        }
-        lines.push('END:VCALENDAR');
-        // RFC 5545 : les lignes se terminent par CRLF
-        return lines.join('\r\n') + '\r\n';
-    }
-
-    function csvText() {
-        const rows = [['Rituel', 'Famille', 'Cadence', 'Jour', 'Heure', 'Durée (min)', 'Occurrences sur l’itération', 'Actif']];
-        for (const r of model) {
-            const skipped = (r.skipDays || []).filter(i => i >= 1 && i <= 5).map(i => DAY_LONG[i]);
-            const jour = r.dow ? DAY_LONG[r.dow]
-                : skipped.length ? `tous les jours sauf ${skipped.join(', ')}` : 'tous les jours';
-            rows.push([r.title, KINDS[r.kind].short, r.freq, jour, hFr(r.startMin),
-                       r.durMin, occurrences(r).length, r.enabled ? 'oui' : 'non']);
-        }
-        // Point-virgule + BOM : Excel francophone ouvre le fichier sans assistant d'import
-        return '﻿' + rows.map(r => r.map(v => {
-            const s = String(v);
-            return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-        }).join(';')).join('\r\n');
-    }
-
-    function slackText() {
-        const lines = [`:calendar: *Calendrier de l’équipe ${T.team}* — cadence des rituels`, ''];
-        const order = ['tous les jours', '1x/sem.', '1x/ité.', '1x/mois'];
-        for (const f of order) {
-            const list = model.filter(r => r.enabled && r.freq === f)
-                .sort((a, b) => a.dow - b.dow || a.startMin - b.startMin);
-            if (!list.length) continue;
-            lines.push(`*${f}*`);
-            for (const r of list) {
-                const skipped = (r.skipDays || []).filter(i => i >= 1 && i <= 5).map(i => DAY_LONG[i]);
-                const when = r.dow ? `${DAY_LONG[r.dow]} ${hFr(r.startMin)}`
-                    : `${hFr(r.startMin)}${skipped.length ? ` (sauf ${skipped.join(', ')})` : ''}`;
-                lines.push(`  ${KINDS[r.kind].dot} ${r.title} — ${when} (${durLabel(r.durMin)})`);
-            }
-            lines.push('');
-        }
-        const busy = load7();
-        lines.push(`_${hrs(busy)} de rituels par semaine — reste ${hrs(Math.max(0, WEEK_MINUTES - busy))} sur une base de ${hrs(WEEK_MINUTES)}._`);
-        return lines.join('\n');
-    }
-
-    function download(name, text, mime) {
-        const blob = new Blob([text], { type: `${mime};charset=utf-8` });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
-
     function bindTools() {
         document.querySelectorAll('[data-view]').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -519,15 +458,14 @@
         document.addEventListener('click', () => { menu.hidden = true; });
         menu.addEventListener('click', e => e.stopPropagation());
 
-        const slug = T.team.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         menu.querySelector('#exp-ics').addEventListener('click', () =>
-            download(`calendrier-${slug}.ics`, icsText(), 'text/calendar'));
+            X.download(`calendrier-${ctx().slug}.ics`, X.icsText(model, ctx()), 'text/calendar'));
         menu.querySelector('#exp-csv').addEventListener('click', () =>
-            download(`calendrier-${slug}.csv`, csvText(), 'text/csv'));
+            X.download(`calendrier-${ctx().slug}.csv`, X.csvText(model, ctx()), 'text/csv'));
         menu.querySelector('#exp-slack').addEventListener('click', async () => {
             const btn = menu.querySelector('#exp-slack');
             try {
-                await navigator.clipboard.writeText(slackText());
+                await navigator.clipboard.writeText(X.slackText(model, ctx()));
                 const old = btn.innerHTML;
                 btn.innerHTML = '✓ Copié dans le presse-papiers';
                 setTimeout(() => { btn.innerHTML = old; }, 1600);
@@ -537,7 +475,8 @@
 
         document.getElementById('tcal-add').addEventListener('click', () => {
             const r = { id: `n${Date.now()}`, title: 'Nouveau rituel', kind: 'scrum', dow: 1,
-                        startMin: 10 * 60, durMin: 30, freq: '1x/sem.', enabled: true, skipDays: [] };
+                        startMin: 10 * 60, durMin: 30, freq: '1x/sem.', enabled: true,
+                        locked: false, skipDays: [] };
             model.push(r);
             selectedId = r.id;
             save();
@@ -547,18 +486,52 @@
 
         document.getElementById('tcal-status').addEventListener('click', e => {
             if (!e.target.closest('#tcal-reset')) return;
-            localStorage.removeItem(LS);
+            localStorage.removeItem(lsKey(T.team));
             model = baseline();
             selectedId = null;
             render();
         });
+
+        document.getElementById('tcal-team').addEventListener('change', e => {
+            selectTeam(e.target.value);
+            render();
+        });
     }
 
-    // ── Démarrage ───────────────────────────────────────────────────────────
-    model = load();
+    // ── Sélection d'équipe ──────────────────────────────────────────────────
+    function selectTeam(name) {
+        T = TEAMS.find(t => t.team === name) || TEAMS[0];
+        days = workDays(T.iteration.start, T.iteration.end);
+        model = loadModel();
+        selectedId = null;
+        localStorage.setItem(LS_TEAM, T.team);
+        // L'en-tête de la page suit l'équipe choisie
+        window.renderTeamHeader?.(T);
+    }
+
+    function mountTeamPicker() {
+        const sel = document.getElementById('tcal-team');
+        sel.innerHTML = TEAMS.map(t => {
+            const n = t.events.filter(e => e.freq).length;
+            return `<option value="${esc(t.team)}">${esc(t.team)} — ${n} rituels${t.iteration.fallback ? ' (pas de sprint actif)' : ''}</option>`;
+        }).join('');
+        const saved = localStorage.getItem(LS_TEAM);
+        sel.value = TEAMS.some(t => t.team === saved) ? saved : 'Fuego';
+        selectTeam(sel.value);
+    }
+
+    mountTeamPicker();
     bindGrid();
     bindTools();
     render();
 
-    window.TCAL = { icsText, csvText, slackText, occurrences, diff, get model() { return model; } };
+    window.TCAL = {
+        occurrences, diff, ctx, baseline, selectTeam, render,
+        icsText: () => X.icsText(model, ctx()),
+        csvText: () => X.csvText(model, ctx()),
+        slackText: () => X.slackText(model, ctx()),
+        get model() { return model; },
+        get team() { return T.team; },
+        get days() { return days; },
+    };
 })();

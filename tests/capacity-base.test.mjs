@@ -25,20 +25,25 @@ const EQUIPE = [
     { name: 'Martin, C', role: 'Tech Lead' },
     { name: 'Petit, D',  role: 'Product Owner' },
 ];
-// 2 sprints de 2 semaines, du lundi au vendredi suivant : 10 jours ouvrés chacun.
+// PI de 3 sprints de 2 semaines (10 jours ouvrés chacun) dont le 3e est la RESPIRATION :
+// rien n'y est planifié, il ne compte ni dans la moyenne ni dans la capacité du PI.
+const SPRINTS_PAR_PI = 3;
 const SPRINTS = [
     { name: 'Equipe O - Ité 31.1', team: 'O', startDate: '2026-09-07', endDate: '2026-09-18', state: 'future' },
     { name: 'Equipe O - Ité 31.2', team: 'O', startDate: '2026-09-21', endDate: '2026-10-02', state: 'future' },
+    { name: 'Equipe O - Ité 31.3', team: 'O', startDate: '2026-10-05', endDate: '2026-10-16', state: 'future' },
 ];
 const clos = (pi, idx, velocity) => ({
     name: `Equipe O - Ité ${pi}.${idx}`, team: 'O', state: 'closed', velocity,
     endDate: `2026-0${idx}-28`,
 });
-// PI 29 → 10 pts/sprint · PI 30 → 20 pts/sprint · PI 28 (plus ancien, à ignorer) → 100
+// PI 29 → 10 pts/sprint · PI 30 → 20 pts/sprint · PI 28 (plus ancien, à ignorer) → 100.
+// Chaque PI se termine par sa respiration (.3), à la vélocité volontairement basse : si elle
+// entrait dans la moyenne, elle la tirerait vers le bas (footgun remonté en revue).
 const HISTORIQUE = [
-    ...[1, 2].map(i => clos(28, i, 100)),
-    ...[1, 2].map(i => clos(29, i, 10)),
-    ...[1, 2].map(i => clos(30, i, 20)),
+    ...[1, 2].map(i => clos(28, i, 100)), clos(28, 3, 2),
+    ...[1, 2].map(i => clos(29, i, 10)),  clos(29, 3, 2),
+    ...[1, 2].map(i => clos(30, i, 20)),  clos(30, 3, 2),
     ...SPRINTS,
 ];
 
@@ -114,27 +119,27 @@ describe('absenceDaysInWindow', () => {
 
 describe('avgVelocityOverLastPis', () => {
     test('ne retient que les 2 derniers PI précédant la cible', () => {
-        const v = cb.avgVelocityOverLastPis(HISTORIQUE, 'O', 31, 2);
+        const v = cb.avgVelocityOverLastPis(HISTORIQUE, 'O', 31, 2, undefined, SPRINTS_PAR_PI);
         assert.deepEqual(v.pis, [29, 30]);
         assert.equal(v.sprintsUsed, 4);
         assert.equal(v.total, 60);
         assert.equal(v.avg, 15, '(10+10+20+20)/4');
     });
     test('le PI 28 est ignoré — sinon sa vélocité de 100 écraserait la moyenne', () => {
-        const v = cb.avgVelocityOverLastPis(HISTORIQUE, 'O', 31, 2);
+        const v = cb.avgVelocityOverLastPis(HISTORIQUE, 'O', 31, 2, undefined, SPRINTS_PAR_PI);
         assert.ok(!v.pis.includes(28));
     });
     test('nbPi=3 élargit bien la fenêtre', () => {
-        const v = cb.avgVelocityOverLastPis(HISTORIQUE, 'O', 31, 3);
+        const v = cb.avgVelocityOverLastPis(HISTORIQUE, 'O', 31, 3, undefined, SPRINTS_PAR_PI);
         assert.deepEqual(v.pis, [28, 29, 30]);
         assert.equal(v.sprintsUsed, 6);
     });
     test('les sprints du PI cible et les non-clos sont exclus', () => {
-        const v = cb.avgVelocityOverLastPis(HISTORIQUE, 'O', 31, 2);
+        const v = cb.avgVelocityOverLastPis(HISTORIQUE, 'O', 31, 2, undefined, SPRINTS_PAR_PI);
         assert.equal(v.sprintsUsed, 4, 'les 2 sprints `future` du PI 31 ne comptent pas');
     });
     test('sans historique, rend une moyenne nulle plutôt qu\'une erreur', () => {
-        const v = cb.avgVelocityOverLastPis([], 'O', 31, 2);
+        const v = cb.avgVelocityOverLastPis([], 'O', 31, 2, undefined, SPRINTS_PAR_PI);
         assert.equal(v.avg, 0);
         assert.equal(v.sprintsUsed, 0);
     });
@@ -167,6 +172,7 @@ describe('piCapacityBase', () => {
     const commun = {
         teamSprints: HISTORIQUE, piSprints: SPRINTS, team: 'O',
         targetPiNum: 31, teamMembers: EQUIPE, rolePctMap: ROLES,
+        sprintsPerPI: SPRINTS_PAR_PI,
     };
 
     test('sans absence : moyenne × nombre de sprints', () => {
@@ -185,7 +191,7 @@ describe('piCapacityBase', () => {
             { memberName: 'Martin, C', team: 'O', startDate: '2026-09-21', endDate: '2026-09-25', type: 'conge' },
         ];
         const b = cb.piCapacityBase({ ...commun, absences: abs });
-        const somme = SPRINTS.reduce((s, sp) => {
+        const somme = SPRINTS.filter(sp => !cb.isBreathSprint(sp.name, SPRINTS_PAR_PI)).reduce((s, sp) => {
             const one = cb.sprintCapacityBase({
                 avg: b.avg, sprint: sp, absences: abs, team: 'O', etp: b.etp,
                 pctOf: n => cb.roleCapacityPct(EQUIPE.find(m => m.name === n)?.role, ROLES),
@@ -231,11 +237,97 @@ describe('piCapacityBase', () => {
     });
 
     test('sprints sans dates : capacité brute rendue, et signalée par dated=0', () => {
-        const sansDates = [{ name: 'Equipe O - Ité 31.1', team: 'O', state: 'future' }];
+        const sansDates = [{ name: 'Equipe O - Ité 31.1', team: 'O', state: 'future' },
+                           { name: 'Equipe O - Ité 31.3', team: 'O', state: 'future' }];
         const b = cb.piCapacityBase({ ...commun, piSprints: sansDates, absences: [] });
         assert.equal(b.dated, 0);
         assert.equal(b.ratio, 0);
         assert.equal(b.points, 15);
+    });
+});
+
+describe('sprint de respiration (IP) — le dernier du PI ne compte pas', () => {
+    // 3 sprints par PI : le 3e est la respiration. Vélocités PI 30 : 20, 20, puis 2 (le
+    // sprint IP livre peu, par nature) — l'inclure tirerait la moyenne de 20 à 14.
+    const AVEC_IP = [
+        { name: 'Equipe O - Ité 29.1', team: 'O', state: 'closed', velocity: 20 },
+        { name: 'Equipe O - Ité 29.2', team: 'O', state: 'closed', velocity: 20 },
+        { name: 'Equipe O - Ité 29.3', team: 'O', state: 'closed', velocity: 2 },
+        { name: 'Equipe O - Ité 30.1', team: 'O', state: 'closed', velocity: 20 },
+        { name: 'Equipe O - Ité 30.2', team: 'O', state: 'closed', velocity: 20 },
+        { name: 'Equipe O - Ité 30.3', team: 'O', state: 'closed', velocity: 2 },
+    ];
+    const PI31 = [
+        { name: 'Equipe O - Ité 31.1', team: 'O', startDate: '2026-09-07', endDate: '2026-09-18', state: 'future' },
+        { name: 'Equipe O - Ité 31.2', team: 'O', startDate: '2026-09-21', endDate: '2026-10-02', state: 'future' },
+        { name: 'Equipe O - Ité 31.3', team: 'O', startDate: '2026-10-05', endDate: '2026-10-16', state: 'future' },
+    ];
+
+    test('breathIdxOf prend le dernier index du PI', () => {
+        assert.equal(cb.breathIdxOf(PI31, 3), 3);
+        assert.equal(cb.isBreathSprint('Equipe O - Ité 31.3', 3), true);
+        assert.equal(cb.isBreathSprint('Equipe O - Ité 31.2', 3), false);
+    });
+
+    test('un PI incomplet ne promeut PAS son dernier sprint connu', () => {
+        // 2 sprints créés sur 5 attendus : le 2e n'est pas la respiration.
+        const partiel = PI31.slice(0, 2);
+        assert.equal(cb.breathIdxOf(partiel, 5), 5);
+        assert.equal(cb.isBreathSprint('Equipe O - Ité 31.2', cb.breathIdxOf(partiel, 5)), false);
+    });
+
+    test('RÉGRESSION : la respiration est exclue de la moyenne de vélocité', () => {
+        const v = cb.avgVelocityOverLastPis(AVEC_IP, 'O', 31, 2, undefined, 3);
+        assert.equal(v.sprintsUsed, 4, 'les deux sprints .3 sont écartés');
+        assert.equal(v.avg, 20, 'et non 14 si on les comptait');
+        assert.equal(v.breathExcluded, 2);
+    });
+
+    test('RÉGRESSION : la respiration ne compte pas dans les sprints du PI visé', () => {
+        const b = cb.piCapacityBase({
+            teamSprints: [...AVEC_IP, ...PI31], piSprints: PI31, team: 'O',
+            absences: [], targetPiNum: 31, teamMembers: EQUIPE, rolePctMap: ROLES, sprintsPerPI: 3,
+        });
+        assert.equal(b.sprintsCount, 2, 'seuls 31.1 et 31.2 sont planifiables');
+        assert.equal(b.sprintsTotal, 3);
+        assert.equal(b.breathCount, 1);
+        assert.equal(b.points, 40, '20 × 2 sprints, et non 60 sur 3');
+    });
+});
+
+describe('roster du PI — un membre sorti ne pèse plus', () => {
+    // Cas réel : une personne retirée de l'équipe pour le PI 31 continuait d'y être comptée,
+    // parce que ses congés restent dans la table absence bien après son départ.
+    const ANCIEN = { memberName: 'Ancien, Z', team: 'O', startDate: '2026-09-07', endDate: '2026-09-18', type: 'conge' };
+
+    test('RÉGRESSION : ses congés ne réduisent pas la capacité', () => {
+        const commun = {
+            teamSprints: HISTORIQUE, piSprints: SPRINTS, team: 'O', targetPiNum: 31,
+            teamMembers: EQUIPE, rolePctMap: ROLES, sprintsPerPI: SPRINTS_PAR_PI,
+        };
+        const sans = cb.piCapacityBase({ ...commun, absences: [] });
+        const avec = cb.piCapacityBase({ ...commun, absences: [ANCIEN] });
+        assert.equal(avec.points, sans.points, 'un ex-membre absent ne change rien');
+        assert.equal(avec.absencesDays, 0);
+    });
+
+    test('et il ne figure pas dans l’effectif affiché', () => {
+        const b = cb.piCapacityBase({
+            teamSprints: HISTORIQUE, piSprints: SPRINTS, team: 'O', targetPiNum: 31,
+            teamMembers: EQUIPE, rolePctMap: ROLES, sprintsPerPI: SPRINTS_PAR_PI,
+            absences: [ANCIEN],
+        });
+        assert.ok(!b.staff.members.some(m => m.name === 'Ancien, Z'));
+        assert.equal(b.staff.members.length, EQUIPE.length);
+    });
+
+    test('sans roster fourni, on retombe sur les absences (comportement de repli)', () => {
+        const b = cb.piCapacityBase({
+            teamSprints: HISTORIQUE, piSprints: SPRINTS, team: 'O', targetPiNum: 31,
+            teamMembers: [], rolePctMap: {}, sprintsPerPI: SPRINTS_PAR_PI, absences: [ANCIEN],
+        });
+        assert.equal(b.staff.members.length, 1, 'le seul nom connu vient des absences');
+        assert.ok(b.absencesDays > 0, 'et son absence compte alors bien');
     });
 });
 

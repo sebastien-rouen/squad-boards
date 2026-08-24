@@ -12,7 +12,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, deriveMembersFromAbsences, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -89,6 +89,9 @@ function _capacityTip(cap, team, piNum, lastAbsence) {
     L.push('');
     L.push(`1. Vélocité réalisée : ${cap.velocityTotal} pts sur ${cap.sprintsUsed} sprints clos`);
     L.push(`   des PI ${cap.pis.join(' et ')} → moyenne ${cap.avg.toFixed(1)} pts/sprint`);
+    if (cap.breathExcluded) {
+        L.push(`   🍃 ${cap.breathExcluded} sprint${cap.breathExcluded > 1 ? 's' : ''} de respiration écarté${cap.breathExcluded > 1 ? 's' : ''} de la moyenne`);
+    }
     L.push('');
     L.push(`2. Effectif compté : ${s.etp.toFixed(2)} ETP (et non ${s.members.length} personnes)`);
     for (const m of s.members) {
@@ -102,7 +105,11 @@ function _capacityTip(cap, team, piNum, lastAbsence) {
     L.push(`   sur ${(cap.openDays * s.etp).toFixed(1)} j-ETP ouvrés (${cap.openDays} j ouvrés × ${s.etp.toFixed(2)} ETP)`);
     L.push(`   → ${pctTxt} % d'indisponibilité`);
     L.push('');
-    L.push(`= ${cap.avg.toFixed(1)} × ${cap.dated || cap.sprintsCount} sprint${(cap.dated || cap.sprintsCount) > 1 ? 's' : ''} = ${cap.gross} pts bruts, − ${pctTxt} % → ${cap.points} pts`);
+    const nbSp = cap.dated || cap.sprintsCount;
+    L.push(`= ${cap.avg.toFixed(1)} × ${nbSp} sprint${nbSp > 1 ? 's' : ''} planifiable${nbSp > 1 ? 's' : ''} = ${cap.gross} pts bruts, − ${pctTxt} % → ${cap.points} pts`);
+    if (cap.breathCount) {
+        L.push(`  (le PI compte ${cap.sprintsTotal} sprints, dont 🍃 le ${cap.breathIdx}ᵉ — respiration, non planifiée)`);
+    }
     if (cap.capped) {
         L.push('');
         L.push(`⚠ Les congés connus s'arrêtent au ${_fmtD(lastAbsence)}, avant la fin du PI :`);
@@ -164,19 +171,23 @@ export function renderHealth(container) {
     // Paramètres → « Capacité dev — % de travail par rôle » (/#settings/cap-roles) ;
     // l'appartenance à une équipe vient des absences (CSV RH), le rôle de la table members.
     const _rolePctMap   = piInfo?.roleCapacity || {};
-    // `deriveMembersFromAbsences` joint sur (nom, équipe) : quelqu'un qui pose des congés sur
-    // une équipe sans y être déclaré en ressort SANS rôle, donc compté à 100 % par défaut.
-    // On complète par son rôle connu ailleurs — c'est ce que ferait un humain devant la liste,
-    // et cela évite de compter un Product Owner comme un dev à plein temps.
+    // Roster du PI VISÉ — `effectiveRosterForPi` lit le snapshot `piInfo.piMembers[<PI>]`,
+    // qui est la composition réellement validée pour ce PI. Ne PAS partir des absences seules :
+    // les congés d'une personne SORTIE de l'équipe y restent, et elle continuerait donc de
+    // peser dans la capacité d'un PI où elle n'est plus (constaté sur Gabbiano au PI 31).
+    // Repli sur les absences quand aucun snapshot n'existe pour ce PI.
+    // `teamNameMatches` : le snapshot peut porter « Team Gabbiano » là où l'équipe est « Gabbiano ».
     const _roleAnywhere = new Map();
     for (const m of members) if (m.name && m.role) _roleAnywhere.set(m.name, m.role);
-    const _effMembers = deriveMembersFromAbsences(absences, members)
+    const _rosterPi = effectiveRosterForPi(piInfo, targetPiNum, absences, members)
         .map(m => m.role ? m : { ...m, role: _roleAnywhere.get(m.name) || '' });
+    const _membersOfTeam = tm => _rosterPi.filter(m => teamNameMatches(m.team, tm));
     // Même pondération par rôle pour le PI et pour chaque sprint : sans elle, les congés
     // d'un Product Owner (0 %) rogneraient une capacité à laquelle il ne contribue pas.
     const _pctOfFor = cap => {
         const byName = new Map((cap?.staff?.members || []).map(m => [m.name, m.pct]));
-        return name => (byName.has(name) ? byName.get(name) : 100);
+        // Hors roster du PI → 0 : voir utils/capacity-base.js, même règle des deux côtés.
+        return name => (byName.has(name) ? byName.get(name) : 0);
     };
     // La colonne ✊ Confiance porte sur le PI entier, pas sur le sprint mesuré à côté :
     // son sous-titre nomme donc toujours le PI, y compris à l'offset 0.
@@ -468,12 +479,15 @@ export function renderHealth(container) {
                 const capBase = piCapacityBase({
                     teamSprints: sprintInfo.teamSprints || [],
                     piSprints, team: tm, absences, targetPiNum, lastAbsenceDate: _lastAbsence,
-                    teamMembers: _effMembers.filter(m => m.team === tm),
+                    teamMembers: _membersOfTeam(tm),
                     rolePctMap: _rolePctMap,
+                    sprintsPerPI: piInfo?.sprintsPerPI || 0,
                 });
                 const capBySprint = {};
                 if (capBase) {
                     for (const sp of piSprints) {
+                        // Pas de charge suggérée sur la respiration : on n'y engage rien.
+                        if (isBreathSprint(sp.name, capBase.breathIdx)) continue;
                         const b = sprintCapacityBase({
                             avg: capBase.avg, sprint: sp, absences, team: tm,
                             etp: capBase.etp, pctOf: _pctOfFor(capBase),
@@ -828,6 +842,10 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         const chargeKey  = `sb-charge-${s.name}`;
         const chargeSaved = localStorage.getItem(chargeKey);
         const capSp = meta.capBySprint?.[s.name] || null;
+        // 🍃 Respiration : rien n'y est engagé, donc aucune charge n'y est suggérée. Le sprint
+        // reste affiché — il existe — mais il est marqué pour qu'on ne le prenne pas pour une
+        // itération de production oubliée.
+        const isBreath = !!meta.capBase && isBreathSprint(s.name, meta.capBase.breathIdx);
         const chargeSuggested = chargeSaved == null && !(s.estimated > 0) && !!capSp;
         const chargeVal  = chargeSaved != null ? chargeSaved
             : (s.estimated > 0 ? String(s.estimated)
@@ -841,7 +859,9 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                 + ` — détail dans l'infobulle 🎯 Base capacité de la matrice`
                 + (capSp.capped ? `\n⚠ Congés connus jusqu'au ${_fmtD(_lastKnownAbsence)} seulement : absences sous-estimées, base optimiste.` : '')
                 + `\n\nRepère de PI Planning — saisir une valeur pour la remplacer.`
-            : "Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)";
+            : isBreath
+                ? "🍃 Sprint de respiration (IP) — rien n'y est planifié, il ne compte pas dans la Base capacité. Saisie possible malgré tout."
+                : "Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)";
         // Cellules Vélo/Buffer cliquables → section tickets en bas.
         // COHÉRENCE : « réalisé » = somme des Story Points des tickets Done locaux quand on les a
         // (= total affiché dans la section). Fallback sur la vélocité JIRA (greenhopper) sinon.
@@ -878,8 +898,8 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         _add('bufPts', _isPastOrActive || bufPlanPts ? bufPlanPts : '—');
         _add('buf', buf);
 
-        return `<tr class="${isRef ? 'htl-sprint-row--ref' : ''}">
-            <td class="htl-spr-name">${isRef ? `<strong>${esc(s.name)}</strong>` : esc(s.name)}</td>
+        return `<tr class="${isRef ? 'htl-sprint-row--ref' : ''}${isBreath ? ' htl-sprint-row--breath' : ''}">
+            <td class="htl-spr-name">${isRef ? `<strong>${esc(s.name)}</strong>` : esc(s.name)}${isBreath ? ' <span class="htl-breath-chip" title="Sprint de respiration (IP) — non planifié, exclu de la Base capacité">🍃</span>' : ''}</td>
             <td class="htl-spr-date">${_fmtD(s.startDate)}</td>
             <td class="htl-spr-state">${_stateBadge(s.state)}</td>
             <td class="htl-spr-vote">${moodHtml}</td>

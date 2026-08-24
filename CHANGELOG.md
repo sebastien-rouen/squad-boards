@@ -1,3 +1,52 @@
+## [3.141.18] - 2026-08-24
+
+### Base capacité — le sprint de respiration ne compte pas
+
+Signalé en revue : la modale du PI 31 comptait son dernier sprint. Le **sprint de respiration**
+(IP sprint SAFe, 🍃) ne se planifie pas — l'inclure ajoutait une itération entière de capacité
+fictive, et sa vélocité volontairement basse tirait la moyenne des PI passés vers le bas.
+
+- `breathIdxOf()` / `isBreathSprint()` (utils/capacity-base.js) : la respiration est le
+  **dernier** sprint du PI, identifié par `max(sprintsPerPI configuré, plus grand index
+  observé)`. Ce `max` importe : sur un PI dont tous les sprints ne sont pas encore créés
+  (2 connus sur 5), le dernier connu n'est PAS la respiration, et l'exclure amputerait la base
+  d'un sprint réel.
+- Elle est écartée **des deux côtés** : de la moyenne de vélocité des PI passés, et du décompte
+  des sprints du PI visé. La modale affiche la ligne, marquée 🍃 et atténuée, sans charge
+  suggérée — le sprint existe, il n'est simplement pas planifié.
+- ⚠️ `pi.js::_isIpSprint` garde une règle **différente** (respiration seulement si le PI compte
+  ≥ 6 sprints). Les deux coexistent volontairement : celle retenue ici suit l'affichage 🍃 de
+  la Sprint Review, qui traite toujours le dernier sprint en respiration. Divergence signalée
+  en commentaire dans les deux fichiers.
+
+### Base capacité — le roster du PI fait foi, pas les congés
+
+Signalé en revue : un membre retiré de Gabbiano pour le PI 31 continuait d'y être compté.
+
+**Cause** : l'effectif était dérivé de la table `absence`, où les congés d'une personne
+**sortie de l'équipe** restent bien après son départ.
+
+- L'effectif vient désormais de `effectiveRosterForPi()` → snapshot `piInfo.piMembers[<PI>]`,
+  la composition réellement validée pour ce PI (repli sur les absences si aucun snapshot).
+  Appariement d'équipe par `teamNameMatches` : le snapshot peut porter « Team Gabbiano ».
+- **Les absences hors roster sont ignorées** (`pctOf` → 0) : sans cela, les congés de l'ex-membre
+  auraient continué de réduire la capacité d'un PI auquel il ne participe plus.
+- Gabbiano PI#31 : **6 personnes / 5,00 ETP → 5 personnes / 4,00 ETP**, base **46 → 35 pts**
+  (cumul des deux corrections de cette version). Le roster porte aussi les rôles, ce qui fait
+  disparaître l'avertissement « rôle inconnu » qui subsistait.
+
+### Tests — rendu de la vue Health (129 tests au total)
+
+`health-render.test.mjs` couvre la dernière partie non testée du chemin, celle où les erreurs
+ne se voient qu'à l'écran (une variable oubliée dans une déstructuration passe `node --check`
+sans broncher, comme `carriedCount is not defined` rencontré en développement). Verrouillé :
+
+- le total « Charge prévue » de la modale **égale** la Base capacité de la matrice ;
+- la respiration n'est ni comptée, ni suggérée, et porte son 🍃 ;
+- une saisie manuelle prime sur la suggestion et perd son marquage ;
+- un ticket reporté est barré et ne gonfle pas la vélocité réalisée ;
+- la colonne Base capacité n'apparaît que sur un PI à venir.
+
 ## [3.141.17] - 2026-08-24
 
 ### Base capacité — l'effectif se compte en ETP, pas en têtes

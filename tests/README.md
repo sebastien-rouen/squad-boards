@@ -26,7 +26,8 @@ node --test --test-name-pattern "itérations" "tests/*.test.mjs"
 | `csv-conges.test.mjs` | parser pivot RH, consolidation, replis |
 | `jira-section.test.mjs` | rendu de la section JIRA, échappement XSS, câblage |
 | `sprint-scope.test.mjs` | périmètre d'un sprint : engagement (reports compris) vs réalisé |
-| `capacity-base.test.mjs` | base de capacité PI : ETP par rôle, absences pondérées, somme = total |
+| `capacity-base.test.mjs` | base de capacité PI : ETP par rôle, absences pondérées, respiration, roster |
+| `health-render.test.mjs` | rendu Health : matrice, modale, charge suggérée, reports barrés |
 
 `helpers/env.mjs` installe les globales (`document`, `localStorage`, `fetch`…),
 `helpers/fixtures.mjs` fournit un jeu de données **synthétique** — aucun nom réel — mais calqué

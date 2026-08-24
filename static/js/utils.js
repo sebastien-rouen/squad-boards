@@ -10,6 +10,7 @@ export * from './utils/wiki.js';
 export * from './utils/modals.js';
 export * from './utils/support.js';
 export * from './utils/sprint-scope.js';
+export * from './utils/capacity-base.js';
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
 import { extractSprintLabel } from './utils/sprint-scope.js';   // usages internes à ce fichier

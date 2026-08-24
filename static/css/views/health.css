@@ -327,6 +327,20 @@
 /* Dans la matrice la valeur n'est pas cliquable en propre : c'est la cellule qui l'est. */
 .health-fist-cell .htl-vote-val { cursor: inherit; }
 
+/* Colonne 🎯 Base capacité — projection, pas mesure : elle n'apparaît que sur un PI à venir.
+   Teinte info (bleu) pour la distinguer d'emblée des colonnes mesurées à côté. */
+.health-capa-col { color: var(--info); }
+.health-capa-cell {
+    border-left: 2px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+    text-align: center !important;
+    white-space: nowrap;
+    color: var(--info);
+    font-weight: var(--fw-semibold);
+    cursor: help;
+}
+/* Congés connus s'arrêtant avant la fin du PI : la base est un plafond, pas une prévision. */
+.health-capa-cell--capped { color: var(--warning); }
+
 .health-metric-cell {
     border-left: 2px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
     cursor: default;
@@ -606,6 +620,15 @@
     border-color: var(--primary);
     background: var(--surface);
     outline: none;
+}
+/* Valeur SUGGÉRÉE (base de capacité calculée), pas saisie : en italique et en teinte info,
+   pour qu'on ne la prenne pas pour une décision de l'équipe. Elle n'est pas persistée —
+   le style disparaît dès la première saisie. */
+.htl-charge-input--suggested {
+    color: var(--info);
+    font-style: italic;
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--info) 45%, transparent);
 }
 
 /* Cellules de vote (🎭 Mood, ✊ Confiance) — teinte selon la moyenne (0-5).

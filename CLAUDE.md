@@ -69,6 +69,18 @@ python main.py          # http://localhost:3001  — Swagger /docs
   (retourne un release à appeler à la fermeture). Confirmations : `confirmDanger()` — jamais `confirm()` natif.
 - **Convention JIRA sprint** (mémoire `project_jira_sprint_conventions`) : `Cadrage_PIXX` = cadrage, `PI#XX` = features, `PIXX` = tickets standalone.
 
+## Tests (`npm test`)
+
+Suites `node:test` dans [tests/](tests/) — 68 tests, aucune dépendance, ~1 s. Détail :
+[tests/README.md](tests/README.md).
+- `node --test tests/` **échoue** sur Node 22 → toujours un motif : `node --test "tests/*.test.mjs"`.
+- Importer `tests/helpers/env.mjs` AVANT tout module applicatif (`state.js` lit `localStorage`
+  au chargement) — d'où les `await import()` dans un `before()`.
+- Le faux DOM doit **échapper réellement** : `esc()` passe par `createElement` + `textContent`,
+  un stub naïf lui fait renvoyer `''` et vide silencieusement les rendus testés.
+- Fixtures **synthétiques** (aucun nom réel) mais calquées sur les pièges de prod — ne pas les
+  « simplifier », chaque particularité correspond à une régression passée.
+
 ## Documentation détaillée (lire à la demande)
 - **[docs/regles-metier.md](docs/regles-metier.md)** — tables SQLite, conventions, PI/matching, filtrage équipe, import CSV absences, modes & rotation support, team mapping, exclusions tickets, raccourcis clavier, liste des vues.
 - **[docs/plugin-jira.md](docs/plugin-jira.md)** — 5 passes de sync, pagination, champs custom, normalisation équipes, héritage features, settings localStorage, pages de debug `/tests/`.

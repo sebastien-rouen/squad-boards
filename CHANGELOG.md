@@ -1,3 +1,39 @@
+## [3.141.11] - 2026-08-24
+
+### Tests — suite `node:test` durable (`npm test`)
+
+- Les vérifications écrites au fil de la journée vivaient dans un dossier temporaire : elles sont
+  désormais dans [tests/](tests/) — **68 tests, 21 suites, ~1 s**, sans dépendance ni navigateur.
+
+  | Suite | Couvre |
+  |---|---|
+  | `rotation.test.mjs` | matching d'équipe, roster du shuffle, en-tête de colonne, itérations |
+  | `pi-weeks.test.mjs` | égalité Rotation ↔ Support sur 9 configurations, ancrage, régularité |
+  | `pi-config.test.mjs` | priorité des sources `pi-cfg-<N>`, fusion, écart PI ↔ Congés |
+  | `recalage.test.mjs` | bandeau « Recaler ce PI sur les Congés », effet et retour arrière |
+  | `objectifs-pi.test.mjs` | rendu des objectifs et envoi réel de l'enregistrement |
+  | `csv-conges.test.mjs` | parser pivot RH, consolidation, replis |
+  | `jira-section.test.mjs` | rendu de la section JIRA, échappement XSS, câblage |
+
+- `helpers/fixtures.mjs` : jeu de données **synthétique** (aucun nom réel) mais calqué sur les
+  pièges de production — équipe « **O** » d'une lettre, PI 30 à 6 itérations / PI 31 à 5, sprint
+  `31.1` démarrant un **dimanche**, boards `PI#32`/`PI#33` sans sprint, `piInfo.startDate` périmée.
+  Chaque particularité a causé un bug réel ; le fichier le documente.
+- `helpers/env.mjs` : environnement DOM minimal, factorisé (il était dupliqué dans chaque test).
+  Son faux élément **échappe réellement** — `esc()` passant par `createElement` + `textContent`,
+  un stub naïf lui fait renvoyer une chaîne vide et efface silencieusement tout le contenu
+  interpolé des rendus testés.
+- ⚠️ `node --test tests/` échoue sur Node 22 (il charge `tests` comme un fichier) : le script npm
+  passe un motif — `node --test "tests/*.test.mjs"`.
+
+### Refactorisation — exports pour les tests
+
+- `_detectSprintsPerPI` et `_rotFirstWorkday` (settings-rotation.js), `_supPiWeeks` (support.js) et
+  `renderObjectives` (pi.js) sont exportés. Les suites importent les modules directement, au lieu
+  d'en fabriquer une copie « sonde » à chaque exécution.
+
+---
+
 ## [3.141.10] - 2026-08-24
 
 ### Maquette #team — verrou des rituels imposés + les 13 équipes

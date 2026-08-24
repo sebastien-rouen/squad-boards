@@ -11,6 +11,7 @@ import {
     isMemberSupportActive, setMemberSupportActive, getInactiveSupportMembers,
     friendlyDateField, wireFriendlyDates, fmtDateFriendly, getCurrentPi, promptModal, choiceModal,
     exportChoiceModal, arrayToCsv, diagramFrameHtml, teamNameMatches, ioTabModal, confirmDanger,
+    effectiveRosterForPi,
 } from '../utils.js';
 import { makePersonPicker } from '../components/modal.js';
 import { addExcludedTeam, getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
@@ -4243,16 +4244,7 @@ function _rotRenderPanels(container, support) {
  * Partagé entre le shuffle par équipe et le shuffle de groupe.
  */
 async function _shuffleOneTeam(teamName) {
-    const absences    = store.get('absences') || [];
-    const allMembers  = deriveMembersFromAbsences(absences, store.get('members') || []);
-    const _norm = s => (s || '').toLowerCase().trim();
-    const target = _norm(teamName);
-    const teamMembers = allMembers
-        .filter(m => { const t = _norm(m.team); return t === target || (target && t && (t.includes(target) || target.includes(t))); })
-        .map(m => m.name);
-    if (!teamMembers.length) return { ok: false, reason: `Aucun membre rattaché à "${teamName}"` };
-    const activeMembers = teamMembers.filter(isMemberSupportActive);
-    if (!activeMembers.length) return { ok: false, reason: `Tous les membres de "${teamName}" sont inactifs pour le support` };
+    const absences = store.get('absences') || [];
     const mpw      = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
     const teamMode = getSupportWeekMode(teamName);
     // `selectedWeeks` = les semaines RÉELLEMENT affichées par la grille pour le PI
@@ -4271,6 +4263,18 @@ async function _shuffleOneTeam(teamName) {
     const { selectedWeeks, selectedPiNum } = _rotBuildPiWeeks(teamName);
     const weeks = selectedWeeks || [];
     if (!weeks.length) return { ok: false, reason: `Aucune semaine calculée pour le PI ${selectedPiNum || '?'} — vérifier la date de début du PI` };
+    // Roster = EXACTEMENT celui affiche par la grille : snapshot du PI selectionne s'il
+    // existe (turnover PI a PI), sinon derivation des absences — via effectiveRosterForPi,
+    // comme la grille, l'agenda et l'info-panel. Le shuffle piochait avant dans le roster
+    // GLOBAL avec un matching maison par sous-chaine : l'equipe "O" etant contenue dans
+    // "Fuego"/"Gabbiano"/"Lion"/"Cameleon", ses membres etaient tires puis ecrits en base
+    // (total "3/3") sans avoir de ligne dans la grille -> "la semaine n'affiche que 2 personnes".
+    const teamMembers = effectiveRosterForPi(store.get('piInfo'), selectedPiNum, absences, store.get('members') || [])
+        .filter(m => teamNameMatches(m.team, teamName))
+        .map(m => m.name);
+    if (!teamMembers.length) return { ok: false, reason: `Aucun membre rattaché à "${teamName}"` };
+    const activeMembers = teamMembers.filter(isMemberSupportActive);
+    if (!activeMembers.length) return { ok: false, reason: `Tous les membres de "${teamName}" sont inactifs pour le support` };
     const existingSupport = (store.get('support') || []).filter(s => s.team === teamName);
     const rotations = generateSupportRotation({
         team: teamName, weeks, memberNames: activeMembers, absences, existingSupport,
@@ -4844,15 +4848,20 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
     const allWeeks   = selectedWeeks;
     const panelPiNum = selectedPiNum;
 
+    // Compte UNIQUEMENT les membres qui ont une ligne dans la grille. Une rotation déjà
+    // en base peut contenir un nom hors roster du PI affiché (turnover, ou — avant le fix —
+    // équipe aspirée par l'ancien matching par sous-chaîne : "O" ⊂ "Fuego") : le compter
+    // affichait "3/3" sur une semaine où l'œil ne voit que 2 personnes. L'écart se lit
+    // maintenant directement dans le total (2/3 en orange → relancer le Shuffle).
+    const _rosterSet = new Set(teamMembers);
+    const _weekCount = (w) => {
+        const e = teamSupport.find(s => s.weekStart === w.weekStart);
+        return (e?.members || []).filter(m => _rosterSet.has(m)).length;
+    };
+
     // Résumé sur le PI affiché (pas toujours le courant)
-    const filledWeeks = allWeeks.filter(w => {
-        const e = teamSupport.find(s => s.weekStart === w.weekStart);
-        return e && (e.members || []).length > 0;
-    }).length;
-    const fullWeeks = allWeeks.filter(w => {
-        const e = teamSupport.find(s => s.weekStart === w.weekStart);
-        return e && (e.members || []).length === mpw;
-    }).length;
+    const filledWeeks = allWeeks.filter(w => _weekCount(w) > 0).length;
+    const fullWeeks   = allWeeks.filter(w => _weekCount(w) === mpw).length;
     const summaryColor = fullWeeks === allWeeks.length ? 'var(--success)' : filledWeeks > 0 ? 'var(--warning)' : 'var(--danger)';
     const piLabel = panelPiNum ? `PI ${panelPiNum}` : '';
     const activeCount = teamMembers.filter(isMemberSupportActive).length;
@@ -4950,8 +4959,7 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
     };
 
     const mkCountCell = (w, isNext) => {
-        const entry = teamSupport.find(s => s.weekStart === w.weekStart);
-        const cnt   = entry ? (entry.members || []).length : 0;
+        const cnt   = _weekCount(w);
         const isCur = today >= w.weekStart && today <= w.weekEnd;
         const cls   = cnt === mpw ? 'rot-count-ok' : cnt > 0 ? 'rot-count-partial' : '';
         return `<td class="rot-cell rot-count-cell ${cls}${isCur ? ' rot-cell-current' : ''}${isNext ? ' rot-cell-next-pi' : ''}">${cnt}/${mpw}</td>`;

@@ -71,8 +71,10 @@
         </div>
 
         <div class="tcal-tools">
+            <label class="sr-only" for="tcal-team">Équipe</label>
+            <select class="tcal-team-select" id="tcal-team" aria-label="Choisir l’équipe"></select>
             <div class="tcal-seg" role="group" aria-label="Vue du calendrier">
-                <button data-view="iteration" aria-pressed="true">Itération 30.6</button>
+                <button data-view="iteration" aria-pressed="true" id="tcal-view-ite">Itération</button>
                 <button data-view="week" aria-pressed="false">Semaine type</button>
             </div>
             <span class="tcal-spacer"></span>
@@ -87,6 +89,7 @@
             </div>
         </div>
 
+        <p class="tcal-sub" id="tcal-sub"></p>
         <div class="load-tile" id="tcal-load" style="margin-bottom:var(--sp-3)"></div>
 
         <div class="tcal-grid-wrap">
@@ -127,18 +130,21 @@
     </div>
 </main>
 
-<script src="../agenda/data.js"></script>
-<script src="data-team.js"></script>
+<script>
+// shell.js attend `AGENDA_MOCK` : cette page a ses propres données (data-teams.js),
+// on lui fournit une coquille vide plutôt que de charger 187 Ko en double.
+window.AGENDA_MOCK = { team: '', today: '', iteration: {}, events: [], off: {}, absences: [], support: [] };
+</script>
+<script src="data-teams.js"></script>
 <script src="../agenda/shell.js"></script>
 <script src="../agenda/parts.js"></script>
 <script>
-// ── En-tête équipe : miroir de renderTeam(), avec les vraies données ────────
+// ── En-tête équipe : miroir de renderTeam(), rejoué à chaque changement ─────
 (function () {
     'use strict';
     const { esc } = window.MK;
-    const T = window.TEAM_MOCK;
 
-    // « BASSO, Lucas » → « LB » (même esprit que initials() du site)
+    // « BASSO, Lucas » → « BL » (même esprit que initials() du site)
     const initials = n => n.split(/[,\s]+/).filter(Boolean).slice(0, 2)
         .map(p => p[0].toUpperCase()).join('');
     // Couleur stable dérivée du nom, comme hashColor()
@@ -148,15 +154,21 @@
         return `hsl(${h} 55% 55%)`;
     };
 
-    document.getElementById('team-swatch').style.background = T.color;
-    document.getElementById('team-name').textContent = T.team;
-    document.getElementById('roster-label').textContent = `Membres (${T.members.length})`;
-    document.getElementById('roster').innerHTML = T.members.map(m => `
-        <button type="button" class="team-id-member-chip${m.role ? ' has-role' : ''}"
-                title="${esc(m.role ? `${m.name} — ${m.role}` : m.name)}">
-            <span class="assignee-avatar" style="background:${hashColor(m.name)}">${esc(initials(m.name))}</span>
-            <span class="team-id-member-name">${esc(m.name)}</span>
-        </button>`).join('');
+    window.renderTeamHeader = function (T) {
+        const sw = document.getElementById('team-swatch');
+        sw.style.background = T.color;
+        sw.textContent = T.team.slice(0, 2).toUpperCase();
+        document.getElementById('team-name').textContent = T.team;
+        document.getElementById('roster-label').textContent = `Membres (${T.members.length})`;
+        document.getElementById('roster').innerHTML = T.members.length
+            ? T.members.map(m => `
+                <button type="button" class="team-id-member-chip${m.role ? ' has-role' : ''}"
+                        title="${esc(m.role ? `${m.name} — ${m.role}` : m.name)}">
+                    <span class="assignee-avatar" style="background:${hashColor(m.name)}">${esc(initials(m.name))}</span>
+                    <span class="team-id-member-name">${esc(m.name)}</span>
+                </button>`).join('')
+            : '<span class="text-muted text-sm">Aucun membre — importer les absences pour peupler la liste.</span>';
+    };
 
     document.getElementById('mk-theme').addEventListener('click', () => {
         const r = document.documentElement;
@@ -167,6 +179,7 @@
     });
 })();
 </script>
+<script src="exports.js"></script>
 <script src="calendar.js"></script>
 </body>
 </html>

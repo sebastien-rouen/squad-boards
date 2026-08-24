@@ -15,8 +15,8 @@ import {
     supportDaysForMember, supportAbsenceDayLevel, isMemberSupportActive, setMemberSupportActive,
     promptModal, teamNameMatches, confirmDanger, effectiveRosterForPi,
 } from '../utils.js';
-import { loadPiCfg } from '../utils/pi-config.js';
-import { buildPiWeeks, detectSprintsPerPI, jiraSprint1Start } from '../utils/pi-weeks.js';
+import { loadPiCfg, savePiCfg } from '../utils/pi-config.js';
+import { buildPiWeeks, detectSprintsPerPI, jiraSprint1Start, piStartDate } from '../utils/pi-weeks.js';
 
 async function _rotRefreshPanels(container) {
     const panelsEl = container.querySelector('#rot-panels');
@@ -115,6 +115,46 @@ async function _shuffleOneTeam(teamName) {
 
 /** Câble tous les handlers data-rot-* sur les panneaux dans container */
 function _rotWirePanelEvents(container) {
+    // ── Recalage du PI sur les dates des Congés (et retour arrière) ───────────
+    container.querySelector('#rot-recal-conges')?.addEventListener('click', async () => {
+        const piNum = parseInt(container.querySelector('#rot-recal-conges')?.dataset.pi) || 0;
+        const cfg = loadPiCfg(piNum);
+        if (!piNum || !cfg) return;
+        // Les rotations enregistrées sont appariées sur weekStart : on annonce combien
+        // décrocheront de la grille après recalage (elles restent en base, jamais supprimées).
+        const avant = new Set((_rotBuildPiWeeks().selectedWeeks || []).map(w => w.weekStart));
+        const impactees = (store.get('support') || []).filter(s => avant.has(s.weekStart) && (s.members || []).length);
+        const lignes = [
+            `Début du PI : ${_rotFmtShort(piStartDate(store.get('sprintInfo'), piNum))} → ${_rotFmtShort(cfg.startDateFromCsv)}`,
+            cfg.sprintsPerPIFromCsv ? `Itérations : ${cfg.sprintsPerPIFromCsv}` : '',
+            impactees.length
+                ? `⚠ ${impactees.length} semaine(s) déjà remplie(s) ne seront plus alignées sur la grille — relancer un Shuffle après recalage (rien n'est supprimé).`
+                : 'Aucune rotation enregistrée sur ce PI : recalage sans effet de bord.',
+        ].filter(Boolean).join('\n');
+        if (!(await confirmDanger(`Recaler le PI ${piNum} sur les Congés`, lignes,
+            { confirmLabel: 'Recaler', danger: impactees.length > 0 }))) return;
+        savePiCfg(piNum, {
+            startDate: cfg.startDateFromCsv,
+            ...(cfg.sprintsPerPIFromCsv ? { sprintsPerPI: cfg.sprintsPerPIFromCsv } : {}),
+        }, { manual: true });
+        toast(`PI ${piNum} calé sur les Congés — début ${_rotFmtShort(cfg.startDateFromCsv)}`, 'success');
+        _rotRenderPanels(container, store.get('support') || []);
+    });
+
+    container.querySelector('#rot-recal-jira')?.addEventListener('click', async () => {
+        const piNum = parseInt(container.querySelector('#rot-recal-jira')?.dataset.pi) || 0;
+        const cfg = loadPiCfg(piNum);
+        if (!piNum || !cfg) return;
+        if (!(await confirmDanger(`Revenir aux dates JIRA pour le PI ${piNum}`,
+            `Les semaines repartiront de la date du sprint ${piNum}.1 dans JIRA.\nLes rotations enregistrées ne sont pas modifiées.`,
+            { confirmLabel: 'Revenir à JIRA' }))) return;
+        const manual = { ...(cfg.manual || {}) };
+        delete manual.startDate;
+        delete manual.sprintsPerPI;
+        savePiCfg(piNum, { manual });
+        toast(`PI ${piNum} : dates JIRA rétablies`, 'info');
+        _rotRenderPanels(container, store.get('support') || []);
+    });
     // Collapse toggle (pas d'appel API)
     container.querySelectorAll('[data-rot-toggle]').forEach(hdr => {
         hdr.addEventListener('click', () => {
@@ -561,10 +601,41 @@ function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
             : '<p class="text-muted text-sm">Ajoutez des membres aux équipes (ou importez le CSV congés) pour configurer la rotation.</p>';
     }
 
+    // ── Bandeau « Recaler ce PI sur les Congés » ─────────────────────────────
+    // L'import du CSV RH connaît les vraies dates du PI (1re et dernière colonne du pivot) mais
+    // n'écrase JAMAIS l'ancrage d'un PI déjà configuré : `weekStart` est la clé d'appariement des
+    // rotations en base, la changer les rendrait invisibles. Le recalage est donc un geste
+    // explicite, PI par PI — et réversible.
+    const _piAffiche   = _sp || curPiNum;
+    const _cfgPi       = loadPiCfg(_piAffiche);
+    const _sprintInfo  = store.get('sprintInfo');
+    const _startUtil   = piStartDate(_sprintInfo, _piAffiche);
+    const _sprintsUtil = detectSprintsPerPI(_sprintInfo, _piAffiche, store.get('piInfo')?.sprintsPerPI || 5);
+    const _recale      = !!_cfgPi?.manual?.startDate && _cfgPi.startDate === _cfgPi.startDateFromCsv;
+    const _ecartDate   = _cfgPi?.startDateFromCsv && _cfgPi.startDateFromCsv !== _startUtil;
+    const _ecartCnt    = _cfgPi?.sprintsPerPIFromCsv && _cfgPi.sprintsPerPIFromCsv !== _sprintsUtil;
+    let congesBanner = '';
+    if (_recale) {
+        congesBanner = `<div class="rot-conges-banner rot-conges-banner--on">
+            📅 <strong>PI ${esc(String(_piAffiche))}</strong> calé sur les <strong>Congés</strong> — début ${_rotFmtShort(_cfgPi.startDate)}.
+            <button type="button" class="btn btn-xs btn-secondary" id="rot-recal-jira" data-pi="${esc(String(_piAffiche))}"
+                    title="Revenir à la date du sprint .1 dans JIRA">↩ Revenir aux dates JIRA</button>
+        </div>`;
+    } else if (_ecartDate || _ecartCnt) {
+        const details = [
+            _ecartDate ? `début <strong>${_rotFmtShort(_cfgPi.startDateFromCsv)}</strong> <span class="text-muted">(grille : ${_rotFmtShort(_startUtil)})</span>` : '',
+            _ecartCnt  ? `<strong>${_cfgPi.sprintsPerPIFromCsv}</strong> itérations <span class="text-muted">(grille : ${_sprintsUtil})</span>` : '',
+        ].filter(Boolean).join(' · ');
+        congesBanner = `<div class="rot-conges-banner">
+            📅 Les <strong>Congés importés</strong> du PI ${esc(String(_piAffiche))} indiquent ${details}.
+            <button type="button" class="btn btn-xs btn-primary" id="rot-recal-conges" data-pi="${esc(String(_piAffiche))}"
+                    title="Aligner les semaines de ce PI sur les dates du CSV Congés">Recaler ce PI sur les Congés</button>
+        </div>`;
+    }
     const snapshotBanner = _usingSnapshot
         ? `<div class="rot-snapshot-banner">👥 Membres du <strong>snapshot PI ${esc(String(_sp || curPiNum))}</strong> (figés à l'import CSV). <span class="text-muted">Le turnover d'autres PI n'affecte pas cette vue.</span></div>`
         : '';
-    return snapshotBanner + (panels || emptyHint);
+    return congesBanner + snapshotBanner + (panels || emptyHint);
 }
 
 /** Rend le panneau d'une équipe avec sa grille membre×semaine. Le switch PI sélectionne

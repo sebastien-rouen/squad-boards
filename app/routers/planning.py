@@ -2,6 +2,8 @@
 
 Inclut l'historisation des objectifs PI (snapshot par numéro de PI).
 """
+import re
+
 from fastapi import APIRouter, Request, Depends
 from sqlmodel import Session
 
@@ -11,6 +13,25 @@ from app.models import SprintConfig, PIConfig
 from app.serializers import _sprint_dict, _pi_dict
 
 router = APIRouter(tags=["planning"])
+
+
+def _current_pi_number(session: Session, p: PIConfig | None) -> int:
+    """Numéro du PI courant — MÊME dérivation que le front (`_extractPi(sprintInfo.name)`).
+
+    ⚠️ `PIConfig.number` vaut 0 en base : le PI courant n'est jamais écrit, il est déduit du
+    sprint JIRA actif (ex. "Team A - Itération 30.6" → 30). Les gardes `if p.number` étaient
+    donc TOUJOURS fausses : `set_pi_objectives()` ne synchronisait jamais `objectives` (le jeu
+    vivant) et `update_pi()` ne prenait jamais de snapshot. Comme la lecture du PI courant
+    privilégie `objectives` sur `pi_objectives[n]` (cf. resolvePiObjectives, utils.js), un
+    enregistrement passé par /api/pi/objectives/{n} restait invisible : l'écran réaffichait
+    les anciennes valeurs après rafraîchissement.
+    """
+    s = session.get(SprintConfig, "sprint-1")
+    name = (s.name if s else "") or ""
+    m = re.search(r"(\d+)\.\d+", name) or re.search(r"PI\s*#?\s*(\d+)", name, re.IGNORECASE)
+    if m:
+        return int(m.group(1))
+    return p.number if p and p.number else 0
 
 
 # ── Sprint config ────────────────────────────────────────────────────────────
@@ -73,9 +94,10 @@ async def update_pi(request: Request, session: Session = Depends(get_session)):
     # Historisation auto : à chaque save des objectifs du PI courant, on snapshot dans
     # pi_objectives[number] pour que les PI passés restent consultables (dashboard / sélecteur).
     # Le snapshot ne s'écrase qu'à la clé du PI courant — les autres PI sont préservés.
-    if "objectives" in body and p.number:
+    cur_pi = _current_pi_number(session, p)
+    if "objectives" in body and cur_pi:
         snap = dict(p.pi_objectives or {})
-        snap[str(p.number)] = p.objectives or []
+        snap[str(cur_pi)] = p.objectives or []
         p.pi_objectives = snap
     p.updated_at = _now()
     session.add(p)
@@ -141,7 +163,10 @@ async def set_pi_objectives(pi_number: int, request: Request, session: Session =
     current = dict(p.pi_objectives or {})
     current[str(pi_number)] = objectives
     p.pi_objectives = current
-    if p.number and pi_number == p.number:
+    # Le PI courant garde `objectives` (jeu vivant) aligne sur son snapshot : sans cela,
+    # la lecture du PI courant (qui privilegie `objectives`) ignore l'enregistrement.
+    cur_pi = _current_pi_number(session, p)
+    if cur_pi and pi_number == cur_pi:
         p.objectives = objectives
     p.updated_at = _now()
     session.add(p)

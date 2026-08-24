@@ -12,7 +12,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, computeCapacityNextPI, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -45,6 +45,9 @@ const ANOMALIES = ANOMALY_RULES;
 
 // Stockage module-level des métadonnées sprint — peuplé à chaque render, lu sans closure
 const _sprintMetaStore = new Map();
+// Dernière date de congés connue — relue par la modale pour dire quand la base de capacité
+// repose sur une fenêtre que l'import RH ne couvre pas entièrement.
+let _lastKnownAbsence = '';
 
 // Helpers et données partagés entre renderHealth et _openSprintModal (module-level)
 let _lastTeamObjects = [];
@@ -108,6 +111,12 @@ export function renderHealth(container) {
         ? 'sprint courant'
         : `dernier sprint du PI#${targetPiNum}`;
     const _sprintCtxShort = piOffset === 0 ? 'sprint courant' : `PI#${targetPiNum}`;
+    // Base de capacité : projection, elle n'a de sens que sur un PI qui n'a pas encore eu
+    // lieu. Sur un PI passé ou courant, les colonnes mesurées disent la vérité — une
+    // estimation à côté d'elles ne ferait que du bruit.
+    const _showCapacity = !!targetPiNum && targetPiNum > currentPiNum;
+    const _lastAbsence  = lastKnownAbsenceDate(absences);
+    _lastKnownAbsence   = _lastAbsence;
     // La colonne ✊ Confiance porte sur le PI entier, pas sur le sprint mesuré à côté :
     // son sous-titre nomme donc toujours le PI, y compris à l'offset 0.
     const _piColLabel = targetPiNum ? `PI#${targetPiNum}` : '';
@@ -390,6 +399,27 @@ export function renderHealth(container) {
             avgMood, moods,
             piSprints, teamColor, sprintTickets,
             piNum: targetPiNum || currentPiNum,
+            // 🎯 Base de capacité du PI visé + sa ventilation par sprint. Calculée ICI, une
+            // seule fois : la matrice et la modale doivent afficher exactement le même
+            // chiffre, et deux calculs finiraient toujours par diverger.
+            ...(() => {
+                if (!_showCapacity) return { capBase: null, capBySprint: {} };
+                const capBase = piCapacityBase({
+                    teamSprints: sprintInfo.teamSprints || [],
+                    piSprints, team: tm, absences, targetPiNum, lastAbsenceDate: _lastAbsence,
+                });
+                const capBySprint = {};
+                if (capBase) {
+                    for (const sp of piSprints) {
+                        const b = sprintCapacityBase({
+                            avg: capBase.avg, sprint: sp, absences, team: tm,
+                            teamSize: capBase.teamSize, lastAbsenceDate: _lastAbsence,
+                        });
+                        if (b) capBySprint[sp.name] = b;
+                    }
+                }
+                return { capBase, capBySprint };
+            })(),
         };
         veloByTeam[tm]       = { pts: vPts, sprint: spName, estimated: ref?.estimated, startDate: ref?.startDate, endDate: ref?.endDate, state: ref?.state };
         bufByTeam[tm]        = { pts: bPts, sprint: spName };
@@ -441,6 +471,28 @@ export function renderHealth(container) {
             title="✊ Confiance dans les objectifs du PI — ${esc(tm)}${fistN ? '' : '\nAucun vote enregistré'}${fistKeys.length ? '\nCliquer pour ouvrir le détail et voter' : ''}">
             ${voteTotalHtml('fist', tm, fistKeys, `<span class="health-cell-zero" title="Aucun vote">${fistKeys.length ? '+ voter' : '—'}</span>`)}
         </td>`;
+        // 🎯 Base capacité du PI visé : vélocité moyenne des 2 derniers PI, corrigée des
+        // congés saisis sur la fenêtre. Point de départ du PI Planning, pas un engagement.
+        const capBase = cellMeta.capBase;
+        const capCell = !_showCapacity ? '' : (() => {
+            if (!capBase) {
+                return `<td class="health-cell health-capa-cell" title="${esc(`Base capacité — ${tm}\nAucune vélocité mesurée sur les PI précédents, ou aucun sprint connu pour le PI#${targetPiNum}`)}">
+                    <span class="health-cell-zero">—</span></td>`;
+            }
+            const tip = `🎯 Base capacité PI#${targetPiNum} — ${tm}\n`
+                + `Vélocité moyenne ${capBase.avg.toFixed(1)} pts/sprint `
+                + `(${capBase.sprintsUsed} sprints clos des PI ${capBase.pis.join(' et ')})\n`
+                + `× ${capBase.dated || capBase.sprintsCount} sprint${(capBase.dated || capBase.sprintsCount) > 1 ? 's' : ''} = ${capBase.gross} pts bruts\n`
+                + `− ${Math.round(capBase.ratio * 100)} % d'absences (${capBase.absencesDays} j sur `
+                + `${capBase.openDays * capBase.teamSize} j-personne, équipe de ${capBase.teamSize})\n`
+                + `= ${capBase.points} pts`
+                + (capBase.capped ? `\n\n⚠ Les congés connus s'arrêtent au ${_fmtD(_lastAbsence)}, avant la fin du PI : le taux d'absence est un plancher, la base un plafond.` : '')
+                + `\n\nRepère de PI Planning, pas un engagement.`;
+            return `<td class="health-cell health-capa-cell has-val${capBase.capped ? ' health-capa-cell--capped' : ''}" title="${esc(tip)}">
+                ${capBase.points}<span class="health-metric-unit">pts</span><span class="health-metric-count">−${Math.round(capBase.ratio * 100)} %${capBase.capped ? ' ⚠' : ''}</span>
+            </td>`;
+        })();
+
         const vPts = cellMeta.vPts, bPts = cellMeta.bPts;
         const hasSprint = !!cellMeta.spName || cellMeta.done.length > 0;
         const planTk = cellMeta.planTk, planPts = cellMeta.planPts;
@@ -481,6 +533,7 @@ export function renderHealth(container) {
             ${cells}
             <td class="health-row-total">${sumRow}</td>
             ${fistCell}
+            ${capCell}
             ${planCell}
             ${veloCell}
             ${bufPlanCell}
@@ -537,6 +590,9 @@ export function renderHealth(container) {
                             </th>`).join('')}
                             <th class="health-row-total-col">Σ</th>
                             <th class="health-metric-col health-fist-col" title="✊ Fist of Five — confiance de chaque équipe dans l'atteinte des objectifs du PI, moyenne de tous ses votes du PI (cliquer une cellule pour ouvrir le détail et voter)">✊ Confiance${_piColLabel ? `<span class="health-metric-sub">${esc(_piColLabel)}</span>` : ''}</th>
+                            ${_showCapacity ? `<th class="health-metric-col health-capa-col" title="${esc(`🎯 Base capacité — repère de PI Planning pour le PI#${targetPiNum}.
+Vélocité moyenne par sprint des 2 derniers PI × nombre de sprints du PI, moins le taux d'absence déduit des congés saisis sur la période.
+C'est un point de départ chiffré, pas un engagement : la « Charge prévue » de la modale reste éditable.`)}">🎯 Base capacité<span class="health-metric-sub">${esc(_piColLabel)}</span></th>` : ''}
                             <th class="health-metric-col health-metric-col--plan" title="Périmètre engagé au lancement du ${esc(_sprintCtxLabel)} : nb de tickets + vélocité planifiée (estimation JIRA au démarrage)">📋 Prévu<span class="health-metric-sub">${esc(_sprintCtxShort)}</span></th>
                             <th class="health-metric-col health-metric-col--velo" title="Points Done du ${esc(_sprintCtxLabel)} de chaque équipe (cliquer pour voir les tickets)">⚡ Vélo.<span class="health-metric-sub">${esc(_sprintCtxShort)}</span></th>
                             <th class="health-metric-col health-metric-col--bufplan" title="Buffer engagé au lancement du ${esc(_sprintCtxLabel)} : nb de tickets Buffer + vélocité Buffer planifiée">🛡 Buf. prévu<span class="health-metric-sub">${esc(_sprintCtxShort)}</span></th>
@@ -705,9 +761,28 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         const fistHtml   = voteCellHtml('fist', teamName, sk);
         const isRef = s.name === meta.spName;
         const _active = m => s.name === activeSprintName && m === metric ? ' htl-cell-active' : '';
+        // Charge prévue — trois sources, dans cet ordre :
+        //   1. la saisie de l'équipe, qui prime toujours (c'est SA décision) ;
+        //   2. l'engagement JIRA du sprint, s'il existe vraiment (`estimated > 0` — un 0
+        //      signifie « pas encore planifié », pas « capacité nulle », et l'afficher tel
+        //      quel remplissait la colonne de zéros sur tous les sprints à venir) ;
+        //   3. à défaut, la base de capacité calculée : vélocité moyenne des 2 derniers PI
+        //      corrigée des congés de CE sprint. Suggestion, pas saisie : elle n'est pas
+        //      écrite en localStorage tant que l'utilisateur n'y a pas touché.
         const chargeKey  = `sb-charge-${s.name}`;
         const chargeSaved = localStorage.getItem(chargeKey);
-        const chargeVal  = chargeSaved != null ? chargeSaved : (s.estimated != null ? String(s.estimated) : '');
+        const capSp = meta.capBySprint?.[s.name] || null;
+        const chargeSuggested = chargeSaved == null && !(s.estimated > 0) && !!capSp;
+        const chargeVal  = chargeSaved != null ? chargeSaved
+            : (s.estimated > 0 ? String(s.estimated)
+                : (capSp ? String(capSp.points) : ''));
+        const chargeTitle = chargeSuggested
+            ? `🎯 Base de capacité suggérée : ${capSp.points} pts\n`
+                + `Vélocité moyenne ${meta.capBase.avg.toFixed(1)} pts/sprint (${meta.capBase.sprintsUsed} sprints clos des PI ${meta.capBase.pis.join(' et ')})\n`
+                + `− ${Math.round(capSp.ratio * 100)} % d'absences sur ce sprint (${capSp.absencesDays} j sur ${capSp.openDays * capSp.teamSize} j-personne)`
+                + (capSp.capped ? `\n⚠ Congés connus jusqu'au ${_fmtD(_lastKnownAbsence)} seulement : absences sous-estimées, base optimiste.` : '')
+                + `\n\nRepère de PI Planning — saisir une valeur pour la remplacer.`
+            : "Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)";
         // Cellules Vélo/Buffer cliquables → section tickets en bas.
         // COHÉRENCE : « réalisé » = somme des Story Points des tickets Done locaux quand on les a
         // (= total affiché dans la section). Fallback sur la vélocité JIRA (greenhopper) sinon.
@@ -750,7 +825,7 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
             <td class="htl-spr-state">${_stateBadge(s.state)}</td>
             <td class="htl-spr-vote">${moodHtml}</td>
             <td class="htl-spr-vote">${fistHtml}</td>
-            <td class="htl-spr-num htl-grp-start"><input class="htl-charge-input" type="number" min="0" value="${esc(chargeVal)}" data-charge-key="${esc(chargeKey)}" title="Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)"></td>
+            <td class="htl-spr-num htl-grp-start"><input class="htl-charge-input${chargeSuggested ? ' htl-charge-input--suggested' : ''}" type="number" min="0" value="${esc(chargeVal)}" data-charge-key="${esc(chargeKey)}" title="${esc(chargeTitle)}"></td>
             <td class="htl-spr-num htl-grp-start${planCls}"${planAttr} title="Tickets engagés au lancement${planHint}">${planTk || dash}</td>
             <td class="htl-spr-num${planCls}"${planAttr} title="Vélocité planifiée au lancement (estimation JIRA)${planHint}">${planPts || dash}</td>
             <td class="htl-spr-num htl-velo-col${veloAttr}"${veloClickable ? ' title="Voir les tickets Done de ce sprint"' : ''}>${vel}</td>
@@ -1039,6 +1114,8 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
             const v = input.value.trim();
             if (v === '' || isNaN(Number(v))) { _refreshChargeTotal(); return; }
             localStorage.setItem(input.dataset.chargeKey, v);
+            // Ce n'est plus une suggestion : la valeur vient d'être décidée par l'équipe.
+            input.classList.remove('htl-charge-input--suggested');
             _refreshChargeTotal();
         });
         // `input` couvre les flèches du champ nombre et le collage, que `change`

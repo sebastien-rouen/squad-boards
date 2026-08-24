@@ -35,7 +35,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   utiliser `import()` dynamique au point d'usage. Les rappels de cérémonies vivent dans
   [reminders.js](static/js/reminders.js) (PAS dans settings.js).
 - **utils.js est un barrel** (3.141.5) : les briques vivent dans `static/js/utils/`
-  (`dom`, `wiki`, `modals`, `support`, `pi-config`, `sprint-scope`) et `utils.js` les ré-exporte — importer
+  (`dom`, `wiki`, `modals`, `support`, `pi-config`, `sprint-scope`, `capacity-base`) et `utils.js` les ré-exporte — importer
   **toujours** depuis `../utils.js`, jamais depuis un sous-module, sauf `utils/pi-config.js`
   (accès à `pi-cfg-<N>`) qui s'importe directement.
 - **Config PI `pi-cfg-<N>`** : `savePiCfg()` FUSIONNE (ne jamais faire `setItem` à la main).
@@ -78,6 +78,16 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `Array.isArray(t.allSprints) && …` est mort. Restent tels quels dans `infopanel.js`,
   `retro.js`, `dashboard.js` (`_scopeTickets`) et `stage_flow_card.js` — ils visent le sprint
   actif, sans report possible.
+- **Base capacité PI à venir** (3.141.16) : [utils/capacity-base.js](static/js/utils/capacity-base.js)
+  — `vélocité moyenne/sprint des 2 derniers PI × nb sprints × (1 − taux d'absence)`. Calculée
+  **une seule fois** dans `metaObj` (`capBase` + `capBySprint`), relue par la matrice ET la
+  modale : deux calculs divergeraient. La base du PI est la **somme des bases par sprint**,
+  jamais un ratio global — sinon le total contredit son propre détail. Colonne visible
+  uniquement si `targetPiNum > currentPiNum`. Dans « Charge prévue » : saisie > `estimated > 0`
+  > base suggérée (jamais persistée, classe `--suggested`).
+  ⚠️ Si la fenêtre dépasse `lastKnownAbsenceDate(absences)`, le ratio est un plancher et la
+  base un plafond → `capped` (cellule orange + ⚠). Ne jamais présenter le chiffre sans cette
+  réserve.
 - **Écart PI ↔ Congés** : `piCongesDiff()` (utils/pi-weeks.js) est la source unique du bandeau
   de recalage (Rotation) ET du récapitulatif multi-PI (Sprint & PI).
 - **Semaines d'un PI** (3.141.6) : source unique `utils/pi-weeks.js` (`buildPiWeeks`) —

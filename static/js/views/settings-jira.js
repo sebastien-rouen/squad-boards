@@ -9,7 +9,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, toast, confirmDanger } from '../utils.js';
+import { esc, toast } from '../utils.js';
 import { getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
 
 /** HTML de la section — à interpoler dans le template de renderSettings. */
@@ -287,22 +287,5 @@ export function wireJiraSection(container, onReload = () => {}) {
         reloadAndRender();
     });
 
-    // ── Groups — création depuis projets JIRA ─────────────────────────────────
-    container.querySelector('#btn-create-groups-from-jira')?.addEventListener('click', async () => {
-        const chips = container.querySelectorAll('.jira-project-chip');
-        if (!chips.length) return;
-        const toCreate = [...chips].map(c => ({ project: c.dataset.project, teams: c.dataset.teams.split(',').filter(Boolean) }));
-        const names = toCreate.map(x => `${x.project} (${x.teams.join(', ')})`).join('\n');
-        if (!(await confirmDanger('Créer groupes', `Créer ${toCreate.length} groupe(s) :\n${names}`, { confirmLabel: 'Créer' }))) return;
-        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
-        try {
-            for (let i = 0; i < toCreate.length; i++) {
-                const { project, teams: groupTeams } = toCreate[i];
-                await api.createGroup({ name: project, teams: groupTeams, color: colors[i % colors.length] });
-            }
-            toast(`${toCreate.length} groupe(s) créé(s)`, 'success');
-            await reloadAndRender();
-        } catch (e) { toast(e.message, 'error'); }
-    });
 
 }

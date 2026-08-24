@@ -1,3 +1,41 @@
+## [3.141.3] - 2026-08-24
+
+### Correctif — Shuffle de la page Support généré sur des semaines non affichées
+
+- Même défaut que la v3.141.1, resté côté **page Support** : sa grille affiche
+  `_weeksForOffset(piOffset)` (PI épinglé dans le topbar) tandis que `_shuffle()` générait sur
+  `curWeeks`/`nextWeeks` de `buildSupportPiWeeks()` — ancre différente, donc rotation écrite en
+  base sur des semaines que la grille n'affiche jamais.
+- Extraction de `_supPiWeeks(piInfo, sprintInfo, offset, teamMode)` + `_supSnapWeeks()` au niveau
+  module : **source unique** pour la grille et pour les deux boutons de génération. Le bouton
+  principal vise le PI épinglé, le bouton « PI suivant » vise base+1 ; le snap sur le mode de
+  semaine de l'équipe (vendredi/mercredi/lundi) est appliqué des deux côtés.
+- Le toast nomme désormais le PI généré, et un garde-fou remplace le succès silencieux quand
+  aucune semaine n'est calculée.
+
+### Correctif — Objectifs PI : enregistrement invisible après rafraîchissement
+
+- **`PIConfig.number` vaut `0` en base** : le PI courant n'y est jamais écrit, il est dérivé du
+  sprint JIRA actif côté front (`"Team A - Itération 30.6"` → 30). Les deux gardes `if p.number`
+  de [planning.py](app/routers/planning.py) étaient donc **toujours fausses** :
+  - `PUT /api/pi/objectives/{n}` ne synchronisait jamais `objectives` (le jeu vivant) ;
+  - `PUT /api/pi` ne prenait jamais le snapshot `pi_objectives[n]`.
+  Or la lecture du PI courant privilégie `objectives` sur le snapshot (`resolvePiObjectives`) :
+  tout enregistrement passé par `/api/pi/objectives/{n}` — import d'objectifs des Paramètres,
+  vue PI sur un PI épinglé puis déverrouillé — restait **invisible après rafraîchissement**.
+- Nouveau helper `_current_pi_number(session, p)` : même dérivation que le front (regex sur
+  `SprintConfig.name`, repli sur `PIConfig.number`). Les deux routes gardent maintenant
+  `objectives` et `pi_objectives[PI courant]` synchronisés dans les deux sens.
+- [pi.js](static/js/views/pi.js) — le bouton **Enregistrer** est câblé par **délégation posée
+  avant le rendu** : une erreur survenant plus loin dans le rendu laissait un bouton visible mais
+  mort (clic sans requête ni toast). Le bind direct est supprimé pour ne pas enregistrer N fois
+  après N re-render.
+- [pi.js](static/js/views/pi.js) — `_tabData` figeait `piInfo` au premier rendu de la vue :
+  quitter puis revenir sur l'onglet Objectifs réaffichait l'état d'avant l'enregistrement. Le
+  store est relu à chaque changement d'onglet.
+
+---
+
 ## [3.141.2] - 2026-08-24
 
 ### Correctif — Rotation : des membres d'une autre équipe tirés par le Shuffle

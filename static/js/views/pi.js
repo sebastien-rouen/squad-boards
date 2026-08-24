@@ -459,6 +459,10 @@ export function renderPI(container) {
         store.set('piTab', _activeTab);
         window.__squadBoard?.pushHash?.();
         container.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === _activeTab));
+        // piInfo a pu changer depuis le rendu de la vue (enregistrement des objectifs) : on
+        // relit le store, sinon revenir sur l'onglet réaffiche l'état figé au premier rendu.
+        _tabData.piInfo = store.get('piInfo') || _tabData.piInfo;
+        _tabData.objectives = isCurrentPi ? (_tabData.piInfo?.objectives || []) : [];
         renderTabContent(container.querySelector('#pi-tab-content'), _activeTab, _tabData);
     }
 
@@ -632,6 +636,16 @@ function _commitmentPanelHtml(commit, baseline, canCapture) {
 
 // ── Objectives tab ────────────────────────────────────────────────────────────
 function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurrentPi, piNum, featureList = [], tickets = [] }) {
+    // Délégation posée AVANT le rendu, une seule fois par conteneur : le bouton Enregistrer
+    // reste actif même si une erreur survient plus loin dans CE rendu. Avec le seul bind
+    // direct en fin de fonction, un échec intermédiaire laissait un bouton visible mais MORT
+    // — clic sans requête ni toast, donc « j'enregistre, j'actualise, rien n'a changé ».
+    if (!el._piObjWired) {
+        el._piObjWired = true;
+        el.addEventListener('click', e => {
+            if (e.target.closest?.('#pi-obj-save')) el._piObjPersist?.();
+        });
+    }
     const allTeams   = teams || store.get('teams') || [];
     const allTObjs   = teamObjects || store.get('teamObjects') || [];
     const team       = store.get('team');
@@ -891,6 +905,8 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
         }
     }
 
+    el._piObjPersist = persist;   // cible de la délégation posée en haut de fonction
+
     // ── Sync dot color on status change ───────────────────────────────────────
     function bindRow(row) {
         row.querySelector('.pi-obj-status')?.addEventListener('change', e => {
@@ -921,7 +937,8 @@ function renderObjectives(el, { objectives, piInfo, teams, teamObjects, isCurren
     });
 
     // ── Enregistrer ───────────────────────────────────────────────────────────
-    el.querySelector('#pi-obj-save')?.addEventListener('click', () => persist());
+    // Câblé par délégation en haut de fonction (el._piObjPersist) — surtout ne PAS rebinder
+    // ici, chaque re-render ajouterait un listener et enregistrerait N fois.
 }
 
 // ── Features tab ──────────────────────────────────────────────────────────────

@@ -1,3 +1,37 @@
+## [3.141.14] - 2026-08-24
+
+### Health — le périmètre engagé d'un sprint passé était amputé de moitié
+
+**Symptôme** : « 📋 Tickets engagés au lancement » n'affichait aucun ticket non réalisé sur
+les sprints passés. Exemple relevé — `Team G - Ité 30.1` : 6 tickets, tous `done`.
+
+**Cause** : à la clôture d'un sprint, JIRA **déplace** les tickets non terminés vers le
+suivant — leur `sprintName` change. Un sprint passé ne conservait donc, localement, que les
+tickets qui y avaient été finis : les engagements non tenus s'effaçaient d'eux-mêmes.
+Mesuré sur le PI 30 : **1050 tickets reportés invisibles contre 878 affichés, soit 54 % du
+périmètre engagé manquant**.
+
+**Correction** : le périmètre d'un sprint est reconstitué depuis `recentChanges` — chaque
+changement de champ `Sprint` porte dans son `to` la liste cumulative des sprints
+d'appartenance (`_sprintsOfTicket`, mémoïsé par WeakMap). Aucun appel JIRA ni changement
+backend : la donnée était déjà exposée par `serializers.py`.
+
+- `Team G - Ité 30.1` passe de **6 à 11 tickets**, dont 5 reportés signalés avec leur sprint
+  d'arrivée (`↪ 30.2`, `↪ 30.4`, `↪ 30.5`).
+- Un report compte comme non tenu **même si le ticket est `done` aujourd'hui** : il l'a été
+  ailleurs, après coup — son statut actuel ne dit rien de ce qui s'est passé dans ce sprint.
+  Son chip de points perd d'ailleurs le vert, qui affirmerait le contraire.
+- ⚠️ **La vélocité réalisée ne bouge pas** : elle ne compte que les tickets restés dans le
+  sprint. Y agréger des reportés terminés plus tard créditerait un sprint de travail fait
+  après sa clôture. Vérifié sur `Team G - Ité 30.1` : réalisée = 3 avant comme après.
+- Les colonnes « nb engagés » et « planifié » recomptent en revanche le périmètre complet —
+  elles étaient jusqu'ici mécaniquement alignées sur le réalisé pour tout sprint passé, ce
+  qui rendait la comparaison prévu/réalisé sans objet.
+- Le périmètre part de `allTickets` et non de `piTickets` : un ticket reporté porte le sprint
+  d'**arrivée**, souvent d'un autre PI, et le filtre PI le faisait disparaître du sprint où il
+  avait pourtant été engagé.
+- Coût mesuré : `renderHealth` à **31 ms** sur 2142 tickets et 30 équipes.
+
 ## [3.141.13] - 2026-08-24
 
 ### Health — ✊ Confiance dans la matrice équipes × anomalies

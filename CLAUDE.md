@@ -60,6 +60,16 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Engagement non tenu** (3.141.13) : un ticket non-`done` n'est marqué (`--missed`, +
   `--missed-final` barré si le sprint est `closed`) que sur les métriques d'engagement
   `planned`/`bufplanned` — jamais sur `velocity`/`buffer`, où un non-done n'a pas de sens.
+- **Périmètre d'un sprint ≠ `sprintName`** (3.141.14) — footgun majeur : JIRA **déplace** les
+  tickets non finis à la clôture, donc un sprint passé ne « contient » plus que ses réussites
+  (54 % du périmètre engagé manquant sur le PI 30). Le périmètre réel se reconstitue avec
+  `_belongedToSprint()` (union des `to` des changements de champ `Sprint` dans
+  `recentChanges`, mémoïsée par WeakMap dans `_sprintsOfTicket`).
+  **Règle** : ce qui mesure l'**engagement** (`all`, `planTk`, `planPts`, `bufPlan*`) utilise
+  le périmètre élargi ; ce qui mesure le **réalisé** (`done`, `bufDone`, vélocité) reste
+  filtré par `_isInSprint()` — sinon un sprint est crédité de travail fini après sa clôture.
+  Partir de `allTickets`, jamais de `piTickets` : un reporté porte le sprint d'arrivée,
+  souvent d'un autre PI. `_carriedOverTo()` donne le sprint de destination (chip `↪ 30.2`).
 - **Écart PI ↔ Congés** : `piCongesDiff()` (utils/pi-weeks.js) est la source unique du bandeau
   de recalage (Rotation) ET du récapitulatif multi-PI (Sprint & PI).
 - **Semaines d'un PI** (3.141.6) : source unique `utils/pi-weeks.js` (`buildPiWeeks`) —

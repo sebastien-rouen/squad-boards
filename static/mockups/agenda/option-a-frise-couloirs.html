@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agenda · Option A — Frise en couloirs</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+<!-- Vrais CSS du site : la maquette hérite des tokens et composants réels -->
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="shell.css">
+<style>
+/* ── Frise en couloirs ─────────────────────────────────────────────────────── */
+.tl-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+.tl-grid {
+    display: grid;
+    grid-template-columns: 148px repeat(var(--days), minmax(132px, 1fr));
+    min-width: max-content;
+}
+body.is-mobile .tl-grid { grid-template-columns: 96px repeat(var(--days), 148px); }
+
+/* En-têtes de jour */
+.tl-corner,
+.tl-dayhead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+.tl-corner {
+    left: 0;
+    z-index: 4;
+    display: flex;
+    align-items: flex-end;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
+    border-right: 1px solid var(--border);
+}
+.tl-dayhead { text-align: left; }
+.tl-dayhead-day {
+    display: block;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--text);
+    text-transform: capitalize;
+}
+.tl-dayhead-date {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+.tl-dayhead--today .tl-dayhead-day { color: var(--primary); }
+.tl-dayhead--today .tl-dayhead-date::after {
+    content: ' • aujourd’hui';
+    color: var(--primary);
+    font-weight: var(--fw-semibold);
+}
+/* Séparation nette à chaque début de semaine calendaire */
+.tl-week-start { border-left: 2px solid var(--border-hover); }
+
+/* Couloirs */
+.tl-lane {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: var(--sp-3);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    border-left: 3px solid var(--kc);
+}
+.tl-lane-name {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--ktx);
+    line-height: var(--lh-tight);
+}
+.tl-lane-sub {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+.tl-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: var(--sp-2);
+    border-top: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    min-height: 60px;
+    background: var(--surface);
+}
+.tl-cell--today { background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
+.tl-cell--empty::after {
+    content: '·';
+    color: var(--border-hover);
+    font-size: 14px;
+    line-height: 1;
+}
+
+/* Pastille d'événement */
+.tl-ev {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 4px 6px 4px 8px;
+    border: 1px solid color-mix(in srgb, var(--kc) 28%, transparent);
+    border-left: 3px solid var(--kc);
+    border-radius: var(--r-sm);
+    background: var(--kbg);
+    color: var(--ktx);
+    cursor: pointer;
+    transition: transform var(--tr-fast), box-shadow var(--tr-fast);
+}
+.tl-ev:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+.tl-ev:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.tl-ev-time {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
+.tl-ev-title {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    line-height: 1.3;
+    color: var(--text);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.tl-ev-freq {
+    display: inline-block;
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.01em;
+    opacity: 0.9;
+}
+.tl-ev-freq::before { content: '↻ '; }
+.tl-ev--once .tl-ev-freq::before { content: '★ '; }
+/* Un événement qui prend la journée : aplat plein, il structure l'itération */
+.tl-ev--fullday {
+    background: color-mix(in srgb, var(--kc) 18%, var(--surface));
+    border-style: solid;
+    border-color: var(--kc);
+}
+.tl-ev--dupe { border-style: dashed; }
+
+/* Bande absences + support sous la frise */
+.tl-foot {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: var(--sp-2) var(--sp-3);
+    border-top: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    min-height: 46px;
+    font-size: var(--fs-xs);
+    background: var(--surface);
+}
+.tl-foot--label {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    border-left: 3px solid var(--k-off);
+    border-right: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: var(--fw-semibold);
+}
+.tl-abs-bar {
+    height: 5px;
+    border-radius: var(--r-full);
+    background: var(--k-off);
+    opacity: 0.75;
+}
+.tl-abs-names {
+    color: var(--text-muted);
+    line-height: 1.35;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.tl-support {
+    color: var(--amber-text);
+    font-weight: var(--fw-semibold);
+}
+
+/* Panneau de détail au clic sur une pastille */
+.tl-detail {
+    margin-top: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--kc, var(--border-hover));
+    border-radius: var(--r-md);
+    background: var(--surface);
+    font-size: var(--fs-sm);
+}
+.tl-detail[hidden] { display: none; }
+.tl-detail h4 { margin: 0 0 var(--sp-1); font-size: var(--fs-base); }
+.tl-detail dl {
+    margin: var(--sp-2) 0 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sp-1) var(--sp-3);
+    font-size: var(--fs-sm);
+}
+.tl-detail dt { color: var(--text-muted); }
+.tl-detail dd { margin: 0; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+
+<nav class="mk-top">
+    <span class="mk-brand">Squad Board <span>· maquettes agenda</span></span>
+    <div class="mk-tabs">
+        <a href="index.html">Intro</a>
+        <a href="option-a-frise-couloirs.html" aria-current="page">A · Frise en couloirs</a>
+        <a href="option-b-agenda-dense.html">B · Agenda dense</a>
+        <a href="option-c-cadence.html">C · Cadence &amp; jalons</a>
+    </div>
+    <span class="mk-grow"></span>
+</nav>
+
+<main class="mk-stage">
+    <div class="mk-intro">
+        <h1>Option A — Frise en couloirs</h1>
+        <p>Toute l’itération d’un coup d’œil : les 11 jours ouvrés en colonnes, deux couloirs superposés
+           pour séparer <strong>les rituels de l’équipe</strong> et <strong>la cadence du train SAFe</strong>.
+           On lit la structure de l’itération comme une partition — planning au début, ART Sync au milieu,
+           I&amp;A et PI Planning à la fin — et la bande du bas rappelle qui est absent ce jour-là.</p>
+    </div>
+
+    <header class="it-head" id="it-head"></header>
+    <div class="kind-filters" id="filters"></div>
+
+    <div class="tl-wrap">
+        <div class="tl-grid" id="tl"></div>
+    </div>
+
+    <div class="tl-detail" id="detail" hidden></div>
+
+    <div class="mk-legend">
+        <span class="mk-legend-item k-scrum"><span class="mk-legend-swatch"></span> Scrum · équipe</span>
+        <span class="mk-legend-item k-safe"><span class="mk-legend-swatch"></span> SAFe · train ERPC</span>
+        <span class="mk-legend-item k-ops"><span class="mk-legend-swatch"></span> Métier &amp; Ops</span>
+        <span class="mk-legend-item">↻ récurrent · ★ ponctuel</span>
+        <span class="mk-legend-item">Bordure pointillée = même créneau présent dans deux calendriers</span>
+    </div>
+</main>
+
+<script src="data.js"></script>
+<script src="shell.js"></script>
+<script>
+(function () {
+    'use strict';
+    const { D, KINDS, esc, dayName, ddmm, workDays, weekGroups, startsWeek, durLabel,
+            isFullDay, cadence, absentNames, visible, mountFilters, iterationHead,
+            mountSlack, slackHeader, byDay } = window.MK;
+
+    const days = workDays(D.iteration.start, D.iteration.end);
+    const tl = document.getElementById('tl');
+    tl.style.setProperty('--days', days.length);
+
+    // Support de la semaine : map jour → membres de la rotation
+    const supportOn = day => (D.support.find(s => s.start <= day && s.end >= day)?.members || [])
+        .map(n => n.includes(',') ? n.split(',')[1].trim() : n);
+
+    function evHtml(ev) {
+        const cls = [
+            'tl-ev', KINDS[ev.kind].cls,
+            isFullDay(ev) ? 'tl-ev--fullday' : '',
+            ev.freq ? '' : 'tl-ev--once',
+            ev.dupe ? 'tl-ev--dupe' : '',
+        ].filter(Boolean).join(' ');
+        const freq = ev.freq || 'ponctuel';
+        return `<button class="${cls}" data-uid="${esc(ev.uid)}" data-day="${esc(ev.day)}"
+                        title="${esc(ev.title)} — ${esc(cadence(ev))} (${durLabel(ev.durMin)})">
+            <span class="tl-ev-time">${isFullDay(ev) ? 'journée' : esc(ev.start)}</span>
+            <span class="tl-ev-title">${esc(ev.title)}</span>
+            <span class="tl-ev-freq">${esc(freq)}</span>
+        </button>`;
+    }
+
+    function render() {
+        const evs = visible();
+        const map = byDay(evs);
+        const lanes = ['scrum', 'safe', 'ops'].filter(k => window.MK.state.kinds.has(k));
+
+        let html = `<div class="tl-corner">Itération ${esc(D.iteration.short)}</div>`;
+        days.forEach((d, i) => {
+            html += `<div class="tl-dayhead ${startsWeek(d, i) ? 'tl-week-start' : ''} ${d === D.today ? 'tl-dayhead--today' : ''}">
+                <span class="tl-dayhead-day">${esc(dayName(d))}</span>
+                <span class="tl-dayhead-date">${esc(ddmm(d))}</span>
+            </div>`;
+        });
+
+        for (const k of lanes) {
+            const meta = KINDS[k];
+            const n = evs.filter(e => e.kind === k).length;
+            html += `<div class="tl-lane ${meta.cls}">
+                <span class="tl-lane-name">${esc(meta.label)}</span>
+                <span class="tl-lane-sub">${n} évènement${n > 1 ? 's' : ''}</span>
+            </div>`;
+            days.forEach((d, i) => {
+                const list = (map.get(d) || []).filter(e => e.kind === k);
+                html += `<div class="tl-cell ${startsWeek(d, i) ? 'tl-week-start' : ''} ${d === D.today ? 'tl-cell--today' : ''} ${list.length ? '' : 'tl-cell--empty'}">
+                    ${list.map(evHtml).join('')}
+                </div>`;
+            });
+        }
+
+        // Bande du bas : absences + support
+        html += `<div class="tl-foot tl-foot--label">Absents &amp; support</div>`;
+        days.forEach((d, i) => {
+            const names = absentNames(d);
+            const sup = supportOn(d);
+            html += `<div class="tl-foot ${startsWeek(d, i) ? 'tl-week-start' : ''}">
+                ${names.length ? `<div class="tl-abs-bar" style="width:${Math.min(100, names.length * 22)}%"></div>
+                    <span class="tl-abs-names" title="${esc(names.join(', '))}">🏖️ ${esc(names.join(', '))}</span>` : ''}
+                ${sup.length ? `<span class="tl-support">🎧 ${esc(sup.join(', '))}</span>` : ''}
+            </div>`;
+        });
+
+        tl.innerHTML = html;
+        document.getElementById('detail').hidden = true;
+    }
+
+    // ── Détail au clic ──────────────────────────────────────────────────────
+    tl.addEventListener('click', e => {
+        const btn = e.target.closest('.tl-ev');
+        if (!btn) return;
+        const ev = D.events.find(x => x.uid === btn.dataset.uid && x.day === btn.dataset.day);
+        if (!ev) return;
+        const el = document.getElementById('detail');
+        el.className = `tl-detail ${KINDS[ev.kind].cls}`;
+        el.innerHTML = `
+            <h4>${esc(ev.title)}</h4>
+            <dl>
+                <dt>Type</dt><dd>${esc(KINDS[ev.kind].label)}</dd>
+                <dt>Quand</dt><dd>${esc(cadence(ev))} · ${esc(durLabel(ev.durMin))}</dd>
+                <dt>Récurrence</dt><dd>${ev.freq ? `${esc(ev.freq)} — ${ev.occ} occurrences connues` : 'ponctuel'}</dd>
+                <dt>Calendrier</dt><dd>${esc(ev.cal)}${ev.calTeam ? '' : ' <em>(calendrier du train, toutes équipes)</em>'}</dd>
+                ${ev.attendees ? `<dt>Invités</dt><dd>${ev.attendees}</dd>` : ''}
+                ${ev.dupe ? `<dt>⚠️</dt><dd>Ce créneau apparaît dans deux calendriers ce jour-là — doublon à trancher.</dd>` : ''}
+            </dl>`;
+        el.hidden = false;
+    });
+
+    // ── Récap Slack : chronologique strict, la cadence en fin de ligne ───────
+    function slackText() {
+        const evs = visible();
+        const map = byDay(evs);
+        const lines = [slackHeader(), ''];
+        for (const g of weekGroups(days)) {
+            lines.push(`*── ${g.label} ──*`);
+            for (const d of g.days) {
+                const list = map.get(d) || [];
+                const abs = absentNames(d);
+                if (!list.length && !abs.length) continue;
+                lines.push(`*${dayName(d)} ${ddmm(d)}*${d === D.today ? '  ← aujourd’hui' : ''}`);
+                for (const ev of list) {
+                    const when = isFullDay(ev) ? 'journée' : ev.start;
+                    const freq = ev.freq ? `  _(${ev.freq})_` : '';
+                    lines.push(`  ${KINDS[ev.kind].dot} ${when} · ${ev.title}${freq}`);
+                }
+                if (abs.length) lines.push(`  🏖️ absents : ${abs.join(', ')}`);
+            }
+            lines.push('');
+        }
+        lines.push('', `_${evs.filter(e => e.kind === 'scrum').length} rituels équipe · ${evs.filter(e => e.kind === 'safe').length} évènements SAFe · ${evs.filter(e => e.kind === 'ops').length} métier/ops_`);
+        return lines.join('\n');
+    }
+
+    iterationHead(document.getElementById('it-head'), { subtitle: `PI ${D.iteration.pi} · ${D.events.length} évènements sur l’itération` });
+    mountFilters(document.getElementById('filters'), render);
+    mountSlack(slackText);
+    render();
+})();
+</script>
+</body>
+</html>

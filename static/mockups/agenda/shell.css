@@ -1,0 +1,348 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   Chrome de la maquette — commun aux 3 options.
+   Les tokens et les composants viennent des VRAIS CSS du site
+   (../../css/tokens.css + ../../css/base.css), chargés avant ce fichier.
+   Ici : uniquement l'habillage « maquette » (nav, toggles) + les couleurs
+   de typage Scrum / SAFe / Ops, qui n'existent pas encore dans le site.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* base.css met `body { display:flex }` pour le shell sidebar+main du site :
+   on le neutralise, la maquette est une page autonome. */
+body {
+    display: block;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+}
+
+/* ── Couleurs de typage — les 2 familles demandées + une 3e discrète ────────── */
+:root {
+    --k-scrum: #2563eb;           /* bleu — rituels de l'équipe */
+    --k-scrum-bg: #eff6ff;
+    --k-scrum-text: #1d4ed8;
+    --k-safe: #7c3aed;            /* violet — cadence du train (ART) */
+    --k-safe-bg: #f5f3ff;
+    --k-safe-text: #6d28d9;
+    --k-ops: #64748b;             /* ardoise — métier / ops / MEP */
+    --k-ops-bg: #f1f5f9;
+    --k-ops-text: #475569;
+    --k-off: #f59e0b;             /* ambre — absences / OFF */
+}
+[data-theme="dark"] {
+    --k-scrum: #60a5fa;
+    --k-scrum-bg: #172554;
+    --k-scrum-text: #93c5fd;
+    --k-safe: #a78bfa;
+    --k-safe-bg: #2e1065;
+    --k-safe-text: #c4b5fd;
+    --k-ops: #94a3b8;
+    --k-ops-bg: #1e293b;
+    --k-ops-text: #cbd5e1;
+    --k-off: #fbbf24;
+}
+.k-scrum { --kc: var(--k-scrum); --kbg: var(--k-scrum-bg); --ktx: var(--k-scrum-text); }
+.k-safe  { --kc: var(--k-safe);  --kbg: var(--k-safe-bg);  --ktx: var(--k-safe-text); }
+.k-ops   { --kc: var(--k-ops);   --kbg: var(--k-ops-bg);   --ktx: var(--k-ops-text); }
+
+/* ── Barre de maquette ──────────────────────────────────────────────────────── */
+.mk-top {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-5);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+}
+.mk-brand {
+    font-weight: var(--fw-bold);
+    font-size: var(--fs-sm);
+    white-space: nowrap;
+}
+.mk-brand span {
+    color: var(--text-muted);
+    font-weight: var(--fw-medium);
+}
+.mk-grow { flex: 1; }
+.mk-tabs {
+    display: inline-flex;
+    background: var(--surface-active);
+    border-radius: var(--r-md);
+    padding: 3px;
+    gap: 2px;
+}
+.mk-tabs a {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.mk-tabs a:hover { color: var(--text); }
+.mk-tabs a[aria-current="page"] {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+}
+
+/* ── Scène : simule la largeur de la zone de contenu du site ─────────────────── */
+.mk-stage {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: var(--sp-5);
+}
+/* Vue « mobile » : la scène se contraint à 390px, comme un iPhone 14 */
+body.is-mobile .mk-stage {
+    max-width: 390px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    margin-top: var(--sp-4);
+    background: var(--bg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--sp-3);
+}
+
+.mk-intro { margin-bottom: var(--sp-5); }
+.mk-intro h1 {
+    font-size: var(--fs-xl);
+    letter-spacing: -0.015em;
+    margin: 0 0 var(--sp-2);
+}
+.mk-intro p {
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    max-width: 84ch;
+    line-height: var(--lh-normal);
+}
+.mk-note {
+    margin-top: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-left: 3px solid var(--primary);
+    background: var(--primary-bg);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+}
+.mk-note strong { color: var(--text); }
+
+/* ── En-tête d'itération — partagé par les 3 options ────────────────────────── */
+.it-head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    padding: var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    margin-bottom: var(--sp-4);
+}
+.it-head-main { flex: 1; min-width: 260px; }
+.it-title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+.it-title h2 {
+    margin: 0;
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-bold);
+}
+.it-dates {
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+.it-goal {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    line-height: var(--lh-normal);
+}
+.it-goal::before { content: '🎯 '; }
+.it-actions {
+    display: flex;
+    gap: var(--sp-2);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Barre de progression de l'itération */
+.it-progress {
+    width: 100%;
+    margin-top: var(--sp-3);
+}
+.it-progress-track {
+    height: 6px;
+    border-radius: var(--r-full);
+    background: var(--surface-active);
+    overflow: hidden;
+}
+.it-progress-fill {
+    height: 100%;
+    border-radius: var(--r-full);
+    background: linear-gradient(90deg, var(--k-scrum), var(--k-safe));
+}
+.it-progress-label {
+    margin-top: var(--sp-1);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+
+/* ── Filtres de type ────────────────────────────────────────────────────────── */
+.kind-filters {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: var(--sp-4);
+}
+.kind-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-1) var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    background: var(--surface);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--tr-fast);
+}
+.kind-chip::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: var(--r-full);
+    background: var(--kc, var(--text-muted));
+}
+.kind-chip[aria-pressed="true"] {
+    background: var(--kbg, var(--surface-active));
+    border-color: var(--kc, var(--border-hover));
+    color: var(--ktx, var(--text));
+}
+.kind-chip[aria-pressed="false"] { opacity: 0.45; }
+.kind-chip:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.kind-count {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.75;
+    font-weight: var(--fw-normal);
+}
+
+/* ── Badge de récurrence — l'élément clé demandé ────────────────────────────── */
+.freq {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: var(--r-full);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    line-height: 1.5;
+    background: color-mix(in srgb, var(--kc, var(--text-muted)) 14%, transparent);
+    color: var(--ktx, var(--text-secondary));
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.freq--once {
+    background: transparent;
+    border: 1px dashed color-mix(in srgb, var(--kc, var(--text-muted)) 45%, transparent);
+    color: var(--text-muted);
+}
+
+/* ── Modale « Copier pour Slack » ───────────────────────────────────────────── */
+.slack-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-4);
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+}
+.slack-overlay[hidden] { display: none; }
+.slack-modal {
+    width: min(760px, 100%);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-xl);
+}
+.slack-modal-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    border-bottom: 1px solid var(--border);
+}
+.slack-modal-head h3 {
+    margin: 0;
+    font-size: var(--fs-base);
+    flex: 1;
+}
+.slack-modal-body {
+    padding: var(--sp-4);
+    overflow: auto;
+}
+.slack-preview {
+    margin: 0;
+    padding: var(--sp-4);
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text);
+}
+.slack-modal-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--border);
+}
+.slack-hint {
+    flex: 1;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+
+/* ── Légende ────────────────────────────────────────────────────────────────── */
+.mk-legend {
+    display: flex;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-3);
+    border-top: 1px solid var(--border);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+.mk-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+.mk-legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: var(--kc, var(--text-muted));
+}

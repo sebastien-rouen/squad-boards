@@ -8,200 +8,7 @@
 <link rel="stylesheet" href="../../css/tokens.css">
 <link rel="stylesheet" href="../../css/base.css">
 <link rel="stylesheet" href="shell.css">
-<style>
-/* ── Sommaire : densité de l'itération jour par jour ───────────────────────── */
-.spark {
-    display: flex;
-    gap: 4px;
-    align-items: flex-end;
-    padding: var(--sp-3) var(--sp-4);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-    margin-bottom: var(--sp-4);
-    overflow-x: auto;
-}
-.spark-day {
-    flex: 1;
-    min-width: 52px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 3px;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    border-radius: var(--r-sm);
-}
-.spark-day:hover .spark-label { color: var(--text); }
-.spark-day:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
-.spark-stack {
-    display: flex;
-    flex-direction: column-reverse;
-    justify-content: flex-start;
-    gap: 2px;
-    height: 56px;
-}
-.spark-seg { border-radius: 2px; background: var(--kc); min-height: 3px; }
-.spark-label {
-    font-size: var(--fs-xs);
-    color: var(--text-muted);
-    text-transform: capitalize;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.3;
-}
-.spark-day--today .spark-label {
-    color: var(--primary);
-    font-weight: var(--fw-bold);
-}
-.spark-sep {
-    width: 1px;
-    align-self: stretch;
-    background: var(--border-hover);
-    margin: 0 var(--sp-2);
-}
-
-/* ── Les semaines de l'itération, côte à côte ──────────────────────────────── */
-.weeks {
-    display: grid;
-    /* Une colonne par semaine calendaire couverte — l'itération peut en croiser 2 ou 3 */
-    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-    gap: var(--sp-4);
-    align-items: start;
-}
-body.is-mobile .weeks { grid-template-columns: 1fr; }
-@media (max-width: 760px) { .weeks { grid-template-columns: 1fr; } }
-
-.week-col > h3 {
-    margin: 0 0 var(--sp-3);
-    font-size: var(--fs-sm);
-    font-weight: var(--fw-bold);
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-.week-col > h3 span {
-    font-weight: var(--fw-normal);
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--text-muted);
-}
-
-/* ── Carte jour ────────────────────────────────────────────────────────────── */
-.day-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-    margin-bottom: var(--sp-3);
-    overflow: hidden;
-    scroll-margin-top: 84px;
-}
-.day-card--today { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
-.day-card--empty { opacity: 0.6; }
-.day-head {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    flex-wrap: wrap;
-    padding: var(--sp-2) var(--sp-3);
-    background: var(--surface-hover);
-    border-bottom: 1px solid var(--border);
-}
-.day-name {
-    font-size: var(--fs-sm);
-    font-weight: var(--fw-bold);
-    text-transform: capitalize;
-}
-.day-date {
-    font-size: var(--fs-xs);
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-}
-.day-today-tag {
-    font-size: var(--fs-xs);
-    font-weight: var(--fw-bold);
-    color: var(--primary);
-}
-.day-meta {
-    margin-left: auto;
-    display: flex;
-    gap: var(--sp-2);
-    align-items: center;
-    font-size: var(--fs-xs);
-    color: var(--text-muted);
-}
-.day-copy {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 13px;
-    opacity: 0.5;
-    padding: 2px 4px;
-    border-radius: var(--r-sm);
-}
-.day-copy:hover { opacity: 1; background: var(--surface-active); }
-
-/* ── Ligne d'événement ─────────────────────────────────────────────────────── */
-.ev-row {
-    display: grid;
-    grid-template-columns: 58px 1fr auto;
-    gap: var(--sp-2);
-    align-items: baseline;
-    padding: 6px var(--sp-3) 6px 0;
-    border-left: 3px solid var(--kc);
-    background: linear-gradient(90deg, var(--kbg) 0, transparent 120px);
-    border-bottom: 1px solid var(--border);
-}
-.ev-row:last-child { border-bottom: none; }
-.ev-row:hover { background: var(--surface-hover); }
-.ev-time {
-    padding-left: var(--sp-2);
-    font-size: var(--fs-xs);
-    font-weight: var(--fw-bold);
-    color: var(--ktx);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-.ev-title {
-    font-size: var(--fs-sm);
-    color: var(--text);
-    line-height: var(--lh-tight);
-}
-.ev-dur {
-    display: block;
-    font-size: var(--fs-xs);
-    color: var(--text-muted);
-    margin-top: 1px;
-}
-.ev-row--fullday .ev-title { font-weight: var(--fw-semibold); }
-.ev-row--fullday {
-    background: color-mix(in srgb, var(--kc) 12%, transparent);
-}
-.ev-dupe {
-    font-size: var(--fs-xs);
-    color: var(--warning);
-    cursor: help;
-}
-
-/* Bandeau absences / support en pied de carte jour */
-.day-foot {
-    display: flex;
-    gap: var(--sp-3);
-    flex-wrap: wrap;
-    padding: var(--sp-2) var(--sp-3);
-    background: var(--surface-hover);
-    border-top: 1px solid var(--border);
-    font-size: var(--fs-xs);
-    color: var(--text-secondary);
-}
-.day-empty {
-    padding: var(--sp-3);
-    font-size: var(--fs-sm);
-    color: var(--text-muted);
-    font-style: italic;
-}
-</style>
+<link rel="stylesheet" href="parts.css">
 </head>
 <body>
 
@@ -212,6 +19,7 @@ body.is-mobile .weeks { grid-template-columns: 1fr; }
         <a href="option-a-frise-couloirs.html">A · Frise en couloirs</a>
         <a href="option-b-agenda-dense.html" aria-current="page">B · Agenda dense</a>
         <a href="option-c-cadence.html">C · Cadence &amp; jalons</a>
+        <a href="option-d-synthese.html">D · Synthèse</a>
     </div>
     <span class="mk-grow"></span>
 </nav>
@@ -219,10 +27,10 @@ body.is-mobile .weeks { grid-template-columns: 1fr; }
 <main class="mk-stage">
     <div class="mk-intro">
         <h1>Option B — Agenda dense chronologique</h1>
-        <p>La frise reste, mais réduite à un <strong>sommaire de densité</strong> : une barre empilée par jour, qui montre
-           d’un regard où se concentrent les réunions et le poids relatif Scrum / SAFe. En dessous, les deux semaines
-           côte à côte, jour par jour, dans l’ordre exact où ça se passe — la forme la plus proche du récap Slack,
-           donc la plus fiable pour relire ce qu’on s’apprête à copier.</p>
+        <p>La frise reste, mais réduite à un <strong>sommaire de densité</strong> : une barre empilée par jour,
+           qui montre d’un regard où se concentrent les réunions et le poids relatif Scrum / SAFe. En dessous,
+           les semaines côte à côte, jour par jour, dans l’ordre exact où ça se passe — la forme la plus proche
+           du récap Slack, donc la plus fiable pour relire ce qu’on s’apprête à copier.</p>
     </div>
 
     <header class="it-head" id="it-head"></header>
@@ -241,112 +49,28 @@ body.is-mobile .weeks { grid-template-columns: 1fr; }
 
 <script src="data.js"></script>
 <script src="shell.js"></script>
+<script src="parts.js"></script>
 <script>
 (function () {
     'use strict';
-    const { D, KINDS, esc, dayName, dayFull, ddmm, workDays, weekGroups, startsWeek,
-            durLabel, isFullDay, cadence, absentNames, visible, mountFilters,
-            iterationHead, mountSlack, slackHeader, byDay, recurringRituals, stripEmoji } = window.MK;
+    const { D, KINDS, dayName, ddmm, workDays, weekGroups, isFullDay, cadence,
+            absentNames, visible, mountFilters, iterationHead, mountSlack,
+            slackHeader, byDay, recurringRituals, stripEmoji } = window.MK;
+    const { renderSpark, renderWeeks, bindDense } = window.MKParts;
 
     const days = workDays(D.iteration.start, D.iteration.end);
-    const supportOn = day => (D.support.find(s => s.start <= day && s.end >= day)?.members || [])
-        .map(n => n.includes(',') ? n.split(',')[1].trim() : n);
-
-    // ── Sommaire de densité ─────────────────────────────────────────────────
-    function renderSpark(map) {
-        const max = Math.max(1, ...days.map(d => (map.get(d) || []).length));
-        const el = document.getElementById('spark');
-        el.innerHTML = days.map((d, i) => {
-            const list = map.get(d) || [];
-            const segs = ['scrum', 'safe', 'ops'].map(k => {
-                const n = list.filter(e => e.kind === k).length;
-                if (!n) return '';
-                return `<span class="spark-seg ${KINDS[k].cls}" style="height:${n / max * 56}px"
-                              title="${n} ${esc(KINDS[k].short)}"></span>`;
-            }).join('');
-            return `${startsWeek(d, i) ? '<span class="spark-sep"></span>' : ''}
-                <button class="spark-day ${d === D.today ? 'spark-day--today' : ''}" data-day="${esc(d)}"
-                        title="${list.length} évènement${list.length > 1 ? 's' : ''} — aller à ce jour">
-                    <span class="spark-stack">${segs}</span>
-                    <span class="spark-label">${esc(dayName(d))}<br>${esc(ddmm(d))}</span>
-                </button>`;
-        }).join('');
-    }
-    // Délégué une seule fois : renderSpark réécrit le contenu à chaque filtre
-    document.getElementById('spark').addEventListener('click', e => {
-        const btn = e.target.closest('.spark-day');
-        if (btn) document.getElementById(`day-${btn.dataset.day}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-
-    // ── Cartes jour ─────────────────────────────────────────────────────────
-    function evRow(ev) {
-        const cls = ['ev-row', KINDS[ev.kind].cls, isFullDay(ev) ? 'ev-row--fullday' : ''].filter(Boolean).join(' ');
-        return `<div class="${cls}">
-            <span class="ev-time">${isFullDay(ev) ? 'jour' : esc(ev.start)}</span>
-            <span class="ev-title">${esc(ev.title)}
-                ${ev.dupe ? '<span class="ev-dupe" title="Ce créneau existe aussi dans un autre calendrier ce jour-là">⚠︎</span>' : ''}
-                <span class="ev-dur">${esc(durLabel(ev.durMin))} · ${esc(ev.cal)}</span>
-            </span>
-            <span class="freq ${ev.freq ? '' : 'freq--once'}">${esc(ev.freq || 'ponctuel')}</span>
-        </div>`;
-    }
-
-    function dayCard(d) {
-        const list = (byDay(visible()).get(d) || []);
-        const abs = absentNames(d);
-        const sup = supportOn(d);
-        return `<article class="day-card ${d === D.today ? 'day-card--today' : ''} ${list.length ? '' : 'day-card--empty'}" id="day-${esc(d)}">
-            <header class="day-head">
-                <span class="day-name">${esc(dayFull(d))}</span>
-                <span class="day-date">${esc(ddmm(d))}</span>
-                ${d === D.today ? '<span class="day-today-tag">aujourd’hui</span>' : ''}
-                <span class="day-meta">
-                    ${list.length ? `${list.length} évt` : ''}
-                    <button class="day-copy" data-day="${esc(d)}" title="Copier l’agenda de ce jour">📋</button>
-                </span>
-            </header>
-            ${list.length ? list.map(evRow).join('') : '<p class="day-empty">Aucun évènement</p>'}
-            ${(abs.length || sup.length) ? `<footer class="day-foot">
-                ${sup.length ? `<span>🎧 Support : ${esc(sup.join(', '))}</span>` : ''}
-                ${abs.length ? `<span>🏖️ Absents : ${esc(abs.join(', '))}</span>` : ''}
-            </footer>` : ''}
-        </article>`;
-    }
+    let map = new Map();
 
     function render() {
-        const map = byDay(visible());
-        renderSpark(map);
-        // Une colonne par semaine calendaire réellement couverte par l'itération
-        document.getElementById('weeks').innerHTML = weekGroups(days).map(g => `
-            <section class="week-col">
-                <h3>${esc(g.label)} <span>· ${g.days.length} jour${g.days.length > 1 ? 's' : ''}</span></h3>
-                ${g.days.map(dayCard).join('')}
-            </section>`).join('');
+        map = byDay(visible());
+        renderSpark(document.getElementById('spark'), days, map);
+        renderWeeks(document.getElementById('weeks'), days, map);
     }
 
-    // Copie d'un seul jour — reprend le format « AGENDA DU JOUR » déjà en place
-    document.getElementById('weeks').addEventListener('click', async e => {
-        const btn = e.target.closest('.day-copy');
-        if (!btn) return;
-        const d = btn.dataset.day;
-        const list = byDay(visible()).get(d) || [];
-        const lines = [`:date: *${dayFull(d)} ${ddmm(d)}* — ${D.team}`, ''];
-        for (const ev of list) {
-            lines.push(`  ${KINDS[ev.kind].dot} ${isFullDay(ev) ? 'journée' : ev.start} · ${ev.title}${ev.freq ? `  _(${ev.freq})_` : ''}`);
-        }
-        const abs = absentNames(d);
-        if (abs.length) lines.push('', `🏖️ *Absents* : ${abs.join(', ')}`);
-        try {
-            await navigator.clipboard.writeText(lines.join('\n'));
-            btn.textContent = '✓';
-            setTimeout(() => { btn.textContent = '📋'; }, 1400);
-        } catch { /* presse-papiers refusé — rien à faire dans une maquette */ }
-    });
-
-    // ── Récap Slack : rituels fixes sortis en préambule, puis le chronologique ──
+    // ── Récap Slack : rituels de fond en préambule, puis le chronologique ────
     function slackText() {
         const evs = visible();
-        const map = byDay(evs);
+        const m = byDay(evs);
         const lines = [slackHeader(), ''];
 
         // Préambule : uniquement le bruit de fond (quotidien / hebdo), qui alourdirait
@@ -364,7 +88,7 @@ body.is-mobile .weeks { grid-template-columns: 1fr; }
         for (const g of weekGroups(days)) {
             lines.push(`*── ${g.label} ──*`);
             for (const d of g.days) {
-                const list = (map.get(d) || []).filter(ev => !fixedKeys.has(`${ev.uid}|${ev.day}`));
+                const list = (m.get(d) || []).filter(ev => !fixedKeys.has(`${ev.uid}|${ev.day}`));
                 const abs = absentNames(d);
                 if (!list.length && !abs.length) continue;
                 lines.push(`*${dayName(d)} ${ddmm(d)}*`);
@@ -380,6 +104,7 @@ body.is-mobile .weeks { grid-template-columns: 1fr; }
 
     iterationHead(document.getElementById('it-head'), { subtitle: `PI ${D.iteration.pi} · ${D.events.length} évènements sur l’itération` });
     mountFilters(document.getElementById('filters'), render);
+    bindDense(document.getElementById('spark'), document.getElementById('weeks'), () => map);
     mountSlack(slackText);
     render();
 })();

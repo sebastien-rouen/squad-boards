@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agenda · Option D — Synthèse</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="parts.css">
+<style>
+/* ── Le bloc « rythme » est repliable ici : c'est un fond de décor, on veut
+      pouvoir le refermer une fois qu'on le connaît. ───────────────────────── */
+.fold > summary {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    cursor: pointer;
+    list-style: none;
+    margin-bottom: var(--sp-3);
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary h3 {
+    margin: 0;
+    font-size: var(--fs-lg);
+}
+.fold > summary p {
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+}
+.fold > summary::before {
+    content: '▸';
+    color: var(--text-muted);
+    font-size: var(--fs-base);
+    transition: transform var(--tr-fast);
+}
+.fold[open] > summary::before { transform: rotate(90deg); }
+.fold > summary:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 3px; }
+</style>
+</head>
+<body>
+
+<nav class="mk-top">
+    <span class="mk-brand">Squad Board <span>· maquettes agenda</span></span>
+    <div class="mk-tabs">
+        <a href="index.html">Intro</a>
+        <a href="option-a-frise-couloirs.html">A · Frise en couloirs</a>
+        <a href="option-b-agenda-dense.html">B · Agenda dense</a>
+        <a href="option-c-cadence.html">C · Cadence &amp; jalons</a>
+        <a href="option-d-synthese.html" aria-current="page">D · Synthèse</a>
+    </div>
+    <span class="mk-grow"></span>
+</nav>
+
+<main class="mk-stage">
+    <div class="mk-intro">
+        <h1>Option D — Synthèse</h1>
+        <p>Les trois morceaux qui ont convaincu, assemblés dans l’ordre de lecture qui me paraît juste :
+           <strong>le coût</strong> d’abord (combien de temps part en rituels, et combien il en reste),
+           <strong>le rythme</strong> ensuite — repliable, parce qu’on le connaît par cœur au bout de deux
+           itérations — puis <strong>l’agenda dense chronologique</strong>, celui qu’on consulte vraiment
+           au quotidien et qu’on copie dans Slack.</p>
+        <div class="mk-note">
+            <strong>🧪 Bac à sable.</strong> Le bouton <em>+ 1 j</em> décale tous les évènements d’un jour et
+            recalcule l’ensemble — barre de charge, semaine type, agenda, récap Slack. Utile pour éprouver la
+            vue : un férié inséré, une itération repoussée, et l’on voit tout de suite ce qui bascule sur un
+            week-end. Aucune donnée n’est modifiée.
+        </div>
+    </div>
+
+    <header class="it-head" id="it-head"></header>
+    <div class="shift-bar" id="shift"></div>
+    <div class="kind-filters" id="filters"></div>
+
+    <div class="load" id="load"></div>
+
+    <details class="fold sec" id="rhythm-fold" open>
+        <summary>
+            <h3>⏱️ Le rythme</h3>
+            <p id="rit-count"></p>
+        </summary>
+        <div class="grid-wrap"><div class="wgrid" id="wgrid"></div></div>
+        <div class="rit-list" id="rit-list"></div>
+    </details>
+
+    <section class="sec">
+        <div class="sec-head">
+            <h3>📅 Agenda dense chronologique</h3>
+            <p id="agenda-count"></p>
+        </div>
+        <div class="spark" id="spark"></div>
+        <div class="weeks" id="weeks"></div>
+    </section>
+
+    <div class="mk-legend">
+        <span class="mk-legend-item k-scrum"><span class="mk-legend-swatch"></span> Scrum · équipe</span>
+        <span class="mk-legend-item k-safe"><span class="mk-legend-swatch"></span> SAFe · train ERPC</span>
+        <span class="mk-legend-item k-ops"><span class="mk-legend-swatch"></span> Métier &amp; Ops</span>
+        <span class="mk-legend-item k-free"><span class="mk-legend-swatch"></span> Temps libre</span>
+        <span class="mk-legend-item">Hachures = une semaine sur deux · 📋 copie un jour seul</span>
+    </div>
+</main>
+
+<script src="data.js"></script>
+<script src="shell.js"></script>
+<script src="parts.js"></script>
+<script>
+(function () {
+    'use strict';
+    const { D, KINDS, dayName, ddmm, workDays, weekGroups, durLabel, isFullDay,
+            cadence, absentNames, visible, mountFilters, iterationHead, mountSlack,
+            slackHeader, byDay, recurringRituals, oneShots, stripEmoji, state } = window.MK;
+    const { renderLoad, renderRhythm, renderSpark, renderWeeks, bindDense,
+            mountShift, weeklyLoad, hrs } = window.MKParts;
+
+    const days = workDays(D.iteration.start, D.iteration.end);
+    let map = new Map();
+
+    function render() {
+        const evs = visible();
+        const rituals = recurringRituals(evs);
+        const milestones = oneShots(evs);
+        map = byDay(evs);
+
+        renderLoad(document.getElementById('load'), rituals, milestones);
+        renderRhythm(document.getElementById('wgrid'), document.getElementById('rit-list'), rituals);
+        renderSpark(document.getElementById('spark'), days, map);
+        renderWeeks(document.getElementById('weeks'), days, map);
+
+        const L = weeklyLoad(rituals);
+        document.getElementById('rit-count').textContent =
+            `${rituals.length} rituels récurrents · ${hrs(L.busy)} par semaine, ${hrs(L.free)} de libre`;
+        const shown = days.reduce((n, d) => n + (map.get(d) || []).length, 0);
+        document.getElementById('agenda-count').textContent =
+            `${shown} évènements sur ${weekGroups(days).length} semaines calendaires`;
+    }
+
+    // ── Récap Slack — la synthèse des deux formats ──────────────────────────
+    // Le rythme de fond en tête (une ligne par rituel, pas dix), les moments de
+    // l'itération dans le chronologique. C'est le format le plus court à lecture
+    // égale : le daily n'y apparaît qu'une fois.
+    function slackText() {
+        const evs = visible();
+        const m = byDay(evs);
+        const rituals = recurringRituals(evs);
+        const lines = [slackHeader()];
+        if (state.shift) lines.push(`_(simulation : tout décalé de ${state.shift > 0 ? '+' : ''}${state.shift} jour${Math.abs(state.shift) > 1 ? 's' : ''})_`);
+        lines.push('');
+
+        const fond = rituals.filter(r => r.freq === 'tous les jours' || r.freq === '1x/sem.');
+        if (fond.length) {
+            lines.push('*⏱️ Le rythme — tous les jours / toutes les semaines*');
+            for (const r of fond) {
+                lines.push(`  ${KINDS[r.kind].dot} ${stripEmoji(r.title)} — ${cadence(r)} (${durLabel(r.durMin)})`);
+            }
+            lines.push('');
+        }
+
+        const fondKeys = new Set(fond.flatMap(r => r.days.map(d => `${r.uid}|${d}`)));
+        for (const g of weekGroups(days)) {
+            lines.push(`*── ${g.label} ──*`);
+            for (const d of g.days) {
+                const list = (m.get(d) || []).filter(ev => !fondKeys.has(`${ev.uid}|${ev.day}`));
+                const abs = absentNames(d);
+                if (!list.length && !abs.length) continue;
+                lines.push(`*${dayName(d)} ${ddmm(d)}*${d === D.today ? '  ← aujourd’hui' : ''}`);
+                for (const ev of list) {
+                    lines.push(`  ${KINDS[ev.kind].dot} ${isFullDay(ev) ? 'journée' : ev.start} · ${ev.title}${ev.freq ? `  _(${ev.freq})_` : ''}`);
+                }
+                if (abs.length) lines.push(`  🏖️ ${abs.join(', ')}`);
+            }
+            lines.push('');
+        }
+
+        const L = weeklyLoad(rituals);
+        lines.push(`_${hrs(L.busy)} de rituels par semaine si on assiste à tout — reste ${hrs(L.free)} sur une base de ${hrs(L.base)}._`);
+        return lines.join('\n').trimEnd();
+    }
+
+    iterationHead(document.getElementById('it-head'), { subtitle: `PI ${D.iteration.pi} · ${D.events.length} évènements sur l’itération` });
+    mountFilters(document.getElementById('filters'), render);
+    mountShift(document.getElementById('shift'), render);
+    bindDense(document.getElementById('spark'), document.getElementById('weeks'), () => map);
+    mountSlack(slackText);
+    render();
+})();
+</script>
+</body>
+</html>

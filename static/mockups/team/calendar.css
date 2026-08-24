@@ -152,6 +152,20 @@
     background: var(--surface-hover);
 }
 .tcal-edit[hidden] { display: none; }
+.tcal-edit--locked { background: var(--surface-active); }
+.tcal-locked-note {
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+}
+.tcal-locked-note strong { color: var(--text); }
+/* Un champ désactivé doit se voir comme tel, pas seulement refuser la saisie */
+.tcal-field input:disabled,
+.tcal-field select:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: var(--surface-active);
+}
 .tcal-edit-row {
     display: flex;
     gap: var(--sp-3);

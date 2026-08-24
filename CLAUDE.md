@@ -34,6 +34,14 @@ python main.py          # http://localhost:3001  — Swagger /docs
   **ne jamais importer statiquement un module de `views/` depuis un composant** (ça casse le lazy) ;
   utiliser `import()` dynamique au point d'usage. Les rappels de cérémonies vivent dans
   [reminders.js](static/js/reminders.js) (PAS dans settings.js).
+- **utils.js est un barrel** (3.141.5) : les briques vivent dans `static/js/utils/`
+  (`dom`, `wiki`, `modals`, `support`, `pi-config`) et `utils.js` les ré-exporte — importer
+  **toujours** depuis `../utils.js`, jamais depuis un sous-module, sauf `utils/pi-config.js`
+  (accès à `pi-cfg-<N>`) qui s'importe directement.
+- **Config PI `pi-cfg-<N>`** : `savePiCfg()` FUSIONNE (ne jamais faire `setItem` à la main).
+  La saisie « Sprint & PI » pose `manual.<champ>` et prime ; l'import Congés n'écrit que
+  `startDateFromCsv` / `sprintsPerPIFromCsv` et ne remplit les clés effectives que si elles
+  sont vides.
 - **Rotation Support** (3.141.4) : grille, shuffle et calcul des semaines d'un PI vivent dans
   [settings-rotation.js](static/js/views/settings-rotation.js) — **PAS dans settings.js**.
   Le nombre d'itérations d'un PI suit `pi-cfg-<N>` (Sprint & PI) > indices JIRA **de ce PI**

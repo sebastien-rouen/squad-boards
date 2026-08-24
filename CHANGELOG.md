@@ -1,3 +1,44 @@
+## [3.141.5] - 2026-08-24
+
+### Refactorisation — utils.js découpé (barrel de compatibilité)
+
+- `utils.js` **2 017 → 1 250 lignes**. Quatre modules extraits dans
+  [static/js/utils/](static/js/utils/) :
+
+  | Module | Contenu | Lignes |
+  |---|---|---|
+  | `utils/dom.js` | `esc`, `trapFocus`, `toast` — feuille du graphe, aucune dépendance | 60 |
+  | `utils/wiki.js` | Atlassian Wiki Markup → HTML | 133 |
+  | `utils/modals.js` | `confirmDanger`, `choiceModal`, `exportChoiceModal`, `ioTabModal`, `promptModal` | 308 |
+  | `utils/support.js` | Semaines de PI, jours ouvrés, absences bloquantes, `generateSupportRotation` | 307 |
+
+- **`utils.js` reste le point d'entrée** et ré-exporte tout (`export * from`) : aucun import des
+  17 vues n'a été modifié. Vérifié : les **88 exports** publics répondent toujours depuis
+  `utils.js`, et les 17 vues se chargent réellement dans Node.
+- Nouveau [utils/pi-config.js](static/js/utils/pi-config.js) : `loadPiCfg` / `savePiCfg` /
+  `piSprintCount`, qui remplacent les **deux lecteurs concurrents** de `pi-cfg-<N>`
+  (`_piCfgLoad` dans settings.js, `_lsPiCfg` dans settings-rotation.js).
+
+### Correctif — Config PI : la saisie « Sprint & PI » n'est plus écrasée
+
+- **`_piCfgSave()` remplaçait tout l'objet** : enregistrer le formulaire Sprint & PI effaçait les
+  clés posées par l'import Congés (jours PIP notamment), et un ré-import effaçait la saisie.
+  L'écriture **fusionne** désormais, et marque d'un flag `manual` les champs saisis à la main.
+- **L'import Congés complète, il n'écrase plus** : les valeurs déduites du CSV vont dans
+  `startDateFromCsv` / `sprintsPerPIFromCsv` ; les clés effectives ne sont remplies que si elles
+  sont vides. L'ancrage d'un PI déjà planifié ne bouge donc plus dans le dos de l'utilisateur.
+- **Plus de snap au vendredi à l'import** : le premier jour du PI est la 1ʳᵉ colonne date du CSV,
+  telle quelle — c'est le jour où les équipes démarrent réellement.
+- **Nombre d'itérations d'un PI**, ordre de résolution :
+  1. saisie « Sprint & PI » (`manual.sprintsPerPI`) — fait foi ;
+  2. sprints JIRA **de ce PI** (31.1→31.5 ⇒ 5) ;
+  3. déduction de l'import Congés (`sprintsPerPIFromCsv`, estimation par amplitude) ;
+  4. valeur héritée d'un ancien import, puis repli.
+  Effet : un `pi-cfg-31.sprintsPerPI = 6` posé par un ancien import **ne s'impose plus** — JIRA
+  reprend la main et le PI 31 affiche ses 10 semaines sans ressaisie.
+
+---
+
 ## [3.141.4] - 2026-08-24
 
 ### Correctif — Rotation : en-tête de semaine décalé et itération de trop

@@ -11,6 +11,7 @@ import {
     exportChoiceModal, arrayToCsv, diagramFrameHtml, teamNameMatches,
     ioTabModal, confirmDanger,
 } from '../utils.js';
+import { piCfgKey, loadPiCfg, savePiCfg } from '../utils/pi-config.js';
 import { makePersonPicker } from '../components/modal.js';
 // Rotation Support — extraite dans son propre module (grille, shuffle, semaines du PI)
 import {
@@ -2518,12 +2519,13 @@ export function renderSettings(container) {
         // Dates du PI déduites de la plage CSV (1er → dernier jour ouvré listé)
         const _fmtFr = iso => { if (!iso) return '?'; const [y,m,d] = iso.split('-'); return `${parseInt(d)}/${m}/${y}`; };
         const sprintDur = piInfo?.sprintDuration || 14;
-        // Snap le début au vendredi précédent (1er jour de sprint typique) pour aligner les semaines.
-        const _snapFriday = iso => { const d = new Date(iso + 'T00:00:00'); const back = (d.getDay() - 5 + 7) % 7; d.setDate(d.getDate() - back); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-        const piStartSnapped = piStartDate ? _snapFriday(piStartDate) : null;
+        // Le 1er jour du PI = 1re colonne date du CSV, TELLE QUELLE. Plus de snap au vendredi :
+        // les équipes démarrent le jour que dit le fichier RH, et le décalage rendait la grille
+        // rotation incohérente avec les jours réellement travaillés.
+        const piStartReal = piStartDate || null;
         // Nombre de sprints = durée totale (jours calendaires) / durée d'un sprint, arrondi.
-        const sprintsDeduced = (piStartSnapped && piEndDate)
-            ? Math.max(1, Math.round((new Date(piEndDate + 'T00:00:00') - new Date(piStartSnapped + 'T00:00:00')) / 86400000 / sprintDur))
+        const sprintsDeduced = (piStartReal && piEndDate)
+            ? Math.max(1, Math.round((new Date(piEndDate + 'T00:00:00') - new Date(piStartReal + 'T00:00:00')) / 86400000 / sprintDur))
             : null;
 
         const transverseCount = absencesPayload.filter(p => _isTransverseTeam(p.team)).length;
@@ -2533,8 +2535,8 @@ export function renderSettings(container) {
             : '';
         const teamsLine = teamsDetected.length ? `\nÉquipes : ${teamsDetected.slice(0, 8).join(', ')}${teamsDetected.length > 8 ? '…' : ''}` : '';
         const piLine = piTarget ? `\n👥 Snapshot membres → PI ${piTarget} (${snapshotMembers.length} membres)` : '\n⚠ Aucun PI cible — pas de snapshot membres.';
-        const datesLine = (piTarget && piStartSnapped)
-            ? `\n📅 Dates PI ${piTarget} : ${_fmtFr(piStartSnapped)} → ${_fmtFr(piEndDate)}${sprintsDeduced ? ` (~${sprintsDeduced} sprints)` : ''}`
+        const datesLine = (piTarget && piStartReal)
+            ? `\n📅 Dates PI ${piTarget} : ${_fmtFr(piStartReal)} → ${_fmtFr(piEndDate)}${sprintsDeduced ? ` (~${sprintsDeduced} sprints)` : ''}`
             : '';
         const pipLine = pipDates.length
             ? `\n🗓️ PIP (PI Planning du PI suivant) : ${pipDates.map(_fmtFr).join(', ')}`
@@ -2542,7 +2544,7 @@ export function renderSettings(container) {
         // Fenêtre du PI à écraser : dates déduites du PI si dispo, sinon amplitude des absences importées
         const _payloadDates = absencesPayload
             .flatMap(a => [a.startDate, a.endDate || a.startDate]).filter(Boolean).sort();
-        const rangeStart = piStartSnapped || _payloadDates[0] || null;
+        const rangeStart = piStartReal || _payloadDates[0] || null;
         const rangeEnd   = piEndDate     || _payloadDates[_payloadDates.length - 1] || null;
         const overlapCount = (rangeStart && rangeEnd)
             ? (store.get('absences') || []).filter(a => {
@@ -2578,24 +2580,27 @@ export function renderSettings(container) {
             if (piTarget && snapshotMembers.length) {
                 await api.setPiMembers(piTarget, snapshotMembers);
             }
-            // Enregistre les dates déduites du PI dans pi-cfg-<N> (source des semaines rotation/PI calendar)
-            if (piTarget && piStartSnapped) {
-                const key = `pi-cfg-${piTarget}`;
-                let cfg = {}; try { cfg = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
-                cfg.number = piTarget;
-                cfg.startDate = piStartSnapped;
-                if (sprintsDeduced) cfg.sprintsPerPI = sprintsDeduced;
-                cfg.sprintDuration = cfg.sprintDuration || sprintDur;
+            // Enregistre les dates déduites dans pi-cfg-<N>. L'import COMPLÈTE, il n'écrase JAMAIS :
+            // les valeurs brutes du CSV vont dans `*FromCsv` (elles alimenteront le bouton
+            // « Recaler ce PI sur les Congés »), et les clés effectives ne sont remplies que
+            // si elles sont absentes — une saisie « Sprint & PI » reste donc intacte, et
+            // l'ancrage d'un PI déjà planifié ne bouge pas dans le dos de l'utilisateur.
+            if (piTarget && piStartReal) {
+                const cfg = loadPiCfg(piTarget) || {};
+                const patch = { number: piTarget, startDateFromCsv: piStartReal, sprintDuration: cfg.sprintDuration || sprintDur };
+                if (sprintsDeduced) patch.sprintsPerPIFromCsv = sprintsDeduced;
+                if (!cfg.startDate) patch.startDate = piStartReal;
+                if (!cfg.sprintsPerPI && sprintsDeduced) patch.sprintsPerPI = sprintsDeduced;
                 // Jours PIP (PI Planning) qui clôturent ce PI — réutilisables par le PI calendrier
-                if (pipDates.length) cfg.pipDates = pipDates;
-                localStorage.setItem(key, JSON.stringify(cfg));
+                if (pipDates.length) patch.pipDates = pipDates;
+                savePiCfg(piTarget, patch);   // fusion : ne touche pas aux valeurs saisies à la main
             }
             const parts = [`${res.created} absence(s) ajoutee(s)`];
             if (res.deleted) parts.push(`${res.deleted} ecrasee(s)`);
             if (res.skipped) parts.push(`${res.skipped} doublon(s)`);
             if (memSync) parts.push(`${memSync.created || 0} créés, ${memSync.updated || 0} maj`);
             if (piTarget) parts.push(`snapshot PI ${piTarget}`);
-            if (piTarget && piStartSnapped) parts.push(`dates PI`);
+            if (piTarget && piStartReal) parts.push(`dates PI`);
             toast(parts.join(' · '), 'success');
             await reloadAndRender(container);
         } catch (e) { toast(e.message, 'error'); }
@@ -3538,10 +3543,10 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
         }
     };
 
-    // ── Persistance locale des configs PI (une entrée localStorage par PI) ──────
-    const PI_CFG_KEY = (n) => `pi-cfg-${n}`;
-    const _piCfgLoad = (n) => { try { return JSON.parse(localStorage.getItem(PI_CFG_KEY(n)) || 'null'); } catch { return null; } };
-    const _piCfgSave = (n, data) => localStorage.setItem(PI_CFG_KEY(n), JSON.stringify(data));
+    // ── Persistance locale des configs PI — logique dans utils/pi-config.js ────
+    const PI_CFG_KEY  = piCfgKey;
+    const _piCfgLoad  = loadPiCfg;
+    const _piCfgSave  = savePiCfg;
 
     // Lit les valeurs actuelles des champs PI sous forme d'objet
     const _piFormRead = () => {
@@ -3678,7 +3683,7 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
                 async () => {
                     // Sauvegarde locale pour ce PI
                     const data = _piFormRead();
-                    if (data) _piCfgSave(currentPi, data);
+                    if (data) _piCfgSave(currentPi, data, { manual: true });
                     // Si c'est le PI courant en base, sauvegarde aussi en API
                     if (currentPi === _basePiNum) {
                         try {
@@ -3874,7 +3879,7 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
         const track = container.querySelector('#pi-sprint-track');
         const displayPi = parseInt(track?.dataset.displayPi || '0') || _basePiNum;
         // Toujours sauvegarder en localStorage pour ce PI
-        _piCfgSave(displayPi, data);
+        _piCfgSave(displayPi, data, { manual: true });
         // Mettre à jour le nombre de sprints dans le track
         _switchPiTrack(displayPi, data.sprintsPerPI);
         _piFormBaseline = _piFormSnapshot();

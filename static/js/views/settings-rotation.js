@@ -15,6 +15,7 @@ import {
     supportDaysForMember, supportAbsenceDayLevel, isMemberSupportActive, setMemberSupportActive,
     promptModal, teamNameMatches, confirmDanger, effectiveRosterForPi,
 } from '../utils.js';
+import { loadPiCfg } from '../utils/pi-config.js';
 
 async function _rotRefreshPanels(container) {
     const panelsEl = container.querySelector('#rot-panels');
@@ -456,28 +457,28 @@ function _sortSupportMembers(names) {
 
 /** Détecte le nombre réel de sprints d'un PI depuis les teamSprints JIRA (max index).
  *  Couvre les PI exceptionnels à 6 sprints (ex: PI30 avec un sprint 30.6). */
-/** Config PI saisie dans « Paramètres → Sprint & PI » (localStorage `pi-cfg-<N>`). */
-function _lsPiCfg(piNum) {
-    if (!piNum) return null;
-    try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNum}`) || 'null'); } catch { return null; }
-}
+const _lsPiCfg = loadPiCfg;   // config PI locale — cf. utils/pi-config.js
 
 function _detectSprintsPerPI(piNum, fallback) {
     if (!piNum) return fallback;
-    // 1) Config explicite de la section « Sprint & PI » POUR CE PI — elle fait foi.
     const cfg = _lsPiCfg(piNum);
-    if (cfg?.sprintsPerPI) return cfg.sprintsPerPI;
-    // 2) Sinon, sprints JIRA DE CE PI : le plus grand indice observé EST le nombre d'itérations.
+    // 1) Saisie explicite dans « Paramètres → Sprint & PI » — elle fait foi, toujours.
+    if (cfg?.manual?.sprintsPerPI && cfg.sprintsPerPI) return cfg.sprintsPerPI;
+    // 2) Sprints JIRA DE CE PI : le plus grand indice observé EST le nombre d'itérations.
+    //    ⚠️ JAMAIS `Math.max(maxIdx, fallback)` : le fallback vient souvent d'un AUTRE PI (le
+    //    courant). JIRA connaît 30.1→30.6 et 31.1→31.5 ; le max donnait 6 itérations au PI 31,
+    //    soit 2 semaines fantômes (31.6.1 / 31.6.2) débordant sur le PI 32.
     const all = store.get('sprintInfo')?.teamSprints || [];
     let maxIdx = 0;
     for (const s of all) {
         const m = String(s.name || '').match(/\b(\d{2,})\.(\d+)/);
         if (m && parseInt(m[1], 10) === piNum) maxIdx = Math.max(maxIdx, parseInt(m[2], 10));
     }
-    // ⚠️ JAMAIS `Math.max(maxIdx, fallback)` : le fallback vient souvent d'un AUTRE PI (le
-    // courant). JIRA connaît 30.1→30.6 et 31.1→31.5 ; le max donnait 6 itérations au PI 31,
-    // soit 2 semaines fantômes (31.6.1 / 31.6.2) débordant sur le PI 32.
-    return maxIdx > 0 ? maxIdx : fallback;
+    if (maxIdx > 0) return maxIdx;
+    // 3) Déduction de l'import Congés (amplitude du CSV / durée de sprint) — une estimation.
+    if (cfg?.sprintsPerPIFromCsv) return cfg.sprintsPerPIFromCsv;
+    // 4) Valeur héritée d'un ancien import (origine inconnue), puis repli.
+    return cfg?.sprintsPerPI || fallback;
 }
 
 /** Date de début du sprint .1 d'un PI = date MAJORITAIRE parmi les équipes.

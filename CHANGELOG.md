@@ -1,3 +1,64 @@
+## [3.141.17] - 2026-08-24
+
+### Base capacité — l'effectif se compte en ETP, pas en têtes
+
+Doute soulevé en revue : « comptes-tu des membres que tu ne devrais pas, des rôles autres que
+développeurs ? » **Oui.** `piCapacityBase` comptait toutes les personnes ayant un congé dans
+l'équipe, à égalité — Product Owner et Scrum Master compris.
+
+- Le calcul suit désormais `piInfo.roleCapacity` (Paramètres → **Capacité dev — % de travail
+  par rôle**, `/#settings/cap-roles`), déjà réglé et déjà utilisé par la page PI : Dev 100 %,
+  **Tech Lead 70 %**, PO / SM / Designer / System Architect **0 %**.
+- **Les absences sont pondérées elles aussi** : les congés d'un rôle à 0 % ne retirent plus
+  rien à une capacité à laquelle il ne contribue pas.
+- Sur les données réelles : Gabbiano passe de **6 personnes à 4,70 ETP**, Fuego de **15 à
+  13,00 ETP**, Lion de **6 à 4,70 ETP**.
+- `_capRolePct` (pi.js) pointe maintenant sur `roleCapacityPct` (utils/capacity-base.js) :
+  une règle métier, un seul endroit.
+- Un membre présent dans les congés d'une équipe mais non déclaré dans `member` pour
+  celle-ci sortait **sans rôle**, donc compté à 100 % : son rôle connu ailleurs sert
+  désormais de repli (cas réel : « BASSO, Lucas », Ops chez Fuego, vu dans les congés de Lion).
+
+### Base capacité — infobulle de détail du calcul
+
+L'infobulle de **🎯 Base capacité** déroule les trois étapes et, surtout, la liste
+**nominative** des personnes comptées avec leur rôle et leur % — « qui as-tu compté ? » étant
+la première question devant un chiffre de capacité :
+
+```
+2. Effectif compté : 4.70 ETP (et non 6 personnes)
+   • COLSENET, Guillaume — Dev 100 %
+   • GOMIS, Tanisha — Tech Lead 70 %
+   · SZTYKMAN, Elsa — Product Owner 0 % ✗ exclu
+```
+
+Les rôles inconnus (comptés à 100 % par défaut) sont signalés par un ⚠ plutôt qu'écartés en
+silence, tout comme la fenêtre dépassant les congés connus.
+
+### Tests — `sprint-scope` et `capacity-base` (44 tests)
+
+Ces deux modules sont devenus le socle de quatre vues, et leurs règles sont exactement du
+genre qu'un refactor réinverse sans bruit. Verrouillé en particulier :
+- un ticket reporté puis terminé ailleurs **ne gonfle jamais** la vélocité ;
+- `spk = null` exige le nom exact (sans quoi le « 30.1 » des autres équipes entre) ;
+- la base d'un PI **égale la somme** des bases par sprint ;
+- les congés d'un rôle à 0 % ne réduisent pas la base, ceux d'un dev si.
+
+Suite complète : **112 tests, 33 suites**.
+
+### Correctif — `/#settings/cap-roles` : « Copie impossible » en rafale
+
+Le clic sur « N membres » déclenchait autant de copies — et de toasts — qu'il y a de rôles
+configurés (**23** en production).
+
+- **Cause** : le câblage `.cap-role-count--tip` était imbriqué **dans** le `forEach` des
+  sliders, si bien que chaque rôle réattachait un listener à *tous* les compteurs. Sorti du
+  bloc : 1 listener par élément (vérifié : 23 rôles → 1 listener).
+- La copie passe par `copyToClipboard()` (utils) et son repli `execCommand` : hors contexte
+  sécurisé (accès en http par IP LAN) `navigator.clipboard` est absent, et l'appeler nu y
+  lève une `TypeError` **synchrone** qu'aucun `.catch()` ne rattrape — d'où l'échec.
+- Même correction sur « Copier un message de rotation », qui avait le même appel nu.
+
 ## [3.141.16] - 2026-08-24
 
 ### Health — 🎯 Base capacité du PI à venir (congés + vélocité des 2 derniers PI)

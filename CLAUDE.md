@@ -42,9 +42,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
   La saisie « Sprint & PI » pose `manual.<champ>` et prime ; l'import Congés n'écrit que
   `startDateFromCsv` / `sprintsPerPIFromCsv` et ne remplit les clés effectives que si elles
   sont vides.
-- **settings.js éclaté** (3.141.7) : `settings-rotation.js` (grille/shuffle),
-  `settings-io.js` (import/export de données) et `settings-absences-csv.js` (parser du CSV
-  Congés, sans aucune dépendance donc testable). `settings.js` ne garde que le rendu et le
+- **settings.js éclaté** (3.141.8) : `settings-rotation.js` (grille/shuffle),
+  `settings-io.js` (import/export de données), `settings-absences-csv.js` (parser du CSV
+  Congés, sans aucune dépendance donc testable) et `settings-jira.js` (section Plugin JIRA :
+  `jiraSectionHtml()` + `wireJiraSection()`). `settings.js` ne garde que le rendu et le
   câblage de la vue. `_openImportModal` reçoit son rafraîchissement par injection — importer
   `reloadAndRender` y créerait un cycle.
 - **Écart PI ↔ Congés** : `piCongesDiff()` (utils/pi-weeks.js) est la source unique du bandeau

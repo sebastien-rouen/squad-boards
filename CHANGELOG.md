@@ -1,3 +1,30 @@
+## [3.141.12] - 2026-08-24
+
+### Health — vote de confiance (Fist of Five) dans « Sprints du PI »
+
+- Nouvelle colonne **✊ Confiance** dans le tableau « Sprints du PI » de la modale Health,
+  à côté de 🎭 Mood : moyenne des votes du sprint, nombre de votants, distribution complète
+  en infobulle, et **saisie au clic** (picker inline ✊ ✌️ 🤟 🖖 🖐️, même échelle que le
+  panneau de vote PI). La ligne de total affiche la **moyenne du PI**, pondérée par le
+  nombre de votes.
+- Aucun changement backend : les votes partent sur `POST /api/mood` avec `type: "fist"`,
+  déjà géré et déjà exposé par `/api/all` sous `fistVotes`. Un vote saisi ici est donc
+  immédiatement visible en Sprint Review, sur le Dashboard et dans le panneau latéral.
+- La **teinte de la ligne de total reste celle du Mood** : elle signale le climat d'équipe,
+  pas la confiance dans le plan — deux verdicts distincts qui se contrediraient sur une
+  seule ligne.
+
+### Refactoring — `views/health-votes.js`
+
+- Mood et Confiance ont exactement la même mécanique (échelle 1→5, moyenne pondérée,
+  distribution, picker) : les helpers jumeaux de `health.js` sont remplacés par un module
+  unique paramétré par le type de vote. `health.js` **perd 56 lignes** malgré la nouvelle
+  colonne, et une correction de calcul profite désormais aux deux votes d'un coup.
+- Classes CSS renommées `.htl-mood-*` → `.htl-vote-*` (elles servent les deux colonnes),
+  et cellules `.htl-spr-mood` → `.htl-spr-vote`. Aucun autre fichier ne les référençait.
+- Le picker reste **dans le flux** de la cellule : `.htl-sprint-table-wrap` scrolle en x,
+  ce qui clipperait un positionnement absolu.
+
 ## [3.141.11] - 2026-08-24
 
 ### Tests — suite `node:test` durable (`npm test`)

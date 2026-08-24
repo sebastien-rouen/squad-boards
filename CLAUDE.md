@@ -48,6 +48,12 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `jiraSectionHtml()` + `wireJiraSection()`). `settings.js` ne garde que le rendu et le
   câblage de la vue. `_openImportModal` reçoit son rafraîchissement par injection — importer
   `reloadAndRender` y créerait un cycle.
+- **Votes d'équipe Health** (3.141.12) : les colonnes 🎭 Mood et ✊ Confiance du tableau
+  « Sprints du PI » sont rendues par [health-votes.js](static/js/views/health-votes.js)
+  (`VOTE_KINDS` = échelle + libellés + clé de store). Même mécanique 1→5 pour les deux,
+  même table backend `mood` distinguée par `type` (`mood` | `fist`) — n'écrire un calcul
+  de moyenne/distribution QUE là. Les votes s'apparient sur `piSprint` = clé `NN.N`
+  (`extractSprintLabel`). La teinte de la ligne de total suit le **Mood** seul.
 - **Écart PI ↔ Congés** : `piCongesDiff()` (utils/pi-weeks.js) est la source unique du bandeau
   de recalage (Rotation) ET du récapitulatif multi-PI (Sprint & PI).
 - **Semaines d'un PI** (3.141.6) : source unique `utils/pi-weeks.js` (`buildPiWeeks`) —

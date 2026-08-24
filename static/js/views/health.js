@@ -19,6 +19,7 @@ import { openAlertModal } from '../components/alert_modal.js';
 import { sparkline, trendChip } from '../components/sparkline.js';
 import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
 import { ANOMALY_RULES, isActionRetro } from '../business_rules.js';
+import { VOTE_KINDS, setVotes, pushVote, voteCellHtml, voteTotalHtml, voteRowCls, pickerHtml } from './health-votes.js';
 
 // Historique local du score Health (snapshot à chaque visite, max 30 entrées)
 const HEALTH_HIST_KEY = 'sb-health-history';
@@ -46,10 +47,8 @@ const ANOMALIES = ANOMALY_RULES;
 const _sprintMetaStore = new Map();
 
 // Helpers et données partagés entre renderHealth et _openSprintModal (module-level)
-let _lastMoodVotes   = [];
 let _lastTeamObjects = [];
 const _spKey  = extractSprintLabel; // alias local — source unique désormais dans utils.js
-const _face   = n => ({ 1:'😞', 2:'😕', 3:'😐', 4:'🙂', 5:'😄' }[Math.round(n)] || '—');
 const _fmtD   = iso => iso ? new Date(iso).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' }) : '—';
 const _stateL = s => ({ active:'🟢 En cours', closed:'✅ Terminé', future:'🔜 À venir' }[s] || s || '—');
 
@@ -82,62 +81,6 @@ function _stateBadge(state) {
     const m = map[state] || { cls: 'htl-state--future', label: state || '—' };
     return `<span class="htl-state ${m.cls}">${m.label}</span>`;
 }
-
-// Construit la cellule mood (moyenne + nb votes + tooltip distribution) pour un sprint.
-// Lit _lastMoodVotes (rafraîchi à chaque render + après un vote).
-function _moodCellHtml(team, sprintKey) {
-    const moods = _lastMoodVotes
-        .filter(v => v.team === team && v.piSprint === sprintKey)
-        .map(v => parseInt(v.value) || 0).filter(Boolean);
-    const n = moods.length;
-    const avg = n ? Math.round((moods.reduce((a, b) => a + b, 0) / n) * 10) / 10 : null;
-    const attrs = `data-mood-editable data-sprint-key="${esc(sprintKey)}" data-team="${esc(team)}"`;
-    if (!n) {
-        return `<span class="htl-mood-empty htl-muted" ${attrs} title="Aucun vote pour le sprint ${esc(sprintKey)} — cliquer pour voter">+ voter</span>`;
-    }
-    const dist = [1, 2, 3, 4, 5].map(v => moods.filter(m => m === v).length);
-    const tip = `Mood ${team} · sprint ${sprintKey}\nMoyenne ${avg}/5 · ${n} vote${n > 1 ? 's' : ''}\n`
-        + [5, 4, 3, 2, 1].map(v => `${_face(v)} ${v} : ${dist[v - 1]}`).join('\n')
-        + `\n\nCliquer pour voter`;
-    const cls = avg >= 4 ? 'htl-mood--good' : avg >= 3 ? 'htl-mood--ok' : 'htl-mood--bad';
-    return `<span class="htl-mood-val ${cls}" ${attrs} title="${esc(tip)}">${_face(avg)} ${avg} <span class="htl-mood-count">(${n})</span></span>`;
-}
-
-// Mood moyen sur TOUT le PI, pour la ligne de total du tableau des sprints.
-// Moyenne pondérée par le nombre de votes (on repart des votes bruts), pas moyenne
-// des moyennes : un sprint à 12 votes et un sprint à 2 ne pèsent pas pareil.
-// Non cliquable, contrairement aux cellules par sprint : on ne vote pas sur un total.
-function _moodTotalStats(team, sprintKeys) {
-    const keys = new Set(sprintKeys);
-    const votes = _lastMoodVotes.filter(v => v.team === team && keys.has(v.piSprint));
-    const moods = votes.map(v => parseInt(v.value) || 0).filter(Boolean);
-    const n = moods.length;
-    if (!n) return { n: 0, avg: null, tone: '' };
-    const avg = Math.round((moods.reduce((a, b) => a + b, 0) / n) * 10) / 10;
-    return {
-        n, avg,
-        tone: avg >= 4 ? 'good' : avg >= 3 ? 'ok' : 'bad',
-        dist: [1, 2, 3, 4, 5].map(v => moods.filter(m => m === v).length),
-        voted: new Set(votes.map(v => v.piSprint)).size,
-    };
-}
-
-function _moodTotalHtml(team, sprintKeys) {
-    const s = _moodTotalStats(team, sprintKeys);
-    if (!s.n) return '<span class="htl-muted">—</span>';
-    const tip = `Mood moyen du PI · ${team}\nMoyenne ${s.avg}/5 · ${s.n} vote${s.n > 1 ? 's' : ''} `
-        + `sur ${s.voted} sprint${s.voted > 1 ? 's' : ''} / ${sprintKeys.length}\n`
-        + [5, 4, 3, 2, 1].map(v => `${_face(v)} ${v} : ${s.dist[v - 1]}`).join('\n');
-    return `<span class="htl-mood-val htl-mood--${s.tone}" title="${esc(tip)}">${_face(s.avg)} ${s.avg} <span class="htl-mood-count">(${s.n})</span></span>`;
-}
-
-/** Classe de teinte de la ligne de total — vide s'il n'y a aucun vote (pas de
- *  verdict à donner). Sépare la couleur du rendu : la ligne et la cellule
- *  partagent ainsi exactement le même seuil. */
-const _moodRowCls = (team, keys) => {
-    const tone = _moodTotalStats(team, keys).tone;
-    return tone ? ` htl-sprint-total--${tone}` : '';
-};
 
 const SEV_COLOR = { danger: 'var(--danger)', warning: 'var(--warning)', info: 'var(--info)' };
 const SEV_BG    = {
@@ -333,7 +276,11 @@ export function renderHealth(container) {
     // ── Vélocité et buffer réalisés par équipe ────────────────────────────────
     _sprintMetaStore.clear();
     const moodVotes   = store.get('moodVotes') || [];
-    _lastMoodVotes    = moodVotes;
+    // Les deux votes d'équipe rendus dans le tableau « Sprints du PI » (🎭 Mood et
+    // ✊ Confiance) sont recopiés dans health-votes.js : les cellules re-rendues à
+    // chaud après un vote y lisent leur instantané, sans repasser par le store.
+    setVotes('mood', moodVotes);
+    setVotes('fist', store.get('fistVotes') || []);
     _lastTeamObjects  = teamObjects;
 
     const veloByTeam = {}, bufByTeam = {}, sprintMetaByTeam = {};
@@ -719,9 +666,14 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
     const _totOf = key => tot[key]?.n ? String(tot[key].sum) : '<span class="htl-muted">—</span>';
     const _totNum = key => tot[key]?.sum || 0;
 
+    // Clés de sprint du PI (« 29.3 ») — utilisées telles quelles pour apparier les votes
+    // Mood et Confiance, en base comme après un vote enregistré à chaud.
+    const _piKeys = (meta.piSprints || []).map(s => _spKey(s.name));
+
     const sprintRows = (meta.piSprints || []).map(s => {
         const sk    = _spKey(s.name);
-        const moodHtml   = _moodCellHtml(teamName, sk);
+        const moodHtml   = voteCellHtml('mood', teamName, sk);
+        const fistHtml   = voteCellHtml('fist', teamName, sk);
         const isRef = s.name === meta.spName;
         const _active = m => s.name === activeSprintName && m === metric ? ' htl-cell-active' : '';
         const chargeKey  = `sb-charge-${s.name}`;
@@ -767,8 +719,9 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
             <td class="htl-spr-name">${isRef ? `<strong>${esc(s.name)}</strong>` : esc(s.name)}</td>
             <td class="htl-spr-date">${_fmtD(s.startDate)}</td>
             <td class="htl-spr-state">${_stateBadge(s.state)}</td>
-            <td class="htl-spr-mood">${moodHtml}</td>
-            <td class="htl-spr-num"><input class="htl-charge-input" type="number" min="0" value="${esc(chargeVal)}" data-charge-key="${esc(chargeKey)}" title="Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)"></td>
+            <td class="htl-spr-vote">${moodHtml}</td>
+            <td class="htl-spr-vote">${fistHtml}</td>
+            <td class="htl-spr-num htl-grp-start"><input class="htl-charge-input" type="number" min="0" value="${esc(chargeVal)}" data-charge-key="${esc(chargeKey)}" title="Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)"></td>
             <td class="htl-spr-num htl-grp-start${planCls}"${planAttr} title="Tickets engagés au lancement${planHint}">${planTk || dash}</td>
             <td class="htl-spr-num${planCls}"${planAttr} title="Vélocité planifiée au lancement (estimation JIRA)${planHint}">${planPts || dash}</td>
             <td class="htl-spr-num htl-velo-col${veloAttr}"${veloClickable ? ' title="Voir les tickets Done de ce sprint"' : ''}>${vel}</td>
@@ -936,8 +889,9 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                             <th rowspan="2">Sprint</th>
                             <th rowspan="2">Début</th>
                             <th rowspan="2">État</th>
-                            <th rowspan="2" title="Mood moyen — cliquer pour voter">Mood</th>
-                            <th rowspan="2" class="htl-th-num" title="Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)">Charge prévue ✏️</th>
+                            <th rowspan="2" title="🎭 Mood — humeur ressentie par l'équipe sur le sprint, moyenne des votes. Cliquer une cellule pour voter">🎭 Mood</th>
+                            <th rowspan="2" title="✊ Fist of Five — confiance de l'équipe dans l'atteinte des objectifs du PI, moyenne des votes. Cliquer une cellule pour voter">✊ Confiance</th>
+                            <th rowspan="2" class="htl-th-num htl-grp-start" title="Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)">Charge prévue ✏️</th>
                             <th class="htl-grp htl-grp--velo" colspan="3">⚡ Vélocité</th>
                             <th class="htl-grp htl-grp--buf" colspan="3">🛡 Buffer</th>
                         </tr>
@@ -949,11 +903,12 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                             <th class="htl-th-num htl-sub" title="Vélocité Buffer planifiée">planifié</th>
                             <th class="htl-th-num htl-sub htl-buf-col" title="Points Buffer consommés">réalisée</th>
                         </tr></thead>
-                        <tbody>${sprintRows || '<tr><td colspan="11" class="htl-muted text-center" style="padding:12px">Aucun sprint trouvé pour ce PI</td></tr>'}</tbody>
-                        ${sprintRows ? `<tfoot><tr class="htl-sprint-total${_moodRowCls(teamName, (meta.piSprints || []).map(s => _spKey(s.name)))}">
+                        <tbody>${sprintRows || '<tr><td colspan="12" class="htl-muted text-center" style="padding:12px">Aucun sprint trouvé pour ce PI</td></tr>'}</tbody>
+                        ${sprintRows ? `<tfoot><tr class="htl-sprint-total${voteRowCls('mood', teamName, _piKeys)}">
                             <td colspan="3" class="htl-total-lbl">Total PI · ${(meta.piSprints || []).length} sprint${(meta.piSprints || []).length > 1 ? 's' : ''}</td>
-                            <td class="htl-spr-mood htl-total-mood" id="htl-tot-mood">${_moodTotalHtml(teamName, (meta.piSprints || []).map(s => _spKey(s.name)))}</td>
-                            <td class="htl-spr-num htl-total-val" id="htl-tot-charge" title="Somme des charges prévues saisies">${_totOf('charge')}</td>
+                            <td class="htl-spr-vote htl-total-vote" id="htl-tot-mood">${voteTotalHtml('mood', teamName, _piKeys)}</td>
+                            <td class="htl-spr-vote htl-total-vote" id="htl-tot-fist">${voteTotalHtml('fist', teamName, _piKeys)}</td>
+                            <td class="htl-spr-num htl-grp-start htl-total-val" id="htl-tot-charge" title="Somme des charges prévues saisies">${_totOf('charge')}</td>
                             <td class="htl-spr-num htl-grp-start htl-total-val" title="Total des tickets engagés au lancement">${_totOf('planTk')}</td>
                             <td class="htl-spr-num htl-total-val" title="Total de la vélocité planifiée">${_totOf('planPts')}</td>
                             <td class="htl-spr-num htl-velo-col htl-total-val" title="Total de la vélocité réalisée${_totNum('planPts') ? ` — ${Math.round(_totNum('vel') / _totNum('planPts') * 100)} % du planifié` : ''}">${_totOf('vel')}</td>
@@ -1075,48 +1030,50 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         window.__squadBoard?.openTicketModal?.(id);
     });
 
-    // ── Mood éditable : picker inline au clic ────────────────────────────────
-    const EMOJIS = ['😞','😕','😐','🙂','😄'];
+    // ── Votes éditables (🎭 Mood / ✊ Confiance) : picker inline au clic ──────
+    // Un seul câblage pour les deux colonnes : elles ne diffèrent que par leur échelle
+    // et leur type backend, tous deux portés par health-votes.js.
     overlay.addEventListener('click', e => {
-        const target = e.target.closest('[data-mood-editable]');
+        const target = e.target.closest('[data-vote-editable]');
         if (!target) return;
         e.stopPropagation();
-        // Ferme un picker déjà ouvert
-        overlay.querySelector('.htl-mood-picker')?.remove();
+        // Ferme un picker déjà ouvert — y compris celui de l'autre colonne de vote
+        overlay.querySelector('.htl-vote-picker')?.remove();
+        const kind      = target.dataset.voteKind || 'mood';
         const sprintKey = target.dataset.sprintKey;
-        const moodTeam  = target.dataset.team;
+        const voteTeam  = target.dataset.team;
+        const kindLbl   = VOTE_KINDS[kind].label.toLowerCase();
         const picker = document.createElement('div');
-        picker.className = 'htl-mood-picker';
-        picker.innerHTML = EMOJIS.map((em, i) =>
-            `<button class="htl-mood-btn" data-val="${i+1}" title="${i+1}/5">${em}</button>`
-        ).join('');
+        picker.className = 'htl-vote-picker';
+        picker.innerHTML = pickerHtml(kind);
         target.parentNode.appendChild(picker);
-        picker.querySelectorAll('.htl-mood-btn').forEach(btn => {
+        picker.querySelectorAll('.htl-vote-btn').forEach(btn => {
             btn.addEventListener('click', async ev => {
                 ev.stopPropagation();
                 const val = parseInt(btn.dataset.val, 10);   // backend exige un entier
                 picker.remove();
+                const vote = { type: kind, team: voteTeam, piSprint: sprintKey, value: val };
                 try {
-                    await api.createMood({ type: 'mood', team: moodTeam, piSprint: sprintKey, value: val });
-                    // Maj du store local + recalcul moyenne/nb votes
-                    const votes = (store.get('moodVotes') || []).concat({ type: 'mood', team: moodTeam, piSprint: sprintKey, value: val });
-                    store.set('moodVotes', votes);
-                    _lastMoodVotes = votes;
+                    // La réponse porte l'id généré côté serveur — on la préfère à l'objet
+                    // local pour que le store reste alignable sur un re-fetch.
+                    const saved = await api.createMood(vote);
+                    // Maj du store global + de l'instantané qui alimente les cellules
+                    const storeKey = VOTE_KINDS[kind].storeKey;
+                    store.set(storeKey, (store.get(storeKey) || []).concat(saved || vote));
+                    pushVote(kind, saved || vote);
                     // Remplace la cellule par sa version recalculée (moyenne + nb votes + tooltip)
-                    const td = target.closest('.htl-spr-mood');
-                    if (td) td.innerHTML = _moodCellHtml(moodTeam, sprintKey);
-                    // …et le mood moyen du PI, sinon le total contredirait la ligne
+                    const td = target.closest('.htl-spr-vote');
+                    if (td) td.innerHTML = voteCellHtml(kind, voteTeam, sprintKey);
+                    // …et le total du PI de CE vote, sinon il contredirait la ligne
                     // qu'on vient de modifier juste au-dessus.
-                    const totCell = overlay.querySelector('#htl-tot-mood');
-                    if (totCell) {
-                        const keys = (meta.piSprints || []).map(s => _spKey(s.name));
-                        totCell.innerHTML = _moodTotalHtml(moodTeam, keys);
-                        // La teinte de la ligne suit le même verdict que la cellule
-                        const row = totCell.closest('.htl-sprint-total');
-                        if (row) row.className = 'htl-sprint-total' + _moodRowCls(moodTeam, keys);
-                    }
-                    toast?.('Vote enregistré', 'success');
-                } catch { toast?.('Erreur lors du vote mood', 'error'); }
+                    const totCell = overlay.querySelector(`#htl-tot-${kind}`);
+                    if (totCell) totCell.innerHTML = voteTotalHtml(kind, voteTeam, _piKeys);
+                    // La teinte de la ligne de total reste celle du Mood : c'est le climat
+                    // d'équipe qu'elle signale, pas la confiance dans le plan.
+                    const row = overlay.querySelector('.htl-sprint-total');
+                    if (row) row.className = 'htl-sprint-total' + voteRowCls('mood', voteTeam, _piKeys);
+                    toast?.(`Vote ${kindLbl} enregistré`, 'success');
+                } catch { toast?.(`Erreur lors du vote ${kindLbl}`, 'error'); }
             });
         });
         // Fermer le picker au clic ailleurs

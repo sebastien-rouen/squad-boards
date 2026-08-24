@@ -426,10 +426,10 @@
 .htl-sprint-table tfoot tr.htl-sprint-total--ok   td { border-top-color: var(--warning); }
 .htl-sprint-table tfoot tr.htl-sprint-total--bad  td { border-top-color: var(--danger); }
 
-/* Mood moyen du PI : aligné à gauche comme la colonne, mais non cliquable —
-   on vote sur un sprint, pas sur un total. */
-.htl-sprint-table tfoot td.htl-total-mood { text-align: left; }
-.htl-sprint-table tfoot td.htl-total-mood .htl-mood-val { cursor: help; }
+/* Moyennes du PI (🎭 Mood, ✊ Confiance) : alignées à gauche comme leur colonne, mais
+   non cliquables — on vote sur un sprint, pas sur un total. */
+.htl-sprint-table tfoot td.htl-total-vote { text-align: left; }
+.htl-sprint-table tfoot td.htl-total-vote .htl-vote-val { cursor: help; }
 
 /* Les teintes de colonne (vert vélocité, violet buffer) priment sur celle du pied */
 .htl-sprint-table tfoot td.htl-velo-col { color: var(--success); }
@@ -536,8 +536,11 @@
     padding: 2px 10px;
 }
 
-/* Mood picker inline */
-.htl-mood-picker {
+/* Picker de vote inline — partagé par les colonnes 🎭 Mood et ✊ Confiance, qui ne
+   diffèrent que par leur échelle d'emojis. Volontairement DANS le flux de la cellule :
+   `.htl-sprint-table-wrap` scrolle en x, ce qui clipperait un picker positionné en
+   absolu. Il pousse donc la ligne vers le bas le temps du vote, sans être rogné. */
+.htl-vote-picker {
     display: inline-flex;
     gap: 4px;
     background: var(--surface);
@@ -546,7 +549,7 @@
     padding: 3px 5px;
     box-shadow: 0 2px 8px rgba(0,0,0,.12);
 }
-.htl-mood-btn {
+.htl-vote-btn {
     font-size: 16px;
     cursor: pointer;
     border-radius: var(--r-sm);
@@ -554,8 +557,8 @@
     transition: background .1s, transform .1s;
     line-height: 1;
 }
-.htl-mood-btn:hover { background: var(--surface-2); transform: scale(1.2); }
-.htl-mood-btn.is-selected { background: color-mix(in srgb, var(--primary) 15%, var(--surface)); }
+.htl-vote-btn:hover { background: var(--surface-2); transform: scale(1.2); }
+.htl-vote-btn.is-selected { background: color-mix(in srgb, var(--primary) 15%, var(--surface)); }
 
 /* Charge prévue éditable */
 .htl-charge-input {
@@ -577,14 +580,17 @@
     outline: none;
 }
 
-/* Mood coloré selon la note (0-5) */
-.htl-mood-val { font-weight: var(--fw-semibold); white-space: nowrap; cursor: pointer; }
-.htl-mood-count { font-weight: var(--fw-normal); color: var(--text-muted); font-size: 10px; }
-.htl-mood-empty { cursor: pointer; }
-.htl-mood-empty:hover { color: var(--primary); text-decoration: underline; }
-.htl-mood--good { color: var(--success); }
-.htl-mood--ok   { color: var(--warning); }
-.htl-mood--bad  { color: var(--danger);  }
+/* Cellules de vote (🎭 Mood, ✊ Confiance) — teinte selon la moyenne (0-5).
+   La cellule ne force PAS `nowrap` : le picker ouvert doit pouvoir passer sous la
+   valeur plutôt que d'élargir la colonne. Seule la valeur elle-même reste insécable. */
+.htl-spr-vote { min-width: 74px; }
+.htl-vote-val { font-weight: var(--fw-semibold); white-space: nowrap; cursor: pointer; }
+.htl-vote-count { font-weight: var(--fw-normal); color: var(--text-muted); font-size: 10px; }
+.htl-vote-empty { cursor: pointer; }
+.htl-vote-empty:hover { color: var(--primary); text-decoration: underline; }
+.htl-vote--good { color: var(--success); }
+.htl-vote--ok   { color: var(--warning); }
+.htl-vote--bad  { color: var(--danger);  }
 
 /* Table tickets */
 .htl-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }

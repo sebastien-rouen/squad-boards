@@ -22,7 +22,7 @@ pas de module ES — donc tout fonctionne aussi en `file://`.
 | `index.html` | Page d'entrée : contexte, les 4 options, la grammaire commune |
 | `option-a-frise-couloirs.html` | Option A — frise en couloirs Scrum / SAFe / Ops |
 | `option-b-agenda-dense.html` | Option B — sommaire de densité + agenda jour par jour |
-| `option-c-cadence.html` | Option C — semaine type du rythme + frise des jalons |
+| `option-c-cadence.html` | Option C — le rythme sur l'itération + frise des jalons |
 | `option-d-synthese.html` | **Option D — la synthèse recommandée**, avec décalage d'itération |
 | `shell.css` / `shell.js` | Chrome et helpers partagés (typage, récurrence, décalage, modale Slack) |
 | `parts.css` / `parts.js` | Briques communes à B, C et D : tuiles de charge, grille du rythme, agenda dense |
@@ -83,23 +83,24 @@ avec son badge de récurrence à droite. Bouton 📋 par jour, comme l'agenda ac
 ### C — Cadence & jalons
 
 Sépare **ce qui se répète** de **ce qui n'arrive qu'une fois**. En haut trois tuiles de
-charge (heures de rituels par semaine, part du train, nombre de jalons). Puis une
-**semaine type** en grille horaire où chaque rituel récurrent apparaît **une seule fois**
-avec sa cadence (hachures = une semaine sur deux). Enfin une **frise fine des jalons** :
-uniquement les évènements ponctuels, ceux qui donnent sa forme à l'itération.
+charge (heures de rituels par semaine, temps libre, part du train). Puis **le rythme**
+déroulé sur toute l'itération en grille horaire — voir plus bas. Enfin une **frise fine
+des jalons** : uniquement les évènements ponctuels, ceux qui donnent sa forme à
+l'itération.
 
 - **Force** — répond le plus directement à « indiquer bien les récurrences », et c'est la
   seule qui rend visible le **coût** : ~13 h de créneaux de rituels par semaine, dont une
   part imposée par le train. Un argument utilisable en rétro.
-- **Limite** — ce n'est pas une frise chronologique au sens strict : le rythme est
-  détaché du calendrier. Le repli mobile de la grille horaire est une liste, pas la grille.
+- **Limite** — deux représentations du temps se succèdent sur la même page (grille horaire
+  pour le rythme, frise à points pour les jalons), et il faut relier les deux de tête.
+  Le repli mobile de la grille horaire est une liste, pas la grille.
 
 ### D — Synthèse *(recommandée)*
 
 Assemble les trois morceaux retenus, dans l'ordre de lecture qui me paraît juste :
 
 1. **Les tuiles de charge** de C, enrichies du **temps libre** — voir plus bas.
-2. **⏱️ Le rythme** — la semaine type de C, mais **repliable** : c'est un fond de décor,
+2. **⏱️ Le rythme** — celui de C, mais **repliable** : c'est un fond de décor,
    qu'on referme une fois qu'on le connaît.
 3. **📅 L'agenda dense chronologique** de B — sparkline + semaines jour par jour, celui
    qu'on consulte au quotidien et qu'on copie dans Slack.
@@ -109,11 +110,27 @@ hebdomadaires sont énoncés une fois en tête, le corps chronologique ne garde 
 moments de l'itération. Le daily y apparaît une fois, contre dix dans le récap de A.
 
 **Le décalage d'itération** (`− 1 j` / `+ 1 j` / `Rétablir`) déplace tous les évènements
-et recalcule tout — charge, semaine type, agenda, récap. C'est un bac à sable pour
+et recalcule tout — charge, rythme, agenda, récap. C'est un bac à sable pour
 éprouver la vue : un férié inséré, une itération repoussée. Un bandeau annonce ce qui
 sort du cadre (`⚠️ 15 sur un week-end · non affichés`), parce qu'un décalage de +1 jour
 projette tous les vendredis sur un samedi — c'est justement l'effet qu'on veut voir.
 Aucune donnée n'est modifiée : les absences et le support restent lus à leur date source.
+
+### Le rythme, déroulé sur l'itération
+
+La grille du rythme (options C et D) couvre **toute l'itération**, pas une semaine type :
+les 11 jours ouvrés de la 30.6 en colonnes, l'heure en ordonnée. On y lit sans rien
+présupposer que le **sprint planning ouvre** (vendredi 9h30) et que la **rétro clôt**
+(vendredi 14h30) — chez Fuego ces deux-là tombent le même vendredi charnière, qui ferme
+une itération et ouvre la suivante. Une équipe organisée autrement produira une autre
+forme : rien n'est câblé en dur, les blocs sont à leurs dates réelles.
+
+**Le daily est tracé en bande continue** plutôt qu'en onze pastilles répétées. Mais la
+bande est **segmentée**, et c'est délibéré : chez Fuego le daily **n'a pas lieu le lundi**
+— il est remplacé par le Weekly de 9h30. Il tombe 9 jours sur 11. Une ligne pleine d'un
+bout à l'autre aurait été plus jolie et fausse ; les trous disent quelque chose de
+l'organisation de l'équipe. Sur petit écran, où la grille cède la place à une liste, la
+mention `9/11 jours` porte la même information.
 
 ### Le temps libre
 

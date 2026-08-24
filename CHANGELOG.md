@@ -37,11 +37,21 @@
     bande absences + support, panneau de détail au clic.
   - **B — agenda dense** : sparkline de densité cliquable, puis les semaines côte à côte jour
     par jour ; rituels quotidiens/hebdo sortis en préambule du récap Slack.
-  - **C — cadence & jalons** : semaine type des rituels récurrents (affichés une seule fois avec
-    leur cadence) + frise des évènements ponctuels + coût hebdomadaire des cérémonies.
+  - **C — cadence & jalons** : le rythme des rituels récurrents + frise des évènements
+    ponctuels + coût hebdomadaire des cérémonies.
   - **D — synthèse (recommandée)** : tuiles de charge, puis « ⏱️ Le rythme » repliable, puis
     l'agenda dense chronologique. Son récap Slack est le plus court à information égale (le
     daily y apparaît une fois, contre dix dans celui de A).
+- **« ⏱️ Le rythme » déroulé sur l'itération** (C et D) au lieu d'une semaine type : les
+  11 jours ouvrés de la 30.6 en colonnes, l'heure en ordonnée. Le sprint planning en
+  ouverture et la rétro en clôture apparaissent d'eux-mêmes, sans règle câblée — une équipe
+  organisée autrement produira une autre forme.
+  - Le **daily est tracé en bande continue** plutôt qu'en onze pastilles, mais **segmentée** :
+    chez Fuego il n'a pas lieu le lundi (remplacé par le Weekly de 9h30), soit 9 jours sur 11.
+    Une ligne pleine aurait été plus jolie et fausse ; les trous renseignent sur l'organisation
+    de l'équipe. En repli mobile, la mention `9/11 jours` porte la même information.
+  - Les hachures « une semaine sur deux » disparaissent : chaque occurrence est désormais à sa
+    date réelle, la convention n'a plus d'objet.
 - **Temps libre** dans la barre de charge (B, C, D) : la barre se lit sur la semaine entière,
   base explicite de 35 h — sur l'Ité 30.6 de Fuego, 13 h 44 de rituels et 21 h 16 de libre.
   Sans ce quatrième segment, 100 % de la barre valait 100 % de réunions, ce qui donnait une

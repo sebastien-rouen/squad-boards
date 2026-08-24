@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>#team/Fuego — Calendrier de l’équipe</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+<!-- Vrais CSS du site : la maquette hérite des tokens et des styles de la page Équipe -->
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/views/team.css">
+<!-- Socle partagé avec les maquettes agenda (chrome, typage, grille du rythme) -->
+<link rel="stylesheet" href="../agenda/shell.css">
+<link rel="stylesheet" href="../agenda/parts.css">
+<link rel="stylesheet" href="calendar.css">
+</head>
+<body>
+
+<nav class="mk-top">
+    <span class="mk-brand">Squad Board <span>· maquette #team</span></span>
+    <div class="mk-tabs">
+        <a href="index.html" aria-current="page">Calendrier d’équipe</a>
+        <a href="../agenda/index.html">← Maquettes agenda</a>
+    </div>
+    <span class="mk-grow"></span>
+    <button class="btn btn-secondary btn-sm" id="mk-theme">🌓 Thème</button>
+    <button class="btn btn-secondary btn-sm" id="mk-mobile">📱 Mobile</button>
+</nav>
+
+<main class="mk-stage">
+    <div class="mk-intro">
+        <h1>#team/Fuego — un calendrier d’équipe</h1>
+        <p>La page Équipe porte aujourd’hui l’identité, le roster et les ateliers. Elle ne dit rien
+           du <strong>rythme réel</strong> de l’équipe, qui vit dans des invitations Google éparpillées.
+           Cette maquette y ajoute une carte <strong>Calendrier de l’équipe</strong> : <strong>visible</strong>
+           (la cadence d’un coup d’œil), <strong>exportable</strong> (ICS, CSV, Slack, impression) et
+           <strong>remaniable</strong> — on déplace un rituel, on voit aussitôt ce que ça coûte.</p>
+        <div class="mk-note">
+            <strong>Le reste de la page est un miroir</strong> des vrais styles (<code>team.css</code>) et des
+            vraies données de Fuego — 15 membres, couleur <code>#ec4899</code>, fiche d’identité vide comme
+            en base. Seule la carte 📅 est nouvelle.
+        </div>
+    </div>
+
+    <!-- ── En-tête équipe : miroir de renderTeam() ─────────────────────────── -->
+    <div class="team-id-header card">
+        <div class="team-id-header-left">
+            <span class="team-id-swatch" id="team-swatch">FU</span>
+            <div class="team-id-header-info"><h2 id="team-name">Fuego</h2></div>
+        </div>
+        <div class="team-id-roster">
+            <span class="team-id-roster-label" id="roster-label">Membres</span>
+            <div class="team-id-roster-list" id="roster"></div>
+        </div>
+    </div>
+
+    <!-- Bandeau réel : aucune fiche d'identité en base pour Fuego -->
+    <div class="team-id-banner">
+        <div>
+            <strong>Fiche d’identité non remplie.</strong>
+            <span class="text-muted">Démarre avec un atelier guidé pour la pré-construire.</span>
+        </div>
+        <button class="btn btn-primary btn-sm">Choisir un atelier</button>
+    </div>
+
+    <!-- ── ★ La carte ajoutée par la maquette ──────────────────────────────── -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">📅 Calendrier de l’équipe</span>
+            <button class="btn btn-secondary btn-sm" id="tcal-add">＋ Ajouter un rituel</button>
+        </div>
+
+        <div class="tcal-tools">
+            <div class="tcal-seg" role="group" aria-label="Vue du calendrier">
+                <button data-view="iteration" aria-pressed="true">Itération 30.6</button>
+                <button data-view="week" aria-pressed="false">Semaine type</button>
+            </div>
+            <span class="tcal-spacer"></span>
+            <div class="tcal-export">
+                <button class="btn btn-secondary btn-sm" id="tcal-export-btn" aria-haspopup="menu">⤓ Exporter</button>
+                <div class="tcal-export-menu" id="tcal-export-menu" role="menu" hidden>
+                    <button id="exp-ics" role="menuitem">📅 <span>Fichier .ics<br><small>Récurrences en RRULE — réimportable dans Google Agenda</small></span></button>
+                    <button id="exp-csv" role="menuitem">📄 <span>Fichier .csv<br><small>Point-virgule + BOM, s’ouvre directement dans Excel FR</small></span></button>
+                    <button id="exp-slack" role="menuitem">📋 <span>Copier pour Slack<br><small>Groupé par cadence, avec le coût hebdomadaire</small></span></button>
+                    <button id="exp-print" role="menuitem">🖨️ <span>Imprimer<br><small>La carte seule, sans le chrome</small></span></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="load-tile" id="tcal-load" style="margin-bottom:var(--sp-3)"></div>
+
+        <div class="tcal-grid-wrap">
+            <div class="grid-wrap"><div class="wgrid" id="tcal-grid"></div></div>
+        </div>
+        <div class="tcal-list" id="tcal-list"></div>
+
+        <div class="tcal-edit" id="tcal-edit" hidden></div>
+        <div class="tcal-status" id="tcal-status"></div>
+    </div>
+
+    <!-- ── Cartes existantes, esquissées pour situer l'insertion ───────────── -->
+    <div class="card team-id-card">
+        <div class="card-header">
+            <span class="card-title">Fiche d’identité</span>
+            <button class="btn btn-secondary btn-sm">📋 Copier pour Slack</button>
+        </div>
+        <p class="text-muted text-sm" style="padding:var(--sp-3)">
+            Vision, périmètre, qui sommes-nous… — inchangé, esquissé ici pour montrer où la carte
+            Calendrier vient s’insérer : juste après le bandeau, avant la fiche.
+        </p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">✨ Ateliers</span>
+            <button class="btn btn-secondary btn-sm">⚙ Gérer les ateliers</button>
+        </div>
+        <p class="text-muted text-sm" style="padding:var(--sp-3)">Inchangé.</p>
+    </div>
+
+    <div class="mk-legend">
+        <span class="mk-legend-item k-scrum"><span class="mk-legend-swatch"></span> Scrum · équipe</span>
+        <span class="mk-legend-item k-safe"><span class="mk-legend-swatch"></span> SAFe · train ERPC</span>
+        <span class="mk-legend-item k-ops"><span class="mk-legend-swatch"></span> Métier &amp; Ops</span>
+        <span class="mk-legend-item k-free"><span class="mk-legend-swatch"></span> Temps libre</span>
+        <span class="mk-legend-item">Hachures = rituel désactivé</span>
+    </div>
+</main>
+
+<script src="../agenda/data.js"></script>
+<script src="data-team.js"></script>
+<script src="../agenda/shell.js"></script>
+<script src="../agenda/parts.js"></script>
+<script>
+// ── En-tête équipe : miroir de renderTeam(), avec les vraies données ────────
+(function () {
+    'use strict';
+    const { esc } = window.MK;
+    const T = window.TEAM_MOCK;
+
+    // « BASSO, Lucas » → « LB » (même esprit que initials() du site)
+    const initials = n => n.split(/[,\s]+/).filter(Boolean).slice(0, 2)
+        .map(p => p[0].toUpperCase()).join('');
+    // Couleur stable dérivée du nom, comme hashColor()
+    const hashColor = n => {
+        let h = 0;
+        for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) % 360;
+        return `hsl(${h} 55% 55%)`;
+    };
+
+    document.getElementById('team-swatch').style.background = T.color;
+    document.getElementById('team-name').textContent = T.team;
+    document.getElementById('roster-label').textContent = `Membres (${T.members.length})`;
+    document.getElementById('roster').innerHTML = T.members.map(m => `
+        <button type="button" class="team-id-member-chip${m.role ? ' has-role' : ''}"
+                title="${esc(m.role ? `${m.name} — ${m.role}` : m.name)}">
+            <span class="assignee-avatar" style="background:${hashColor(m.name)}">${esc(initials(m.name))}</span>
+            <span class="team-id-member-name">${esc(m.name)}</span>
+        </button>`).join('');
+
+    document.getElementById('mk-theme').addEventListener('click', () => {
+        const r = document.documentElement;
+        r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark';
+    });
+    document.getElementById('mk-mobile').addEventListener('click', () => {
+        document.body.classList.toggle('is-mobile');
+    });
+})();
+</script>
+<script src="calendar.js"></script>
+</body>
+</html>

@@ -314,7 +314,7 @@ export function renderSupport(container) {
  * semaines décalées de plusieurs mois par rapport à la grille d'édition.
  * @returns {{weeks: Array, piNum: number, base: object}}
  */
-function _supPiWeeks(piInfo, sprintInfo, offset = 0, teamMode = null) {
+export function _supPiWeeks(piInfo, sprintInfo, offset = 0, teamMode = null) {
     const { weeks, piNum, base } = buildPiWeeks({ piInfo, sprintInfo, piOffset: offset, weekMode: teamMode });
     return { weeks, piNum, base };
 }

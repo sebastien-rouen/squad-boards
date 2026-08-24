@@ -1,3 +1,35 @@
+## [3.141.10] - 2026-08-24
+
+### Maquette #team — verrou des rituels imposés + les 13 équipes
+
+- **Rituels SAFe verrouillés par défaut** 🔒 (ART Sync, Coach Sync, I&A, PI Planning, CoP) :
+  ni glisser, ni éditer, ni supprimer — leur cadence est imposée par le train, pas décidée
+  dans l'équipe. **Le cadenas est réversible** : un bouton rend la main et le déverrouillage
+  est tracé dans la liste des modifications (`🔓 déverrouillé`). Les exports le portent :
+  `CATEGORIES:…,Imposé ART` en ICS, colonne dédiée en CSV, 🔒 dans le récap Slack.
+  7 verrouillés sur 21 pour Fuego, de 6 à 13 selon l'équipe.
+- **Sélecteur d'équipe — les 13 équipes**, chacune avec son itération (7 ont un sprint actif,
+  les 6 autres tombent sur une fenêtre de référence signalée en clair), son roster et sa
+  cadence. L'en-tête de page suit. Un remaniement est isolé par équipe
+  (`sb-mockup-team-cal:{équipe}`).
+- **Deux chiffres faux corrigés**, révélés en passant à l'échelle : Estafette affichait
+  **56 h 36 de réunions par semaine**, plus que la semaine ouvrée.
+  - « Livraison en prod » dure 1440 min — c'est une **journée entière**, pas une réunion de
+    24 h. Les créneaux journée sortent de la charge, s'affichent en bandeau sous l'en-tête
+    (au lieu de recouvrir la colonne) et s'exportent en `DTSTART;VALUE=DATE`.
+  - « Deep work — pas de réunion » comptait 8 h de réunion, alors que c'en est l'**inverse** :
+    du temps protégé. Catégorie à part, hors charge.
+  - Après correction : **24 h 36 de réunions, + 8 h protégées, + 1 journée bloquée**. Le
+    chevauchement maximal tombe de 12 à 7 blocs, la grille redevient lisible.
+- **Lisibilité de la grille** : au-delà de 4 voies, les blocs simultanés s'empilent en cascade
+  décalée au lieu de rétrécir à l'infini ; le survol ramène au premier plan.
+- Le harnais de vérification couvre les 13 équipes et **refuse toute charge > 40 h/semaine** —
+  garde-fou contre le retour silencieux de ce genre d'agrégat.
+- `exports.js` extrait de `calendar.js` : la validité d'un fichier exporté se teste sans
+  l'interface.
+
+---
+
 ## [3.141.9] - 2026-08-24
 
 ### Maquette — carte « Calendrier de l'équipe » sur #team (rien d'implémenté — à valider)

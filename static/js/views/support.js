@@ -7,7 +7,7 @@
 import { store } from '../state.js';
 import {
     esc, filterByTeam, sumBy, groupBy, fmtDate, toast,
-    deriveMembersFromAbsences, generateSupportRotation, buildSupportPiWeeks, supportAbsenceDays,
+    generateSupportRotation, buildSupportPiWeeks, supportAbsenceDays,
     initials, hashColor,
     SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
     supportWorkingDays, supportDaysForMember,
@@ -658,29 +658,25 @@ function _wirePiTimeline(container) {
 
     const _shuffle = async (team, includeNext) => {
         const absences = store.get('absences') || [];
-        const allMembers = deriveMembersFromAbsences(absences, store.get('members') || []);
-        // Match tolérant : casse + trim + inclusion bidirectionnelle.
-        // Gère le piège classique "Fuego" (config app) vs "GCOM - Fuego" (CSV RH) vs "Team Fuego".
-        const _norm = s => (s || '').toLowerCase().trim();
-        const target = _norm(team);
-        const teamMembers = allMembers
-            .filter(m => {
-                const t = _norm(m.team);
-                return t === target || (target && t && (t.includes(target) || target.includes(t)));
-            })
-            .map(m => m.name);
-        if (!teamMembers.length) {
-            const known = [...new Set(allMembers.map(m => m.team).filter(Boolean))].sort();
-            const hint = known.length
-                ? `Équipes vues en base : ${known.slice(0, 6).join(', ')}${known.length > 6 ? '…' : ''}`
-                : 'Aucune absence n\'est enregistrée — importe d\'abord le CSV RH.';
-            toast(`Aucun membre rattaché à "${team}". ${hint}`, 'warning');
-            return;
-        }
         const teamMode = getSupportWeekMode(team);
         const _rawPiInfo = store.get('piInfo');
         const _spi = store.get('sprintInfo');
         const _pn = _rawPiInfo?.number || (_spi?.name?.match(/(\d+)\.\d+/) || [])[1] | 0;
+        // Roster = celui AFFICHÉ par la grille du PI ciblé (effectiveRosterForPi + teamNameMatches),
+        // et non le roster global : sinon le shuffle tire des membres sans ligne dans la grille
+        // (turnover PI à PI, et — avant le passage de teamNameMatches aux mots entiers — l'équipe
+        // "O" aspirée par "Fuego"/"Gabbiano"/"Lion"/"Caméléon" via l'inclusion de sous-chaîne).
+        const _rosterPi = includeNext ? _pn + 1 : _pn;
+        const _roster = effectiveRosterForPi(_rawPiInfo, _rosterPi, absences, store.get('members') || []);
+        const teamMembers = _roster.filter(m => teamNameMatches(m.team, team)).map(m => m.name);
+        if (!teamMembers.length) {
+            const known = [...new Set(_roster.map(m => m.team).filter(Boolean))].sort();
+            const hint = known.length
+                ? `Équipes vues en base : ${known.slice(0, 6).join(', ')}${known.length > 6 ? '…' : ''}`
+                : "Aucune absence n'est enregistrée — importe d'abord le CSV RH.";
+            toast(`Aucun membre rattaché à "${team}". ${hint}`, 'warning');
+            return;
+        }
         const _lc = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${_pn}`) || 'null'); } catch { return null; } })();
         const _piResolved = _lc ? { ..._rawPiInfo, ...(_lc.startDate ? { startDate: _lc.startDate } : {}), ...(_lc.sprintsPerPI ? { sprintsPerPI: _lc.sprintsPerPI } : {}), ...(_lc.sprintDuration ? { sprintDuration: _lc.sprintDuration } : {}) } : _rawPiInfo;
         const { curWeeks, nextWeeks } = buildSupportPiWeeks(_piResolved, _spi, teamMode);

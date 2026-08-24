@@ -1641,11 +1641,31 @@ export function effectiveRosterForPi(piInfo, piNum, absences, members) {
         : deriveMembersFromAbsences(absences, members);
 }
 
-/** Comparaison tolérante de noms d'équipe (CSV RH vs config app peuvent différer légèrement). */
+/** Tokens normalisés d'un nom d'équipe : extractTeam + minuscules + sans accents,
+ *  découpé en MOTS. "Team Fuego" → ["fuego"], "GCOM - Fuego" → ["gcom","fuego"]. */
+function _teamTokens(name) {
+    return extractTeam(String(name || ''))
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean);
+}
+
+/** Comparaison tolérante de noms d'équipe (CSV RH vs config app peuvent différer légèrement).
+ *  Tolère "Team Fuego", "GCOM - Fuego", "FUEGO" face à "Fuego".
+ *  ⚠️ Comparaison par MOTS ENTIERS, JAMAIS par sous-chaîne : "O" est une équipe réelle,
+ *  contenue dans "Fuego", "Gabbiano", "Lion", "Caméléon"… L'ancienne version
+ *  (`tgt.includes(t)`) aspirait donc les membres de l'équipe "O" dans ces équipes —
+ *  symptôme : shuffle rotation écrivant 3 membres en base (total "3/3") dont certains
+ *  n'ont aucune ligne dans la grille, d'où "il n'y a que 2 personnes affichées". */
 export function teamNameMatches(memberTeam, target) {
-    const t = (memberTeam || '').toLowerCase().trim();
-    const tgt = (target || '').toLowerCase().trim();
-    return t === tgt || (tgt && t && (t.includes(tgt) || tgt.includes(t)));
+    if (!memberTeam || !target) return false;
+    const a = _teamTokens(memberTeam);
+    const b = _teamTokens(target);
+    if (!a.length || !b.length) return false;
+    if (a.join(' ') === b.join(' ')) return true;
+    const sa = new Set(a), sb = new Set(b);
+    return a.every(t => sb.has(t)) || b.every(t => sa.has(t));
 }
 
 /**

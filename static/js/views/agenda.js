@@ -260,13 +260,10 @@ export function renderAgenda(container) {
         }
     }
 
-    // Matching tolérant équipe (même logique que la page Rotation) :
-    // "GCOM - Fuego".includes("fuego") → match, évite les membres manquants après snapshot
-    const _nm = s => (s || '').toLowerCase().trim();
-    const _teamMatch = (mTeam, target) => {
-        const t = _nm(mTeam); const tgt = _nm(target);
-        return t === tgt || (tgt && t && (t.includes(tgt) || tgt.includes(t)));
-    };
+    // Matching tolérant équipe — source unique : teamNameMatches (utils.js), comparaison par
+    // MOTS ENTIERS. La copie locale comparait des sous-chaînes ("GCOM - Fuego" ⊃ "fuego"),
+    // ce qui rattachait aussi l'équipe "O" à "Fuego"/"Gabbiano"/"Lion"/"Caméléon".
+    const _teamMatch = teamNameMatches;
     // Normalise le nom d'équipe pour que buildTeamRows() et _teamColor() retrouvent le bon groupe.
     // Sans ça, un snapshot avec "GCOM - Fuego" crée un sous-groupe fantôme sans couleur.
     const filteredMembers = (() => {

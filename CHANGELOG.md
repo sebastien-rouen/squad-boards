@@ -1,3 +1,33 @@
+## [3.141.2] - 2026-08-24
+
+### Correctif — Rotation : des membres d'une autre équipe tirés par le Shuffle
+
+- **`#settings/rotation` → 🎲 Shuffle avec « Eff./sem » = 3 : certaines semaines n'affichaient
+  que 2 personnes (voire 1), alors que la ligne Total indiquait bien `3/3`.** Cause racine :
+  `teamNameMatches()` comparait les noms d'équipe **par sous-chaîne**. L'équipe **« O »** existe
+  réellement (`AIT LHADJ, KABA, DENANTE, GANDON, WANG…`) et `"fuego".includes("o")` est vrai →
+  ses membres entraient dans le pool de Fuego. Ayant 0 tour de garde, la règle d'équité les
+  faisait passer **en priorité**. Le shuffle écrivait donc bien 3 noms en base (d'où `3/3`), mais
+  ceux de l'équipe « O » n'ont aucune ligne dans la grille : invisibles. Sur le PI 31 de Fuego,
+  6 des 12 semaines étaient touchées (jusqu'à 3 noms fantômes sur la semaine `31.6.2`).
+  Équipes également polluées : **Gabbiano, Lion, Caméléon, Team Burton, PI Board Features ERPC**.
+- `teamNameMatches()` compare maintenant par **mots entiers** après `extractTeam()` +
+  normalisation des accents. `"Team Fuego"`, `"GCOM - Fuego"` et `"FUEGO"` matchent toujours
+  `"Fuego"` ; `"O"` ne matche plus que `"O"` / `"Team O"`.
+- Les deux boutons Shuffle (`settings.js` `_shuffleOneTeam`, `support.js` `_shuffle`) piochaient
+  dans le roster **global** via une copie locale du matching, alors que la grille affiche le
+  roster du **PI** (`effectiveRosterForPi`, snapshot figé à l'import CSV). Ils utilisent
+  désormais la même source que l'affichage — un membre parti de l'équipe entre deux PI
+  (ex. `BENHABBOUR, Selim`, hors snapshot PI 31) n'est plus tiré.
+- Troisième copie du matching supprimée dans `agenda.js` : `teamNameMatches` est la source unique.
+- Garde-fou d'affichage : la ligne **Total** et le résumé du panneau ne comptent plus que les
+  membres **ayant une ligne dans la grille**. Une rotation héritée avec un nom hors roster
+  affiche donc `2/3` en orange (signal « relancer le Shuffle ») au lieu d'un `3/3` mensonger.
+- ⚠️ Les rotations **déjà enregistrées** conservent leurs noms fantômes : relancer un 🎲 Shuffle
+  par équipe pour les régénérer (le passé reste verrouillé).
+
+---
+
 ## [3.141.1] - 2026-08-24
 
 ### Correctif — Shuffle de rotation sans effet sur un PI épinglé

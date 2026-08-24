@@ -53,7 +53,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
   (`VOTE_KINDS` = échelle + libellés + clé de store). Même mécanique 1→5 pour les deux,
   même table backend `mood` distinguée par `type` (`mood` | `fist`) — n'écrire un calcul
   de moyenne/distribution QUE là. Les votes s'apparient sur `piSprint` = clé `NN.N`
-  (`extractSprintLabel`). La teinte de la ligne de total suit le **Mood** seul.
+  (`extractSprintLabel`). La teinte de la ligne de total suit le **Mood** seul. La colonne
+  ✊ de la **matrice** moyenne le PI entier et reste cliquable même sans vote (`has-val` suit
+  l'existence de sprints, pas de votes) — le handler de clic vise
+  `.health-metric-cell.has-val, .health-fist-cell.has-val`.
+- **Engagement non tenu** (3.141.13) : un ticket non-`done` n'est marqué (`--missed`, +
+  `--missed-final` barré si le sprint est `closed`) que sur les métriques d'engagement
+  `planned`/`bufplanned` — jamais sur `velocity`/`buffer`, où un non-done n'a pas de sens.
 - **Écart PI ↔ Congés** : `piCongesDiff()` (utils/pi-weeks.js) est la source unique du bandeau
   de recalage (Rotation) ET du récapitulatif multi-PI (Sprint & PI).
 - **Semaines d'un PI** (3.141.6) : source unique `utils/pi-weeks.js` (`buildPiWeeks`) —

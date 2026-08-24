@@ -540,6 +540,19 @@
     border-radius: var(--r-sm);
     padding: 1px 6px;
 }
+/* Badge « ✗ N non réalisés » — n'apparaît QUE si l'engagement n'a pas été tenu : sa
+   présence seule est le signal, d'où l'absence de version « 0 non réalisé ». */
+.htl-tickets-hdr-missed {
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+    border-radius: 999px;
+    padding: 2px 10px;
+    white-space: nowrap;
+    cursor: help;
+}
 .htl-tickets-hdr-badge {
     margin-left: auto;
     font-size: 11px;
@@ -632,6 +645,25 @@
 .htl-ticket-row--done:hover td { background: color-mix(in srgb, var(--success) 14%, var(--surface)); }
 .htl-ticket-row--done td.htl-id { box-shadow: inset 3px 0 0 var(--success); }
 .htl-ticket-row--done td.htl-title { color: var(--text-secondary); }
+
+/* Ligne d'un ticket ENGAGÉ AU LANCEMENT mais non terminé — pendant exact de --done, et
+   posé uniquement sur les listes « engagés » : c'est là qu'un non-done est un
+   engagement non tenu, alors qu'ailleurs ce serait du bruit. Orange (pas rouge) : ce
+   n'est pas une anomalie de données, c'est un écart de plan, qui se discute en rétro. */
+.htl-ticket-row--missed td { background: color-mix(in srgb, var(--warning) 8%, var(--surface)); }
+.htl-ticket-row--missed:hover td { background: color-mix(in srgb, var(--warning) 16%, var(--surface)); }
+.htl-ticket-row--missed td.htl-id { box-shadow: inset 3px 0 0 var(--warning); }
+.htl-ticket-row--missed td.htl-title { color: var(--warning); }
+/* Sprint CLOS : l'engagement ne sera plus tenu dans ce sprint → barré, en plus de
+   l'orange. Sur un sprint en cours on s'arrête à l'orange : barrer condamnerait un
+   ticket encore vivant. Seuls l'id et le titre sont barrés — barrer les points et le
+   responsable les rendrait pénibles à lire pour rien. */
+.htl-ticket-row--missed-final td.htl-title,
+.htl-ticket-row--missed-final td.htl-id { text-decoration: line-through; }
+.htl-ticket-row--missed-final td.htl-title { text-decoration-thickness: 1px; opacity: .85; }
+.htl-done-miss { color: var(--warning); font-weight: var(--fw-bold); }
+/* Compteur de manqués sur l'en-tête d'un groupe de parent */
+.htl-grp-missed { color: var(--warning); font-weight: var(--fw-bold); }
 
 /* En-tête de groupe « parent » : un bloc par epic/feature, coloré via --pc.
    Mix plus marqué que l'ancien 8% — sinon la couleur par parent était trop subtile

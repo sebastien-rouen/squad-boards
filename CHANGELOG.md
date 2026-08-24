@@ -1,3 +1,26 @@
+## [3.141.13] - 2026-08-24
+
+### Health — ✊ Confiance dans la matrice équipes × anomalies
+
+- Nouvelle colonne **✊ Confiance** dans la matrice, juste après le Σ des anomalies : moyenne
+  de tous les votes Fist of Five de l'équipe **sur le PI**, avec la distribution en infobulle.
+  Elle est posée là parce que c'est le même usage que le Σ — repérer une squad à risque d'un
+  coup d'œil — mais ce signal-là ne sort d'aucune règle automatique : seule l'équipe le donne.
+- La cellule est cliquable **même sans aucun vote** (elle affiche alors « + voter ») et ouvre
+  la modale du sprint, seule surface de saisie : une équipe qui n'a pas voté est précisément
+  celle qu'on veut y emmener.
+
+### Health — tickets engagés mais non réalisés
+
+- Dans « 📋 Tickets engagés au lancement » et « 🛡 Buffer engagé au lancement », un ticket
+  **non terminé** est désormais signalé comme engagement non tenu : ligne **orange**, ✗ dans
+  la colonne ✓, liseré orange, et **titre barré si le sprint est clos**. Sur un sprint en
+  cours on s'arrête à l'orange — barrer condamnerait un ticket encore rattrapable.
+- Compteur **✗ N non réalisés** dans l'en-tête de section et sur chaque groupe de parent.
+  Il n'apparaît que s'il y a un manque : sa présence seule est le signal.
+- Marquage limité aux listes d'engagement : dans « Tickets Done » un non-done n'existe pas,
+  et ailleurs ce serait du bruit.
+
 ## [3.141.12] - 2026-08-24
 
 ### Health — vote de confiance (Fist of Five) dans « Sprints du PI »

@@ -1,3 +1,47 @@
+## [3.141.20] - 2026-08-25
+
+### Import JIRA — les échecs partiels ne sont plus avalés
+
+Un import parcourt des dizaines de boards et de sprints ; qu'un appel échoue ne doit pas tout
+interrompre. Mais les `catch` muets choisissaient l'excès inverse : l'import se concluait sur
+un **toast vert** alors que l'historique de vélocité était amputé et que des sprints n'avaient
+aucun ticket. Un jeton expiré produisait un import « réussi » et silencieusement creux.
+
+- `makeIncidents()` (sync.js) collecte les échecs, **groupés par (statut HTTP, opération)** et
+  comptés : trois lignes de résumé valent mieux que deux cents lignes de console — et mieux
+  que le silence.
+- **13 sites** y sont branchés, dont les 4 qui étaient totalement muets (`sprints active/future`,
+  `sprints clos`, `rapport de vélocité`, `tickets d'un sprint clos`) et 9 qui ne parlaient qu'à
+  la console (`tickets d'un board`, `features JQL`, `epics`, `sprints de cadrage`, `buffer
+  historique`, `améliorations`, `configuration de board`…). Les `console.warn` existants sont
+  conservés.
+- Un **404 sur le rapport de vélocité reste silencieux** : c'est le cas nominal d'un board sans
+  estimation, pas un incident.
+- `importFromJira()` retourne `incidentCount`, `incidentSummary` et le détail ; `app.js`
+  affiche alors un toast **`warning`** (9 s) au lieu du toast de succès.
+- Restent volontairement muets : le parsing du localStorage des équipes exclues et la détection
+  du champ Team, qui ont leurs propres valeurs de repli et leur propre avertissement.
+
+Exercé de bout en bout avec un JIRA répondant 401 après la liste des boards — 8 incidents
+collectés, résumé :
+
+```
+8 appels JIRA en échec — sprints active (HTTP 401) ×1, configuration de board (colonnes)
+(HTTP 401) ×1, sprints future (HTTP 401) ×1… · JIRA a refusé la connexion : vérifier le
+jeton (Paramètres → Plugin JIRA)
+```
+
+### Toasts multi-lignes
+
+`.toast` passe en `white-space: pre-line` : un bilan de sync suivi de son avertissement se lit
+sur deux lignes au lieu d'être aplati sur une (le message est posé via `textContent`).
+
+### Tests — 154 au total (43 suites)
+
+`sync-incidents.test.mjs` : regroupement par statut, refus d'authentification nommé
+explicitement, panne serveur **non** présentée comme un problème de jeton, résumé borné à
+trois groupes pour tenir dans un toast, pluriel suivant le nombre d'appels et non de groupes.
+
 ## [3.141.19] - 2026-08-24
 
 ### Sprint de respiration — une seule définition pour toute l'application

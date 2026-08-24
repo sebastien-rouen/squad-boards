@@ -124,14 +124,18 @@ python main.py          # http://localhost:3001  — Swagger /docs
   changement de vue).
 - **Modales** : toujours `role="dialog" aria-modal="true"` + `trapFocus(el)` de [utils.js](static/js/utils.js)
   (retourne un release à appeler à la fermeture). Confirmations : `confirmDanger()` — jamais `confirm()` natif.
-- **Erreurs du proxy JIRA** (3.141.19) : `request()` (api.js) porte `e.status` ; formater avec
-  `api.jiraErrorMessage(e, quoi)` — un 401/403 est une panne d'AUTHENTIFICATION, jamais une
-  absence de données (un `catch` muet le racontait en « Aucun board scrum pour … »).
+- **Erreurs du proxy JIRA** (3.141.19/20) : `request()` (api.js) porte `e.status` ; formater
+  avec `api.jiraErrorMessage(e, quoi)` — un 401/403 est une panne d'AUTHENTIFICATION, jamais
+  une absence de données (un `catch` muet le racontait en « Aucun board scrum pour … »).
+  ⚠️ Dans `sync.js`, **ne jamais avaler un échec** : `incidents.add('<opération>', e)`
+  (`makeIncidents`) le collecte sans interrompre l'import, et `app.js` bascule le toast final
+  en `warning`. Sans ça, un jeton expiré rend un import « réussi » mais creux. Seule exception
+  admise : un 404 sur le rapport de vélocité (board sans estimation = cas nominal).
 - **Convention JIRA sprint** (mémoire `project_jira_sprint_conventions`) : `Cadrage_PIXX` = cadrage, `PI#XX` = features, `PIXX` = tickets standalone.
 
 ## Tests (`npm test`)
 
-Suites `node:test` dans [tests/](tests/) — 145 tests, aucune dépendance, ~1 s. Détail :
+Suites `node:test` dans [tests/](tests/) — 154 tests, aucune dépendance, ~1 s. Détail :
 [tests/README.md](tests/README.md).
 - `node --test tests/` **échoue** sur Node 22 → toujours un motif : `node --test "tests/*.test.mjs"`.
 - Importer `tests/helpers/env.mjs` AVANT tout module applicatif (`state.js` lit `localStorage`

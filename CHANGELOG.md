@@ -59,6 +59,14 @@
     total. `—` quand aucun vote n'a été enregistré.
   - Recalculé après chaque vote, sinon le total aurait contredit la ligne modifiée juste
     au-dessus.
+- **La ligne de total prend la teinte du mood** — vert ≥ 4, ambre ≥ 3, rouge en dessous —
+  sur le fond et le filet supérieur : le climat du PI se lit sans lire les chiffres. Teinte
+  volontairement pâle (12 %) : c'est un total, pas une alerte. Les couleurs de texte des
+  colonnes (vert vélocité, violet buffer) gardent la main, seul le fond change.
+  - Aucune classe sans vote : pas de teinte, donc pas de verdict rendu sur un PI qui n'a
+    rien à dire.
+  - Le seuil est calculé une seule fois (`_moodTotalStats`) et partagé par la ligne et la
+    cellule : elles ne peuvent pas diverger. Teinte remise à jour après chaque vote.
 - Le pied reprend les teintes de colonne (vert vélocité, violet buffer) et les liserés de
   groupe, pour rester aligné avec le corps du tableau — vérifié colonne par colonne.
 

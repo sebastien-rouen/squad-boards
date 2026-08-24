@@ -414,6 +414,18 @@
     letter-spacing: 0.04em;
     font-weight: var(--fw-semibold);
 }
+/* Teinte de la ligne de total selon le mood du PI : le climat se lit sans lire les
+   chiffres. Volontairement pâle — la ligne reste un total, pas une alerte — et posée
+   sur le fond seulement : les couleurs de texte des colonnes (vélocité, buffer)
+   gardent la main juste en dessous. Sans vote, aucune classe : pas de verdict. */
+.htl-sprint-table tfoot tr.htl-sprint-total--good td { background: color-mix(in srgb, var(--success) 12%, var(--surface-2)); }
+.htl-sprint-table tfoot tr.htl-sprint-total--ok   td { background: color-mix(in srgb, var(--warning) 12%, var(--surface-2)); }
+.htl-sprint-table tfoot tr.htl-sprint-total--bad  td { background: color-mix(in srgb, var(--danger) 12%, var(--surface-2)); }
+/* Le filet supérieur reprend la teinte, pour marquer la bascule d'un coup d'œil */
+.htl-sprint-table tfoot tr.htl-sprint-total--good td { border-top-color: var(--success); }
+.htl-sprint-table tfoot tr.htl-sprint-total--ok   td { border-top-color: var(--warning); }
+.htl-sprint-table tfoot tr.htl-sprint-total--bad  td { border-top-color: var(--danger); }
+
 /* Mood moyen du PI : aligné à gauche comme la colonne, mais non cliquable —
    on vote sur un sprint, pas sur un total. */
 .htl-sprint-table tfoot td.htl-total-mood { text-align: left; }

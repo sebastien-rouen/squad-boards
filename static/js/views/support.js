@@ -305,24 +305,67 @@ export function renderSupport(container) {
 }
 
 // ── Timeline PI + génération ─────────────────────────────────────────────────
+// ── Semaines du PI affiché — SOURCE UNIQUE partagée par la grille ET le Shuffle ──────────
+// Le Shuffle DOIT passer par ici. Générer sur `curWeeks`/`nextWeeks` de buildSupportPiWeeks()
+// donne des `weekStart` différents de ceux affichés (ancre snappée vs date JIRA brute, et
+// `nextWeeks` figé sur PI+1 avec le nombre de sprints du PI courant) : la rotation part bien
+// en base, mais sur des semaines que la grille n'affiche jamais — l'appariement se faisant sur
+// `weekStart`, l'utilisateur voit « le Shuffle ne fait rien ». Cf. CHANGELOG 3.141.1, même
+// correction déjà appliquée côté Paramètres → Rotation (`_rotBuildPiWeeks`).
+const _supFmtIso  = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+const _supAddDays = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _supFmtIso(d); };
+
+/** Snappe des semaines sur le jour de début du mode de l'équipe (vendredi par défaut). */
+function _supSnapWeeks(weeks, teamMode) {
+    if (!teamMode || teamMode === SUPPORT_WEEK_MODE_DEFAULT) return weeks;
+    const dow = (SUPPORT_WEEK_MODES[teamMode] || SUPPORT_WEEK_MODES[SUPPORT_WEEK_MODE_DEFAULT]).dow;
+    return weeks.map(w => {
+        const d = new Date(w.weekStart + 'T00:00:00');
+        d.setDate(d.getDate() - ((d.getDay() - dow + 7) % 7));
+        const weekStart = _supFmtIso(d);
+        return { ...w, weekStart, weekEnd: _supAddDays(weekStart, 6) };
+    });
+}
+
+/**
+ * Semaines + numéro du PI visé par un offset (0 = PI courant), snappées sur le mode équipe.
+ * @returns {{weeks: Array, piNum: number, base: object}} `base` = sortie brute de
+ *          buildSupportPiWeeks (curWeeks/nextWeeks/nextPiNum, pour les séparateurs de PI).
+ */
+function _supPiWeeks(piInfo, sprintInfo, offset = 0, teamMode = null) {
+    // Priorité au PI dérivé du sprint JIRA actif (ex: "Fuego - Ité 29.3" → 29) : piInfo.number
+    // peut déjà pointer vers le PI suivant.
+    const piFromSprint = parseInt((sprintInfo?.name?.match(/(\d+)\.\d+/) || sprintInfo?.name?.match(/PI\s*#?\s*(\d+)/i) || [])[1] || 0);
+    const basePiNum = piFromSprint || piInfo?.number || 0;
+    const lsCfg     = n => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${n}`) || 'null'); } catch { return null; } };
+    const baseCfg   = lsCfg(basePiNum);
+    const sprintDur = baseCfg?.sprintDuration || piInfo?.sprintDuration || 14;
+    const sprintCnt = baseCfg?.sprintsPerPI   || piInfo?.sprintsPerPI   || 5;
+    const baseStart = baseCfg?.startDate      || piInfo?.startDate      || null;
+    const piInfoBase = { ...piInfo, number: basePiNum, sprintsPerPI: sprintCnt, sprintDuration: sprintDur, ...(baseStart ? { startDate: baseStart } : {}) };
+    const base = buildSupportPiWeeks(piInfoBase, sprintInfo);
+    if (!base.curWeeks.length) return { weeks: [], piNum: 0, base };
+
+    const wps         = Math.max(1, Math.floor(sprintDur / 7));
+    const targetPiNum = Math.max(1, basePiNum + offset);
+    const targetCfg   = lsCfg(targetPiNum);
+    const targetStart = targetCfg?.startDate || _supAddDays(base.curWeeks[0].weekStart, offset * sprintCnt * sprintDur);
+    const targetCnt   = targetCfg?.sprintsPerPI || sprintCnt;
+    const weeks = [];
+    for (let s = 0; s < targetCnt; s++) {
+        for (let w = 0; w < wps; w++) {
+            const wStart = _supAddDays(targetStart, s * sprintDur + w * 7);
+            weeks.push({ label: `${targetPiNum}.${s + 1}.${w + 1}`, weekStart: wStart, weekEnd: _supAddDays(wStart, 6) });
+        }
+    }
+    return { weeks: _supSnapWeeks(weeks, teamMode), piNum: targetPiNum, base };
+}
+
 function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, members, piInfo, sprintInfo) {
     const piOffset = store.get('piOffset') || 0;
 
-    // Calcule les semaines du PI cible en suivant exactement la même logique que
-    // _rotBuildPiWeeks (settings.js) : priorité localStorage pi-cfg-<N>, offset arbitraire.
-    // Priorité : PI dérivé du sprint JIRA actif (ex: "Fuego - Ité 29.3" → 29)
-    // Évite le décalage quand piInfo.number pointe déjà vers le PI suivant
-    const _piFromSprint = parseInt((sprintInfo?.name?.match(/(\d+)\.\d+/) || sprintInfo?.name?.match(/PI\s*#?\s*(\d+)/i) || [])[1] || 0);
-    const _basePiNum = _piFromSprint || piInfo?.number || 0;
-    const _lsCfg = n => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${n}`) || 'null'); } catch { return null; } };
-    const _baseCfg    = _lsCfg(_basePiNum);
-    const _sprintDur  = _baseCfg?.sprintDuration  || piInfo?.sprintDuration  || 14;
-    const _sprintCnt  = _baseCfg?.sprintsPerPI     || piInfo?.sprintsPerPI    || 5;
-    const _baseStart  = _baseCfg?.startDate        || piInfo?.startDate       || null;
-
-    // Résout les semaines du PI courant via buildSupportPiWeeks (gère le snap + dérivation)
-    const _piInfoBase = { ...piInfo, number: _basePiNum, sprintsPerPI: _sprintCnt, sprintDuration: _sprintDur, ...(_baseStart ? { startDate: _baseStart } : {}) };
-    const _base = buildSupportPiWeeks(_piInfoBase, sprintInfo);
+    // Semaines du PI affiché — même helper que le Shuffle (source unique)
+    const { weeks: displayWeeks, piNum: displayPiNum, base: _base } = _supPiWeeks(piInfo, sprintInfo, piOffset);
     if (!_base.curWeeks.length) {
         return `<div class="pi-section mb-4">
             <h3 class="pi-section-title">Rotation du PI</h3>
@@ -330,32 +373,6 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
         </div>`;
     }
 
-    const _fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-    const _addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _fmt(d); };
-    const wps = Math.max(1, Math.floor(_sprintDur / 7));
-
-    const _weeksForOffset = (off) => {
-        const targetPiNum = Math.max(1, _basePiNum + off);
-        const targetCfg   = _lsCfg(targetPiNum);
-        const targetStart = targetCfg?.startDate
-            ? targetCfg.startDate
-            : _addDays(_base.curWeeks[0].weekStart, off * _sprintCnt * _sprintDur);
-        const targetCnt   = targetCfg?.sprintsPerPI || _sprintCnt;
-        const weeks = [];
-        for (let s = 0; s < targetCnt; s++) {
-            for (let w = 0; w < wps; w++) {
-                const wStart = _addDays(targetStart, s * _sprintDur + w * 7);
-                const wEnd   = _addDays(wStart, 6);
-                weeks.push({ label: `${targetPiNum}.${s+1}.${w+1}`, weekStart: wStart, weekEnd: wEnd });
-            }
-        }
-        return { weeks, piNum: targetPiNum };
-    };
-
-    const { weeks: displayWeeks, piNum: displayPiNum } = _weeksForOffset(piOffset);
-
-    // piInfoResolved pour le recalcul par équipe (mode semaine spécifique)
-    const piInfoResolved = _piInfoBase;
     const curWeeks  = _base.curWeeks;
     const nextWeeks = _base.nextWeeks;
     const curPiNum  = _base.curPiNum;
@@ -387,17 +404,7 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
         // Si différent du mode global utilisé pour le calcul des semaines, on recalcule POUR cette équipe.
         const teamMode = getSupportWeekMode(team);
         // Recalcule les semaines pour le mode de cette équipe si différent du défaut
-        const teamAllWeeks = (teamMode === SUPPORT_WEEK_MODE_DEFAULT)
-            ? displayWeeks
-            : (() => {
-                const modeSnap = (SUPPORT_WEEK_MODES[teamMode] || SUPPORT_WEEK_MODES[SUPPORT_WEEK_MODE_DEFAULT]).dow;
-                const _snapDow = iso => { const d = new Date(iso + 'T00:00:00'); const back = (d.getDay() - modeSnap + 7) % 7; d.setDate(d.getDate() - back); return _fmt(d); };
-                return displayWeeks.map(w => {
-                    const wStart = _snapDow(w.weekStart);
-                    const wEnd   = _addDays(wStart, 6);
-                    return { ...w, weekStart: wStart, weekEnd: wEnd };
-                });
-            })();
+        const teamAllWeeks = _supSnapWeeks(displayWeeks, teamMode);
         const teamVisibleWeeks = showPast ? teamAllWeeks : teamAllWeeks.filter(w => w.weekEnd >= today);
         const modeLabel = SUPPORT_WEEK_MODES[teamMode]?.label || teamMode;
 
@@ -657,17 +664,23 @@ function _wirePiTimeline(container) {
     });
 
     const _shuffle = async (team, includeNext) => {
-        const absences = store.get('absences') || [];
-        const teamMode = getSupportWeekMode(team);
+        const absences   = store.get('absences') || [];
+        const teamMode   = getSupportWeekMode(team);
         const _rawPiInfo = store.get('piInfo');
-        const _spi = store.get('sprintInfo');
-        const _pn = _rawPiInfo?.number || (_spi?.name?.match(/(\d+)\.\d+/) || [])[1] | 0;
+        const _spi       = store.get('sprintInfo');
+        // Semaines = celles AFFICHÉES par la grille (helper commun _supPiWeeks). Le bouton
+        // principal vise le PI épinglé dans le topbar, le bouton « PI suivant » vise base+1.
+        const _offset = includeNext ? 1 : (store.get('piOffset') || 0);
+        const { weeks, piNum: _targetPi } = _supPiWeeks(_rawPiInfo, _spi, _offset, teamMode);
+        if (!weeks.length) {
+            toast('Aucune semaine calculée pour ce PI — vérifie la date de début dans Paramètres → PI.', 'warning');
+            return;
+        }
         // Roster = celui AFFICHÉ par la grille du PI ciblé (effectiveRosterForPi + teamNameMatches),
         // et non le roster global : sinon le shuffle tire des membres sans ligne dans la grille
         // (turnover PI à PI, et — avant le passage de teamNameMatches aux mots entiers — l'équipe
         // "O" aspirée par "Fuego"/"Gabbiano"/"Lion"/"Caméléon" via l'inclusion de sous-chaîne).
-        const _rosterPi = includeNext ? _pn + 1 : _pn;
-        const _roster = effectiveRosterForPi(_rawPiInfo, _rosterPi, absences, store.get('members') || []);
+        const _roster = effectiveRosterForPi(_rawPiInfo, _targetPi, absences, store.get('members') || []);
         const teamMembers = _roster.filter(m => teamNameMatches(m.team, team)).map(m => m.name);
         if (!teamMembers.length) {
             const known = [...new Set(_roster.map(m => m.team).filter(Boolean))].sort();
@@ -677,10 +690,6 @@ function _wirePiTimeline(container) {
             toast(`Aucun membre rattaché à "${team}". ${hint}`, 'warning');
             return;
         }
-        const _lc = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${_pn}`) || 'null'); } catch { return null; } })();
-        const _piResolved = _lc ? { ..._rawPiInfo, ...(_lc.startDate ? { startDate: _lc.startDate } : {}), ...(_lc.sprintsPerPI ? { sprintsPerPI: _lc.sprintsPerPI } : {}), ...(_lc.sprintDuration ? { sprintDuration: _lc.sprintDuration } : {}) } : _rawPiInfo;
-        const { curWeeks, nextWeeks } = buildSupportPiWeeks(_piResolved, _spi, teamMode);
-        const weeks = includeNext ? nextWeeks : curWeeks;
         const mpw = parseInt(localStorage.getItem(`rot-mpw-${team}`)) || 2;
         const existingSupport = (store.get('support') || []).filter(s => s.team === team);
         // Exclut les membres marqués inactifs support (rôles non éligibles)
@@ -701,7 +710,7 @@ function _wirePiTimeline(container) {
             );
             await api.bulkCreateSupport(team, [...otherPiSupport, ...rotations]);
             const preserved = rotations.filter(r => r._autoLocked || r.locked).length;
-            toast(`Rotation ${team} générée (${weeks.length} sem.${preserved ? `, ${preserved} préservées` : ''})`, 'success');
+            toast(`Rotation ${team} générée — PI ${_targetPi} (${weeks.length} sem.${preserved ? `, ${preserved} préservées` : ''})`, 'success');
             // Refresh store puis re-render
             const fresh = await api.getSupport();
             store.set('support', fresh);

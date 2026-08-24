@@ -35,7 +35,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   utiliser `import()` dynamique au point d'usage. Les rappels de cérémonies vivent dans
   [reminders.js](static/js/reminders.js) (PAS dans settings.js).
 - **utils.js est un barrel** (3.141.5) : les briques vivent dans `static/js/utils/`
-  (`dom`, `wiki`, `modals`, `support`, `pi-config`) et `utils.js` les ré-exporte — importer
+  (`dom`, `wiki`, `modals`, `support`, `pi-config`, `sprint-scope`) et `utils.js` les ré-exporte — importer
   **toujours** depuis `../utils.js`, jamais depuis un sous-module, sauf `utils/pi-config.js`
   (accès à `pi-cfg-<N>`) qui s'importe directement.
 - **Config PI `pi-cfg-<N>`** : `savePiCfg()` FUSIONNE (ne jamais faire `setItem` à la main).
@@ -60,16 +60,24 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Engagement non tenu** (3.141.13) : un ticket non-`done` n'est marqué (`--missed`, +
   `--missed-final` barré si le sprint est `closed`) que sur les métriques d'engagement
   `planned`/`bufplanned` — jamais sur `velocity`/`buffer`, où un non-done n'a pas de sens.
-- **Périmètre d'un sprint ≠ `sprintName`** (3.141.14) — footgun majeur : JIRA **déplace** les
-  tickets non finis à la clôture, donc un sprint passé ne « contient » plus que ses réussites
-  (54 % du périmètre engagé manquant sur le PI 30). Le périmètre réel se reconstitue avec
-  `_belongedToSprint()` (union des `to` des changements de champ `Sprint` dans
-  `recentChanges`, mémoïsée par WeakMap dans `_sprintsOfTicket`).
-  **Règle** : ce qui mesure l'**engagement** (`all`, `planTk`, `planPts`, `bufPlan*`) utilise
-  le périmètre élargi ; ce qui mesure le **réalisé** (`done`, `bufDone`, vélocité) reste
-  filtré par `_isInSprint()` — sinon un sprint est crédité de travail fini après sa clôture.
+- **Périmètre d'un sprint ≠ `sprintName`** (3.141.14/15) — footgun majeur, source unique
+  [utils/sprint-scope.js](static/js/utils/sprint-scope.js) (ré-exporté par `utils.js`) :
+  JIRA **déplace** les tickets non finis à la clôture, donc un sprint passé ne « contient »
+  plus que ses réussites (54 % du périmètre engagé manquant sur le PI 30). Le périmètre réel
+  vient de `belongedToSprint()` (union des `to` des changements de champ `Sprint` dans
+  `recentChanges`, mémoïsée par WeakMap).
+  **RÈGLE À NE JAMAIS INVERSER** : l'**engagement** (`all`, `planTk`, `planPts`, `bufPlan*`,
+  cartes du Dashboard, `_ticketsOfSprint`) utilise `belongedToSprint()` ; le **réalisé**
+  (`done`, `bufDone`, vélocité, `_sprintStats`) exige `isInSprint()` **en plus** du statut
+  `done` — sinon un sprint est crédité de travail fini après sa clôture.
+  3ᵉ argument `spk` : `null` = nom exact, **obligatoire** dès que les tickets comparés
+  peuvent venir de plusieurs équipes (la clé `NN.N` ne distingue pas les équipes entre elles).
   Partir de `allTickets`, jamais de `piTickets` : un reporté porte le sprint d'arrivée,
-  souvent d'un autre PI. `_carriedOverTo()` donne le sprint de destination (chip `↪ 30.2`).
+  souvent d'un autre PI. `carriedOverTo()` donne la destination (chip `↪ 30.2`).
+  ⚠️ **`t.allSprints` n'est produit NULLE PART** (ni base, ni sync) : tout
+  `Array.isArray(t.allSprints) && …` est mort. Restent tels quels dans `infopanel.js`,
+  `retro.js`, `dashboard.js` (`_scopeTickets`) et `stage_flow_card.js` — ils visent le sprint
+  actif, sans report possible.
 - **Écart PI ↔ Congés** : `piCongesDiff()` (utils/pi-weeks.js) est la source unique du bandeau
   de recalage (Rotation) ET du récapitulatif multi-PI (Sprint & PI).
 - **Semaines d'un PI** (3.141.6) : source unique `utils/pi-weeks.js` (`buildPiWeeks`) —

@@ -1,3 +1,46 @@
+## [3.141.15] - 2026-08-24
+
+### Sprint Review & Dashboard — même angle mort que Health, même correction
+
+Le périmètre reconstitué en 3.141.14 est désormais partagé : `utils/sprint-scope.js`
+(`belongedToSprint`, `isInSprint`, `carriedOverTo`, `sprintScope`, `sprintNamesOf`),
+ré-exporté par le barrel `utils.js`. `extractSprintLabel` y déménage — même famille, et le
+dupliquer était interdit. Health n'a plus de copie locale.
+
+**`t.allSprints` n'a jamais existé.** Six vues le lisaient
+(`Array.isArray(t.allSprints) && …`) pour gérer les tickets reportés — mais rien ne l'a
+jamais produit : ni colonne en base, ni écriture nulle part. Ces branches étaient donc
+toujours fausses, et ces vues croyaient gérer un cas qu'elles ne voyaient pas.
+
+- **Sprint Review** — `_ticketsOfSprint()` reconstitue le périmètre engagé, les reportés
+  sont annotés `_carriedOverTo` (sur une copie, jamais de mutation du store), affichés
+  barrés avec un chip `↪ 30.2`, et comptés dans un `↪ N reportés` sous la tuile Tickets.
+  Sur `Team G - Ité 30.1` : **6 → 11 tickets**, « Vélocité 3 pts livré / 11 engagés »,
+  « 6/11 · 55 % terminés ↪ 5 reportés » — là où l'écran affichait **6/6 · 100 %**, une
+  perfection de façade. Le module savait déjà tout cela (commentaire de
+  `getSprintTicketsAsync`) mais ne le corrigeait qu'en appelant JIRA : la reconstitution
+  locale devient le repli quand JIRA n'est pas configuré ou joignable.
+- **Dashboard** — les cartes « Sprints du PI » comptent le périmètre engagé et marquent les
+  glissés. Le CSS `--slipped` / `↪` / `⚠ N glissés` existait déjà, inerte faute de donnée.
+  Gabbiano PI 30 : 30.1 → 11 tk / 5 glissés, 30.2 → 11 tk / 7, 30.3 → 11 tk / 6.
+- **Trois calculs dupliqués supprimés** : `openSprintTicketsModal` et `_rerenderBody`
+  refaisaient leur propre filtrage et leur propre comptage, hors de la « source unique »
+  `_sprintStats` que le fichier revendiquait — ils ignoraient donc la règle.
+- ⚠️ **La règle est inscrite en tête de `sprint-scope.js`** : l'ENGAGEMENT utilise
+  `belongedToSprint()`, le RÉALISÉ exige `isInSprint()` en plus du statut `done`. Les deux
+  calculs de vélocité LIVE du Sprint Review passaient par la branche `allSprints` : si elle
+  avait un jour été alimentée, la vélocité aurait gonflé rétroactivement. Ils sont
+  désormais explicitement stricts.
+- Le 3ᵉ argument `spk` choisit le matching : `null` = nom exact, requis dès que les tickets
+  comparés peuvent venir de plusieurs équipes (la clé `NN.N` ne distingue pas le 30.1 d'une
+  équipe de celui d'une autre).
+
+**Non traité, volontairement** : `infopanel.js`, `retro.js` et `dashboard.js` (`_scopeTickets`)
+lisent encore `t.allSprints` mais ciblent le sprint **actif**, qui n'a pas encore de reports —
+aucun gain, et un risque réel de matching inter-équipes. `stage_flow_card.js` s'en sert pour un
+libellé indicatif : l'élargir produirait des tooltips à rallonge (un ticket peut avoir traversé
+15 sprints).
+
 ## [3.141.14] - 2026-08-24
 
 ### Health — le périmètre engagé d'un sprint passé était amputé de moitié

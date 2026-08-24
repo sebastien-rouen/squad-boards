@@ -8,7 +8,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem, computeStageFlow, trapFocus } from '../utils.js';
+import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem, computeStageFlow, trapFocus, belongedToSprint, isInSprint, carriedOverTo, extractSprintLabel } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, STATUS_MAP, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { renderBurndown, renderBurnup } from './charts.js';
@@ -115,15 +115,30 @@ function _resolveCurrentSprint() {
     if (!s?.name) return null;
     return { ...s, isCurrent: true };
 }
+/**
+ * Périmètre local d'un sprint — reports compris.
+ *
+ * Sur un sprint clos, `t.sprintName` ne montre que les tickets RESTÉS, donc uniquement ses
+ * réussites : JIRA déplace les non-finis vers le sprint suivant. On reconstitue le périmètre
+ * engagé depuis l'historique du champ Sprint (utils/sprint-scope.js) — ce que le snapshot
+ * JIRA apportait déjà, mais qui manquait dès que JIRA n'est pas configuré ou joignable.
+ *
+ * Les reportés sont annotés `_carriedOverTo` (sur une COPIE — jamais de mutation du store) :
+ * ils comptent dans l'engagement, mais surtout pas dans le réalisé (voir _sprintStats).
+ * Matching sur le nom EXACT (`null`) : sans filtre d'équipe, la tolérance par clé NN.N
+ * ferait entrer le sprint homonyme des autres équipes.
+ */
 function _ticketsOfSprint(sprint) {
     const all = store.get('tickets') || [];
     const teamFilter = sprint.team && sprint.team !== 'all';
-    return all.filter(t => {
-        const sn = t.sprintName || t.sprint_name;
-        if (sn !== sprint.name) return false;
-        if (teamFilter && t.team !== sprint.team) return false;
-        return true;
-    });
+    const out = [];
+    for (const t of all) {
+        if (teamFilter && t.team !== sprint.team) continue;
+        if (!belongedToSprint(t, sprint.name, null)) continue;
+        const moved = carriedOverTo(t, sprint.name, null);
+        out.push(moved ? { ...t, _carriedOverTo: moved } : t);
+    }
+    return out;
 }
 
 /**
@@ -139,10 +154,17 @@ function _ticketsOfSprint(sprint) {
  * @param {Array}  tickets
  */
 function _sprintStats(sprint, tickets) {
+    // RÉALISÉ vs ENGAGÉ : un ticket reporté vers un autre sprint (`_carriedOverTo`) reste dans
+    // le périmètre engagé, mais n'a PAS été livré ici — même s'il est `done` aujourd'hui, il
+    // l'a été ailleurs, après la clôture. L'y compter gonflerait la vélocité rétroactivement.
+    const _doneHere = t => t.status === 'done' && !t._carriedOverTo;
     const total     = tickets.length;
     const ptsTotal  = sumBy(tickets, t => t.points);
-    const ptsDone   = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
-    const doneCount = tickets.filter(t => t.status === 'done').length;
+    const ptsDone   = sumBy(tickets.filter(_doneHere), t => t.points);
+    const doneCount = tickets.filter(_doneHere).length;
+    const carried      = tickets.filter(t => t._carriedOverTo);
+    const carriedCount = carried.length;
+    const carriedPts   = sumBy(carried, t => t.points);
     const estimated = sprint.estimated || 0;
 
     const veloPts        = doneCount ? ptsDone : (sprint.velocity || 0);
@@ -151,7 +173,7 @@ function _sprintStats(sprint, tickets) {
 
     const bufferTickets  = tickets.filter(isBufferItem);
     const bufferPts      = sumBy(bufferTickets, t => t.points);
-    const bufDonePts     = sumBy(bufferTickets.filter(t => t.status === 'done'), t => t.points);
+    const bufDonePts     = sumBy(bufferTickets.filter(_doneHere), t => t.points);
     const bufferRealised = bufDonePts > 0 ? bufDonePts : (sprint.bufferPoints || 0);
     const bufferRealShare = estimated > 0 ? Math.round((bufferRealised / estimated) * 100) : 0;
 
@@ -161,6 +183,7 @@ function _sprintStats(sprint, tickets) {
         ptsPct: pct(ptsDone, ptsTotal),
         estimated, veloPts, engagePct, engageDistinct,
         bufferTickets, bufferPts, bufferRealised, bufferRealShare,
+        carriedCount, carriedPts,
     };
 }
 
@@ -200,14 +223,9 @@ export function openSprintTicketsModal(sprint) {
     sprint = _enrichSprintMeta(sprint);
     _closeModal();
 
-    const allTickets = store.get('tickets') || [];
-    const teamFilter = sprint.team && sprint.team !== 'all';
-    const tickets = allTickets.filter(t => {
-        const sn = t.sprintName || t.sprint_name;
-        if (sn !== sprint.name) return false;
-        if (teamFilter && t.team !== sprint.team) return false;
-        return true;
-    });
+    // Même périmètre que partout ailleurs (reports compris) — ce filtre était dupliqué ici,
+    // et restait donc aveugle aux tickets déplacés par JIRA à la clôture du sprint.
+    const tickets = _ticketsOfSprint(sprint);
 
     // Si pas de tickets en base ET on a un sprint ID JIRA → fetch à la demande
     const jiraIds = (sprint.jiraIds && sprint.jiraIds.length) ? sprint.jiraIds : (sprint.jiraId ? [sprint.jiraId] : []);
@@ -228,7 +246,7 @@ function _renderShell(sprint, tickets, opts = {}) {
     // Stats — source unique partagée avec les exports (voir _sprintStats)
     const {
         total, ptsTotal, ptsDone, doneCount, completionPct, ptsPct,
-        veloPts, engagePct, engageDistinct,
+        veloPts, engagePct, engageDistinct, carriedCount, carriedPts,
         bufferTickets, bufferRealised, bufferRealShare,
     } = _sprintStats(sprint, tickets);
 
@@ -289,10 +307,10 @@ function _renderShell(sprint, tickets, opts = {}) {
                     <span class="sb-stat-val">${veloPts}<small>pts</small></span>
                     <span class="sb-stat-sub">${engageDistinct ? `livré / ${sprint.estimated} engagés` : 'livré'}</span>
                 </div>
-                <div class="sb-stat-card">
+                <div class="sb-stat-card"${carriedCount ? ` title="${esc(`${carriedCount} ticket${carriedCount > 1 ? 's' : ''} (${carriedPts} pts) engagé${carriedCount > 1 ? 's' : ''} sur ce sprint puis reporté${carriedCount > 1 ? 's' : ''} ailleurs — ils comptent dans l'engagement, pas dans le livré`)}"` : ''}>
                     <span class="sb-stat-lbl">Tickets</span>
                     <span class="sb-stat-val">${doneCount}<small>/${total || '—'}</small></span>
-                    <span class="sb-stat-sub">${completionPct}% terminés</span>
+                    <span class="sb-stat-sub">${completionPct}% terminés${carriedCount ? ` <span class="sb-stat-carried">↪ ${carriedCount} reporté${carriedCount > 1 ? 's' : ''}</span>` : ''}</span>
                 </div>
                 <div class="sb-stat-card">
                     <span class="sb-stat-lbl">Story Points</span>
@@ -413,9 +431,12 @@ function _ticketRowHtml(t, fromJira = false) {
     const lbls = Array.isArray(t.labels) ? t.labels : [];
     const isBuffer = lbls.some(l => /^Buffer$/i.test(l));
     const isRetro  = lbls.some(l => /^ActionRetro$/i.test(l));
+    // Reporté vers un autre sprint : engagé ici, livré ailleurs (ou pas encore).
+    const moved = t._carriedOverTo || '';
     const rowExtra = [
         isBuffer ? 'sb-ticket-row--buffer' : '',
         isRetro  ? 'sb-ticket-row--retro'  : '',
+        moved    ? 'sb-ticket-row--carried' : '',
     ].filter(Boolean).join(' ');
     const iconTip = [
         esc(t.type || 'task'),
@@ -429,6 +450,7 @@ function _ticketRowHtml(t, fromJira = false) {
             <span class="sb-ticket-key">${esc(t.id)}</span>
             <span class="sb-ticket-title">${esc(t.title || '(sans titre)')}</span>
             <div class="sb-ticket-meta">
+                ${moved ? `<span class="sb-ticket-tag sb-ticket-tag--carried" title="${esc(`Engagé sur ce sprint puis reporté vers « ${moved} » — non livré ici`)}">↪ ${esc(extractSprintLabel(moved) || moved)}</span>` : ''}
                 ${isBuffer ? '<span class="sb-ticket-tag sb-ticket-tag--buffer">Buffer</span>' : ''}
                 ${leader ? `<span class="sb-ticket-leader" title="${esc(leader)}">${esc(_initials(leader))}</span>` : ''}
                 ${priority ? `<span class="${prioCls}">${esc(priority)}</span>` : ''}
@@ -552,11 +574,11 @@ function _transformLite(issue) {
 }
 
 function _rerenderBody(overlay, sprint, tickets, opts = {}) {
-    // Recalcule stats + groupes et remplace juste le body (préserve l'animation/header)
-    const total = tickets.length;
-    const ptsTotal = sumBy(tickets, t => t.points);
-    const ptsDone  = sumBy(tickets.filter(t => t.status === 'done'), t => t.points);
-    const doneCount = tickets.filter(t => t.status === 'done').length;
+    // Recalcule stats + groupes et remplace juste le body (préserve l'animation/header).
+    // Les stats passent par _sprintStats — les recompter ici les ferait diverger du shell,
+    // notamment sur la règle « un ticket reporté ne compte pas dans le livré ».
+    const { total, ptsTotal, ptsDone, doneCount, completionPct, ptsPct, carriedCount } =
+        _sprintStats(sprint, tickets);
     const byStatus = new Map();
     for (const t of tickets) {
         if (!byStatus.has(t.status)) byStatus.set(t.status, []);
@@ -588,11 +610,14 @@ function _rerenderBody(overlay, sprint, tickets, opts = {}) {
         const spCard = statCards[2];
         if (tCard) {
             tCard.querySelector('.sb-stat-val').innerHTML = `${doneCount}<small>/${total || '—'}</small>`;
-            tCard.querySelector('.sb-stat-sub').textContent = `${pct(doneCount, total)}% terminés`;
+            // innerHTML et non textContent : la mention « ↪ N reportés » doit survivre au
+            // rafraîchissement, sinon elle disparaît dès le premier rendu depuis JIRA.
+            tCard.querySelector('.sb-stat-sub').innerHTML = `${completionPct}% terminés`
+                + (carriedCount ? ` <span class="sb-stat-carried">↪ ${carriedCount} reporté${carriedCount > 1 ? 's' : ''}</span>` : '');
         }
         if (spCard) {
             spCard.querySelector('.sb-stat-val').innerHTML = `${ptsDone}<small>/${ptsTotal || '—'}</small>`;
-            spCard.querySelector('.sb-stat-sub').textContent = `${pct(ptsDone, ptsTotal)}% livrés`;
+            spCard.querySelector('.sb-stat-sub').textContent = `${ptsPct}% livrés`;
         }
     }
 
@@ -1264,7 +1289,10 @@ export function openDemoMode(sprint, tickets) {
                         piSprints = piSprints.map(s => {
                             if (s.velocity && s.velocity > 0) return s;   // déjà fourni par JIRA → on garde
                             const liveDone = allTickets
-                                .filter(t => (t.sprintName === s.name || (Array.isArray(t.allSprints) && t.allSprints.includes(s.name)))
+                                // Vélocité = RÉALISÉ : uniquement les tickets restés dans le
+                                // sprint. Un reporté terminé ailleurs créditerait ce sprint de
+                                // travail fait après sa clôture (voir utils/sprint-scope.js).
+                                .filter(t => isInSprint(t, s.name, null)
                                           && t.status === 'done'
                                           && (!s.team || t.team === s.team))
                                 .reduce((sum, t) => sum + (t.points || 0), 0);
@@ -1766,7 +1794,8 @@ function _buildSprintReviewHtml(sprint, tickets) {
         piSprints = piSprints.map(s => {
             if (s.velocity && s.velocity > 0) return s;
             const live = allTks
-                .filter(t => (t.sprintName === s.name || (Array.isArray(t.allSprints) && t.allSprints.includes(s.name)))
+                // Vélocité = RÉALISÉ : seuls les tickets restés dans le sprint (idem ci-dessus).
+                .filter(t => isInSprint(t, s.name, null)
                           && t.status === 'done'
                           && (!s.team || t.team === s.team))
                 .reduce((sum, t) => sum + (t.points || 0), 0);

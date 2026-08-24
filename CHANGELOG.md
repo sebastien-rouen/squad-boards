@@ -1,3 +1,28 @@
+## [3.141.0] - 2026-08-24
+
+### Maquettes — vue itération de l'agenda (rien d'implémenté — à valider)
+
+- **[static/mockups/agenda/](static/mockups/agenda/)** : 3 directions pour visualiser une
+  itération dans `/agenda` quand une équipe est sélectionnée — évènements **Scrum** et **SAFe**
+  différenciés par couleur, récurrences affichées (`1x/sem.`, `1x/ité.`…), bouton **Copier pour
+  Slack** avec aperçu avant copie.
+  - **A — frise en couloirs** : jours en colonnes, un couloir par famille (Scrum / SAFe / Ops),
+    bande absences + support, panneau de détail au clic.
+  - **B — agenda dense** : sparkline de densité cliquable, puis les semaines côte à côte jour
+    par jour ; rituels quotidiens/hebdo sortis en préambule du récap Slack.
+  - **C — cadence & jalons** : semaine type des rituels récurrents (affichés une seule fois avec
+    leur cadence) + frise des évènements ponctuels + coût hebdomadaire des cérémonies.
+- **Alimentées par des données réelles** extraites de `data/board.db` (équipe Fuego, Ité 30.6 —
+  51 évènements, 3 semaines calendaires), doublons inter-calendriers compris : ils sont signalés,
+  pas masqués.
+- Le [README](static/mockups/agenda/README.md) tranche 7 points d'implémentation, dont :
+  la classification Scrum/SAFe déduite du titre puis du calendrier d'origine (pas de source de
+  vérité aujourd'hui), la fréquence déduite de l'écart médian entre occurrences faute de RRULE
+  dans le payload de `services/ics.py`, et le découpage par **semaine calendaire** — une itération
+  démarre rarement un lundi (30.6 : vendredi → vendredi, 11 jours ouvrés sur 3 semaines).
+
+---
+
 ## [3.140.0] - 2026-08-22
 
 ### Documentation

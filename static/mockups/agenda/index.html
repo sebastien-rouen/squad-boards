@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agenda — 3 directions pour la vue itération</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="shell.css">
+<style>
+.hero { max-width: 84ch; margin-bottom: var(--sp-6); }
+.hero h1 { font-size: var(--fs-3xl); letter-spacing: -0.02em; margin: 0 0 var(--sp-3); }
+.hero p { font-size: var(--fs-base); color: var(--text-secondary); line-height: var(--lh-normal); margin: 0 0 var(--sp-3); }
+
+.opts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-8);
+}
+@media (max-width: 1000px) { .opts { grid-template-columns: 1fr; } }
+
+.opt {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: transform var(--tr-base), box-shadow var(--tr-base), border-color var(--tr-base);
+}
+.opt:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--border-hover);
+    text-decoration: none;
+}
+.opt-preview {
+    height: 148px;
+    padding: var(--sp-3);
+    background: var(--bg-alt);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    justify-content: center;
+}
+.opt-body { padding: var(--sp-4); flex: 1; display: flex; flex-direction: column; }
+.opt-tag {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--primary);
+}
+.opt-body h2 { margin: var(--sp-1) 0 var(--sp-2); font-size: var(--fs-lg); }
+.opt-body p { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); color: var(--text-secondary); line-height: var(--lh-normal); }
+.opt-for {
+    margin-top: auto;
+    padding-top: var(--sp-3);
+    border-top: 1px solid var(--border);
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+}
+.opt-for b { color: var(--text-secondary); }
+
+/* ── Aperçus schématiques ──────────────────────────────────────────────────── */
+.pv-row { display: flex; gap: 4px; align-items: stretch; }
+.pv-lane {
+    width: 30px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--kc, var(--text-muted)) 25%, transparent);
+    flex-shrink: 0;
+}
+.pv-cell { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.pv-chip { height: 9px; border-radius: 2px; background: var(--kc); opacity: 0.85; }
+.pv-chip--pale { opacity: 0.35; }
+.pv-bars { display: flex; gap: 4px; align-items: flex-end; height: 40px; }
+.pv-bar { flex: 1; display: flex; flex-direction: column-reverse; gap: 2px; }
+.pv-bar span { border-radius: 1px; background: var(--kc); }
+.pv-lines { display: flex; flex-direction: column; gap: 4px; }
+.pv-line { height: 8px; border-radius: 2px; border-left: 3px solid var(--kc); background: color-mix(in srgb, var(--kc) 15%, transparent); }
+.pv-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; height: 62px; }
+.pv-gcol { position: relative; background: color-mix(in srgb, var(--text-muted) 8%, transparent); border-radius: 2px; }
+.pv-gev { position: absolute; left: 2px; right: 2px; border-radius: 2px; background: var(--kc); }
+.pv-dots { display: flex; align-items: center; gap: 4px; }
+.pv-dots::before { content: ''; flex: 1; height: 2px; background: var(--border-hover); }
+.pv-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--kc); flex-shrink: 0; }
+
+/* ── Blocs d'explication ───────────────────────────────────────────────────── */
+.info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-6);
+}
+@media (max-width: 900px) { .info { grid-template-columns: 1fr; } }
+.info-card {
+    padding: var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+.info-card h3 { margin: 0 0 var(--sp-3); font-size: var(--fs-base); }
+.info-card ul { margin: 0; padding-left: 1.15rem; }
+.info-card li {
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    line-height: var(--lh-normal);
+    margin-bottom: var(--sp-2);
+}
+.info-card li b { color: var(--text); }
+.info-card code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--surface-active);
+    padding: 1px 5px;
+    border-radius: var(--r-sm);
+}
+.kv {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sp-2) var(--sp-4);
+    font-size: var(--fs-sm);
+}
+.kv dt { color: var(--text-muted); }
+.kv dd { margin: 0; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+
+<nav class="mk-top">
+    <span class="mk-brand">Squad Board <span>· maquettes agenda</span></span>
+    <div class="mk-tabs">
+        <a href="index.html" aria-current="page">Intro</a>
+        <a href="option-a-frise-couloirs.html">A · Frise en couloirs</a>
+        <a href="option-b-agenda-dense.html">B · Agenda dense</a>
+        <a href="option-c-cadence.html">C · Cadence &amp; jalons</a>
+    </div>
+    <span class="mk-grow"></span>
+    <button class="btn btn-secondary btn-sm" id="theme">🌓 Thème</button>
+</nav>
+
+<main class="mk-stage">
+    <div class="hero">
+        <h1>Voir une itération d’un coup d’œil</h1>
+        <p>La page <code>/agenda</code> montre aujourd’hui une <strong>semaine de présences</strong> : qui est là, qui est
+           absent, qui est de support. Ce qu’elle ne montre pas, c’est <strong>le déroulé de l’itération</strong> — où
+           tombent le planning, la rétro, l’ART Sync, l’I&amp;A — ni ce qui relève du rythme de l’équipe
+           par opposition à la cadence imposée par le train.</p>
+        <p>Trois directions sont proposées ci-dessous. Elles partagent la même grammaire visuelle et le même
+           bouton « Copier pour Slack », et sont toutes alimentées par <strong>les vraies données de l’équipe
+           Fuego sur l’itération 30.6</strong>, extraites de <code>data/board.db</code>. Rien n’est inventé :
+           ce que tu vois est ce que produirait la fonctionnalité.</p>
+    </div>
+
+    <div class="opts">
+        <a class="opt" href="option-a-frise-couloirs.html">
+            <div class="opt-preview">
+                <div class="pv-row k-scrum">
+                    <span class="pv-lane"></span>
+                    <span class="pv-cell"><span class="pv-chip"></span><span class="pv-chip pv-chip--pale"></span></span>
+                    <span class="pv-cell"><span class="pv-chip"></span></span>
+                    <span class="pv-cell"><span class="pv-chip"></span><span class="pv-chip pv-chip--pale"></span></span>
+                    <span class="pv-cell"><span class="pv-chip"></span></span>
+                </div>
+                <div class="pv-row k-safe">
+                    <span class="pv-lane"></span>
+                    <span class="pv-cell"><span class="pv-chip"></span></span>
+                    <span class="pv-cell"></span>
+                    <span class="pv-cell"><span class="pv-chip"></span><span class="pv-chip pv-chip--pale"></span></span>
+                    <span class="pv-cell"><span class="pv-chip"></span></span>
+                </div>
+                <div class="pv-row k-ops">
+                    <span class="pv-lane"></span>
+                    <span class="pv-cell"></span>
+                    <span class="pv-cell"><span class="pv-chip"></span></span>
+                    <span class="pv-cell"></span>
+                    <span class="pv-cell"><span class="pv-chip"></span></span>
+                </div>
+            </div>
+            <div class="opt-body">
+                <span class="opt-tag">Option A</span>
+                <h2>Frise en couloirs</h2>
+                <p>Les jours ouvrés de l’itération en colonnes, un couloir par famille. On lit l’itération comme une partition :
+                   la cadence saute aux yeux, les trous aussi.</p>
+                <span class="opt-for"><b>Pour</b> le Scrum Master qui prépare l’itération et veut voir la structure d’ensemble.</span>
+            </div>
+        </a>
+
+        <a class="opt" href="option-b-agenda-dense.html">
+            <div class="opt-preview">
+                <div class="pv-bars">
+                    <span class="pv-bar"><span class="k-scrum" style="height:14px;background:var(--k-scrum)"></span><span class="k-safe" style="height:8px;background:var(--k-safe)"></span></span>
+                    <span class="pv-bar"><span style="height:8px;background:var(--k-scrum)"></span></span>
+                    <span class="pv-bar"><span style="height:14px;background:var(--k-scrum)"></span><span style="height:14px;background:var(--k-safe)"></span></span>
+                    <span class="pv-bar"><span style="height:8px;background:var(--k-scrum)"></span><span style="height:6px;background:var(--k-ops)"></span></span>
+                    <span class="pv-bar"><span style="height:20px;background:var(--k-safe)"></span></span>
+                </div>
+                <div class="pv-lines">
+                    <span class="pv-line k-scrum"></span>
+                    <span class="pv-line k-safe"></span>
+                    <span class="pv-line k-scrum"></span>
+                    <span class="pv-line k-ops"></span>
+                </div>
+            </div>
+            <div class="opt-body">
+                <span class="opt-tag">Option B</span>
+                <h2>Agenda dense</h2>
+                <p>Un sommaire de densité, puis les deux semaines côte à côte, jour par jour. La forme la plus
+                   proche du message Slack — donc la plus sûre pour relire avant de coller.</p>
+                <span class="opt-for"><b>Pour</b> l’usage quotidien : « c’est quoi la semaine prochaine ? »</span>
+            </div>
+        </a>
+
+        <a class="opt" href="option-c-cadence.html">
+            <div class="opt-preview">
+                <div class="pv-grid">
+                    <span class="pv-gcol"><span class="pv-gev k-scrum" style="top:6px;height:8px;background:var(--k-scrum)"></span><span class="pv-gev" style="top:22px;height:14px;background:var(--k-safe)"></span></span>
+                    <span class="pv-gcol"><span class="pv-gev" style="top:6px;height:8px;background:var(--k-scrum)"></span></span>
+                    <span class="pv-gcol"><span class="pv-gev" style="top:6px;height:8px;background:var(--k-scrum)"></span><span class="pv-gev" style="top:30px;height:18px;background:var(--k-ops)"></span></span>
+                    <span class="pv-gcol"><span class="pv-gev" style="top:6px;height:8px;background:var(--k-scrum)"></span></span>
+                    <span class="pv-gcol"><span class="pv-gev" style="top:6px;height:8px;background:var(--k-scrum)"></span><span class="pv-gev" style="top:20px;height:24px;background:var(--k-safe)"></span></span>
+                </div>
+                <div class="pv-dots">
+                    <span class="pv-dot k-scrum" style="background:var(--k-scrum)"></span>
+                    <span class="pv-dot" style="background:var(--k-safe)"></span>
+                    <span class="pv-dot" style="background:var(--border-hover)"></span>
+                    <span class="pv-dot" style="background:var(--k-safe)"></span>
+                </div>
+            </div>
+            <div class="opt-body">
+                <span class="opt-tag">Option C</span>
+                <h2>Cadence &amp; jalons</h2>
+                <p>Sépare ce qui se répète de ce qui n’arrive qu’une fois. Une semaine type pour le rythme,
+                   une frise pour les jalons — et le coût réel en heures de réunion.</p>
+                <span class="opt-for"><b>Pour</b> arbitrer : « on passe combien de temps en cérémonies, et pour qui ? »</span>
+            </div>
+        </a>
+    </div>
+
+    <div class="info">
+        <div class="info-card">
+            <h3>Ce que les trois options partagent</h3>
+            <ul>
+                <li><b>Deux familles colorées.</b> Bleu = rituels de l’équipe (daily, planning, rétro, refinement).
+                    Violet = cadence du train ERPC (ART Sync, Coach Sync, CoP, I&amp;A, PI Planning).
+                    Une troisième teinte ardoise isole le métier / ops / MEP, qui ne relève ni de l’un ni de l’autre.</li>
+                <li><b>La récurrence affichée en toutes lettres</b> — <code>tous les jours</code>, <code>1x/sem.</code>,
+                    <code>1x/ité.</code>, <code>1x/mois</code> — déduite de l’écart médian entre occurrences,
+                    pas d’une RRULE qu’on ne stocke pas encore.</li>
+                <li><b>Un bouton « Copier pour Slack »</b> avec aperçu avant copie, dans le format déjà utilisé par
+                    l’agenda du jour (<code>:date:</code>, <code>*gras*</code>, puces indentées).</li>
+                <li><b>Les mêmes filtres</b> Scrum / SAFe / Ops, qui agissent aussi sur le texte Slack généré.</li>
+            </ul>
+        </div>
+        <div class="info-card">
+            <h3>Les données de la maquette</h3>
+            <dl class="kv">
+                <dt>Équipe</dt><dd>Fuego</dd>
+                <dt>Itération</dt><dd>Fuego - Ité 30.6 — 21 août → 4 septembre 2026</dd>
+                <dt>Source</dt><dd><code>data/board.db</code> → <code>team_calendar.events_json</code>, <code>absence</code>, <code>supportrotation</code></dd>
+                <dt>Calendriers</dt><dd>ERPC - Fuego (équipe) + ERPC - GLOBAL (train, sans équipe)</dd>
+                <dt>Volume</dt><dd>51 évènements — 20 Scrum, 21 SAFe, 10 métier/ops</dd>
+                <dt>Extras</dt><dd>10 jours avec des OFF, 5 congés saisis, la rotation support 30.6.1</dd>
+            </dl>
+            <p style="margin-top:var(--sp-3);font-size:var(--fs-xs);color:var(--text-muted)">
+                Les deux doublons visibles (Journées Innovation, PI Planning présents dans deux calendriers)
+                sont réels et volontairement conservés — c’est un cas à trancher à l’implémentation.
+            </p>
+        </div>
+    </div>
+</main>
+
+<script>
+document.getElementById('theme').addEventListener('click', () => {
+    const r = document.documentElement;
+    r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark';
+});
+</script>
+</body>
+</html>

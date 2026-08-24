@@ -490,6 +490,10 @@
 }
 .htl-sprint-row--ref:hover td { background: color-mix(in srgb, #3b82f6 14%, var(--surface)); }
 .htl-spr-name { max-width: 180px; word-break: break-word; }
+/* 🍃 Sprint de respiration (IP) : rien n'y est planifié et il ne compte pas dans la Base
+   capacité — atténué pour qu'on ne le lise pas comme une itération de production vide. */
+.htl-sprint-row--breath td { opacity: .72; }
+.htl-breath-chip { cursor: help; font-size: 11px; }
 .htl-spr-num  { text-align: right !important; font-variant-numeric: tabular-nums; }
 .htl-sprint-table thead th.htl-th-num { text-align: right !important; }
 .htl-velo-col { color: var(--success); font-weight: var(--fw-semibold); }

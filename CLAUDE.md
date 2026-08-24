@@ -94,6 +94,16 @@ python main.py          # http://localhost:3001  — Swagger /docs
   pondérées de la même façon** : les congés d'un rôle à 0 % ne retirent rien à la capacité.
   `roleCapacityPct()` est la source unique de cette règle — `_capRolePct` (pi.js) y pointe.
   Rôle inconnu → 100 % **et signalé** dans l'infobulle, jamais écarté en silence.
+  ⚠️ **L'effectif vient du ROSTER du PI** (`effectiveRosterForPi` → `piInfo.piMembers[<PI>]`),
+  jamais des absences seules : les congés d'une personne **sortie de l'équipe** y restent et
+  la feraient peser sur un PI où elle n'est plus. Les absences hors roster sont ignorées
+  (`pctOf` → 0). Apparier les équipes avec `teamNameMatches` (le snapshot porte « Team X »).
+  ⚠️ **Le sprint de RESPIRATION (🍃, dernier du PI) ne compte nulle part** : ni dans la
+  moyenne de vélocité des PI passés, ni dans le décompte des sprints du PI visé, ni comme
+  charge suggérée. `breathIdxOf()` = `max(sprintsPerPI, plus grand index observé)` — ce `max`
+  évite de promouvoir le dernier sprint CONNU d'un PI encore incomplet.
+  ⚠️ `pi.js::_isIpSprint` applique une règle DIFFÉRENTE (respiration si ≥ 6 sprints) ;
+  divergence assumée et commentée des deux côtés.
 - **Écart PI ↔ Congés** : `piCongesDiff()` (utils/pi-weeks.js) est la source unique du bandeau
   de recalage (Rotation) ET du récapitulatif multi-PI (Sprint & PI).
 - **Semaines d'un PI** (3.141.6) : source unique `utils/pi-weeks.js` (`buildPiWeeks`) —
@@ -117,7 +127,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
 
 ## Tests (`npm test`)
 
-Suites `node:test` dans [tests/](tests/) — 112 tests, aucune dépendance, ~1 s. Détail :
+Suites `node:test` dans [tests/](tests/) — 129 tests, aucune dépendance, ~1 s. Détail :
 [tests/README.md](tests/README.md).
 - `node --test tests/` **échoue** sur Node 22 → toujours un motif : `node --test "tests/*.test.mjs"`.
 - Importer `tests/helpers/env.mjs` AVANT tout module applicatif (`state.js` lit `localStorage`

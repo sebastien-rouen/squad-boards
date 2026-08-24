@@ -67,6 +67,35 @@ const _piNumOf = name => {
 /** Une demi-journée compte 0,5 — sinon un vendredi après-midi pèse autant qu'une semaine. */
 const _dayWeight = a => (a.type === '1/2' || /half|demi/i.test(a.type || '')) ? 0.5 : 1;
 
+/** Index d'un sprint dans son PI : « Team G - Ité 31.5 » → 5. */
+export const sprintIdx = name => {
+    const m = String(name || '').match(/\d+\.(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+};
+
+/**
+ * Index du sprint de RESPIRATION (IP sprint SAFe) d'un PI : le dernier.
+ *
+ * Il ne produit pas de valeur planifiable — on n'y engage rien et on ne compte pas sa
+ * vélocité, sans quoi la moyenne d'un PI est tirée vers le bas et la capacité du PI suivant
+ * gonflée d'un sprint fantôme.
+ *
+ * `max(sprintsPerPI configuré, plus grand index observé)` et non le seul index observé : sur
+ * un PI dont tous les sprints ne sont pas encore créés (2 connus sur 5), le dernier connu
+ * n'est PAS la respiration — la prendre pour telle amputerait la base d'un sprint réel.
+ *
+ * ⚠️ `pi.js::_isIpSprint` applique une règle DIFFÉRENTE (respiration seulement si le PI
+ * compte ≥ 6 sprints). Les deux coexistent volontairement : celle-ci suit l'affichage 🍃 de
+ * la Sprint Review, qui traite toujours le dernier sprint en respiration.
+ */
+export function breathIdxOf(piSprints, sprintsPerPI) {
+    const idxs = (piSprints || []).map(s => sprintIdx(s.name || s)).filter(Boolean);
+    return Math.max(sprintsPerPI || 0, ...(idxs.length ? idxs : [0]));
+}
+
+/** Ce sprint est-il la respiration de son PI ? */
+export const isBreathSprint = (name, breathIdx) => breathIdx > 0 && sprintIdx(name) === breathIdx;
+
 /** Jours ouvrés (lun-ven) dans [start, end], bornes incluses. */
 export function openDaysBetween(start, end) {
     const s = new Date(_iso(start)), e = new Date(_iso(end));
@@ -107,24 +136,32 @@ export function absenceDaysInWindow(absences, team, start, end, pctOf = null) {
  * sprints clos : un PI sans mesure est sauté plutôt que compté zéro, ce qui écraserait la
  * moyenne. `velocityOf(sprint)` permet à l'appelant d'imposer sa propre mesure du réalisé.
  */
-export function avgVelocityOverLastPis(teamSprints, team, targetPiNum, nbPi = 2, velocityOf = s => s.velocity || 0) {
-    const closed = (teamSprints || []).filter(s =>
-        s.state === 'closed' && s.name && (!team || s.team === team) && _piNumOf(s.name) != null
-        && (!targetPiNum || _piNumOf(s.name) < targetPiNum));
-    if (!closed.length) return { avg: 0, sprintsUsed: 0, pis: [], total: 0 };
+export function avgVelocityOverLastPis(teamSprints, team, targetPiNum, nbPi = 2, velocityOf = s => s.velocity || 0, sprintsPerPI = 0) {
+    const mine = (teamSprints || []).filter(s => s.name && (!team || s.team === team) && _piNumOf(s.name) != null);
+    const closed = mine.filter(s =>
+        s.state === 'closed' && (!targetPiNum || _piNumOf(s.name) < targetPiNum));
+    if (!closed.length) return { avg: 0, sprintsUsed: 0, pis: [], total: 0, breathExcluded: 0 };
 
     const pis = [...new Set(closed.map(s => _piNumOf(s.name)))].sort((a, b) => b - a).slice(0, nbPi);
+    // Respiration : calculée PI par PI, sur TOUS ses sprints (pas seulement les clos) — un PI
+    // dont le dernier sprint n'est pas encore clos ne doit pas voir l'avant-dernier promu.
+    const breathByPi = new Map(pis.map(pi =>
+        [pi, breathIdxOf(mine.filter(s => _piNumOf(s.name) === pi), sprintsPerPI)]));
+
     const used = closed.filter(s => pis.includes(_piNumOf(s.name)));
     // Dédoublonnage par label NN.N : un même sprint peut apparaître deux fois (boards multiples).
     const seen = new Map();
     for (const s of used) seen.set(extractSprintLabel(s.name) || s.name, s);
-    const list = [...seen.values()];
+    const all = [...seen.values()];
+    // Le sprint de respiration ne se planifie pas : le garder tirerait la moyenne vers le bas.
+    const list = all.filter(s => !isBreathSprint(s.name, breathByPi.get(_piNumOf(s.name))));
     const total = list.reduce((sum, s) => sum + (velocityOf(s) || 0), 0);
     return {
         avg: list.length ? total / list.length : 0,
         sprintsUsed: list.length,
         pis: pis.slice().sort((a, b) => a - b),
         total,
+        breathExcluded: all.length - list.length,
     };
 }
 
@@ -155,9 +192,15 @@ export function sprintCapacityBase({ avg, sprint, absences, team, etp, pctOf, la
  * total qui contredit son propre détail ne sert à rien.
  * @returns {null|{points, gross, ratio, sprintsCount, avg, pis, sprintsUsed, capped, ...}}
  */
-export function piCapacityBase({ teamSprints, piSprints, team, absences, targetPiNum, nbPi = 2, velocityOf, lastAbsenceDate, teamMembers, rolePctMap }) {
-    const v = avgVelocityOverLastPis(teamSprints, team, targetPiNum, nbPi, velocityOf);
+export function piCapacityBase({ teamSprints, piSprints, team, absences, targetPiNum, nbPi = 2, velocityOf, lastAbsenceDate, teamMembers, rolePctMap, sprintsPerPI = 0 }) {
+    const v = avgVelocityOverLastPis(teamSprints, team, targetPiNum, nbPi, velocityOf, sprintsPerPI);
     if (!v.avg || !piSprints?.length) return null;
+
+    // Le sprint de respiration du PI visé sort du décompte : on n'y engage rien, donc il
+    // n'apporte aucune capacité. L'inclure ajoutait une itération entière de capacité fictive.
+    const breathIdx = breathIdxOf(piSprints, sprintsPerPI);
+    const planSprints = piSprints.filter(sp => !isBreathSprint(sp.name, breathIdx));
+    const breathCount = piSprints.length - planSprints.length;
 
     // Appartenance à l'équipe : la table `absence` (CSV RH) fait foi — cf. CLAUDE.md. Les
     // rôles, eux, ne peuvent venir que de la table `member`, d'où `teamMembers` fourni par
@@ -167,10 +210,13 @@ export function piCapacityBase({ teamSprints, piSprints, team, absences, targetP
         .map(name => ({ name, role: '' }));
     const staff = teamEtp(teamMembers?.length ? teamMembers : fallback, rolePctMap);
     const pctByName = new Map(staff.members.map(m => [m.name, m.pct]));
-    const pctOf = name => (pctByName.has(name) ? pctByName.get(name) : 100);
+    // Hors roster → 0 : les congés d'une personne SORTIE de l'équipe traînent dans la table
+    // absence bien après son départ. Les compter ferait baisser la capacité d'un PI auquel
+    // elle ne participe plus. (En repli sur les absences, tout le monde y est déjà.)
+    const pctOf = name => (pctByName.has(name) ? pctByName.get(name) : 0);
 
     let points = 0, absencesDays = 0, openDays = 0, capped = false, dated = 0;
-    for (const sp of piSprints) {
+    for (const sp of planSprints) {
         const b = sprintCapacityBase({ avg: v.avg, sprint: sp, absences, team, etp: staff.etp, pctOf, lastAbsenceDate });
         if (!b) continue;
         dated++;
@@ -181,13 +227,16 @@ export function piCapacityBase({ teamSprints, piSprints, team, absences, targetP
     }
     const base = {
         staff, etp: staff.etp,
-        sprintsCount: piSprints.length,
+        sprintsCount: planSprints.length,   // sprints RÉELLEMENT planifiables
+        sprintsTotal: piSprints.length,     // ceux du PI, respiration comprise
+        breathCount, breathIdx,
         avg: v.avg, pis: v.pis, sprintsUsed: v.sprintsUsed, velocityTotal: v.total,
+        breathExcluded: v.breathExcluded,
     };
     // Aucun sprint daté : la fenêtre est inconnue, donc la disponibilité aussi. On rend la
     // capacité brute plutôt que rien — en le signalant par `ratio: 0` et `dated: 0`.
     if (!dated) {
-        const gross = Math.round(v.avg * piSprints.length);
+        const gross = Math.round(v.avg * planSprints.length);
         return { ...base, points: gross, gross, ratio: 0, absencesDays: 0, openDays: 0, dated: 0, capped: false };
     }
     return {

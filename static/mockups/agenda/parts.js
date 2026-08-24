@@ -24,10 +24,23 @@
 
     const hrs = m => `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, '0')}`;
 
+    /** Un rituel compte dans la charge s'il tombe un jour ouvré — même règle que la
+     *  grille du rythme, qui n'a que cinq colonnes. Sans ce garde, un décalage qui
+     *  pousse le planning au samedi le retirait de la grille mais le laissait dans
+     *  la barre de charge : deux chiffres qui se contredisent à l'écran. */
+    const onWorkDay = r => {
+        if (r.freq === 'tous les jours') return true;
+        const wd = dayIdx(r.days[0]);
+        return wd >= 1 && wd <= 5;
+    };
+
     /** Minutes hebdomadaires par famille + le reste non réuni. */
     function weeklyLoad(rituals) {
         const by = { scrum: 0, safe: 0, ops: 0 };
-        for (const r of rituals) by[r.kind] += r.durMin * perWeek(r.freq);
+        for (const r of rituals) {
+            if (!onWorkDay(r)) continue;
+            by[r.kind] += r.durMin * perWeek(r.freq);
+        }
         const busy = by.scrum + by.safe + by.ops;
         return { ...by, busy, free: Math.max(0, WEEK_MINUTES - busy), base: WEEK_MINUTES };
     }

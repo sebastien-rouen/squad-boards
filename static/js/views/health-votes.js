@@ -110,14 +110,21 @@ export function voteCellHtml(kind, team, sprintKey) {
     return _valHtml(kind, s, tip, attrs);
 }
 
+/** Nombre de votes d'une équipe sur un PI — pour décider d'un état « renseigné ». */
+export function voteCount(kind, team, sprintKeys) {
+    return _forPi(kind, team, sprintKeys).length;
+}
+
 /**
- * Moyenne sur TOUT le PI, pour la ligne de total du tableau. Non cliquable,
- * contrairement aux cellules par sprint : on ne vote pas sur un total.
+ * Moyenne sur TOUT le PI. Sert la ligne de total du tableau des sprints ET la colonne
+ * ✊ Confiance de la matrice — d'où `emptyHtml` : chaque tableau a son propre marqueur
+ * d'absence de donnée, mais le calcul et l'infobulle restent les mêmes des deux côtés.
+ * Non cliquable, contrairement aux cellules par sprint : on ne vote pas sur un total.
  */
-export function voteTotalHtml(kind, team, sprintKeys) {
+export function voteTotalHtml(kind, team, sprintKeys, emptyHtml = '<span class="htl-muted">—</span>') {
     const k = VOTE_KINDS[kind];
     const s = _stats(_forPi(kind, team, sprintKeys));
-    if (!s.n) return '<span class="htl-muted">—</span>';
+    if (!s.n) return emptyHtml;
     const tip = `${k.icon} ${k.label} moyen du PI · ${team}\n${k.what}\n`
         + `Moyenne ${s.avg}/5 · ${s.n} vote${s.n > 1 ? 's' : ''} `
         + `sur ${s.voted} sprint${s.voted > 1 ? 's' : ''} / ${sprintKeys.length}\n`

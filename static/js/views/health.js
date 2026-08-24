@@ -19,7 +19,7 @@ import { openAlertModal } from '../components/alert_modal.js';
 import { sparkline, trendChip } from '../components/sparkline.js';
 import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
 import { ANOMALY_RULES, isActionRetro } from '../business_rules.js';
-import { VOTE_KINDS, setVotes, pushVote, voteCellHtml, voteTotalHtml, voteRowCls, pickerHtml } from './health-votes.js';
+import { VOTE_KINDS, setVotes, pushVote, voteCellHtml, voteTotalHtml, voteRowCls, voteCount, pickerHtml } from './health-votes.js';
 
 // Historique local du score Health (snapshot à chaque visite, max 30 entrées)
 const HEALTH_HIST_KEY = 'sb-health-history';
@@ -108,6 +108,9 @@ export function renderHealth(container) {
         ? 'sprint courant'
         : `dernier sprint du PI#${targetPiNum}`;
     const _sprintCtxShort = piOffset === 0 ? 'sprint courant' : `PI#${targetPiNum}`;
+    // La colonne ✊ Confiance porte sur le PI entier, pas sur le sprint mesuré à côté :
+    // son sous-titre nomme donc toujours le PI, y compris à l'offset 0.
+    const _piColLabel = targetPiNum ? `PI#${targetPiNum}` : '';
 
     // Périmètre : équipes selon filtre topbar (groupe / équipe / toutes)
     let teamsScope = allTeams;
@@ -415,6 +418,19 @@ export function renderHealth(container) {
 
         // Cellule Vélocité / Buffer — has-val dès qu'un sprint est connu (même 0 pts)
         const cellMeta = sprintMetaByTeam[tm];
+
+        // ✊ Confiance du PI (Fist of Five) — posée à côté du Σ des anomalies, car c'est
+        // le même usage : repérer une équipe à risque d'un coup d'œil. Une squad sans
+        // aucune anomalie mais peu confiante dans les objectifs mérite autant l'attention,
+        // et ce signal-là ne sort d'aucune règle automatique — seule l'équipe le donne.
+        // Moyenne sur TOUT le PI (pas le sprint) : c'est la portée du Fist of Five.
+        const fistKeys = (cellMeta.piSprints || []).map(s => _spKey(s.name));
+        const fistN    = voteCount('fist', tm, fistKeys);
+        const fistCell = `<td class="health-cell health-fist-cell${fistN ? ' has-val' : ''}"
+            data-metric="velocity" data-meta-id="${esc(tm)}"
+            title="✊ Confiance dans les objectifs du PI — ${esc(tm)}${fistN ? '' : '\nAucun vote enregistré'} — cliquer pour ouvrir le détail et voter">
+            ${voteTotalHtml('fist', tm, fistKeys, '<span class="health-cell-zero">—</span>')}
+        </td>`;
         const vPts = cellMeta.vPts, bPts = cellMeta.bPts;
         const hasSprint = !!cellMeta.spName || cellMeta.done.length > 0;
         const planTk = cellMeta.planTk, planPts = cellMeta.planPts;
@@ -454,6 +470,7 @@ export function renderHealth(container) {
             </th>
             ${cells}
             <td class="health-row-total">${sumRow}</td>
+            ${fistCell}
             ${planCell}
             ${veloCell}
             ${bufPlanCell}
@@ -509,6 +526,7 @@ export function renderHealth(container) {
                                 <span class="health-anomaly-label">${esc(a.label)}</span>
                             </th>`).join('')}
                             <th class="health-row-total-col">Σ</th>
+                            <th class="health-metric-col health-fist-col" title="✊ Fist of Five — confiance de chaque équipe dans l'atteinte des objectifs du PI, moyenne de tous ses votes du PI (cliquer une cellule pour ouvrir le détail et voter)">✊ Confiance${_piColLabel ? `<span class="health-metric-sub">${esc(_piColLabel)}</span>` : ''}</th>
                             <th class="health-metric-col health-metric-col--plan" title="Périmètre engagé au lancement du ${esc(_sprintCtxLabel)} : nb de tickets + vélocité planifiée (estimation JIRA au démarrage)">📋 Prévu<span class="health-metric-sub">${esc(_sprintCtxShort)}</span></th>
                             <th class="health-metric-col health-metric-col--velo" title="Points Done du ${esc(_sprintCtxLabel)} de chaque équipe (cliquer pour voir les tickets)">⚡ Vélo.<span class="health-metric-sub">${esc(_sprintCtxShort)}</span></th>
                             <th class="health-metric-col health-metric-col--bufplan" title="Buffer engagé au lancement du ${esc(_sprintCtxLabel)} : nb de tickets Buffer + vélocité Buffer planifiée">🛡 Buf. prévu<span class="health-metric-sub">${esc(_sprintCtxShort)}</span></th>
@@ -560,8 +578,9 @@ export function renderHealth(container) {
         const card = e.target.closest('.health-card');
         if (card?.dataset.anomaly) { openAlertModal(card.dataset.anomaly); return; }
 
-        // Clic colonne Vélocité / Buffer → modal sprint détaillé
-        const metricCell = e.target.closest('.health-metric-cell.has-val');
+        // Clic colonne Vélocité / Buffer / Confiance → modal sprint détaillé.
+        // La colonne ✊ y mène aussi : c'est la seule surface où l'on peut voter.
+        const metricCell = e.target.closest('.health-metric-cell.has-val, .health-fist-cell.has-val');
         if (metricCell?.dataset.metaId) {
             const tm     = metricCell.dataset.metaId;
             const metric = metricCell.dataset.metric;

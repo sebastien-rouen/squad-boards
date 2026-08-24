@@ -10,7 +10,7 @@
 
     const { D, KINDS, esc, dayIdx, dayName, dayFull, ddmm, durLabel, isFullDay,
             cadence, absentNames, supportOn, byDay, stripEmoji, weekGroups,
-            startsWeek, state, shiftImpact, DAY_LONG } = window.MK;
+            startsWeek, state, shiftImpact } = window.MK;
 
     /** Base hebdomadaire de référence : 5 jours × 7 h. C'est l'hypothèse qui rend
      *  le « temps libre » lisible — elle est affichée, pas cachée. */
@@ -90,12 +90,12 @@
             </div>`;
     }
 
-    // ── 2. Grille « semaine type » (le rythme) ──────────────────────────────
+    // ── 2. Grille du rythme, sur toute l'itération ──────────────────────────
     const H_START = 9 * 60, H_END = 18.5 * 60;
     const PX_PER_MIN = 0.62;
     const GRID_H = (H_END - H_START) * PX_PER_MIN;
 
-    /** Répartit en colonnes les rituels qui se chevauchent, façon agenda. */
+    /** Répartit en colonnes les rituels qui se chevauchent le MÊME jour, façon agenda. */
     function layout(list) {
         const sorted = [...list].sort((a, b) => a.startMin - b.startMin || b.durMin - a.durMin);
         const cols = [];
@@ -108,18 +108,36 @@
         return sorted;
     }
 
-    function renderRhythm(gridEl, listEl, rituals) {
-        const byDayIdx = [[], [], [], [], []];       // lun(0) → ven(4)
-        for (const r of rituals) {
-            if (r.freq === 'tous les jours') byDayIdx.forEach(col => col.push(r));
-            else {
-                const i = dayIdx(r.days[0]) - 1;
-                if (i >= 0 && i < 5) byDayIdx[i].push(r);
-            }
-        }
+    /** Plages d'index de jours CONSÉCUTIFS où le rituel a effectivement lieu.
+     *  Une bande par plage : les trous restent visibles, et ils veulent dire
+     *  quelque chose (le daily de Fuego saute le lundi, jour du weekly). */
+    function segments(ritual, days) {
+        const has = new Set(ritual.days);
+        const out = [];
+        let start = -1;
+        days.forEach((d, i) => {
+            if (has.has(d)) { if (start < 0) start = i; }
+            else if (start >= 0) { out.push([start, i - 1]); start = -1; }
+        });
+        if (start >= 0) out.push([start, days.length - 1]);
+        return out;
+    }
 
-        let html = '<div></div>' + [1, 2, 3, 4, 5]
-            .map(i => `<div class="wgrid-head">${esc(DAY_LONG[i])}</div>`).join('');
+    /** Un rituel se dessine en bande continue s'il revient presque chaque jour. */
+    const isDaily = r => r.freq === 'tous les jours';
+
+    function renderRhythm(gridEl, listEl, rituals, days) {
+        const N = days.length;
+        const pct = i => i / N * 100;
+
+        // En-têtes : les vrais jours de l'itération, pas une semaine abstraite
+        let html = '<div></div><div class="wgrid-heads">';
+        days.forEach((d, i) => {
+            html += `<div class="wgrid-head ${startsWeek(d, i) ? 'wgrid-head--week' : ''} ${d === D.today ? 'wgrid-head--today' : ''}">
+                ${esc(dayName(d))}<small>${esc(ddmm(d))}</small>
+            </div>`;
+        });
+        html += '</div>';
 
         html += `<div class="wgrid-hours" style="height:${GRID_H}px">`;
         for (let h = 9; h <= 18; h++) {
@@ -127,21 +145,53 @@
         }
         html += '</div>';
 
-        for (let i = 0; i < 5; i++) {
-            html += `<div class="wgrid-col" style="height:${GRID_H}px;--hour-h:${60 * PX_PER_MIN}px">`;
-            for (const r of layout(byDayIdx[i])) {
+        html += `<div class="wgrid-body" style="height:${GRID_H}px">`;
+        days.forEach((d, i) => {
+            html += `<div class="wgrid-col ${startsWeek(d, i) ? 'wgrid-col--week' : ''} ${d === D.today ? 'wgrid-col--today' : ''}"
+                          style="--hour-h:${60 * PX_PER_MIN}px"></div>`;
+        });
+
+        // Bandes continues — dessinées d'abord, elles passent sous les blocs ponctuels
+        for (const r of rituals.filter(isDaily)) {
+            const top = Math.max(0, (r.startMin - H_START) * PX_PER_MIN);
+            const h = Math.max(18, Math.min(r.durMin, H_END - r.startMin) * PX_PER_MIN);
+            const missing = N - r.days.length;
+            const title = `${r.title} — ${cadence(r)} (${durLabel(r.durMin)})`
+                + (missing > 0 ? ` — absent ${missing} jour${missing > 1 ? 's' : ''} de l’itération` : '');
+            for (const [a, b] of segments(r, days)) {
+                html += `<div class="rit-band ${KINDS[r.kind].cls}"
+                              style="top:${top}px;height:${h}px;left:calc(${pct(a)}% + 3px);width:calc(${pct(b - a + 1)}% - 6px)"
+                              title="${esc(title)}">
+                    <span class="rit-band-title">${esc(stripEmoji(r.title))}</span>
+                    <span class="rit-band-meta">${esc(r.start)}</span>
+                </div>`;
+            }
+        }
+
+        // Blocs ponctuels — une occurrence par jour réel, empilés si chevauchement
+        const perDay = days.map(() => []);
+        for (const r of rituals.filter(x => !isDaily(x))) {
+            for (const d of r.days) {
+                const i = days.indexOf(d);
+                if (i >= 0) perDay[i].push({ ...r, _day: d });
+            }
+        }
+        perDay.forEach((list, i) => {
+            for (const r of layout(list)) {
                 const top = Math.max(0, (r.startMin - H_START) * PX_PER_MIN);
                 const h = Math.max(20, Math.min(r.durMin, H_END - r.startMin) * PX_PER_MIN);
-                const w = 100 / r._cols;
-                html += `<div class="rit ${KINDS[r.kind].cls} ${r.freq === '1x/ité.' ? 'rit--biweekly' : ''}"
-                              style="top:${top}px;height:${h}px;left:calc(${r._col * w}% + 3px);width:calc(${w}% - 6px)"
+                const w = pct(1) / r._cols;
+                html += `<div class="rit ${KINDS[r.kind].cls}"
+                              style="top:${top}px;height:${h}px;left:calc(${pct(i) + r._col * w}% + 3px);width:calc(${w}% - 6px)"
                               title="${esc(r.title)} — ${esc(cadence(r))} (${esc(durLabel(r.durMin))})">
                     <span class="rit-title">${esc(stripEmoji(r.title))}</span>
                     <span class="rit-meta">${esc(r.start)} · ${esc(r.freq)}</span>
                 </div>`;
             }
-            html += '</div>';
-        }
+        });
+        html += '</div>';
+
+        gridEl.style.setProperty('--cols', N);
         gridEl.innerHTML = html;
 
         // Repli petit écran : la même information en liste, groupée par cadence
@@ -156,10 +206,18 @@
             .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
             .map(([g, list]) => `<div class="rit-group">
                 <h4>${esc(g)} · ${list.length}</h4>
-                ${list.map(r => `<div class="rit-item ${KINDS[r.kind].cls}">
-                    <b>${esc(stripEmoji(r.title))}</b>
-                    <small>${esc(r.freq === 'tous les jours' ? r.start : `${dayName(r.days[0])} ${r.start}`)} · ${esc(durLabel(r.durMin))}</small>
-                </div>`).join('')}
+                ${list.map(r => {
+                    // Un quotidien qui saute des jours doit le dire : sur petit écran,
+                    // la liste est la seule vue disponible, pas de bande à interpréter.
+                    const gaps = isDaily(r) ? days.length - r.days.length : 0;
+                    const when = isDaily(r)
+                        ? `${r.start}${gaps > 0 ? ` · ${r.days.length}/${days.length} jours` : ''}`
+                        : `${dayName(r.days[0])} ${r.start}`;
+                    return `<div class="rit-item ${KINDS[r.kind].cls}" title="${esc(cadence(r))}">
+                        <b>${esc(stripEmoji(r.title))}</b>
+                        <small>${esc(when)} · ${esc(durLabel(r.durMin))}</small>
+                    </div>`;
+                }).join('')}
             </div>`).join('');
     }
 

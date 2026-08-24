@@ -65,7 +65,7 @@
            au quotidien et qu’on copie dans Slack.</p>
         <div class="mk-note">
             <strong>🧪 Bac à sable.</strong> Le bouton <em>+ 1 j</em> décale tous les évènements d’un jour et
-            recalcule l’ensemble — barre de charge, semaine type, agenda, récap Slack. Utile pour éprouver la
+            recalcule l’ensemble — barre de charge, rythme, agenda, récap Slack. Utile pour éprouver la
             vue : un férié inséré, une itération repoussée, et l’on voit tout de suite ce qui bascule sur un
             week-end. Aucune donnée n’est modifiée.
         </div>
@@ -100,7 +100,7 @@
         <span class="mk-legend-item k-safe"><span class="mk-legend-swatch"></span> SAFe · train ERPC</span>
         <span class="mk-legend-item k-ops"><span class="mk-legend-swatch"></span> Métier &amp; Ops</span>
         <span class="mk-legend-item k-free"><span class="mk-legend-swatch"></span> Temps libre</span>
-        <span class="mk-legend-item">Hachures = une semaine sur deux · 📋 copie un jour seul</span>
+        <span class="mk-legend-item">Bande continue = rituel quotidien · 📋 copie un jour seul</span>
     </div>
 </main>
 
@@ -126,13 +126,13 @@
         map = byDay(evs);
 
         renderLoad(document.getElementById('load'), rituals, milestones);
-        renderRhythm(document.getElementById('wgrid'), document.getElementById('rit-list'), rituals);
+        renderRhythm(document.getElementById('wgrid'), document.getElementById('rit-list'), rituals, days);
         renderSpark(document.getElementById('spark'), days, map);
         renderWeeks(document.getElementById('weeks'), days, map);
 
         const L = weeklyLoad(rituals);
         document.getElementById('rit-count').textContent =
-            `${rituals.length} rituels récurrents · ${hrs(L.busy)} par semaine, ${hrs(L.free)} de libre`;
+            `${rituals.length} rituels sur l’itération · ${hrs(L.busy)} par semaine, ${hrs(L.free)} de libre`;
         const shown = days.reduce((n, d) => n + (map.get(d) || []).length, 0);
         document.getElementById('agenda-count').textContent =
             `${shown} évènements sur ${weekGroups(days).length} semaines calendaires`;

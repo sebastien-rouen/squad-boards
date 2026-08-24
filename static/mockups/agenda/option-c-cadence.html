@@ -108,9 +108,9 @@
     <div class="mk-intro">
         <h1>Option C — Cadence &amp; jalons</h1>
         <p>Le pari : une itération, ce sont <strong>deux choses de nature différente</strong> qu’on gagne à ne pas mélanger.
-           D’un côté un <strong>rythme</strong> qui se répète — le daily, le weekly, l’ART Sync — qu’on affiche une seule fois
-           avec sa cadence. De l’autre les <strong>jalons</strong> qui n’arrivent qu’une fois et qui donnent sa forme à
-           l’itération. En prime, ce que ce rythme coûte réellement en heures de réunion par semaine — et ce qu’il
+           D’un côté un <strong>rythme</strong> qui se répète — le daily, le weekly, l’ART Sync — déroulé sur toute
+           l’itération, le quotidien traçé en bande continue. De l’autre les <strong>jalons</strong> qui n’arrivent
+           qu’une fois et qui donnent sa forme à l’itération. En prime, ce que ce rythme coûte réellement en heures de réunion par semaine — et ce qu’il
            laisse de libre.</p>
     </div>
 
@@ -141,7 +141,7 @@
         <span class="mk-legend-item k-safe"><span class="mk-legend-swatch"></span> SAFe · train ERPC</span>
         <span class="mk-legend-item k-ops"><span class="mk-legend-swatch"></span> Métier &amp; Ops</span>
         <span class="mk-legend-item k-free"><span class="mk-legend-swatch"></span> Temps libre</span>
-        <span class="mk-legend-item">Hachures = une semaine sur deux</span>
+        <span class="mk-legend-item">Bande continue = rituel quotidien · les trous sont réels</span>
     </div>
 </main>
 
@@ -188,10 +188,13 @@
         const rituals = recurringRituals(evs);
         const milestones = oneShots(evs);
         renderLoad(document.getElementById('load'), rituals, milestones);
-        renderRhythm(document.getElementById('wgrid'), document.getElementById('rit-list'), rituals);
+        renderRhythm(document.getElementById('wgrid'), document.getElementById('rit-list'), rituals, days);
         renderMiles(milestones);
+        const daily = rituals.filter(r => r.freq === 'tous les jours');
+        const gaps = daily.reduce((n, r) => n + (days.length - r.days.length), 0);
         document.getElementById('rit-count').textContent =
-            `${rituals.length} rituels récurrents, affichés une seule fois avec leur cadence`;
+            `${rituals.length} rituels récurrents sur l’itération`
+            + (gaps ? ` · le quotidien saute ${gaps} jour${gaps > 1 ? 's' : ''}` : '');
         document.getElementById('mile-count').textContent =
             `${milestones.length} évènements qui n’arrivent qu’une fois sur l’itération`;
     }

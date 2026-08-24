@@ -1,3 +1,39 @@
+## [3.141.4] - 2026-08-24
+
+### Correctif — Rotation : en-tête de semaine décalé et itération de trop
+
+- **En-tête `rot-wk-th` incohérent avec la colonne** : `31.1.1` annonçait *6 septembre* alors que
+  la première pastille de la colonne est le **lundi 7**. La date de début du PI 31 vient de JIRA
+  (`2026-09-06`, un **dimanche**) et n'est pas snappée sur le mode de semaine, tandis que les
+  cellules affichent `supportWorkingDays()` qui saute samedi et dimanche. L'en-tête montre
+  désormais le **premier jour ouvré** de la semaine (`_rotFirstWorkday`), avec la plage complète
+  en infobulle. `weekStart` est inchangé : c'est la clé d'appariement des rotations en base, la
+  toucher rendrait invisibles les rotations déjà enregistrées.
+- **6 itérations affichées pour un PI 31 qui n'en a que 5** : `_detectSprintsPerPI()` renvoyait
+  `Math.max(indiceMaxJIRA, fallback)`, or le `fallback` vient du **PI courant** (PI 30 = 6
+  itérations dans JIRA) — le PI 31 héritait donc de 6, soit deux semaines fantômes `31.6.1` /
+  `31.6.2` débordant sur le PI 32. Nouvel ordre de priorité :
+  1. `sprintsPerPI` de **Paramètres → Sprint & PI** (`pi-cfg-<N>`) — la config saisie fait foi ;
+  2. sinon, plus grand indice de sprint JIRA **de ce PI** (31.1→31.5 ⇒ 5) ;
+  3. sinon, valeur de repli.
+- ⚠️ Conséquence : la grille du PI 31 passe de 12 à **10 semaines**. Les rotations déjà écrites
+  pour `31.6.1` et `31.6.2` restent en base sans être affichées — relancer un 🎲 Shuffle
+  régénère les 10 bonnes semaines.
+
+### Refactorisation — Rotation Support extraite de settings.js
+
+- Nouveau module [settings-rotation.js](static/js/views/settings-rotation.js) (892 lignes) :
+  grille membre×semaine, shuffle par équipe et par groupe, message de rotation, résolution des
+  semaines d'un PI. Bloc **contigu et sans dépendance** vers le reste de la vue Paramètres.
+- [settings.js](static/js/views/settings.js) : **5 096 → 4 228 lignes**, et 11 imports devenus
+  inutiles retirés. Toujours au-dessus de la limite de 800 lignes, mais un gros morceau autonome
+  en est sorti.
+- Vérification : les 17 vues se chargent réellement dans Node (DOM simulé), et la suite de tests
+  du jour (matching d'équipe, semaines Support, enregistrement des objectifs, grille PI 31)
+  repasse au vert après extraction.
+
+---
+
 ## [3.141.3] - 2026-08-24
 
 ### Correctif — Shuffle de la page Support généré sur des semaines non affichées

@@ -16,6 +16,7 @@ import {
     promptModal, teamNameMatches, confirmDanger, effectiveRosterForPi,
 } from '../utils.js';
 import { loadPiCfg } from '../utils/pi-config.js';
+import { buildPiWeeks, detectSprintsPerPI, jiraSprint1Start } from '../utils/pi-weeks.js';
 
 async function _rotRefreshPanels(container) {
     const panelsEl = container.querySelector('#rot-panels');
@@ -459,142 +460,21 @@ function _sortSupportMembers(names) {
  *  Couvre les PI exceptionnels à 6 sprints (ex: PI30 avec un sprint 30.6). */
 const _lsPiCfg = loadPiCfg;   // config PI locale — cf. utils/pi-config.js
 
-function _detectSprintsPerPI(piNum, fallback) {
-    if (!piNum) return fallback;
-    const cfg = _lsPiCfg(piNum);
-    // 1) Saisie explicite dans « Paramètres → Sprint & PI » — elle fait foi, toujours.
-    if (cfg?.manual?.sprintsPerPI && cfg.sprintsPerPI) return cfg.sprintsPerPI;
-    // 2) Sprints JIRA DE CE PI : le plus grand indice observé EST le nombre d'itérations.
-    //    ⚠️ JAMAIS `Math.max(maxIdx, fallback)` : le fallback vient souvent d'un AUTRE PI (le
-    //    courant). JIRA connaît 30.1→30.6 et 31.1→31.5 ; le max donnait 6 itérations au PI 31,
-    //    soit 2 semaines fantômes (31.6.1 / 31.6.2) débordant sur le PI 32.
-    const all = store.get('sprintInfo')?.teamSprints || [];
-    let maxIdx = 0;
-    for (const s of all) {
-        const m = String(s.name || '').match(/\b(\d{2,})\.(\d+)/);
-        if (m && parseInt(m[1], 10) === piNum) maxIdx = Math.max(maxIdx, parseInt(m[2], 10));
-    }
-    if (maxIdx > 0) return maxIdx;
-    // 3) Déduction de l'import Congés (amplitude du CSV / durée de sprint) — une estimation.
-    if (cfg?.sprintsPerPIFromCsv) return cfg.sprintsPerPIFromCsv;
-    // 4) Valeur héritée d'un ancien import (origine inconnue), puis repli.
-    return cfg?.sprintsPerPI || fallback;
-}
+const _detectSprintsPerPI = (piNum, fallback) => detectSprintsPerPI(store.get('sprintInfo'), piNum, fallback);
 
-/** Date de début du sprint .1 d'un PI = date MAJORITAIRE parmi les équipes.
- *  Évite qu'un sprint JIRA mal daté d'1 jour (ex: jeudi au lieu de vendredi) décale
- *  le snap d'une semaine entière. Retourne 'YYYY-MM-DD' ou '' si aucun sprint trouvé. */
-function _jiraSprint1Start(piNum) {
-    if (!piNum) return '';
-    const all = store.get('sprintInfo')?.teamSprints || [];
-    const counts = {};
-    for (const s of all) {
-        const m = String(s.name || '').match(/\b(\d{2,})\.(\d+)/);
-        if (m && parseInt(m[1]) === piNum && parseInt(m[2]) === 1 && s.startDate) {
-            const d = String(s.startDate).slice(0, 10);
-            counts[d] = (counts[d] || 0) + 1;
-        }
-    }
-    const entries = Object.entries(counts);
-    if (!entries.length) return '';
-    // Plus fréquent d'abord ; à égalité, la date la plus tardive (souvent le vrai vendredi vs jeudi mal daté)
-    return entries.sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0]))[0][0];
-}
+const _jiraSprint1Start = (piNum) => jiraSprint1Start(store.get('sprintInfo'), piNum);
 
-/** Génère les semaines du PI courant et suivant pour une équipe.
- *  Si pas d'équipe, utilise le mode par défaut. */
+/** Semaines du PI affiché pour une équipe — délègue à la source unique utils/pi-weeks.js.
+ *  Conserve la forme historique { selectedWeeks, selectedPiNum, curWeeks, nextWeeks, … }
+ *  attendue par la grille et le shuffle. */
 function _rotBuildPiWeeks(team = null) {
-    const mode      = team ? getSupportWeekMode(team) : SUPPORT_WEEK_MODE_DEFAULT;
-    const piInfoRaw = store.get('piInfo');
-    const sprintInfo = store.get('sprintInfo');
-
-    // Priorité : startDate du localStorage pi-cfg-<N> (mis à jour par la section Sprint & PI)
-    // plutôt que piInfo.startDate en base qui peut pointer vers un PI précédent
-    const _sprintName = store.get('sprintInfo')?.name || '';
-    const _piFromSprint = (() => { const m = _sprintName.match(/(\d+)\.\d+/) || _sprintName.match(/PI\s*#?\s*(\d+)/i); return m ? parseInt(m[1], 10) : 0; })();
-    const basePiNum = _piFromSprint || piInfoRaw?.number || 0;
-    const localCfg  = basePiNum ? (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${basePiNum}`) || 'null'); } catch { return null; } })() : null;
-    // Nombre de sprints : localStorage > détecté depuis JIRA (gère le 6e sprint) > piInfo > 5
-    const baseSprintsCnt = _detectSprintsPerPI(basePiNum, localCfg?.sprintsPerPI || piInfoRaw?.sprintsPerPI || 5);
-    // startDate : JIRA (date majoritaire du sprint .1) prime sur localStorage périmé.
-    const _resolvedStart = _jiraSprint1Start(basePiNum) || localCfg?.startDate || piInfoRaw?.startDate;
-    // Toujours corriger number avec basePiNum (dérivé du sprint actif) + startDate résolue
-    const piInfo = {
-        ...piInfoRaw,
-        number: basePiNum || piInfoRaw?.number,
-        sprintsPerPI: baseSprintsCnt,
-        ...(_resolvedStart ? { startDate: _resolvedStart } : {}),
-    };
-
-    const base      = buildSupportPiWeeks(piInfo, sprintInfo, mode);
-
-    // buildSupportPiWeeks uses a single sprintCnt for both curWeeks and nextWeeks.
-    // If the next PI has more sprints (e.g. PI 30 has 6 vs PI 29's 5), nextWeeks is
-    // truncated. Detect and fix before returning or using nextWeeks.
-    {
-        const _nextPi = base.nextPiNum;
-        const nextSprintCnt = _nextPi ? _detectSprintsPerPI(_nextPi, baseSprintsCnt) : baseSprintsCnt;
-        if (_nextPi && nextSprintCnt > baseSprintsCnt && base.nextWeeks.length > 0) {
-            const _sdur = piInfo?.sprintDuration || 14;
-            const _wps  = Math.max(1, Math.floor(_sdur / 7));
-            const _fmt  = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-            const _ad   = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _fmt(d); };
-            const nextStart = base.nextWeeks[0].weekStart;
-            const fixed = [];
-            for (let s = 0; s < nextSprintCnt; s++)
-                for (let w = 0; w < _wps; w++) {
-                    const ws = _ad(nextStart, s * _sdur + w * 7);
-                    fixed.push({ label: `${_nextPi}.${s+1}.${w+1}`, weekStart: ws, weekEnd: _ad(ws, 6) });
-                }
-            base.nextWeeks = fixed;
-        }
-    }
-
-    if (_rotPiOff() === 0) return { ...base, selectedWeeks: base.curWeeks, selectedPiNum: base.curPiNum };
-
-    // Calcule les semaines pour le PI sélectionné via l'offset
-    const targetPiForCnt = basePiNum ? Math.max(1, basePiNum + _rotPiOff()) : 0;
-    const sprintCnt = _detectSprintsPerPI(targetPiForCnt, piInfo?.sprintsPerPI || 5);
-    const sprintDur = piInfo?.sprintDuration || 14;
-    const targetPiNum = basePiNum ? Math.max(1, basePiNum + _rotPiOff()) : base.curPiNum;
-    const wps = Math.max(1, Math.floor(sprintDur / 7));
-
-    // startDate du PI cible : JIRA (date majoritaire du sprint .1) prime sur localStorage périmé.
-    const targetCfg = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${targetPiNum}`) || 'null'); } catch { return null; } })();
-    const _targetStart = _jiraSprint1Start(targetPiNum) || targetCfg?.startDate || '';
-    let curStart = base.curWeeks[0]?.weekStart;
-
-    // Si le PI cible a sa propre startDate (JIRA ou locale), l'utilise directement
-    if (_targetStart) {
-        // Calcule les semaines depuis la startDate du PI cible
-        const selectedWeeks = [];
-        for (let s = 0; s < sprintCnt; s++) {
-            for (let w = 0; w < wps; w++) {
-                const d = new Date(_targetStart + 'T00:00:00');
-                d.setDate(d.getDate() + s * sprintDur + w * 7);
-                const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-                const wStart = fmt(d);
-                const wEnd   = (() => { const e = new Date(d); e.setDate(e.getDate() + 6); return fmt(e); })();
-                selectedWeeks.push({ label: `${targetPiNum}.${s + 1}.${w + 1}`, weekStart: wStart, weekEnd: wEnd });
-            }
-        }
-        return { ...base, selectedWeeks, selectedPiNum: targetPiNum };
-    }
-
-    if (!curStart) return { ...base, selectedWeeks: base.curWeeks, selectedPiNum: base.curPiNum };
-
-    const selectedWeeks = [];
-    for (let s = 0; s < sprintCnt; s++) {
-        for (let w = 0; w < wps; w++) {
-            const d = new Date(curStart + 'T00:00:00');
-            d.setDate(d.getDate() + _rotPiOff() * sprintCnt * sprintDur + s * sprintDur + w * 7);
-            const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-            const wStart = fmt(d);
-            const wEnd   = (() => { const e = new Date(d); e.setDate(e.getDate() + 6); return fmt(e); })();
-            selectedWeeks.push({ label: `${targetPiNum}.${s + 1}.${w + 1}`, weekStart: wStart, weekEnd: wEnd });
-        }
-    }
-    return { ...base, selectedWeeks, selectedPiNum: targetPiNum };
+    const { weeks, piNum, base } = buildPiWeeks({
+        piInfo: store.get('piInfo'),
+        sprintInfo: store.get('sprintInfo'),
+        piOffset: _rotPiOff(),
+        weekMode: team ? getSupportWeekMode(team) : SUPPORT_WEEK_MODE_DEFAULT,
+    });
+    return { ...base, selectedWeeks: weeks, selectedPiNum: piNum };
 }
 
 /** Nombre de jours d'absence pour un membre sur une plage */

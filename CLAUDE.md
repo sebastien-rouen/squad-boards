@@ -34,6 +34,11 @@ python main.py          # http://localhost:3001  — Swagger /docs
   **ne jamais importer statiquement un module de `views/` depuis un composant** (ça casse le lazy) ;
   utiliser `import()` dynamique au point d'usage. Les rappels de cérémonies vivent dans
   [reminders.js](static/js/reminders.js) (PAS dans settings.js).
+- **Rotation Support** (3.141.4) : grille, shuffle et calcul des semaines d'un PI vivent dans
+  [settings-rotation.js](static/js/views/settings-rotation.js) — **PAS dans settings.js**.
+  Le nombre d'itérations d'un PI suit `pi-cfg-<N>` (Sprint & PI) > indices JIRA **de ce PI**
+  > repli ; ne JAMAIS retomber sur le compte du PI courant. L'en-tête de colonne affiche le
+  premier jour **ouvré** ; `weekStart` reste la clé d'appariement en base.
 - **Navigation** : `NAV_ITEMS` ([config.js](static/js/config.js)) = source unique (sidebar, Ctrl+K, titres).
   Sections : `main` (Pilotage, raccourcis 1-8), `team` (repliable), `footer` (Paramètres, raccourci `,`).
 - **Clés localStorage piégeuses** : `sb-boardMode` = Scrum/Kanban (store) ≠ `sb-board-mode` = layout

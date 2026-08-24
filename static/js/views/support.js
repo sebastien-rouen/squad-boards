@@ -7,9 +7,9 @@
 import { store } from '../state.js';
 import {
     esc, filterByTeam, sumBy, groupBy, fmtDate, toast,
-    generateSupportRotation, buildSupportPiWeeks, supportAbsenceDays,
+    generateSupportRotation, supportAbsenceDays,
     initials, hashColor,
-    SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode,
+    SUPPORT_WEEK_MODES, getSupportWeekMode,
     supportWorkingDays, supportDaysForMember,
     isMemberSupportActive, effectiveRosterForPi, teamNameMatches, getCurrentPi,
 } from '../utils.js';
@@ -305,28 +305,7 @@ export function renderSupport(container) {
     _wirePiTimeline(container);
 }
 
-// ── Timeline PI + génération ─────────────────────────────────────────────────
-// ── Semaines du PI affiché — SOURCE UNIQUE partagée par la grille ET le Shuffle ──────────
-// Le Shuffle DOIT passer par ici. Générer sur `curWeeks`/`nextWeeks` de buildSupportPiWeeks()
-// donne des `weekStart` différents de ceux affichés (ancre snappée vs date JIRA brute, et
-// `nextWeeks` figé sur PI+1 avec le nombre de sprints du PI courant) : la rotation part bien
-// en base, mais sur des semaines que la grille n'affiche jamais — l'appariement se faisant sur
-// `weekStart`, l'utilisateur voit « le Shuffle ne fait rien ». Cf. CHANGELOG 3.141.1, même
-// correction déjà appliquée côté Paramètres → Rotation (`_rotBuildPiWeeks`).
-const _supFmtIso  = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-const _supAddDays = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _supFmtIso(d); };
 
-/** Snappe des semaines sur le jour de début du mode de l'équipe (vendredi par défaut). */
-function _supSnapWeeks(weeks, teamMode) {
-    if (!teamMode || teamMode === SUPPORT_WEEK_MODE_DEFAULT) return weeks;
-    const dow = (SUPPORT_WEEK_MODES[teamMode] || SUPPORT_WEEK_MODES[SUPPORT_WEEK_MODE_DEFAULT]).dow;
-    return weeks.map(w => {
-        const d = new Date(w.weekStart + 'T00:00:00');
-        d.setDate(d.getDate() - ((d.getDay() - dow + 7) % 7));
-        const weekStart = _supFmtIso(d);
-        return { ...w, weekStart, weekEnd: _supAddDays(weekStart, 6) };
-    });
-}
 
 /**
  * Semaines + numéro du PI visé par un offset — délègue à la source unique utils/pi-weeks.js,
@@ -337,7 +316,7 @@ function _supSnapWeeks(weeks, teamMode) {
  */
 function _supPiWeeks(piInfo, sprintInfo, offset = 0, teamMode = null) {
     const { weeks, piNum, base } = buildPiWeeks({ piInfo, sprintInfo, piOffset: offset, weekMode: teamMode });
-    return { weeks: _supSnapWeeks(weeks, teamMode), piNum, base };
+    return { weeks, piNum, base };
 }
 
 function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, members, piInfo, sprintInfo) {
@@ -383,7 +362,9 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
         // Si différent du mode global utilisé pour le calcul des semaines, on recalcule POUR cette équipe.
         const teamMode = getSupportWeekMode(team);
         // Recalcule les semaines pour le mode de cette équipe si différent du défaut
-        const teamAllWeeks = _supSnapWeeks(displayWeeks, teamMode);
+        // Semaines telles que calculées par la source unique : les re-snapper ici désalignait
+        // cette grille de celle de « Paramètres → Rotation » (et donc des rotations en base).
+        const teamAllWeeks = displayWeeks;
         const teamVisibleWeeks = showPast ? teamAllWeeks : teamAllWeeks.filter(w => w.weekEnd >= today);
         const modeLabel = SUPPORT_WEEK_MODES[teamMode]?.label || teamMode;
 

@@ -31,6 +31,7 @@ node --test --test-name-pattern "itérations" "tests/*.test.mjs"
 | `cap-roles.test.mjs` | câblage `/#settings/cap-roles` : un listener par compteur, repli de copie |
 | `jira-errors.test.mjs` | messages du proxy JIRA : un 401 ne se raconte pas en « aucun résultat » |
 | `sync-incidents.test.mjs` | échecs partiels d'import : regroupement, refus d'auth nommé, résumé court |
+| `sync-report.test.mjs` | rapport d'incidents dans la carte de sync : rendu, aide 401, fermeture manuelle |
 
 `helpers/env.mjs` installe les globales (`document`, `localStorage`, `fetch`…),
 `helpers/fixtures.mjs` fournit un jeu de données **synthétique** — aucun nom réel — mais calqué

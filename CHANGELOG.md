@@ -1,3 +1,44 @@
+## [3.141.21] - 2026-08-25
+
+### Import JIRA — le rapport d'échecs s'affiche dans la carte de sync
+
+Le détail des incidents n'existait qu'en `console.warn`, où personne ne va le chercher, et le
+toast de bilan disparaît en quelques secondes. La **carte de synchronisation** de la topbar
+reste désormais ouverte quand l'import s'est terminé avec des trous :
+
+```
+⚠ Synchronisation JIRA                                   100%
+  Import terminé — 8 appels JIRA en échec
+  Des données peuvent manquer.
+  ─────────────────────────────────────────────────────────
+  JIRA a refusé la connexion. Vérifier l'URL, l'utilisateur
+  et le jeton dans Paramètres → Plugin JIRA (un jeton expire).
+    sprints clos (historique de vélocité)      HTTP 401 · ×3
+    features (requête JQL)                     HTTP 401 · ×1
+```
+
+- `hideProgress(incidents)` **n'efface plus la carte** s'il y a des incidents : c'est
+  l'utilisateur qui la ferme (`dismissSyncReport`, croix dédiée). Un import incomplet mérite
+  d'être lu, pas entrevu.
+- Le refus d'authentification est expliqué **en tête** avec le chemin de réglage : tant que le
+  jeton est refusé, tout le reste en découle. Une panne serveur (5xx) n'évoque pas le jeton.
+- Le message brut de chaque erreur reste en infobulle de sa ligne.
+- Sur **exception**, la carte se referme normalement : l'erreur est déjà remontée en toast
+  rouge. Le rapport ne sert qu'aux imports qui aboutissent avec des trous — les seuls que
+  rien ne signalait.
+- Rendu en `textContent` (jamais `innerHTML`) : les libellés d'incident viennent de messages
+  d'erreur JIRA.
+
+### Tests — 161 au total (44 suites)
+
+`sync-report.test.mjs` : détail rendu et non plus seulement loggé, aide 401 présente,
+5xx sans mention du jeton, fermeture uniquement sur action de l'utilisateur.
+
+⚠️ Piège du harnais, noté dans le fichier : le DOM factice doit être construit **une seule
+fois**. `initTopbar` capture ses éléments par id au câblage — le recréer entre les tests
+laisse le composant écrire dans des noeuds orphelins, et les assertions lisent une carte que
+plus personne ne met à jour.
+
 ## [3.141.20] - 2026-08-25
 
 ### Import JIRA — les échecs partiels ne sont plus avalés

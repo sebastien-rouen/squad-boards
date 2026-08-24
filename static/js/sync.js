@@ -90,9 +90,21 @@ function showProgress() {
     store.set('syncLabel', 'Initialisation…');
     store.set('syncDetail', '');
 }
-function hideProgress() {
-    // Remonte à 100 % pour compléter visuellement, puis efface après transition
+/**
+ * @param {Array} [incidents] échecs partiels — s'il y en a, la carte RESTE ouverte en mode
+ *   rapport : un import incomplet mérite mieux qu'un toast de quelques secondes, et le détail
+ *   ne doit pas n'exister qu'en console. L'utilisateur la ferme lui-même.
+ */
+function hideProgress(incidents = []) {
     store.set('syncProgress', 100);
+    store.set('syncIncidents', incidents);
+    if (incidents.length) {
+        const n = incidents.reduce((s, i) => s + i.count, 0);
+        store.set('syncLabel', `Import terminé — ${n} appel${n > 1 ? 's' : ''} JIRA en échec`);
+        store.set('syncDetail', 'Des données peuvent manquer.');
+        return;   // pas d'effacement automatique
+    }
+    // Remonte à 100 % pour compléter visuellement, puis efface après transition
     store.set('syncLabel', 'Import termine !');
     _hideProgressTimer = setTimeout(() => {
         store.set('syncProgress', null);
@@ -100,6 +112,15 @@ function hideProgress() {
         store.set('syncLabel', '');
         store.set('syncDetail', '');
     }, 600);
+}
+
+/** Ferme la carte de sync restée ouverte sur un rapport d'incidents. */
+export function dismissSyncReport() {
+    store.set('syncIncidents', []);
+    store.set('syncProgress', null);
+    store.set('syncType', null);
+    store.set('syncLabel', '');
+    store.set('syncDetail', '');
 }
 function setProgress(pct, label, detail = '') {
     store.set('syncProgress', Math.min(100, Math.max(0, pct)));
@@ -129,10 +150,15 @@ export async function importFromJira(options = {}) {
     showProgress();
     setProgress(2, sinceDays ? `Sync rapide (${sinceDays}j)...` : 'Sync complète…', `${projects.length} projet(s)`);
 
+    let resultat = null;
     try {
-        return await _doImport(projects, sinceDays, excludedTeams);
+        resultat = await _doImport(projects, sinceDays, excludedTeams);
+        return resultat;
     } finally {
-        hideProgress();
+        // Sur exception, `resultat` est null : la carte se referme normalement, l'erreur étant
+        // déjà remontée à l'appelant (toast rouge). Le rapport ne sert qu'aux imports qui
+        // aboutissent avec des trous — les seuls que rien ne signalait.
+        hideProgress(resultat?.incidents || []);
     }
 }
 

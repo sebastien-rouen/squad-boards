@@ -128,14 +128,16 @@ python main.py          # http://localhost:3001  — Swagger /docs
   avec `api.jiraErrorMessage(e, quoi)` — un 401/403 est une panne d'AUTHENTIFICATION, jamais
   une absence de données (un `catch` muet le racontait en « Aucun board scrum pour … »).
   ⚠️ Dans `sync.js`, **ne jamais avaler un échec** : `incidents.add('<opération>', e)`
-  (`makeIncidents`) le collecte sans interrompre l'import, et `app.js` bascule le toast final
-  en `warning`. Sans ça, un jeton expiré rend un import « réussi » mais creux. Seule exception
-  admise : un 404 sur le rapport de vélocité (board sans estimation = cas nominal).
+  (`makeIncidents`) le collecte sans interrompre l'import. Sans ça, un jeton expiré rend un
+  import « réussi » mais creux. Seule exception admise : un 404 sur le rapport de vélocité
+  (board sans estimation = cas nominal). Restitution (3.141.21) : toast `warning` dans
+  `app.js` **et** carte de sync qui reste ouverte sur le détail (`store.syncIncidents` →
+  `topbar.js`), fermée par `dismissSyncReport()` — jamais automatiquement.
 - **Convention JIRA sprint** (mémoire `project_jira_sprint_conventions`) : `Cadrage_PIXX` = cadrage, `PI#XX` = features, `PIXX` = tickets standalone.
 
 ## Tests (`npm test`)
 
-Suites `node:test` dans [tests/](tests/) — 154 tests, aucune dépendance, ~1 s. Détail :
+Suites `node:test` dans [tests/](tests/) — 161 tests, aucune dépendance, ~1 s. Détail :
 [tests/README.md](tests/README.md).
 - `node --test tests/` **échoue** sur Node 22 → toujours un motif : `node --test "tests/*.test.mjs"`.
 - Importer `tests/helpers/env.mjs` AVANT tout module applicatif (`state.js` lit `localStorage`

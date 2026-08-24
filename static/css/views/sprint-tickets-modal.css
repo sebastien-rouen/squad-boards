@@ -1395,6 +1395,44 @@
     filter: drop-shadow(0 0 4px color-mix(in srgb, #8b5cf6 35%, transparent));
 }
 
+/* Mention « ↪ N reportés » sous la tuile Tickets — n'apparaît que s'il y en a. */
+.sb-stat-carried {
+    color: var(--warning);
+    font-weight: var(--fw-bold);
+    white-space: nowrap;
+}
+
+/* Ticket REPORTÉ vers un autre sprint : engagé ici, livré ailleurs (ou pas encore).
+   Même code couleur que la vue Health (orange = écart de plan, pas anomalie de données).
+   Le titre est barré : dans CE sprint, l'engagement n'a pas été tenu — que le ticket ait
+   été terminé plus tard ne change rien à ce qu'il faut lire ici. */
+.sb-ticket-tag--carried {
+    background: color-mix(in srgb, var(--warning) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warning) 38%, transparent);
+    color: var(--warning);
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+.sb-ticket-row--carried {
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--warning) 8%, transparent),
+        color-mix(in srgb, var(--warning) 2%, transparent) 60%,
+        transparent);
+    box-shadow: inset 3px 0 0 0 var(--warning);
+}
+.sb-ticket-row--carried:hover {
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--warning) 14%, transparent),
+        color-mix(in srgb, var(--warning) 4%, transparent) 60%,
+        transparent);
+}
+.sb-ticket-row--carried .sb-ticket-title {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    opacity: .85;
+}
+
 /* État vide */
 .sb-modal-empty {
     display: flex;

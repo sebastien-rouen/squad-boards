@@ -428,3 +428,61 @@
     .sprint-nested-grid { grid-template-columns: 1fr 1fr; }
 }
 
+/* ── Récapitulatif « PI vs Congés » (carte PI, sous le formulaire) ──────────── */
+.pi-recap {
+    margin: 0 var(--sp-4) var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden;
+}
+
+.pi-recap-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--bg-alt);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+}
+
+.pi-recap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-xs);
+}
+
+.pi-recap-table th,
+.pi-recap-table td {
+    padding: var(--sp-1) var(--sp-3);
+    text-align: left;
+    border-top: 1px solid var(--border);
+}
+
+.pi-recap-table th {
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.pi-recap-row--warn {
+    background: color-mix(in srgb, var(--warning) 7%, transparent);
+}
+
+.pi-recap-badge {
+    white-space: nowrap;
+    font-size: var(--fs-xs);
+}
+
+.pi-recap-badge--ok   { color: var(--success); }
+.pi-recap-badge--warn { color: var(--warning); }
+.pi-recap-badge--on   { color: var(--primary); }
+
+@media (max-width: 640px) {
+    /* Sur mobile, les colonnes « Début Congés » et « Itérations » sortent de l'écran :
+       la ligne reste lisible avec PI / début utilisé / état. */
+    .pi-recap-table th:nth-child(3),
+    .pi-recap-table td:nth-child(3),
+    .pi-recap-table th:nth-child(4),
+    .pi-recap-table td:nth-child(4) { display: none; }
+}

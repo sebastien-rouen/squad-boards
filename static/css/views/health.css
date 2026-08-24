@@ -312,6 +312,21 @@
     letter-spacing: 0;
     margin-top: 1px;
 }
+/* Colonne ✊ Confiance (Fist of Five) — signal donné par l'équipe, posé entre le Σ des
+   anomalies et les chiffres du sprint. Sa couleur vient de la note (.htl-vote--*, partagé
+   avec la modale), pas de la colonne : l'en-tête reste donc neutre. */
+.health-fist-cell {
+    border-left: 2px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+    text-align: center !important;
+    white-space: nowrap;
+    cursor: default;
+    font-size: 11px;
+}
+.health-fist-cell.has-val { cursor: pointer; }
+.health-fist-cell.has-val:hover { transform: scale(1.1); }
+/* Dans la matrice la valeur n'est pas cliquable en propre : c'est la cellule qui l'est. */
+.health-fist-cell .htl-vote-val { cursor: inherit; }
+
 .health-metric-cell {
     border-left: 2px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
     cursor: default;

@@ -1,3 +1,28 @@
+## [3.141.8] - 2026-08-24
+
+### Refactorisation — section Plugin JIRA extraite de settings.js
+
+- Nouveau [settings-jira.js](static/js/views/settings-jira.js) (291 lignes) : `jiraSectionHtml()`
+  (connexion URL/email/token, paramètres de sync, équipes masquées) et `wireJiraSection()`.
+- Le HTML relit tout depuis le `store` et `api.getJiraCreds()` — **aucune donnée à lui passer**.
+  Seul le rafraîchissement de la vue est injecté (`onReload`), comme pour `settings-io.js` :
+  importer `reloadAndRender` depuis settings.js créerait un cycle.
+- Le bloc **Slack** était intercalé au milieu du câblage JIRA : déplacé pour rendre le bloc JIRA
+  contigu avant extraction (aucun effet fonctionnel, l'ordre de câblage est indifférent).
+- Le handler du bouton **« Créer les groupes »** est resté dans settings.js : le bouton est rendu
+  par la section *Groups*, pas par la section JIRA — le câbler depuis le module JIRA aurait
+  couplé deux sections sans raison.
+- `settings.js` : **3 698 → 3 450 lignes**. Bilan de la journée : **5 096 → 3 450** (−32 %),
+  répartis en 4 modules de vue (`settings-rotation`, `settings-io`, `settings-absences-csv`,
+  `settings-jira`) et 6 modules `utils/`.
+- Nouveau `test-jira-section` (17 assertions) : rendu configuré / non configuré, échappement XSS
+  des valeurs du store, présence des handlers, écriture et suppression des plafonds de sync.
+  Au passage, le harnais de test échappe désormais réellement dans son faux DOM — `esc()` passe
+  par `document.createElement`, un stub trop simple lui faisait renvoyer une chaîne vide et
+  masquait silencieusement tout le contenu interpolé.
+
+---
+
 ## [3.141.7] - 2026-08-24
 
 ### Fonctionnalité — Récapitulatif « PI vs Congés » dans Sprint & PI

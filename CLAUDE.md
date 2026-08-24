@@ -42,6 +42,11 @@ python main.py          # http://localhost:3001  — Swagger /docs
   La saisie « Sprint & PI » pose `manual.<champ>` et prime ; l'import Congés n'écrit que
   `startDateFromCsv` / `sprintsPerPIFromCsv` et ne remplit les clés effectives que si elles
   sont vides.
+- **Semaines d'un PI** (3.141.6) : source unique `utils/pi-weeks.js` (`buildPiWeeks`) —
+  consommée par « Paramètres → Rotation » ET la page Support. Ne JAMAIS recalculer des
+  semaines ailleurs. `weekStart` est la clé d'appariement des rotations en base : le changer
+  les rend invisibles, d'où le recalage explicite par bouton (`manual.startDate`). Agenda et
+  info-panel apparient par recouvrement de dates et n'ont pas besoin de ce module.
 - **Rotation Support** (3.141.4) : grille, shuffle et calcul des semaines d'un PI vivent dans
   [settings-rotation.js](static/js/views/settings-rotation.js) — **PAS dans settings.js**.
   Le nombre d'itérations d'un PI suit `pi-cfg-<N>` (Sprint & PI) > indices JIRA **de ce PI**

@@ -6,7 +6,7 @@
 
 import { store } from '../state.js';
 import {
-    esc, filterByTeam, sumBy, groupBy, fmtDate, toast,
+    esc, filterByTeam, groupBy, toast,
     generateSupportRotation, supportAbsenceDays,
     initials, hashColor,
     SUPPORT_WEEK_MODES, getSupportWeekMode,

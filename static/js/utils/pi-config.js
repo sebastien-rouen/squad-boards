@@ -53,3 +53,14 @@ export function piSprintCount(piNum) {
     if (cfg.sprintsPerPI) return { value: cfg.sprintsPerPI, source: 'heritee' };
     return null;
 }
+
+/** Numéros de PI ayant une config locale, triés croissant. */
+export function listPiCfgNumbers() {
+    const out = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i) || '';
+        const m = k.match(/^pi-cfg-(\d+)$/);
+        if (m) out.push(parseInt(m[1], 10));
+    }
+    return out.sort((a, b) => a - b);
+}

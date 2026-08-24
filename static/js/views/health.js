@@ -12,7 +12,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, computeCapacityNextPI, getCurrentPi, extractPiNum, extractSprintLabel, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, computeCapacityNextPI, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -70,61 +70,6 @@ function _pointsAtLaunch(t, sprintStart) {
     const launch = parseFloat(changes[0].from);
     return (!isNaN(launch) && launch > 0) ? launch : (t.points || 0);
 }
-
-/**
- * Sprints par lesquels un ticket est PASSÉ — pas seulement celui où il se trouve.
- *
- * À la clôture d'un sprint, JIRA DÉPLACE les tickets non terminés vers le suivant :
- * leur `sprintName` change. Un sprint passé ne contient donc plus, localement, que les
- * tickets qui y ont été finis — les engagements non tenus s'effacent tout seuls
- * (mesuré sur le PI 30 : 1050 tickets reportés, soit 54 % du périmètre engagé).
- *
- * L'historique le conserve : chaque changement de champ « Sprint » porte dans son `to`
- * la liste CUMULATIVE des sprints d'appartenance. On en fait l'union, une fois par
- * ticket (WeakMap) : reparser ce JSON pour chaque couple (équipe, sprint) coûterait
- * bien trop cher sur ~2000 tickets.
- */
-const _sprintHistCache = new WeakMap();
-function _sprintsOfTicket(t) {
-    let h = _sprintHistCache.get(t);
-    if (h) return h;
-    const names = new Set(), keys = new Set();
-    const add = n => {
-        const s = String(n || '').trim();
-        if (!s) return;
-        names.add(s);
-        const k = _spKey(s);
-        if (k) keys.add(k);
-    };
-    add(t.sprintName || t.sprint_name);
-    for (const ch of (t.recentChanges || t.recent_changes || [])) {
-        if (String(ch.field || '').toLowerCase() !== 'sprint') continue;
-        for (const part of String(ch.to || '').split(',')) add(part);
-    }
-    h = { names, keys };
-    _sprintHistCache.set(t, h);
-    return h;
-}
-
-/** Le ticket est-il ACTUELLEMENT dans ce sprint ? (matching tolérant nom ↔ clé NN.N) */
-const _isInSprint = (t, spName, spk) => {
-    const tn = t.sprintName || t.sprint_name || '';
-    return tn === spName || (!!spk && _spKey(tn) === spk);
-};
-
-/** Le ticket a-t-il appartenu à ce sprint, maintenant ou par le passé ? */
-const _belongedToSprint = (t, spName, spk) => {
-    const h = _sprintsOfTicket(t);
-    return h.names.has(spName) || (!!spk && h.keys.has(spk));
-};
-
-/**
- * Sprint vers lequel le ticket a été REPORTÉ, '' s'il est resté. Un report est un
- * engagement non tenu dans le sprint d'origine — même si le ticket a été terminé plus
- * tard ailleurs : son statut actuel ne dit rien de ce qui s'est passé DANS ce sprint-là.
- */
-const _carriedOverTo = (t, spName) =>
-    _isInSprint(t, spName, _spKey(spName)) ? '' : (t.sprintName || t.sprint_name || '');
 
 // Badge état coloré pour le tableau sprints : bleu=en cours, vert=clos/terminé, gris=à venir
 function _stateBadge(state) {
@@ -355,15 +300,15 @@ export function renderHealth(container) {
         }
 
         // Périmètre du sprint de référence. `spTickets` = tout ce qui a été ENGAGÉ, reports
-        // compris (voir _sprintsOfTicket) ; `done` = ce qui a réellement été fini DANS le
+        // compris (voir utils/sprint-scope.js) ; `done` = ce qui a réellement été fini DANS le
         // sprint, donc les seuls tickets qui y sont restés.
         const spName    = ref?.name || '';
         const _refKey   = _spKey(spName);
         const spTickets = spName
-            ? allTickets.filter(t => t.team === tm && _belongedToSprint(t, spName, _refKey))
+            ? allTickets.filter(t => t.team === tm && belongedToSprint(t, spName, _refKey))
             : piTickets.filter(t => t.team === tm);
         const done    = spTickets.filter(t => t.status === 'done'
-            && (!spName || _isInSprint(t, spName, _refKey)));
+            && (!spName || isInSprint(t, spName, _refKey)));
         const bufDone = done.filter(t => isBufferItem(t));
 
         // Vélocité : calculé depuis les tickets Done locaux dès qu'on en a (source la plus à
@@ -407,11 +352,11 @@ export function renderHealth(container) {
             // reporté porte le sprint d'ARRIVÉE — souvent d'un autre PI — et le filtre PI le
             // ferait disparaître du sprint où il avait pourtant été engagé. Le sprint étant
             // ici nommé explicitement, ce filtre est de toute façon redondant.
-            const spTk = allTickets.filter(t => t.team === tm && _belongedToSprint(t, sp.name, spk));
+            const spTk = allTickets.filter(t => t.team === tm && belongedToSprint(t, sp.name, spk));
             // Vélocité RÉALISÉE : uniquement les tickets restés dans le sprint. Compter les
             // reportés terminés ailleurs gonflerait la vélocité d'un sprint avec du travail
             // fait après sa clôture — le contraire de ce qu'elle mesure.
-            const spDone = spTk.filter(t => t.status === 'done' && _isInSprint(t, sp.name, spk));
+            const spDone = spTk.filter(t => t.status === 'done' && isInSprint(t, sp.name, spk));
             const spBufAll = spTk.filter(t => isBufferItem(t));
             sprintTickets[sp.name] = {
                 done:    spDone,
@@ -851,7 +796,7 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
     // ou il a été REPORTÉ vers un autre sprint. Le second cas compte même si le ticket est
     // `done` aujourd'hui : il l'a été ailleurs, après coup — pas dans ce sprint.
     const _isMissed = (tk, metric, sprintName) => _isPlanMetric(metric)
-        && (tk.status !== 'done' || !!_carriedOverTo(tk, sprintName));
+        && (tk.status !== 'done' || !!carriedOverTo(tk, sprintName));
     // Sprint clos → l'engagement est manqué pour de bon : barré. Sprint en cours → encore
     // rattrapable : orange seul, barrer reviendrait à condamner un ticket encore vivant.
     const _missCls = (tk, metric, ctx) => !_isMissed(tk, metric, ctx.sprintName) ? ''
@@ -905,7 +850,7 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                 : (isPastOrActive ? '0' : '<span class="htl-muted">—</span>');
             // Sprint d'arrivée d'un report — l'afficher évite la question qui suit
             // immédiatement le constat : « et il est passé où, celui-là ? »
-            const moved   = _isPlanMetric(metric) ? _carriedOverTo(tk, ctx.sprintName) : '';
+            const moved   = _isPlanMetric(metric) ? carriedOverTo(tk, ctx.sprintName) : '';
             const movedK  = _spKey(moved) || moved;
             const rowTitle = !missed ? 'Voir le détail du ticket'
                 : moved
@@ -968,7 +913,7 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         const sprintClosed = spState === 'closed';
         const ctx = { sprintName, sprintStart, isPastOrActive, sprintClosed };
         const missN = _missCount(list, metric, ctx);
-        const movedN = _isPlanMetric(metric) ? list.filter(t => _carriedOverTo(t, sprintName)).length : 0;
+        const movedN = _isPlanMetric(metric) ? list.filter(t => carriedOverTo(t, sprintName)).length : 0;
         const tot = list.reduce((s, t) => s + _ptsFor(t, metric, sprintStart), 0);
         // Si au moins un ticket a été réestimé pendant le sprint, le total "au lancement" seul
         // masquerait l'écart — on affiche aussi le total courant, même format que les chips de ligne.

@@ -12,6 +12,7 @@ import {
     ioTabModal, confirmDanger,
 } from '../utils.js';
 import { piCfgKey, loadPiCfg, savePiCfg } from '../utils/pi-config.js';
+import { piCongesDiff, knownPiNumbers } from '../utils/pi-weeks.js';
 import { makePersonPicker } from '../components/modal.js';
 // Rotation Support — extraite dans son propre module (grille, shuffle, semaines du PI)
 import {
@@ -1373,6 +1374,46 @@ export function renderSettings(container) {
                             </div>
                         </div>
                     </form>
+
+                    ${(() => {
+                        // ── Récapitulatif « PI vs Congés » ───────────────────────────────
+                        // Un coup d'œil sur les PI dont l'ancrage diverge du CSV RH importé.
+                        // Lecture seule : le recalage reste un geste explicite, PI par PI,
+                        // depuis Paramètres → Rotation (weekStart = clé des rotations en base).
+                        const _pis = knownPiNumbers(sprintInfo).slice(-6);
+                        const _diffs = _pis.map(n => piCongesDiff(sprintInfo, n, piInfo)).filter(d => d.startCsv || d.sprintsCsv);
+                        if (!_diffs.length) return '';
+                        const _j = iso => { if (!iso) return '—'; const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); };
+                        const _src = { saisie: 'saisi', jira: 'JIRA', config: 'config', aucune: '—' };
+                        const _lignes = _diffs.map(d => {
+                            const etat = d.cale
+                                ? '<span class="pi-recap-badge pi-recap-badge--on">🔒 calé sur Congés</span>'
+                                : d.ecart
+                                    ? '<span class="pi-recap-badge pi-recap-badge--warn">⚠ écart</span>'
+                                    : '<span class="pi-recap-badge pi-recap-badge--ok">✓ aligné</span>';
+                            return `<tr${d.ecart ? ' class="pi-recap-row--warn"' : ''}>
+                                <td><strong>PI ${d.piNum}</strong></td>
+                                <td>${_j(d.startUsed)} <span class="text-muted">(${_src[d.source] || d.source})</span></td>
+                                <td>${_j(d.startCsv)}</td>
+                                <td>${d.sprintsUsed}${d.sprintsCsv && d.sprintsCsv !== d.sprintsUsed ? ` <span class="text-muted">/ ${d.sprintsCsv} CSV</span>` : ''}</td>
+                                <td>${etat}</td>
+                            </tr>`;
+                        }).join('');
+                        const _nbEcarts = _diffs.filter(d => d.ecart).length;
+                        return `
+                        <div class="pi-recap">
+                            <div class="pi-recap-hdr">
+                                <span>📅 PI vs Congés importés</span>
+                                ${_nbEcarts
+                                    ? `<a class="btn btn-xs btn-secondary" href="#settings/rotation" title="Le recalage se fait PI par PI depuis la grille Rotation">${_nbEcarts} écart${_nbEcarts > 1 ? 's' : ''} — recaler</a>`
+                                    : '<span class="text-xs text-muted">tout est aligné</span>'}
+                            </div>
+                            <table class="pi-recap-table">
+                                <thead><tr><th>PI</th><th>Début utilisé</th><th>Début Congés</th><th>Itérations</th><th>État</th></tr></thead>
+                                <tbody>${_lignes}</tbody>
+                            </table>
+                        </div>`;
+                    })()}
 
                     <!-- ── Sprint sélectionné : niché dans le PI ── -->
                     <form id="sprint-form">

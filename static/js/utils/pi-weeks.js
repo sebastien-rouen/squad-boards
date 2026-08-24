@@ -16,7 +16,7 @@
  */
 
 import { buildSupportPiWeeks, SUPPORT_WEEK_MODE_DEFAULT } from './support.js';
-import { loadPiCfg } from './pi-config.js';
+import { loadPiCfg, listPiCfgNumbers } from './pi-config.js';
 
 const _fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 const _addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _fmt(d); };
@@ -151,4 +151,35 @@ export function buildPiWeeks({ piInfo: piInfoRaw, sprintInfo, piOffset = 0, week
         }
     }
     return { weeks, piNum: targetPiNum, basePiNum, base };
+}
+
+/**
+ * Écart entre ce qu'utilise la grille pour un PI et ce que disent les Congés importés.
+ * Source unique du bandeau « Recaler ce PI sur les Congés » (Paramètres → Rotation) et du
+ * récapitulatif multi-PI (Paramètres → Sprint & PI).
+ * @returns {{piNum, startUsed, sprintsUsed, startCsv, sprintsCsv, source, cale, ecartDate, ecartCnt, ecart}}
+ */
+export function piCongesDiff(sprintInfo, piNum, piInfo = null) {
+    const cfg = loadPiCfg(piNum);
+    const startUsed = piStartDate(sprintInfo, piNum);
+    const sprintsUsed = detectSprintsPerPI(sprintInfo, piNum, piInfo?.sprintsPerPI || 5);
+    const startCsv = cfg?.startDateFromCsv || '';
+    const sprintsCsv = cfg?.sprintsPerPIFromCsv || 0;
+    const source = cfg?.manual?.startDate && cfg.startDate === startUsed ? 'saisie'
+        : jiraSprint1Start(sprintInfo, piNum) === startUsed && startUsed ? 'jira'
+        : startUsed ? 'config' : 'aucune';
+    const cale = !!startCsv && !!cfg?.manual?.startDate && cfg.startDate === startCsv;
+    const ecartDate = !!startCsv && startCsv !== startUsed;
+    const ecartCnt  = !!sprintsCsv && sprintsCsv !== sprintsUsed;
+    return { piNum, startUsed, sprintsUsed, startCsv, sprintsCsv, source, cale, ecartDate, ecartCnt, ecart: ecartDate || ecartCnt };
+}
+
+/** Tous les PI connus (config locale + sprints JIRA), triés croissant. */
+export function knownPiNumbers(sprintInfo) {
+    const nums = new Set(listPiCfgNumbers());
+    for (const s of (sprintInfo?.teamSprints || [])) {
+        const n = piNumFromSprintName(s.name);
+        if (n) nums.add(n);
+    }
+    return [...nums].sort((a, b) => a - b);
 }

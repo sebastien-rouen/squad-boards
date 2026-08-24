@@ -1,3 +1,37 @@
+## [3.141.6] - 2026-08-24
+
+### Correctif majeur — la page Support affichait les semaines d'un autre PI
+
+- Mesuré avant refonte : sur **27 configurations** testées (3 configs × 3 offsets × 3 modes de
+  semaine), la page Support et la grille « Paramètres → Rotation » divergeaient sur **25**, avec
+  jusqu'à **plusieurs mois d'écart** — Support annonçait `30.1.1 = 27/03` là où la grille (et les
+  rotations en base) disent `12/06`. Cause : `_supPiWeeks()` partait de `piInfo.startDate`, la
+  valeur stockée en base qui pointe vers un PI précédent, au lieu de la date JIRA du sprint
+  `<PI>.1`. Aucune rotation aberrante en base : la génération n'avait jamais été lancée depuis
+  cet écran.
+- Nouvelle **source unique** [utils/pi-weeks.js](static/js/utils/pi-weeks.js) —
+  `buildPiWeeks()`, `detectSprintsPerPI()`, `jiraSprint1Start()`, `piStartDate()`. Les deux
+  écrans y délèguent ; le double snap qui subsistait côté Support est supprimé.
+- Après refonte : **0/27 divergence**, et la grille Rotation est **inchangée sur 24/27** — les
+  3 seules différences sont les cas `manual.startDate`, c'est-à-dire le nouveau recalage explicite.
+- L'agenda et le panneau latéral apparient les rotations par **recouvrement de dates**
+  (`weekStart <= jour <= weekEnd`) et non par clé : ils sont insensibles à l'ancrage, rien à y
+  changer, et ils bénéficient automatiquement de tout recalage.
+
+### Fonctionnalité — « Recaler ce PI sur les Congés »
+
+- Bandeau dans **Paramètres → Rotation** dès que le CSV Congés importé pour le PI affiché
+  contredit la grille (date de début et/ou nombre d'itérations), avec les deux valeurs en regard.
+- Le recalage est **explicite, PI par PI** : `weekStart` étant la clé d'appariement des rotations
+  enregistrées, rien ne bouge tant que l'utilisateur ne clique pas. La confirmation annonce le
+  nombre de semaines déjà remplies qui décrocheront de la grille — **rien n'est supprimé**, un
+  Shuffle les régénère.
+- **Réversible** : une fois calé, le bandeau propose « ↩ Revenir aux dates JIRA ». Les valeurs
+  déduites du CSV restent mémorisées dans les deux sens.
+- Styles dans [support-rotation.css](static/css/views/support-rotation.css) (`.rot-conges-banner`).
+
+---
+
 ## [3.141.5] - 2026-08-24
 
 ### Refactorisation — utils.js découpé (barrel de compatibilité)

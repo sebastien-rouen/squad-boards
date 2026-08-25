@@ -188,6 +188,13 @@ export function stageFlowDiagramSvg() {
         Pour chaque étape, le temps réellement passé par les tickets (issu de leur historique de statut).
         Repérer d'un coup d'œil <strong>où le flux ralentit</strong> — souvent la revue ou la qualif.
         Cliquer une colonne ouvre le détail ticket par ticket.
+    </p>
+    <p class="help-popover-note">
+        ⚠️ <strong>Traversée complète, pas découpée par PI</strong> : la durée d'un ticket est comptée
+        de son entrée à sa sortie de la colonne, même si cela couvre plusieurs PI (18&nbsp;% des tickets
+        d'un PI en traversent au moins deux). Le sélecteur de PI choisit <em>quels tickets</em> sont
+        mesurés — tous ceux qui ont appartenu au PI, reports compris — pas la <em>fenêtre de temps</em> :
+        un ticket qui a traversé trois PI apparaît dans les trois, avec sa durée totale à chaque fois.
     </p>`;
 }
 

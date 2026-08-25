@@ -134,8 +134,10 @@ function setProgress(pct, label, detail = '') {
  * @param {object} options
  *   - `sinceDays` (number|null) : si défini, sync incrémentale — filtre les JQL sur `updated >= -Nd`
  *                                  et mode 'merge' (préserve l'existant). Sinon : full sync 'replace'.
- *   - `overwrite` (boolean)     : si true, ignore la liste d'équipes retirées (réimport complet
- *                                  depuis JIRA). Sinon, les équipes retirées ne sont pas recréées.
+ *   - `overwrite` (boolean)     : si true, ignore la liste d'équipes retirées ET l'archive des
+ *                                  sprints clos (tout est retéléchargé depuis JIRA). Sinon, les
+ *                                  équipes retirées ne sont pas recréées et les sprints clos
+ *                                  déjà en base ne sont pas redemandés.
  */
 export async function importFromJira(options = {}) {
     const projectRaw = store.get('project');
@@ -152,7 +154,10 @@ export async function importFromJira(options = {}) {
 
     let resultat = null;
     try {
-        resultat = await _doImport(projects, sinceDays, excludedTeams);
+        // « Tout réimporter depuis JIRA » veut dire tout : l'archive des sprints clos est
+        // alors contournée, sinon le réimport intégral n'en serait pas un.
+        const archiveOn = !options.overwrite && syncSetting('archiveClosed') > 0;
+        resultat = await _doImport(projects, sinceDays, excludedTeams, archiveOn);
         return resultat;
     } finally {
         // Sur exception, `resultat` est null : la carte se referme normalement, l'erreur étant
@@ -162,7 +167,61 @@ export async function importFromJira(options = {}) {
     }
 }
 
-async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) {
+/**
+ * Archive des sprints clos — ce qu'une sync complète n'a pas besoin de re-télécharger.
+ *
+ * La sync complète est en mode `replace` : elle efface puis ré-importe. L'historique ne
+ * s'accumule donc JAMAIS, et élargir la fenêtre se repaie intégralement à chaque fois —
+ * `closedTicketSprints` coûtant un appel par sprint ET par board, une profondeur d'un an
+ * sur quatorze boards fait ~364 appels avec changelog, à chaque sync complète.
+ *
+ * Or un sprint CLOS ne bouge plus : son périmètre, ses points et ses dates sont figés. On
+ * relit donc ses tickets depuis la base et on les réinjecte dans le payload, au lieu de les
+ * redemander à JIRA. Seule la première sync après un élargissement paie le prix.
+ *
+ * ⚠️ Repose sur l'aller-retour exact entre `_ticket_dict` (serializers.py) et le contrat lu
+ * par `import_all` (data.py) : les objets du store repartent tels quels. Y compris
+ * `createdAt` — sans le correctif 3.143.1 qui le persiste, chaque archivage aurait re-daté
+ * les tickets à l'heure de la sync, exactement le bug qu'on venait de corriger.
+ *
+ * ⚠️ Contrepartie assumée : une correction faite dans JIRA sur un sprint déjà clos (points
+ * réajustés, statut rectifié) ne redescendra plus. C'est pourquoi le réglage est
+ * désactivable, et pourquoi « Tout réimporter depuis JIRA » le contourne.
+ *
+ * Exportée pour les tests — comme `makeIncidents`, sa logique se vérifie sans lancer d'import.
+ *
+ * @param {boolean} enabled  false → archive vide, comportement d'origine
+ * @param {(name:string)=>boolean} isExcludedTeam
+ */
+export function _buildClosedArchive(enabled, isExcludedTeam) {
+    const vide = { bySprintId: new Map(), sprintCount: 0, ticketCount: 0 };
+    if (!enabled) return vide;
+    const prev = store.get('tickets') || [];
+    if (!prev.length) return vide;
+    // Un sprint n'est archivable que s'il est CLOS : un sprint actif ou futur bouge encore.
+    const closedIds = new Set(
+        (store.get('sprintInfo')?.teamSprints || [])
+            .filter(s => s.state === 'closed' && s.jiraId && !isExcludedTeam(s.team))
+            .map(s => String(s.jiraId))
+    );
+    if (!closedIds.size) return vide;
+    const bySprintId = new Map();
+    let ticketCount = 0;
+    for (const t of prev) {
+        // Features et epics ont leurs propres passes JQL, qui tournent de toute façon :
+        // les archiver les ferait exister en double.
+        if (t.type === 'feature' || t.type === 'epic') continue;
+        if (isExcludedTeam(t.team)) continue;
+        const sid = String(t.sprint || '');
+        if (!sid || !closedIds.has(sid)) continue;
+        if (!bySprintId.has(sid)) bySprintId.set(sid, []);
+        bySprintId.get(sid).push(t);
+        ticketCount++;
+    }
+    return { bySprintId, sprintCount: bySprintId.size, ticketCount };
+}
+
+async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), archiveOn = false) {
     const quickMode = sinceDays != null;
     // Une équipe est exclue si son nom (insensible à la casse) figure dans la liste des retraits.
     const isExcludedTeam = name => excludedTeams.size > 0 && excludedTeams.has(String(name || '').toLowerCase());
@@ -328,6 +387,13 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
         // problème de configuration de projets là où JIRA a simplement refusé la connexion.
         if (boardsError) throw new Error(api.jiraErrorMessage(boardsError, 'la liste des boards'));
         throw new Error(`Aucun board scrum pour ${projects.join(', ')}`);
+    }
+
+    // Sprints clos déjà en base : on ne les redemandera pas à JIRA (sync complète seulement —
+    // le quick mode saute déjà toute la passe et préserve l'existant par le merge).
+    const archive = _buildClosedArchive(archiveOn && !quickMode, isExcludedTeam);
+    if (archive.sprintCount) {
+        console.log(`[Squad-Board] Archive : ${archive.sprintCount} sprints clos déjà en base (${archive.ticketCount} tickets) — non retéléchargés.`);
     }
 
     const allTickets = [];
@@ -554,11 +620,14 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
         // ⚡ Quick mode : sauté (historique inchangé sur fenêtre récente, préservé en DB via merge).
         const CLOSED_TICKET_SPRINTS = quickMode ? 0 : syncSetting('closedTicketSprints');
         if (CLOSED_TICKET_SPRINTS > 0) {
+            let skippedByArchive = 0;
             const closedSprints = allBoardSprints
                 .filter(s => s.state === 'closed' && s.id)
                 .sort((a, b) => (b.endDate || '').localeCompare(a.endDate || ''))
                 .slice(0, CLOSED_TICKET_SPRINTS);
             for (const cs of closedSprints) {
+                // Déjà en base et clos : son contenu est figé, on le réinjectera tel quel.
+                if (archive.bySprintId.has(String(cs.id))) { skippedByArchive++; continue; }
                 try {
                     let cStart = 0;
                     while (cStart < 1000) {
@@ -580,6 +649,10 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
                         cStart += issues.length;
                     }
                 } catch (e) { incidents.add('tickets d’un sprint clos', e); }
+            }
+            if (skippedByArchive) {
+                setProgress(pct, `Board ${bi + 1}/${totalBoards}: ${teamName}`,
+                    `${skippedByArchive} sprint(s) clos déjà en base — non retéléchargés`);
             }
         }
     }
@@ -956,6 +1029,25 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
     } catch (e) {
         console.warn('[Squad-Board] Buffer historique : échec', e.message);
         incidents.add('buffer historique', e);
+    }
+
+    // 6.9 Réinjection de l'archive — les sprints clos non retéléchargés.
+    // ⚠️ Doit passer AVANT le filet d'exclusion (étape 7) et avant l'import (étape 8), sinon
+    // les tickets d'une équipe retirée reviendraient par la bande.
+    // ⚠️ `seenTicketIds` fait foi : un ticket archivé qui a ÉTÉ rapatrié par une passe fraîche
+    // (typiquement un reporté, qui porte maintenant le sprint actif) est déjà là dans sa
+    // version à jour — la copie figée ne doit pas la remplacer.
+    if (archive.ticketCount) {
+        let reinjectes = 0;
+        for (const lot of archive.bySprintId.values()) {
+            for (const t of lot) {
+                if (seenTicketIds.has(t.id)) continue;
+                seenTicketIds.add(t.id);
+                allTickets.push(t);
+                reinjectes++;
+            }
+        }
+        console.log(`[Squad-Board] Archive réinjectée : ${reinjectes} tickets de sprints clos (${archive.ticketCount - reinjectes} déjà repris par une passe fraîche).`);
     }
 
     // Patche les sprints clos déjà collectés avec leur bufferPoints

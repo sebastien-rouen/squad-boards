@@ -505,6 +505,9 @@ async function handleJiraImport(mode = 14) {
         return;
     }
     const isFull = mode === 'full';
+    // Lu ici plutôt qu'importé de config.js : handleJiraImport ne doit pas devenir un point
+    // d'entrée STATIQUE vers la chaîne de sync (sync.js est chargé en dynamique juste après).
+    const _archiveClosedOn = () => (localStorage.getItem('sb-sync-archiveClosed') ?? '1') !== '0';
     const { importFromJira, getExcludedTeams, clearExcludedTeams } = await import('./sync.js');
     const excluded = getExcludedTeams();
     let overwrite = false;
@@ -533,7 +536,11 @@ async function handleJiraImport(mode = 14) {
         const { confirmDanger } = await import('./utils.js');
         const ok = await confirmDanger(
             'Sync JIRA complète ?',
-            'Tous les tickets/features/epics locaux seront supprimés puis ré-importés. Cette opération peut prendre plusieurs minutes sur de gros JIRA.\n\nPour un refresh léger des changements récents, préférez la "Sync rapide".',
+            'Tous les tickets/features/epics locaux seront supprimés puis ré-importés. Cette opération peut prendre plusieurs minutes sur de gros JIRA.\n\n'
+            + (_archiveClosedOn()
+                ? 'Les sprints déjà clôturés ne seront pas retéléchargés (réglage « Ne pas retélécharger les sprints clos ») : leur contenu est figé et sera relu depuis la base.\n\n'
+                : '')
+            + 'Pour un refresh léger des changements récents, préférez la "Sync rapide".',
             { confirmLabel: 'Sync complète', danger: true }
         );
         if (!ok) return;

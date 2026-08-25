@@ -105,6 +105,18 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `breathIdxByPi()` est la source unique, y compris pour `_capAvgVelocity` (page Capacité de
   pi.js) — l'ancien `_isIpSprint` (« si ≥ 6 sprints », comparé au `sprintsPerPI` configuré)
   ne détectait jamais rien avec 5 sprints/PI, et excluait le 5ᵉ d'un PI qui en compte 6.
+- **Temps par colonne — périmètre vs durée** (3.143.1) : la card mesure des DURÉES, donc son
+  périmètre est `belongedToPi()` / `belongedToSprint()` (reports compris) — **jamais** le
+  `sprintName` courant, qui perd les tickets déplacés à la clôture, soit 43 % du PI29 et
+  justement les plus longs. Ce périmètre vit dans une variable à part (`_flowScopeTickets`,
+  `flowTickets`) : la règle engagement/réalisé ci-dessus reste intacte pour les compteurs.
+  `stageFlowCardHtml(tickets, opts)` et `bindStageFlowCard(container, tickets, opts)` prennent
+  le **même** `opts` (le re-rendu après exclusion repasse par là).
+  ⚠️ `STAGE_FLOW_GROUPS` teste le **libellé JIRA brut** (minuscules, cf sync.js) : un statut non
+  matchré disparaît en silence (« a livrer en qual » sans le « if » = 156 tickets perdus).
+  Vérifier contre les libellés réellement en base avant de toucher aux regex.
+  ⚠️ Les durées ne sont **pas bornées au PI** : `stageDurations` cumule toute la vie du ticket,
+  donc un ticket multi-PI compte sa durée entière dans chacun. Limite assumée, écrite dans l'aide.
 - **Écart PI ↔ Congés** : `piCongesDiff()` (utils/pi-weeks.js) est la source unique du bandeau
   de recalage (Rotation) ET du récapitulatif multi-PI (Sprint & PI).
 - **Semaines d'un PI** (3.141.6) : source unique `utils/pi-weeks.js` (`buildPiWeeks`) —

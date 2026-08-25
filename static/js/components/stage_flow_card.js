@@ -47,7 +47,14 @@ export const STAGE_LABELS = {
     qualif: 'À livrer en qualif', prod: 'À livrer en prod',
 };
 
-export function stageFlowCardHtml(tickets) {
+/**
+ * @param {object[]} tickets  périmètre à mesurer — c'est l'APPELANT qui le choisit.
+ * @param {object}   [opts]
+ * @param {string}   [opts.scopeLabel]  libellé du périmètre affiché dans le badge. Il était
+ *   écrit « historique équipe » en dur alors que le Dashboard passait déjà des tickets filtrés
+ *   par PI : le badge mentait sur ce qui était mesuré.
+ */
+export function stageFlowCardHtml(tickets, { scopeLabel = 'historique équipe' } = {}) {
     const groups = computeStageFlow(tickets);
     if (!groups.length) return '';
     // Couverture : combien de tickets (non exclus du flux) portent au moins une durée d'étape.
@@ -56,7 +63,7 @@ export function stageFlowCardHtml(tickets) {
         const sd = t.stageDurations || t.stage_durations || {};
         return Object.values(sd).some(d => d > 0);
     }).length;
-    const scopeBadge = metricScopeHtml({ scope: 'historique équipe', measured, total: candidates.length, excludedReason: 'aucune durée d\'étape (changelog JIRA manquant)' });
+    const scopeBadge = metricScopeHtml({ scope: scopeLabel, measured, total: candidates.length, excludedReason: 'aucune durée d\'étape (changelog JIRA manquant)' });
     return `
         <div class="card stage-flow-card">
             <div class="card-header">
@@ -81,15 +88,18 @@ export function stageFlowCardHtml(tickets) {
         </div>`;
 }
 
-/** Wire les clics sur les segments de la card (à appeler après insertion dans le DOM). */
-export function bindStageFlowCard(container, tickets) {
+/** Wire les clics sur les segments de la card (à appeler après insertion dans le DOM).
+ *  `opts` doit être IDENTIQUE à celui passé à `stageFlowCardHtml` : le re-rendu après
+ *  exclusion d'un ticket repasse par là, et l'oublier ferait retomber le badge de périmètre
+ *  sur son libellé par défaut. */
+export function bindStageFlowCard(container, tickets, opts = {}) {
     const refresh = () => {
         const card = container.querySelector('.stage-flow-card');
         if (!card) return;
-        const html = stageFlowCardHtml(tickets);
+        const html = stageFlowCardHtml(tickets, opts);
         if (!html) { card.remove(); return; }
         card.outerHTML = html;
-        bindStageFlowCard(container, tickets);
+        bindStageFlowCard(container, tickets, opts);
     };
     container.querySelectorAll('.stage-flow-seg[data-stage-key]').forEach(seg => {
         seg.addEventListener('click', () => _openStageFlowDetail(seg.dataset.stageKey, tickets, refresh));

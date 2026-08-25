@@ -13,7 +13,7 @@ export * from './utils/sprint-scope.js';
 export * from './utils/capacity-base.js';
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
-import { extractSprintLabel } from './utils/sprint-scope.js';   // usages internes à ce fichier
+import { extractSprintLabel, sprintNamesOf } from './utils/sprint-scope.js';   // usages internes à ce fichier
 import { getInactiveSupportMembers } from './utils/support.js';   // usages internes à ce fichier
 
 
@@ -287,11 +287,17 @@ export function daysInCurrentColumn(ticket) {
 // libellés JIRA bruts stockés dans ticket.stageDurations (clés en minuscules, cf sync.js).
 // Ordre = ordre chronologique d'affichage (dev → test → review → qualif → prod). Le test "prod"
 // exclut "preprod"/"préprod" pour ne pas les confondre.
+// ⚠️ Ces tests portent sur le libellé JIRA BRUT normalisé (minuscules, trim — cf sync.js).
+// Un statut oublié ici n'est pas signalé : sa durée disparaît simplement de la card.
+// Vérifier contre les libellés réellement présents en base avant de toucher aux regex.
 export const STAGE_FLOW_GROUPS = [
-    { key: 'dev', label: 'En cours de dév', test: k => /d[eé]velopp|development/.test(k) },
+    // « prêt à développer » / « à faire … développement » sont des FILES D'ATTENTE, pas du dév.
+    { key: 'dev', label: 'En cours de dév', test: k => /d[eé]velopp|development/.test(k) && !/^(pr[eê]t|[àa] faire)/.test(k) },
     { key: 'test', label: 'En cours de test', test: k => /test|recette|uat/.test(k) },
     { key: 'review', label: 'Revue', test: k => /revue|review|relecture/.test(k) },
-    { key: 'qualif', label: 'À livrer en qualif', test: k => k.includes('qualif') },
+    // « a livrer en qual » (sans le « if ») est le libellé de plusieurs équipes : 156 tickets
+    // passaient à la trappe avec un simple includes('qualif').
+    { key: 'qualif', label: 'À livrer en qualif', test: k => /qualif|\bqual\b/.test(k) },
     { key: 'prod', label: 'À livrer en prod', test: k => k.includes('prod') && !k.includes('preprod') && !k.includes('préprod') },
 ];
 
@@ -654,6 +660,23 @@ export function extractPiNum(name) {
 
 // `extractSprintLabel` a rejoint utils/sprint-scope.js (même famille : le périmètre d'un
 // sprint) et reste ré-exporté ci-dessus — les imports depuis '../utils.js' sont inchangés.
+
+/**
+ * Le ticket a-t-il appartenu à ce PI, maintenant ou par le passé ?
+ *
+ * ⚠️ `extractPiNum(t.sprintName) === piNum` ne répond PAS à cette question : JIRA déplace les
+ * tickets non finis à la clôture d'un sprint, donc un ticket travaillé en 29.x et non terminé
+ * porte aujourd'hui un sprint du PI30 (mesuré : 187 tickets sur 433, soit 43 % du périmètre
+ * du PI29). Ce sont justement ceux qui ont traîné : les ignorer raccourcit les durées mesurées.
+ *
+ * Version « PI » de `belongedToSprint()` (utils/sprint-scope.js), même source d'historique.
+ * RÈGLE INCHANGÉE : réservé aux mesures de PÉRIMÈTRE et de DURÉE. Le RÉALISÉ (vélocité, points
+ * livrés) exige toujours `isInSprint()` — sinon un PI est crédité de travail fait après lui.
+ */
+export function belongedToPi(t, piNum) {
+    if (!piNum) return true;
+    return sprintNamesOf(t).some(n => extractPiNum(n) === piNum);
+}
 
 /**
  * SOURCE UNIQUE du "PI courant". À utiliser partout (topbar, settings, dashboard, …)

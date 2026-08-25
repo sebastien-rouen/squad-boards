@@ -158,6 +158,7 @@ export const SYNC_DEFAULTS = {
     // 25/08/2026) et perdaient leur historique au-delà de ~9 mois pour rien.
     closedKeep: 40,          // sprints clos gardés par board (vélocité, tendances)
     closedTicketSprints: 6,  // sprints clos dont les TICKETS sont rapatriés
+    archiveClosed: 1,        // 1 = ne pas re-télécharger les sprints clos déjà en base
 };
 
 /**

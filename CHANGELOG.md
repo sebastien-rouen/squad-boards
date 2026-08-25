@@ -1,3 +1,43 @@
+## [3.145.0] - 2026-08-25
+
+### Mémoire des sprints clos vides + fenêtre de tickets portée à 1 an
+
+#### 🕳 Les sprints vides, angle mort de l'archive
+
+`_buildClosedArchive` ne peut retenir qu'un sprint ayant laissé des tickets en base. Un sprint
+clos **réellement vide** n'y entrait donc jamais et se faisait réinterroger à chaque sync, pour
+rien — et c'était la **totalité** des appels que l'archive laissait passer : 85 des 254 sprints
+de la fenêtre, soit 33 %.
+
+`sb-sync-emptyClosed` (localStorage, borné à 800 entrées) mémorise les sprints clos constatés
+sans aucun ticket.
+
+- ⚠️ **Inscrit uniquement sur un appel RÉUSSI renvoyant zéro issue.** Un 401 ou un timeout rend
+  aussi « aucun ticket » : les confondre graverait une panne passagère dans la mémoire, et le
+  sprint ne serait plus jamais redemandé. D'où le compteur `recus` posé dans le `try`, jamais
+  dans le `catch`.
+- Même contrepartie que l'archive, donc même interrupteur (`archiveClosed`) et même
+  contournement — « Tout réimporter depuis JIRA » purge la liste (`clearEmptyClosedMemory`).
+
+#### 🎫 `closedTicketSprints` : 13 → 26 (~1 an)
+
+Le palier n'est atteignable que parce que les deux mécanismes le portent. Appels
+`/sprint/{id}/issue` par sync complète, mesurés sur les 20 boards du parc :
+
+| Fenêtre | Sans rien | Archive seule | + mémoire des vides |
+|---|---|---|---|
+| 13 sprints (~6 mois) | 254 | 85 | **0** |
+| 26 sprints (~1 an) | 450 | 272 | **~28** |
+
+Autrement dit : à un an d'historique, une sync complète coûte moins d'appels qu'elle n'en
+coûtait à trois mois avant ces deux changements.
+
+⚠️ **La prochaine sync complète paiera ~272 appels** — le passage de 13 à 26 sprints, une fois.
+Les suivantes retomberont à ~28 (les sprints nouvellement clos). Progression complète du
+réglage, chaque palier mesuré : 6 (~3 mois) → 13 (~6 mois, +1031 tickets, 11→14 Mo) → 26.
+
+⚠️ Ces valeurs sont des **défauts** : une saisie existante dans Paramètres → Plugin JIRA prime.
+
 ## [3.144.2] - 2026-08-25
 
 ### 🐛 Couverture : le seuil de « résidu » sous-estimait la profondeur

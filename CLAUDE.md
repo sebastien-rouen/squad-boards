@@ -180,7 +180,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `SYNC_DEFAULTS` + `syncSetting()` dans [config.js](static/js/config.js) — jamais un défaut
   recopié ailleurs. `closedKeep` (60) porte les **métadonnées** de sprint : 1 appel par board,
   et la passe pagine de toute façon tout le board avant de trancher, donc **l'élargir ne coûte
-  aucun appel**. `closedTicketSprints` (13 ≈ 6 mois) porte le **détail des tickets** : 1 appel par sprint
+  aucun appel**. `closedTicketSprints` (26 ≈ 1 an) porte le **détail des tickets** : 1 appel par sprint
   ET par board, changelog compris — c'est lui qui fait la durée d'un import et le poids de la
   base ; `0` le désactive et est une saisie légitime (d'où le paramètre `min` de `_saveCap`).
   ⚠️ Cette profondeur n'est soutenable QUE grâce à `archiveClosed` : sans lui, le mode
@@ -210,6 +210,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
   et la raison du réglage. `overwrite: true` (« Tout réimporter depuis JIRA ») le contourne.
   ⚠️ `app.js` relit la clé localStorage à la main : y importer `syncSetting` ferait de
   `handleJiraImport` un point d'entrée STATIQUE vers `sync.js`, chargé en dynamique.
+- **Mémoire des sprints clos vides** (3.145.0, `sb-sync-emptyClosed`) : complément
+  indispensable de l'archive, qui ne peut retenir qu'un sprint ayant laissé des tickets. Un
+  sprint clos vide se faisait réinterroger à chaque sync — 33 % des appels restants.
+  ⚠️ **N'inscrire QUE sur un appel réussi renvoyant zéro issue** (compteur `recus` dans le
+  `try`, jamais dans le `catch`) : un 401 ou un timeout rend aussi « aucun ticket », et le
+  confondre avec un sprint vide graverait la panne — le sprint ne serait plus jamais redemandé.
+  Purgée par « Tout réimporter depuis JIRA » (`clearEmptyClosedMemory`).
 - **Bandeau de couverture** (3.143.0, [health-coverage.js](static/js/views/health-coverage.js)) :
   il compte la **présence actuelle** (`sprintName`), PAS le périmètre engagé — inversion
   assumée de la règle de [sprint-scope.js](static/js/utils/sprint-scope.js). La question posée

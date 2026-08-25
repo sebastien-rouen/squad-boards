@@ -7,7 +7,7 @@ couverte par golden) — déplacé tel quel.
 import io
 import json
 import zipfile
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Request, Response, Depends
 from sqlmodel import Session, select
@@ -154,6 +154,52 @@ def get_all_data(session: Session = Depends(get_session)):
     }
 
 
+def _iso_utc(v):
+    """Normalise une date JIRA en ISO UTC, ou None si illisible.
+
+    JIRA rend `2026-05-12T14:23:11.000+0200` là où la base écrit
+    `2026-05-12T12:23:11.000000+00:00`. Les deux se parsent en JS, mais plusieurs vues
+    trient ces dates par COMPARAISON DE CHAÎNES (`roadmap.js` sur `createdAt`) : deux
+    formats mêlés y produisent un ordre faux, sans erreur nulle part. D'où la
+    normalisation à l'écriture plutôt qu'à chaque lecture.
+    """
+    if not v:
+        return None
+    txt = str(v).strip()
+    # `fromisoformat` (3.11+) accepte le 'Z' mais pas le fuseau compact `+0200` de JIRA.
+    if len(txt) > 5 and (txt[-5] in '+-') and txt[-5:].lstrip('+-').isdigit():
+        txt = txt[:-2] + ':' + txt[-2:]
+    try:
+        d = datetime.fromisoformat(txt)
+    except ValueError:
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return d.astimezone(timezone.utc).isoformat()
+
+
+def _jira_dates(d, existing=None):
+    """Dates à poser sur une entité importée, en kwargs prêts à déballer.
+
+    Avant la 3.143.1, aucune des deux n'était transmise : `default_factory=_now` prenait la
+    main et TOUS les tickets d'un import portaient la même seconde — celle de la sync. La
+    date de création JIRA était perdue, et avec elle l'anomalie « ajouté en cours de sprint »
+    (`business_rules.js`), qui comparait la date d'import au début du sprint et se
+    déclenchait donc sur tout ticket non terminé.
+
+    Ordre de préséance : la date JIRA, sinon celle déjà en base (un ticket créé dans l'app
+    n'en a pas et ne doit pas être rajeuni à chaque sync), sinon le défaut du modèle.
+    """
+    out = {}
+    created = _iso_utc(d.get("createdAt")) or (existing.created_at if existing else None)
+    if created:
+        out["created_at"] = created
+    # `updated_at` retombe sur maintenant : sans date JIRA, l'enregistrement vient bien
+    # d'être touché par cet import.
+    out["updated_at"] = _iso_utc(d.get("updatedAt")) or _now()
+    return out
+
+
 @router.post("/api/import")
 async def import_all(request: Request, session: Session = Depends(get_session)):
     body = await request.json()
@@ -217,8 +263,10 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
             for row in session.exec(select(Epic)).all():
                 session.delete(row)
         for d in items:
+            eid = d.get("id") or _gen_id()
             e = Epic(
-                id=d.get("id") or _gen_id(), title=d.get("title", ""),
+                **_jira_dates(d, session.get(Epic, eid) if mode == "merge" else None),
+                id=eid, title=d.get("title", ""),
                 status=d.get("status", "todo"), team=d.get("team", ""),
                 feature_id=d.get("feature") or d.get("feature_id"),
                 pi_sprint=d.get("piSprint"), labels=d.get("labels", []),
@@ -237,6 +285,7 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
             fid = d.get("id") or _gen_id()
             existing = session.get(Feature, fid) if d.get("id") else None
             f = Feature(
+                **_jira_dates(d, existing),
                 id=fid, title=d.get("title", ""),
                 status=d.get("status", "todo"), team=d.get("team", ""),
                 leader=d.get("leader") or d.get("assignee"),
@@ -255,8 +304,10 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
             for row in session.exec(select(Ticket)).all():
                 session.delete(row)
         for d in items:
+            tid = d.get("id") or _gen_id()
             t = Ticket(
-                id=d.get("id") or _gen_id(), title=d.get("title", ""),
+                **_jira_dates(d, session.get(Ticket, tid) if mode == "merge" else None),
+                id=tid, title=d.get("title", ""),
                 type=d.get("type", "story"), status=d.get("status", "todo"),
                 jira_status=d.get("jiraStatus", ""),
                 team=d.get("team", ""),

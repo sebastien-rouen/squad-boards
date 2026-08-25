@@ -164,6 +164,31 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `app.js` **et** carte de sync qui reste ouverte sur le détail (`store.syncIncidents` →
   `topbar.js`), fermée par `dismissSyncReport()` — jamais automatiquement.
 - **Convention JIRA sprint** (mémoire `project_jira_sprint_conventions`) : `Cadrage_PIXX` = cadrage, `PI#XX` = features, `PIXX` = tickets standalone.
+- **Profondeur d'historique JIRA** (3.143.0) : deux réglages DISTINCTS, source unique
+  `SYNC_DEFAULTS` + `syncSetting()` dans [config.js](static/js/config.js) — jamais un défaut
+  recopié ailleurs. `closedKeep` (40) porte les **métadonnées** de sprint : 1 appel par board,
+  et la passe pagine de toute façon tout le board avant de trancher, donc **l'élargir ne coûte
+  aucun appel**. `closedTicketSprints` (6) porte le **détail des tickets** : 1 appel par sprint
+  ET par board, changelog compris — c'est lui qui fait la durée d'un import et le poids de la
+  base ; `0` le désactive et est une saisie légitime (d'où le paramètre `min` de `_saveCap`).
+  ⚠️ `app.js` garde sa lecture propre de `quickDays` : il charge `sync.js` en import
+  **dynamique**, y importer la constante depuis la vue casserait ce lazy.
+- **Dates JIRA à l'import** (3.143.0) : `_jira_dates()` / `_iso_utc()` dans
+  [data.py](app/routers/data.py) posent `created_at`/`updated_at` sur Ticket, Feature et Epic.
+  Avant, aucune n'était transmise et `default_factory=_now` datait TOUT l'import de la même
+  seconde — ce qui faisait se déclencher l'anomalie « ajouté en cours de sprint »
+  ([business_rules.js](static/js/business_rules.js), `infopanel.js`, `sprint_tickets_modal.js`)
+  sur tout ticket non terminé. ⚠️ **Toute passe JQL qui produit un ticket DOIT demander le
+  champ `created`** : sans lui la date repart à l'heure de la sync. Et les dates s'écrivent
+  normalisées en ISO UTC — `roadmap.js` trie `createdAt` par comparaison de CHAÎNES, deux
+  formats mêlés y donnent un ordre faux sans la moindre erreur.
+- **Bandeau de couverture** (3.143.0, [health-coverage.js](static/js/views/health-coverage.js)) :
+  il compte la **présence actuelle** (`sprintName`), PAS le périmètre engagé — inversion
+  assumée de la règle de [sprint-scope.js](static/js/utils/sprint-scope.js). La question posée
+  est « ce sprint a-t-il été rapatrié ? », et l'import interroge `/sprint/{id}/issue`, qui ne
+  rend que les tickets s'y trouvant : `sprintNamesOf()` créditait des sprints que rien n'avait
+  importés (101 annoncés contre 60 réels, 19 contre 6 sur Initiale). Ne pas « corriger » ce
+  choix vers `belongedToSprint()`.
 
 ## Tests (`npm test`)
 

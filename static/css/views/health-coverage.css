@@ -1,0 +1,193 @@
+/* Vue Health — bandeau « Couverture de l'historique » (health-coverage.js).
+   Uniquement des tokens : le thème sombre suit sans règle dédiée. */
+
+.hcov {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    margin-bottom: var(--sp-4);
+    overflow: hidden;
+}
+
+/* ── En-tête repliable ─────────────────────────────────────────────────────── */
+.hcov-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+.hcov-summary::-webkit-details-marker { display: none; }
+.hcov-summary:hover { background: var(--surface-hover); }
+.hcov-summary:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: -2px;
+}
+
+.hcov-title {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text);
+}
+.hcov-teaser {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin-right: auto;
+}
+/* Chevron : le seul décor non tokenisé — une bordure tournée, pas une couleur. */
+.hcov-toggle {
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+.hcov[open] .hcov-toggle { transform: rotate(-135deg) translate(-2px, -2px); }
+
+.hcov-body {
+    padding: 0 var(--sp-4) var(--sp-4);
+    border-top: 1px solid var(--border);
+}
+
+/* ── Les deux profondeurs ──────────────────────────────────────────────────── */
+.hcov-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    margin-top: var(--sp-3);
+    border-radius: var(--r-md);
+    background: var(--bg);
+    border-left: 3px solid var(--border);
+    flex-wrap: wrap;
+}
+.hcov-row--velo    { border-left-color: var(--status-done); }
+.hcov-row--tickets { border-left-color: var(--status-inprog); }
+
+.hcov-row-icon { font-size: var(--fs-lg); }
+.hcov-row-main { flex: 1 1 200px; min-width: 0; }
+.hcov-row-label {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text);
+}
+.hcov-row-desc {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.hcov-row-figs {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+.hcov-fig {
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.hcov-fig strong {
+    font-size: var(--fs-lg);
+    color: var(--text);
+}
+.hcov-fig--age {
+    font-weight: 600;
+    color: var(--text);
+}
+.hcov-fig--since { font-size: var(--fs-xs); color: var(--text-muted); }
+
+.hcov-chip {
+    font-size: var(--fs-xs);
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-full);
+    white-space: nowrap;
+    cursor: help;
+}
+.hcov-chip--warn {
+    background: var(--warning-bg);
+    color: var(--amber-text);
+    border: 1px solid var(--warning-border);
+}
+
+/* ── Réserve et maillon faible ─────────────────────────────────────────────── */
+.hcov-caveat,
+.hcov-floor {
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin: var(--sp-3) 0 0;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-md);
+}
+.hcov-caveat {
+    background: var(--info-bg);
+    border: 1px solid var(--info-border);
+    color: var(--text);
+}
+.hcov-floor {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    color: var(--text);
+}
+
+/* ── Détail par équipe ─────────────────────────────────────────────────────── */
+.hcov-table {
+    width: 100%;
+    margin-top: var(--sp-4);
+    border-collapse: collapse;
+    font-size: var(--fs-xs);
+}
+.hcov-table-cap {
+    text-align: left;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    padding-bottom: var(--sp-2);
+}
+.hcov-table th,
+.hcov-table td {
+    padding: var(--sp-2);
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    white-space: nowrap;
+}
+.hcov-table thead th {
+    color: var(--text-muted);
+    font-weight: 500;
+    cursor: help;
+}
+.hcov-table tbody th[scope="row"] {
+    text-align: left;
+    font-weight: 600;
+    color: var(--text);
+}
+.hcov-table tbody tr:hover { background: var(--surface-hover); }
+.hcov-td-date { color: var(--text-muted); }
+.hcov-td-none { color: var(--danger); font-weight: 600; }
+.hcov-td-thin { color: var(--text-muted); }
+
+.hcov-hint {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin: var(--sp-3) 0 0;
+}
+.hcov-hint code {
+    font-family: var(--font-mono);
+    background: var(--bg-alt);
+    padding: 1px var(--sp-1);
+    border-radius: var(--r-sm);
+}
+.hcov-hint a { color: var(--primary); }
+
+/* ── Mobile : les chiffres passent sous le libellé plutôt que de le comprimer ── */
+@media (max-width: 640px) {
+    .hcov-summary { flex-wrap: wrap; }
+    .hcov-teaser { flex-basis: 100%; order: 3; }
+    .hcov-row-figs { flex-basis: 100%; }
+    .hcov-table-wrap { overflow-x: auto; }
+}

@@ -8,6 +8,7 @@ import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, has
 import { TEAM_COLORS } from '../config.js';
 import { renderCycleTime } from '../components/charts.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
+import { mountNavRail } from '../components/nav-rail.js';
 import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
 import { stageFlowCardHtml, bindStageFlowCard } from '../components/stage_flow_card.js';
 import { agingWipCardHtml, bindAgingWipCard } from '../components/aging_wip_card.js';
@@ -771,6 +772,10 @@ export function renderDashboard(container) {
         renderCycleTime('chart-cycletime', _flowTickets);
         mountVelocityChart({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax });
         bindActivityClicks(container);
+        // Rail sur les chips d'astreinte : leur nombre suit le périmètre (une équipe ou
+        // toutes), et la bande est en tête de dashboard — chaque ligne repousse les KPI.
+        const oncall = container.querySelector('.db-oncall-chips');
+        if (oncall) mountNavRail(oncall, { labelPrev: 'Personnes précédentes', labelNext: 'Personnes suivantes' });
         bindStageFlowCard(container, _flowScopeTickets, { scopeLabel: _flowScopeBadge });
         bindAgingWipCard(container);
         bindSlaReviewCard(container, tickets);

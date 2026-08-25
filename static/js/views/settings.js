@@ -17,7 +17,7 @@ import {
     EXPORT_CATEGORY_KEYS, EXPORT_FORMATS, _availableExportCategories,
     _exportCategoryCounts, _loadLastExportChoice, _saveLastExportChoice, _downloadBlob, _openImportModal,
 } from './settings-io.js';
-import { _parsePivotAbsencesCsv, _memberAbsenceInfo, _isTransverseTeam } from './settings-absences-csv.js';
+import { _parsePivotAbsencesCsv, _memberAbsenceInfo, _isTransverseTeam, diagnosePivotCsv } from './settings-absences-csv.js';
 import { jiraSectionHtml, wireJiraSection } from './settings-jira.js';
 import { piCongesDiff, knownPiNumbers } from '../utils/pi-weeks.js';
 import { makePersonPicker } from '../components/modal.js';
@@ -463,7 +463,16 @@ export function renderSettings(container) {
                         <input class="input" type="number" id="abs-csv-pip" value="2" min="0" max="10" style="width:64px">
                     </div>
                 </div>
-                <textarea class="input" id="abs-csv-input" rows="6" placeholder="Collez ici les donnees CSV (TAB ou ; entre colonnes)..."></textarea>
+                <div class="abs-csv-drop" id="abs-csv-drop">
+                    <label class="abs-label" for="abs-csv-input">Données CSV</label>
+                    <textarea class="input" id="abs-csv-input" rows="6"
+                        aria-describedby="abs-csv-hint"
+                        placeholder="Collez ici les données CSV (tabulation ou point-virgule entre les colonnes), ou déposez le fichier dans cette zone…"></textarea>
+                    <p class="abs-csv-hint text-xs text-muted" id="abs-csv-hint">
+                        Glissez-déposez un <code>.csv</code> / <code>.tsv</code> / <code>.txt</code>, ou collez depuis Excel.
+                        L'aperçu se met à jour tout seul.
+                    </p>
+                </div>
                 <div class="abs-csv-preview" id="abs-csv-preview" hidden></div>
                 <div class="flex gap-2 mt-2">
                     <button class="btn btn-secondary btn-sm" id="btn-preview-abs-csv">👁 Aperçu</button>
@@ -1659,6 +1668,25 @@ export function renderSettings(container) {
         } catch (e) { toast(e.message, 'error'); btn.disabled = false; }
     });
 
+    /**
+     * Ce que l'import a écarté. Sans ce bandeau, un export RH écrivant « CP » ou « RTT »
+     * au lieu d'un nombre de jours produisait un import parfaitement silencieux : membres
+     * créés, zéro absence, aucun message. L'utilisateur croyait avoir importé.
+     */
+    const _warnAbsHtml = (parsed) => {
+        const w = [];
+        if (parsed.ignoredCells) {
+            const ex = (parsed.ignoredSamples || []).map(v => `« ${esc(v)} »`).join(', ');
+            w.push(`<strong>${parsed.ignoredCells} cellule(s) ignorée(s)</strong>${ex ? ` (${ex})` : ''} — le format attend un nombre de jours : <code>1</code>, <code>0.5</code>. Une cellule contenant un code d'absence n'est pas comptée.`);
+        }
+        if (parsed.skippedRows) {
+            w.push(`<strong>${parsed.skippedRows} ligne(s) sans nom</strong> ignorée(s).`);
+        }
+        return w.length
+            ? `<div class="abs-csv-warn">⚠️ ${w.join('<br>')}</div>`
+            : '';
+    };
+
     // Parse le CSV courant → { absencesPayload, membersPayload, mode, piStartDate, piEndDate } (partagé Aperçu + Import)
     const _parseAbsCsv = () => {
         const raw = container.querySelector('#abs-csv-input')?.value.trim();
@@ -1670,6 +1698,8 @@ export function renderSettings(container) {
             absencesPayload: pivot.absences, membersPayload: pivot.members, mode: 'pivot',
             piStartDate: pivot.piStartDate, piEndDate: pivot.piEndDate, dayCount: pivot.dayCount,
             pipDates: pivot.pipDates,
+            ignoredCells: pivot.ignoredCells, ignoredSamples: pivot.ignoredSamples,
+            skippedRows: pivot.skippedRows,
         };
         // Fallback ligne (split ; ou tab — jamais virgule) — pas de dates PI déductibles
         const absencesPayload = [];
@@ -1685,12 +1715,25 @@ export function renderSettings(container) {
         return { absencesPayload, membersPayload: [], mode: 'ligne', piStartDate: null, piEndDate: null };
     };
 
-    // Aperçu partiel : montre les 1ères lignes parsées pour valider avant import
-    container.querySelector('#btn-preview-abs-csv')?.addEventListener('click', () => {
+    // Aperçu partiel : montre les 1ères lignes parsées pour valider avant import.
+    // Extrait en fonction (3.147.0) pour être rejoué au collage et au dépôt de fichier :
+    // une erreur de format doit se voir AVANT de cliquer « Importer », pas après.
+    const _renderAbsPreview = () => {
         const box = container.querySelector('#abs-csv-preview');
         const parsed = _parseAbsCsv();
         if (!parsed || !parsed.absencesPayload.length) {
-            if (box) { box.hidden = false; box.innerHTML = '<span class="text-danger text-xs">Aucune donnée valide détectée.</span>'; }
+            if (!box) return;
+            box.hidden = false;
+            // « Aucune donnée valide détectée » recouvrait quatre causes distinctes et
+            // n'en nommait aucune. `diagnosePivotCsv` dit laquelle, et quoi faire.
+            const raw = container.querySelector('#abs-csv-input')?.value || '';
+            const diag = raw.trim() ? diagnosePivotCsv(raw) : null;
+            box.innerHTML = diag
+                ? `<div class="abs-csv-diag">
+                       <strong class="text-danger">${esc(diag.titre)}</strong>
+                       <span class="text-xs text-muted">${esc(diag.indice)}</span>
+                   </div>`
+                : '<span class="text-danger text-xs">Aucune donnée valide détectée.</span>';
             return;
         }
         const { absencesPayload, membersPayload, mode, piStartDate, piEndDate, dayCount, pipDates } = parsed;
@@ -1715,12 +1758,55 @@ export function renderSettings(container) {
                 </div>
                 ${datesBlock}
                 <div class="abs-csv-preview-teams">${teams.slice(0, 10).map(t => `<span class="abs-csv-preview-team">${esc(t)}</span>`).join('')}${teams.length > 10 ? `<span class="text-muted text-xs">+${teams.length - 10}</span>` : ''}</div>
+                ${_warnAbsHtml(parsed)}
                 <div class="abs-csv-preview-members">
                     ${previewMembers.map(m => `<span class="abs-csv-preview-member">${esc(m.name)} <em>${esc(m.team || '')}</em></span>`).join('')}
                     ${membersForPi.length > 8 ? `<span class="text-muted text-xs">… +${membersForPi.length - 8} autres</span>` : ''}
                 </div>`;
         }
+    };
+
+    // Trois chemins mènent à l'aperçu — un seul rendu, pour qu'ils ne divergent jamais.
+    container.querySelector('#btn-preview-abs-csv')?.addEventListener('click', _renderAbsPreview);
+    const _absInput = container.querySelector('#abs-csv-input');
+    // Le collage est LE geste normal ici : l'aperçu doit suivre sans qu'on le demande.
+    // `setTimeout(0)` : au moment de l'événement `paste`, la valeur du champ est encore
+    // l'ancienne — le texte n'y est inséré qu'après.
+    _absInput?.addEventListener('paste', () => setTimeout(_renderAbsPreview, 0));
+    _absInput?.addEventListener('input', () => {
+        clearTimeout(_absInput._t);
+        _absInput._t = setTimeout(_renderAbsPreview, 400);   // frappe manuelle : on laisse finir
     });
+
+    // ── Dépôt de fichier ─────────────────────────────────────────────────────
+    // Passer par Excel pour copier-coller est une étape de trop quand le fichier est déjà
+    // là. Lecture en texte seulement : pas de dépendance, donc pas de .xlsx (le CLAUDE.md
+    // racine interdit toute dépendance npm côté frontend).
+    const _absDrop = container.querySelector('#abs-csv-drop');
+    if (_absDrop && _absInput) {
+        const stop = e => { e.preventDefault(); e.stopPropagation(); };
+        ['dragenter', 'dragover'].forEach(ev => _absDrop.addEventListener(ev, e => {
+            stop(e); _absDrop.classList.add('is-dragover');
+        }));
+        ['dragleave', 'drop'].forEach(ev => _absDrop.addEventListener(ev, e => {
+            stop(e); _absDrop.classList.remove('is-dragover');
+        }));
+        _absDrop.addEventListener('drop', async e => {
+            const f = e.dataTransfer?.files?.[0];
+            if (!f) return;
+            if (/\.(xlsx|xls)$/i.test(f.name)) {
+                toast('Les fichiers Excel ne sont pas lus directement — enregistrez en CSV (point-virgule), ou copiez-collez les cellules.', 'warning', 6000);
+                return;
+            }
+            try {
+                _absInput.value = await f.text();
+                _renderAbsPreview();
+                toast(`« ${f.name} » chargé — vérifiez l'aperçu avant d'importer`, 'success');
+            } catch (err) {
+                toast(`Lecture impossible : ${err.message}`, 'error');
+            }
+        });
+    }
 
     container.querySelector('#btn-import-abs-csv')?.addEventListener('click', async () => {
         const parsed = _parseAbsCsv();

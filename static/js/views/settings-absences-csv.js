@@ -53,6 +53,10 @@ function _parsePivotAbsencesCsv(raw, year, pipDays = 2) {
 
     const absences = [];
     const memberByKey = new Map();   // (name|team) → { name, team, entity, role }
+    // Ce que le parser écarte — remonté à l'appelant pour être AFFICHÉ, pas avalé.
+    let ignoredCells = 0;
+    const ignoredSamples = [];
+    let skippedRows = 0;
     for (let r = 1; r < lines.length; r++) {
         const cols = splitLine(lines[r]);
         // Trim agressif sur les méta (espaces invisibles dans les exports Excel) — évite des doublons
@@ -61,7 +65,7 @@ function _parsePivotAbsencesCsv(raw, year, pipDays = 2) {
         const team   = (cols[teamIdx]   || '').replace(/\s+/g, ' ').trim();
         const entity = (cols[entityIdx] || '').replace(/\s+/g, ' ').trim();
         const role   = (cols[roleIdx]   || '').replace(/\s+/g, ' ').trim();
-        if (!name) continue;
+        if (!name) { skippedRows++; continue; }
 
         // Member unique par (name|team). Si plusieurs lignes du CSV donnent le même
         // (name, team), on garde la 1re ; pour les valeurs non-vides on enrichit.
@@ -79,7 +83,18 @@ function _parsePivotAbsencesCsv(raw, year, pipDays = 2) {
             if (!v) continue;
             // Cellule = nombre de jours. "1" plein, "0.5" demi. Ignore "0", "-", "x" textuels.
             const num = parseFloat(v.replace(',', '.'));
-            if (!num || num <= 0) continue;
+            if (!num || num <= 0) {
+                // ⚠️ Le cas qui coûtait le plus cher : un export RH qui écrit « CP » ou
+                // « RTT » au lieu d'un nombre produisait un import PARFAITEMENT SILENCIEUX
+                // — membres créés, zéro absence, aucun message. On collecte donc ce qui est
+                // écarté pour le dire, sans changer la règle : seul un nombre compte.
+                const txt = v.trim();
+                if (txt && !/^[0\s.,;x×–—-]*$/i.test(txt)) {
+                    ignoredCells++;
+                    if (!ignoredSamples.includes(txt) && ignoredSamples.length < 5) ignoredSamples.push(txt);
+                }
+                continue;
+            }
             absences.push({
                 memberName: name,
                 team,
@@ -107,6 +122,9 @@ function _parsePivotAbsencesCsv(raw, year, pipDays = 2) {
         piEndDate:   piDates[piDates.length - 1] || null,   // fin du PI courant (hors PIP)
         dayCount:    piDates.length,
         pipDates,                                            // jours PIP du prochain PI
+        ignoredCells,                                        // cellules non numériques écartées
+        ignoredSamples,                                      // jusqu'à 5 valeurs, pour le message
+        skippedRows,                                         // lignes sans nom
     };
 }
 
@@ -208,4 +226,52 @@ function _isTransverseTeam(team) {
 }
 
 
-export { _parsePivotAbsencesCsv, _consolidateConsecutive, _memberAbsenceInfo, _isTransverseTeam };
+/**
+ * Pourquoi ce CSV n'a-t-il pas été reconnu ? Rend un message actionnable plutôt que le
+ * « Aucune donnée valide détectée » d'origine, qui recouvrait quatre causes distinctes :
+ * séparateur virgule, colonnes de dates absentes, format de date inattendu, en-tête seul.
+ * Chercher l'erreur à la main dans un export RH de cinquante colonnes est décourageant.
+ *
+ * @returns {{titre: string, indice: string}|null} null si rien d'anormal n'est détecté
+ */
+function diagnosePivotCsv(raw) {
+    const lines = String(raw || '').split('\n').filter(l => l.trim());
+    if (!lines.length) return { titre: 'Le champ est vide.', indice: 'Collez le contenu du fichier, ou déposez-le directement dans la zone.' };
+    if (lines.length < 2) return {
+        titre: 'Une seule ligne détectée.',
+        indice: 'Le format pivot attend un en-tête de dates PUIS au moins une ligne de personne.',
+    };
+
+    const head = lines[0];
+    const nbTab = (head.match(/\t/g) || []).length;
+    const nbPv  = (head.match(/;/g) || []).length;
+    const nbVir = (head.match(/,/g) || []).length;
+    // La virgule n'est JAMAIS un séparateur ici : les noms RH sont au format « NOM, Prénom ».
+    // Mais un export qui l'utilise quand même est un cas fréquent, et sans ce message il se
+    // présente comme un « format non reconnu » sans plus d'explication.
+    if (nbTab === 0 && nbPv === 0 && nbVir >= 3) return {
+        titre: 'Colonnes séparées par des virgules.',
+        indice: 'Seuls la tabulation et le point-virgule sont acceptés — la virgule fait partie des noms (« NOM, Prénom »). Ré-exportez en « CSV séparé par point-virgule », ou collez directement depuis Excel (tabulations).',
+    };
+
+    const sep = nbTab >= nbPv ? '\t' : ';';
+    const cols = head.split(sep).map(c => c.trim());
+    const bonnes = cols.filter(c => /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(c)).length;
+    if (bonnes >= 3) return null;   // le pivot aurait dû passer : rien à diagnostiquer ici
+
+    const autresDates = cols.filter(c => /^\d{1,2}[-.]\d{1,2}([-.]\d{2,4})?$/.test(c)).length;
+    if (autresDates >= 3) return {
+        titre: `Dates de l'en-tête au format « ${cols.find(c => /^\d{1,2}[-.]\d{1,2}/.test(c))} ».`,
+        indice: 'Le format attendu est jj/mm (ex. 03/04), avec des barres obliques. Un remplacement « - » → « / » dans l\'en-tête suffit.',
+    };
+    if (bonnes > 0) return {
+        titre: `Seulement ${bonnes} colonne(s) de date reconnue(s) dans l'en-tête.`,
+        indice: 'Il en faut au moins 3 pour que le format pivot soit détecté — vérifiez que la ligne d\'en-tête est bien la PREMIÈRE ligne collée.',
+    };
+    return {
+        titre: 'Aucune colonne de date jj/mm dans la première ligne.',
+        indice: 'Le format pivot attend un en-tête du type « NOMS, Prénom | Équipes | Entité | Rôles | 03/04 | 06/04 | … ». Vérifiez qu\'aucune ligne de titre ne précède l\'en-tête.',
+    };
+}
+
+export { _parsePivotAbsencesCsv, _consolidateConsecutive, _memberAbsenceInfo, _isTransverseTeam, diagnosePivotCsv };

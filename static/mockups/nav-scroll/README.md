@@ -104,10 +104,24 @@ tranche d'abord entre « une ligne qui défile » et « pas de ligne du tout ».
 ## Au-delà de Paramètres
 
 `settings-tabs` est le cas le plus visible, mais **173 conteneurs** du site sont en
-`flex-wrap: wrap`. Les autres barres de navigation concernées, repérées par le même motif :
-`.quick-filters`, `.activity-filters`, `.agenda-toolbar`, `.bl-flt-chips`, `.grp-chips-row`,
-`.jira-project-chips`, `.rot-toolbar`, `.db-oncall-chips`.
+`flex-wrap: wrap`.
 
-Si A est retenue, elle mérite d'être extraite en composant (`.nav-rail`) plutôt que recopiée
-huit fois — sinon les dégradés et la logique de bords divergeront d'une barre à l'autre,
-comme la règle des anomalies l'a fait entre `health.js` et `alert_modal.js`.
+⚠️ **Correction (3.146.2)** : la liste ci-dessous venait d'un `grep`, pas d'un examen. À la
+lecture du code, elle mélangeait navigations, barres d'outils et aperçus — sur huit
+candidates, **deux** méritaient le rail :
+
+| Barre | Verdict |
+|---|---|
+| `.activity-filters` | ✅ migrée — chips par champ et par auteur, nombre non borné |
+| `.db-oncall-chips` | ✅ migrée — astreintes du jour, en tête de dashboard |
+| `.quick-filters` | ❌ contient un `<input>` : le focus ferait défiler le rail |
+| `.bl-flt-chips` | ❌ dans un popover, où grandir en hauteur ne coûte rien |
+| `.agenda-toolbar`, `.rot-toolbar` | ❌ barres d'outils : leur texte doit wrapper |
+| `.jira-project-chips` | ❌ aperçu statique |
+| `.grp-chips-row` | ❌ liste éditable dans une carte |
+
+Un rail posé partout aurait dégradé cinq barres pour en sauver deux.
+
+C'est bien un composant (`components/nav-rail.js`) et non du CSS recopié : les dégradés et
+la logique de bords auraient divergé d'une barre à l'autre, comme la règle des anomalies
+l'a fait entre `health.js` et `alert_modal.js`.

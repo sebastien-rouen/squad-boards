@@ -508,7 +508,7 @@ async function handleJiraImport(mode = 14) {
     // Lu ici plutôt qu'importé de config.js : handleJiraImport ne doit pas devenir un point
     // d'entrée STATIQUE vers la chaîne de sync (sync.js est chargé en dynamique juste après).
     const _archiveClosedOn = () => (localStorage.getItem('sb-sync-archiveClosed') ?? '1') !== '0';
-    const { importFromJira, getExcludedTeams, clearExcludedTeams } = await import('./sync.js');
+    const { importFromJira, getExcludedTeams, clearExcludedTeams, clearEmptyClosedMemory } = await import('./sync.js');
     const excluded = getExcludedTeams();
     let overwrite = false;
 
@@ -531,7 +531,10 @@ async function handleJiraImport(mode = 14) {
         );
         if (!choice) return;                     // annulé
         overwrite = choice === 'overwrite';
-        if (overwrite) clearExcludedTeams();     // réimport complet → on oublie les retraits
+        if (overwrite) {
+            clearExcludedTeams();        // réimport complet → on oublie les retraits
+            clearEmptyClosedMemory();    // …et la mémoire des sprints clos vides : « tout » veut dire tout
+        }
     } else if (isFull) {
         const { confirmDanger } = await import('./utils.js');
         const ok = await confirmDanger(

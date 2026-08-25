@@ -193,6 +193,44 @@ export async function importFromJira(options = {}) {
  * @param {boolean} enabled  false → archive vide, comportement d'origine
  * @param {(name:string)=>boolean} isExcludedTeam
  */
+const EMPTY_CLOSED_KEY = 'sb-sync-emptyClosed';
+const EMPTY_CLOSED_MAX = 800;   // borne : ~40 boards × 20 sprints vides, largement au-delà du parc
+
+/**
+ * Sprints clos constatés SANS AUCUN TICKET — la moitié manquante de l'archive.
+ *
+ * `_buildClosedArchive` ne peut retenir qu'un sprint qui a laissé des tickets en base. Un
+ * sprint clos réellement vide n'y entre donc jamais et se fait réinterroger à chaque sync,
+ * pour rien. Mesuré le 25/08/2026 : 85 des 254 sprints de la fenêtre (33 %) — c'est-à-dire
+ * la TOTALITÉ des appels que l'archive laissait passer.
+ *
+ * ⚠️ On ne mémorise QUE sur un appel RÉUSSI renvoyant zéro issue. Un 401 ou un timeout rend
+ * aussi « aucun ticket » : le confondre avec un sprint vide graverait une panne passagère
+ * dans la mémoire, et le sprint ne serait plus jamais redemandé.
+ *
+ * Même contrepartie que l'archive — un sprint clos qu'on rattacherait plus tard à un ticket
+ * dans JIRA resterait invisible — donc même interrupteur (`archiveClosed`) et même
+ * contournement (« Tout réimporter depuis JIRA », qui purge la liste).
+ */
+function _loadEmptyClosed(enabled) {
+    if (!enabled) return new Set();
+    try { return new Set(JSON.parse(localStorage.getItem(EMPTY_CLOSED_KEY) || '[]')); }
+    catch { return new Set(); }
+}
+
+function _saveEmptyClosed(ids) {
+    try {
+        // Les plus récemment constatés en dernier : c'est le début qu'on sacrifie si ça déborde.
+        const list = [...ids].slice(-EMPTY_CLOSED_MAX);
+        localStorage.setItem(EMPTY_CLOSED_KEY, JSON.stringify(list));
+    } catch { /* quota localStorage : la mémoire est un confort, pas une dépendance */ }
+}
+
+/** Purge la mémoire des sprints vides — appelée par « Tout réimporter depuis JIRA ». */
+export function clearEmptyClosedMemory() {
+    try { localStorage.removeItem(EMPTY_CLOSED_KEY); } catch { /* ignore */ }
+}
+
 export function _buildClosedArchive(enabled, isExcludedTeam) {
     const vide = { bySprintId: new Map(), sprintCount: 0, ticketCount: 0 };
     if (!enabled) return vide;
@@ -392,6 +430,10 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
     // Sprints clos déjà en base : on ne les redemandera pas à JIRA (sync complète seulement —
     // le quick mode saute déjà toute la passe et préserve l'existant par le merge).
     const archive = _buildClosedArchive(archiveOn && !quickMode, isExcludedTeam);
+    // Sprints clos déjà constatés vides : l'archive ne peut pas les retenir (aucun ticket à
+    // retenir), et sans cette mémoire ils constituent la totalité des appels qu'elle laisse passer.
+    const emptyClosed = _loadEmptyClosed(archiveOn && !quickMode);
+    const emptyClosedBefore = emptyClosed.size;
     if (archive.sprintCount) {
         console.log(`[Squad-Board] Archive : ${archive.sprintCount} sprints clos déjà en base (${archive.ticketCount} tickets) — non retéléchargés.`);
     }
@@ -626,9 +668,13 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
                 .sort((a, b) => (b.endDate || '').localeCompare(a.endDate || ''))
                 .slice(0, CLOSED_TICKET_SPRINTS);
             for (const cs of closedSprints) {
+                const csId = String(cs.id);
                 // Déjà en base et clos : son contenu est figé, on le réinjectera tel quel.
-                if (archive.bySprintId.has(String(cs.id))) { skippedByArchive++; continue; }
+                if (archive.bySprintId.has(csId)) { skippedByArchive++; continue; }
+                // Déjà constaté vide : rien à en tirer, et il ne se remplira pas tout seul.
+                if (emptyClosed.has(csId)) { skippedByArchive++; continue; }
                 try {
+                    let recus = 0;
                     let cStart = 0;
                     while (cStart < 1000) {
                         const r = await api.jiraGet(`rest/agile/1.0/sprint/${cs.id}/issue`, {
@@ -637,6 +683,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
                             fields: `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,flagged,updated,created`,
                         });
                         const issues = r?.issues || [];
+                        recus += issues.length;
                         for (const issue of issues) {
                             if (seenTicketIds.has(issue.key)) continue;  // déjà pris (sprint actif ou clos plus récent)
                             seenTicketIds.add(issue.key);
@@ -648,6 +695,9 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
                         if (issues.length < 100 || (r.total && cStart + issues.length >= r.total)) break;
                         cStart += issues.length;
                     }
+                    // Zéro issue sur un appel RÉUSSI : le sprint est bien vide. C'est le seul
+                    // endroit où l'inscrire — dans le `catch`, « rien reçu » voudrait dire « panne ».
+                    if (recus === 0 && archiveOn) emptyClosed.add(csId);
                 } catch (e) { incidents.add('tickets d’un sprint clos', e); }
             }
             if (skippedByArchive) {
@@ -1048,6 +1098,11 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
             }
         }
         console.log(`[Squad-Board] Archive réinjectée : ${reinjectes} tickets de sprints clos (${archive.ticketCount - reinjectes} déjà repris par une passe fraîche).`);
+    }
+
+    if (archiveOn && !quickMode && emptyClosed.size !== emptyClosedBefore) {
+        _saveEmptyClosed(emptyClosed);
+        console.log(`[Squad-Board] Sprints clos vides mémorisés : ${emptyClosed.size} (+${emptyClosed.size - emptyClosedBefore}) — ils ne seront plus réinterrogés.`);
     }
 
     // Patche les sprints clos déjà collectés avec leur bufferPoints

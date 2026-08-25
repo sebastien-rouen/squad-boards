@@ -200,6 +200,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
   contient un `<input>` (le focus ferait défiler le rail), `.agenda-toolbar` / `.rot-toolbar`
   portent du texte qui doit wrapper, `.bl-flt-chips` vit dans un popover, `.jira-project-chips`
   est un aperçu. Le rail est pour une NAVIGATION à contenu variable, pas pour tout ce qui wrappe.
+- **Écrasement à l'import d'absences** (3.147.1) : la fenêtre `replaceRange` couvre TOUT ce
+  que le fichier décrit, **jours PIP compris** — pas `piEndDate`, qui les exclut. Sinon une
+  absence PIP d'un import précédent survit, et la déduplication backend `(nom, début, fin)`
+  ne la rattrape pas si la nouvelle est consolidée sur plusieurs jours.
+  ⚠️ La suppression porte sur le **chevauchement** : un congé qui déborde de la fenêtre part
+  en entier, part hors-PI comprise. Volontaire (le CSV pivot fait autorité sur ses jours),
+  mais à dire dans l'UI — c'est fait dans le libellé du bouton « Écraser ».
 - **Import CSV des absences** (3.147.0) : le parser REMONTE ce qu'il écarte
   (`ignoredCells`, `ignoredSamples`, `skippedRows`) et `diagnosePivotCsv()` explique un
   format non reconnu. ⚠️ Un export RH écrivant « CP »/« RTT » au lieu d'un nombre donnait un

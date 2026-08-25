@@ -57,6 +57,10 @@ function _parsePivotAbsencesCsv(raw, year, pipDays = 2) {
     let ignoredCells = 0;
     const ignoredSamples = [];
     let skippedRows = 0;
+    // Détail ligne par ligne — borné : au-delà de 60 entrées, le tableau devient illisible
+    // et le compte global (`ignoredCells`) reste exact de toute façon.
+    const ignoredDetails = [];
+    const IGNORED_DETAILS_MAX = 60;
     for (let r = 1; r < lines.length; r++) {
         const cols = splitLine(lines[r]);
         // Trim agressif sur les méta (espaces invisibles dans les exports Excel) — évite des doublons
@@ -92,6 +96,11 @@ function _parsePivotAbsencesCsv(raw, year, pipDays = 2) {
                 if (txt && !/^[0\s.,;x×–—-]*$/i.test(txt)) {
                     ignoredCells++;
                     if (!ignoredSamples.includes(txt) && ignoredSamples.length < 5) ignoredSamples.push(txt);
+                    // `r + 1` : numéro de ligne tel qu'il apparaît dans le fichier, en-tête
+                    // compris — c'est celui que l'utilisateur cherchera dans Excel.
+                    if (ignoredDetails.length < IGNORED_DETAILS_MAX) {
+                        ignoredDetails.push({ ligne: r + 1, nom: name, date: dc.iso, valeur: txt });
+                    }
                 }
                 continue;
             }
@@ -124,6 +133,7 @@ function _parsePivotAbsencesCsv(raw, year, pipDays = 2) {
         pipDates,                                            // jours PIP du prochain PI
         ignoredCells,                                        // cellules non numériques écartées
         ignoredSamples,                                      // jusqu'à 5 valeurs, pour le message
+        ignoredDetails,                                      // détail (ligne, nom, date, valeur)
         skippedRows,                                         // lignes sans nom
     };
 }
@@ -274,4 +284,40 @@ function diagnosePivotCsv(raw) {
     };
 }
 
-export { _parsePivotAbsencesCsv, _consolidateConsecutive, _memberAbsenceInfo, _isTransverseTeam, diagnosePivotCsv };
+/**
+ * Convertit un CSV à virgules en CSV à points-virgules, en PRÉSERVANT les virgules
+ * qui appartiennent aux noms (« NOM, Prénom »).
+ *
+ * ⚠️ C'est tout l'enjeu : un simple `replace(/,/g, ';')` casserait chaque nom en deux
+ * colonnes et décalerait toutes les dates. On ne convertit donc que les virgules situées
+ * HORS guillemets, et on recolle les couples « MAJUSCULES, Prénom » que l'export a laissés
+ * sans guillemets — le format RH le plus courant.
+ *
+ * @returns {string|null} le CSV converti, ou null s'il n'y avait rien à convertir
+ */
+function convertCommasToSemicolons(raw) {
+    const lines = String(raw || '').split('\n');
+    if (!lines.length) return null;
+    let touche = false;
+    const out = lines.map(line => {
+        if (!line.trim()) return line;
+        let res = '', enGuillemets = false;
+        for (let i = 0; i < line.length; i++) {
+            const c = line[i];
+            if (c === '"') { enGuillemets = !enGuillemets; res += c; continue; }
+            if (c === ',' && !enGuillemets) {
+                // Virgule d'un nom « DUPONT, Jean » : suivie d'une espace puis d'une
+                // majuscule, et précédée d'une lettre. On la garde telle quelle.
+                const avant = line[i - 1] || '';
+                const apres = line.slice(i + 1, i + 3);
+                if (/[A-Za-zÀ-ÿ]/.test(avant) && /^ [A-ZÀ-Ý]/.test(apres)) { res += c; continue; }
+                res += ';'; touche = true; continue;
+            }
+            res += c;
+        }
+        return res;
+    });
+    return touche ? out.join('\n') : null;
+}
+
+export { _parsePivotAbsencesCsv, _consolidateConsecutive, _memberAbsenceInfo, _isTransverseTeam, diagnosePivotCsv, convertCommasToSemicolons };

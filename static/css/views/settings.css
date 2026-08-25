@@ -886,3 +886,42 @@ body.diagram-zoom-lock { overflow: hidden; }
     padding: 0 3px;
     border-radius: var(--r-sm);
 }
+
+/* Détail des cellules ignorées — replié : c'est une information de correction, pas une
+   alerte permanente. Le compte, lui, reste toujours visible dans le bandeau. */
+.abs-csv-ignored { margin-top: var(--sp-2); }
+.abs-csv-ignored summary {
+    cursor: pointer;
+    font-size: var(--fs-xs);
+    color: var(--amber-text);
+    text-decoration: underline;
+}
+.abs-csv-ignored-tbl {
+    width: 100%;
+    margin-top: var(--sp-2);
+    border-collapse: collapse;
+    font-size: var(--fs-xs);
+    /* Un export tordu peut produire des dizaines de lignes : on borne la hauteur plutôt
+       que de repousser le bouton « Importer » hors de l'écran. */
+    display: block;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.abs-csv-ignored-tbl th,
+.abs-csv-ignored-tbl td {
+    padding: 3px var(--sp-2);
+    border-bottom: 1px solid var(--warning-border);
+    text-align: left;
+    white-space: nowrap;
+}
+.abs-csv-ignored-tbl thead th { color: var(--text-muted); font-weight: 500; }
+.abs-csv-ignored-tbl code {
+    font-family: var(--font-mono);
+    background: var(--surface);
+    padding: 0 3px;
+    border-radius: var(--r-sm);
+}
+
+/* Conversion du séparateur proposée dans le diagnostic — corriger sur place plutôt que
+   de renvoyer vers Excel. */
+.abs-csv-fix { align-self: flex-start; margin-top: var(--sp-2); }

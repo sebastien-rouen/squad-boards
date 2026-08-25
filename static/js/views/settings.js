@@ -1936,13 +1936,25 @@ export function renderSettings(container) {
                 if (pipDates.length) patch.pipDates = pipDates;
                 savePiCfg(piTarget, patch);   // fusion : ne touche pas aux valeurs saisies à la main
             }
-            const parts = [`${res.created} absence(s) ajoutee(s)`];
-            if (res.deleted) parts.push(`${res.deleted} ecrasee(s)`);
-            if (res.skipped) parts.push(`${res.skipped} doublon(s)`);
+            const parts = [`${res.created} absence(s) ajoutée(s)`];
+            if (res.updated) parts.push(`${res.updated} mise(s) à jour`);
+            if (res.deleted) parts.push(`${res.deleted} écrasée(s)`);
+            if (res.skipped) parts.push(`${res.skipped} inchangée(s)`);
             if (memSync) parts.push(`${memSync.created || 0} créés, ${memSync.updated || 0} maj`);
             if (piTarget) parts.push(`snapshot PI ${piTarget}`);
             if (piTarget && piStartReal) parts.push(`dates PI`);
             toast(parts.join(' · '), 'success');
+            // Chevauchements : une absence importée recouvre partiellement une absence
+            // existante de la même personne. Les deux coexistent, donc les jours communs
+            // sont comptés DEUX FOIS dans la capacité. Second toast, en `warning` : noyé
+            // dans la ligne de succès, l'information passerait pour un détail.
+            if (res.overlaps?.length) {
+                const ex = res.overlaps.slice(0, 3)
+                    .map(o => `${o.memberName} (${o.existant} ↔ ${o.importe})`).join(', ');
+                const reste = res.overlaps.length > 3 ? ` +${res.overlaps.length - 3}` : '';
+                toast(`⚠️ ${res.overlaps.length} chevauchement(s) : ${ex}${reste}. Ces jours sont comptés deux fois — relancez avec « Écraser la période » pour repartir propre.`,
+                    'warning', 9000);
+            }
             await reloadAndRender(container);
         } catch (e) { toast(e.message, 'error'); }
     });

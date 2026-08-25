@@ -105,6 +105,16 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `breathIdxByPi()` est la source unique, y compris pour `_capAvgVelocity` (page Capacité de
   pi.js) — l'ancien `_isIpSprint` (« si ≥ 6 sprints », comparé au `sprintsPerPI` configuré)
   ne détectait jamais rien avec 5 sprints/PI, et excluait le 5ᵉ d'un PI qui en compte 6.
+- **Statuts JIRA — repli silencieux** (3.145.2) : `mapStatus()` est un lookup EXACT dans
+  `STATUS_MAP` avec repli **muet** sur `'todo'`. Un libellé non déclaré ne lève rien et prive le
+  ticket de ses dates de cycle (statut de travail → pas de `startedDate` ; statut de livraison →
+  pas de `resolvedDate`, et le ticket s'affiche « à faire » alors qu'il est livré). Les files
+  d'attente amont sont donc déclarées EXPLICITEMENT, même quand `'todo'` est déjà la valeur du
+  repli : c'est ce qui distingue « classé » de « oublié ». Déclencheurs du cycle time :
+  `CYCLE_START_STATUSES` / `CYCLE_END_STATUS` (config.js), lus par `sync.js` — ne pas les
+  réinscrire en dur. Golden dataset : `tests/status-map.test.mjs`, à compléter dès qu'une équipe
+  introduit un statut. ⚠️ Toute modif de `STATUS_MAP` n'agit qu'à la **prochaine sync** (status
+  et dates figés en base à l'import).
 - **Temps par colonne — périmètre vs durée** (3.143.1) : la card mesure des DURÉES, donc son
   périmètre est `belongedToPi()` / `belongedToSprint()` (reports compris) — **jamais** le
   `sprintName` courant, qui perd les tickets déplacés à la clôture, soit 43 % du PI29 et

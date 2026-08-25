@@ -1,3 +1,49 @@
+## [3.145.2] - 2026-08-25
+
+### Statuts JIRA non déclarés : 19 tickets livrés comptés comme non commencés
+
+Dernier endroit où un renommage JIRA faussait une métrique en silence. `mapStatus()` est un
+lookup **exact** dans `STATUS_MAP`, avec **repli muet sur `todo`** : un libellé absent de la
+table ne lève rien, ne s'affiche nulle part, et prive le ticket de ses dates de cycle.
+
+- Statut de **travail** non reconnu → `startedDate` jamais posé, ou posé **trop tard** si un
+  autre statut reconnu suit — cycle time nul, ou raccourci sans que rien ne le signale.
+- Statut de **livraison** non reconnu → `resolvedDate` jamais posé → cycle **et** lead time
+  nuls, et le ticket reste affiché « à faire » alors qu'il est livré.
+
+Relevé sur la base : **19 tickets livrés** (« en cours de qualification », « a livrer en qual »)
+étaient dans ce cas, et **22 tickets** gagnent un démarrage donc un cycle time calculable.
+`STATUS_MAP` passe à 112 libellés : statuts de travail manquants (relecture, relecture tech,
+test dev, test recette, correction en cours, wireframes/maquettes — du design, mais du travail),
+statuts de livraison manquants, et **les files d'attente amont déclarées EXPLICITEMENT** (a
+estimer, a spécifier, a livrer en dev, prêt à développer, 3 amigos…). Elles valaient déjà
+`todo` par repli : les écrire ne change rien au comportement, mais distingue « classé amont »
+de « oublié » — c'est précisément ce que le test vérifie.
+
+⚠️ **Effet après la prochaine sync seulement** : `status`, `started_date`, `resolved_date` et
+`cycle_time_days` sont figés en base à l'import.
+
+**Ce que l'audit a corrigé dans mon diagnostic** : les 728 tickets « done » sans cycle time
+(31 %) ne viennent PAS de là. 475 d'entre eux n'ont traversé **aucun** statut de travail —
+« à faire » → « terminé / clos sans suite » : annulations, doublons, cadrages fermés. Un
+cycle time nul y est la bonne réponse, pas un bug.
+
+#### 🧪 Garde-fou : `tests/status-map.test.mjs` (45 tests, suite à 242)
+
+Golden dataset des libellés observés → catégorie attendue, plus un test qui exige que **tout
+libellé de travail ou de livraison soit une CLÉ déclarée** — sans lui, un statut oublié rend
+`'todo'` exactement comme un vrai `'todo'` et passe inaperçu. Les déclencheurs du cycle time
+sortent dans `CYCLE_START_STATUSES` / `CYCLE_END_STATUS` (config.js), lus par `sync.js` : la
+règle est testée là où elle est écrite, plus enfouie dans une condition de `transformIssue`.
+
+**Vérifié par mutation**, code restauré à l'identique ensuite (`diff`) : libellés de livraison
+retirés → 4 échecs ; « a livrer en dev » basculé en travail → 2 échecs ; `CYCLE_START_STATUSES`
+réduit à `['inprog']` → 1 échec.
+
+ℹ️ À ne pas confondre avec `stage-flow.test.mjs` : là-bas les colonnes de flux (**où passe le
+temps**), ici la catégorie d'un statut (**où en est le ticket**). Un même libellé peut
+légitimement être « colonne qualif » et « catégorie done ».
+
 ## [3.145.1] - 2026-08-25
 
 ### 🎨 Maquettes « navigation qui déborde » (mockups/nav-scroll)

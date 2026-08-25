@@ -142,6 +142,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
   sur un descendant, le scrollport n'en hériterait pas.
 - **Navigation** : `NAV_ITEMS` ([config.js](static/js/config.js)) = source unique (sidebar, Ctrl+K, titres).
   Sections : `main` (Pilotage, raccourcis 1-8), `team` (repliable), `footer` (Paramètres, raccourci `,`).
+- **Blocs de la palette Ctrl+K** (3.142.0) : catalogue unique
+  [cmd_sections.js](static/js/components/cmd_sections.js) — un bloc s'ancre sur son **libellé
+  visible** (`anchor`), pas sur un id : renommer un titre de card casse le lien, le corriger se
+  fait **là et nulle part ailleurs**. Mots-clés **sans accents** obligatoires (`_score()` compare
+  des chaînes brutes : « velocite » ne matche pas « Vélocité »). Vues à onglets : `tab` → hash
+  **avec l'équipe courante**, routé par `applyHash`, puis `rerenderView()` à la main (changer
+  `piTab` seul ne notifie personne).
 - **Clés localStorage piégeuses** : `sb-boardMode` = Scrum/Kanban (store) ≠ `sb-board-mode` = layout
   interne du board (columns|swimlanes|list). `sb-piOffset` = PI épinglé (persistant, plus de reset au
   changement de vue).

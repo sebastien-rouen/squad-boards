@@ -6,6 +6,7 @@
 import { store } from '../state.js';
 import { esc, toast, getSprintForTeam } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS, NAV_ITEMS } from '../config.js';
+import { SECTIONS, getSection, gotoSection } from './cmd_sections.js';
 
 const HISTORY_KEY   = 'sb-cmd-history';
 const FIRST_OPEN_KEY = 'sb-cmd-seen';
@@ -398,6 +399,12 @@ function _search(q) {
             const s = Math.max(_score(v.label, text), _score(v.keywords, text) * 0.85);
             if (s > 0) results.push({ group: 'view', score: s + 20, item: v });
         }
+        // Blocs de page (« Temps par colonne », « Prévision de fin »…) — sous les vues,
+        // au-dessus des tickets : on cherche un endroit où aller, pas un ticket.
+        for (const sec of SECTIONS) {
+            const s2 = Math.max(_score(sec.label, text), _score(sec.keywords, text) * 0.85);
+            if (s2 > 0) results.push({ group: 'section', score: s2 + 18, item: sec });
+        }
         // Actions (commandes app) — keywords boost
         for (const a of ACTIONS) {
             const sLabel = _score(a.label, text);
@@ -460,8 +467,8 @@ function _search(q) {
 
 // ── Render results ─────────────────────────────────────────────────────────────
 const _STATUS_COLOR = { done: '#10B981', inprog: '#3B82F6', review: '#8B5CF6', test: '#06B6D4', blocked: '#EF4444', todo: '#94A3B8' };
-const _GROUP_ICON   = { ticket: '🎫', epic: '⚡', feature: '📦', view: '📐', member: '👤', action: '✨' };
-const _GROUP_LABEL  = { ticket: 'Tickets', epic: 'Epics', feature: 'Features', view: 'Vues', member: 'Membres', action: 'Actions' };
+const _GROUP_ICON   = { ticket: '🎫', epic: '⚡', feature: '📦', view: '📐', section: '🧩', member: '👤', action: '✨' };
+const _GROUP_LABEL  = { ticket: 'Tickets', epic: 'Epics', feature: 'Features', view: 'Vues', section: 'Blocs de page', member: 'Membres', action: 'Actions' };
 
 function _highlight(text, term) {
     if (!term || !text) return esc(text || '');
@@ -522,7 +529,7 @@ function _renderResults(results, term, evMatches = []) {
         groups[r.group].push(r);
     }
 
-    const ORDER = ['action', 'view', 'ticket', 'feature', 'epic', 'member'];
+    const ORDER = ['action', 'view', 'section', 'ticket', 'feature', 'epic', 'member'];
     let html = '';
     let total = 0;
 
@@ -540,16 +547,19 @@ function _renderResults(results, term, evMatches = []) {
             const typeBadge = typeLabel
                 ? `<span class="cmd-type badge badge-type badge-${item.type} badge-2xs">${esc(typeLabel)}</span>`
                 : '';
-            const meta = item.team ? `<span class="cmd-meta">${esc(item.team)}</span>` : '';
-            const idEl = item.id !== item.title
+            // Un bloc n'a pas d'équipe : sa méta est la vue où il se trouve
+            const metaTxt = grp === 'section' ? item.viewLabel : item.team;
+            const meta = metaTxt ? `<span class="cmd-meta">${esc(metaTxt)}</span>` : '';
+            // Les blocs n'ont pas de clé JIRA à afficher : leur id est purement technique
+            const idEl = (grp !== 'section' && item.id !== item.title)
                 ? `<span class="cmd-id">${esc(item.id)}</span>`
                 : '';
 
             html += `<div class="cmd-item" data-group="${grp}" data-id="${esc(item.id)}" tabindex="-1">
-                <span class="cmd-item-icon">${_GROUP_ICON[grp]}</span>
+                <span class="cmd-item-icon">${(grp === 'section' && item.icon) || _GROUP_ICON[grp]}</span>
                 ${idEl}
                 ${typeBadge}
-                <span class="cmd-item-title">${_highlight(item.title || item.label || item.id, term)}</span>
+                <span class="cmd-item-title">${_highlight(grp === 'section' ? item.label : (item.title || item.label || item.id), term)}</span>
                 ${pts}
                 ${statusBadge}
                 ${meta}
@@ -611,6 +621,12 @@ function _activate(el, e) {
         // nu ici re-routait via applyHash et réinitialisait l'équipe sélectionnée.
         store.set('view', id);
         _close();
+        return;
+    }
+
+    if (group === 'section') {
+        _close();
+        gotoSection(getSection(id));
         return;
     }
 

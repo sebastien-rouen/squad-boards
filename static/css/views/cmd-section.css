@@ -1,0 +1,30 @@
+/* Mise en avant d'un bloc atteint depuis la palette Ctrl+K (cf js/components/cmd_sections.js).
+   La classe est posée le temps du scroll puis retirée — aucun style permanent sur les cards. */
+
+.cmd-section-flash {
+    /* La topbar est collante : sans marge, un bloc scrollé en "start" passe dessous */
+    scroll-margin-top: 96px;
+    scroll-margin-bottom: 24px;
+    animation: cmd-section-flash 2.2s ease-out;
+}
+
+/* Paramètres : le décalage sticky est déjà porté par scroll-padding-top sur le scrollport
+   (settings.css) — les deux s'additionneraient et la cible partirait trop bas. */
+.content:has(.settings-tabs) .cmd-section-flash {
+    scroll-margin-top: 0;
+}
+
+@keyframes cmd-section-flash {
+    0%,
+    55% {
+        box-shadow:
+            0 0 0 2px var(--primary),
+            0 0 24px -4px var(--primary);
+    }
+
+    100% {
+        box-shadow:
+            0 0 0 2px transparent,
+            0 0 24px -4px transparent;
+    }
+}

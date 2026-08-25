@@ -48,6 +48,7 @@ Défauts et lecture : `SYNC_DEFAULTS` / `syncSetting()` dans [config.js](../stat
 - `sb-sync-teamField` — idem
 - `sb-sync-closedKeep` — nb de sprints clos conservés par board pour l'historique vélocité (défaut **40** depuis 3.143.0). ⚠️ **L'élargir ne coûte aucun appel JIRA** : la passe pagine de toute façon tous les sprints clos du board avant de trancher, et la vélocité Greenhopper arrive en un appel pour le board entier. À 20, dix des treize équipes butaient sur le plafond.
 - `sb-sync-closedTicketSprints` — nb de sprints clos récents (par board) dont on **importe les tickets** en local, pour l'historique vélocité/buffer de la vue Health (défaut 6 ≈ 1 PI ; `0` = désactivé). **Exposé dans Paramètres → Plugin JIRA depuis 3.143.0** (auparavant réglable en console seulement), avec raccourcis en PI et équivalence en mois. ⚠️ Contrairement à `closedKeep`, il coûte **1 appel par sprint et par board**, changelog compris : c'est lui qui détermine la durée d'un import complet et le poids de la base. Sans ça, les tickets des sprints clos ne sont pas synchronisés (seuls sprint actif + futurs + features/epics le sont) → la modale Health devait les lazy-fetch depuis JIRA.
+- `sb-sync-archiveClosed` — `1` (défaut) = une sync complète **ne retélécharge pas** les sprints clos déjà en base : leurs tickets sont relus depuis la base et réinjectés dans le payload (`_buildClosedArchive`). `0` = comportement d'origine. « Tout réimporter depuis JIRA » (`overwrite: true`) le contourne toujours.
 - `sb-jira-excluded-teams` — JSON array des **équipes / lignes produit retirées**. Alimenté quand on supprime une équipe dans Paramètres. La sync ne recrée pas ces équipes (board non scanné + filet de sécurité final sur tickets/features/epics/sprints). Helpers exportés par [sync.js](../static/js/sync.js) : `getExcludedTeams` / `addExcludedTeam` / `removeExcludedTeam` / `clearExcludedTeams`.
 
 ## Profondeur d'historique : deux mesures, pas une
@@ -68,8 +69,25 @@ travail. Le bandeau **« Couverture de l'historique »** (page Health,
 date à partir de laquelle les stats ticket par ticket sont représentatives, et signale
 « ⚠ plafonné » quand la limite vient du réglage et non de JIRA.
 
-⚠️ La sync complète est en mode `replace` : **l'historique ne s'accumule pas**. Élargir la
-fenêtre se paie à *chaque* sync complète, pas une fois pour toutes.
+### Mode archive (3.144.0)
+
+La sync complète est en mode `replace` : elle efface puis ré-importe, donc **l'historique ne
+s'accumule pas** et toute la fenêtre se repaie à chaque fois. Un sprint **clos** ne bougeant
+plus, `_buildClosedArchive()` relit ses tickets depuis la base au lieu de les redemander.
+
+| Fenêtre (17 boards) | Sans archive | 1ʳᵉ sync | Suivantes |
+|---|---|---|---|
+| 6 sprints/board | 102 appels | 22 | ~17 |
+| 13 (~6 mois) | 221 appels | 135 | ~17 |
+| 26 (~1 an) | 442 appels | 315 | ~17 |
+
+Le coût récurrent devient constant (un sprint nouvellement clos par board).
+
+⚠️ **Contrepartie** : une correction faite dans JIRA sur un sprint *déjà clos* ne redescend
+plus. Désactiver `sb-sync-archiveClosed`, ou passer par « Tout réimporter depuis JIRA ».
+⚠️ L'archive réinjecte les objets du store **tels quels** : elle dépend de l'aller-retour exact
+entre `_ticket_dict` et le contrat d'`import_all`. Une clé ajoutée d'un seul côté est perdue en
+silence.
 
 ## Sync rapide vs complète
 - **Rapide** (`importFromJira({ sinceDays })`, mode `merge`) : ne touche que ce qu'elle rapatrie. Pour être rapide, elle **saute les passes historiques** (sprints clos + vélocité Greenhopper par board, tickets des sprints clos, scan `labels=Buffer`) et filtre les enfants de features sur `updated`. Les `teamSprints` collectés (actif + futurs) sont **fusionnés par `jiraId`** avec ceux déjà en base → l'historique de vélocité/buffer des sprints clos est préservé. Conséquence : la vélocité d'un sprint **récemment clôturé** n'est rafraîchie qu'à la sync complète.

@@ -1,3 +1,62 @@
+## [3.144.0] - 2026-08-25
+
+### Mode archive : les sprints clos ne sont plus retéléchargés
+
+La sync complète est en mode `replace` — elle efface puis ré-importe. L'historique ne
+s'accumule donc **jamais**, et comme `closedTicketSprints` coûte un appel par sprint **et**
+par board, une fenêtre d'un an sur dix-sept boards se repayait intégralement à chaque sync.
+C'est ce qui rendait tout élargissement durable impraticable.
+
+Or un sprint **clos ne bouge plus** : périmètre, points et dates sont figés. `_buildClosedArchive()`
+([sync.js](static/js/sync.js)) relit donc ses tickets depuis la base et les réinjecte dans le
+payload au lieu de les redemander à JIRA. Mesuré sur le parc — **104 sprints clos, 1040
+tickets** déjà couverts :
+
+| Fenêtre | Sans archive | 1ʳᵉ sync | Syncs suivantes |
+|---|---|---|---|
+| 6 sprints/board | 102 appels | 22 | **~17** |
+| 13 (~6 mois) | 221 appels | 135 | **~17** |
+| 26 (~1 an) | 442 appels | 315 | **~17** |
+
+Le coût récurrent devient **constant** — un sprint nouvellement clos par board — au lieu de
+croître avec la profondeur demandée.
+
+- Réglage `sb-sync-archiveClosed` (Paramètres → Plugin JIRA), **actif par défaut**. « Tout
+  réimporter depuis JIRA » le contourne, et la confirmation de sync complète annonce ce qui
+  sera archivé.
+- ⚠️ **Contrepartie assumée** : une correction faite dans JIRA sur un sprint *déjà clos*
+  (points réajustés, statut rectifié) ne redescend plus. D'où le réglage désactivable.
+- ⚠️ Repose sur l'aller-retour exact entre `_ticket_dict` ([serializers.py](app/serializers.py))
+  et le contrat lu par `import_all` ([data.py](app/routers/data.py)) : les objets du store
+  repartent tels quels. **Y compris `createdAt`** — sans le correctif 3.143.0 qui le persiste,
+  chaque archivage aurait re-daté les tickets à l'heure de la sync, soit exactement le bug
+  qu'on venait de corriger.
+- `seenTicketIds` fait foi à la réinjection : un ticket archivé déjà rapatrié par une passe
+  fraîche (un reporté, qui porte désormais le sprint actif) garde sa version à jour.
+- Les équipes retirées sont écartées de l'archive — sans ce filtre elles revenaient par la bande.
+- Features et epics ne sont jamais archivés : leurs passes JQL tournent de toute façon.
+
+### 🐛 Détecteur de plafond : faux négatif corrigé
+
+`capped` comparait la médiane au cap. Le compte par équipe n'atteint presque jamais le chiffre
+rond — le cap s'applique par **board** (une équipe peut en avoir deux) et les sprints sans date
+sont écartés en amont. Relevé après la sync : dix équipes sur dix-sept entre 37 et 41 pour un
+cap à 40, médiane 39 → le bandeau répondait « pas plafonné » alors que la troncature était
+manifeste (toutes les équipes démarrant au même mois quelle que soit leur ancienneté réelle).
+
+`_isCapped()` applique désormais une marge proportionnelle (10 %, au moins 1) et un vote à la
+majorité des équipes.
+
+### 📊 Effet mesuré du correctif de dates (3.143.0)
+
+Après la première sync complète, sur les données réelles :
+
+- `created_at` s'étale de **2020-03-04** à aujourd'hui, au lieu d'une seconde unique.
+- Sprints clos en base : **375 → 722** (`closedKeep` 20 → 40), profondeur de vélocité
+  **~9 mois → ~18 mois**, pour zéro appel JIRA supplémentaire.
+- Anomalie « Périmètre élargi » : **360 faux positifs → 20 cas réels**. La règle comparait la
+  date d'import au début du sprint et se déclenchait donc sur tout ticket non terminé.
+
 ## [3.143.1] - 2026-08-25
 
 ### « Temps par colonne » mesurait le mauvais périmètre (et perdait un statut JIRA)

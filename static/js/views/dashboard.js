@@ -135,8 +135,11 @@ export function renderDashboard(container) {
         const m = Math.floor(s.length / 2);
         return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2 * 10) / 10;
     };
-    const _flowTickets = displayPiNum ? tickets.filter(t => _ticketPiNum(t) === displayPiNum) : tickets;
-    const _flowScopeLabel = displayPiNum ? `PI #${displayPiNum}` : 'historique équipe';
+    // Même périmètre que la card « Temps par colonne » : `_ticketPiNum` lit le sprint OÙ LE
+    // TICKET SE TROUVE, donc rate ceux que JIRA a déplacés à la clôture — les plus lents, ceux
+    // qui font justement le lead time. Mesures de durée → `belongedToPi` (cf CLAUDE.md).
+    const _flowTickets = displayPiNum ? tickets.filter(t => belongedToPi(t, displayPiNum)) : tickets;
+    const _flowScopeLabel = displayPiNum ? `PI #${displayPiNum} · périmètre engagé` : 'historique équipe';
     const _doneAll = _flowTickets.filter(t => t.status === 'done');
     const _doneCT = _flowTickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
     const _ltVals = _doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
@@ -710,6 +713,10 @@ export function renderDashboard(container) {
                 ${velocityCardHtml({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax })}
             </div>
             <!-- Aging WIP : ancienneté du travail en cours (proactif) — à côté de la Vélocité -->
+            <!-- Volontairement l'historique équipe complet et NON le périmètre du PI : le WIP est
+                 par nature actuel, et les P50/P85 de référence viennent des tickets terminés —
+                 les restreindre au PI affiché rétrécirait l'échantillon sans rien gagner.
+                 (Pas de backtick dans ce commentaire : il fermerait la template literal.) -->
             ${agingWipCardHtml(tickets)}
             <!-- Prévision Monte-Carlo : va-t-on finir le sprint courant à temps ? -->
             ${_forecastCard}

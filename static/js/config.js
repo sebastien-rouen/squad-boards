@@ -18,19 +18,31 @@ export const STATUS_MAP = {
     'selected for development': 'todo', 'sprint backlog': 'todo',
     'ready': 'todo', 'prêt': 'todo', 'pret': 'todo',
     'en attente': 'todo', 'en cours d\'analyse': 'todo', 'en cours de specification': 'todo',
+    // Files d'attente amont : déjà 'todo' par REPLI, rendues EXPLICITES — le repli silencieux
+    // est le vrai piège (un libellé inconnu devient 'todo' sans que rien ne le signale).
+    'a estimer': 'todo', 'à estimer': 'todo', 'a spécifier': 'todo', 'à spécifier': 'todo',
+    'a livrer en dev': 'todo', 'à livrer en dev': 'todo',
+    'prêt à développer': 'todo', 'pret a developper': 'todo',
+    'point ux/ui': 'todo', '3 amigos': 'todo', 'en cours de recherche u': 'todo',
+    'requête/demande envoyée': 'todo', 'requete/demande envoyee': 'todo',
     'en cours de spécification': 'todo', 'en cours de spécification tech': 'todo',
     // In Progress
     'in progress': 'inprog', 'en cours': 'inprog', 'in development': 'inprog',
     'development': 'inprog', 'doing': 'inprog',
     'en cours de développement': 'inprog', 'en cours de developpement': 'inprog',
     'résolution en cours': 'inprog', 'en cours de traitement': 'inprog',
+    'correction en cours': 'inprog',
+    // Design : du travail en cours, même s'il ne produit pas de code
+    'wireframes en cours': 'inprog', 'maquettes en cours de finalisation': 'inprog',
     // Review
     'in review': 'review', 'code review': 'review', 'review': 'review', 'revue': 'review',
     'en revue': 'review', 'en cours de revue': 'review', 'peer review': 'review',
+    'relecture': 'review', 'en cours de relecture': 'review', 'en cours de relecture tech': 'review',
     // Test / Recette / QA
     'in test': 'test', 'testing': 'test', 'test': 'test', 'qa': 'test',
     'validation': 'test', 'recette': 'test', 'uat': 'test',
     'en test': 'test', 'en cours de recette': 'test',
+    'en cours de test dev': 'test', 'en cours de test recette': 'test', 'tests u': 'test',
     'a livrer en recette': 'test', 'à livrer en recette': 'test',
     // Done / Livraison (inclut preprod, qualif, prod)
     'done': 'done', 'termine': 'done', 'terminé': 'done', 'closed': 'done', 'resolved': 'done',
@@ -43,12 +55,28 @@ export const STATUS_MAP = {
     'a livrer en qualif': 'done', 'à livrer en qualif': 'done',
     'a livrer en qualif (mi)': 'done', 'à livrer en qualif (mi)': 'done',
     'en cours de qualif': 'done', 'en cours de qualif (mi)': 'done',
+    'en cours de qualification': 'done',
+    'a livrer en qual': 'done', 'à livrer en qual': 'done',
     'a livrer en prod': 'done', 'à livrer en prod': 'done', 'en prod': 'done',
     'clos sans suite': 'done', 'won\'t fix': 'done', 'wont fix': 'done', 'duplicate': 'done',
     // Blocked
     'blocked': 'blocked', 'bloque': 'blocked', 'bloqué': 'blocked', 'impediment': 'blocked',
     'on hold': 'blocked', 'retour au demandeur': 'blocked', 'en attente de retour': 'blocked',
 };
+
+/**
+ * Déclencheurs du cycle time, lus par `transformIssue` (sync.js) en rejouant le changelog :
+ *   startedDate  = 1ᵉʳ passage vers une catégorie de TRAVAIL   → CYCLE_START_STATUSES
+ *   resolvedDate = 1ᵉʳ passage vers la catégorie TERMINÉ        → CYCLE_END_STATUS
+ *   cycleTime = resolved − started · leadTime = resolved − création
+ *
+ * ⚠️ Tout repose sur `mapStatus()`, un lookup EXACT dans STATUS_MAP avec repli SILENCIEUX sur
+ * 'todo'. Un libellé JIRA absent de la table ne déclenche donc rien et ne se signale nulle part :
+ * le ticket sort simplement des métriques de flux (`cycleTimeDays > 0` partout). D'où le golden
+ * dataset de `tests/status-map.test.mjs`, à compléter dès qu'une équipe introduit un statut.
+ */
+export const CYCLE_START_STATUSES = ['inprog', 'review', 'test'];
+export const CYCLE_END_STATUS = 'done';
 
 export const TYPE_MAP = {
     'story': 'story', 'histoire': 'story', 'user story': 'story',

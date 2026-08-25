@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nav · Option A — Rail défilant à flèches</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>↔️</text></svg>">
+<!-- Vrais CSS du site : la maquette hérite des tokens et du composant .stg-tab réels -->
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/views/settings.css">
+<link rel="stylesheet" href="shell.css">
+<style>
+/* ══ Option A — la barre reste sur UNE ligne et défile ══════════════════════
+   Le principe : `flex-wrap: nowrap` + `overflow-x: auto`. Tout le reste (flèches,
+   dégradés, centrage de l'actif) n'existe que pour rendre la coupe LISIBLE — un
+   rail qui défile sans le dire est pire qu'un rail qui wrappe, car rien ne
+   signale qu'il reste des onglets. */
+.rail-wrap {
+    position: relative;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+.rail {
+    display: flex;
+    flex-wrap: nowrap;              /* ← le changement d'une ligne */
+    gap: var(--sp-2);
+    padding: 8px var(--sp-3);
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    /* Chaque onglet s'aligne proprement au bord après un swipe, au lieu de rester
+       coupé en deux — un demi-onglet visible se lit comme un défaut d'affichage. */
+    scroll-snap-type: x proximity;
+    /* La barre de défilement native mangerait 8 à 15 px de haut selon l'OS : c'est
+       précisément la hauteur qu'on essaie de rendre au contenu. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    /* Réserve la place des flèches pour que le premier et le dernier onglet ne
+       naissent jamais sous un chevron. */
+    scroll-padding-inline: 32px;
+}
+.rail::-webkit-scrollbar { display: none; }
+.rail .stg-tab { scroll-snap-align: start; flex-shrink: 0; }
+
+/* ── Signalement de la coupe : dégradés + chevrons ────────────────────────── */
+/* Les deux se posent en `pointer-events:none` sauf le bouton lui-même : un doigt
+   qui swipe au-dessus du dégradé doit défiler le rail, pas être bloqué. */
+.rail-fade {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 40px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 1;
+}
+.rail-fade--l { left: 0;  background: linear-gradient(90deg, var(--surface), transparent); }
+.rail-fade--r { right: 0; background: linear-gradient(-90deg, var(--surface), transparent); }
+.rail-wrap[data-l="1"] .rail-fade--l,
+.rail-wrap[data-r="1"] .rail-fade--r { opacity: 1; }
+
+.rail-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    font-size: 13px;
+    z-index: 2;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+}
+.rail-arrow--l { left: 2px; }
+.rail-arrow--r { right: 2px; }
+/* Une flèche n'apparaît QUE s'il y a quelque chose de ce côté-là. Deux flèches
+   toujours visibles, dont une inerte, apprennent au doigt à les ignorer. */
+.rail-wrap[data-l="1"] .rail-arrow--l,
+.rail-wrap[data-r="1"] .rail-arrow--r { opacity: 1; pointer-events: auto; }
+.rail-arrow:hover { border-color: var(--border-hover); color: var(--text); }
+.rail-arrow:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+
+/* Au pointeur fin (souris), on rend la barre de défilement : le hover suffit à la
+   découvrir, et on n'a pas la contrainte de hauteur du téléphone. */
+@media (pointer: fine) {
+    .rail { scrollbar-width: thin; }
+}
+/* Un utilisateur qui a demandé moins d'animation ne doit pas subir le défilement
+   fluide, qui donne le mal de cœur à certains. */
+@media (prefers-reduced-motion: reduce) {
+    .rail { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="mk-head">
+    <a class="mk-back" href="index.html">← Retour aux directions</a>
+    <h1>Option A — Rail défilant à flèches</h1>
+    <p>
+        La barre d'onglets ne passe plus jamais à la ligne : elle reste sur <strong>une seule
+        ligne</strong> et défile horizontalement. Des chevrons apparaissent <em>uniquement</em>
+        du côté où il reste des onglets, doublés d'un dégradé qui montre que ça continue.
+        L'onglet actif se recentre tout seul quand on change de section.
+    </p>
+</div>
+
+<div class="mk-toolbar" id="mk-toolbar"></div>
+
+<div class="mk-stage-wrap">
+    <div class="mk-stage">
+        <div class="mk-topbar">
+            <span class="mk-topbar-title">Paramètres</span>
+            <span class="mk-topbar-dots">⋯</span>
+        </div>
+
+        <div class="rail-wrap" id="railWrap">
+            <span class="rail-fade rail-fade--l"></span>
+            <span class="rail-fade rail-fade--r"></span>
+            <button class="rail-arrow rail-arrow--l" id="arrowL" aria-label="Onglets précédents">‹</button>
+            <button class="rail-arrow rail-arrow--r" id="arrowR" aria-label="Onglets suivants">›</button>
+            <nav class="rail" id="rail" aria-label="Sections Paramètres"></nav>
+        </div>
+
+        <div class="mk-content" id="mkContent"></div>
+    </div>
+</div>
+
+<div class="mk-probe">
+    <h3>📏 Mesure réelle — la barre et ce qu'elle laisse au contenu</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Appareil</th><th>Lignes</th><th>Hauteur barre</th>
+                <th>Main visible</th><th>Hors champ</th>
+            </tr>
+        </thead>
+        <tbody id="probeBody"><tr><td colspan="5">Mesure en cours…</td></tr></tbody>
+    </table>
+    <p class="mk-note">
+        « Hors champ » n'est pas un défaut ici : c'est ce que le rail assume d'afficher
+        au swipe plutôt que de l'empiler. La colonne à surveiller est <strong>Main visible</strong>.
+    </p>
+</div>
+
+<script src="shell.js"></script>
+<script>
+const rail = document.getElementById('rail');
+const wrap = document.getElementById('railWrap');
+rail.innerHTML = TABS.map((t, i) => tabButtonHtml(t, i, i === 1 ? 'is-active' : '')).join('');
+document.getElementById('mkContent').innerHTML = contentHtml(6);
+
+/* Quel côté a encore des onglets ? C'est la seule source des flèches ET des dégradés :
+   deux calculs séparés finiraient par diverger d'un pixel et faire clignoter l'un des deux. */
+function refreshEdges() {
+    const max = rail.scrollWidth - rail.clientWidth;
+    wrap.dataset.l = rail.scrollLeft > 2 ? '1' : '0';
+    wrap.dataset.r = rail.scrollLeft < max - 2 ? '1' : '0';
+}
+rail.addEventListener('scroll', refreshEdges, { passive: true });
+new ResizeObserver(refreshEdges).observe(rail);
+
+/* Un clic de flèche défile d'environ 80 % de la largeur visible : garder un onglet
+   commun entre deux « pages » évite de perdre le fil. */
+const page = dir => rail.scrollBy({ left: dir * rail.clientWidth * 0.8, behavior: 'smooth' });
+document.getElementById('arrowL').addEventListener('click', () => page(-1));
+document.getElementById('arrowR').addEventListener('click', () => page(1));
+
+rail.addEventListener('click', e => {
+    const b = e.target.closest('.stg-tab');
+    if (!b) return;
+    rail.querySelectorAll('.stg-tab').forEach(x => x.classList.remove('is-active'));
+    b.classList.add('is-active');
+    // Recentrer l'actif : sans ça, sélectionner un onglet au bord le laisse à moitié
+    // sous le dégradé et on ne sait plus où on est.
+    b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+});
+
+const applyDevice = mountToolbar(refreshEdges);
+runProbe('#rail', applyDevice, 'probeBody');
+</script>
+</body>
+</html>

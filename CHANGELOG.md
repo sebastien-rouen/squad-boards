@@ -1,5 +1,47 @@
 ## [3.145.1] - 2026-08-25
 
+### 🎨 Maquettes « navigation qui déborde » (mockups/nav-scroll)
+
+La barre d'onglets de Paramètres (14 sections, `flex-wrap: wrap` + `sticky`) passe à la
+ligne sur téléphone. Mesuré dans Edge sur des viewports réels — la barre occupe **plus de
+la moitié de l'écran** :
+
+| Appareil | Aujourd'hui | Option A | Option B |
+|---|---|---|---|
+| Fold fermé · 344 | **43 %** (9 lignes) | 86 % (1) | 86 % (1) |
+| iPhone SE · 375 | **44 %** (8 lignes) | 85 % (1) | 85 % (1) |
+| iPhone 14 · 390 | **48 %** (8 lignes) | 86 % (1) | 86 % (1) |
+| Pixel 7 · 412 | **54 %** (7 lignes) | 87 % (1) | 86 % (1) |
+| iPad mini · 768 | 71 % (3 lignes) | 87 % (1) | 87 % (1) |
+
+*(« % » = part de la hauteur d'écran restant au contenu.)*
+
+Deux directions maquettées dans `static/mockups/nav-scroll/` — **rien du site n'est
+modifié** :
+
+- **A · Rail défilant** — une seule ligne, défilement horizontal, chevrons affichés du seul
+  côté où il reste des onglets, dégradés de bord, recentrage de l'onglet actif.
+- **B · Déclencheur + feuille** — la bande disparaît au profit d'un bouton « section
+  courante » ouvrant une feuille en deux colonnes, groupée.
+
+Chaque maquette embarque une **sonde** qui parcourt six appareils et rend des chiffres
+(lignes, hauteur de barre, main visible, hors champ) : les options se comparent sur des
+mesures, pas sur une impression.
+
+⚠️ **Le résultat contredit l'intuition de départ** : A et B rendent le *même* espace (39 px
+de barre contre 42 px). Le pari de B — payer un tap pour gagner de la place — n'a donc rien
+à gagner. Avis détaillé et piste de synthèse dans
+[le README](static/mockups/nav-scroll/README.md).
+
+⚠️ La barre de référence reproduit la **vraie** structure (4 groupes en colonne avec leur
+label 9 px). Une première version à plat annonçait 7 lignes là où il y en a 8 — corrigée :
+une maquette qui exagère le problème ne sert à rien.
+
+`settings-tabs` est le cas le plus visible, mais 173 conteneurs du site sont en
+`flex-wrap: wrap` ; les autres barres concernées sont listées dans le README.
+
+## [3.145.1] - 2026-08-25
+
 ### Le même biais de périmètre sur Lead time, Cycle time et le débit — et un garde-fou
 
 Suite de 3.143.1 : les cards voisines lisaient elles aussi `sprintName`, donc ne mesuraient que

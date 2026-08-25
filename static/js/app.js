@@ -99,9 +99,11 @@ function pushHash() {
         const sec = store.get('reportsSection') || 'metriques';
         hash = `reports/${teamPart}/${sec}`;
     } else if (view === 'settings') {
-        // Settings : pas de team, mais on inclut le slug de la tab active si défini
+        // Settings : pas de team, mais on inclut le slug de la tab active si défini,
+        // et l'équipe ciblée si le hash d'arrivée en portait une (#settings/rotation/<équipe>).
         const sec = store.get('settingsSection');
-        if (sec) hash = `settings/${sec}`;
+        const stgTeam = store.get('settingsTeam');
+        if (sec) hash = `settings/${sec}${stgTeam ? '/' + encodeURIComponent(stgTeam) : ''}`;
     } else if (view === 'sprint') {
         // Sprint : team/[sprintPick/][layout]
         //   - sprintPick = sprint sélectionné si différent du sprint actif
@@ -203,7 +205,9 @@ function applyHash() {
             const resolved = SETTINGS_ALIASES[raw1] || raw1;
             if (resolved !== raw1) {
                 parts[1] = resolved;
-                history.replaceState(null, '', `#settings/${resolved}`);
+                // parts[2] = équipe ciblée (#settings/rotation/Gabbiano) — la perdre ici
+                // ramenait sur la section sans se positionner sur l'équipe demandée.
+                history.replaceState(null, '', `#settings/${resolved}${parts[2] ? '/' + parts[2] : ''}`);
             }
         }
 
@@ -214,6 +218,10 @@ function applyHash() {
                 // Settings n'a pas de team — parts[1] = section à ouvrir (#settings/rotation)
                 const alreadyOnSettings = store.get('view') === 'settings';
                 if (parts[1]) store.set('settingsSection', decodeURIComponent(parts[1]));
+                // parts[2] = équipe à cibler dans la section (bouton « ⚙ Édition » de la page
+                // Support → #settings/rotation/Gabbiano). Volontairement PAS store.team : le
+                // filtre du topbar ne doit pas basculer au passage sur les Paramètres.
+                store.set('settingsTeam', parts[2] ? decodeURIComponent(parts[2]) : null);
                 // Si on est DÉJÀ sur settings, le set('view','settings') ne notifie pas (Store dédup)
                 // → on force un re-render pour appliquer l'auto-ouverture de la section ciblée.
                 if (alreadyOnSettings && parts[1]) {

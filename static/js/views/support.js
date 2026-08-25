@@ -12,6 +12,7 @@ import {
     SUPPORT_WEEK_MODES, getSupportWeekMode,
     supportWorkingDays, supportDaysForMember,
     isMemberSupportActive, effectiveRosterForPi, teamNameMatches, getCurrentPi,
+    confirmDanger,
 } from '../utils.js';
 import { buildPiWeeks } from '../utils/pi-weeks.js';
 import * as api from '../api.js';
@@ -339,6 +340,11 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
     const targetTeams = (teamFilter && teamFilter !== 'all')
         ? [teamFilter]
         : teams.slice();
+    // Le bouton « PI suivant » ne s'affiche que s'il vise un AUTRE PI que le bouton
+    // principal : dès que le topbar épingle le PI+1, displayPiNum === nextPiNum et la barre
+    // montrait deux fois le même PI (« 🎲 Générer PI31 » puis « 🎲 PI31 »).
+    const _showNextBtn = !!_base.nextPiNum && _base.nextPiNum !== displayPiNum;
+
     const showPast = localStorage.getItem('sup-show-past') === 'true';   // OFF par défaut
     const allWeeks = displayWeeks;
     const today = new Date().toISOString().slice(0, 10);
@@ -463,8 +469,8 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
                 </div>
                 <div class="sup-table-panel-actions">
                     <button class="btn btn-sm btn-primary" data-sup-shuffle="${esc(team)}" title="Génère la rotation PI ${displayPiNum} (passé préservé)">🎲 Générer PI${displayPiNum}</button>
-                    ${_base.nextPiNum ? `<button class="btn btn-sm btn-secondary" data-sup-shuffle-next="${esc(team)}" title="Génère la rotation PI ${_base.nextPiNum}">🎲 PI${_base.nextPiNum}</button>` : ''}
-                    <a class="btn btn-sm btn-secondary" href="#settings/rotation" title="Éditer finement dans Paramètres > Rotation Support">⚙ Édition</a>
+                    ${_showNextBtn ? `<button class="btn btn-sm btn-secondary" data-sup-shuffle-next="${esc(team)}" title="Génère la rotation PI ${_base.nextPiNum}">🎲 PI${_base.nextPiNum}</button>` : ''}
+                    <a class="btn btn-sm btn-secondary" href="#settings/rotation/${encodeURIComponent(team)}" title="Éditer finement dans Paramètres > Rotation Support (positionné sur ${esc(team)})">⚙ Édition</a>
                 </div>
             </div>
             <div class="sup-table-wrap">
@@ -658,6 +664,19 @@ function _wirePiTimeline(container) {
             toast(`Tous les membres de ${team} sont marqués inactifs support.`, 'warning');
             return;
         }
+        // Le tirage RÉÉCRIT les semaines du PI ciblé : un clic accidentel effaçait une
+        // rotation déjà négociée avec l'équipe, sans retour arrière possible.
+        const _alreadyFilled = existingSupport.filter(s =>
+            weeks.some(w => w.weekStart === s.weekStart) && (s.members || []).length
+        ).length;
+        const _ok = await confirmDanger(
+            `Générer la rotation du PI ${_targetPi} ?`,
+            `Équipe ${team} — les ${weeks.length} semaines du PI seront retirées au sort.\n`
+            + `Les semaines passées et celles verrouillées 🔒 sont préservées.`
+            + (_alreadyFilled ? `\n\n⚠ ${_alreadyFilled} semaine(s) déjà remplie(s) seront réécrites.` : ''),
+            { confirmLabel: '🎲 Générer', cancelLabel: 'Annuler', danger: !!_alreadyFilled },
+        );
+        if (!_ok) return;
         const rotations = generateSupportRotation({
             team, weeks, memberNames: activeMembers, absences, existingSupport,
             membersPerWeek: mpw, weekMode: teamMode,

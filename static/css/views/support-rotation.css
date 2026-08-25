@@ -243,6 +243,67 @@
 .rot-count-cell.rot-count-ok      { color: var(--success) !important; }
 .rot-count-cell.rot-count-partial { color: var(--warning) !important; }
 
+/* ── Barre d'outils de la grille (toggle « Congés seuls ») ─────────────────── */
+.rot-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-2);
+}
+.rot-toolbar-hint { flex: 1 1 240px; min-width: 0; }
+
+/* ── Mode « Congés seuls » ─────────────────────────────────────────────────────
+   Neutralise les marques d'affectation support : seule la lecture des congés reste.
+   Rien n'est modifié en base — et la grille passe non cliquable, un clic sur une case
+   dont l'état n'est plus visible affecterait un membre à l'aveugle. */
+.rot-hide-support .rot-day { pointer-events: none; }
+.rot-hide-support .rot-day.on {
+    background: var(--bg);
+    border-color: var(--border);
+    color: var(--text-muted);
+    font-weight: var(--fw-medium);
+}
+/* Un jour à la fois « en support » et en congé doit rendre EXACTEMENT comme un congé seul :
+   les variantes .on.* portent un !important qu'il faut surcharger explicitement. */
+.rot-hide-support .rot-day.on.rot-day-abs-full {
+    background: color-mix(in srgb, var(--danger) 16%, transparent) !important;
+    border-color: color-mix(in srgb, var(--danger) 45%, transparent) !important;
+    color: var(--danger) !important;
+}
+.rot-hide-support .rot-day.on.rot-day-abs-half {
+    background:
+        linear-gradient(
+            135deg,
+            transparent 38%,
+            color-mix(in srgb, var(--warning) 55%, transparent) 38%,
+            color-mix(in srgb, var(--warning) 55%, transparent) 62%,
+            transparent 62%
+        ),
+        color-mix(in srgb, var(--warning) 12%, transparent) !important;
+    border-color: color-mix(in srgb, var(--warning) 60%, transparent) !important;
+    color: var(--warning) !important;
+}
+/* Contrôles qui n'ont plus d'objet sans le support : totaux, cadenas, actions du panneau */
+.rot-hide-support .rot-count-row,
+.rot-hide-support .rot-wk-lock { display: none; }
+.rot-hide-support .rot-panel-actions [data-rot-copy],
+.rot-hide-support .rot-panel-actions [data-rot-slack],
+.rot-hide-support .rot-panel-actions [data-rot-shuffle],
+.rot-hide-support .rot-panel-actions [data-rot-clear] { display: none; }
+
+/* ── Panneau ciblé par #settings/rotation/<équipe> ─────────────────────────── */
+/* Halo bref à l'arrivée depuis « ⚙ Édition » (page Support) : sur une page à N équipes,
+   un scroll silencieux ne dit pas où l'on a atterri. La classe est retirée à animationend. */
+@keyframes rot-target-pulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent); }
+    100% { box-shadow: 0 0 0 10px transparent; }
+}
+.rot-panel--targeted { animation: rot-target-pulse 1.4s ease-out 2; }
+@media (prefers-reduced-motion: reduce) {
+    .rot-panel--targeted { animation: none; outline: 2px solid var(--primary); }
+}
+
 /* Toggle PI suivant — switch à 2 segments façon tab-bar */
 /* Support rotation — tab PI Planning (lecture seule) */
 .pi-support-rota { display: flex; flex-direction: column; gap: var(--sp-3); }

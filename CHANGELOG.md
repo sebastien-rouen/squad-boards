@@ -1,3 +1,55 @@
+## [3.141.22] - 2026-08-25
+
+### Rotation — mode « Congés seuls », ciblage d'équipe depuis Support, doublon de génération
+
+**Paramètres → Rotation : bouton « 🌴 Congés seuls »** (barre au-dessus des panneaux). Il masque
+les marques d'affectation support de la grille pour ne laisser lire que les congés de l'équipe
+(🟥 journée, 🟧 demi-journée) — le cas d'usage courant « qui est absent la semaine du 12 ? »
+n'obligeait plus qu'à lire une grille où le vert du support couvrait le rouge des congés.
+
+- **Purement visuel** : classe `rot-hide-support` sur `#rot-panels`, rien n'est écrit en base.
+  État mémorisé (`localStorage`, clé `rot-hide-support`).
+- La grille passe **non cliquable** tant que le mode est actif : un clic sur une case dont
+  l'état n'est plus visible affecterait un membre à l'aveugle. Totaux, cadenas et actions du
+  panneau (Copier / Slack / Shuffle / ✕) sont masqués avec lui.
+- Un jour à la fois « en support » et en congé rend **exactement** comme un congé seul —
+  les variantes `.rot-day.on.rot-day-abs-*` portent un `!important` explicitement surchargé.
+- Le HTML (`_rotToolbarHtml`) et le câblage (`_rotWireToolbar`) vivent dans
+  [settings-rotation.js](static/js/views/settings-rotation.js), pas dans `settings.js`.
+  La barre étant **hors** de `#rot-panels`, elle n'est pas recâblée par `_rotRenderPanels`.
+
+### « ⚙ Édition » de la page Support ouvre vraiment l'équipe
+
+Le bouton d'un panneau `#support/<équipe>` pointait sur `#settings/rotation` et retombait sur
+le filtre du topbar. Deux défauts : en vue « toutes les équipes » il n'ouvrait rien, et même
+avec une équipe active le panneau restait **replié**.
+
+- Le lien porte maintenant l'équipe : **`#settings/rotation/<équipe>`**, lue par `applyHash`
+  dans `store.settingsTeam`. Volontairement **pas** `store.team` : le filtre du topbar ne doit
+  pas basculer au passage sur les Paramètres. Le segment survit à la résolution des alias de
+  section, à `pushHash` et à `_settingsApplyTabs` — le lien est rechargeable (F5).
+- `_rotSetCollapsed(team, false)` est suivi d'un **`_rotRenderPanels`** : les panneaux sont
+  déjà dans le HTML rendu (repliés), l'état ne s'appliquait donc qu'à la visite suivante et le
+  `scrollIntoView` visait un panneau fermé. Vu de l'utilisateur : « Édition ne fait rien ».
+- Halo bref (`rot-panel--targeted`, retiré à `animationend`, neutralisé sous
+  `prefers-reduced-motion`) : sur une page à N équipes, un scroll silencieux ne dit pas où l'on
+  a atterri.
+- Ciblage à **usage unique** — libéré après le scroll, sinon un retour ultérieur sur Paramètres
+  via la sidebar rouvrait cette équipe sans que rien ne l'ait demandé.
+
+### Support — plus de doublon « Générer PI31 » / « PI31 », et confirmation avant tirage
+
+- Le bouton « PI suivant » ne s'affiche que s'il vise **un autre PI** que le bouton principal.
+  Dès que le topbar épingle le PI+1, `displayPiNum === _base.nextPiNum` et la barre montrait
+  deux fois le même PI.
+- Les deux boutons passent par **`confirmDanger`** (jamais `confirm()` natif) : le tirage
+  RÉÉCRIT les semaines du PI ciblé, un clic accidentel effaçait une rotation déjà négociée avec
+  l'équipe, sans retour arrière. La modale rappelle le nombre de semaines, la préservation du
+  passé et des semaines verrouillées 🔒, et **compte les semaines déjà remplies** qui seront
+  réécrites (elle passe alors en rouge). La confirmation arrive après les gardes existantes
+  (semaines calculables, roster non vide, membres actifs) : pas de modale pour un tirage qui
+  n'aurait de toute façon rien produit.
+
 ## [3.141.21] - 2026-08-25
 
 ### Import JIRA — le rapport d'échecs s'affiche dans la carte de sync

@@ -31,6 +31,11 @@ avec une équipe active le panneau restait **replié**.
 - `_rotSetCollapsed(team, false)` est suivi d'un **`_rotRenderPanels`** : les panneaux sont
   déjà dans le HTML rendu (repliés), l'état ne s'appliquait donc qu'à la visite suivante et le
   `scrollIntoView` visait un panneau fermé. Vu de l'utilisateur : « Édition ne fait rien ».
+- **Ancrage sous la nav sticky** : `.settings-tabs` est `position:sticky` (`top:-24px`) et
+  recouvrait l'en-tête du panneau visé — nom d'équipe et actions cachés. `scroll-margin-top`
+  sur `#rot-panels .rot-panel` adosse l'ancre au bas de la nav. Sa hauteur n'est pas constante
+  (les groupes de tabs passent à la ligne selon la largeur) : elle est **mesurée** juste avant
+  le scroll et publiée en `--stg-tabs-h` ; le décalage lui-même reste en CSS.
 - Halo bref (`rot-panel--targeted`, retiré à `animationend`, neutralisé sous
   `prefers-reduced-motion`) : sur une page à N équipes, un scroll silencieux ne dit pas où l'on
   a atterri.

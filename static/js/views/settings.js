@@ -3277,6 +3277,12 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
         requestAnimationFrame(() => {
             const panel = container.querySelector(`#rot-panel-${CSS.escape(_targetTeam)}`);
             if (!panel) return;
+            // La nav des tabs est sticky : sans compensation elle recouvre l'en-tête du
+            // panneau (nom d'équipe + actions). Sa hauteur varie — les groupes passent à la
+            // ligne selon la largeur — donc on la MESURE ici, au moment où elle est rendue,
+            // et le décalage est appliqué en CSS (scroll-margin-top sur #rot-panels .rot-panel).
+            const navH = container.querySelector('#settings-tabs')?.offsetHeight;
+            if (navH) container.style.setProperty('--stg-tabs-h', `${navH}px`);
             panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
             // Halo bref : sur une page à N équipes, un scroll silencieux ne dit pas où l'on
             // a atterri. Retiré à la fin de l'animation CSS, jamais persistant.

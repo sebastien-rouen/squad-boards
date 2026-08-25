@@ -1,3 +1,29 @@
+## [3.144.1] - 2026-08-25
+
+### Profondeur par défaut : 60 sprints de vélocité, 13 de tickets
+
+Deux défauts relevés dans `SYNC_DEFAULTS` ([config.js](static/js/config.js)), maintenant que
+le mode archive (3.144.0) rend le second soutenable.
+
+**`closedKeep` : 40 → 60** — toujours **aucun appel JIRA supplémentaire** (la passe pagine déjà
+tout le board avant de trancher, la vélocité Greenhopper arrive en un appel). Historique du
+réglage, mesuré sur le parc : à 20, dix équipes sur treize butaient sur le plafond (~9 mois) ;
+à 40, dix sur dix-sept y butaient encore (37-41 sprints, ~18 mois, toutes démarrant au même
+mois — la signature d'une coupe). 60 vise ~27 mois, au-delà de ce que les boards semblent
+contenir : c'est alors JIRA qui borne, plus le réglage.
+
+**`closedTicketSprints` : 6 → 13** (~6 mois) — celui-ci coûte vraiment, un appel par sprint et
+par board avec changelog. Bascule mesurée : **~135 sprints à télécharger une seule fois
+(~1080 tickets, base ~11 → ~16 Mo), puis ~17 appels par sync** — les sprints nouvellement clos.
+Sans `archiveClosed`, ces 13 sprints se repayaient intégralement à chaque sync complète (221
+appels) ; c'est bien l'archive qui rend cette profondeur tenable, pas un pari sur la patience.
+
+⚠️ La prochaine sync complète sera plus longue que d'habitude — c'est le coût unique ci-dessus.
+Les suivantes seront plus rapides qu'avant le mode archive.
+
+⚠️ Ces valeurs sont des **défauts** : une saisie existante dans Paramètres → Plugin JIRA prime
+et n'est pas touchée.
+
 ## [3.144.0] - 2026-08-25
 
 ### Mode archive : les sprints clos ne sont plus retéléchargés

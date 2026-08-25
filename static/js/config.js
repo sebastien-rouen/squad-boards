@@ -151,13 +151,21 @@ export const SYNC_CONFIG = {
  */
 export const SYNC_DEFAULTS = {
     quickDays: 14,           // fenêtre de la sync rapide, en jours
-    // 40 et non 20 : la passe d'import PAGINE DÉJÀ tous les sprints clos du board avant de
-    // trancher, et le rapport de vélocité Greenhopper arrive en un appel pour le board
-    // entier. Élargir ici ne coûte donc AUCUN appel JIRA de plus — seulement quelques Ko de
-    // `teamSprints`. À 20, dix des treize équipes butaient sur le plafond (mesuré le
-    // 25/08/2026) et perdaient leur historique au-delà de ~9 mois pour rien.
-    closedKeep: 40,          // sprints clos gardés par board (vélocité, tendances)
-    closedTicketSprints: 6,  // sprints clos dont les TICKETS sont rapatriés
+    // 60 : la passe d'import PAGINE DÉJÀ tous les sprints clos du board avant de trancher, et
+    // le rapport de vélocité Greenhopper arrive en un appel pour le board entier. Élargir ici
+    // ne coûte donc AUCUN appel JIRA — seulement quelques Ko de `teamSprints`. Historique du
+    // réglage, mesuré sur le parc : à 20, dix équipes sur treize butaient sur le plafond
+    // (~9 mois) ; à 40, dix sur dix-sept y butaient encore (37-41 sprints, ~18 mois, toutes
+    // démarrant au même mois — la signature d'une coupe). 60 vise ~27 mois, au-delà de ce que
+    // les boards semblent contenir : c'est alors JIRA qui borne, pas le réglage.
+    closedKeep: 60,          // sprints clos gardés par board (vélocité, tendances)
+    // 13 ≈ 6 mois à 14 jours de sprint. Ce réglage-ci coûte VRAIMENT : un appel par sprint et
+    // par board, changelog compris. Il n'est soutenable que grâce à `archiveClosed`, qui
+    // dispense de retélécharger les sprints déjà en base — sans lui, la sync complète étant en
+    // mode `replace`, ces 13 sprints se repayaient intégralement à chaque fois.
+    // Coût de la bascule, mesuré le 25/08/2026 : ~135 sprints à télécharger UNE fois
+    // (~1080 tickets), puis ~17 appels par sync (les sprints nouvellement clos).
+    closedTicketSprints: 13, // sprints clos dont les TICKETS sont rapatriés
     archiveClosed: 1,        // 1 = ne pas re-télécharger les sprints clos déjà en base
 };
 

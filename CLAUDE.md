@@ -178,11 +178,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Convention JIRA sprint** (mémoire `project_jira_sprint_conventions`) : `Cadrage_PIXX` = cadrage, `PI#XX` = features, `PIXX` = tickets standalone.
 - **Profondeur d'historique JIRA** (3.143.0) : deux réglages DISTINCTS, source unique
   `SYNC_DEFAULTS` + `syncSetting()` dans [config.js](static/js/config.js) — jamais un défaut
-  recopié ailleurs. `closedKeep` (40) porte les **métadonnées** de sprint : 1 appel par board,
+  recopié ailleurs. `closedKeep` (60) porte les **métadonnées** de sprint : 1 appel par board,
   et la passe pagine de toute façon tout le board avant de trancher, donc **l'élargir ne coûte
-  aucun appel**. `closedTicketSprints` (6) porte le **détail des tickets** : 1 appel par sprint
+  aucun appel**. `closedTicketSprints` (13 ≈ 6 mois) porte le **détail des tickets** : 1 appel par sprint
   ET par board, changelog compris — c'est lui qui fait la durée d'un import et le poids de la
   base ; `0` le désactive et est une saisie légitime (d'où le paramètre `min` de `_saveCap`).
+  ⚠️ Cette profondeur n'est soutenable QUE grâce à `archiveClosed` : sans lui, le mode
+  `replace` la fait repayer intégralement à chaque sync complète.
   ⚠️ `app.js` garde sa lecture propre de `quickDays` : il charge `sync.js` en import
   **dynamique**, y importer la constante depuis la vue casserait ce lazy.
 - **Dates JIRA à l'import** (3.143.0) : `_jira_dates()` / `_iso_utc()` dans

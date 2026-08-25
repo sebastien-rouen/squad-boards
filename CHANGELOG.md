@@ -1,3 +1,45 @@
+## [3.145.1] - 2026-08-25
+
+### Le même biais de périmètre sur Lead time, Cycle time et le débit — et un garde-fou
+
+Suite de 3.143.1 : les cards voisines lisaient elles aussi `sprintName`, donc ne mesuraient que
+les tickets **finis à temps**. Passage à `belongedToPi()` pour toutes les mesures de durée du
+Dashboard (lead/cycle time, débit 7 j, flow efficiency) et de l'onglet Indicateurs du PI
+Planning (lead/cycle time, scatter, Aging WIP).
+
+| PI29 — Lead time & Cycle time | tickets mesurés | cycle time | lead time |
+|---|---|---|---|
+| avant | 107 | 9 j | 54 j |
+| après | **214** | **13 j** | **65,5 j** |
+
+⚠️ **Les rétrospectives sur PI passés étaient donc toutes optimistes** — +44 % sur le cycle
+time du PI29. Le PI courant, lui, bouge à peine (576 → 580 tickets mesurés) : JIRA n'a pas
+encore déplacé ses tickets. Le biais grandit avec l'âge du PI, ce qui fausse surtout les
+comparaisons de tendance d'un PI à l'autre.
+
+**Aging WIP du Dashboard garde volontairement l'historique équipe complet** (commentaire posé
+dans le code) : le WIP est actuel par nature et ses P50/P85 de référence viennent des tickets
+terminés — les restreindre au PI rétrécirait l'échantillon sans rien gagner. Dans le PI
+Planning en revanche la référence était déjà filtrée par PI : elle reçoit le périmètre engagé.
+
+#### 🧪 Garde-fou : `tests/stage-flow.test.mjs` (36 tests)
+
+Un libellé JIRA qui ne matche aucune colonne **disparaît en silence** — c'est ainsi que
+156 tickets étaient invisibles. Golden dataset des libellés de workflow réellement observés en
+base, chacun avec sa colonne attendue, **`null` compris** pour ceux qui doivent rester hors flux
+(files d'attente, backlog, états terminaux). Il attrape les deux sens de l'erreur : la colonne
+qui perd un statut, et la regex trop large qui compte du temps mort comme du travail.
+
+Couvre aussi l'agrégation (`computeStageFlow`) et le périmètre (`belongedToPi`). **Vérifié par
+mutation** — les trois régressions correspondantes ont été rejouées, le test tombe à chaque
+fois : ancienne regex `includes('qualif')` → échec sur « a livrer en qual » ; garde des files
+d'attente retirée → échec sur « prêt à développer » ; `belongedToPi` retombé sur `sprintName`
+→ échec sur le ticket reporté. Code restauré à l'identique après chaque mutation (`diff`).
+
+💡 Piège rencontré dans ce lot : **un backtick dans un commentaire HTML ferme la template
+literal qui l'entoure**. Charger vraiment les modules dans Node reste la seule vérification qui
+attrape ce genre de chose — une relecture ne le voit pas.
+
 ## [3.145.0] - 2026-08-25
 
 ### Mémoire des sprints clos vides + fenêtre de tickets portée à 1 an

@@ -159,7 +159,12 @@ export const createEvent     = data => request('/api/events', { method: 'POST', 
 export const updateEvent     = (id, data) => request(`/api/events/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteEvent     = id   => request(`/api/events/${id}`, { method: 'DELETE' });
 
-// ── Risks (ROAM board) ────────────────────────────────────────────────────────
+// ── Risks (ROAM) ──────────────────────────────────────────────────────────────
+// ⚠️ PLUS AUCUN APPELANT côté front depuis la 3.146.1 : la vue ROAM et son onglet dans
+// PI Planning ont été retirés (fonctionnalité inutilisée, 0 risque en base). Les routes,
+// le modèle `Risk` et la colonne restent en place — rien n'est perdu et le front se
+// restaure d'un `git revert` — mais ces helpers sont du code mort tant que la vue n'est
+// pas rétablie. À supprimer avec le backend le jour où la décision est confirmée.
 export const getRisks        = (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([,v]) => v)).toString();
     return request(`/api/risks${qs ? '?' + qs : ''}`);

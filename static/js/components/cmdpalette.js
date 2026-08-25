@@ -31,7 +31,7 @@ function _copySlackTpl(kind) {
         'blocker': `🚨 Blocker — j'ai besoin d'aide${teamLabel ? '   👥 ' + teamLabel : ''}\n\nTicket : <lien JIRA>\nContexte : <2-3 lignes>\n\nCe qui me bloque : <la nature précise>\nCe que j'ai déjà essayé : <les pistes>\n\nQui peut m'aider ? 🙏`,
         'mood': `🎭 Mood Meter — ${tplKey}${teamLabel ? '   👥 ' + teamLabel : ''}\n\nComment vous vous êtes senti·e·s sur ce sprint ?\n\n😞 1 = vraiment pas bien\n😕 2 = pas top\n😐 3 = ça va\n🙂 4 = plutôt bien\n😄 5 = excellent\n\nVotez d'un chiffre 1 à 5 (ou sur Squad Board)`,
         'fist': `✊ Fist of Five — confiance PI${teamLabel ? '   👥 ' + teamLabel : ''}\n\nÀ quel point on est confiant·e·s d'atteindre les objectifs du PI ?\n\n1 = Pas du tout confiance\n2 = Inquiet·e\n3 = Mitigé·e\n4 = Confiant·e\n5 = Très confiant·e\n\nUn chiffre, pas de débat 😉`,
-        'pi-planning': `🚀 PI Planning à venir${teamLabel ? '   👥 ' + teamLabel : ''}\n\nDates : <à compléter>\nLieu : <à compléter / lien visio>\n\nÀ préparer :\n   🎯 Vos objectifs candidats (committed / stretch)\n   📊 La capacité prévisionnelle (cf. agenda)\n   🤝 Les dépendances avec les autres équipes\n   📌 Les risques identifiés (ROAM)\n\nVoir Squad Board → PI Planning`,
+        'pi-planning': `🚀 PI Planning à venir${teamLabel ? '   👥 ' + teamLabel : ''}\n\nDates : <à compléter>\nLieu : <à compléter / lien visio>\n\nÀ préparer :\n   🎯 Vos objectifs candidats (committed / stretch)\n   📊 La capacité prévisionnelle (cf. agenda)\n   🤝 Les dépendances avec les autres équipes\n\nVoir Squad Board → PI Planning`,
     };
     const txt = tpls[kind];
     if (!txt) { toast('Template inconnu', 'error'); return; }
@@ -124,7 +124,6 @@ const _VIEW_META = {
     retro:     { icon: '🔁', keywords: 'rétro rétrospective amélioration continue postmortem cop' },
     team:      { icon: '🪪', keywords: 'équipe team identité ateliers workshops' },
     support:   { icon: '🛡️', keywords: 'support rotation sla astreinte' },
-    roam:      { icon: '⚠️', keywords: 'risques roam risks' },
     atlas:     { icon: '🧭', keywords: 'atlas compétences skills appétences mobilité staffing' },
     agenda:    { icon: '📆', keywords: 'agenda semaine absences congés calendrier' },
     settings:  { icon: '⚙️', keywords: 'paramètres settings configuration admin' },

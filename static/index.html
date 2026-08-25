@@ -26,7 +26,6 @@
     <link rel="stylesheet" href="/css/views/support-rotation.css">
     <link rel="stylesheet" href="/css/views/pi-import.css">
     <link rel="stylesheet" href="/css/views/support.css">
-    <link rel="stylesheet" href="/css/views/roam.css">
     <link rel="stylesheet" href="/css/views/pi-calendar.css">
     <link rel="stylesheet" href="/css/views/reports-epic.css">
     <link rel="stylesheet" href="/css/views/settings-pi-objectives.css">
@@ -38,6 +37,11 @@
     <link rel="stylesheet" href="/css/views/chart-zoom.css">
     <link rel="stylesheet" href="/css/views/team.css">
     <link rel="stylesheet" href="/css/views/cmd-section.css">
+    <!-- En DERNIER : .nav-rail passe la barre en flex-wrap:nowrap, et les feuilles de
+         vue posent flex-wrap:wrap sur la meme barre avec la MEME specificite. A specificite
+         egale, c est l ordre de chargement qui tranche - place avant, le composant perdait
+         et le rail continuait de wrapper (constate en mesure : 4 lignes au lieu d une). -->
+    <link rel="stylesheet" href="/css/views/nav-rail.css">
     <script src="/js/vendor/chart.umd.min.js" defer></script>
 </head>
 <body>

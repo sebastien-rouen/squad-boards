@@ -185,6 +185,22 @@ python main.py          # http://localhost:3001  — Swagger /docs
   (board sans estimation = cas nominal). Restitution (3.141.21) : toast `warning` dans
   `app.js` **et** carte de sync qui reste ouverte sur le détail (`store.syncIncidents` →
   `topbar.js`), fermée par `dismissSyncReport()` — jamais automatiquement.
+- **Rail de navigation** (3.146.0, [nav-rail.js](static/js/components/nav-rail.js)) : barre
+  qui défile au lieu de wrapper. Trois pièges, tous constatés en mesure :
+  ⚠️ `.nav-rail { flex-wrap: nowrap }` et la classe de la vue ont la **même spécificité** —
+  `nav-rail.css` DOIT rester le dernier `<link>` de `css/views/`, sinon le rail wrappe.
+  ⚠️ C'est le **wrapper** qui porte `position: sticky`, le fond et les marges négatives : un
+  collant dans un conteneur à sa taille exacte ne colle pas. `_publishTabsHeight` mesure donc
+  `.nav-rail-wrap`, pas la barre.
+  ⚠️ Un `ResizeObserver` ne voit pas un changement de **contenu** : ajouter/retirer des
+  onglets change `scrollWidth` sans changer la taille du rail → `MutationObserver` obligatoire,
+  sinon des chevrons fantômes défilent vers du vide.
+  Barres restant à migrer (`flex-wrap: wrap`) : `.quick-filters`, `.activity-filters`,
+  `.agenda-toolbar`, `.bl-flt-chips`, `.grp-chips-row`, `.jira-project-chips`, `.rot-toolbar`,
+  `.db-oncall-chips`.
+- **ROAM retiré du front** (3.146.1) : plus de vue ni d'onglet PI. Le **backend est intact**
+  (routes `/api/risks`, modèle `Risk`, colonne) — les helpers Risk d'`api.js` sont donc du
+  code mort assumé, pas un oubli. Ne pas les « réparer » en recréant une vue.
 - **Convention JIRA sprint** (mémoire `project_jira_sprint_conventions`) : `Cadrage_PIXX` = cadrage, `PI#XX` = features, `PIXX` = tickets standalone.
 - **Profondeur d'historique JIRA** (3.143.0) : deux réglages DISTINCTS, source unique
   `SYNC_DEFAULTS` + `syncSetting()` dans [config.js](static/js/config.js) — jamais un défaut

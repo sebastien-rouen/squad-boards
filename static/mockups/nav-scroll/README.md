@@ -54,6 +54,14 @@ hauteur avec un `ResizeObserver` pour publier `--stg-tabs-h` et compenser le
 `scroll-padding` des ancres. Compenser en permanence une barre qui gonfle est un aveu : elle
 ne devrait pas gonfler.
 
+## ✅ Décision : A, implémentée en 3.146.0
+
+Livrée comme composant réutilisable [nav-rail.js](../../js/components/nav-rail.js), avec
+une amélioration sur la maquette : **le regroupement est préservé** (les `.stg-tab-group`
+restent des colonnes alignées dans le rail) au lieu d'être aplati. Résultat mesuré sur le
+vrai composant : 1 ligne partout, 60 px, **91 % de main visible** — un peu mieux encore que
+les 86 % de la maquette. Les maquettes restent ici comme trace de l'arbitrage.
+
 ## Mon avis
 
 **L'option A, sans hésiter — et le chiffre qui tranche n'est pas celui que j'attendais.**

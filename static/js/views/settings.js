@@ -17,7 +17,7 @@ import {
     EXPORT_CATEGORY_KEYS, EXPORT_FORMATS, _availableExportCategories,
     _exportCategoryCounts, _loadLastExportChoice, _saveLastExportChoice, _downloadBlob, _openImportModal,
 } from './settings-io.js';
-import { _parsePivotAbsencesCsv, _memberAbsenceInfo, _isTransverseTeam, diagnosePivotCsv } from './settings-absences-csv.js';
+import { _parsePivotAbsencesCsv, _memberAbsenceInfo, _isTransverseTeam, diagnosePivotCsv, convertCommasToSemicolons } from './settings-absences-csv.js';
 import { jiraSectionHtml, wireJiraSection } from './settings-jira.js';
 import { piCongesDiff, knownPiNumbers } from '../utils/pi-weeks.js';
 import { makePersonPicker } from '../components/modal.js';
@@ -1677,7 +1677,22 @@ export function renderSettings(container) {
         const w = [];
         if (parsed.ignoredCells) {
             const ex = (parsed.ignoredSamples || []).map(v => `« ${esc(v)} »`).join(', ');
-            w.push(`<strong>${parsed.ignoredCells} cellule(s) ignorée(s)</strong>${ex ? ` (${ex})` : ''} — le format attend un nombre de jours : <code>1</code>, <code>0.5</code>. Une cellule contenant un code d'absence n'est pas comptée.`);
+            const d = parsed.ignoredDetails || [];
+            // Le compte seul ne permet pas de corriger le fichier : il faut savoir QUELLE
+            // ligne, QUI et QUEL jour. Replié par défaut — c'est un détail, pas une alerte.
+            const detail = d.length ? `
+                <details class="abs-csv-ignored">
+                    <summary>Voir les ${d.length === parsed.ignoredCells ? '' : `${d.length} premières sur `}${parsed.ignoredCells} cellules</summary>
+                    <table class="abs-csv-ignored-tbl">
+                        <thead><tr><th>Ligne</th><th>Personne</th><th>Jour</th><th>Valeur</th></tr></thead>
+                        <tbody>${d.map(x => `<tr>
+                            <td>${x.ligne}</td><td>${esc(x.nom)}</td>
+                            <td>${esc(x.date.split('-').reverse().slice(0, 2).join('/'))}</td>
+                            <td><code>${esc(x.valeur)}</code></td>
+                        </tr>`).join('')}</tbody>
+                    </table>
+                </details>` : '';
+            w.push(`<strong>${parsed.ignoredCells} cellule(s) ignorée(s)</strong>${ex ? ` (${ex})` : ''} — le format attend un nombre de jours : <code>1</code>, <code>0.5</code>. Une cellule contenant un code d'absence n'est pas comptée.${detail}`);
         }
         if (parsed.skippedRows) {
             w.push(`<strong>${parsed.skippedRows} ligne(s) sans nom</strong> ignorée(s).`);
@@ -1699,7 +1714,7 @@ export function renderSettings(container) {
             piStartDate: pivot.piStartDate, piEndDate: pivot.piEndDate, dayCount: pivot.dayCount,
             pipDates: pivot.pipDates,
             ignoredCells: pivot.ignoredCells, ignoredSamples: pivot.ignoredSamples,
-            skippedRows: pivot.skippedRows,
+            ignoredDetails: pivot.ignoredDetails, skippedRows: pivot.skippedRows,
         };
         // Fallback ligne (split ; ou tab — jamais virgule) — pas de dates PI déductibles
         const absencesPayload = [];
@@ -1728,12 +1743,23 @@ export function renderSettings(container) {
             // n'en nommait aucune. `diagnosePivotCsv` dit laquelle, et quoi faire.
             const raw = container.querySelector('#abs-csv-input')?.value || '';
             const diag = raw.trim() ? diagnosePivotCsv(raw) : null;
+            // Séparateur virgule : plutôt que de renvoyer l'utilisateur vers Excel, on
+            // propose la conversion sur place — elle préserve les virgules des noms.
+            const peutConvertir = !!convertCommasToSemicolons(raw);
             box.innerHTML = diag
                 ? `<div class="abs-csv-diag">
                        <strong class="text-danger">${esc(diag.titre)}</strong>
                        <span class="text-xs text-muted">${esc(diag.indice)}</span>
+                       ${peutConvertir ? `<button type="button" class="btn btn-sm btn-secondary abs-csv-fix" id="abs-csv-fix-sep">↔ Convertir les virgules en point-virgules</button>` : ''}
                    </div>`
                 : '<span class="text-danger text-xs">Aucune donnée valide détectée.</span>';
+            box.querySelector('#abs-csv-fix-sep')?.addEventListener('click', () => {
+                const conv = convertCommasToSemicolons(container.querySelector('#abs-csv-input').value);
+                if (!conv) return;
+                container.querySelector('#abs-csv-input').value = conv;
+                _renderAbsPreview();
+                toast('Séparateurs convertis — vérifiez l\'aperçu', 'success');
+            });
             return;
         }
         const { absencesPayload, membersPayload, mode, piStartDate, piEndDate, dayCount, pipDates } = parsed;
@@ -1848,11 +1874,19 @@ export function renderSettings(container) {
         const pipLine = pipDates.length
             ? `\n🗓️ PIP (PI Planning du PI suivant) : ${pipDates.map(_fmtFr).join(', ')}`
             : '';
-        // Fenêtre du PI à écraser : dates déduites du PI si dispo, sinon amplitude des absences importées
+        // Fenêtre à écraser = TOUT CE QUE LE FICHIER DÉCRIT, pas seulement le PI.
+        // ⚠️ Bug corrigé en 3.147.1 : `rangeEnd` valait `piEndDate`, qui exclut par
+        // construction les `pipDays` dernières colonnes (le PI Planning du PI suivant).
+        // Or les absences de ces jours-là SONT importées. « Écraser » s'arrêtait donc avant
+        // elles : une absence PIP d'un import précédent survivait, et comme la déduplication
+        // backend porte sur (nom, début, fin), une ancienne entrée 09→09 ne dédoublonnait
+        // pas une nouvelle 09→10 consolidée — deux absences pour les mêmes jours.
+        // Le fichier fait autorité sur toutes les dates qu'il liste, PIP compris.
         const _payloadDates = absencesPayload
             .flatMap(a => [a.startDate, a.endDate || a.startDate]).filter(Boolean).sort();
-        const rangeStart = piStartReal || _payloadDates[0] || null;
-        const rangeEnd   = piEndDate     || _payloadDates[_payloadDates.length - 1] || null;
+        const rangeStart = [piStartReal, _payloadDates[0]].filter(Boolean).sort()[0] || null;
+        const rangeEnd = [piEndDate, _payloadDates[_payloadDates.length - 1], ...pipDates]
+            .filter(Boolean).sort().pop() || null;
         const overlapCount = (rangeStart && rangeEnd)
             ? (store.get('absences') || []).filter(a => {
                 const s = a.startDate || '', e = a.endDate || s;
@@ -1874,7 +1908,7 @@ export function renderSettings(container) {
             'Importer les absences',
             `Format : ${mode} · ${absencesPayload.length} absence(s) à importer.${teamsLine}${piLine}${datesLine}${pipLine}${xtraInfo}\n\n`
             + `• Ajouter : conserve l'existant, ignore les doublons (même nom + jour).\n`
-            + `• Écraser ${periodLabel}${rangeTxt} : supprime d'abord les ${overlapCount} absence(s) de cette période, puis importe.`,
+            + `• Écraser ${periodLabel}${rangeTxt} : supprime d'abord les ${overlapCount} absence(s) qui CHEVAUCHENT cette période — y compris la part d'un congé qui déborderait avant ou après — puis importe ce que contient le fichier.`,
             choices,
         );
         if (!choice) return;

@@ -1,3 +1,52 @@
+## [3.147.1] - 2026-08-25
+
+### 🐛 « Écraser le PI » laissait passer les jours PIP
+
+Question posée : *« l'écrasement retire-t-il bien tout du PI avant de pousser ? »* — **non**,
+et la mesure l'a confirmé.
+
+`rangeEnd` valait `piEndDate`, qui **exclut par construction** les `pipDays` dernières
+colonnes (le PI Planning du PI suivant, 2 par défaut). Or les absences de ces jours-là
+**sont importées**. La fenêtre de suppression s'arrêtait donc avant elles :
+
+```
+Colonnes CSV   : 03/04 04/04 07/04 08/04 | 09/04 10/04   ← PIP
+Fenêtre AVANT  : 03/04 ─────────────► 08/04              ← s'arrête ici
+Fenêtre APRÈS  : 03/04 ─────────────────────────► 10/04
+```
+
+Conséquence : une absence PIP d'un import précédent **survivait**. Et comme la
+déduplication backend porte sur `(nom, début, fin)`, une ancienne entrée `09→09` ne
+dédoublonnait pas une nouvelle `09→10` consolidée — **deux absences pour les mêmes jours**.
+
+La fenêtre couvre désormais **tout ce que le fichier décrit**, PIP compris : le fichier fait
+autorité sur toutes les dates qu'il liste. `piEndDate` reste inchangé par ailleurs (il sert
+au calcul des dates du PI et de `sprintsPerPIFromCsv`).
+
+⚠️ **Second comportement, celui-ci volontaire mais désormais écrit dans la modale** : la
+suppression porte sur le **chevauchement**, pas l'inclusion. Un congé du 30/03 au 06/04 est
+supprimé *en entier* quand on écrase un PI commençant le 03/04 — sa part de mars comprise —
+puis seuls les jours listés par le CSV sont réimportés. Le libellé du bouton le dit
+maintenant explicitement, au lieu de laisser la surprise à l'utilisateur.
+
+### 📥 Import CSV — les deux suites
+
+**Détail des cellules ignorées.** Le bandeau donnait un compte et cinq exemples : de quoi
+savoir qu'il y a un problème, pas de quoi corriger le fichier. Un `<details>` replié liste
+désormais **ligne, personne, jour et valeur** (borné à 60 entrées, hauteur limitée à 220 px
+pour ne pas repousser le bouton « Importer » hors de l'écran). Le numéro de ligne est celui
+du fichier, en-tête compris — celui qu'on cherche dans Excel.
+
+**Conversion du séparateur sur place.** Le diagnostic « colonnes séparées par des virgules »
+renvoyait vers un ré-export Excel. Un bouton **↔ Convertir les virgules en point-virgules**
+le fait directement.
+⚠️ `convertCommasToSemicolons()` ne peut pas être un `replace(/,/g, ';')` : il casserait
+chaque nom « NOM, Prénom » en deux colonnes et décalerait toutes les dates. Il ignore donc
+les virgules entre guillemets, **et** celles suivies d'une espace + majuscule après une
+lettre — le format RH le plus courant. Vérifié : `DUPONT, Jean,Fuego,ACME,Dev,1,1,0.5`
+devient `DUPONT, Jean;Fuego;ACME;Dev;1;1;0.5`, le CSV redevient parsable et le nom est
+intact.
+
 ## [3.147.0] - 2026-08-25
 
 ### 📥 Import CSV des absences : l'échec cesse d'être silencieux

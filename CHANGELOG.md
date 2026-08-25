@@ -1,3 +1,32 @@
+## [3.142.0] - 2026-08-25
+
+### Ctrl+K trouve les BLOCS de page, pas seulement les vues
+
+La palette proposait les vues entières (« Dashboard ») mais aucun de leurs blocs : chercher
+« Temps par colonne », « Prévision de fin » ou « Vélocité » ne renvoyait rien. Nouveau groupe
+de résultats **🧩 Blocs de page** — 77 blocs sur 11 vues — qui navigue jusqu'au bloc, le scrolle
+à l'écran et le fait clignoter deux secondes.
+
+- **Catalogue** : [cmd_sections.js](static/js/components/cmd_sections.js). Chaque bloc déclare
+  sa vue, son libellé, ses mots-clés (**désaccentués** : `_score()` compare des chaînes brutes,
+  « velocite » ne matcherait jamais « Vélocité ») et son ancre.
+- **Ancrage par LIBELLÉ VISIBLE** (`anchor`), pas par id posé dans les vues : le titre affiché
+  est retrouvé sans tenir compte des accents, emojis ni compteurs « (N) ». Aucune des 20 vues
+  n'a été modifiée ; un titre renommé se corrige dans le seul catalogue. `sel` prend le relais
+  quand un id stable existe (`#charts-section`, `#report-sec-*`, `#section-*`).
+- **Vues à onglets** (PI, Paramètres) : `tab` porte le segment de hash, posé **avec l'équipe
+  courante** (`#pi/<équipe>/<tab>`) — un hash nu la réinitialiserait. Le routage passe par
+  `applyHash`, seul à savoir écrire `piTab` / `settingsSection` ; un changement d'onglet **sans**
+  changement de vue ne déclenche aucun listener, d'où le `rerenderView()` explicite.
+- **Blocs masqués** : les `<details>` ancêtres sont ouverts avant le scroll — c'est justement
+  sur leur événement `toggle` que les graphiques du Board se montent. Un bloc encore invisible
+  est ignoré tant que dure l'attente (3 s), et le rendu de vue étant asynchrone (lazy loading),
+  la cible est cherchée à chaque frame plutôt qu'une seule fois.
+- **Paramètres** : `scroll-margin-top` neutralisé sur la vue (le décalage sticky y est déjà
+  porté par `scroll-padding-top` — les deux s'additionneraient), cf
+  [cmd-section.css](static/css/views/cmd-section.css).
+- Un bloc introuvable au bout de 3 s le dit par un toast au lieu de ne rien faire.
+
 ## [3.141.22] - 2026-08-25
 
 ### Rotation — mode « Congés seuls », ciblage d'équipe depuis Support, doublon de génération

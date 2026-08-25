@@ -117,6 +117,22 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Le nombre d'itérations d'un PI suit `pi-cfg-<N>` (Sprint & PI) > indices JIRA **de ce PI**
   > repli ; ne JAMAIS retomber sur le compte du PI courant. L'en-tête de colonne affiche le
   premier jour **ouvré** ; `weekStart` reste la clé d'appariement en base.
+  - **Mode « Congés seuls »** (3.141.22) : classe `rot-hide-support` sur `#rot-panels`
+    (clé `rot-hide-support`), **purement CSS** — rien n'est écrit en base, et la grille passe
+    `pointer-events:none` (un clic sur une case dont l'état n'est plus visible affecterait un
+    membre à l'aveugle). Les variantes `.rot-day.on.rot-day-abs-*` portent un `!important` :
+    toute surcharge doit être explicite, sinon un jour support+congé ne rend pas comme un
+    congé seul. `_rotToolbarHtml`/`_rotWireToolbar` vivent hors de `#rot-panels` → **câblés
+    une seule fois** par `wireSettings`, jamais par `_rotRenderPanels`.
+  - **Cibler une équipe depuis Support** (3.141.22) : `#settings/rotation/<équipe>` →
+    `store.settingsTeam` (jamais `store.team` : le filtre du topbar ne doit pas basculer).
+    Le segment doit survivre aux alias de section, à `pushHash` ET à `_settingsApplyTabs`.
+    Déplier un panneau exige un **`_rotRenderPanels`** : `_rotSetCollapsed` seul n'agit qu'à
+    la visite suivante et le `scrollIntoView` vise alors un panneau fermé. Ciblage à usage
+    unique (libéré après le scroll).
+  - **Générer une rotation = réécriture** : toujours derrière `confirmDanger` — jamais de
+    tirage sur simple clic. Le bouton « PI suivant » de la page Support ne s'affiche que si
+    `_base.nextPiNum !== displayPiNum` (sinon doublon dès que le PI+1 est épinglé).
 - **Navigation** : `NAV_ITEMS` ([config.js](static/js/config.js)) = source unique (sidebar, Ctrl+K, titres).
   Sections : `main` (Pilotage, raccourcis 1-8), `team` (repliable), `footer` (Paramètres, raccourci `,`).
 - **Clés localStorage piégeuses** : `sb-boardMode` = Scrum/Kanban (store) ≠ `sb-board-mode` = layout

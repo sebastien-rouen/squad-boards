@@ -23,8 +23,9 @@ import { piCongesDiff, knownPiNumbers } from '../utils/pi-weeks.js';
 import { makePersonPicker } from '../components/modal.js';
 // Rotation Support — extraite dans son propre module (grille, shuffle, semaines du PI)
 import {
-    _rotRefreshPanels, _rotWirePanelEvents, _rotPanelsHtml,
+    _rotRefreshPanels, _rotRenderPanels, _rotWirePanelEvents, _rotPanelsHtml,
     _rotBuildPiWeeks, _rotSetCollapsed, _shuffleOneTeam, _jiraSprint1Start,
+    _rotToolbarHtml, _rotWireToolbar, _rotSupportHidden,
 } from './settings-rotation.js';
 import { addExcludedTeam } from '../sync.js';
 
@@ -621,8 +622,10 @@ export function renderSettings(container) {
                 </div>
                 ` : ''}
 
+                ${_rotToolbarHtml()}
+
                 <!-- Per-team rotation grid panels -->
-                <div id="rot-panels" class="mb-4">
+                <div id="rot-panels" class="mb-4${_rotSupportHidden() ? ' rot-hide-support' : ''}">
                     ${_rotPanelsHtml(rotTeamNames, teams, support, rotMembers, absences)}
                 </div>
             </div>
@@ -2010,6 +2013,9 @@ export function renderSettings(container) {
 
     // ── Rotation grid - délégué à _rotWirePanelEvents ────────────────────────
     _rotWirePanelEvents(container);
+    // Barre d'outils (« Congés seuls ») : hors de #rot-panels, donc câblée à part — les
+    // re-renders de la grille ne doivent pas la re-câbler (listeners empilés).
+    _rotWireToolbar(container);
 
     // ── Support - affectation rapide (équipe déduite du 1er membre) ───────────
     const _supMembers = [];          // noms des membres sélectionnés (chips)
@@ -3256,12 +3262,30 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
         'plugin-jira-optionnel': 'jira',
     }[_incomingSection] || _incomingSection;
 
-    if (_sectionKey === 'rotation' && _hasTeam) {
-        // Dépiler le panneau rotation de l'équipe
-        _rotSetCollapsed(_activeTeam, false);
+    // Équipe ciblée : segment explicite du hash (#settings/rotation/Gabbiano, posé par le
+    // bouton « ⚙ Édition » de la page Support) > filtre actif du topbar. Le segment est
+    // indispensable quand le topbar est sur « toutes les équipes » : chaque panneau Support
+    // a son propre bouton et doit ouvrir SON équipe.
+    const _targetTeam = store.get('settingsTeam') || (_hasTeam ? _activeTeam : null);
+
+    if (_sectionKey === 'rotation' && _targetTeam) {
+        // Dépiler le panneau rotation de l'équipe. Les panneaux sont déjà dans le HTML rendu
+        // (repliés) : sans ce re-render, l'état ne s'appliquait qu'à la visite SUIVANTE et le
+        // scroll visait un panneau fermé — vu de l'utilisateur, « Édition » ne faisait rien.
+        _rotSetCollapsed(_targetTeam, false);
+        _rotRenderPanels(container, store.get('support') || []);
         requestAnimationFrame(() => {
-            const panel = container.querySelector(`#rot-panel-${CSS.escape(_activeTeam)}`);
-            panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const panel = container.querySelector(`#rot-panel-${CSS.escape(_targetTeam)}`);
+            if (!panel) return;
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Halo bref : sur une page à N équipes, un scroll silencieux ne dit pas où l'on
+            // a atterri. Retiré à la fin de l'animation CSS, jamais persistant.
+            panel.classList.add('rot-panel--targeted');
+            panel.addEventListener('animationend', () => panel.classList.remove('rot-panel--targeted'), { once: true });
+            // Ciblage à usage unique : sans ça, un retour ultérieur sur Paramètres via la
+            // sidebar rouvrirait cette équipe sans que rien ne l'ait demandé. Le hash a déjà
+            // été réécrit par _settingsApplyTabs (synchrone) : le lien reste rechargeable.
+            store.set('settingsTeam', null);
         });
     }
 
@@ -3369,6 +3393,9 @@ function _settingsApplyTabs(container) {
         // Sync URL : on stocke dans le store (consommé par pushHash → #settings/<slug>) sans
         // re-déclencher le re-render. replaceState pour ne pas polluer l'historique à chaque clic.
         if (syncHash) {
+            // Changement de tab à la main → l'équipe ciblée par le hash d'arrivée ne vaut
+            // plus pour la nouvelle section : on la libère avant de réécrire l'URL.
+            store.set('settingsTeam', null);
             store.set('settingsSection', found.slug);
             const target = `#settings/${found.slug}`;
             if (location.hash !== target) history.replaceState(null, '', target);
@@ -3385,7 +3412,10 @@ function _settingsApplyTabs(container) {
     if (tabs.length) {
         const activeSlug = (nav.querySelector('.stg-tab.is-active')?.dataset.stgTab) || tabs[0].slug;
         store.set('settingsSection', activeSlug);
-        const target = `#settings/${activeSlug}`;
+        // Conserve le segment équipe (#settings/rotation/Gabbiano) : le supprimer ici rendait
+        // le lien non rechargeable — un F5 revenait sur la section sans cibler l'équipe.
+        const _tm = store.get('settingsTeam');
+        const target = `#settings/${activeSlug}${_tm ? '/' + encodeURIComponent(_tm) : ''}`;
         if (location.hash !== target) history.replaceState(null, '', target);
     }
 

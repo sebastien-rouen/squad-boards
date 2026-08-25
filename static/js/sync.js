@@ -6,7 +6,7 @@
 import { store } from './state.js';
 import * as api from './api.js';
 import { mapStatus, mapType, extractTeam, toast, parseWikiMarkup } from './utils.js';
-import { SYNC_CONFIG, SYNC_DEFAULTS, syncSetting } from './config.js';
+import { SYNC_CONFIG, SYNC_DEFAULTS, syncSetting, CYCLE_START_STATUSES, CYCLE_END_STATUS } from './config.js';
 
 /**
  * Collecteur d'échecs PARTIELS d'un import.
@@ -1282,10 +1282,10 @@ function transformIssue(issue, teamName, sprint, storyPointsField, boardStatusMa
                 if (item.field !== 'status') continue;
                 const toStatus = (item.toString || '').toLowerCase().trim();
                 const mapped = (boardStatusMap && boardStatusMap[toStatus]) || mapStatus(toStatus);
-                if (!startedDate && ['inprog', 'review', 'test'].includes(mapped)) {
+                if (!startedDate && CYCLE_START_STATUSES.includes(mapped)) {
                     startedDate = history.created;
                 }
-                if (!resolvedDate && mapped === 'done') {
+                if (!resolvedDate && mapped === CYCLE_END_STATUS) {
                     resolvedDate = history.created;
                 }
             }

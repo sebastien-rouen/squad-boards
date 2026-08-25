@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Navigation qui déborde — 2 directions</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>↔️</text></svg>">
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/views/settings.css">
+<link rel="stylesheet" href="shell.css">
+<style>
+.opts {
+    max-width: 1100px;
+    margin: 0 auto var(--sp-5);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--sp-4);
+}
+.opt {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+}
+.opt h2 { font-size: var(--fs-base); margin: 0 0 var(--sp-2); }
+.opt p { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.6; margin: 0 0 var(--sp-3); }
+.opt .pour, .opt .contre {
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+    margin: 0 0 var(--sp-2);
+    padding-left: var(--sp-4);
+}
+.opt .pour li { color: var(--success-text); }
+.opt .contre li { color: var(--amber-text); }
+.opt-cta {
+    margin-top: auto;
+    display: inline-block;
+    text-align: center;
+    padding: 8px var(--sp-4);
+    border-radius: var(--r-md);
+    background: var(--primary);
+    color: #fff;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    text-decoration: none;
+}
+/* Référence : la barre ACTUELLE, telle qu'elle est en production. Sans elle, on
+   comparerait deux propositions à un souvenir. */
+/* Mêmes propriétés que `.settings-tabs` en production — y compris le `gap`
+   asymétrique `8px var(--sp-5)` : c'est lui qui décide du nombre de lignes. */
+.ref-nav {
+    display: flex;
+    flex-wrap: wrap;                /* ← le comportement d'aujourd'hui */
+    align-items: flex-start;
+    gap: 8px var(--sp-5);
+    padding: 8px var(--sp-6) 10px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<div class="mk-head">
+    <h1>↔️ Navigation qui déborde — 2 directions à challenger</h1>
+    <p>
+        La vue Paramètres compte <strong>14 onglets</strong> dans une barre en
+        <code>flex-wrap: wrap</code> et <code>position: sticky</code>. Sur un téléphone,
+        elle passe à la ligne : chaque ligne supplémentaire est prise au contenu, en haut
+        de l'écran, en permanence. Le code le sait déjà — <code>settings.js</code> mesure
+        cette hauteur avec un <code>ResizeObserver</code> pour publier
+        <code>--stg-tabs-h</code> et compenser le <code>scroll-padding</code>.
+        Compenser un symptôme est un aveu : la barre ne devrait pas wrapper.
+    </p>
+    <p>
+        Ci-dessous l'état actuel mesuré, puis deux paris opposés. La sonde de chaque page
+        parcourt <strong>six appareils réels</strong> et rend des chiffres — nombre de
+        lignes, hauteur volée, part de l'écran qui reste au contenu.
+    </p>
+</div>
+
+<div class="mk-toolbar" id="mk-toolbar"></div>
+
+<div class="mk-stage-wrap">
+    <div class="mk-stage">
+        <div class="mk-topbar">
+            <span class="mk-topbar-title">Paramètres — aujourd'hui</span>
+            <span class="mk-topbar-dots">⋯</span>
+        </div>
+        <nav class="ref-nav" id="refNav" aria-label="Sections Paramètres"></nav>
+        <div class="mk-content" id="mkContent"></div>
+    </div>
+</div>
+
+<div class="mk-probe" style="margin-bottom:var(--sp-5)">
+    <h3>📏 État actuel — ce que la barre coûte vraiment</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Appareil</th><th>Lignes</th><th>Hauteur barre</th>
+                <th>Main visible</th><th>Hors champ</th>
+            </tr>
+        </thead>
+        <tbody id="probeBody"><tr><td colspan="5">Mesure en cours…</td></tr></tbody>
+    </table>
+    <p class="mk-note">
+        C'est la ligne de base. Une option ne mérite d'être retenue que si elle améliore
+        « Main visible » <strong>sans</strong> rendre un onglet introuvable.
+    </p>
+</div>
+
+<div class="opts">
+    <div class="opt">
+        <h2>A · Rail défilant à flèches</h2>
+        <p>
+            Une seule ligne, toujours. La barre défile horizontalement ; des chevrons
+            apparaissent du seul côté où il reste des onglets, avec un dégradé qui montre
+            la coupe. L'onglet actif se recentre à la sélection.
+        </p>
+        <ul class="pour">
+            <li>Hauteur constante quel que soit le nombre d'onglets — ajouter une section ne coûte plus une ligne</li>
+            <li>Tout reste atteignable d'un swipe, sans quitter l'écran</li>
+            <li>Geste familier (stories, onglets de navigateur)</li>
+        </ul>
+        <ul class="contre">
+            <li>Vue d'ensemble perdue : on ne voit plus les 14 sections d'un coup</li>
+            <li>Le regroupement Équipe / Planning / Intégrations / Système s'aplatit</li>
+            <li>Un rail mal signalé se lit comme une barre tronquée — les dégradés ne sont pas décoratifs</li>
+        </ul>
+        <a class="opt-cta" href="option-a-rail.html">Ouvrir l'option A →</a>
+    </div>
+
+    <div class="opt">
+        <h2>B · Déclencheur + feuille</h2>
+        <p>
+            La bande disparaît. Il reste un bouton — la section courante — et un compteur
+            « 2 / 14 ». Le choix se fait dans une feuille montant du bas, en deux colonnes
+            et groupée comme la vraie navigation.
+        </p>
+        <ul class="pour">
+            <li>Encombrement minimal : une seule ligne courte, quel que soit le nombre d'onglets</li>
+            <li>La feuille montre les groupes — meilleure vue d'ensemble que le rail</li>
+            <li>Cibles tactiles confortables (40 px), là où un onglet de rail fait 26 px de haut</li>
+        </ul>
+        <ul class="contre">
+            <li><strong>Un tap de plus</strong> à chaque changement de section</li>
+            <li>Deux modèles de navigation à maintenir si le desktop garde ses onglets</li>
+            <li>La section courante n'est plus lisible « en contexte » parmi ses voisines</li>
+        </ul>
+        <a class="opt-cta" href="option-b-condense.html">Ouvrir l'option B →</a>
+    </div>
+</div>
+
+<div class="mk-probe">
+    <h3>🤔 Ce qu'il faut trancher</h3>
+    <p class="mk-note">
+        Les deux options règlent le wrap. Elles ne règlent pas la même chose ensuite :
+        <strong>A optimise le passage d'une section à l'autre</strong> (navigation
+        exploratoire, on parcourt), <strong>B optimise la lecture</strong> (on sait où on
+        va, on veut l'écran). La question n'est donc pas « laquelle est la plus jolie »
+        mais : dans Paramètres sur téléphone, est-ce qu'on <em>butine</em> ou est-ce qu'on
+        <em>vise</em> ? Mon avis est dans le <a href="README.md">README</a>.
+    </p>
+</div>
+
+<script src="shell.js"></script>
+<script>
+document.getElementById('refNav').innerHTML = refNavHtml();
+document.getElementById('mkContent').innerHTML = contentHtml(6);
+const applyDevice = mountToolbar();
+runProbe('#refNav', applyDevice, 'probeBody');
+</script>
+</body>
+</html>

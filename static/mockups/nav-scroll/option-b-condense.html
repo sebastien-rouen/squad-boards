@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nav · Option B — Déclencheur + feuille</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>↔️</text></svg>">
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="../../css/base.css">
+<link rel="stylesheet" href="../../css/views/settings.css">
+<link rel="stylesheet" href="shell.css">
+<style>
+/* ══ Option B — la barre disparaît, il ne reste qu'un déclencheur ═══════════
+   Pari inverse de l'option A : plutôt que de rendre 14 onglets atteignables au
+   swipe, on n'en montre plus qu'UN — celui où l'on est — et le choix se fait dans
+   une feuille qui couvre l'écran le temps de décider. La navigation cesse d'être
+   une bande permanente pour devenir un geste. */
+.nav-sheet-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 6px var(--sp-3);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+.nav-sheet-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 5px 10px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    color: var(--text);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    max-width: 100%;
+}
+.nav-sheet-trigger:hover { border-color: var(--border-hover); }
+.nav-sheet-trigger:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.nav-sheet-trigger .chev { color: var(--text-muted); font-size: 10px; }
+/* Le libellé se tronque plutôt que d'élargir la barre : « Rappels & Cérémonies »
+   ne doit pas décider de la hauteur de l'en-tête. */
+.nav-sheet-trigger .lbl {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Repère de position : « 7 / 14 ». Le prix de cette option est de perdre la vue
+   d'ensemble — ce compteur en rend le minimum. */
+.nav-sheet-pos {
+    margin-left: auto;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* ── La feuille ────────────────────────────────────────────────────────────── */
+.sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgb(0 0 0 / 45%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 10;
+}
+.sheet {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    max-height: 78%;
+    background: var(--surface);
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    box-shadow: 0 -4px 24px rgb(0 0 0 / 18%);
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+    z-index: 11;
+    display: flex;
+    flex-direction: column;
+}
+.mk-stage[data-sheet="1"] .sheet-backdrop { opacity: 1; pointer-events: auto; }
+.mk-stage[data-sheet="1"] .sheet { transform: translateY(0); }
+
+.sheet-grip {
+    width: 36px; height: 4px;
+    background: var(--border-hover);
+    border-radius: var(--r-full);
+    margin: 8px auto 4px;
+    flex-shrink: 0;
+}
+.sheet-title {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    padding: 0 var(--sp-4) var(--sp-2);
+    flex-shrink: 0;
+}
+.sheet-body {
+    overflow-y: auto;
+    padding: 0 var(--sp-3) var(--sp-4);
+    min-height: 0;
+}
+.sheet-group-label {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: var(--sp-3) 0 var(--sp-2) var(--sp-2);
+}
+/* Deux colonnes : les 14 onglets tiennent alors sans défilement sur un iPhone 14,
+   ce qui est tout l'intérêt — une feuille qu'il faut scroller ne vaut guère mieux
+   qu'une barre qui wrappe. */
+.sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+.sheet-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 9px var(--sp-2);
+    border-radius: var(--r-md);
+    border: 1px solid transparent;
+    background: var(--bg-alt);
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    min-height: 40px;   /* cible tactile : sous 40 px, le taux d'erreur au pouce grimpe */
+}
+.sheet-item .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-item:hover { border-color: var(--border-hover); }
+.sheet-item.is-active {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+    .sheet, .sheet-backdrop { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="mk-head">
+    <a class="mk-back" href="index.html">← Retour aux directions</a>
+    <h1>Option B — Déclencheur + feuille</h1>
+    <p>
+        La barre d'onglets n'existe plus comme bande permanente : elle se réduit à
+        <strong>un seul bouton</strong>, celui de la section courante. Le choix se fait
+        dans une feuille qui monte du bas, en deux colonnes et groupée — la vue d'ensemble
+        est meilleure que dans un rail, mais elle coûte un geste.
+    </p>
+</div>
+
+<div class="mk-toolbar" id="mk-toolbar"></div>
+
+<div class="mk-stage-wrap">
+    <div class="mk-stage" id="stage">
+        <div class="mk-topbar">
+            <span class="mk-topbar-title">Paramètres</span>
+            <span class="mk-topbar-dots">⋯</span>
+        </div>
+
+        <div class="nav-sheet-bar" id="navBar">
+            <button class="nav-sheet-trigger" id="trigger" aria-haspopup="dialog" aria-expanded="false">
+                <span class="ic">👥</span><span class="lbl">Équipes</span><span class="chev">▾</span>
+            </button>
+            <span class="nav-sheet-pos" id="pos">2 / 14</span>
+        </div>
+
+        <div class="mk-content" id="mkContent"></div>
+
+        <div class="sheet-backdrop" id="backdrop"></div>
+        <div class="sheet" role="dialog" aria-modal="true" aria-label="Choisir une section">
+            <div class="sheet-grip"></div>
+            <div class="sheet-title">Aller à une section</div>
+            <div class="sheet-body" id="sheetBody"></div>
+        </div>
+    </div>
+</div>
+
+<div class="mk-probe">
+    <h3>📏 Mesure réelle — la barre et ce qu'elle laisse au contenu</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Appareil</th><th>Lignes</th><th>Hauteur barre</th>
+                <th>Main visible</th><th>Hors champ</th>
+            </tr>
+        </thead>
+        <tbody id="probeBody"><tr><td colspan="5">Mesure en cours…</td></tr></tbody>
+    </table>
+    <p class="mk-note">
+        Le gain de « Main visible » se paie en <strong>un tap supplémentaire par
+        changement de section</strong> — coût invisible dans ce tableau, et c'est
+        justement ce qu'il faut arbitrer.
+    </p>
+</div>
+
+<script src="shell.js"></script>
+<script>
+const stage = document.getElementById('stage');
+const trigger = document.getElementById('trigger');
+let actif = 1;
+
+document.getElementById('mkContent').innerHTML = contentHtml(6);
+
+/* La feuille est groupée comme la vraie nav (TAB_GROUPS) : le regroupement est ce que
+   l'option B gagne sur le rail, autant le montrer. */
+const groupes = [...new Set(TABS.map(t => t.g))];
+document.getElementById('sheetBody').innerHTML = groupes.map(g => `
+    <div class="sheet-group-label">${g}</div>
+    <div class="sheet-grid">
+        ${TABS.map((t, i) => ({ t, i })).filter(x => x.t.g === g).map(({ t, i }) => `
+            <button class="sheet-item" data-i="${i}">
+                <span class="ic">${t.icon}</span><span class="lbl">${t.title}</span>
+            </button>`).join('')}
+    </div>`).join('');
+
+function majActif() {
+    const t = TABS[actif];
+    trigger.querySelector('.ic').textContent = t.icon;
+    trigger.querySelector('.lbl').textContent = t.title;
+    document.getElementById('pos').textContent = `${actif + 1} / ${TABS.length}`;
+    document.querySelectorAll('.sheet-item').forEach(b =>
+        b.classList.toggle('is-active', +b.dataset.i === actif));
+}
+const ouvrir = (o) => {
+    stage.dataset.sheet = o ? '1' : '0';
+    trigger.setAttribute('aria-expanded', o ? 'true' : 'false');
+};
+trigger.addEventListener('click', () => ouvrir(stage.dataset.sheet !== '1'));
+document.getElementById('backdrop').addEventListener('click', () => ouvrir(false));
+document.getElementById('sheetBody').addEventListener('click', e => {
+    const b = e.target.closest('.sheet-item');
+    if (!b) return;
+    actif = +b.dataset.i;
+    majActif();
+    ouvrir(false);
+});
+majActif();
+
+const applyDevice = mountToolbar();
+runProbe('#navBar', applyDevice, 'probeBody');
+</script>
+</body>
+</html>

@@ -24,10 +24,19 @@ import { esc, extractSprintLabel } from '../utils.js';
 import { SYNC_DEFAULTS, syncSetting } from '../config.js';
 
 /**
- * En dessous de ce nombre de tickets, un sprint clos n'est pas « couvert » : c'est un
- * résidu. Mesuré sur le parc au 25/08/2026 — les PI 21 à 28 totalisent une poignée de
- * tickets par équipe là où les PI 29-30 en portent 20 à 50. Les compter comme couverts
- * annoncerait 2 ans d'historique pour 3 mois de données réelles.
+ * Seuil de « résidu » — mais ⚠️ il ne s'applique QU'AU-DELÀ de la fenêtre de rapatriement.
+ *
+ * Deux régimes cohabitent dans la base, et les confondre fausse la mesure dans un sens ou
+ * dans l'autre :
+ *  - DANS la fenêtre (`closedTicketSprints` derniers sprints clos), le sprint a été demandé
+ *    à JIRA pour lui-même : il est couvert, même s'il ne porte que trois tickets. Un sprint
+ *    clos est d'ailleurs souvent maigre — JIRA en a déplacé les non-finis à la clôture.
+ *  - AU-DELÀ, ce qui reste n'a été ramassé qu'au passage par les requêtes features/epics/
+ *    labels : ce sont les tickets encore ouverts, pas le sprint. D'où le seuil.
+ *
+ * Appliquer le seuil partout sous-estimait : mesuré le 25/08/2026 avec une fenêtre à 13,
+ * 28 % des sprints clos portant des tickets tombaient sous les 5 alors qu'ils avaient bien
+ * été rapatriés (médiane réelle : 8 tickets/sprint, P25 à 4).
  */
 const MIN_TICKETS_PER_SPRINT = 5;
 
@@ -114,6 +123,12 @@ export function computeCoverage({ teamsScope = [], tickets = [], sprintInfo = {}
         if (bucket) bucket.push(t);
     }
 
+    // Lus AVANT la boucle : la fenêtre de rapatriement sert au classement de chaque sprint.
+    const caps = {
+        closedKeep: syncSetting('closedKeep') || SYNC_DEFAULTS.closedKeep,
+        closedTicketSprints: syncSetting('closedTicketSprints'),
+    };
+
     const teams = [];
     for (const tm of teamsScope) {
         const closed = allSprints
@@ -148,8 +163,17 @@ export function computeCoverage({ teamsScope = [], tickets = [], sprintInfo = {}
         }
         const nbOf = s => Math.max(counts.get(s.name) || 0, counts.get(extractSprintLabel(s.name)) || 0);
 
+        // `closed` est trié par date croissante : la fenêtre de rapatriement, ce sont les
+        // derniers. Un sprint qui s'y trouve a été demandé à JIRA pour lui-même.
+        const fenetre = new Set(
+            (caps.closedTicketSprints > 0 ? closed.slice(-caps.closedTicketSprints) : [])
+                .map(s => s.name)
+        );
         const withAny = closed.filter(s => nbOf(s) > 0);
-        const solid   = closed.filter(s => nbOf(s) >= MIN_TICKETS_PER_SPRINT);
+        const solid   = closed.filter(s => {
+            const n = nbOf(s);
+            return n > 0 && (fenetre.has(s.name) || n >= MIN_TICKETS_PER_SPRINT);
+        });
         teams.push({
             team: tm,
             closedCount: closed.length,
@@ -162,10 +186,6 @@ export function computeCoverage({ teamsScope = [], tickets = [], sprintInfo = {}
     }
     if (!teams.length) return null;
 
-    const caps = {
-        closedKeep: syncSetting('closedKeep') || SYNC_DEFAULTS.closedKeep,
-        closedTicketSprints: syncSetting('closedTicketSprints'),
-    };
     const metaCount   = _median(teams.map(t => t.closedCount));
     const solidCount  = _median(teams.map(t => t.solidCount));
     // Le plancher : l'équipe la moins couverte en tickets. C'est elle qui limite toute
@@ -252,7 +272,7 @@ export function coverageBannerHtml(cov) {
                 ${_rowHtml({
                     icon: '🎫', tone: 'tickets',
                     label: 'Détail des tickets',
-                    desc: `Cycle time, engagement, scope creep — sprints portant au moins ${minTickets} tickets`,
+                    desc: `Cycle time, engagement, scope creep — les ${caps.closedTicketSprints} derniers sprints clos, plus les plus anciens portant au moins ${minTickets} tickets`,
                     count: ticket.count, since: ticket.since, capped: ticket.capped,
                 })}
                 <p class="hcov-caveat">ⓘ ${caveat}</p>
@@ -265,9 +285,9 @@ export function coverageBannerHtml(cov) {
                             <th scope="col">Équipe</th>
                             <th scope="col" title="Sprints clos connus (dates + vélocité)">⚡ Sprints</th>
                             <th scope="col" title="Début du plus ancien sprint clos connu">Depuis</th>
-                            <th scope="col" title="Sprints clos portant au moins ${minTickets} tickets">🎫 Exploitables</th>
+                            <th scope="col" title="Sprints clos rapatriés pour eux-mêmes (fenêtre de ${caps.closedTicketSprints}), plus les plus anciens portant au moins ${minTickets} tickets">🎫 Exploitables</th>
                             <th scope="col" title="Début du plus ancien sprint exploitable">Depuis</th>
-                            <th scope="col" title="Sprints clos où il ne reste qu'une poignée de tickets — non représentatifs">Résiduels</th>
+                            <th scope="col" title="Sprints hors fenêtre où il ne reste qu'une poignée de tickets, ramassés au passage par les requêtes features/epics — non représentatifs">Résiduels</th>
                         </tr>
                     </thead>
                     <tbody>

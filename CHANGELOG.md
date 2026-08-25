@@ -1,3 +1,41 @@
+## [3.144.2] - 2026-08-25
+
+### 🐛 Couverture : le seuil de « résidu » sous-estimait la profondeur
+
+Le bandeau ne comptait un sprint clos comme exploitable qu'à partir de 5 tickets. Ce seuil
+avait du sens avec une fenêtre de 6 — au-delà, ce qui restait en base venait des passes
+features/epics/labels, donc des tickets encore ouverts. Avec la fenêtre à 13 (3.144.1), il
+sous-estimait : un sprint DANS la fenêtre a été demandé à JIRA pour lui-même, et il est
+souvent maigre puisque JIRA en déplace les non-finis à la clôture.
+
+Mesuré après la sync : **28 % des sprints clos portant des tickets tombaient sous les 5**
+(médiane réelle 8/sprint, P25 à 4) alors qu'ils avaient bien été rapatriés.
+
+Le seuil ne s'applique donc plus qu'**au-delà** de `closedTicketSprints` — deux régimes, deux
+règles. Effet : la profondeur ticket annoncée passe de **7 à 12 sprints** (médiane), et la
+colonne « Résiduels » retombe de 2-9 à 0-5 par équipe, ne désignant plus que de vrais résidus.
+
+### 📊 État après la sync complète
+
+| | Avant | Après |
+|---|---|---|
+| Tickets en base | 2 231 | **3 262** |
+| Sprints clos | 722 | **987** |
+| Poids | 11 Mo | **14 Mo** |
+| Profondeur vélocité | ~18 mois | **~24 mois** (depuis août 2024) |
+| Profondeur tickets | ~3 mois | **~6 mois** (depuis février 2026) |
+| Équipes au plafond `closedKeep` | 10/17 | **5/20** |
+
+Les quinze autres équipes sont désormais bornées par ce que JIRA contient, plus par le
+réglage — l'objectif du passage à 60.
+
+**Archive** : 212 sprints clos / 2 081 tickets déjà couverts. La prochaine sync complète
+n'appellera plus que **85 fois** `/sprint/{id}/issue` au lieu de 260 — **67 % évités**.
+
+⚠️ Un sprint clos **sans aucun ticket** n'entre jamais dans l'archive et sera donc réinterrogé
+à chaque sync. Marginal, mais c'est ce qui explique l'écart avec le régime stationnaire
+théorique (~1 appel par board).
+
 ## [3.144.1] - 2026-08-25
 
 ### Profondeur par défaut : 60 sprints de vélocité, 13 de tickets

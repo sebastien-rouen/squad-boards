@@ -23,6 +23,7 @@ node --test --test-name-pattern "itérations" "tests/*.test.mjs"
 | `pi-config.test.mjs` | priorité des sources `pi-cfg-<N>`, fusion, écart PI ↔ Congés |
 | `recalage.test.mjs` | bandeau « Recaler ce PI sur les Congés », effet et retour arrière |
 | `objectifs-pi.test.mjs` | rendu des objectifs et envoi réel de l'enregistrement |
+| `stage-flow.test.mjs` | colonnes de flux : golden dataset des libellés JIRA, agrégation, `belongedToPi` |
 | `csv-conges.test.mjs` | parser pivot RH, consolidation, replis |
 | `jira-section.test.mjs` | rendu de la section JIRA, échappement XSS, câblage |
 | `sprint-scope.test.mjs` | périmètre d'un sprint : engagement (reports compris) vs réalisé |

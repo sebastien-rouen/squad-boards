@@ -32,10 +32,27 @@ avec une équipe active le panneau restait **replié**.
   déjà dans le HTML rendu (repliés), l'état ne s'appliquait donc qu'à la visite suivante et le
   `scrollIntoView` visait un panneau fermé. Vu de l'utilisateur : « Édition ne fait rien ».
 - **Ancrage sous la nav sticky** : `.settings-tabs` est `position:sticky` (`top:-24px`) et
-  recouvrait l'en-tête du panneau visé — nom d'équipe et actions cachés. `scroll-margin-top`
-  sur `#rot-panels .rot-panel` adosse l'ancre au bas de la nav. Sa hauteur n'est pas constante
-  (les groupes de tabs passent à la ligne selon la largeur) : elle est **mesurée** juste avant
-  le scroll et publiée en `--stg-tabs-h` ; le décalage lui-même reste en CSS.
+  recouvrait l'en-tête du panneau visé — nom d'équipe et actions cachés.
+
+### Paramètres — tous les scrolls de la vue s'arrêtent sous la barre d'onglets
+
+Le correctif ci-dessus vaut pour **toute** la vue, pas seulement la rotation : le décalage est
+porté par le **scrollport** (`scroll-padding-top` sur `.content:has(.settings-tabs)`,
+[settings.css](static/css/views/settings.css)) et non par chaque cible.
+
+- Couvre les trois `scrollIntoView` de la vue : panneau d'équipe visé par
+  `#settings/rotation/<équipe>`, carte de sprint imbriquée (`.sprint-nested-card`) et
+  navigation clavier dans la grille de rotation — ces deux derniers en `block:'nearest'`,
+  qui respecte lui aussi le `scroll-padding`.
+- ⚠️ **Ne jamais y superposer un `scroll-margin-top` sur les cibles** : les deux
+  s'additionnent et le scroll dépasse d'autant.
+- `--stg-tabs-h` est **mesurée** au rendu (`_publishTabsHeight`, appelée par
+  `_settingsApplyTabs`) et suivie par `ResizeObserver` : les groupes d'onglets passent à la
+  ligne selon la largeur, une valeur figée serait fausse dès le premier redimensionnement.
+  Un seul observer à la fois, et garde `typeof ResizeObserver` (absent sous `node --test`).
+  `container` **est** `#content`, le scrollport lui-même (`app.js` appelle `renderer(content)`) :
+  la variable atterrit donc au bon endroit — posée sur un descendant, elle n'aurait pas été
+  héritée par le scrollport. Le repli CSS couvre une nav sur deux lignes.
 - Halo bref (`rot-panel--targeted`, retiré à `animationend`, neutralisé sous
   `prefers-reduced-motion`) : sur une page à N équipes, un scroll silencieux ne dit pas où l'on
   a atterri.

@@ -133,6 +133,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
   - **Générer une rotation = réécriture** : toujours derrière `confirmDanger` — jamais de
     tirage sur simple clic. Le bouton « PI suivant » de la page Support ne s'affiche que si
     `_base.nextPiNum !== displayPiNum` (sinon doublon dès que le PI+1 est épinglé).
+- **Scroller dans Paramètres** (3.141.22) : `.settings-tabs` est sticky en haut du scrollport
+  et masquerait toute cible de `scrollIntoView`. Le décalage est porté **une seule fois** par
+  `scroll-padding-top` sur `.content:has(.settings-tabs)` ([settings.css](static/css/views/settings.css)) —
+  ⚠️ ne JAMAIS y ajouter un `scroll-margin-top` sur une cible, les deux s'additionnent.
+  `--stg-tabs-h` est mesurée (`_publishTabsHeight` + `ResizeObserver`, la nav wrappe selon la
+  largeur) et posée sur `container`, qui **est** `#content` (`renderer(content)` dans app.js) :
+  sur un descendant, le scrollport n'en hériterait pas.
 - **Navigation** : `NAV_ITEMS` ([config.js](static/js/config.js)) = source unique (sidebar, Ctrl+K, titres).
   Sections : `main` (Pilotage, raccourcis 1-8), `team` (repliable), `footer` (Paramètres, raccourci `,`).
 - **Clés localStorage piégeuses** : `sb-boardMode` = Scrum/Kanban (store) ≠ `sb-board-mode` = layout

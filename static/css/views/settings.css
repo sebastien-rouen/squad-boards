@@ -41,6 +41,20 @@
     width: calc(100% + 2 * var(--sp-6));
     max-width: none;
 }
+
+/* ── Ancrage des scrolls sous la nav sticky ────────────────────────────────────
+   `.settings-tabs` colle en haut du scrollport (`.content`) et recouvrait la cible de
+   tout `scrollIntoView` de la vue : panneau d'équipe visé par `#settings/rotation/<équipe>`,
+   carte de sprint imbriquée, navigation clavier dans la grille de rotation.
+   `scroll-padding-top` sur le SCROLLPORT les traite d'un coup — ne pas y superposer un
+   `scroll-margin-top` sur les cibles, les deux s'additionnent.
+   `--stg-tabs-h` est mesurée au rendu (`_settingsApplyTabs`) et suivie par ResizeObserver :
+   les groupes de tabs passent à la ligne selon la largeur, la hauteur n'est pas constante.
+   Le repli couvre une nav sur deux lignes ; `- var(--sp-6)` retranche la part qui colle
+   hors écran (`top: calc(-1 * var(--sp-6))`). */
+.content:has(.settings-tabs) {
+    scroll-padding-top: calc(var(--stg-tabs-h, 104px) - var(--sp-6) + var(--sp-3));
+}
 /* Groupes de tabs */
 .stg-tab-group {
     display: flex;

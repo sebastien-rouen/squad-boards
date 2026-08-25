@@ -3277,12 +3277,8 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
         requestAnimationFrame(() => {
             const panel = container.querySelector(`#rot-panel-${CSS.escape(_targetTeam)}`);
             if (!panel) return;
-            // La nav des tabs est sticky : sans compensation elle recouvre l'en-tête du
-            // panneau (nom d'équipe + actions). Sa hauteur varie — les groupes passent à la
-            // ligne selon la largeur — donc on la MESURE ici, au moment où elle est rendue,
-            // et le décalage est appliqué en CSS (scroll-margin-top sur #rot-panels .rot-panel).
-            const navH = container.querySelector('#settings-tabs')?.offsetHeight;
-            if (navH) container.style.setProperty('--stg-tabs-h', `${navH}px`);
+            // L'arrivée se fait sous la nav sticky sans recouvrement : c'est le
+            // `scroll-padding-top` du scrollport qui s'en charge (cf. _publishTabsHeight).
             panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
             // Halo bref : sur une page à N équipes, un scroll silencieux ne dit pas où l'on
             // a atterri. Retiré à la fin de l'animation CSS, jamais persistant.
@@ -3320,6 +3316,28 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
     // Activation du système de tabs (post-render — slugify titres + nav + display switch)
     store.set('settingsSection', null);   // consommé par _settingsApplyTabs (lit depuis location.hash ensuite)
     _settingsApplyTabs(container);
+}
+
+// ── Ancrage des scrolls sous la nav sticky ──────────────────────────────────
+// `.settings-tabs` colle en haut de `#content` (= le scrollport) et recouvrait la cible de
+// tout `scrollIntoView` de la vue. Le décalage vit en CSS (`scroll-padding-top` sur
+// `.content:has(.settings-tabs)`, settings.css) ; ici on ne publie que la MESURE : la nav
+// wrappe selon la largeur, sa hauteur n'est pas constante. `container` EST `#content`
+// (app.js appelle `renderer(content)`), donc la variable atterrit bien sur le scrollport.
+let _tabsResizeObs = null;
+function _publishTabsHeight(container, nav) {
+    const apply = () => {
+        const h = nav.offsetHeight;
+        if (h) container.style.setProperty('--stg-tabs-h', `${h}px`);
+    };
+    apply();
+    // Suit le re-wrap des groupes de tabs (redimensionnement, ouverture de l'info-panel).
+    // Un seul observer à la fois : la vue est re-rendue à chaque navigation.
+    _tabsResizeObs?.disconnect();
+    if (typeof ResizeObserver === 'function') {
+        _tabsResizeObs = new ResizeObserver(apply);
+        _tabsResizeObs.observe(nav);
+    }
 }
 
 // ── Système de tabs Settings ────────────────────────────────────────────────
@@ -3382,6 +3400,7 @@ function _settingsApplyTabs(container) {
         : '';
 
     nav.innerHTML = groupsHtml + othersHtml;
+    _publishTabsHeight(container, nav);
 
     const activate = (slug, { syncHash = true } = {}) => {
         const found = tabs.find(t => t.slug === slug) || tabs[0];

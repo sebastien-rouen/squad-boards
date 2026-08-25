@@ -8,6 +8,19 @@
     animation: cmd-section-flash 2.2s ease-out;
 }
 
+/* Badge « copier le lien » d'une ligne de bloc dans la palette (discret, net au survol) */
+.cmd-sec-link {
+    font-size: 12px;
+    opacity: 0.5;
+    flex-shrink: 0;
+    transition: opacity var(--tr-fast);
+}
+
+.cmd-item:hover .cmd-sec-link,
+.cmd-item--active .cmd-sec-link {
+    opacity: 1;
+}
+
 /* Paramètres : le décalage sticky est déjà porté par scroll-padding-top sur le scrollport
    (settings.css) — les deux s'additionneraient et la cible partirait trop bas. */
 .content:has(.settings-tabs) .cmd-section-flash {

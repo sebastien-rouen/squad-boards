@@ -138,6 +138,16 @@ function applyHash() {
     const openCal = raw.endsWith('~cal');
     if (openCal) raw = raw.slice(0, -4); // retire "~cal"
 
+    // Détecte et retire le marqueur ~bloc=<slug> (lien direct vers un bloc de page, cf
+    // cmd_sections.js). Il ne route rien : le hash porte déjà vue/équipe/onglet, le bloc
+    // est seulement révélé une fois la vue rendue.
+    let blocSlug = null;
+    const blIdx = raw.indexOf('~bloc=');
+    if (blIdx >= 0) {
+        blocSlug = decodeURIComponent(raw.slice(blIdx + '~bloc='.length));
+        raw = raw.slice(0, blIdx);
+    }
+
     // Détecte et retire le marqueur ~sprint=<metric>:<team>:<sprintName> (modale vélocité/buffer
     // Health — sprintName optionnel, absent sur les anciens liens ~sprint=<metric>:<team>).
     // On capture les params pour rouvrir la modale APRÈS le render de la vue.
@@ -310,6 +320,13 @@ function applyHash() {
         requestAnimationFrame(() => {
             import('./components/cal_banner.js').then(m => m.openCalWeekModal?.());
         });
+    }
+
+    // Lien direct vers un bloc de page — la vue vient d'être routée, on ne fait que révéler.
+    if (blocSlug) {
+        const _blocView = store.get('view');
+        import('./components/cmd_sections.js')
+            .then(m => m.revealSectionFromHash(_blocView, blocSlug));
     }
 
     // Modale vélocité/buffer Health — rouvrir si ~sprint=<metric>:<team> présent dans le hash.

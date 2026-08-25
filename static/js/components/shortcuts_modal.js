@@ -52,9 +52,10 @@ export function openShortcutsModal() {
                     <div class="sc-group">Filtres de la palette (Ctrl+K)</div>
                     <div class="sc-row"><span>Par assigné·e</span><kbd>@nom</kbd></div>
                     <div class="sc-row"><span>Par équipe / statut / type</span><span><kbd>team:</kbd> <kbd>status:</kbd> <kbd>type:</kbd></span></div>
+                    <div class="sc-row"><span>Copier le lien d'un bloc</span><span><kbd>Ctrl</kbd>+clic</span></div>
                 </div>
             </div>
-            <div class="sc-foot">💡 Astuce : la palette <kbd>Ctrl</kbd>+<kbd>K</kbd> contient aussi les templates Slack des rituels (daily, rétro, démo…), le mode présentation TV et les alertes actionnables. Guides détaillés dans <code>docs/guide-scrum-master.md</code> du dépôt.</div>
+            <div class="sc-foot">💡 Astuce : la palette <kbd>Ctrl</kbd>+<kbd>K</kbd> contient aussi les templates Slack des rituels (daily, rétro, démo…), le mode présentation TV, les alertes actionnables et les 🧩 <strong>blocs de page</strong> (« Temps par colonne », « Prévision de fin »…). Guides détaillés dans <code>docs/guide-scrum-master.md</code> du dépôt.</div>
         </div>`;
     document.body.appendChild(ov);
     requestAnimationFrame(() => ov.classList.add('visible'));

@@ -48,7 +48,6 @@ const VIEW_LOADERS = {
     health:     () => import('./views/health.js').then(m => m.renderHealth),
     retro:      () => import('./views/retro.js').then(m => m.renderRetro),
     support:    () => import('./views/support.js').then(m => m.renderSupport),
-    roam:       () => import('./views/roam.js').then(m => m.renderRoam),
     atlas:      () => import('./views/atlas.js').then(m => m.renderAtlas),
     agenda:     () => import('./views/agenda.js').then(m => m.renderAgenda),
     reports:    () => import('./views/reports.js').then(m => m.renderReports),
@@ -438,7 +437,6 @@ async function loadAllData() {
     store.set('retroItems', d.retroItems || []);
     store.set('sprintInfo', d.sprint || null);
     store.set('piInfo', d.pi || null);
-    store.set('risks', d.risks || []);
     store.set('moodVotes', d.moodVotes || []);
     store.set('fistVotes', d.fistVotes || []);
     store.set('confidenceVotes', d.confidenceVotes || []);

@@ -21,15 +21,15 @@
 }
 
 /* ── Tabs Settings (navigation horizontale colorée, pleine largeur) ─────── */
-.settings-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 8px var(--sp-5);
-    padding: 8px var(--sp-6) 10px;
+/* ⚠️ C'est le WRAPPER qui colle, pas la barre (3.146.0).
+   `components/nav-rail.js` enveloppe `.settings-tabs` pour y poser les chevrons et les
+   dégradés ; un élément en `position: sticky` placé dans un conteneur à sa taille exacte
+   ne colle pas — le collant doit vivre sur le parent. Le fond et les marges négatives
+   suivent le sticky : laissés sur la barre, ils défileraient AVEC elle et le dégradé de
+   bord se décalerait du fond qu'il est censé prolonger. */
+.nav-rail-wrap:has(.settings-tabs) {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    border-radius: 0;
     margin-bottom: var(--sp-4);
     margin-top: calc(-1 * var(--sp-6));
     margin-left: calc(-1 * var(--sp-6));
@@ -37,8 +37,22 @@
     position: sticky;
     top: calc(-1 * var(--sp-6));
     z-index: 10;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 6px rgb(0 0 0 / 4%);
     width: calc(100% + 2 * var(--sp-6));
+    max-width: none;
+}
+
+/* La barre elle-même ne porte plus que son contenu et son défilement. `flex-wrap` reste
+   à `wrap` ici : `.nav-rail` (posée par le composant) le passe à `nowrap`. Sans JS — page
+   d'erreur, script bloqué — on retombe donc sur l'ancien comportement, dégradé mais
+   utilisable, plutôt que sur une barre tronquée sans moyen de défiler. */
+.settings-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px var(--sp-5);
+    padding: 8px var(--sp-6) 10px;
+    border-radius: 0;
     max-width: none;
 }
 
@@ -48,12 +62,15 @@
    carte de sprint imbriquée, navigation clavier dans la grille de rotation.
    `scroll-padding-top` sur le SCROLLPORT les traite d'un coup — ne pas y superposer un
    `scroll-margin-top` sur les cibles, les deux s'additionnent.
-   `--stg-tabs-h` est mesurée au rendu (`_settingsApplyTabs`) et suivie par ResizeObserver :
-   les groupes de tabs passent à la ligne selon la largeur, la hauteur n'est pas constante.
-   Le repli couvre une nav sur deux lignes ; `- var(--sp-6)` retranche la part qui colle
-   hors écran (`top: calc(-1 * var(--sp-6))`). */
+   `--stg-tabs-h` est mesurée au rendu (`_settingsApplyTabs`) et suivie par ResizeObserver.
+   Depuis le passage en rail (3.146.0) cette hauteur est quasi constante — la barre ne
+   wrappe plus — mais la mesure reste : elle suit encore le zoom, la taille de police et
+   les préférences système. Le repli 56 px correspond au rail sur une ligne ;
+   `- var(--sp-6)` retranche la part qui colle hors écran (`top: calc(-1 * var(--sp-6))`).
+   ⚠️ La mesure porte sur le WRAPPER, pas sur la barre : c'est lui qui porte le padding
+   et le bord, donc la hauteur réellement recouvrante. */
 .content:has(.settings-tabs) {
-    scroll-padding-top: calc(var(--stg-tabs-h, 104px) - var(--sp-6) + var(--sp-3));
+    scroll-padding-top: calc(var(--stg-tabs-h, 56px) - var(--sp-6) + var(--sp-3));
 }
 /* Groupes de tabs */
 .stg-tab-group {
@@ -70,9 +87,12 @@
     padding-left: 2px;
     opacity: 0.7;
 }
+/* ⚠️ `nowrap` (3.146.0) : dans un rail, un groupe qui passe à la ligne EN INTERNE
+   redonnerait à la barre la hauteur qu'on vient de lui retirer. Le débordement se règle
+   désormais par le défilement du rail, jamais par le retour à la ligne. */
 .stg-tab-group-items {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px;
 }
 .stg-tab {

@@ -1,5 +1,5 @@
 /**
- * PI Planning view - tabs: Objectifs, Features, Capacite, ROAM, Equipes.
+ * PI Planning view - tabs: Objectifs, Features, Capacite, Equipes.
  */
 
 import { store } from '../state.js';
@@ -7,7 +7,6 @@ import * as api from '../api.js';
 import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAGE_INTRO } from '../components/sondage.js';
-import { renderRoam } from './roam.js';
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
 import { registerExternalChart, renderCycleTime } from '../components/charts.js';
@@ -240,14 +239,12 @@ export function renderPI(container) {
         ? objectives
         : objectives.filter(o => (o.team || '') === team);
 
-    const roamCount = (store.get('risks') || []).length;
     const tabs = [
         { id: 'objectives', label: `🎯 Objectifs (${objectivesFiltered.length})` },
         { id: 'indicators', label: '📊 Indicateurs' },
         { id: 'features',   label: `📦 Features (${features.length})` },
         { id: 'capacity',   label: '⚡ Capacité' },
         { id: 'burnup',     label: '📈 Burnup' },
-        { id: 'roam',       label: `⚠️ ROAM${roamCount ? ` (${roamCount})` : ''}` },
         { id: 'deps',       label: `🔗 Dépendances${depCross ? ` (${depCross})` : ''}` },
         { id: 'teams',      label: '👥 Équipes' },
         { id: 'support',    label: '🛡️ Support' },
@@ -599,7 +596,6 @@ function renderTabContent(el, tab, data) {
         case 'burnup': return renderBurnup(el, data);
         case 'teams': return renderTeams(el, data);
         case 'support': return renderSupportRota(el, data);
-        case 'roam': return renderRoam(el);
         case 'deps': return renderDeps(el, data);
         case 'mood': return renderMood(el, data);
         case 'fist': return renderFist(el, data);

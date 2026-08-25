@@ -1,0 +1,84 @@
+/* Rail de navigation — barre d'onglets qui défile au lieu de passer à la ligne.
+   Composant générique (components/nav-rail.js) : aucune règle propre à Paramètres ici,
+   l'habillage spécifique vit dans la feuille de la vue concernée. */
+
+.nav-rail-wrap {
+    position: relative;
+}
+
+.nav-rail {
+    display: flex;
+    flex-wrap: nowrap;              /* ← tout le composant tient dans cette ligne */
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    /* Chaque onglet s'aligne au bord après un swipe plutôt que de rester coupé en deux :
+       un demi-onglet visible se lit comme un défaut d'affichage. */
+    scroll-snap-type: x proximity;
+    /* Réserve la place des chevrons pour qu'un onglet ne s'arrête jamais dessous. */
+    scroll-padding-inline: 34px;
+    /* La barre de défilement native coûterait 8 à 15 px de haut selon l'OS — précisément
+       la hauteur qu'on cherche à rendre au contenu. Au pointeur fin, elle revient. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.nav-rail::-webkit-scrollbar { display: none; }
+.nav-rail > * { flex-shrink: 0; scroll-snap-align: start; }
+
+@media (pointer: fine) {
+    .nav-rail { scrollbar-width: thin; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .nav-rail { scroll-behavior: auto; }
+}
+
+/* ── Signalement de la coupe ───────────────────────────────────────────────── */
+/* `pointer-events: none` : un doigt qui swipe au-dessus du dégradé doit défiler le rail,
+   pas être bloqué par un décor. */
+.nav-rail-fade {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 1;
+}
+.nav-rail-fade--l { left: 0;  background: linear-gradient(90deg, var(--surface), transparent); }
+.nav-rail-fade--r { right: 0; background: linear-gradient(-90deg, var(--surface), transparent); }
+
+.nav-rail-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    z-index: 2;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, border-color var(--tr-fast), color var(--tr-fast);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+}
+.nav-rail-arrow--l { left: 2px; }
+.nav-rail-arrow--r { right: 2px; }
+.nav-rail-arrow:hover { border-color: var(--border-hover); color: var(--text); }
+.nav-rail-arrow:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+
+/* Une flèche et son dégradé n'apparaissent QUE s'il reste quelque chose de ce côté.
+   Deux flèches toujours visibles, dont une inerte, apprennent au doigt à les ignorer —
+   et sur un écran large où rien ne déborde, le rail doit être indiscernable d'une barre
+   ordinaire. `data-l` / `data-r` sont posés par le composant. */
+.nav-rail-wrap[data-l="1"] .nav-rail-fade--l,
+.nav-rail-wrap[data-r="1"] .nav-rail-fade--r { opacity: 1; }
+.nav-rail-wrap[data-l="1"] .nav-rail-arrow--l,
+.nav-rail-wrap[data-r="1"] .nav-rail-arrow--r { opacity: 1; pointer-events: auto; }

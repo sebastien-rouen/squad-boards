@@ -1,3 +1,71 @@
+## [3.146.1] - 2026-08-25
+
+### 🗑 Retrait de ROAM (front)
+
+Fonctionnalité inutilisée — **0 risque en base**. Deux points d'entrée supprimés : la vue
+« Risques ROAM » de la barre latérale, et l'onglet ⚠️ ROAM de PI Planning. Partent avec
+eux `views/roam.js`, `css/views/roam.css`, les trois entrées de la palette de commandes,
+la case « Risques ROAM » de l'export, le bloc du jeu de démonstration, et la ligne
+« 📌 Les risques identifiés (ROAM) » du message type de PI Planning.
+
+⚠️ **Le backend est CONSERVÉ** : routes `/api/risks`, modèle `Risk`, colonne, serializer.
+Rien n'est perdu et le front se restaure d'un `git revert`. Les helpers `getRisks` /
+`createRisk` / `updateRisk` / `deleteRisk` d'`api.js` n'ont donc plus d'appelant — un
+commentaire le dit sur place, pour qu'ils ne passent pas pour du code vivant.
+
+⚠️ Piège évité au passage : `demo.js` porte des champs `risk:` sur la **mobilité Atlas**
+(risque de départ d'une personne) qui n'ont rien à voir avec ROAM. Un retrait au grep les
+aurait emportés.
+
+## [3.146.0] - 2026-08-25
+
+### ↔️ La barre d'onglets de Paramètres devient un rail défilant
+
+Nouveau composant [nav-rail.js](static/js/components/nav-rail.js) + sa feuille : une barre
+qui **défile** au lieu de passer à la ligne. Chevrons affichés du seul côté où il reste des
+onglets, dégradés de bord pour signaler la coupe, recentrage de l'onglet actif à
+l'activation. Appliqué à `.settings-tabs` (14 onglets), maquettes et arbitrage dans
+[mockups/nav-scroll](static/mockups/nav-scroll/README.md).
+
+Mesuré dans Edge, avant → après :
+
+| Appareil | Lignes | Barre | Main visible |
+|---|---|---|---|
+| Fold fermé · 344 | 9 → **1** | 259 → **60 px** | 43 % → **91 %** |
+| iPhone SE · 375 | 8 → **1** | 227 → **60 px** | 44 % → **91 %** |
+| iPhone 14 · 390 | 8 → **1** | 227 → **60 px** | 48 % → **91 %** |
+| Pixel 7 · 412 | 7 → **1** | 227 → **60 px** | 54 % → **91 %** |
+| iPad mini · 768 | 3 → **1** | 157 → **60 px** | 71 % → **91 %** |
+
+Le regroupement Équipe / Planning / Intégrations / Système est **préservé** : les
+`.stg-tab-group` restent des colonnes, alignées horizontalement dans le rail. C'est mieux
+que la maquette A, qui les aplatissait.
+
+#### Trois pièges rencontrés, tous mesurés
+
+⚠️ **Ordre de chargement des feuilles.** `.nav-rail { flex-wrap: nowrap }` et
+`.settings-tabs { flex-wrap: wrap }` portent sur le même élément avec la **même
+spécificité** : à égalité, c'est l'ordre du `<link>` qui tranche. Chargé avant
+`settings.css`, le composant perdait — le rail continuait de wrapper sur 4 lignes.
+`nav-rail.css` est donc chargé **en dernier**, commentaire à l'appui dans `index.html`.
+
+⚠️ **C'est le WRAPPER qui colle.** `position: sticky`, le fond et les marges négatives ont
+migré de `.settings-tabs` vers `.nav-rail-wrap` : un élément collant placé dans un
+conteneur à sa taille exacte ne colle pas. `_publishTabsHeight` mesure donc le wrapper —
+mesurer la barre seule sous-estimerait la hauteur recouvrante et `scrollIntoView` viserait
+trop haut. `--stg-tabs-h` et le `scroll-padding-top` restent en place (repli 104 → 56 px).
+
+⚠️ **Un ResizeObserver ne voit pas un changement de CONTENU.** Retirer des onglets change
+`scrollWidth` sans changer la taille du rail, qui occupe toute la largeur : le chevron
+droit restait affiché, prêt à faire défiler vers du vide. Constaté en mesure, corrigé par
+un `MutationObserver` sur `childList`. Le cas n'est pas théorique — les barres à contenu
+dynamique (chips d'équipe, projets JIRA, astreintes) se re-remplissent sans jamais changer
+de largeur.
+
+`flex-wrap: wrap` reste écrit sur `.settings-tabs` : sans JS, on retombe sur l'ancien
+comportement, dégradé mais utilisable, plutôt que sur une barre tronquée sans moyen de
+défiler.
+
 ## [3.145.2] - 2026-08-25
 
 ### Statuts JIRA non déclarés : 19 tickets livrés comptés comme non commencés

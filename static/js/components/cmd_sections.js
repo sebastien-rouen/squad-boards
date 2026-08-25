@@ -85,7 +85,6 @@ const RAW = [
     { view: 'pi', icon: '📦', label: 'Features du PI',       tab: 'features',   sel: '#pi-tabs', keywords: 'features epics perimetre pi' },
     { view: 'pi', icon: '⚡', label: 'Capacité du PI',        tab: 'capacity',   sel: '#pi-tabs', keywords: 'capacite charge prevue etp absences base' },
     { view: 'pi', icon: '📈', label: 'Burnup du PI',         tab: 'burnup',     sel: '#pi-tabs', keywords: 'burnup pi avancement points' },
-    { view: 'pi', icon: '⚠️', label: 'ROAM du PI',           tab: 'roam',       sel: '#pi-tabs', keywords: 'roam risques resolved owned accepted mitigated' },
     { view: 'pi', icon: '🔗', label: 'Dépendances inter-équipes', tab: 'deps',  sel: '#pi-tabs', keywords: 'dependances inter equipes liens graphe' },
     { view: 'pi', icon: '👥', label: 'Équipes du PI',        tab: 'teams',      sel: '#pi-tabs', keywords: 'equipes teams pi repartition' },
     { view: 'pi', icon: '🛡️', label: 'Support du PI',        tab: 'support',    sel: '#pi-tabs', keywords: 'support rotation astreinte pi' },
@@ -141,9 +140,6 @@ const RAW = [
     { view: 'retro', icon: '🔁', label: 'Actions d’amélioration',  sel: '.board-swimlanes',    keywords: 'actions amelioration retro glad sad mad postmortem cop' },
     { view: 'retro', icon: '➕', label: 'Nouvelle action',            anchor: 'Nouvelle action',  keywords: 'nouvelle action creer ajouter retro' },
 
-    // ── Risques ROAM ──────────────────────────────────────
-    { view: 'roam', icon: '⚠️', label: 'Tableau ROAM',           sel: '.roam-board',        keywords: 'roam tableau quadrants resolved owned accepted mitigated risques' },
-    { view: 'roam', icon: '➕', label: 'Ajouter un risque',            anchor: 'Ajouter un risque', keywords: 'ajouter risque nouveau roam' },
 
     // ── Agenda ─────────────────────────────────────────────
     { view: 'agenda', icon: '📆', label: 'Semaine (agenda)',      sel: '.agenda-table-wrap',  keywords: 'semaine agenda tableau reunions creneaux' },

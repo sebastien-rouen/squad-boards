@@ -149,7 +149,6 @@ export const NAV_ITEMS = [
     { id: 'retro',      label: 'Amélioration', icon: 'i-refresh',    shortcut: '8', section: 'main' },
     { id: 'team',       label: 'Équipe',       icon: 'i-id-card',    shortcut: '',  section: 'team' },
     { id: 'support',    label: 'Support',      icon: 'i-users',      shortcut: '',  section: 'team' },
-    { id: 'roam',       label: 'Risques ROAM', icon: 'i-alert',      shortcut: '',  section: 'team' },
     { id: 'atlas',      label: 'Atlas',        icon: 'i-network',    shortcut: '',  section: 'team' },
     { id: 'agenda',     label: 'Agenda',       icon: 'i-agenda',     shortcut: '',  section: 'team' },
     { id: 'settings',   label: 'Paramètres',   icon: 'i-settings',   shortcut: ',', section: 'footer' },

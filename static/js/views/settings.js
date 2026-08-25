@@ -21,6 +21,7 @@ import { _parsePivotAbsencesCsv, _memberAbsenceInfo, _isTransverseTeam } from '.
 import { jiraSectionHtml, wireJiraSection } from './settings-jira.js';
 import { piCongesDiff, knownPiNumbers } from '../utils/pi-weeks.js';
 import { makePersonPicker } from '../components/modal.js';
+import { mountNavRail } from '../components/nav-rail.js';
 // Rotation Support — extraite dans son propre module (grille, shuffle, semaines du PI)
 import {
     _rotRefreshPanels, _rotRenderPanels, _rotWirePanelEvents, _rotPanelsHtml,
@@ -1072,7 +1073,7 @@ export function renderSettings(container) {
                     <span class="data-demo-icon">🎬</span>
                     <div class="data-demo-body">
                         <p class="data-demo-title">Jeu de données démo</p>
-                        <p class="data-demo-desc">Charge un scénario SAFe complet : 4 équipes fictives (Vega, Lyra, Orion, Sirius), PI#5 sprint 3 en cours, 56 tickets, features, epics, objectifs PI, rotations support, absences, risques ROAM, compétences Atlas.</p>
+                        <p class="data-demo-desc">Charge un scénario SAFe complet : 4 équipes fictives (Vega, Lyra, Orion, Sirius), PI#5 sprint 3 en cours, 56 tickets, features, epics, objectifs PI, rotations support, absences, compétences Atlas.</p>
                         <span class="data-demo-warn">⚠️ Remplace toutes les données existantes</span>
                     </div>
                     <div class="data-demo-action">
@@ -3324,10 +3325,18 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
 // `.content:has(.settings-tabs)`, settings.css) ; ici on ne publie que la MESURE : la nav
 // wrappe selon la largeur, sa hauteur n'est pas constante. `container` EST `#content`
 // (app.js appelle `renderer(content)`), donc la variable atterrit bien sur le scrollport.
+// Rail de la barre d'onglets — un seul à la fois, comme `_tabsResizeObs` : la vue est
+// re-rendue à chaque navigation, et empiler les instances empilerait leurs listeners.
+let _navRail = null;
 let _tabsResizeObs = null;
 function _publishTabsHeight(container, nav) {
     const apply = () => {
-        const h = nav.offsetHeight;
+        // ⚠️ Mesurer l'élément COLLANT, pas la barre : depuis le passage en rail
+        // (3.146.0), c'est le wrapper posé par `mountNavRail` qui porte le padding, le
+        // bord et le `position: sticky`. Mesurer la barre seule sous-estimerait la
+        // hauteur réellement recouvrante, et `scrollIntoView` viserait trop haut.
+        const cible = nav.closest('.nav-rail-wrap') || nav;
+        const h = cible.offsetHeight;
         if (h) container.style.setProperty('--stg-tabs-h', `${h}px`);
     };
     apply();
@@ -3336,7 +3345,7 @@ function _publishTabsHeight(container, nav) {
     _tabsResizeObs?.disconnect();
     if (typeof ResizeObserver === 'function') {
         _tabsResizeObs = new ResizeObserver(apply);
-        _tabsResizeObs.observe(nav);
+        _tabsResizeObs.observe(nav.closest('.nav-rail-wrap') || nav);
     }
 }
 
@@ -3400,11 +3409,25 @@ function _settingsApplyTabs(container) {
         : '';
 
     nav.innerHTML = groupsHtml + othersHtml;
+    // Rail défilant : la barre tenait 8 lignes et 227 px sur un iPhone 14 (mesuré), soit
+    // plus de la moitié de l'écran pour une nav collante. Monté APRÈS le remplissage —
+    // le composant a besoin du contenu pour savoir s'il déborde.
+    _navRail?.destroy();
+    _navRail = mountNavRail(nav, {
+        labelPrev: 'Sections précédentes',
+        labelNext: 'Sections suivantes',
+    });
     _publishTabsHeight(container, nav);
 
     const activate = (slug, { syncHash = true } = {}) => {
         const found = tabs.find(t => t.slug === slug) || tabs[0];
         if (!found) return;
+        // Recentrer l'onglet dans le rail : sélectionné depuis un hash ou la palette, il
+        // peut être hors champ, et rien n'indiquerait alors où l'on se trouve.
+        // `requestAnimationFrame` : appelé avant que la classe active soit posée, le
+        // navigateur centrerait la position d'AVANT le changement de style.
+        requestAnimationFrame(() =>
+            _navRail?.center(nav.querySelector(`[data-stg-tab="${CSS.escape(found.slug)}"]`)));
         tabs.forEach(t => {
             const isActive = t === found;
             t.sec.style.display = isActive ? '' : 'none';

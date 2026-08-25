@@ -455,14 +455,6 @@ const PI_OBJECTIVES = [
     { id:'obj-6', text:'Former 75% des devs aux pratiques SLO/SLI (observabilité)', status:'todo', team:'',      bv:5  },
 ];
 
-// ── 8. ROAM Risks ─────────────────────────────────────────────────────────────
-const RISKS = [
-    { title:'API Paiement tierce non livrée avant sprint 5.4',            quadrant:'mitigate',  impact:'critical', probability:'high',   team:'Lyra',   owner:'Florian Lebas',  description:'Le fournisseur a pris du retard. Blocage potentiel sur FEAT-2.',       mitigation:'Plan B : développer un wrapper interne en mode dégradé' },
-    { title:'Saturation BDD prod à 87% — risque downtime sous 3 semaines', quadrant:'mitigate', impact:'high',    probability:'medium', team:'Orion',  owner:'Camille Huet',   description:'Le volume de données catalogue dépasse les prévisions × 3.',          mitigation:'Extension stockage planifiée semaine 5.4, migration vers Iceberg' },
-    { title:'Scope creep sur la Feature Copilote IA (PI#6)',               quadrant:'owned',     impact:'medium',  probability:'high',   team:'Vega',   owner:'Chloé Mercier',  description:'Les demandes métier s\'élargissent semaine après semaine.',            mitigation:'Backlog formalisé, pas de nouvelles stories acceptées sans validation PO' },
-    { title:'Audit RGPD externe décalé de 2 semaines côté prestataire',    quadrant:'accepted',  impact:'medium',  probability:'medium', team:'Sirius', owner:'Adèle Blanc',    description:'L\'auditeur externe a repoussé la date. Impact léger sur FEAT-5.',     mitigation:'Buffer prévu dans l\'IP sprint — suivi hebdomadaire' },
-    { title:'Migration DNS sans fenêtre de maintenance validée',            quadrant:'resolved',  impact:'high',    probability:'low',    team:'Lyra',   owner:'Baptiste Ferry', description:'Initialement sans coupure. Résolu via déploiement blue-green.',        mitigation:'Migration découpée en blue-green avec bascule progressive' },
-];
 
 // ── 9. Events (Faits marquants) ───────────────────────────────────────────────
 const EVENTS = [
@@ -563,14 +555,12 @@ export async function seedFullDemoData(onProgress) {
 
     // ── Clear extra entities ───────────────────────────────────────────────────
     report('Suppression des données annexes…');
-    const [existingRisks, existingEvents, existingSkills, existingAppetences] = await Promise.all([
-        api.getRisks().catch(() => []),
+    const [existingEvents, existingSkills, existingAppetences] = await Promise.all([
         api.getEvents().catch(() => []),
         api.getSkills().catch(() => []),
         api.getAppetences().catch(() => []),
     ]);
     await Promise.all([
-        ...existingRisks.map(r   => api.deleteRisk(r.id).catch(() => {})),
         ...existingEvents.map(e  => api.deleteEvent(e.id).catch(() => {})),
         ...existingSkills.map(s  => api.deleteSkill(s.id).catch(() => {})),
         ...existingAppetences.map(a => api.deleteAppetence(a.id).catch(() => {})),
@@ -618,9 +608,6 @@ export async function seedFullDemoData(onProgress) {
     report('Création des faits marquants…');
     for (const e of EVENTS) await api.createEvent(e);
 
-    // ── ROAM Risks ─────────────────────────────────────────────────────────────
-    report('Création des risques ROAM…');
-    for (const r of RISKS) await api.createRisk(r);
 
     // ── Atlas : Skills & Appetences ────────────────────────────────────────────
     report('Création des compétences…');

@@ -292,6 +292,17 @@
 .rot-hide-support .rot-panel-actions [data-rot-shuffle],
 .rot-hide-support .rot-panel-actions [data-rot-clear] { display: none; }
 
+/* ── Ancrage des panneaux sous la nav sticky des Paramètres ─────────────────── */
+/* `.settings-tabs` est `position:sticky; top:calc(-1 * var(--sp-6))` : un scrollIntoView
+   pose le panneau en haut de `.content`, donc SOUS la nav, qui en masquait l'en-tête
+   (nom d'équipe + actions). La hauteur de la nav n'est pas constante — ses groupes
+   passent à la ligne selon la largeur — d'où `--stg-tabs-h`, mesurée juste avant le
+   scroll (settings.js) ; le repli couvre une nav sur deux lignes. Le `- var(--sp-6)`
+   retranche la part de la nav qui colle hors écran. */
+#rot-panels .rot-panel {
+    scroll-margin-top: calc(var(--stg-tabs-h, 104px) - var(--sp-6) + var(--sp-3));
+}
+
 /* ── Panneau ciblé par #settings/rotation/<équipe> ─────────────────────────── */
 /* Halo bref à l'arrivée depuis « ⚙ Édition » (page Support) : sur une page à N équipes,
    un scroll silencieux ne dit pas où l'on a atterri. La classe est retirée à animationend. */

@@ -194,6 +194,20 @@ python main.py          # http://localhost:3001  — Swagger /docs
   champ `created`** : sans lui la date repart à l'heure de la sync. Et les dates s'écrivent
   normalisées en ISO UTC — `roadmap.js` trie `createdAt` par comparaison de CHAÎNES, deux
   formats mêlés y donnent un ordre faux sans la moindre erreur.
+- **Mode archive des sprints clos** (3.144.0, `_buildClosedArchive` dans
+  [sync.js](static/js/sync.js), réglage `sb-sync-archiveClosed`, actif par défaut) : une sync
+  complète ne redemande pas à JIRA les sprints **clos déjà en base** — leur contenu est figé —
+  et réinjecte leurs tickets dans le payload. Sans ça, le mode `replace` faisait repayer toute
+  la fenêtre à chaque sync (442 appels à 26 sprints/board ; ~17 avec l'archive).
+  ⚠️ Repose sur l'aller-retour EXACT `_ticket_dict` ([serializers.py](app/serializers.py)) ↔
+  contrat d'`import_all` ([data.py](app/routers/data.py)) : toute clé ajoutée d'un côté doit
+  l'être de l'autre, sinon l'archivage l'efface silencieusement. `seenTicketIds` fait foi à la
+  réinjection (un reporté rapatrié frais garde sa version à jour), les équipes retirées sont
+  écartées, features et epics jamais archivés (passes JQL dédiées).
+  ⚠️ Une correction faite dans JIRA sur un sprint déjà clos ne redescend plus — c'est le prix,
+  et la raison du réglage. `overwrite: true` (« Tout réimporter depuis JIRA ») le contourne.
+  ⚠️ `app.js` relit la clé localStorage à la main : y importer `syncSetting` ferait de
+  `handleJiraImport` un point d'entrée STATIQUE vers `sync.js`, chargé en dynamique.
 - **Bandeau de couverture** (3.143.0, [health-coverage.js](static/js/views/health-coverage.js)) :
   il compte la **présence actuelle** (`sprintName`), PAS le périmètre engagé — inversion
   assumée de la règle de [sprint-scope.js](static/js/utils/sprint-scope.js). La question posée

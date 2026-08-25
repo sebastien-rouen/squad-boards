@@ -545,8 +545,11 @@ function renderDeps(el, { depItems = [], teamObjects = [] }) {
 
 // ── Onglet Indicateurs : métriques de flux du PI (Lead/Cycle time, Temps par colonne, Aging WIP) ──
 function renderIndicators(el, { tickets = [], flowTickets = null, piNum = 0 }) {
+    // Toutes les mesures de DURÉE de cet onglet partagent le périmètre engagé (reports compris) :
+    // `tickets` est filtré sur le sprint où le ticket se trouve et perd les plus lents.
+    const _flow = flowTickets || tickets;
     // Lead time & Cycle time — même calcul et rendu que la card du Dashboard (schéma + graphe).
-    const _doneCT = tickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
+    const _doneCT = _flow.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
     const _ltVals = _doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
     const avgCT = _doneCT.length ? Math.round(_doneCT.reduce((s, t) => s + t.cycleTimeDays, 0) / _doneCT.length * 10) / 10 : 0;
     const avgLT = _ltVals.length ? Math.round(_ltVals.reduce((s, v) => s + v, 0) / _ltVals.length * 10) / 10 : 0;
@@ -578,12 +581,12 @@ function renderIndicators(el, { tickets = [], flowTickets = null, piNum = 0 }) {
                 </div>
                 <div class="chart-container chart-h-md"><canvas id="pi-chart-cycletime"></canvas></div>
             </div>
-            ${stageFlowCardHtml(flowTickets || tickets, { scopeLabel: piNum ? `PI #${piNum} · périmètre engagé` : 'historique équipe' })}
-            ${agingWipCardHtml(tickets)}
+            ${stageFlowCardHtml(_flow, { scopeLabel: piNum ? `PI #${piNum} · périmètre engagé` : 'historique équipe' })}
+            ${agingWipCardHtml(_flow)}
         </div>`;
 
-    requestAnimationFrame(() => renderCycleTime('pi-chart-cycletime', tickets));
-    bindStageFlowCard(el, flowTickets || tickets, { scopeLabel: piNum ? `PI #${piNum} · périmètre engagé` : 'historique équipe' });
+    requestAnimationFrame(() => renderCycleTime('pi-chart-cycletime', _flow));
+    bindStageFlowCard(el, _flow, { scopeLabel: piNum ? `PI #${piNum} · périmètre engagé` : 'historique équipe' });
     bindAgingWipCard(el);
 }
 

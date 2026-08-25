@@ -6,11 +6,12 @@
 import { store } from '../state.js';
 import { esc, toast, getSprintForTeam } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS, NAV_ITEMS } from '../config.js';
-import { SECTIONS, getSection, gotoSection } from './cmd_sections.js';
+import { SECTIONS, getSection, gotoSection, sectionsOfView, sectionLink } from './cmd_sections.js';
 
 const HISTORY_KEY   = 'sb-cmd-history';
 const FIRST_OPEN_KEY = 'sb-cmd-seen';
 const MAX_RESULTS   = 50;
+const EMPTY_SECTIONS = 6;   // blocs de la page courante proposés à l'ouverture
 const DEBOUNCE_MS   = 80;
 
 // ── Templates Slack par rituel (texte brut, pas de mrkdwn — Slack n'interprète pas au paste) ──
@@ -329,6 +330,15 @@ function _renderEmpty() {
             </div>`
         ).join('');
     }
+    // Blocs de la page en cours — l'usage le plus courant est de sauter dans la vue
+    // qu'on a déjà sous les yeux ; les autres vues restent accessibles à la frappe.
+    const _curSections = sectionsOfView(store.get('view')).slice(0, EMPTY_SECTIONS);
+    if (_curSections.length) {
+        html += `<div class="cmd-group-label">🧩 Blocs de cette page</div>`;
+        // Jamais `.map(_sectionItemHtml)` : l'index arriverait en 2e argument et servirait
+        // de terme à surligner (« 1 » surligné dans les libellés).
+        html += _curSections.map(sec => _sectionItemHtml(sec)).join('');
+    }
     // Actions populaires (top 5) — accessibles immédiatement
     html += `<div class="cmd-group-label">✨ Actions rapides</div>`;
     html += ACTIONS.slice(0, 5).map(a =>
@@ -345,7 +355,7 @@ function _renderEmpty() {
             _search(item.dataset.query);
         });
     });
-    el.querySelectorAll('.cmd-item[data-group="action"]').forEach(item => {
+    el.querySelectorAll('.cmd-item[data-group]').forEach(item => {
         item.addEventListener('click', e => _activate(item, e));
         item.addEventListener('mouseenter', () => _setActive(item));
     });
@@ -476,6 +486,16 @@ function _highlight(text, term) {
     return esc(text).replace(new RegExp(`(${safe})`, 'gi'), '<mark class="cmd-hl">$1</mark>');
 }
 
+/** Ligne d'un bloc de page : icône propre, vue d'accueil en méta, badge « copier le lien ». */
+function _sectionItemHtml(sec, term = '') {
+    return `<div class="cmd-item" data-group="section" data-id="${esc(sec.id)}" tabindex="-1">
+        <span class="cmd-item-icon">${sec.icon || '🧩'}</span>
+        <span class="cmd-item-title">${_highlight(sec.label, term)}</span>
+        <span class="cmd-meta">${esc(sec.viewLabel)}</span>
+        <span class="cmd-sec-link" title="Copier le lien de ce bloc (Ctrl+clic)">🔗</span>
+    </div>`;
+}
+
 const _EV_MAX_ROWS = 40;
 
 /** Bloc HTML du groupe Agenda (événements calendrier) + ligne "copier tout". */
@@ -538,6 +558,7 @@ function _renderResults(results, term, evMatches = []) {
         if (!items?.length) continue;
         html += `<div class="cmd-group-label">${_GROUP_ICON[grp]} ${_GROUP_LABEL[grp]} <span class="cmd-group-count">${items.length}</span></div>`;
         for (const { item } of items) {
+            if (grp === 'section') { html += _sectionItemHtml(item, term); total++; continue; }
             const statusColor = _STATUS_COLOR[item.status] || '#94A3B8';
             const typeLabel   = TYPE_LABELS[item.type] || item.type || '';
             const pts         = item.points ? `<span class="cmd-pts">${item.points}</span>` : '';
@@ -547,19 +568,16 @@ function _renderResults(results, term, evMatches = []) {
             const typeBadge = typeLabel
                 ? `<span class="cmd-type badge badge-type badge-${item.type} badge-2xs">${esc(typeLabel)}</span>`
                 : '';
-            // Un bloc n'a pas d'équipe : sa méta est la vue où il se trouve
-            const metaTxt = grp === 'section' ? item.viewLabel : item.team;
-            const meta = metaTxt ? `<span class="cmd-meta">${esc(metaTxt)}</span>` : '';
-            // Les blocs n'ont pas de clé JIRA à afficher : leur id est purement technique
-            const idEl = (grp !== 'section' && item.id !== item.title)
+            const meta = item.team ? `<span class="cmd-meta">${esc(item.team)}</span>` : '';
+            const idEl = item.id !== item.title
                 ? `<span class="cmd-id">${esc(item.id)}</span>`
                 : '';
 
             html += `<div class="cmd-item" data-group="${grp}" data-id="${esc(item.id)}" tabindex="-1">
-                <span class="cmd-item-icon">${(grp === 'section' && item.icon) || _GROUP_ICON[grp]}</span>
+                <span class="cmd-item-icon">${_GROUP_ICON[grp]}</span>
                 ${idEl}
                 ${typeBadge}
-                <span class="cmd-item-title">${_highlight(grp === 'section' ? item.label : (item.title || item.label || item.id), term)}</span>
+                <span class="cmd-item-title">${_highlight(item.title || item.label || item.id, term)}</span>
                 ${pts}
                 ${statusBadge}
                 ${meta}
@@ -625,8 +643,17 @@ function _activate(el, e) {
     }
 
     if (group === 'section') {
+        const sec = getSection(id);
+        // Ctrl/⌘ + clic (ou le badge 🔗) copie le lien partageable — même geste que le
+        // Ctrl+clic qui ouvre un ticket dans JIRA. La palette reste ouverte pour enchaîner.
+        if (e?.ctrlKey || e?.metaKey || e?.target?.closest?.('.cmd-sec-link')) {
+            navigator.clipboard.writeText(sectionLink(sec))
+                .then(() => toast('🔗 Lien du bloc copié', 'success', 2200))
+                .catch(() => toast('Copie impossible', 'error'));
+            return;
+        }
         _close();
-        gotoSection(getSection(id));
+        gotoSection(sec);
         return;
     }
 

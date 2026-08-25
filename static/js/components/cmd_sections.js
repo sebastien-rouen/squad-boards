@@ -132,6 +132,24 @@ const RAW = [
     // ── Atlas ──────────────────────────────────────────────────────────────
     { view: 'atlas', icon: '🧭', label: 'Carte des compétences', sel: '#atlas-stage',          keywords: 'carte competences skills map programme zoom' },
 
+    // ── Backlog ──────────────────────────────────────────────
+    { view: 'backlog', icon: '🔎', label: 'Filtres du backlog',   sel: '.bl-toolbar', keywords: 'filtres recherche tri densite colonnes csv' },
+    { view: 'backlog', icon: '📋', label: 'Liste des tickets',    sel: '#bl-body',    keywords: 'liste tickets tableau groupes backlog' },
+
+    // ── Amélioration (rétro) ────────────────────────────────────
+    { view: 'retro', icon: '⏳', label: 'Temps par colonne (rétro)', anchor: 'Temps par colonne', keywords: 'temps colonne stage flow etape workflow retro' },
+    { view: 'retro', icon: '🔁', label: 'Actions d’amélioration',  sel: '.board-swimlanes',    keywords: 'actions amelioration retro glad sad mad postmortem cop' },
+    { view: 'retro', icon: '➕', label: 'Nouvelle action',            anchor: 'Nouvelle action',  keywords: 'nouvelle action creer ajouter retro' },
+
+    // ── Risques ROAM ──────────────────────────────────────
+    { view: 'roam', icon: '⚠️', label: 'Tableau ROAM',           sel: '.roam-board',        keywords: 'roam tableau quadrants resolved owned accepted mitigated risques' },
+    { view: 'roam', icon: '➕', label: 'Ajouter un risque',            anchor: 'Ajouter un risque', keywords: 'ajouter risque nouveau roam' },
+
+    // ── Agenda ─────────────────────────────────────────────
+    { view: 'agenda', icon: '📆', label: 'Semaine (agenda)',      sel: '.agenda-table-wrap',  keywords: 'semaine agenda tableau reunions creneaux' },
+    { view: 'agenda', icon: '🎧', label: 'Support de la semaine', sel: '.agenda-support-bar', keywords: 'support semaine astreinte bandeau' },
+    { view: 'agenda', icon: '🚫', label: 'Absences (OFF)',        sel: '.agenda-off-row',     keywords: 'absences off conges indisponibles' },
+
     // ── Paramètres (onglets) ───────────────────────────────────────────────
     { view: 'settings', icon: '🏷️', label: 'Lignes produit / Groupes', tab: 'lignes-produit-groupes', sel: '#section-lignes-produit-groupes', anchor: 'Lignes produit / Groupes', keywords: 'lignes produit groupes regroupement equipes' },
     { view: 'settings', icon: '👥', label: 'Équipes (paramètres)',      tab: 'equipes', sel: '#section-equipes', anchor: 'Équipes',                 keywords: 'equipes teams parametres creation' },
@@ -246,4 +264,31 @@ export function gotoSection(sec) {
         store.set('view', sec.view);
     }
     _reveal(sec);
+}
+
+/** Blocs déclarés pour une vue — alimente l'état vide de la palette. */
+export function sectionsOfView(view) {
+    return SECTIONS.filter(s => s.view === view);
+}
+
+// ── Lien partageable ─────────────────────────────────────────────────────────
+// Format : #<vue>/<équipe>[/<onglet>]~bloc=<slug>. Le slug seul suffit (la vue vient
+// du hash) et reste lisible collé dans Slack.
+const _slugOf = sec => sec.id.split(':')[1];
+
+/** URL absolue ouvrant la vue du bloc ET scrollant dessus. */
+export function sectionLink(sec) {
+    if (!sec) return '';
+    const base = sec.view === 'settings'
+        ? `#settings/${sec.tab}`
+        : `#${sec.view}/${_teamPart()}${sec.tab ? '/' + sec.tab : ''}`;
+    return `${location.origin}${location.pathname}${base}~bloc=${encodeURIComponent(_slugOf(sec))}`;
+}
+
+/** Appelé par `applyHash` (app.js) une fois la vue routée : le marqueur ~bloc= ne
+ *  navigue pas lui-même, il ne fait que révéler. Un slug inconnu (lien obsolète)
+ *  laisse simplement la vue s'ouvrir, sans message d'erreur. */
+export function revealSectionFromHash(view, slug) {
+    const sec = getSection(`${view}:${slug}`);
+    if (sec) _reveal(sec);
 }

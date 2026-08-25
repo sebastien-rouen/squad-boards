@@ -1,3 +1,65 @@
+## [3.147.0] - 2026-08-25
+
+### 📥 Import CSV des absences : l'échec cesse d'être silencieux
+
+Diagnostic du parser sur des exports RH réalistes — trois silences, dont un coûteux.
+
+**🔥 Le pire : des codes au lieu de nombres.** Un export écrivant `CP` ou `RTT` dans les
+cellules plutôt que `1` / `0.5` produisait un import **parfaitement silencieux** : membres
+créés, **zéro absence**, aucun message. L'aperçu affichait « 0 absence(s) · 1 membre(s) »
+et rien ne disait que quatre cellules avaient été jetées. Le parser les compte désormais et
+l'aperçu les nomme : *« 3 cellule(s) ignorée(s) (« CP », « RTT ») — le format attend un
+nombre de jours »*. Les lignes sans nom sont comptées de la même façon.
+
+⚠️ La règle ne change pas : seul un nombre vaut absence. C'est le **silence** qui est
+corrigé, pas l'interprétation.
+
+**Format non reconnu : dire lequel.** « Aucune donnée valide détectée » recouvrait quatre
+causes distinctes sans en nommer aucune — chercher à la main dans un export de cinquante
+colonnes est décourageant. `diagnosePivotCsv()` rend un titre et un indice actionnable :
+
+| Cas | Message |
+|---|---|
+| Séparateur virgule | « Seuls la tabulation et le point-virgule sont acceptés — la virgule fait partie des noms (« NOM, Prénom ») » |
+| Dates `03-04` | « Le format attendu est jj/mm — un remplacement « - » → « / » suffit » |
+| < 3 colonnes de date | « Vérifiez que la ligne d'en-tête est bien la PREMIÈRE ligne collée » |
+| Une seule ligne / vide | message dédié |
+
+**Dépôt de fichier.** La zone accepte un `.csv` / `.tsv` / `.txt` glissé — passer par Excel
+pour copier-coller était une étape de trop. Un `.xlsx` déposé est refusé avec la marche à
+suivre, plutôt qu'ignoré : le lire demanderait une dépendance npm, interdite côté frontend.
+
+**Aperçu automatique.** Il se rejoue au collage et au dépôt (et reste sur le bouton) : une
+erreur de format se voit **avant** de cliquer « Importer », pas après.
+⚠️ `setTimeout(…, 0)` sur l'événement `paste` : au moment où il se déclenche, la valeur du
+champ est encore l'ancienne.
+
+**Accessibilité.** Le champ n'avait qu'un `placeholder` en guise de nom — anti-pattern
+connu : il disparaît à la saisie et n'est pas fiablement annoncé. Il a maintenant un vrai
+`<label for>` et un `aria-describedby`. Le placeholder retrouve au passage ses accents
+(« données », pas « donnees »), conformément à la convention « UI en français ».
+
+## [3.146.2] - 2026-08-25
+
+### ↔️ Rail appliqué aux barres qui le méritent — et seulement à celles-là
+
+⚠️ **Ma liste initiale de huit barres candidates venait d'un `grep flex-wrap: wrap`** : elle
+mélangeait navigations, barres d'outils et aperçus. À l'examen, deux seulement sont des
+barres de navigation à contenu variable :
+
+| Barre | Verdict |
+|---|---|
+| `.activity-filters` | ✅ migrée — chips par champ ET par auteur, nombre non borné |
+| `.db-oncall-chips` | ✅ migrée — astreintes du jour, suit le périmètre, en tête de dashboard |
+| `.quick-filters` | ❌ contient un `<input>` de recherche : le focus clavier ferait défiler le rail de façon imprévisible |
+| `.bl-flt-chips` | ❌ vit dans un popover — largeur libre, grandir en hauteur n'y coûte rien |
+| `.agenda-toolbar`, `.rot-toolbar` | ❌ barres d'outils avec libellés et hints : le texte doit passer à la ligne, pas défiler |
+| `.jira-project-chips` | ❌ aperçu statique dans une bannière, pas une navigation |
+| `.grp-chips-row` | ❌ liste éditable dans une carte : le wrap n'y coûte pas d'écran permanent |
+
+Le `MutationObserver` du composant (3.146.0) sert précisément aux deux barres retenues :
+leur contenu se re-remplit sans que leur largeur change.
+
 ## [3.146.1] - 2026-08-25
 
 ### 🗑 Retrait de ROAM (front)

@@ -832,3 +832,57 @@ body.diagram-zoom-lock { overflow: hidden; }
     .diagram-zoom-dialog { transform: none; }
 }
 
+
+/* ── Import CSV des absences : dépôt de fichier, diagnostic, avertissements ───
+   Ajouts 3.147.0. Le champ n'avait qu'un `placeholder` en guise de nom (anti-pattern
+   d'accessibilité : il disparaît à la saisie et n'est pas toujours lu comme un label) —
+   il a maintenant un vrai `<label for>`, et la zone entière accepte un fichier. */
+.abs-csv-drop {
+    position: relative;
+    border: 1px dashed transparent;
+    border-radius: var(--r-md);
+    padding: 2px;
+    transition: border-color var(--tr-fast), background var(--tr-fast);
+}
+.abs-csv-drop.is-dragover {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+}
+.abs-csv-drop .abs-label { display: block; margin-bottom: 4px; }
+.abs-csv-hint { margin: 4px 0 0; }
+.abs-csv-hint code {
+    font-family: var(--font-mono);
+    background: var(--bg-alt);
+    padding: 0 3px;
+    border-radius: var(--r-sm);
+}
+
+/* Diagnostic d'un format non reconnu : le titre nomme la cause, l'indice dit quoi faire. */
+.abs-csv-diag {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    border-radius: var(--r-md);
+    line-height: 1.5;
+}
+
+/* Ce que l'import a écarté — jamais silencieux. */
+.abs-csv-warn {
+    margin-top: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    border-radius: var(--r-md);
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+    color: var(--text);
+}
+.abs-csv-warn code {
+    font-family: var(--font-mono);
+    background: var(--surface);
+    padding: 0 3px;
+    border-radius: var(--r-sm);
+}

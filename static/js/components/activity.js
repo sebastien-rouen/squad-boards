@@ -7,6 +7,8 @@
  * `fieldLabelFr` à l'affichage.
  */
 
+import { mountNavRail } from './nav-rail.js';
+
 import { esc, fmtRelative, fieldLabelFr } from '../utils.js';
 
 // Mapping clé champ → icône + classe couleur du chip
@@ -280,6 +282,10 @@ export function bindActivityClicks(container) {
         const filters = wrapper.querySelector('.activity-filters');
         const list = wrapper.querySelector('[data-activity-list]');
         if (!filters || !list) return;
+        // Rail : le nombre de chips dépend des champs modifiés ET des auteurs présents
+        // dans le flux — il n'est pas borné. Sans rail, la barre empile des lignes qui
+        // repoussent la liste qu'elle est censée filtrer.
+        mountNavRail(filters, { labelPrev: 'Filtres précédents', labelNext: 'Filtres suivants' });
         filters.querySelectorAll('.act-filter-chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 // Toggle d'état actif (mode mono-sélection : un seul filtre actif à la fois)

@@ -195,9 +195,17 @@ python main.py          # http://localhost:3001  — Swagger /docs
   ⚠️ Un `ResizeObserver` ne voit pas un changement de **contenu** : ajouter/retirer des
   onglets change `scrollWidth` sans changer la taille du rail → `MutationObserver` obligatoire,
   sinon des chevrons fantômes défilent vers du vide.
-  Barres restant à migrer (`flex-wrap: wrap`) : `.quick-filters`, `.activity-filters`,
-  `.agenda-toolbar`, `.bl-flt-chips`, `.grp-chips-row`, `.jira-project-chips`, `.rot-toolbar`,
-  `.db-oncall-chips`.
+  Appliqué à `.settings-tabs`, `.activity-filters` et `.db-oncall-chips` (3.146.2).
+  ⚠️ **Ne PAS l'étendre mécaniquement** aux autres `flex-wrap: wrap` : `.quick-filters`
+  contient un `<input>` (le focus ferait défiler le rail), `.agenda-toolbar` / `.rot-toolbar`
+  portent du texte qui doit wrapper, `.bl-flt-chips` vit dans un popover, `.jira-project-chips`
+  est un aperçu. Le rail est pour une NAVIGATION à contenu variable, pas pour tout ce qui wrappe.
+- **Import CSV des absences** (3.147.0) : le parser REMONTE ce qu'il écarte
+  (`ignoredCells`, `ignoredSamples`, `skippedRows`) et `diagnosePivotCsv()` explique un
+  format non reconnu. ⚠️ Un export RH écrivant « CP »/« RTT » au lieu d'un nombre donnait un
+  import parfaitement silencieux — membres créés, zéro absence, aucun message. Toute
+  évolution du parser doit garder ce compte : la règle « seul un nombre vaut absence » est
+  correcte, c'est le silence qui ne l'était pas.
 - **ROAM retiré du front** (3.146.1) : plus de vue ni d'onglet PI. Le **backend est intact**
   (routes `/api/risks`, modèle `Risk`, colonne) — les helpers Risk d'`api.js` sont donc du
   code mort assumé, pas un oubli. Ne pas les « réparer » en recréant une vue.

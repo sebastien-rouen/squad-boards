@@ -241,6 +241,25 @@ export function jiraSectionHtml() {
                         </div>
                     </div>
 
+                    <div class="sync-cfg-row">
+                        <div class="sync-cfg-label">
+                            <span class="sync-cfg-icon">📦</span>
+                            <div>
+                                <div class="sync-cfg-name">Ne pas retélécharger les sprints clos</div>
+                                <div class="sync-cfg-desc">
+                                    Un sprint clôturé ne bouge plus : ses tickets sont relus depuis la base au lieu d'être redemandés à JIRA. C'est ce qui rend un historique long <strong>soutenable</strong> — sans ça, la sync complète étant en mode « efface puis ré-importe », l'intégralité de la fenêtre se repaie à chaque fois.
+                                    ⚠️ En contrepartie, une correction faite dans JIRA sur un sprint <em>déjà clos</em> ne redescendra plus. « Tout réimporter depuis JIRA » contourne l'archive.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sync-cfg-input-wrap">
+                            <label class="toggle-switch" title="${_readCapValue('sb-sync-archiveClosed', SYNC_DEFAULTS.archiveClosed) ? 'Désactiver' : 'Activer'}">
+                                <input type="checkbox" id="sync-archive-closed" ${_readCapValue('sb-sync-archiveClosed', SYNC_DEFAULTS.archiveClosed) ? 'checked' : ''}>
+                                <span class="toggle-track"></span>
+                            </label>
+                        </div>
+                    </div>
+
                     ${(() => {
                         const ex = getExcludedTeams();
                         return `
@@ -334,6 +353,10 @@ export function wireJiraSection(container, onReload = () => {}) {
         _saveCap('sync-quick-days',   'sb-sync-quickDays');
         _saveCap('sync-closed-keep',  'sb-sync-closedKeep');
         _saveCap('sync-closed-ticket-sprints', 'sb-sync-closedTicketSprints', 0);
+        // Booléen stocké en 0/1 : `syncSetting` ne lit que des entiers, et une clé absente
+        // doit pouvoir signifier « défaut » et non « désactivé ».
+        localStorage.setItem('sb-sync-archiveClosed',
+            container.querySelector('#sync-archive-closed')?.checked ? '1' : '0');
         _saveStr('sync-sprint-field', 'sb-sync-sprintField');
         _saveStr('sync-team-field',   'sb-sync-teamField');
         toast('Configuration sync JIRA enregistree', 'success');

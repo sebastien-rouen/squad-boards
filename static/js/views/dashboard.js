@@ -4,7 +4,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast, supportWorkingDays, supportDaysForMember, initials } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, belongedToPi, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast, supportWorkingDays, supportDaysForMember, initials } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { renderCycleTime } from '../components/charts.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
@@ -101,6 +101,18 @@ export function renderDashboard(container) {
 
     const displayTickets = _scopeTickets(tickets);
     const metricScope = isCurrentPi ? 'Sprint' : `PI #${displayPiNum}`;
+
+    // ── Périmètre des DURÉES (card « Temps par colonne ») ───────────────────────
+    // Volontairement DISTINCT de `displayTickets` : celui-ci alimente les compteurs et le
+    // réalisé (règle engagement/réalisé, cf CLAUDE.md) et doit rester sur le sprint courant.
+    // Une mesure de durée, elle, doit voir TOUT ce qui a été travaillé dans le PI — reports
+    // compris, sinon on ne mesure que les tickets finis à temps et les durées rapetissent.
+    const _flowScopeTickets = isCurrentPi && sprintInfo
+        ? tickets.filter(t => belongedToSprint(t, sprintInfo.name))
+        : (displayPiNum ? tickets.filter(t => belongedToPi(t, displayPiNum)) : tickets);
+    const _flowScopeBadge = isCurrentPi
+        ? (sprintInfo ? `${sprintInfo.name} · périmètre engagé` : 'historique équipe')
+        : (displayPiNum ? `PI #${displayPiNum} · périmètre engagé` : 'historique équipe');
 
     const total = displayTickets.length;
     const done = displayTickets.filter(t => t.status === 'done').length;
@@ -692,7 +704,7 @@ export function renderDashboard(container) {
                 </div>
                 <div class="chart-container chart-h-md"><canvas id="chart-cycletime"></canvas></div>
             </div>
-            ${stageFlowCardHtml(displayTickets)}
+            ${stageFlowCardHtml(_flowScopeTickets, { scopeLabel: _flowScopeBadge })}
             <div class="health-velo-host">
                 ${_veloTeamChips}
                 ${velocityCardHtml({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax })}
@@ -752,7 +764,7 @@ export function renderDashboard(container) {
         renderCycleTime('chart-cycletime', _flowTickets);
         mountVelocityChart({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax });
         bindActivityClicks(container);
-        bindStageFlowCard(container, displayTickets);
+        bindStageFlowCard(container, _flowScopeTickets, { scopeLabel: _flowScopeBadge });
         bindAgingWipCard(container);
         bindSlaReviewCard(container, tickets);
     });

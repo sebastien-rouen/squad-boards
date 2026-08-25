@@ -6,7 +6,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, filterByTeam, fmtRelative, toast, getSprintForTeam, confirmDanger } from '../utils.js';
+import { esc, filterByTeam, fmtRelative, toast, getSprintForTeam, belongedToSprint, confirmDanger } from '../utils.js';
 import { stageFlowCardHtml, bindStageFlowCard } from '../components/stage_flow_card.js';
 
 const SRC_COLOR = {
@@ -107,9 +107,9 @@ export function renderRetro(container) {
     // Tickets du sprint courant de l'équipe (pour la card "Temps par colonne" — cf dashboard)
     const currentSprint = getSprintForTeam(team, store.get('sprintInfo'));
     const sprintTickets = currentSprint?.name
-        ? filteredTickets.filter(t => t.sprintName === currentSprint.name
-            || (Array.isArray(t.allSprints) && t.allSprints.includes(currentSprint.name)))
+        ? filteredTickets.filter(t => belongedToSprint(t, currentSprint.name))
         : [];
+    const _flowScope = currentSprint?.name ? `${currentSprint.name} · périmètre engagé` : 'historique équipe';
 
     container.innerHTML = `
         <div class="flex justify-between items-center mb-4">
@@ -120,7 +120,7 @@ export function renderRetro(container) {
             <button class="btn btn-primary btn-sm" id="btn-add-retro">+ Action</button>
         </div>
 
-        <div class="mb-4">${stageFlowCardHtml(sprintTickets)}</div>
+        <div class="mb-4">${stageFlowCardHtml(sprintTickets, { scopeLabel: _flowScope })}</div>
 
         <div class="board-swimlanes compact">
             ${SOURCES.map(src => {
@@ -242,7 +242,7 @@ export function renderRetro(container) {
     });
 
     // Card "Temps par colonne" du sprint courant (cf dashboard.js)
-    bindStageFlowCard(container, sprintTickets);
+    bindStageFlowCard(container, sprintTickets, { scopeLabel: _flowScope });
 
     // Swimlane collapse
     container.querySelectorAll('.swimlane-header').forEach(h => {

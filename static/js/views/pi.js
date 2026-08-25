@@ -4,7 +4,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAGE_INTRO } from '../components/sondage.js';
 import { renderRoam } from './roam.js';
@@ -55,6 +55,10 @@ export function renderPI(container) {
     const allTeamTickets   = filterByTeam(store.get('tickets') || [], team);
     const allTeamFeatures  = filterByTeam(store.get('features') || [], team);
     const tickets  = piTag ? allTeamTickets.filter(_ticketInPi)  : allTeamTickets;
+    // Périmètre des mesures de DURÉE (card « Temps par colonne ») : `_ticketInPi` lit le sprint
+    // Où LE TICKET SE TROUVE, donc rate ceux que JIRA a déplacés à la clôture — justement les
+    // plus longs. Les compteurs et le réalisé gardent `tickets` (règle engagement/réalisé).
+    const flowTickets = piNum ? allTeamTickets.filter(t => belongedToPi(t, piNum)) : allTeamTickets;
     const features = piTag ? allTeamFeatures.filter(_featureInPi) : allTeamFeatures;
 
     // Items du PI TOUTES équipes (pas de filtre équipe) — pour le programme board inter-équipes (#14).
@@ -452,7 +456,7 @@ export function renderPI(container) {
     });
 
     // Tab switching
-    const _tabData = { objectives, featureList, teamCap, tickets, teams, teamObjects, piInfo, absences, epics: piEpics, isCurrentPi, piNum, capByTeam, _computeCapByTeam, depItems };
+    const _tabData = { objectives, featureList, teamCap, tickets, flowTickets, teams, teamObjects, piInfo, absences, epics: piEpics, isCurrentPi, piNum, capByTeam, _computeCapByTeam, depItems };
     function _switchTab(id) {
         if (!tabs.find(t => t.id === id)) return;
         _activeTab = id;
@@ -540,7 +544,7 @@ function renderDeps(el, { depItems = [], teamObjects = [] }) {
 }
 
 // ── Onglet Indicateurs : métriques de flux du PI (Lead/Cycle time, Temps par colonne, Aging WIP) ──
-function renderIndicators(el, { tickets = [] }) {
+function renderIndicators(el, { tickets = [], flowTickets = null, piNum = 0 }) {
     // Lead time & Cycle time — même calcul et rendu que la card du Dashboard (schéma + graphe).
     const _doneCT = tickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
     const _ltVals = _doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
@@ -574,12 +578,12 @@ function renderIndicators(el, { tickets = [] }) {
                 </div>
                 <div class="chart-container chart-h-md"><canvas id="pi-chart-cycletime"></canvas></div>
             </div>
-            ${stageFlowCardHtml(tickets)}
+            ${stageFlowCardHtml(flowTickets || tickets, { scopeLabel: piNum ? `PI #${piNum} · périmètre engagé` : 'historique équipe' })}
             ${agingWipCardHtml(tickets)}
         </div>`;
 
     requestAnimationFrame(() => renderCycleTime('pi-chart-cycletime', tickets));
-    bindStageFlowCard(el, tickets);
+    bindStageFlowCard(el, flowTickets || tickets, { scopeLabel: piNum ? `PI #${piNum} · périmètre engagé` : 'historique équipe' });
     bindAgingWipCard(el);
 }
 

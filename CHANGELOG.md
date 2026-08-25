@@ -1,3 +1,52 @@
+## [3.143.1] - 2026-08-25
+
+### « Temps par colonne » mesurait le mauvais périmètre (et perdait un statut JIRA)
+
+Audit de la card sur le PI29, rejoué sur `data/board.db` : elle sous-estimait les durées.
+
+**1. Le périmètre ratait 43 % des tickets.** Le filtre lisait `sprintName` — le sprint où le
+ticket *se trouve* — alors que JIRA **déplace les non-finis à la clôture** : 187 tickets
+travaillés en 29.x portent aujourd'hui un sprint du PI30. Ce sont justement ceux qui ont
+traîné : le biais raccourcissait systématiquement les durées (survivorship bias).
+
+| PI29 | tickets | médiane dév | médiane revue |
+|---|---|---|---|
+| avant | 246 | 7,0 j | 4,0 j |
+| après | **452** | **8,0 j** | **4,2 j** |
+
+Nouvelle brique `belongedToPi(t, piNum)` ([utils.js](static/js/utils.js)) — version « PI » de
+`belongedToSprint()`, même source d'historique. ⚠️ **La règle engagement/réalisé n'est PAS
+touchée** : `displayTickets` (dashboard) et `tickets` (vue PI) alimentent les compteurs et le
+réalisé, ils restent tels quels. Seule la mesure de DURÉE reçoit le périmètre élargi, par une
+variable dédiée (`_flowScopeTickets` / `flowTickets`). Dans `retro.js` le filtre reposait sur
+`t.allSprints` — champ **jamais produit**, condition morte — remplacé par `belongedToSprint()`.
+
+**2. Un statut JIRA échappait au filtre.** `« a livrer en qual »` (sans le « if ») est le
+libellé de plusieurs équipes : **156 tickets**, dont 37 sans aucun autre statut de qualif,
+étaient invisibles. Test porté à `/qualif|qual/` — vérifié sur les 4 libellés « qual » de
+la base, zéro faux positif ; la colonne du PI30 passe à 271 tickets. Symétriquement,
+`« prêt à développer »` était compté comme du dév alors que c'est une file d'attente — exclu
+par une garde `!/^(pr[eê]t|[àa] faire)/`. Ces tests portent sur le **libellé JIRA brut** : un
+statut oublié n'est pas signalé, sa durée disparaît simplement — vérifier contre la base avant
+d'y toucher.
+
+**3. Le badge de périmètre mentait.** « historique équipe » était écrit en dur alors que le
+Dashboard passait déjà des tickets filtrés par PI. `stageFlowCardHtml(tickets, { scopeLabel })`
+affiche désormais « PI #29 · périmètre engagé ». ⚠️ `bindStageFlowCard` reçoit le **même**
+`opts` : il re-rend la card après chaque exclusion de ticket, l'oublier ferait retomber le badge.
+
+**Limite assumée, écrite dans l'aide (ⓘ de la card)** : les durées ne sont pas découpées par PI.
+`stageDurations` rejoue tout le changelog, de l'entrée à la sortie de colonne — or 18 % des
+tickets d'un PI en traversent au moins deux (un jusqu'à 14). Le sélecteur de PI choisit *quels
+tickets* sont mesurés, pas la *fenêtre de temps* : élargir le périmètre **amplifie** ce point —
+un ticket qui a traversé trois PI apparaît dans les trois, avec sa durée totale à chaque fois.
+Le corriger imposerait de stocker les intervalles datés dans `stage_durations` (schéma +
+re-sync complet).
+
+ℹ️ Sans rapport avec le bandeau « Couverture de l'historique » (3.143.0), qui compte
+délibérément la présence actuelle : il répond à « ce sprint a-t-il été importé ? », pas à
+« qu'a-t-on travaillé dans ce PI ? ».
+
 ## [3.143.0] - 2026-08-25
 
 ### Historique JIRA : dire ce qu'on a, réparer les dates, ouvrir le réglage

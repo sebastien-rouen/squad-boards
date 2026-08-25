@@ -74,6 +74,25 @@ function _medianDate(isos) {
 }
 
 /**
+ * L'historique bute-t-il sur le RÉGLAGE plutôt que sur ce que JIRA contient ?
+ *
+ * ⚠️ Ne PAS comparer la médiane au cap : le compte par équipe n'atteint presque jamais le
+ * chiffre rond. Le cap s'applique par BOARD, une équipe peut en avoir deux, et les sprints
+ * sans date sont écartés en amont. Mesuré le 25/08/2026 avec `closedKeep` à 40 — dix équipes
+ * sur dix-sept entre 37 et 41, médiane à 39 : un test d'égalité stricte répondait « pas
+ * plafonné » alors que la troncature était flagrante (toutes les équipes démarrant au même
+ * mois, quelle que soit leur ancienneté réelle — la signature d'une coupe).
+ *
+ * D'où : une marge proportionnelle (10 %, au moins 1) et un vote à la majorité des équipes.
+ */
+function _isCapped(values, cap) {
+    if (!cap || !values.length) return false;
+    const marge = Math.max(1, Math.round(cap * 0.1));
+    const atCap = values.filter(v => v >= cap - marge).length;
+    return atCap * 2 >= values.length;
+}
+
+/**
  * Profondeur d'historique réellement disponible, par équipe puis agrégée.
  *
  * @param {object}   p
@@ -161,10 +180,9 @@ export function computeCoverage({ teamsScope = [], tickets = [], sprintInfo = {}
         // C'est le signal qui dit « augmente le paramètre », à ne pas confondre avec une
         // équipe jeune qui n'a simplement pas plus de sprints derrière elle.
         meta:   { count: metaCount,  since: _medianDate(teams.map(t => t.metaSince)),
-                  capped: metaCount >= caps.closedKeep },
+                  capped: _isCapped(teams.map(t => t.closedCount), caps.closedKeep) },
         ticket: { count: solidCount, since: _medianDate(teams.map(t => t.solidSince)),
-                  capped: caps.closedTicketSprints > 0
-                       && _median(teams.map(t => t.anyCount)) >= caps.closedTicketSprints,
+                  capped: _isCapped(teams.map(t => t.anyCount), caps.closedTicketSprints),
                   disabled: caps.closedTicketSprints === 0 },
         floor,
         caps,

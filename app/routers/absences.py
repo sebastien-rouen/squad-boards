@@ -77,9 +77,19 @@ async def repair_absence_encoding(session: Session = Depends(get_session)):
 
 @router.post("/bulk")
 async def bulk_create_absences(request: Request, session: Session = Depends(get_session)):
-    """Import multiple absences. Deduplicates by (member_name, start_date, end_date).
-    replace=True clears the whole table first ; replaceRange={start,end} ne supprime que
-    les absences chevauchant cette fenetre (periode du PI) ; sinon append sans doublons."""
+    """Import d'absences en lot.
+
+    Clé de déduplication : (member_name, start_date, end_date).
+      - `replace=True` vide toute la table d'abord ;
+      - `replaceRange={start,end}` ne supprime que les absences CHEVAUCHANT la fenêtre ;
+      - sinon, mode « ajouter » : une clé déjà connue est MISE À JOUR si la durée, l'équipe
+        ou le type ont changé (`updated`), sinon ignorée (`skipped`).
+
+    Renvoie aussi `overlaps` : les absences importées qui recouvrent partiellement une
+    absence existante de la même personne sans avoir la même clé. Elles sont créées — c'est
+    à l'utilisateur de trancher, via « Écraser la période » — mais le silence sur ce point
+    faisait compter deux fois les mêmes jours dans la capacité.
+    """
     body = await request.json()
     items = body.get("absences", [])
     replace = body.get("replace", False)
@@ -103,29 +113,87 @@ async def bulk_create_absences(request: Request, session: Session = Depends(get_
                     deleted += 1
             session.flush()
 
-    # Build a set of existing (member_name, start_date, end_date) to deduplicate
-    existing = {
-        (a.member_name, a.start_date, a.end_date)
-        for a in session.exec(select(Absence)).all()
-    }
+    # Index des absences existantes par (nom, début, fin) — la clé de déduplication.
+    # ⚠️ Cette clé ne contient PAS `days` : deux imports successifs où la RH a corrigé une
+    # demi-journée en journée pleine produisent la MÊME clé. Avant la 3.148.0 la ligne était
+    # simplement « skipped » : la correction se perdait en silence, l'absence gardait ses
+    # 0,5 j et personne n'en était informé. On met donc à jour ce dont le fichier fait
+    # autorité (durée, équipe, type) au lieu d'ignorer.
+    rows = session.exec(select(Absence)).all()
+    par_cle = {}
+    for a in rows:
+        par_cle.setdefault((a.member_name, a.start_date, a.end_date), a)
+    # Index par personne pour détecter les chevauchements PARTIELS, que la clé exacte laisse
+    # passer : une ancienne absence 09→09 et une nouvelle 09→10 sont deux clés distinctes,
+    # donc deux enregistrements — et le 09 est alors compté deux fois dans la capacité.
+    par_personne = {}
+    for a in rows:
+        par_personne.setdefault(a.member_name, []).append(a)
+
     created = 0
     skipped = 0
+    updated = 0
+    overlaps = []
     for d in items:
-        key = (d.get("memberName", ""), d.get("startDate", ""), d.get("endDate", d.get("startDate", "")))
-        if key in existing:
-            skipped += 1
+        nom = d.get("memberName", "")
+        debut = d.get("startDate", "")
+        fin = d.get("endDate", debut)
+        key = (nom, debut, fin)
+        jours = d.get("days", 1.0)
+        equipe = _normalize_team(d.get("team", ""))
+        type_ = d.get("type", "conge")
+
+        exist = par_cle.get(key)
+        if exist is not None:
+            # Comparaison tolérante : 0.5 et 0.50 sont la même durée, et un flottant qui
+            # a fait l'aller-retour JSON peut différer d'un epsilon.
+            change = (
+                abs(float(exist.days or 0) - float(jours or 0)) > 1e-6
+                or (equipe and exist.team != equipe)
+                or (type_ and exist.type != type_)
+            )
+            if change:
+                exist.days = jours
+                if equipe:
+                    exist.team = equipe
+                if type_:
+                    exist.type = type_
+                session.add(exist)
+                updated += 1
+            else:
+                skipped += 1
             continue
+
+        # Chevauchement partiel avec une absence existante de la même personne : on le
+        # SIGNALE sans trancher — fusionner à sa place serait une décision métier, et
+        # l'option « Écraser la période » existe justement pour ce cas.
+        for autre in par_personne.get(nom, []):
+            a_deb = autre.start_date or ""
+            a_fin = autre.end_date or a_deb
+            if a_deb <= fin and a_fin >= debut and (a_deb, a_fin) != (debut, fin):
+                if len(overlaps) < 20:
+                    overlaps.append({
+                        "memberName": nom,
+                        "existant": f"{a_deb}→{a_fin}",
+                        "importe": f"{debut}→{fin}",
+                    })
+                break
+
         a = Absence(
-            member_name=d.get("memberName", ""),
-            team=_normalize_team(d.get("team", "")),
-            start_date=d.get("startDate", ""),
-            end_date=d.get("endDate", d.get("startDate", "")),
-            type=d.get("type", "conge"),
-            days=d.get("days", 1.0),
+            member_name=nom,
+            team=equipe,
+            start_date=debut,
+            end_date=fin,
+            type=type_,
+            days=jours,
             note=d.get("note", ""),
         )
         session.add(a)
-        existing.add(key)
+        par_cle[key] = a
+        par_personne.setdefault(nom, []).append(a)
         created += 1
     session.commit()
-    return {"ok": True, "created": created, "skipped": skipped, "deleted": deleted}
+    return {
+        "ok": True, "created": created, "skipped": skipped, "updated": updated,
+        "deleted": deleted, "overlaps": overlaps,
+    }

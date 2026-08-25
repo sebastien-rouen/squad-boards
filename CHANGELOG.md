@@ -1,3 +1,29 @@
+## [3.148.0] - 2026-08-25
+
+### 🐛 Mode « Ajouter » : une absence corrigée n'était pas reprise
+
+La clé de déduplication est `(nom, début, fin)` — **elle ne contient pas la durée**. Trois
+comportements, tous silencieux, mesurés en rejouant la logique de `bulk_create_absences` :
+
+| Cas | Avant | Après |
+|---|---|---|
+| Durée corrigée 0,5 j → 1 j | **ignorée** — la correction se perdait, l'absence gardait ses 0,5 j | **mise à jour** (`updated`) |
+| Équipe ou type modifié | ignoré de même | mis à jour |
+| Consolidation différente (`09→09` puis `09→10`) | deux enregistrements créés, **le 09 compté deux fois** | créé **et signalé** (`overlaps`) |
+| Absence identique | ignorée | ignorée (inchangé — pas de bruit) |
+
+⚠️ Le premier cas était le plus coûteux et le moins visible : réimporter pour corriger une
+demi-journée ne changeait **rien**, sans le moindre message. Le compte rendu disait
+« 1 doublon » — mot trompeur, remplacé par « inchangée(s) ».
+
+**Les chevauchements ne sont pas fusionnés automatiquement** : décider qu'un `09→09` et un
+`09→10` n'en font qu'un est un arbitrage métier. Ils sont créés comme avant, mais un second
+toast (`warning`, 9 s) les nomme et rappelle que « Écraser la période » repart propre — le
+silence, lui, laissait la capacité fausse sans que rien ne l'indique.
+
+Comparaison de durées tolérante (`1e-6`) : `0.5` et `0.50` ne déclenchent pas de fausse
+mise à jour après un aller-retour JSON.
+
 ## [3.147.1] - 2026-08-25
 
 ### 🐛 « Écraser le PI » laissait passer les jours PIP

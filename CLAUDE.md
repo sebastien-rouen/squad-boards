@@ -200,6 +200,14 @@ python main.py          # http://localhost:3001  — Swagger /docs
   contient un `<input>` (le focus ferait défiler le rail), `.agenda-toolbar` / `.rot-toolbar`
   portent du texte qui doit wrapper, `.bl-flt-chips` vit dans un popover, `.jira-project-chips`
   est un aperçu. Le rail est pour une NAVIGATION à contenu variable, pas pour tout ce qui wrappe.
+- **Mode « Ajouter » des absences** (3.148.0, [absences.py](app/routers/absences.py)) : la clé
+  `(nom, début, fin)` NE CONTIENT PAS la durée. Une même clé dont `days`/`team`/`type` a
+  changé est donc **mise à jour** (`updated`), plus ignorée — avant, réimporter pour corriger
+  une demi-journée ne changeait rien, en silence. Les chevauchements PARTIELS (`09→09` vs
+  `09→10`) restent créés mais sont remontés dans `overlaps` : les fusionner serait un
+  arbitrage métier, les taire faussait la capacité.
+  ⚠️ Comparer `days` avec une tolérance (`1e-6`) — un flottant qui a fait l'aller-retour JSON
+  déclencherait sinon des mises à jour fantômes.
 - **Écrasement à l'import d'absences** (3.147.1) : la fenêtre `replaceRange` couvre TOUT ce
   que le fichier décrit, **jours PIP compris** — pas `piEndDate`, qui les exclut. Sinon une
   absence PIP d'un import précédent survit, et la déduplication backend `(nom, début, fin)`

@@ -130,3 +130,45 @@ export const NAV_ITEMS = [
 export const SYNC_CONFIG = {
     sprintField: 'customfield_10021',
 };
+
+/**
+ * Profondeur d'historique rapatriée depuis JIRA — source UNIQUE des valeurs par défaut.
+ *
+ * Chaque clé est surchargeable dans Paramètres → Plugin JIRA via `sb-sync-<nom>`
+ * (localStorage). Les défauts vivent ici et NULLE PART ailleurs : la page Health les relit
+ * pour dire « ton historique est plafonné par le réglage, pas par JIRA », et un défaut
+ * recopié dans la vue mentirait au premier changement.
+ *
+ * ⚠️ Deux profondeurs DISTINCTES, à ne pas confondre :
+ *   - `closedKeep`          → MÉTADONNÉES de sprint (dates + vélocité Greenhopper).
+ *                             1 appel par board : peu cher, monter ce chiffre coûte peu.
+ *   - `closedTicketSprints` → DÉTAIL des tickets (cycle time, engagement, scope creep).
+ *                             1 appel par sprint ET par board, changelog inclus : c'est
+ *                             lui qui fait la durée d'un import et le poids de la base.
+ *
+ * ⚠️ `app.js` reste sur sa propre lecture de `quickDays` : il charge `sync.js` en import
+ * DYNAMIQUE (au clic) et importer ces constantes depuis la vue casserait ce lazy.
+ */
+export const SYNC_DEFAULTS = {
+    quickDays: 14,           // fenêtre de la sync rapide, en jours
+    // 40 et non 20 : la passe d'import PAGINE DÉJÀ tous les sprints clos du board avant de
+    // trancher, et le rapport de vélocité Greenhopper arrive en un appel pour le board
+    // entier. Élargir ici ne coûte donc AUCUN appel JIRA de plus — seulement quelques Ko de
+    // `teamSprints`. À 20, dix des treize équipes butaient sur le plafond (mesuré le
+    // 25/08/2026) et perdaient leur historique au-delà de ~9 mois pour rien.
+    closedKeep: 40,          // sprints clos gardés par board (vélocité, tendances)
+    closedTicketSprints: 6,  // sprints clos dont les TICKETS sont rapatriés
+};
+
+/**
+ * Lit un réglage de sync entier depuis localStorage, avec repli sur `SYNC_DEFAULTS`.
+ * @param {'quickDays'|'closedKeep'|'closedTicketSprints'} name
+ * @returns {number} valeur effective — jamais NaN, jamais négative
+ */
+export function syncSetting(name) {
+    const raw = (localStorage.getItem(`sb-sync-${name}`) || '').trim();
+    const n = parseInt(raw, 10);
+    // 0 est LÉGITIME pour `closedTicketSprints` (désactive la passe) : on ne retombe sur le
+    // défaut que si la saisie est absente ou illisible, pas si elle vaut zéro.
+    return (raw !== '' && !isNaN(n) && n >= 0) ? n : SYNC_DEFAULTS[name];
+}

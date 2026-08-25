@@ -6,39 +6,7 @@
 import { store } from './state.js';
 import * as api from './api.js';
 import { mapStatus, mapType, extractTeam, toast, parseWikiMarkup } from './utils.js';
-import { SYNC_CONFIG } from './config.js';
-
-/**
- * Profondeur d'historique rapatriée depuis JIRA — source UNIQUE des valeurs par défaut.
- *
- * Chaque clé est surchargeable par l'utilisateur (Paramètres → Plugin JIRA) via la clé
- * localStorage `sb-sync-<nom>`. Les défauts vivent ici et NULLE PART ailleurs : la page
- * Health les relit pour dire « ton historique est plafonné par le réglage, pas par JIRA »,
- * et un défaut recopié dans la vue mentirait au premier changement.
- *
- * ⚠️ `closedKeep` porte les MÉTADONNÉES de sprint (dates + vélocité Greenhopper, 1 appel
- * par board) tandis que `closedTicketSprints` porte le DÉTAIL des tickets (1 appel par
- * sprint et par board, avec le changelog). Le second coûte bien plus cher que le premier —
- * d'où deux réglages distincts et non un seul « historique ».
- */
-export const SYNC_DEFAULTS = {
-    quickDays: 14,           // fenêtre de la sync rapide, en jours
-    closedKeep: 20,          // sprints clos gardés par board (vélocité, tendances)
-    closedTicketSprints: 6,  // sprints clos dont les TICKETS sont rapatriés
-};
-
-/**
- * Lit un réglage de sync entier depuis localStorage, avec repli sur `SYNC_DEFAULTS`.
- * @param {keyof SYNC_DEFAULTS} name
- * @returns {number} la valeur effective (jamais NaN, jamais négative)
- */
-export function syncSetting(name) {
-    const raw = (localStorage.getItem(`sb-sync-${name}`) || '').trim();
-    const n = parseInt(raw, 10);
-    // 0 est une valeur LÉGITIME pour `closedTicketSprints` (désactive la passe) : on ne
-    // retombe sur le défaut que si la saisie est absente ou illisible.
-    return (raw !== '' && !isNaN(n) && n >= 0) ? n : SYNC_DEFAULTS[name];
-}
+import { SYNC_CONFIG, SYNC_DEFAULTS, syncSetting } from './config.js';
 
 /**
  * Collecteur d'échecs PARTIELS d'un import.
@@ -627,7 +595,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
                 const futureJql = `project IN (${projects.join(',')}) AND sprint in futureSprints() AND issuetype NOT IN (Feature, "Fonctionnalite", Epic)${updClause} ORDER BY updated DESC`;
                 const FUTURE_PAGE = 100;
                 let nextPiAdded = 0;
-                const futFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,${sprintFieldId}` +
+                const futFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,${sprintFieldId}` +
                     (teamFieldId ? `,${teamFieldId}` : '');
                 const seenKeys = await _paginateJql({
                     jql: futureJql,
@@ -673,7 +641,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
         const extraFields = [sprintFieldId, 'fixVersions'];
         if (piSprintField) extraFields.push(piSprintField);
         if (teamFieldId)   extraFields.push(teamFieldId);
-        const featureFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,description,${extraFields.join(',')}`;
+        const featureFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,description,${extraFields.join(',')}`;
         const featureJql = `${jqlProject} AND issuetype IN (Feature, "Fonctionnalite")${updClause} ORDER BY rank ASC`;
         const featSeen = await _paginateJql({
             jql: featureJql,
@@ -772,7 +740,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
         const epicExtraFields = [sprintFieldId, 'fixVersions'];
         if (piSprintField) epicExtraFields.push(piSprintField);
         if (teamFieldId)   epicExtraFields.push(teamFieldId);
-        const epicFields = `summary,status,issuetype,assignee,priority,labels,${storyPointsField},parent,updated,${epicExtraFields.join(',')}`;
+        const epicFields = `summary,status,issuetype,assignee,priority,labels,${storyPointsField},parent,updated,created,${epicExtraFields.join(',')}`;
         const epicJql = `${jqlProject} AND issuetype=Epic${updClause} ORDER BY rank ASC`;
         await _paginateJql({
             jql: epicJql,
@@ -822,7 +790,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
             setProgress(81, 'Sprints PI nommes...', piNames.join(', '));
             try {
                 const added = { features: 0, epics: 0, tickets: 0 };
-                const piFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,fixVersions,${sprintFieldId}` +
+                const piFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,fixVersions,${sprintFieldId}` +
                     (teamFieldId ? `,${teamFieldId}` : '') + (piSprintField ? `,${piSprintField}` : '');
                 const seen = await _paginateJql({
                     jql: piSprintJql,
@@ -877,7 +845,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set()) 
 
             if (piFeatures.length) {
                 const FEAT_CHILD_BATCH = 50;
-                const childFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,${sprintFieldId}` +
+                const childFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,${sprintFieldId}` +
                     (teamFieldId ? `,${teamFieldId}` : '') + (piSprintField ? `,${piSprintField}` : '');
                 let childrenAdded = 0;
                 for (let i = 0; i < piFeatures.length; i += FEAT_CHILD_BATCH) {
@@ -1260,6 +1228,13 @@ function transformIssue(issue, teamName, sprint, storyPointsField, boardStatusMa
         description,
         links,
         comments,
+        // ⚠️ `createdAt` ALIMENTE DES RÈGLES MÉTIER, pas seulement un affichage :
+        // l'anomalie « ajouté en cours de sprint » (business_rules.js, infopanel.js,
+        // sprint_tickets_modal.js) la compare au début du sprint. Tant qu'elle n'était pas
+        // transmise, le backend y écrivait la date d'import et la règle se déclenchait sur
+        // tout ticket non terminé. Toute passe JQL qui produit un ticket DOIT donc demander
+        // le champ `created` — sans quoi la date repart à l'heure de la sync.
+        createdAt: f.created || null,
         updatedAt: f.updated || null,
         recentChanges: _extractRecentChanges(issue),
         startedDate: startedDate || null,

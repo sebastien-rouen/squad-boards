@@ -8,9 +8,49 @@
  */
 
 import { store } from '../state.js';
+import { SYNC_DEFAULTS } from '../config.js';
 import * as api from '../api.js';
 import { esc, toast } from '../utils.js';
 import { getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
+
+/** Valeur effective d'un réglage de sync (saisie utilisateur, sinon défaut). */
+function _readCapValue(lsKey, fallback) {
+    const n = parseInt((localStorage.getItem(lsKey) || '').trim(), 10);
+    return isNaN(n) || n < 0 ? fallback : n;
+}
+
+/** Cadence du PI, telle que déclarée dans « Sprint & PI » — jamais devinée ici. */
+function _piCadence() {
+    const pi = store.get('piInfo') || {};
+    return {
+        perPi: parseInt(pi.sprintsPerPI, 10) || 5,
+        days: parseInt(pi.sprintDuration, 10) || 14,
+    };
+}
+
+/**
+ * Traduit un nombre de sprints en durée parlante. Un chiffre en sprints ne dit rien de la
+ * profondeur obtenue tant qu'on ne connaît pas la cadence : c'est la conversion qui permet
+ * de répondre à « je veux 6 mois d'historique ».
+ */
+function _equiv(sprints) {
+    if (!sprints || sprints < 1) return '';
+    const { perPi, days } = _piCadence();
+    const months = Math.round((sprints * days) / 30.44);
+    const pis = (sprints / perPi);
+    const piTxt = pis >= 1 ? ` · ${pis % 1 === 0 ? pis : pis.toFixed(1)} PI` : '';
+    return `≈ ${months} mois${piTxt} (${perPi} sprints/PI, ${days} j)`;
+}
+
+/** Raccourcis exprimés en PI — l'unité dans laquelle se raisonne un historique SAFe. */
+function _piPresets() {
+    const { perPi } = _piCadence();
+    return [1, 2, 4].map(n => {
+        const sprints = n * perPi;
+        return `<button type="button" class="btn btn-ghost btn-sm sync-preset" data-sprints="${sprints}"
+            title="${sprints} sprints — ${_equiv(sprints)}">${n} PI</button>`;
+    }).join('');
+}
 
 /** HTML de la section — à interpoler dans le template de renderSettings. */
 export function jiraSectionHtml() {
@@ -164,16 +204,40 @@ export function jiraSectionHtml() {
 
                     <div class="sync-cfg-row">
                         <div class="sync-cfg-label">
-                            <span class="sync-cfg-icon">📅</span>
+                            <span class="sync-cfg-icon">⚡</span>
                             <div>
-                                <div class="sync-cfg-name">Sprints récents à conserver</div>
-                                <div class="sync-cfg-desc">Nombre de sprints clôturés récents récupérés par board pour la vélocité historique. Utile pour les équipes avec beaucoup de sprints (défaut : 20)</div>
+                                <div class="sync-cfg-name">Historique — vélocité</div>
+                                <div class="sync-cfg-desc">Sprints clôturés conservés par board pour les tendances et la base de capacité. <strong>Gratuit à élargir</strong> : l'import parcourt de toute façon tous les sprints du board (défaut : ${SYNC_DEFAULTS.closedKeep}). ${_equiv(SYNC_DEFAULTS.closedKeep)}</div>
                             </div>
                         </div>
                         <div class="sync-cfg-input-wrap">
-                            <input type="number" id="sync-closed-keep" class="input sync-cfg-input" min="5" max="100" step="5" placeholder="20"
+                            <input type="number" id="sync-closed-keep" class="input sync-cfg-input" min="5" max="200" step="5" placeholder="${SYNC_DEFAULTS.closedKeep}"
                                 value="${esc(localStorage.getItem('sb-sync-closedKeep') || '')}">
                             <span class="sync-cfg-unit">sprints</span>
+                        </div>
+                    </div>
+
+                    <div class="sync-cfg-row">
+                        <div class="sync-cfg-label">
+                            <span class="sync-cfg-icon">🎫</span>
+                            <div>
+                                <div class="sync-cfg-name">Historique — détail des tickets</div>
+                                <div class="sync-cfg-desc">
+                                    Sprints clôturés dont les <strong>tickets</strong> sont rapatriés — ce qui alimente cycle time, engagement et périmètre ajouté en cours de sprint (défaut : ${SYNC_DEFAULTS.closedTicketSprints}).
+                                    ⚠️ Contrairement au réglage ci-dessus, celui-ci <strong>coûte un appel JIRA par sprint et par board</strong>, changelog compris : c'est lui qui fait la durée d'un import complet et le poids de la base. <code>0</code> désactive la passe.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sync-cfg-input-wrap sync-cfg-input-wrap--stack">
+                            <div class="sync-cfg-inline">
+                                <input type="number" id="sync-closed-ticket-sprints" class="input sync-cfg-input" min="0" max="60" step="1" placeholder="${SYNC_DEFAULTS.closedTicketSprints}"
+                                    value="${esc(localStorage.getItem('sb-sync-closedTicketSprints') || '')}">
+                                <span class="sync-cfg-unit">sprints</span>
+                            </div>
+                            <div class="sync-cfg-presets" role="group" aria-label="Raccourcis de profondeur">
+                                ${_piPresets()}
+                            </div>
+                            <div class="sync-cfg-equiv" id="sync-tickets-equiv">${_equiv(_readCapValue('sb-sync-closedTicketSprints', SYNC_DEFAULTS.closedTicketSprints))}</div>
                         </div>
                     </div>
 
@@ -217,11 +281,14 @@ export function wireJiraSection(container, onReload = () => {}) {
     const reloadAndRender = () => onReload();
 
     // ── JIRA sync config ──────────────────────────────────────────────────────
-    const _saveCap = (inputId, lsKey) => {
+    // `min` : 0 est une valeur LÉGITIME pour l'historique des tickets (désactive la passe),
+    // alors qu'un plafond à 0 n'aurait aucun sens ailleurs. Sans ce paramètre, saisir 0
+    // effaçait la clé et rétablissait silencieusement le défaut.
+    const _saveCap = (inputId, lsKey, min = 1) => {
         const raw = (container.querySelector(`#${inputId}`)?.value || '').trim();
         if (!raw) { localStorage.removeItem(lsKey); return; }
         const n = parseInt(raw);
-        if (!isNaN(n) && n >= 1) localStorage.setItem(lsKey, String(n));
+        if (!isNaN(n) && n >= min) localStorage.setItem(lsKey, String(n));
         else localStorage.removeItem(lsKey);
     };
     const _saveStr = (inputId, lsKey) => {
@@ -266,11 +333,33 @@ export function wireJiraSection(container, onReload = () => {}) {
         _saveCap('sync-max-boards',   'sb-sync-maxBoards');
         _saveCap('sync-quick-days',   'sb-sync-quickDays');
         _saveCap('sync-closed-keep',  'sb-sync-closedKeep');
+        _saveCap('sync-closed-ticket-sprints', 'sb-sync-closedTicketSprints', 0);
         _saveStr('sync-sprint-field', 'sb-sync-sprintField');
         _saveStr('sync-team-field',   'sb-sync-teamField');
         toast('Configuration sync JIRA enregistree', 'success');
         // Met à jour le label du bouton topbar pour refléter la nouvelle durée
         window.__squadBoard?.refreshSyncButtonLabel?.();
+    });
+
+    // ── Profondeur des tickets : raccourcis en PI et équivalence en mois ──────
+    // L'équivalence se recalcule à la saisie SANS re-rendre la section : un rendu complet
+    // reposerait les champs et ferait perdre les autres valeurs en cours d'édition.
+    const _ticketsInput = container.querySelector('#sync-closed-ticket-sprints');
+    const _equivEl      = container.querySelector('#sync-tickets-equiv');
+    const _refreshEquiv = () => {
+        if (!_equivEl) return;
+        const n = parseInt(_ticketsInput?.value, 10);
+        _equivEl.textContent = isNaN(n)
+            ? _equiv(SYNC_DEFAULTS.closedTicketSprints)
+            : (n === 0 ? 'Passe désactivée — aucun ticket de sprint clos ne sera rapatrié.' : _equiv(n));
+    };
+    _ticketsInput?.addEventListener('input', _refreshEquiv);
+    container.querySelectorAll('.sync-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!_ticketsInput) return;
+            _ticketsInput.value = btn.dataset.sprints;
+            _refreshEquiv();
+        });
     });
 
     // ── Équipes masquées — restauration ───────────────────────────────────────

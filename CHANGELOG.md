@@ -1,3 +1,79 @@
+## [3.143.0] - 2026-08-25
+
+### Historique JIRA : dire ce qu'on a, réparer les dates, ouvrir le réglage
+
+Question de départ : « quelle est l'ancienneté des tickets ? ». Elle n'avait pas de réponse
+dans l'écran — et la donnée qui aurait dû la porter était fausse. Quatre changements liés.
+
+#### 📅 Bandeau « Couverture de l'historique » (page Health)
+
+Nouveau [health-coverage.js](static/js/views/health-coverage.js) + son CSS, replié par défaut
+(état retenu). Il annonce les **deux** profondeurs, qui n'ont jamais été la même :
+
+- ⚡ **Vélocité & tendances** — métadonnées de sprint, 1 appel JIRA par board ;
+- 🎫 **Détail des tickets** — cycle time, engagement, scope creep ; 1 appel par sprint **et**
+  par board, changelog compris.
+
+Relevé sur le parc : 20 sprints (~9 mois) contre 6 (~3 mois). Le bandeau nomme la date à
+partir de laquelle les stats ticket par ticket sont représentatives, signale le maillon faible
+(l'équipe la moins couverte borne toute comparaison) et marque « ⚠ plafonné » quand la
+profondeur bute sur le **réglage** et non sur ce que JIRA contient.
+
+⚠️ **Il compte la présence actuelle (`sprintName`), PAS le périmètre engagé** — l'inverse de
+la règle de [sprint-scope.js](static/js/utils/sprint-scope.js), et c'est délibéré : la question
+est « ce sprint a-t-il été rapatrié ? », or l'import interroge `/sprint/{id}/issue`, qui ne rend
+que les tickets s'y trouvant. Passer par `sprintNamesOf()` créditait des sprints que rien
+n'avait importés — un ticket reporté quinze fois les valide tous. Mesuré : **101 sprints
+annoncés contre 60 réels, et 19 contre 6 sur Initiale**. Un bandeau qui promet trois fois la
+profondeur disponible est pire que pas de bandeau.
+
+#### 🐛 Les dates JIRA étaient perdues à l'import
+
+`Ticket(...)`, `Feature(...)` et `Epic(...)` ne recevaient ni `created_at` ni `updated_at` :
+`default_factory=_now` prenait la main et **tous les tickets d'un import portaient la même
+seconde**, celle de la sync. Le `updatedAt` que `sync.js` envoyait déjà était jeté, et la date
+de création JIRA n'était même pas demandée.
+
+Ce n'était pas qu'un affichage faux : `createdAt` alimente l'anomalie **« ajouté en cours de
+sprint »** ([business_rules.js](static/js/business_rules.js), `infopanel.js`,
+`sprint_tickets_modal.js`) et sert de repli au burndown ([charts.js](static/js/components/charts.js)).
+Comparée au début du sprint, une date d'import se déclenchait sur **tout ticket non terminé** —
+852 au dernier relevé.
+
+- `transformIssue` émet `createdAt` ; les **5 passes JQL** qui ne demandaient pas le champ
+  `created` (futurs, features, epics, sprints nommés PI, enfants) le demandent désormais.
+- `_jira_dates()` pose les deux dates : date JIRA, sinon celle déjà en base (un ticket créé
+  dans l'app ne doit pas rajeunir à chaque sync), sinon le défaut du modèle.
+- `_iso_utc()` normalise le fuseau compact de JIRA (`+0200`) vers l'ISO UTC de la base.
+  Nécessaire, pas cosmétique : [roadmap.js](static/js/views/roadmap.js) trie `createdAt` par
+  **comparaison de chaînes**, et deux formats mêlés y produisent un ordre faux sans erreur.
+
+#### 🎫 Le réglage de profondeur des tickets devient accessible
+
+`sb-sync-closedTicketSprints` existait mais n'était écrit **nulle part** dans l'interface :
+seule la console permettait de le changer. Il est maintenant dans Paramètres → Plugin JIRA,
+avec des raccourcis exprimés en **PI** (l'unité dans laquelle se raisonne un historique SAFe —
+un PI coupé en deux donne une vélocité fausse, pas partielle) et l'équivalence en mois
+recalculée depuis la cadence déclarée dans « Sprint & PI ». Son coût y est écrit noir sur
+blanc. `0` désactive la passe et est désormais une saisie conservée, non plus effacée.
+
+#### ⚡ Défaut `closedKeep` : 20 → 40
+
+Dix des treize équipes butaient sur le plafond de 20 et perdaient leur historique au-delà de
+~9 mois. **Ce plafond ne faisait économiser aucun appel JIRA** : la passe pagine déjà tous les
+sprints clos du board avant de trancher, et le rapport de vélocité Greenhopper arrive en un
+appel pour le board entier. Le coût du changement se limite à quelques Ko de `teamSprints`.
+
+#### 🔧 Source unique des réglages de sync
+
+`SYNC_DEFAULTS` + `syncSetting()` dans [config.js](static/js/config.js) : les défauts vivaient
+en dur dans `sync.js`, ce qui interdisait à la page Health de dire « tu es au plafond » sans les
+recopier. `app.js` garde sa propre lecture de `quickDays` — il charge `sync.js` en import
+**dynamique**, et partager la constante depuis la vue casserait ce lazy.
+
+⚠️ **Après mise à jour : une sync complète est nécessaire.** Les dates et la profondeur élargie
+ne concernent que les données réimportées ; une sync rapide (merge) laisse l'existant en l'état.
+
 ## [3.142.1] - 2026-08-25
 
 ### « Temps par colonne » : résumé en fin de copie Slack

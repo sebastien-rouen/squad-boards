@@ -20,6 +20,7 @@ import { sparkline, trendChip } from '../components/sparkline.js';
 import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
 import { ANOMALY_RULES, isActionRetro } from '../business_rules.js';
 import { VOTE_KINDS, setVotes, pushVote, voteCellHtml, voteTotalHtml, voteRowCls, voteCount, pickerHtml } from './health-votes.js';
+import { computeCoverage, coverageBannerHtml, wireCoverageBanner } from './health-coverage.js';
 
 // Historique local du score Health (snapshot à chaque visite, max 30 entrées)
 const HEALTH_HIST_KEY = 'sb-health-history';
@@ -611,6 +612,10 @@ export function renderHealth(container) {
         </tr>`;
     }).join('');
 
+    // Profondeur d'historique réellement disponible — lecture seule, aucun chiffre de la
+    // page n'en dépend : le bandeau dit ce que ces chiffres valent, il ne les change pas.
+    const _coverage = computeCoverage({ teamsScope, tickets: allTickets, sprintInfo });
+
     container.innerHTML = `
         <div class="health-view">
             <div class="health-hero">
@@ -632,6 +637,8 @@ export function renderHealth(container) {
 
                 ${capacityCard}
             </div>
+
+            ${coverageBannerHtml(_coverage)}
 
             <div class="health-velo-host">
                 ${_veloTeamChips}
@@ -675,6 +682,8 @@ C'est un point de départ chiffré, pas un engagement : la « Charge prévue » 
             </div>
         </div>
     `;
+
+    wireCoverageBanner(container);
 
     // Graphe(s) de vélocité (Chart.js) — monté(s) après insertion du DOM.
     // Mode ligne produit : un graphe par équipe du groupe (canvasId dédié par équipe).

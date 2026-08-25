@@ -1,0 +1,47 @@
+/* Paramètres → Plugin JIRA — réglages de profondeur d'historique (settings-jira.js).
+   Fichier séparé : settings.css est déjà à la limite des 800 lignes, et ces styles ne
+   servent qu'à cette section. Même pattern que settings-pi-objectives.css. */
+
+/* Le réglage « détail des tickets » empile champ, raccourcis et équivalence là où les
+   autres lignes tiennent sur un seul rang. */
+.sync-cfg-input-wrap--stack {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--sp-2);
+}
+
+.sync-cfg-inline {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+}
+
+.sync-cfg-presets {
+    display: flex;
+    gap: var(--sp-1);
+}
+.sync-cfg-presets .sync-preset {
+    min-width: 48px;
+}
+
+/* Équivalence en mois : la seule information qui répond à « je veux 6 mois d'historique »,
+   donc lisible sans être criarde. */
+.sync-cfg-equiv {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    text-align: right;
+    max-width: 260px;
+    line-height: 1.4;
+}
+
+.sync-cfg-desc code {
+    font-family: var(--font-mono);
+    background: var(--bg-alt);
+    padding: 1px var(--sp-1);
+    border-radius: var(--r-sm);
+}
+
+@media (max-width: 640px) {
+    .sync-cfg-input-wrap--stack { align-items: stretch; }
+    .sync-cfg-equiv { text-align: left; max-width: none; }
+}

@@ -39,14 +39,37 @@ Chaîne de fallback dans `transformIssue` : nom du sprint (regex `\d+\.\d+` ou `
 4. **Epics proxy** : epics avec children PI suivant mais sans feature parente (badge violet `epic`) — utile pour les projets qui planifient au niveau epic
 
 ## Settings disponibles (localStorage)
+Défauts et lecture : `SYNC_DEFAULTS` / `syncSetting()` dans [config.js](../static/js/config.js) — **source unique**, ne jamais recopier une valeur par défaut ailleurs.
+
 - `sb-sync-quickDays` — fenêtre (jours) de la **sync rapide** (clic direct sur le bouton JIRA). Défaut 14. Filtre les JQL sur `updated >= -Nj`.
 - `sb-sync-maxFeatures` — cap par JQL (vide = illimité, hard cap interne 10 000)
 - `sb-sync-maxBoards` — cap total boards scannés (vide = illimité)
 - `sb-sync-sprintField` — nom JQL ou customfield (auto-détecté si vide)
 - `sb-sync-teamField` — idem
-- `sb-sync-closedKeep` — nb de sprints clos conservés par board pour l'historique vélocité (défaut 20)
-- `sb-sync-closedTicketSprints` — nb de sprints clos récents (par board) dont on **importe les tickets** en local, pour l'historique vélocité/buffer de la vue Health (défaut 6 ≈ 1 PI ; `0` = désactivé). Sans ça, les tickets des sprints clos ne sont pas synchronisés (seuls sprint actif + futurs + features/epics le sont) → la modale Health devait les lazy-fetch depuis JIRA.
+- `sb-sync-closedKeep` — nb de sprints clos conservés par board pour l'historique vélocité (défaut **40** depuis 3.143.0). ⚠️ **L'élargir ne coûte aucun appel JIRA** : la passe pagine de toute façon tous les sprints clos du board avant de trancher, et la vélocité Greenhopper arrive en un appel pour le board entier. À 20, dix des treize équipes butaient sur le plafond.
+- `sb-sync-closedTicketSprints` — nb de sprints clos récents (par board) dont on **importe les tickets** en local, pour l'historique vélocité/buffer de la vue Health (défaut 6 ≈ 1 PI ; `0` = désactivé). **Exposé dans Paramètres → Plugin JIRA depuis 3.143.0** (auparavant réglable en console seulement), avec raccourcis en PI et équivalence en mois. ⚠️ Contrairement à `closedKeep`, il coûte **1 appel par sprint et par board**, changelog compris : c'est lui qui détermine la durée d'un import complet et le poids de la base. Sans ça, les tickets des sprints clos ne sont pas synchronisés (seuls sprint actif + futurs + features/epics le sont) → la modale Health devait les lazy-fetch depuis JIRA.
 - `sb-jira-excluded-teams` — JSON array des **équipes / lignes produit retirées**. Alimenté quand on supprime une équipe dans Paramètres. La sync ne recrée pas ces équipes (board non scanné + filet de sécurité final sur tickets/features/epics/sprints). Helpers exportés par [sync.js](../static/js/sync.js) : `getExcludedTeams` / `addExcludedTeam` / `removeExcludedTeam` / `clearExcludedTeams`.
+
+## Profondeur d'historique : deux mesures, pas une
+
+L'import ne rapatrie pas « l'historique » d'un bloc — il en rapatrie **deux, de longueurs
+différentes** :
+
+| Donnée | Réglage | Coût | Alimente |
+|---|---|---|---|
+| Métadonnées de sprint (dates, vélocité) | `closedKeep` (40) | 1 appel/board | vélocité, tendances, base de capacité |
+| Détail des tickets | `closedTicketSprints` (6) | 1 appel/sprint/board | cycle time, engagement, scope creep |
+
+Au-delà de `closedTicketSprints`, la base contient encore des tickets anciens — mais seulement
+ceux que les passes features/epics/labels ramènent au passage, c'est-à-dire **ce qui traîne
+encore ouvert**. Une statistique calculée là-dessus mesure les restes d'une équipe, pas son
+travail. Le bandeau **« Couverture de l'historique »** (page Health,
+[health-coverage.js](../static/js/views/health-coverage.js)) affiche les deux profondeurs, la
+date à partir de laquelle les stats ticket par ticket sont représentatives, et signale
+« ⚠ plafonné » quand la limite vient du réglage et non de JIRA.
+
+⚠️ La sync complète est en mode `replace` : **l'historique ne s'accumule pas**. Élargir la
+fenêtre se paie à *chaque* sync complète, pas une fois pour toutes.
 
 ## Sync rapide vs complète
 - **Rapide** (`importFromJira({ sinceDays })`, mode `merge`) : ne touche que ce qu'elle rapatrie. Pour être rapide, elle **saute les passes historiques** (sprints clos + vélocité Greenhopper par board, tickets des sprints clos, scan `labels=Buffer`) et filtre les enfants de features sur `updated`. Les `teamSprints` collectés (actif + futurs) sont **fusionnés par `jiraId`** avec ceux déjà en base → l'historique de vélocité/buffer des sprints clos est préservé. Conséquence : la vélocité d'un sprint **récemment clôturé** n'est rafraîchie qu'à la sync complète.

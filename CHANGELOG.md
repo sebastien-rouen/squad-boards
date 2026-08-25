@@ -1,3 +1,24 @@
+## [3.142.1] - 2026-08-25
+
+### « Temps par colonne » : résumé en fin de copie Slack
+
+Le bouton « 📋 Copier » de la card produisait un message dont chaque colonne déroule ses
+tickets : sur un sprint chargé, le chiffre qui intéresse (« combien de jours en revue ? »)
+se perdait dans la liste. Le message se termine désormais par un récapitulatif :
+
+```
+📊 En résumé — médiane par colonne
+💻 En cours de dév : 4,8 j
+👀 Revue : 4 j
+📦 À livrer en qualif : 2 j
+```
+
+- **Médiane** (P50), le chiffre que porte déjà la card — pas la moyenne.
+- Durées en **français** (`4,8 j`, `4 j` sans « ,0 ») via un helper unique `_jours()`, appliqué
+  aussi aux blocs par colonne : deux formats de nombre dans un même message Slack se voyaient.
+- Une colonne dont tous les tickets sont exclus affiche `—`, **jamais `0 j`** : `percentile()`
+  renvoie 0 sur un tableau vide, ce qui se lirait comme une traversée instantanée.
+
 ## [3.142.0] - 2026-08-25
 
 ### Ctrl+K trouve les BLOCS de page, pas seulement les vues
@@ -26,6 +47,21 @@ de résultats **🧩 Blocs de page** — 77 blocs sur 11 vues — qui navigue ju
   porté par `scroll-padding-top` — les deux s'additionneraient), cf
   [cmd-section.css](static/css/views/cmd-section.css).
 - Un bloc introuvable au bout de 3 s le dit par un toast au lieu de ne rien faire.
+
+**À l'ouverture de la palette**, avant même de taper : groupe « 🧩 Blocs de cette page »
+(6 max) listant les blocs de la vue affichée — le cas le plus courant est de sauter dans la page
+qu'on a déjà sous les yeux. ⚠️ `.map(_sectionItemHtml)` est un piège ici : l'index arrive en
+2ᵉ argument et sert de terme à surligner (« 1 » surligné dans les libellés).
+
+**Lien partageable vers un bloc** : `Ctrl`+clic (ou le badge 🔗 de la ligne) copie
+`#<vue>/<équipe>[/<onglet>]~bloc=<slug>` — même geste que le `Ctrl`+clic qui ouvre un ticket
+dans JIRA, et la palette reste ouverte pour enchaîner. Le marqueur `~bloc=` est retiré en tête
+d'`applyHash` (avant le `~` des filtres backlog), ne route rien de lui-même — le hash porte déjà
+vue/équipe/onglet — et ne fait que révéler une fois la vue rendue. Un slug inconnu (lien
+obsolète) laisse simplement la vue s'ouvrir, sans message d'erreur.
+
+- Catalogue porté à **87 blocs** : Backlog, Amélioration, Risques ROAM et Agenda en ont aussi.
+- Geste documenté dans la modale des raccourcis (`?`).
 
 ## [3.141.22] - 2026-08-25
 

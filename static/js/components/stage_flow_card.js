@@ -170,6 +170,9 @@ function _piSprintLines(ticketList) {
     ].filter(Boolean);
 }
 
+// « 4,8 j » / « 4 j » — virgule décimale et pas de « ,0 » inutile : ce texte part dans Slack.
+const _jours = n => `${n.toFixed(1).replace(/[.,]0$/, '').replace('.', ',')} j`;
+
 // Bloc texte d'une seule colonne : titre + moyenne, puis liste des tickets actifs (id, titre,
 // durée) triés du plus long au plus court pour repérer d'un coup d'œil ce qui traîne.
 function _buildStageBlockText(groupKey, rows) {
@@ -180,11 +183,11 @@ function _buildStageBlockText(groupKey, rows) {
     const med = percentile(daysArr, 50);
     const p85 = percentile(daysArr, 85);
     return [
-        `${icon} ${label} — ${active.length} ticket${active.length > 1 ? 's' : ''}, médiane ${med.toFixed(1)} j · P85 ${p85.toFixed(1)} j`,
+        `${icon} ${label} — ${active.length} ticket${active.length > 1 ? 's' : ''}, médiane ${_jours(med)} · P85 ${_jours(p85)}`,
         ...active
             .slice()
             .sort((a, b) => b.days - a.days)
-            .map(({ ticket: t, days }) => `- ${t.id} (🕰️ ${days.toFixed(1)} j) ${t.title || '(sans titre)'}`),
+            .map(({ ticket: t, days }) => `- ${t.id} (🕰️ ${_jours(days)}) ${t.title || '(sans titre)'}`),
     ].join('\n');
 }
 
@@ -209,9 +212,15 @@ function _buildStageFlowCopyText(groupKey, rows) {
 function _buildAllStagesCopyText(tickets) {
     const groups = computeStageFlow(tickets);
     const allActiveTickets = [];
+    const summary = [];
     const blocks = groups.map(g => {
         const { tickets: rows } = computeStageFlowDetail(g.key, tickets);
-        allActiveTickets.push(...rows.filter(r => !r.excluded).map(r => r.ticket));
+        const active = rows.filter(r => !r.excluded);
+        allActiveTickets.push(...active.map(r => r.ticket));
+        // Colonne dont tous les tickets sont exclus : « — », jamais « 0 j » — percentile()
+        // renvoie 0 sur un tableau vide, ce qui se lirait comme « traversée instantanée ».
+        const med = active.length ? _jours(percentile(active.map(r => r.days), 50)) : '—';
+        summary.push(`${STAGE_ICONS[g.key] || ''} ${STAGE_LABELS[g.key] || g.key} : ${med}`);
         return _buildStageBlockText(g.key, rows);
     });
     return [
@@ -221,6 +230,11 @@ function _buildAllStagesCopyText(tickets) {
         'Calcul : durée (en jours) passée par chaque ticket dans chaque colonne du workflow, de son entrée à sa sortie — médiane (P50) et P85 par colonne (plus robustes que la moyenne).',
         '',
         blocks.join('\n\n'),
+        '',
+        // Récapitulatif en fin de message : les listes de tickets peuvent être longues,
+        // c'est ce résumé qu'on lit d'abord dans Slack.
+        '📊 En résumé — médiane par colonne',
+        ...summary,
     ].join('\n');
 }
 

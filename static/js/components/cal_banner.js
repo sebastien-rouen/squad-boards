@@ -1554,6 +1554,37 @@ window.addEventListener('popstate', () => {
  * Synchronise les calendriers ICS pertinents pour l'équipe courante, puis rafraîchit la modal.
  * Réutilise le endpoint `/api/calendars/{id}/refresh` (même que Paramètres → Calendriers ICS).
  */
+/**
+ * Rafraichit une liste de calendriers en bornant la concurrence.
+ *
+ * ⚠️ NE JAMAIS repasser a un `Promise.allSettled(list.map(...))` nu : chaque refresh ouvre
+ * une connexion SQLite cote serveur, et 16 calendriers lances de front epuisaient le pool
+ * SQLAlchemy (5 + 10 overflow) — « Rafraichir tous » echouait alors que le meme bouton,
+ * ligne par ligne, passait. Le backend ne tient plus sa connexion pendant le fetch, mais
+ * cette borne reste le garde-fou : elle menage aussi le serveur ICS distant et rend la
+ * progression fidele.
+ * @param {Array}    list       calendriers a rafraichir
+ * @param {Function} [onDone]   appele apres chaque calendrier — (fait, total, calendrier)
+ * @param {number}   [limit]    nombre de requetes simultanees
+ * @returns {Promise<Array>} resultats au format Promise.allSettled, dans l'ordre d'entree
+ */
+async function _refreshPooled(list, onDone = null, limit = 4) {
+    const results = new Array(list.length);
+    let next = 0, done = 0;
+    const worker = async () => {
+        while (next < list.length) {
+            const i = next++;
+            const c = list[i];
+            try { results[i] = { status: 'fulfilled', value: await api.refreshCalendar(c.id) }; }
+            catch (reason) { results[i] = { status: 'rejected', reason }; }
+            done++;
+            onDone?.(done, list.length, c);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, list.length) }, worker));
+    return results;
+}
+
 async function _syncCalendarsFromModal(e) {
     const btn = e.currentTarget;
     if (!btn || btn.disabled) return;
@@ -1568,7 +1599,7 @@ async function _syncCalendarsFromModal(e) {
     btn.disabled = true;
     btn.classList.add('cal-sync-spin');
     try {
-        const results = await Promise.allSettled(relevant.map(c => api.refreshCalendar(c.id)));
+        const results = await _refreshPooled(relevant);
         const ok = results.filter(r => r.status === 'fulfilled').length;
         const ko = results.length - ok;
         // Recharger les events depuis la base + maj du store
@@ -1611,15 +1642,10 @@ export async function syncCalendars(scope = 'team') {
     store.set('syncLabel', `Synchronisation des agendas…`);
     store.set('syncDetail', `0 / ${relevant.length} calendrier${relevant.length > 1 ? 's' : ''}`);
 
-    let done = 0;
-    const results = await Promise.allSettled(relevant.map(async c => {
-        try { return await api.refreshCalendar(c.id); }
-        finally {
-            done++;
-            store.set('syncProgress', Math.round(5 + (done / relevant.length) * 80));
-            store.set('syncDetail', `${done} / ${relevant.length} calendrier${relevant.length > 1 ? 's' : ''} — ${c.name || c.label || c.id}`);
-        }
-    }));
+    const results = await _refreshPooled(relevant, (done, total, c) => {
+        store.set('syncProgress', Math.round(5 + (done / total) * 80));
+        store.set('syncDetail', `${done} / ${total} calendrier${total > 1 ? 's' : ''} — ${c.name || c.label || c.id}`);
+    });
 
     store.set('syncProgress', 90);
     store.set('syncLabel', 'Rafraichissement des evenements…');
@@ -1642,6 +1668,15 @@ export async function syncCalendars(scope = 'team') {
         store.set('syncDetail', '');
     }, 600);
 
-    toast(`${ok} calendrier${ok > 1 ? 's' : ''} synchronisé${ok > 1 ? 's' : ''}${ko ? ` (${ko} en échec)` : ''}`, ko ? 'warning' : 'success');
+    // Un echec doit se lire : nommer les calendriers fautifs et la premiere cause, sinon un
+    // ICS casse (URL revoquee, 404) reste invisible derriere un simple compteur.
+    const failed = results
+        .map((r, i) => (r.status === 'rejected' ? relevant[i] : null))
+        .filter(Boolean);
+    const why = results.find(r => r.status === 'rejected')?.reason?.message || '';
+    const koDetail = failed.length
+        ? ` — echec : ${failed.map(c => c.name || c.id).join(', ')}${why ? ` (${why})` : ''}`
+        : '';
+    toast(`${ok} calendrier${ok > 1 ? 's' : ''} synchronisé${ok > 1 ? 's' : ''}${ko ? ` (${ko} en échec)${koDetail}` : ''}`, ko ? 'warning' : 'success');
     return ok;
 }

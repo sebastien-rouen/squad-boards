@@ -8,6 +8,8 @@ import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 import { renderPIVelocityChart, renderStatusChart, renderTypeChart, renderBurndown, renderBurnup, renderCycleTime, renderWIPAge } from '../components/charts.js';
 import { FIST_SCALE, slackToEmoji, buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, moodThemeIndex, SONDAGE_THEME_COUNT, SONDAGE_INTRO } from '../components/sondage.js';
 import * as api from '../api.js';
+import { PI_GENERATOR } from './reports-pi.js';
+import { B, E, SB, CS } from './reports-fmt.js';
 
 let _format = 'text';
 let _chartsCollapsed = localStorage.getItem('sb-rpt-charts-collapsed') === 'true';
@@ -91,7 +93,12 @@ export function renderReports(container) {
     const bufPct      = pct(bufferPts, totalPts);
     const daysLeft    = sprintInfo?.endDate ? Math.max(0, Math.round((new Date(sprintInfo.endDate) - Date.now()) / 86_400_000)) : null;
 
-    const ctx = { tickets: displayTickets, features, sprintInfo, teams, team, piInfo, absences, support, statusCounts, total, done, totalPts, donePts };
+    // `teamTickets` = tickets de l'equipe SANS reduction au PI affiche : la section PI en a
+    // besoin pour retrouver le perimetre engage d'un sprint (un reporte porte le sprint
+    // d'arrivee, souvent d'un autre PI — cf utils/sprint-scope.js).
+    const ctx = { tickets: displayTickets, teamTickets: tickets, features, sprintInfo, teams, team, piInfo,
+                  absences, support, statusCounts, total, done, totalPts, donePts,
+                  displayPiNum, isCurrentPi: _isCurrentPi };
     const dLeft = _dLeft(sprintInfo?.endDate);
 
     const sections = [
@@ -1122,10 +1129,8 @@ function renderSection(id, fmt, ctx) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const B = t => `<span class="s-bold">${t}</span>`;
-const E = t => `<span class="s-emoji">${t}</span>`;
-const SB = (t, c) => `<span class="s-badge s-badge-${c}">${t}</span>`;
-const CS = (t, c) => `<span class="c-status c-${c}">${t}</span>`;
+// B / E / SB / CS viennent de reports-fmt.js : reports-pi.js les partage sans
+// importer ce fichier (un cycle mettrait ces const fléchées en TDZ).
 
 function teamBreakdown(tickets, teams, fmt) {
     const byTeam = groupBy(tickets, t => t.team);
@@ -1442,60 +1447,9 @@ const GENERATORS = {
         slack: ctx => `<div class="s-header">${E('👥')} Equipes</div><hr class="s-divider">\n${teamBreakdown(ctx.tickets, ctx.teams, 'slack')}`,
         confluence: ctx => `<h2>Equipes</h2>${teamBreakdown(ctx.tickets, ctx.teams, 'confluence')}`,
     },
-    pi: {
-        text: ctx => {
-            const objs = ctx.piInfo?.objectives || [];
-            const done = objs.filter(o => o.status === 'done').length;
-            let r = `=== PI: ${ctx.piInfo?.name || 'N/A'} ===\nObjectifs: ${done}/${objs.length}\n`;
-            // Grouper par équipe
-            const byTeam = {};
-            for (const o of objs) { const t = o.team || '-'; (byTeam[t] = byTeam[t] || []).push(o); }
-            for (const [team, list] of Object.entries(byTeam)) {
-                r += `\n  ${team}\n`;
-                for (const o of list) {
-                    const bv = o.bv ? ` (💰${o.bv})` : '';
-                    r += `    ${o.status === 'done' ? '[x]' : o.status === 'inprog' ? '[~]' : '[ ]'} ${o.text}${bv}\n`;
-                }
-            }
-            return r;
-        },
-        slack: ctx => {
-            const objs = ctx.piInfo?.objectives || [];
-            const done = objs.filter(o => o.status === 'done').length;
-            let r = `<div class="s-header">${E('🗓️')} PI: ${esc(ctx.piInfo?.name || 'N/A')}</div><hr class="s-divider">`;
-            r += `${B('Objectifs')}: ${done}/${objs.length}\n\n`;
-            // Grouper par équipe
-            const byTeam = {};
-            for (const o of objs) { const t = o.team || '-'; (byTeam[t] = byTeam[t] || []).push(o); }
-            for (const [team, list] of Object.entries(byTeam)) {
-                r += `${B(esc(team))}\n`;
-                for (const o of list) {
-                    const icon = o.status === 'done' ? E('✅') : o.status === 'inprog' ? E('🔄') : E('⬜');
-                    const bv   = o.bv ? ` <span class="s-muted">(💰${o.bv})</span>` : '';
-                    const comm = o.committed ? ` ${SB('Commis', 'blue')}` : '';
-                    r += `${icon} ${esc(o.text)}${bv}${comm}\n`;
-                }
-                r += '\n';
-            }
-            return r;
-        },
-        confluence: ctx => {
-            const objs = ctx.piInfo?.objectives || [];
-            let r = `<h2>PI: ${esc(ctx.piInfo?.name || 'N/A')}</h2>`;
-            // Grouper par équipe
-            const byTeam = {};
-            for (const o of objs) { const t = o.team || '-'; (byTeam[t] = byTeam[t] || []).push(o); }
-            for (const [team, list] of Object.entries(byTeam)) {
-                r += `<h3>${esc(team)}</h3>`;
-                r += `<table><tr><th>Objectif</th><th>Statut</th><th>BV</th></tr>`;
-                r += list.map(o =>
-                    `<tr><td>${esc(o.text)}</td><td>${CS(STATUS_LABELS[o.status] || o.status, o.status === 'done' ? 'green' : o.status === 'inprog' ? 'blue' : 'gray')}</td><td>${o.bv ? `💰${o.bv}` : '-'}</td></tr>`
-                ).join('');
-                r += `</table>`;
-            }
-            return r;
-        },
-    },
+    // Section PI Planning — objectifs + detail par sprint, dynamiques sur l'equipe
+    // ET le PI selectionnes. Vit dans son propre module (reports-pi.js).
+    pi: PI_GENERATOR,
     full: {
         text: ctx => ['sprint', 'kanban', 'support', 'roadmap', 'teams', 'pi'].map(id => GENERATORS[id].text(ctx)).join('\n\n'),
         slack: ctx => ['sprint', 'kanban', 'support', 'roadmap', 'teams', 'pi'].map(id => GENERATORS[id].slack(ctx)).join('\n\n'),

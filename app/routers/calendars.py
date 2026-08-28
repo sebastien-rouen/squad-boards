@@ -60,13 +60,24 @@ def delete_calendar(cal_id: str, session: Session = Depends(get_session)):
 
 @router.post("/{cal_id}/refresh")
 async def refresh_calendar(cal_id: str, session: Session = Depends(get_session)):
+    """Refetch l'ICS et remplace les événements du calendrier.
+
+    ⚠️ La connexion SQLite est RENDUE AU POOL avant l'appel réseau, et reprise après.
+    Garder la session ouverte pendant le fetch immobilisait une connexion jusqu'à 30 s :
+    « Rafraichir tous » lançant tous les calendriers de front, le pool (5 + 10 overflow)
+    était épuisé dès le 16ᵉ, qui échouait en `QueuePool limit ... connection timed out`.
+    Un par un, la même route fonctionnait — d'où un bug qui n'apparaissait qu'en masse.
+    Ne jamais refaire d'I/O réseau entre deux usages de `session` sans ce close().
+    """
     c = session.get(TeamCalendar, cal_id)
     if not c:
         raise HTTPException(404, "Calendrier introuvable")
     if not c.ical_url:
         raise HTTPException(400, "Aucune URL configurée")
+    url = c.ical_url
+    session.close()          # libère la connexion ; le prochain get() en reprend une
     try:
-        resp = await http_client.client.get(c.ical_url, follow_redirects=True, timeout=30)
+        resp = await http_client.client.get(url, follow_redirects=True, timeout=30)
         resp.raise_for_status()
     except httpx.RequestError as e:
         raise HTTPException(502, f"Erreur réseau : {e}")
@@ -76,6 +87,9 @@ async def refresh_calendar(cal_id: str, session: Session = Depends(get_session))
         evs = _parse_ics_events(resp.text)
     except Exception as e:
         raise HTTPException(422, str(e))
+    c = session.get(TeamCalendar, cal_id)   # objet détaché par close() : on le recharge
+    if not c:
+        raise HTTPException(404, "Calendrier supprimé pendant la synchronisation")
     c.events_json = json.dumps(evs, ensure_ascii=False)
     c.last_fetched = _now()
     c.updated_at = _now()

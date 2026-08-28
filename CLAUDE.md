@@ -274,6 +274,32 @@ python main.py          # http://localhost:3001  — Swagger /docs
   importés (101 annoncés contre 60 réels, 19 contre 6 sur Initiale). Ne pas « corriger » ce
   choix vers `belongedToSprint()`.
 
+- **Section PI du rapport** (3.149.0, [reports-pi.js](static/js/views/reports-pi.js)) : elle
+  est DYNAMIQUE sur l'équipe (`ctx.team`) et sur le PI (`ctx.displayPiNum` / `isCurrentPi`) —
+  l'ancien générateur lisait `piInfo.objectives` brut et montrait toutes les équipes du PI
+  courant quel que soit le hash. Objectifs résolus par `resolvePiObjectives()` (même source
+  que pi.js et dashboard.js, égalité stricte sur `o.team` : les 3 vues doivent afficher le
+  même compte) ; les objectifs SANS équipe sont montrés à part comme transverses, jamais
+  écartés en silence.
+  ⚠️ Le détail par sprint part de `ctx.teamTickets` (tickets de l'équipe, NON réduits au PI)
+  et passe par `sprintScope()` : un reporté porte le sprint d'arrivée, souvent d'un autre PI.
+  Réduire au PI d'abord ferait disparaître les tickets de leur sprint d'engagement.
+  ⚠️ `.rpt-ti--done.rpt-pi-ti--open` (reports-pi.css) ANNULE le grisé/barré de `.rpt-ti--done`
+  (reports.css) : un ticket `done` ailleurs ne doit pas s'afficher comme tenu dans le sprint
+  où il ne l'a pas été. Les helpers Slack/Confluence `B`/`E`/`SB`/`CS` vivent dans
+  [reports-fmt.js](static/js/views/reports-fmt.js) — les importer depuis `reports.js` créerait
+  un cycle et mettrait ces `const` fléchées en TDZ.
+- **Refresh ICS et pool SQLite** (3.149.0, [calendars.py](app/routers/calendars.py)) :
+  `refresh_calendar` **rend sa connexion au pool avant le fetch réseau** (`session.close()`,
+  puis un second `session.get()` recharge l'objet détaché). Tenir la session pendant l'appel
+  HTTP immobilisait une connexion jusqu'à 30 s : « Rafraichir tous » lançant les 16
+  calendriers de front, le pool (5 + 10 overflow) était épuisé dès le 16ᵉ
+  (`QueuePool limit ... connection timed out`) — un par un, la même route passait.
+  ⚠️ Ne JAMAIS refaire d'I/O réseau entre deux usages d'une session dans ce projet.
+  Côté front, `_refreshPooled()` ([cal_banner.js](static/js/components/cal_banner.js)) borne
+  la concurrence à 4 et sert `syncCalendars()` ET la modale semaine — ne pas revenir à un
+  `Promise.allSettled(list.map(...))` nu. Le toast d'échec NOMME les calendriers fautifs.
+
 ## Tests (`npm test`)
 
 Suites `node:test` dans [tests/](tests/) — 161 tests, aucune dépendance, ~1 s. Détail :

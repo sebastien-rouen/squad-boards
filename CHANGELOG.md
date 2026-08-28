@@ -1,3 +1,68 @@
+## [3.149.0] - 2026-08-28
+
+### ✨ Rapport « PI Planning » : enfin dynamique, et lisible sprint par sprint
+
+`#reports/<équipe>/pi` ignorait purement et simplement **l'équipe ET le PI sélectionnés** :
+`GENERATORS.pi` lisait `ctx.piInfo.objectives` — le tableau brut du PI *courant*, toutes
+équipes confondues — puis le regroupait par équipe. Sur `#reports/Gabbiano/pi` on lisait donc
+les objectifs de Fuego, Helica et les autres ; sur un PI passé, on lisait ceux du PI en cours.
+
+| | Avant | Après |
+|---|---|---|
+| Objectifs | tous, toutes équipes | ceux de l'équipe du hash, via `resolvePiObjectives()` |
+| PI passé / à venir | objectifs du PI courant | snapshot `piObjectives[<PI>]` |
+| Objectif sans équipe | noyé dans le groupe `-` | bloc « transverses » à part, jamais masqué |
+| Détail | aucun | **par sprint : User Stories et Buffer, titre + story points** |
+
+La section vit désormais dans son propre module [reports-pi.js](static/js/views/reports-pi.js)
+(+ [reports-pi.css](static/css/views/reports-pi.css)) : en-tête avec score de prédictibilité
+SAFe, objectifs séparés **Engagements / Extension** avec leur BV, puis un bloc dépliable par
+sprint — barre de progression, `N US · M buffer`, et chaque ticket avec son titre, ses points
+et son statut. Les sprints incomplets s'ouvrent seuls, les sprints soldés restent repliés.
+
+⚠️ **Le périmètre d'un sprint passe par `sprintScope()`**, pas par `sprintName` : la section
+part de `teamTickets` (tous les tickets de l'équipe, `ctx` enrichi) et non des tickets déjà
+réduits au PI affiché — un ticket reporté porte le sprint d'**arrivée**, souvent d'un autre
+PI, et disparaîtrait de son sprint d'engagement. L'engagement compte donc les reportés
+(chip `↪ 30.2`), le réalisé exige d'être encore dans le sprint. Corollaire visuel :
+`.rpt-ti--done.rpt-pi-ti--open` **annule** le grisé/barré hérité de `reports.css` — un ticket
+`done` ailleurs présenté comme tenu dans le sprint où il ne l'a pas été serait un mensonge.
+
+Le sprint de respiration est marqué 🍃 (`breathIdxOf`, source unique).
+
+Les helpers Slack/Confluence `B` / `E` / `SB` / `CS` sortent dans
+[reports-fmt.js](static/js/views/reports-fmt.js) : `reports-pi.js` les partage **sans**
+importer `reports.js`, un cycle mettrait ces `const` fléchées en TDZ. `reports.js` perd 51
+lignes au passage.
+
+### 🐛 « Rafraichir tous » (calendriers) échouait là où un par un fonctionnait
+
+Cause mesurée dans `logs/squad-boards-drafts-error-46.log`, pas devinée :
+
+```
+sqlalchemy.exc.TimeoutError: QueuePool limit of size 5 overflow 10 reached,
+connection timed out, timeout 30.00
+  File "app/routers/calendars.py", line 63, in refresh_calendar
+```
+
+`refresh_calendar` gardait sa session SQLite ouverte **pendant le fetch ICS**, soit jusqu'à
+30 s par calendrier. Le bouton lançant les 16 calendriers de front, le pool (5 + 10 overflow)
+était épuisé dès le 16ᵉ. Un par un, la même route n'a jamais posé de problème : la
+concurrence était le seul facteur. Symptôme visible en base — 8 calendriers figés au
+2026-06-29.
+
+Deux corrections :
+- **backend** : la connexion est **rendue au pool avant l'appel réseau** (`session.close()`)
+  et reprise après (l'objet détaché est rechargé par un second `session.get()`). Une
+  connexion n'est plus tenue que quelques millisecondes ;
+- **frontend** : `_refreshPooled()` ([cal_banner.js](static/js/components/cal_banner.js))
+  borne la concurrence à 4 — garde-fou quel que soit le nombre de calendriers, et ménage
+  aussi le serveur ICS distant. `syncCalendars()` et la synchro depuis la modale semaine
+  passent toutes deux par lui.
+
+Le toast ne dit plus seulement « 2 en échec » : il **nomme** les calendriers fautifs et la
+première cause. Un ICS cassé (URL révoquée, 404) restait sinon invisible derrière un compteur.
+
 ## [3.148.0] - 2026-08-25
 
 ### 🐛 Mode « Ajouter » : une absence corrigée n'était pas reprise

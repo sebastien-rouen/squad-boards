@@ -1,0 +1,288 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+   Section « PI Planning » du rapport — objectifs du PI + détail par sprint.
+   Rendu par static/js/views/reports-pi.js.
+
+   Réutilise volontairement les briques de reports.css (.rpt-metric*, .rpt-ticket-group,
+   .rpt-tg-*, .rpt-ti*) : la section doit se lire comme la section « Sprint » juste
+   au-dessus. Seul ce qui lui est propre vit ici.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.rpt-pi-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+}
+
+/* ── En-tête : PI, équipe, prédictibilité ───────────────────────────────────── */
+.rpt-pi-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: linear-gradient(135deg, var(--surface-alt, var(--surface-hover)), var(--surface));
+}
+.rpt-pi-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+}
+.rpt-pi-num {
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-bold);
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+.rpt-pi-team {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--primary);
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-sm);
+    background: var(--primary-bg);
+}
+.rpt-pi-badge {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 6px;
+    border-radius: var(--r-sm);
+}
+.rpt-pi-badge--current { background: var(--success-bg); color: var(--success); }
+.rpt-pi-badge--other { background: var(--surface-hover); color: var(--text-muted); }
+.rpt-pi-name { font-size: var(--fs-xs); color: var(--text-muted); }
+
+.rpt-pi-score {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.1;
+}
+.rpt-pi-score-val { font-size: var(--fs-xl, 1.4rem); font-weight: var(--fw-bold); }
+.rpt-pi-score-lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    font-weight: var(--fw-semibold);
+}
+
+/* Couleurs de progression — partagées barres, pourcentages et score. */
+.rpt-pi-pct--green { color: var(--success); }
+.rpt-pi-pct--yellow { color: var(--warning); }
+.rpt-pi-pct--red { color: var(--danger); }
+.rpt-pi-bar--green { background: var(--success); }
+.rpt-pi-bar--yellow { background: var(--warning); }
+.rpt-pi-bar--red { background: var(--danger); }
+
+/* ── Sections (Objectifs / Sprints) ─────────────────────────────────────────── */
+.rpt-pi-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+}
+.rpt-pi-h {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin: 0;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.rpt-pi-h-count {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
+    background: var(--surface-hover);
+    border-radius: 9999px;
+    padding: 1px 8px;
+    letter-spacing: 0;
+}
+.rpt-pi-empty { padding: var(--sp-4); }
+
+/* ── PI Objectifs ───────────────────────────────────────────────────────────── */
+.rpt-pi-obj-grp {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+.rpt-pi-obj-grp-lbl {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.rpt-pi-obj-grp--cross > summary { cursor: pointer; }
+
+.rpt-pi-obj {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-muted);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    transition: background var(--tr-fast), border-color var(--tr-fast);
+}
+.rpt-pi-obj:hover { background: var(--surface-hover); }
+.rpt-pi-obj--done { border-left-color: var(--success); }
+.rpt-pi-obj--inprog { border-left-color: var(--primary); }
+.rpt-pi-obj--blocked { border-left-color: var(--danger); }
+.rpt-pi-obj-icon { font-size: 1rem; line-height: 1.4; flex-shrink: 0; }
+.rpt-pi-obj-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+.rpt-pi-obj-text {
+    margin: 0;
+    font-size: var(--fs-sm);
+    line-height: 1.45;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+.rpt-pi-obj--done .rpt-pi-obj-text { color: var(--text-muted); }
+.rpt-pi-obj-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+}
+.rpt-pi-chip {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    padding: 2px 7px;
+    border-radius: 9999px;
+    background: var(--surface-hover);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.rpt-pi-chip--commit { background: var(--primary-bg); color: var(--primary); }
+.rpt-pi-chip--stretch { background: var(--warning-bg); color: var(--warning); }
+.rpt-pi-chip--bv { background: var(--success-bg); color: var(--success); }
+
+/* ── Détail par sprint ──────────────────────────────────────────────────────── */
+.rpt-pi-sprints {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+.rpt-pi-sprint {
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--surface);
+}
+.rpt-pi-sprint-hdr {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-3);
+    cursor: pointer;
+    background: var(--surface-alt, var(--surface-hover));
+    font-size: var(--fs-sm);
+    list-style: none;
+    transition: background var(--tr-fast);
+}
+.rpt-pi-sprint-hdr::-webkit-details-marker { display: none; }
+.rpt-pi-sprint-hdr:hover { background: var(--surface-hover); }
+.rpt-pi-sprint-hdr:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.rpt-pi-sprint-lbl {
+    font-weight: var(--fw-bold);
+    color: var(--text);
+    min-width: 56px;
+    flex-shrink: 0;
+}
+.rpt-pi-sprint-sub {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.rpt-pi-sprint-bar {
+    flex: 1;
+    min-width: 40px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--border);
+    overflow: hidden;
+}
+.rpt-pi-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 9999px;
+    transition: width .3s ease;
+}
+.rpt-pi-sprint-pts {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.rpt-pi-sprint-pts b { color: var(--text); font-weight: var(--fw-bold); }
+.rpt-pi-sprint-pct {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    min-width: 38px;
+    text-align: right;
+}
+.rpt-pi-breath { font-size: var(--fs-xs); }
+.rpt-pi-sprint-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    border-top: 1px solid var(--border);
+}
+.rpt-pi-sprint--empty {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-3);
+    font-size: var(--fs-sm);
+    opacity: 0.6;
+}
+.rpt-pi-sprint-none { font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* Engagement non tenu : ticket engagé dans CE sprint mais réalisé ailleurs (reporté).
+   `.rpt-ti--done` (reports.css) suit `t.status` et le grisrait/barrerait — ce serait
+   présenter comme tenu un engagement qui ne l'a pas été. Cf CLAUDE.md 3.141.13. */
+.rpt-ti--done.rpt-pi-ti--open { opacity: 1; }
+.rpt-ti--done.rpt-pi-ti--open .rpt-ti-title {
+    text-decoration: none;
+    color: var(--text);
+}
+
+/* Icône de statut colorée dans les lignes de ticket. */
+.rpt-pi-st-done { color: var(--success); }
+.rpt-pi-st-inprog { color: var(--primary); }
+.rpt-pi-st-blocked { color: var(--danger); }
+.rpt-pi-st-test { color: var(--warning); }
+
+/* Ticket engagé puis reporté ailleurs : la destination doit rester lisible. */
+.rpt-pi-carry {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    padding: 1px 6px;
+    border-radius: 9999px;
+    background: var(--warning-bg);
+    color: var(--warning);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+    .rpt-pi-sprint-bar { display: none; }
+    .rpt-pi-sprint-sub { display: none; }
+    .rpt-pi-head { flex-direction: column; align-items: flex-start; }
+    .rpt-pi-score { align-items: flex-start; }
+}

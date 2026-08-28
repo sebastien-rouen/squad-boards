@@ -27,6 +27,8 @@ import { B, E, SB, CS } from './reports-fmt.js';
 
 const ST_ICON = { done: '✓', inprog: '●', review: '◑', test: '◕', blocked: '✗', todo: '○' };
 const OBJ_ICON = { done: '✅', inprog: '🔄', todo: '⬜', blocked: '🚫' };
+/** Icônes du format texte — identiques à celles de la section Sprint (reports.js). */
+const TEXT_ICON = { done: '✅', inprog: '🔄', review: '👀', test: '🧪', blocked: '🚫', todo: '⬜' };
 /** Business Value SAFe : entier borné 0-10 (même normalisation que le Dashboard). */
 const bv = o => Math.max(0, Math.min(10, parseInt(o.bv, 10) || 0));
 const clr = p => (p >= 80 ? 'green' : p >= 50 ? 'yellow' : 'red');
@@ -257,28 +259,63 @@ function htmlReport(ctx) {
 
 // ── Formats d'export ─────────────────────────────────────────────────────────
 
+/**
+ * Sortie du bouton « Copier » (mode Texte) — pensée pour un COLLAGE dans Confluence,
+ * Slack ou un mail : emoji en tête de ligne, puces `- ` que l'éditeur Confluence
+ * convertit en vraie liste à puces, et rien d'autre (pas de tableau ASCII, qui ne
+ * survit à aucun collage).
+ * ⚠️ Une puce ne doit JAMAIS commencer par un emoji : Confluence n'auto-formate que
+ * si la ligne débute par « - ». L'emoji vient juste après.
+ * ⚠️ L'icône d'un ticket suit `doneIds` (réalisé DANS ce sprint), pas `t.status` :
+ * un reporté terminé ailleurs est marqué ↪ et sa destination nommée — le cocher ici
+ * présenterait comme tenu un engagement qui ne l'a pas été.
+ */
 function textReport(ctx) {
     const d = buildPiData(ctx);
-    if (!d.piNum) return '=== PI ===\nAucun PI identifie';
-    let r = `=== PI #${d.piNum} - ${d.teamLabel} ===\n`;
-    r += `Objectifs: ${d.objDone}/${d.objectives.length}`;
-    if (d.score != null) r += ` | Predictibilite: ${d.score}%`;
-    r += `\nStory points: ${d.piDonePts}/${d.piPts} (${pct(d.piDonePts, d.piPts)}%)\n`;
-    if (d.objectives.length) {
-        r += `\n-- PI Objectifs --\n`;
-        for (const o of d.objectives) {
-            const mark = o.status === 'done' ? '[x]' : o.status === 'inprog' ? '[~]' : '[ ]';
-            r += `  ${mark} ${o.text}${bv(o) ? ` (BV ${bv(o)})` : ''}${o.committed ? ' [engage]' : ' [stretch]'}\n`;
-        }
+    if (!d.piNum) return "🗓️ PI\n\nAucun PI identifié — configurer « Sprint & PI » dans les Paramètres.";
+
+    const ptsPct = pct(d.piDonePts, d.piPts);
+    let r = `🗓️ PI #${d.piNum} — ${d.teamLabel}${d.isCurrentPi ? ' (PI courant)' : ''}\n\n`;
+    r += `- 🎯 Objectifs : ${d.objDone}/${d.objectives.length} atteint${plural(d.objDone)}\n`;
+    if (d.score != null) r += `- 🏆 Prédictibilité : ${d.score} %\n`;
+    r += `- 💎 Story points : ${d.piDonePts}/${d.piPts} (${ptsPct} %)\n`;
+    if (d.bvCommitted) {
+        r += `- 💰 Business Value : ${d.bvDone}/${d.bvCommitted} engagé${plural(d.bvDone)}`;
+        r += `${d.bvStretch ? `, +${d.bvStretch} en extension` : ''}\n`;
     }
-    for (const s of d.sprints) {
-        if (!s.count) continue;
-        r += `\n-- Sprint ${s.label}${s.isBreath ? ' (respiration)' : ''} : ${s.donePts}/${s.pts} pts --\n`;
-        for (const [grp, name] of [[s.us, 'User Stories'], [s.buffer, 'Buffer']]) {
+
+    // ── Objectifs ────────────────────────────────────────────────────────────
+    const objLines = list => list.map(o => {
+        const icon = OBJ_ICON[o.status] || '⬜';
+        return `- ${icon} ${o.text}${bv(o) ? ` (💰 ${bv(o)})` : ''}\n`;
+    }).join('');
+
+    if (d.objectives.length || d.crossTeam.length) r += `\n🎯 PI Objectifs\n`;
+    if (d.committed.length) {
+        r += `\nEngagements${d.bvCommitted ? ` — ${d.bvCommitted} BV` : ''}\n${objLines(d.committed)}`;
+    }
+    if (d.stretch.length) r += `\nExtension (stretch)\n${objLines(d.stretch)}`;
+    if (d.crossTeam.length) r += `\nTransverses (sans équipe)\n${objLines(d.crossTeam)}`;
+    if (!d.objectives.length) r += `\nAucun objectif défini pour ${d.teamLabel} sur le PI ${d.piNum}.\n`;
+
+    // ── Détail par sprint ────────────────────────────────────────────────────
+    const filled = d.sprints.filter(s => s.count);
+    if (!filled.length) {
+        r += `\nAucun ticket engagé sur ce PI.\n`;
+        return r;
+    }
+    for (const s of filled) {
+        const p = pct(s.donePts, s.pts);
+        r += `\n${s.isBreath ? '🍃' : '📆'} Sprint ${s.label}${s.isBreath ? ' (respiration)' : ''}`;
+        r += ` — ${s.donePts}/${s.pts} pts (${p} %)\n`;
+        for (const [grp, icon, name] of [[s.us, '📝', 'User Stories'], [s.buffer, '🔄', 'Buffer']]) {
             if (!grp.items.length) continue;
-            r += `  ${name} (${grp.done}/${grp.items.length}, ${grp.donePts}/${grp.pts} pts)\n`;
+            r += `\n${icon} ${name} — ${grp.done}/${grp.items.length} terminé${plural(grp.done)}, ${grp.donePts}/${grp.pts} pts\n`;
             for (const t of grp.items) {
-                r += `    ${s.doneIds.has(t.id) ? '[x]' : '[ ]'} ${t.title || t.key || '?'}${t.points ? ` (${t.points} pts)` : ''}\n`;
+                const dest = carriedOverTo(t, s.label);
+                const icon2 = s.doneIds.has(t.id) ? '✅' : dest ? '↪️' : (TEXT_ICON[t.status] || '⬜');
+                const carry = dest ? ` (reporté en ${extractSprintLabel(dest) || dest})` : '';
+                r += `- ${icon2} ${t.title || t.key || '?'}${t.points ? ` — ${t.points} pts` : ''}${carry}\n`;
             }
         }
     }

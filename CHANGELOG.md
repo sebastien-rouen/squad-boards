@@ -30,6 +30,29 @@ PI, et disparaîtrait de son sprint d'engagement. L'engagement compte donc les r
 
 Le sprint de respiration est marqué 🍃 (`breathIdxOf`, source unique).
 
+**Le bouton « Copier » rend un texte prêt à coller** (Confluence, Slack, mail) : emoji en
+tête de ligne et puces `- ` que l'éditeur Confluence convertit en vraie liste — plus de
+`=== TITRE ===` ni de `[x]`, qui ne survivaient à aucun collage.
+
+```
+🗓️ PI #30 — Gabbiano (PI courant)
+
+- 🎯 Objectifs : 1/3 atteint
+- 🏆 Prédictibilité : 62 %
+- 💎 Story points : 15/36 (42 %)
+- 💰 Business Value : 8/13 engagés
+
+📆 Sprint 30.1 — 13/18 pts (72 %)
+
+📝 User Stories — 1/3 terminé, 5/10 pts
+- ✅ Refonte de la page de connexion — 5 pts
+- ↪️ Correctif calcul de TVA — 2 pts (reporté en 30.2)
+```
+
+⚠️ Une puce ne commence JAMAIS par un emoji : Confluence n'auto-formate que si la ligne
+débute par `- `. Et l'icône d'un ticket suit `doneIds` (réalisé dans CE sprint), pas
+`t.status` — un reporté terminé ailleurs porte ↪️ et sa destination, jamais ✅.
+
 Les helpers Slack/Confluence `B` / `E` / `SB` / `CS` sortent dans
 [reports-fmt.js](static/js/views/reports-fmt.js) : `reports-pi.js` les partage **sans**
 importer `reports.js`, un cycle mettrait ces `const` fléchées en TDZ. `reports.js` perd 51

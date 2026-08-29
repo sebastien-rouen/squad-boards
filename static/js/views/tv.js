@@ -179,9 +179,15 @@ export function renderTv(container) {
         const blockers = _blockers(teams);
         const night = _isNight();
         $('tv-root').classList.toggle('is-night', night);
+        // Un écran figé par le hash (#tv/all/review) est une intention explicite : il l'emporte
+        // sur le mode nuit et sur l'alerte. Sinon : la nuit réduit au bilan du jour, et l'alerte
+        // passe en tête de tour tant qu'un blocker > 48 h existe.
+        if (locked) {
+            const pick = [ALERT, ...SCREENS].find(s => s.id === locked);
+            return { screens: pick ? [pick] : (night ? [NIGHT] : SCREENS), blockers, teams };
+        }
         const base = night ? [NIGHT] : SCREENS;
-        const screens = blockers.length ? [ALERT, ...base] : base;
-        return { screens: locked ? screens.filter(s => s.id === locked).concat(screens.filter(s => s.id !== locked)).slice(0, locked ? 1 : screens.length) : screens, blockers, teams };
+        return { screens: blockers.length ? [ALERT, ...base] : base, blockers, teams };
     };
 
     const show = (idx) => {

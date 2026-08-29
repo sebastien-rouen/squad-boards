@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup 3 — Météo des équipes — TV · rotation & alerte</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="stylesheet" href="../../../css/tokens.css">
+  <link rel="stylesheet" href="../_shared/ui.css">
+  <link rel="stylesheet" href="../_shared/ui-pi.css">
+  <link rel="stylesheet" href="../_shared/ui-health.css">
+  <link rel="stylesheet" href="../_shared/ui-flows.css">
+  <link rel="stylesheet" href="../_shared/ui-pages.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="deep.css">
+  <link rel="stylesheet" href="../_shared/gallery.css">
+  <link rel="stylesheet" href="../_shared/bureau.css">
+  <link rel="stylesheet" href="../_shared/overlay.css">
+</head>
+<body class="gallery" data-dir="mockup-3">
+
+  <script>
+    /* Aperçu iframe de l'index : seul le premier cadre doit apparaître */
+    if (window.self !== window.top) document.body.classList.add('is-embedded');
+    /* Le site démarre en clair, la TV se lit en sombre : chaque direction doit tenir dans les deux. */
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.gal-theme, .fcp-theme')) return;
+      const racine = document.documentElement;
+      const versClair = racine.getAttribute('data-theme') !== 'light';
+      racine.setAttribute('data-theme', versClair ? 'light' : 'dark');
+      document.querySelectorAll('.gal-theme').forEach((b) => { b.textContent = versClair ? '🌙 Voir en sombre' : '☀️ Voir en clair'; });
+    });
+  </script>
+
+  <header class="gal-head">
+    <div class="gal-head-top">
+      <a class="gal-back" href="../index.html">← Toutes les directions</a>
+      <button class="gal-theme" type="button">☀️ Voir en clair</button>
+    </div>
+    <h1>🌤️ Mockup 3 — Météo des équipes · TV · rotation & alerte</h1>
+    <p class="gal-sub">Une matrice équipes × domaines en pastilles météo ; un clic ouvre la fiche. Ce que l'écran mural fait seul : la séquence, l'alerte qui l'interrompt, le train complet, la fin de journée.</p>
+  </header>
+
+    <nav class="gal-nav">
+      <a href="01-dashboard.html">Dashboard</a>
+      <a href="02-sections.html">PI · Rapports · Santé</a>
+      <a href="03-modals.html">Modales</a>
+      <a href="04-live.html">En séance</a>
+      <a href="05-tv.html">Mode TV</a>
+      <a href="06-equipe.html">Fiche équipe</a>
+      <a href="07-previsions.html">Prévisions</a>
+      <a href="08-board.html">Board & backlog</a>
+      <a href="09-parametres.html">Paramètres</a>
+      <a href="10-etats.html">États limites</a>
+      <a href="11-comprendre.html">Comprendre</a>
+      <a href="12-tv-rotation.html" aria-current="page">TV · rotation</a>
+    </nav>
+
+
+  
+  <div class="gal-group gal-group--vue">📺 TV — Rotation — la séquence <small>1920 × 1080, réduit pour tenir · écran 0 : ce que l'écran affiche à la première seconde</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre bureau-fenetre--tv" data-w="1920" data-h="1080">
+      <div class="bureau tv screen">
+        <div class="desk"><div class="ui-app ui-app--tv"><main class="ui-content ui-content--tv">
+  <header class="ui-tv-top"><b>📺 Rotation TV</b><span>Vega · PI #30 · Ité 30.2 · J7/10</span><span class="ui-tv-clock">14:37</span><span class="ui-tv-dots"><i class="is-on"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><small>rotation 30 s</small></span></header>
+  <div class="d3-rot">
+    <article class="d3-rot-it is-on"><b>🌤️ Météo du train</b><span>30 s</span><small>toujours en premier</small></article><article class="d3-rot-it"><b>📊 Dashboard Vega</b><span>30 s</span><small>équipe du plateau</small></article><article class="d3-rot-it"><b>🛡️ Santé</b><span>20 s</span><small>anomalies + matrice</small></article><article class="d3-rot-it"><b>🗓️ PI Planning</b><span>20 s</span><small>objectifs + burnup</small></article><article class="d3-rot-it"><b>📈 Sprint review</b><span>20 s</span><small>le sprint clos</small></article>
+  </div>
+  <div class="d3-rot-rules"><h3>Règles</h3><ul><li>⛈️ <b>Un blocker > 48 h interrompt la rotation</b> et affiche l'alerte plein écran jusqu'à ce que le ticket bouge.</li><li>⏸ Survol ou barre d'espace : pause. <kbd>←</kbd> <kbd>→</kbd> : écran précédent / suivant.</li><li>🌙 De 19 h à 8 h : écran de fin de journée, puis veille.</li><li>🔗 <code>#tv</code> lance la rotation ; <code>#tv/meteo</code> fige un écran.</li></ul></div></main></div></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">📺 TV — Alerte ⛈️ — blocker > 48 h <small>1920 × 1080, réduit pour tenir · interrompt la rotation</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre bureau-fenetre--tv" data-w="1920" data-h="1080">
+      <div class="bureau tv screen">
+        <div class="desk"><div class="ui-app ui-app--tv"><main class="ui-content ui-content--tv"><header class="ui-tv-top"><b>⛈️ Alerte</b><span>Vega · PI #30 · Ité 30.2 · J7/10</span><span class="ui-tv-clock">14:37</span><span class="ui-tv-dots"><i class="is-on"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><small>rotation 30 s</small></span></header>
+  <div class="d3-alert"><div class="d3-alert-hd"><i>⛈️</i><div><small>Alerte · Orion</small><h2>Blocker depuis plus de 48 h</h2><p>La rotation s'interrompt tant qu'un blocker > 48 h existe sur le train.</p></div><span class="d3-alert-since">52 h</span></div>
+    <div class="d3-alert-bd">
+      <article class="d3-alert-tk"><code>ORION-63</code><b>Trancher le format de l'archive (décision produit)</b><span>Bloqué depuis le 23 août · Nadia Ferro · 8 pts</span></article>
+      <div class="d3-alert-chain"><span>bloque →</span><code>ORION-71</code><span>→</span><code>VEGA-415</code><span>→ objectif « Sync incrémentale » (45 %)</span></div>
+      <div class="d3-alert-actions"><span>Qui peut débloquer : <b>PO Orion</b> · Escalade : <b>RTE</b></span><span class="ui-muted">Reprise de la rotation dès que le ticket bouge</span></div>
+    </div></div></main></div></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">📺 TV — Train complet — 12 équipes <small>1920 × 1080, réduit pour tenir · trois lignes produit</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre bureau-fenetre--tv" data-w="1920" data-h="1080">
+      <div class="bureau tv screen">
+        <div class="desk"><div class="ui-app ui-app--tv"><main class="ui-content ui-content--tv"><header class="ui-tv-top"><b>🌤️ Météo du train</b><span>Vega · PI #30 · Ité 30.2 · J7/10</span><span class="ui-tv-clock">14:37</span><span class="ui-tv-dots"><i class="is-on"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><small>rotation 30 s</small></span></header><div class="ui-table-wrap">
+  <table class="d3-matrix d3-matrix--grouped">
+    <thead><tr><th>Équipe</th><th>🏃 Sprint</th><th>🗓️ PI</th><th>🛡️ Santé</th><th>🎧 Support</th><th>😊 Mood</th><th></th></tr></thead>
+    <tbody><tr class="d3-grp-row"><th colspan="7"><span>⛈️ Produit</span><small>4 équipes · 20 pers.</small></th></tr><tr class="" style="--team:#3b82f6">
+      <th><span class="d3-team"><i></i>Vega<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>65 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>56 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>74</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.8</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#0d9488">
+      <th><span class="d3-team"><i></i>Lyra<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>35 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>48 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>61</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>75 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f59e0b">
+      <th><span class="d3-team"><i></i>Orion<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>30 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>31 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>42</b><small>3 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#8b5cf6">
+      <th><span class="d3-team"><i></i>Sirius<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>83 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>71 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>95 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="d3-grp-row"><th colspan="7"><span>⛈️ Plateforme</span><small>4 équipes · 20 pers.</small></th></tr><tr class="" style="--team:#06b6d4">
+      <th><span class="d3-team"><i></i>Altaïr<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--rain"><i>🌧️</i><b>58 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>60 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>70</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>80 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.5</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#10b981">
+      <th><span class="d3-team"><i></i>Deneb<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>72 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>66 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>81</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.0</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f97316">
+      <th><span class="d3-team"><i></i>Rigel<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>44 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>40 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55</b><small>2 bloqués</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>62 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.0</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#6366f1">
+      <th><span class="d3-team"><i></i>Mizar<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>91 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>80 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>97 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="d3-grp-row"><th colspan="7"><span>⛈️ Data</span><small>4 équipes · 16 pers.</small></th></tr><tr class="" style="--team:#ec4899">
+      <th><span class="d3-team"><i></i>Antarès<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--rain"><i>🌧️</i><b>50 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>52 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>63</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--none"><i>⚪</i><b>—</b><small>pas de SLA</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#14b8a6">
+      <th><span class="d3-team"><i></i>Polaris<small>3 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>68 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>58 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>77</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>85 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--none"><i>⚪</i><b>—</b><small>aucun vote</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#ef4444">
+      <th><span class="d3-team"><i></i>Capella<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>22 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>28 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--storm"><i>⛈️</i><b>38</b><small>4 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>40 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#84cc16">
+      <th><span class="d3-team"><i></i>Castor<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>76 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>70 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>84</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.1</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr></tbody>
+  </table></div></main></div></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">📺 TV — Fin de journée <small>1920 × 1080, réduit pour tenir · écran 19 h → 8 h</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre bureau-fenetre--tv" data-w="1920" data-h="1080">
+      <div class="bureau tv screen">
+        <div class="desk"><div class="ui-app ui-app--tv"><main class="ui-content ui-content--tv">
+  <header class="ui-tv-top"><b>🌙 Fin de journée</b><span>Vega · PI #30 · Ité 30.2 · J7/10</span><span class="ui-tv-clock">14:37</span><span class="ui-tv-dots"><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class="is-on"></i><small>rotation 30 s</small></span></header>
+  <div class="d3-eod">
+    <div class="d3-eod-main"><i>🌤️</i><h2>Mardi 25 août — variable, éclaircies</h2><p>6 tickets terminés aujourd'hui sur le train · 1 bloqué débloqué · 2 votes mood reçus</p></div>
+    <div class="ui-kpi-grid ui-kpi-grid--primary">
+  <div class="ui-kpi ui-kpi--good" data-dom="flow">
+    <span class="ui-kpi-lbl">Terminés aujourd'hui</span>
+    <span class="ui-kpi-val">6</span>
+    <span class="ui-kpi-sub">VEGA-409, VEGA-425, LYRA-198…</span>
+  </div>
+  <div class="ui-kpi ui-kpi--good" data-dom="flow">
+    <span class="ui-kpi-lbl">Débloqués</span>
+    <span class="ui-kpi-val">1</span>
+    <span class="ui-kpi-sub">SIRIUS-40 → LYRA-201 libre</span>
+  </div>
+  <div class="ui-kpi ui-kpi--bad" data-dom="flow">
+    <span class="ui-kpi-lbl">Toujours bloqués</span>
+    <span class="ui-kpi-val">4</span>
+    <span class="ui-kpi-sub">dont 2 > 48 h (Orion)</span>
+  </div>
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">Demain</span>
+    <span class="ui-kpi-val">3<small> j</small></span>
+    <span class="ui-kpi-sub">avant la fin de l'ité 30.2</span>
+  </div></div>
+    <div class="ui-table-wrap">
+  <table class="d3-matrix">
+    <thead><tr><th>Équipe</th><th>🏃 Sprint</th><th>🗓️ PI</th><th>🛡️ Santé</th><th>🎧 Support</th><th>😊 Mood</th><th></th></tr></thead>
+    <tbody><tr class="" style="--team:#3b82f6">
+      <th><span class="d3-team"><i></i>Vega<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>65 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>56 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>74</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.8</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#0d9488">
+      <th><span class="d3-team"><i></i>Lyra<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>35 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>48 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>61</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>75 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f59e0b">
+      <th><span class="d3-team"><i></i>Orion<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>30 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>31 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>42</b><small>3 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#8b5cf6">
+      <th><span class="d3-team"><i></i>Sirius<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>83 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>71 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>95 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr></tbody>
+  </table></div>
+  </div></main></div></div>
+      </div>
+    </div>
+  </div>
+
+
+  <section class="gal-notes"><h2>Parti pris UX</h2><ul><li><strong>L'alerte n'est pas un toast</strong> : sur un écran mural, ce qui compte se lit à trois mètres, et un blocker > 48 h est ce qui compte. Elle nomme le ticket, la chaîne qu'il bloque, et qui peut le lever.</li><li>La météo du train passe toujours en premier dans la rotation : c'est l'écran qu'un passant voit en cinq secondes.</li><li>L'écran de fin de journée remplace la rotation le soir — quatre chiffres et la matrice, pour celui qui part en dernier.</li></ul></section>
+
+  <aside class="fcp" aria-label="Panneau de navigation des maquettes">
+    <button class="fcp-toggle" type="button" aria-expanded="true" title="Replier">🎛️</button>
+    <div class="fcp-bd">
+      <div class="fcp-row"><small>Direction</small><div class="fcp-btns"><a class="fcp-btn" href="../mockup-1/01-dashboard.html" title="Cockpit — cette page n'existe que pour la direction approfondie">🧭 1</a><a class="fcp-btn" href="../mockup-2/01-dashboard.html" title="Journal de bord — cette page n'existe que pour la direction approfondie">📖 2</a><a class="fcp-btn is-active" href="../mockup-3/12-tv-rotation.html" title="Météo des équipes">🌤️ 3</a><a class="fcp-btn" href="../mockup-4/01-dashboard.html" title="Frise du PI — cette page n'existe que pour la direction approfondie">🛤️ 4</a></div></div>
+      <div class="fcp-row"><small>Écran</small><div class="fcp-btns fcp-btns--col"><a class="fcp-btn" href="01-dashboard.html">Dashboard</a><a class="fcp-btn" href="02-sections.html">PI · Rapports · Santé</a><a class="fcp-btn" href="03-modals.html">Modales</a><a class="fcp-btn" href="04-live.html">En séance</a><a class="fcp-btn" href="05-tv.html">Mode TV</a><a class="fcp-btn" href="06-equipe.html">Fiche équipe</a><a class="fcp-btn" href="07-previsions.html">Prévisions</a><a class="fcp-btn" href="08-board.html">Board & backlog</a><a class="fcp-btn" href="09-parametres.html">Paramètres</a><a class="fcp-btn" href="10-etats.html">États limites</a><a class="fcp-btn" href="11-comprendre.html">Comprendre</a><a class="fcp-btn is-active" href="12-tv-rotation.html">TV · rotation</a></div></div>
+      <div class="fcp-row"><small>Affichage</small><div class="fcp-btns"><button class="fcp-btn fcp-theme" type="button">🌓 Thème</button><button class="fcp-btn fcp-annot" type="button" aria-pressed="false">💡 Explications</button></div></div>
+      <div class="fcp-row"><a class="fcp-btn" href="../index.html">↖ Galerie</a></div>
+    </div>
+  </aside>
+
+  <script src="../_shared/bureau.js"></script>
+  <script src="../_shared/overlay.js"></script>
+</body>
+</html>

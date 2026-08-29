@@ -1,0 +1,136 @@
+/* ========================================
+   COMPOSANTS PI PLANNING & RAPPORTS — sur les tokens `--ui-*`
+   ======================================== */
+
+/* — Onglets (rail défilant, jamais de retour à la ligne) — */
+.ui-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 6px; border-bottom: 1px solid var(--ui-border); }
+.ui-tabs::-webkit-scrollbar { display: none; }
+.ui-tab { flex: 0 0 auto; display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: var(--ui-radius-sm); color: var(--ui-text-2); font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.ui-tab.is-active { background: color-mix(in srgb, var(--ui-dom-pi) 16%, transparent); color: var(--ui-text); box-shadow: inset 0 -2px 0 var(--ui-dom-pi); }
+.bureau .ui-tab { min-height: 34px; }
+
+.ui-pisel { display: none; gap: 2px; padding: 3px; border-radius: 999px; background: var(--ui-surface-alt); }
+.bureau .ui-pisel, .tv .ui-pisel { display: inline-flex; }
+.ui-pisel-btn { min-height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: var(--ui-text-2); font-size: 0.76rem; font-weight: 700; cursor: pointer; }
+.ui-pisel-btn.is-active { background: var(--ui-surface); color: var(--ui-text); box-shadow: var(--ui-shadow); }
+.ui-pisel-btn small { color: var(--ui-text-3); font-weight: 600; }
+
+/* — Grille PI : contenu + colonne latérale — */
+.ui-pi-grid { display: grid; gap: 14px; }
+.ui-pi-main, .ui-pi-aside { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.bureau .ui-pi-grid, .tv .ui-pi-grid { grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); gap: 20px; align-items: start; }
+.bureau .ui-pi-main, .bureau .ui-pi-aside { gap: 20px; }
+
+.ui-pi-objs { display: flex; flex-direction: column; gap: 14px; }
+.ui-pi-objgrp { display: flex; flex-direction: column; gap: 8px; }
+.ui-pi-objgrp h3 { font: 800 0.8rem var(--ui-font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ui-text-3); }
+.ui-pi-objgrp h3 small { font-weight: 600; opacity: 0.7; }
+.ui-pi-objgrp--cross .ui-pi-obj { border-style: dashed; }
+.ui-pi-obj { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); }
+.ui-pi-obj-bd { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ui-pi-obj-bd b { font-size: 0.92rem; }
+
+/* — Capacité — */
+.ui-cap td:nth-child(n+2), .ui-cap th:nth-child(n+2) { text-align: right; }
+.ui-cap small { color: var(--ui-text-3); }
+
+/* — Features — */
+.ui-feat-rank { color: var(--ui-text-3); font-family: var(--ui-font-mono); cursor: grab; }
+.ui-feat td:nth-child(2) { white-space: normal; min-width: 200px; }
+.ui-feat td:last-child { display: flex; align-items: center; gap: 8px; min-width: 150px; }
+.ui-feat-cap { display: flex; align-items: center; gap: 12px; padding: 8px 0 0; font-size: 0.78rem; color: var(--ui-text-2); }
+.ui-feat-cap b { color: var(--ui-text); font-family: var(--ui-font-num); }
+
+/* — Dépendances — */
+.ui-deps { display: flex; flex-direction: column; gap: 12px; }
+.ui-deps-mx td { text-align: center; font-family: var(--ui-font-num); font-weight: 700; }
+.ui-deps-mx td.is-self { color: var(--ui-text-3); }
+.ui-deps-mx td.is-cross { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--status-blocked-text); }
+.ui-deps-sum { display: flex; flex-direction: column; gap: 10px; }
+.ui-deps-list { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; }
+.ui-deps-list em { color: var(--ui-text-3); font-style: normal; }
+.bureau .ui-deps-sum, .tv .ui-deps-sum { flex-direction: row; align-items: flex-start; }
+.bureau .ui-deps-sum .ui-kpi { flex: 0 0 180px; }
+
+/* — Burnup (SVG) — */
+.ui-burnup { width: 100%; height: auto; }
+.ui-burnup-grid { stroke: var(--ui-border); stroke-width: 1; }
+.ui-burnup-lbl { fill: var(--ui-text-3); font-size: 11px; font-family: var(--ui-font); }
+.ui-burnup-scope { fill: none; stroke: var(--status-todo); stroke-width: 2; stroke-dasharray: 5 4; }
+.ui-burnup-done { fill: none; stroke: var(--status-done); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.ui-burnup-now { stroke: var(--ui-text); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.ui-burnup-pt { fill: var(--status-done); stroke: var(--ui-surface); stroke-width: 2; }
+.ui-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.74rem; color: var(--ui-text-2); }
+.ui-legend i { --dot: var(--ui-text-3); display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 3px; background: var(--dot); vertical-align: -1px; }
+
+/* — Votes 1 → 5 — */
+.ui-vote { display: flex; align-items: flex-end; gap: 14px; }
+.ui-vote-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.ui-vote-avg { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+.ui-vote-avg b { font: 800 2rem var(--ui-font-num); }
+.ui-vote-avg small { font-size: 0.8rem; color: var(--ui-text-3); }
+.ui-vote-avg span { margin-top: 4px; font-size: 0.7rem; color: var(--ui-text-3); }
+.ui-vote-dist { flex: 1; display: flex; align-items: flex-end; gap: 6px; height: 64px; }
+.ui-vote-bar { --h: 0%; position: relative; flex: 1; height: max(6px, var(--h)); border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--ui-dom-health) 60%, var(--ui-surface-alt)); }
+.ui-vote-bar b { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font: 700 0.68rem var(--ui-font-num); }
+.ui-vote-bar i { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 0.82rem; font-style: normal; }
+.ui-vote-dist { margin-bottom: 22px; }
+
+/* — Calendrier du PI — */
+.ui-pical { display: flex; gap: 4px; }
+.ui-pical-sp { --c: var(--status-todo); flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: var(--ui-radius-sm); background: color-mix(in srgb, var(--c) 18%, transparent); border-top: 3px solid var(--c); font-size: 0.7rem; }
+.ui-pical-sp b { font-family: var(--ui-font-num); }
+.ui-pical-sp small { color: var(--ui-text-3); }
+.ui-pical-sp--closed { --c: var(--status-done); }
+.ui-pical-sp--active { --c: var(--status-inprog); }
+.ui-pical-sp--future { --c: var(--status-todo); }
+.ui-pical-sp--breath { --c: var(--success); border-style: dashed; }
+.ui-pical-sp--pip { --c: var(--type-epic); flex: 0.6; }
+
+/* ========================================
+   RAPPORTS
+   ======================================== */
+.ui-rpt-grid { display: grid; gap: 14px; }
+.bureau .ui-rpt-grid, .tv .ui-rpt-grid { grid-template-columns: 180px minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.bureau .ui-rpt-grid--nonav, .tv .ui-rpt-grid--nonav { grid-template-columns: minmax(0, 1fr) 300px; }
+.ui-rpt-main, .ui-rpt-aside { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ui-rpt-nav { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.ui-rpt-nav::-webkit-scrollbar { display: none; }
+.bureau .ui-rpt-nav, .tv .ui-rpt-nav { flex-direction: column; position: sticky; top: 72px; overflow: visible; }
+.ui-rpt-nav-it { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border-radius: var(--ui-radius-sm); color: var(--ui-text-2); font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.ui-rpt-nav-it.is-active { background: color-mix(in srgb, var(--ui-dom-report) 16%, transparent); color: var(--ui-text); }
+
+.ui-rpt { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); }
+.ui-rpt-hd { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+.ui-rpt-kicker { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ui-dom-report); }
+.ui-rpt-hd h3 { font: 800 1.15rem/1.2 var(--ui-font-display); }
+.ui-rpt-hd h3 small { display: block; font: 600 0.78rem var(--ui-font); color: var(--ui-text-3); margin-top: 2px; }
+.ui-rpt-copy { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.ui-rpt-goal { margin: 0; padding: 8px 12px; border-left: 4px solid var(--ui-dom-report); border-radius: 0 var(--ui-radius-sm) var(--ui-radius-sm) 0; background: var(--ui-surface-alt); font-size: 0.88rem; font-weight: 600; }
+.ui-rpt-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.bureau .ui-rpt-kpis, .tv .ui-rpt-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ui-rpt-kpis .ui-kpi { padding: 8px 10px 8px 12px; }
+.ui-rpt-kpis .ui-kpi-val { font-size: 1.35rem; }
+.ui-rpt-grp { display: flex; flex-direction: column; gap: 4px; }
+.ui-rpt-grp h4 { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; font-weight: 800; padding: 6px 0; border-bottom: 1px solid var(--ui-border); }
+.ui-rpt-grp h4 small { font-weight: 600; color: var(--ui-text-3); }
+.ui-rpt-grp h4 .ui-badge { margin-left: auto; }
+.ui-rpt-tk { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 8px; align-items: center; padding: 5px 0; font-size: 0.8rem; }
+.ui-rpt-tk.is-done span { color: var(--ui-text-2); }
+.ui-rpt-tk b { font-family: var(--ui-font-num); font-weight: 600; color: var(--ui-text-2); white-space: nowrap; }
+.ui-rpt-tk em { font-style: normal; }
+.ui-rpt-tk span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ui-slack { display: flex; flex-direction: column; gap: 3px; padding: 12px; border-radius: var(--ui-radius-sm); background: var(--ui-surface-alt); font: 0.78rem/1.5 var(--ui-font); }
+.ui-slack-hd { font-size: 0.86rem; padding-bottom: 4px; border-bottom: 1px solid var(--ui-border); margin-bottom: 4px; }
+.ui-slack-hd span { color: var(--ui-text-3); }
+.ui-slack-li { padding-left: 14px; }
+.ui-slack-li span { color: var(--ui-text-3); }
+.ui-slack-pill { padding: 0 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; }
+.ui-slack-pill.is-good { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success-text); }
+.ui-slack-pill.is-warn { background: color-mix(in srgb, var(--warning) 20%, transparent); color: var(--amber-text); }
+
+/* — Sparkline — */
+.ui-spark { width: 120px; height: 32px; }
+.ui-spark path { fill: none; stroke: var(--ui-dom-health); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ui-spark circle { fill: var(--ui-dom-health); }

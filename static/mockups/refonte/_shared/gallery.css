@@ -1,0 +1,302 @@
+/* ========================================
+   GALERIE DE MOCKUPS — chrome de page
+   Charge APRES le style.css du mockup : les regles `body.gallery`
+   neutralisent ce que le mockup imposait au body.
+   ======================================== */
+
+body.gallery {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+  padding: 0 0 64px;
+  background: var(--ui-bg, #101018);
+  color: var(--ui-text, #f0f1f6);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ========================================
+   EN-TETE
+   ======================================== */
+.gal-head {
+  padding: 24px 16px 16px;
+  border-bottom: 1px solid var(--ui-border, rgba(255, 255, 255, 0.08));
+  background: var(--ui-surface, #1c1e2a);
+}
+
+.gal-head-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.gal-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ui-text-2, #8b8fa3);
+  text-decoration: none;
+}
+
+/* Bascule clair / sombre : le site demarre en clair, les mockups sont
+   dessines en sombre — il faut pouvoir juger une direction dans les deux. */
+.gal-theme {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.08));
+  background: var(--ui-surface-alt, #232637);
+  color: var(--ui-text, #f0f1f6);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gal-theme:hover { border-color: var(--ui-accent, #4cc9f0); }
+
+.gal-back:hover { color: var(--ui-accent, #4cc9f0); }
+
+.gal-head h1 {
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+
+.gal-sub {
+  font-size: 0.875rem;
+  color: var(--ui-text-2, #8b8fa3);
+  margin: 0;
+  max-width: 62ch;
+}
+
+/* Navigation entre les ecrans d'un meme mockup */
+/* ⚠️ **`.gal-nav` est la SŒUR de `.gal-head`, jamais son enfant.** Un élément
+   collant ne colle que dans son parent : rangée dans l'en-tête, elle décrochait
+   dès que celui-ci quittait l'écran — c'est-à-dire tout de suite. Sortie de
+   l'en-tête, elle reste disponible sur toute la hauteur de la page, ce qui
+   compte sur une galerie à dix-neuf écrans où l'on navigue sans arrêt. */
+.gal-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 12px 24px;
+  background: color-mix(in srgb, var(--ui-bg, #10121c) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--ui-border, rgba(255, 255, 255, 0.08));
+}
+
+.gal-nav a {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.08));
+  background: var(--ui-surface-alt, #232637);
+  color: var(--ui-text-2, #8b8fa3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: 0.2s ease;
+}
+
+.gal-nav a:hover { color: var(--ui-text, #f0f1f6); }
+
+.gal-nav a[aria-current="page"] {
+  background: var(--ui-accent, #4cc9f0);
+  border-color: transparent;
+  color: #0d1018;
+}
+
+/* ========================================
+   ECRAN ISOLE (01-itineraire)
+   Le mockup n'est pas dans un cadre telephone : il occupe toute la hauteur
+   restante sous l'en-tete. Le `.screen` porte deja les styles de `body` et
+   un `transform`, ce qui contient les elements en position fixe du mockup.
+   ======================================== */
+body.gallery--solo {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 0;
+}
+
+body.gallery--solo .gal-head { flex: 0 0 auto; }
+
+.screen--solo {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 430px;
+  height: auto;
+  min-height: 0;
+  margin: 0 auto;
+  border-inline: 1px solid var(--ui-border, rgba(255, 255, 255, 0.08));
+}
+
+/* Variante desktop : pas de plafond de largeur, et une hauteur bornee pour que
+   la barre superieure et les colonnes laterales collent vraiment au defilement. */
+/* `.screen--desk` (cadre desktop fluide) a été retiré : le desktop se dessine
+   désormais dans un cadre `.bureau` de 1280 px réduit par transformation, sur
+   la même page que le mobile. Un cadre fluide mentait sur ce qu'il montrait —
+   il se repliait en une colonne dès que la FENÊTRE rétrécissait, alors qu'il
+   est censé représenter un navigateur large. Voir `_shared/bureau.css`. */
+
+/* Dans l'apercu iframe de l'index, seul le mockup doit apparaitre */
+body.is-embedded .gal-head { display: none; }
+body.is-embedded .screen--solo { max-width: none; border: 0; }
+
+/* ========================================
+   RAIL DE TELEPHONES
+   Defilement horizontal avec accroche, une carte par ecran.
+   ======================================== */
+.gal-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(390px, 86vw);
+  gap: 28px;
+  padding: 28px 16px 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.gal-rail::-webkit-scrollbar { height: 8px; }
+.gal-rail::-webkit-scrollbar-thumb {
+  background: var(--ui-surface-alt, #232637);
+  border-radius: 999px;
+}
+
+.gal-group {
+  padding: 24px 16px 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ui-text-3, #565a6e);
+}
+
+/* ========================================
+   CADRE TELEPHONE
+   ======================================== */
+.phone {
+  margin: 0;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.phone-frame {
+  position: relative;
+  border-radius: 34px;
+  padding: 10px;
+  background: linear-gradient(160deg, #2c3040, #14161e);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Encoche decorative */
+.phone-frame::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 92px;
+  height: 22px;
+  border-radius: 999px;
+  background: #0a0c12;
+  z-index: 30;
+  pointer-events: none;
+}
+
+/* `.screen` recoit les styles de `body` du mockup (voir style.css) */
+.phone .screen {
+  height: 760px;
+  border-radius: 26px;
+  scrollbar-width: none;
+}
+
+.phone .screen::-webkit-scrollbar { display: none; }
+
+.phone figcaption {
+  padding: 0 4px;
+}
+
+.phone figcaption b {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--ui-text, #f0f1f6);
+}
+
+.phone figcaption span {
+  display: block;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--ui-text-2, #8b8fa3);
+  margin-top: 2px;
+}
+
+/* Etiquette d'intention UX au-dessus du cadre */
+.phone-tag {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--ui-accent, #4cc9f0) 18%, transparent);
+  color: var(--ui-accent, #4cc9f0);
+}
+
+/* ========================================
+   NOTES DE CONCEPTION
+   ======================================== */
+.gal-notes {
+  margin: 32px 16px 0;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.08));
+  background: var(--ui-surface, #1c1e2a);
+}
+
+.gal-notes h2 {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ui-text-3, #565a6e);
+  margin: 0 0 12px;
+}
+
+.gal-notes ul { margin: 0; padding-left: 18px; }
+
+.gal-notes li {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--ui-text-2, #8b8fa3);
+  margin-bottom: 8px;
+}
+
+.gal-notes li strong { color: var(--ui-text, #f0f1f6); }
+
+@media (min-width: 900px) {
+  .gal-head { padding: 32px 32px 20px; }
+  .gal-rail { padding: 32px 32px 8px; }
+  .gal-group { padding: 28px 32px 0; }
+  .gal-notes { margin: 40px 32px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

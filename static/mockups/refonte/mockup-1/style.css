@@ -1,0 +1,100 @@
+/* ========================================
+   MOCKUP 1 — COCKPIT
+   Mur de tuiles bento, grands chiffres, une couleur par domaine.
+   Lisible à trois mètres : tout tient sur un écran sans défiler.
+
+   Charge APRÈS tokens.css (le site) et ui*.css (les composants) :
+   ce fichier ne contient que l'identité et la mise en page du parti pris.
+   ======================================== */
+
+/* ── Pont de tokens : les VRAIS tokens du site → le jeu canonique --ui-* ── */
+body, .screen {
+  --ui-bg: var(--bg);
+  --ui-surface: var(--surface);
+  --ui-surface-alt: color-mix(in srgb, var(--surface) 92%, var(--text));
+  --ui-text: var(--text);
+  --ui-text-2: var(--text-secondary);
+  --ui-text-3: var(--text-muted);
+  --ui-accent: var(--primary);
+  --ui-accent-2: var(--status-done);
+  --ui-warn: var(--warning);
+  --ui-danger: var(--danger);
+  --ui-border: var(--border);
+  --ui-radius: 12px;
+  --ui-radius-sm: 8px;
+  --ui-shadow: var(--shadow-xs);
+  --ui-font: var(--font);
+  --ui-font-display: var(--font);
+  --ui-font-num: var(--font);
+  --ui-font-mono: var(--font-mono);
+  /* Domaines : flux (bleu), PI (indigo), rapports (ambre), santé (vert) */
+  --ui-dom-flow: var(--primary);
+  --ui-dom-pi: var(--type-epic);
+  --ui-dom-report: var(--warning);
+  --ui-dom-health: var(--status-done);
+}
+
+/* ── Identité : chiffres lourds, liseré de domaine sur chaque carte ── */
+.ui-kpi-val { font-size: 2rem; font-weight: 900; }
+.ui-card { border-top: 3px solid var(--dom); }
+.ui-kpi { border-top: 3px solid var(--kpi-c); box-shadow: var(--ui-shadow); padding-left: 14px; }
+.ui-sec h2 { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; color: var(--ui-text-3); }
+.ui-hcard-val, .ui-vote-avg b, .ui-gauge b { font-weight: 900; }
+
+/* ── Barre de domaines : quatre onglets porteurs d'un chiffre-clé ── */
+.d1-domnav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.bureau .d1-domnav, .tv .d1-domnav { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.d1-dom {
+  --dom: var(--ui-dom-flow);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: "ico lbl big" "ico sub big";
+  align-items: center;
+  gap: 0 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--ui-border);
+  border-left: 5px solid var(--dom);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  min-width: 0;
+}
+.d1-dom[data-dom="pi"] { --dom: var(--ui-dom-pi); }
+.d1-dom[data-dom="report"] { --dom: var(--ui-dom-report); }
+.d1-dom[data-dom="health"] { --dom: var(--ui-dom-health); }
+.d1-dom i { grid-area: ico; font-size: 1.4rem; font-style: normal; }
+.d1-dom span { grid-area: lbl; font-size: 0.9rem; font-weight: 800; }
+.d1-dom small { grid-area: sub; font-size: 0.66rem; color: var(--ui-text-3); }
+.d1-dom b { grid-area: big; font: 900 1.6rem/1 var(--ui-font-num); color: var(--dom); font-variant-numeric: tabular-nums; }
+.d1-dom.is-active { background: color-mix(in srgb, var(--dom) 14%, var(--ui-surface)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--dom) 40%, transparent); }
+.tv .d1-dom b { font-size: 2rem; }
+
+/* ── Bento : une colonne sur mobile, 12 colonnes nommées en large ── */
+.d1-bento { display: flex; flex-direction: column; gap: 14px; }
+.d1-bento > div { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.bureau .d1-bento, .tv .d1-bento {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-areas:
+    "a a a a a a a a b b b b"
+    "d d d d d d d d c c c c"
+    "e e e e e e e e e e e e"
+    "f f f f g g g g h h h h"
+    "i i i i i i i i j j j j"
+    "k k k k k k l l l l l l";
+  gap: 16px;
+  align-items: stretch;
+}
+.bureau .d1-a { grid-area: a; }
+.bureau .d1-b { grid-area: b; }
+.bureau .d1-c { grid-area: c; }
+.bureau .d1-d { grid-area: d; }
+.bureau .d1-e { grid-area: e; }
+.bureau .d1-f { grid-area: f; }
+.bureau .d1-g { grid-area: g; }
+.bureau .d1-h { grid-area: h; }
+.bureau .d1-i { grid-area: i; }
+.bureau .d1-j { grid-area: j; }
+.bureau .d1-k { grid-area: k; }
+.bureau .d1-l { grid-area: l; }
+.bureau .d1-bento .ui-card, .bureau .d1-bento .ui-sprint { flex: 1; }
+.bureau .d1-bento .ui-kpi-grid { flex: 1; }

@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup 3 — Météo des équipes — Comprendre la météo</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="stylesheet" href="../../../css/tokens.css">
+  <link rel="stylesheet" href="../_shared/ui.css">
+  <link rel="stylesheet" href="../_shared/ui-pi.css">
+  <link rel="stylesheet" href="../_shared/ui-health.css">
+  <link rel="stylesheet" href="../_shared/ui-flows.css">
+  <link rel="stylesheet" href="../_shared/ui-pages.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="deep.css">
+  <link rel="stylesheet" href="../_shared/gallery.css">
+  <link rel="stylesheet" href="../_shared/bureau.css">
+  <link rel="stylesheet" href="../_shared/overlay.css">
+</head>
+<body class="gallery" data-dir="mockup-3">
+
+  <script>
+    /* Aperçu iframe de l'index : seul le premier cadre doit apparaître */
+    if (window.self !== window.top) document.body.classList.add('is-embedded');
+    /* Le site démarre en clair, la TV se lit en sombre : chaque direction doit tenir dans les deux. */
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.gal-theme, .fcp-theme')) return;
+      const racine = document.documentElement;
+      const versClair = racine.getAttribute('data-theme') !== 'light';
+      racine.setAttribute('data-theme', versClair ? 'light' : 'dark');
+      document.querySelectorAll('.gal-theme').forEach((b) => { b.textContent = versClair ? '🌙 Voir en sombre' : '☀️ Voir en clair'; });
+    });
+  </script>
+
+  <header class="gal-head">
+    <div class="gal-head-top">
+      <a class="gal-back" href="../index.html">← Toutes les directions</a>
+      <button class="gal-theme" type="button">☀️ Voir en clair</button>
+    </div>
+    <h1>🌤️ Mockup 3 — Météo des équipes · Comprendre la météo</h1>
+    <p class="gal-sub">Une matrice équipes × domaines en pastilles météo ; un clic ouvre la fiche. L'explication visuelle en détail : les formules, l'échelle, le glossaire — et le mode apprentissage qui ouvre tous les « ? » d'un coup.</p>
+  </header>
+
+    <nav class="gal-nav">
+      <a href="01-dashboard.html">Dashboard</a>
+      <a href="02-sections.html">PI · Rapports · Santé</a>
+      <a href="03-modals.html">Modales</a>
+      <a href="04-live.html">En séance</a>
+      <a href="05-tv.html">Mode TV</a>
+      <a href="06-equipe.html">Fiche équipe</a>
+      <a href="07-previsions.html">Prévisions</a>
+      <a href="08-board.html">Board & backlog</a>
+      <a href="09-parametres.html">Paramètres</a>
+      <a href="10-etats.html">États limites</a>
+      <a href="11-comprendre.html" aria-current="page">Comprendre</a>
+      <a href="12-tv-rotation.html">TV · rotation</a>
+    </nav>
+
+
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Aide · Comment la météo est calculée <small>1280 × 820, réduit pour tenir · une carte par domaine : formule, source, seuils, exemple</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Aide</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <header class="d3-hero"><div class="d3-hero-main"><i>🎓</i><div><small>Aide · Comprendre la météo</small><h2>Cinq domaines, une échelle</h2><p>Chaque case de la matrice vient d'une formule connue du site. Rien n'est un jugement : ce sont des chiffres traduits en couleur.</p></div></div><div class="d3-scale"><span class="d3-scale-it d3-cell--sun"><i>☀️</i>≥ 80 · beau</span><span class="d3-scale-it d3-cell--cloud"><i>⛅</i>60–79 · variable</span><span class="d3-scale-it d3-cell--rain"><i>🌧️</i>40–59 · attention</span><span class="d3-scale-it d3-cell--storm"><i>⛈️</i>< 40 · critique</span><span class="d3-scale-it d3-cell--none"><i>⚪</i>pas de donnée</span></div></header>
+  <div class="d3-how">
+    <article class="d3-how-card"><header><i>🏃</i><b>Sprint</b><small>relatif au temps · %</small></header>
+      <p class="d3-formula">points réalisés ÷ points engagés, comparé au temps écoulé</p>
+      <p class="ui-muted"><b>Source :</b> tickets du sprint actif — engagement = belongedToSprint(), réalisé = done ET isInSprint()</p>
+      <div class="d3-scalebar d3-scalebar--rel"><span class="d3-cell--storm">⛈️ &lt; −20</span><span class="d3-cell--rain">🌧️ −20 … −10</span><span class="d3-cell--cloud">⛅ ±10</span><span class="d3-cell--sun">☀️ ≥ +10</span></div>
+      <p class="d3-example">Vega : 34/52 = 65 % à 70 % du temps → écart −5 → ⛅</p>
+    </article>
+    <article class="d3-how-card"><header><i>🗓️</i><b>PI</b><small>relatif au temps · %</small></header>
+      <p class="d3-formula">points réalisés ÷ périmètre du PI, comparé au temps écoulé du PI</p>
+      <p class="ui-muted"><b>Source :</b> burnup (périmètre = features du PI, reports compris)</p>
+      <div class="d3-scalebar d3-scalebar--rel"><span class="d3-cell--storm">⛈️ &lt; −20</span><span class="d3-cell--rain">🌧️ −20 … −10</span><span class="d3-cell--cloud">⛅ ±10</span><span class="d3-cell--sun">☀️ ≥ +10</span></div>
+      <p class="d3-example">Vega : 75/134 = 56 % à 32 % du PI → écart +24 → ☀️</p>
+    </article>
+    <article class="d3-how-card"><header><i>🛡️</i><b>Santé</b><small>absolu · /100</small></header>
+      <p class="d3-formula">100 − (anomalies pondérées ÷ tickets actifs) × 35</p>
+      <p class="ui-muted"><b>Source :</b> 7 anomalies : bloqués, > 48 h, stagnants, sans lead, sans estimation, WIP, périmètre élargi</p>
+      <div class="d3-scalebar"><span class="d3-cell--storm">⛈️ &lt; 40</span><span class="d3-cell--rain">🌧️ 40–59</span><span class="d3-cell--cloud">⛅ 60–79</span><span class="d3-cell--sun">☀️ ≥ 80</span></div>
+      <p class="d3-example">Vega : 74 → ⛅ · Orion : 42 → ⛈️</p>
+    </article>
+    <article class="d3-how-card"><header><i>🎧</i><b>Support</b><small>absolu · %</small></header>
+      <p class="d3-formula">tickets support clos sous le seuil de cycle time ÷ tickets support clos</p>
+      <p class="ui-muted"><b>Source :</b> SLA review (seuil 10 j, réglable)</p>
+      <div class="d3-scalebar"><span class="d3-cell--storm">⛈️ &lt; 40</span><span class="d3-cell--rain">🌧️ 40–59</span><span class="d3-cell--cloud">⛅ 60–79</span><span class="d3-cell--sun">☀️ ≥ 80</span></div>
+      <p class="d3-example">Vega : 9/10 = 90 % → ☀️</p>
+    </article>
+    <article class="d3-how-card"><header><i>😊</i><b>Mood</b><small>absolu · /5</small></header>
+      <p class="d3-formula">moyenne des votes du dernier sprint × 20</p>
+      <p class="ui-muted"><b>Source :</b> votes Mood / ROTI (1 → 5), anonymes, dès 3 votes</p>
+      <div class="d3-scalebar"><span class="d3-cell--storm">⛈️ &lt; 40</span><span class="d3-cell--rain">🌧️ 40–59</span><span class="d3-cell--cloud">⛅ 60–79</span><span class="d3-cell--sun">☀️ ≥ 80</span></div>
+      <p class="d3-example">Vega : 3,8 × 20 = 76 → ⛅ · Polaris : aucun vote → ⚪</p>
+    </article>
+    <article class="d3-how-card d3-how-card--rule"><header><i>🧮</i><b>Le niveau d'une équipe</b><small>et d'un groupe</small></header><p class="d3-formula">le <b>pire</b> de ses cinq domaines</p><p class="ui-muted">Une moyenne masquerait un orage derrière quatre beaux temps. Une case ⚪ (pas de donnée) ne compte pas.</p><p class="d3-example">Vega : ⛅ ☀️ ⛅ ☀️ ⛅ → ⛅ · Orion : ⛈️ ⛅ ⛈️ 🌧️ ⛈️ → ⛈️</p></article>
+  </div>
+  
+  <header class="ui-sec">
+    <h2>📖 Glossaire visuel</h2><span class="ui-sec-sub">les mots du site, avec leur schéma</span>
+  </header>
+  <div class="ui-gloss"><article class="ui-gloss-card"><header><i>📌</i><b>Engagement vs réalisé</b></header><div class="ui-pop-schema"><svg viewBox="0 0 360 110" class="ui-schema" role="img" aria-label="Lead time = attente + cycle time">
+      <line x1="20" y1="40" x2="340" y2="40" class="ui-sch-axis"/>
+      <circle cx="30" cy="40" r="8" class="ui-sch-node"/><text x="30" y="70" text-anchor="middle">Créé</text>
+      <circle cx="170" cy="40" r="8" class="ui-sch-node ui-sch-node--start"/><text x="170" y="70" text-anchor="middle">Démarré</text>
+      <circle cx="330" cy="40" r="8" class="ui-sch-node ui-sch-node--done"/><text x="330" y="70" text-anchor="middle">Terminé</text>
+      <rect x="40" y="32" width="120" height="16" class="ui-sch-seg ui-sch-seg--wait"/><text x="100" y="22" text-anchor="middle">attente 7 j</text>
+      <rect x="180" y="32" width="140" height="16" class="ui-sch-seg ui-sch-seg--cycle"/><text x="250" y="22" text-anchor="middle">cycle time 4 j</text>
+      <path d="M40 92 H320" class="ui-sch-brace"/><text x="180" y="105" text-anchor="middle" class="ui-sch-strong">lead time 11 j</text>
+    </svg></div><p>L'engagement compte ce qui a fait partie du sprint (reports compris). Le réalisé exige d'être terminé <b>et</b> encore dans le sprint.</p></article><article class="ui-gloss-card"><header><i>↪</i><b>Ticket glissé</b></header><p>Engagé dans 30.1, livré ailleurs : JIRA le déplace à la clôture. Il reste dans l'engagement de 30.1, jamais dans son réalisé.</p></article><article class="ui-gloss-card"><header><i>🍃</i><b>Sprint de respiration</b></header><div class="ui-pop-schema"><svg viewBox="0 0 360 100" class="ui-schema" role="img" aria-label="Vélocité : points terminés par sprint">
+      <rect x="30" y="28.200000000000003" width="30" height="51.8" class="ui-sch-bar"/><rect x="80" y="24" width="30" height="56" class="ui-sch-bar"/><rect x="130" y="31" width="30" height="49" class="ui-sch-bar"/><rect x="180" y="18.400000000000006" width="30" height="61.599999999999994" class="ui-sch-bar"/><rect x="230" y="26.800000000000004" width="30" height="53.199999999999996" class="ui-sch-bar"/><rect x="280" y="22.6" width="30" height="57.4" class="ui-sch-bar"/>
+      <line x1="20" y1="25.400000000000006" x2="340" y2="25.400000000000006" class="ui-sch-dash"/><text x="345" y="29.400000000000006">moy.</text>
+      <text x="180" y="96" text-anchor="middle">le sprint 🍃 de respiration n'entre jamais dans la moyenne</text>
+    </svg></div><p>Le dernier sprint du PI : dette, I&A, préparation. Il ne compte ni dans la vélocité moyenne, ni dans la capacité, ni dans la charge suggérée.</p></article><article class="ui-gloss-card"><header><i>⚠</i><b>Capacité plafonnée</b></header><div class="ui-pop-schema"><svg viewBox="0 0 360 100" class="ui-schema" role="img" aria-label="Base = vélocité moyenne × sprints × (1 − absences)">
+      <text x="20" y="30" class="ui-sch-strong">vélocité moy. 2 PI</text><text x="150" y="30">×</text><text x="170" y="30" class="ui-sch-strong">sprints</text><text x="235" y="30">×</text><text x="255" y="30" class="ui-sch-strong">(1 − absences)</text>
+      <text x="20" y="60">39 pts × 4 × (1 − 9 %) = <tspan class="ui-sch-strong">142 pts</tspan></text>
+      <text x="20" y="85">⚠ ETP pondéré par rôle : Dev 100 % · Tech Lead 70 % · PO/SM 0 %</text>
+    </svg></div><p>Quand la fenêtre dépasse la dernière absence connue, le taux d'absence est un plancher et la base un plafond — le chiffre est montré avec sa réserve.</p></article><article class="ui-gloss-card"><header><i>⚡</i><b>Flow efficiency</b></header><div class="ui-pop-schema"><svg viewBox="0 0 360 90" class="ui-schema" role="img" aria-label="Flow efficiency = cycle / lead">
+      <rect x="20" y="20" width="320" height="26" class="ui-sch-seg ui-sch-seg--wait"/>
+      <rect x="20" y="20" width="116" height="26" class="ui-sch-seg ui-sch-seg--cycle"/>
+      <text x="78" y="37" text-anchor="middle" class="ui-sch-onbar">travail 36 %</text><text x="238" y="37" text-anchor="middle" class="ui-sch-onbar">attente 64 %</text>
+      <text x="20" y="72">repère : ~15 % courant · 40 %+ bon</text>
+    </svg></div><p>Part du lead time réellement passée à travailler le ticket. 15 % est courant, 40 % est bon : réduire l'attente vaut plus que travailler plus vite.</p></article><article class="ui-gloss-card"><header><i>🎯</i><b>Objectif commis / extension</b></header><div class="ui-pop-schema"><svg viewBox="0 0 360 90" class="ui-schema" role="img" aria-label="Objectif = rollup de ses features">
+      <rect x="20" y="15" width="320" height="22" rx="6" class="ui-sch-seg ui-sch-seg--cycle"/><text x="180" y="30" text-anchor="middle" class="ui-sch-onbar">Objectif · 45 % (rollup)</text>
+      <rect x="20" y="52" width="150" height="18" rx="4" class="ui-sch-seg ui-sch-seg--wait"/><text x="95" y="65" text-anchor="middle" class="ui-sch-onbar">FEAT-305 · 45 %</text>
+      <rect x="190" y="52" width="150" height="18" rx="4" class="ui-sch-seg ui-sch-seg--wait"/><text x="265" y="65" text-anchor="middle" class="ui-sch-onbar">FEAT-308 · 60 %</text>
+      <text x="180" y="86" text-anchor="middle">commis = engagement · extension = si le temps le permet</text>
+    </svg></div><p>Commis = engagement ferme, extension = si le temps le permet. La progression est un rollup des features liées, jamais saisie.</p></article></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Mode apprentissage <small>1280 × 820, réduit pour tenir · le Dashboard avec ses « ? » ouverts — à activer depuis le topbar</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk"><div class="scr-clip">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    <span class="ui-top-mode">🎓 Apprentissage</span>
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+      <header class="d3-hero">
+        <div class="d3-hero-main"><i>⛅</i><div><small>Météo du train</small><h2>Variable, éclaircies attendues</h2><p>PI #30 · Ité 30.2 · J7/10 · 4 équipes · 52 tickets actifs</p></div></div>
+        <div class="d3-scale"><span class="d3-scale-it d3-cell--sun"><i>☀️</i>≥ 80 · beau</span><span class="d3-scale-it d3-cell--cloud"><i>⛅</i>60–79 · variable</span><span class="d3-scale-it d3-cell--rain"><i>🌧️</i>40–59 · attention</span><span class="d3-scale-it d3-cell--storm"><i>⛈️</i>< 40 · critique</span><span class="d3-scale-it d3-cell--none"><i>⚪</i>pas de donnée</span></div>
+      </header>
+      <div class="d3-grid">
+        <div class="d3-main">
+          <div class="ui-table-wrap">
+  <table class="d3-matrix">
+    <thead><tr><th>Équipe</th><th>🏃 Sprint</th><th>🗓️ PI</th><th>🛡️ Santé</th><th>🎧 Support</th><th>😊 Mood</th><th></th></tr></thead>
+    <tbody><tr class="is-selected" style="--team:#3b82f6">
+      <th><span class="d3-team"><i></i>Vega<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>65 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>56 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>74</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.8</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#0d9488">
+      <th><span class="d3-team"><i></i>Lyra<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>35 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>48 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>61</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>75 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f59e0b">
+      <th><span class="d3-team"><i></i>Orion<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>30 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>31 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>42</b><small>3 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#8b5cf6">
+      <th><span class="d3-team"><i></i>Sirius<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>83 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>71 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>95 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr></tbody>
+  </table></div>
+          
+  <header class="ui-sec">
+    <h2>⚠️ Ce qui demande attention aujourd'hui</h2><span class="ui-sec-sub">toutes équipes</span>
+  </header>
+          <div class="ui-duo">
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Tickets bloqués ou stagnants</span>
+      <span class="ui-card-sub">sans mouvement depuis ≥ 5 j</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-stuck">
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-blocked)"></span><code>VEGA-412</code><span class="ui-stuck-title">Export CSV — encodage UTF-8 BOM</span>
+        <span class="ui-badge ui-badge--blocked">Bloqué</span><span class="ui-stuck-lead">Théo Vasseur</span><b class="ui-stuck-age is-warn">3 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>VEGA-398</code><span class="ui-stuck-title">Refacto du parseur CSV pivot RH</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Lucie Arnaud</span><b class="ui-stuck-age is-bad">8 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>LYRA-201</code><span class="ui-stuck-title">Calendrier ICS — refresh en pool</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Manon Cros</span><b class="ui-stuck-age is-warn">6 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-test)"></span><code>ORION-88</code><span class="ui-stuck-title">Migration SQLite → colonne created_at</span>
+        <span class="ui-badge ui-badge--test">Test</span><span class="ui-stuck-lead is-none">Non assigné</span><b class="ui-stuck-age is-bad">11 j</b></li></ul></div>
+    
+  </article>
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Prochaines échéances</span>
+      <span class="ui-card-sub">cette semaine</span>
+    </header>
+    <div class="ui-card-bd"><ul class="d3-agenda"><li><time>jeu. 28</time><b>Fin de l'ité 30.2</b><span>Vega · Lyra</span></li><li><time>ven. 29</time><b>Sprint review + rétro</b><span>Vega</span></li><li><time>lun. 31</time><b>Ité 30.3 démarre</b><span>toutes</span></li><li><time>12–13 oct.</time><b>PI Planning #31</b><span>train</span></li></ul></div>
+    
+  </article></div>
+        </div>
+        <aside class="d3-panel">
+          <header class="d3-panel-hd"><span class="d3-team" style="--team:#3b82f6"><i></i>Vega</span><i class="d3-panel-w">☀️</i><button class="ui-btn ui-btn--ghost" type="button" aria-label="Fermer">✕</button></header>
+          
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">🎯 Objectif du sprint</span>
+      <span class="ui-card-sub">Ité 30.2</span>
+    </header>
+    <div class="ui-card-bd"><p class="ui-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-goal-meta"><span>9/14 tickets</span><span>34/52 pts</span><span>J7/10</span></div></div>
+    
+  </article>
+          <div class="ui-kpi-grid ui-kpi-grid--primary">
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">Tickets</span>
+    <span class="ui-kpi-val">14</span>
+    <span class="ui-kpi-sub">9 terminés · 64 %</span>
+  </div>
+  <div class="ui-kpi ui-kpi--warn" data-dom="flow">
+    <span class="ui-kpi-lbl">Story points</span>
+    <span class="ui-kpi-val">34<small>/52</small></span>
+    <span class="ui-kpi-sub">65 % réalisés</span>
+  </div>
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">En cours</span>
+    <span class="ui-kpi-val">3</span>
+    <span class="ui-kpi-sub">tickets actifs</span>
+  </div>
+  <div class="ui-kpi ui-kpi--bad" data-dom="flow">
+    <span class="ui-kpi-lbl">Bloqués</span>
+    <span class="ui-kpi-val">1</span>
+    <span class="ui-kpi-sub">attention requise</span>
+  </div></div>
+          
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">🗓️ Objectifs du PI <button class="ui-help" type="button" data-help="objectives" aria-label="Comprendre 🗓️ Objectifs du PI" title="Comprendre 🗓️ Objectifs du PI">?</button></span>
+      <span class="ui-card-sub">PI #30 · 1/3 atteint</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-objs ui-objs--compact">
+      <li class="ui-obj">
+        <span class="ui-obj-name">Export RH automatisé</span>
+        <span class="ui-tag ui-tag--commit">Commis</span>
+        <span class="ui-obj-bv" title="Business value">8 BV</span>
+        <span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--warn" style="width:70%"></span></span>
+        <b class="ui-obj-pct">70 %</b>
+      </li>
+      <li class="ui-obj">
+        <span class="ui-obj-name">Sync JIRA incrémentale</span>
+        <span class="ui-tag ui-tag--commit">Commis</span>
+        <span class="ui-obj-bv" title="Business value">9 BV</span>
+        <span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--bad" style="width:45%"></span></span>
+        <b class="ui-obj-pct">45 %</b>
+      </li>
+      <li class="ui-obj">
+        <span class="ui-obj-name">Atlas v2 — appétences</span>
+        <span class="ui-tag ui-tag--stretch">Extension</span>
+        <span class="ui-obj-bv" title="Business value">5 BV</span>
+        <span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--bad" style="width:10%"></span></span>
+        <b class="ui-obj-pct">10 %</b>
+      </li></ul></div>
+    
+  </article>
+          
+  <div class="ui-strip">
+    <article class="ui-strip-card ui-strip-card--closed">
+      <header class="ui-strip-hd"><span class="ui-strip-st">✓</span><b>30.1</b><span class="ui-strip-dates">03/08 → 14/08</span></header>
+      <p class="ui-strip-goal">Automatiser l'export RH des absences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:85%"></span></div>
+      <div class="ui-strip-nums"><span><b>41</b>/48 pts</span><span>15/18 tk</span><span class="ui-slip">↪ 2 glissés</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--active">
+      <header class="ui-strip-hd"><span class="ui-strip-st">▶</span><b>30.2</b><span class="ui-strip-dates">17/08 → 28/08</span></header>
+      <p class="ui-strip-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--warn" style="width:65%"></span></div>
+      <div class="ui-strip-nums"><span><b>34</b>/52 pts</span><span>9/14 tk</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.3</b><span class="ui-strip-dates">31/08 → 11/09</span></header>
+      <p class="ui-strip-goal">Sync incrémentale : archive des sprints clos</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/44 pts</span><span>0/11 tk</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.4</b><span class="ui-strip-dates">14/09 → 25/09</span></header>
+      <p class="ui-strip-goal">Atlas v2 — cartographie des appétences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/40 pts</span><span>0/9 tk</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--breath">
+      <header class="ui-strip-hd"><span class="ui-strip-st">🍃</span><b>30.5</b><span class="ui-strip-dates">28/09 → 09/10</span></header>
+      <p class="ui-strip-goal">Respiration — dette, I&amp;A, préparation PI 31</p>
+      <div class="ui-strip-nums"><span>Respiration — pas de charge</span></div>
+      
+    </article></div>
+          <div class="ui-oncall"><span class="ui-oncall-lbl">🛡️ Astreinte cette semaine</span><span class="ui-oncall-chip" style="--team:#3b82f6"><i>TV</i>Théo Vasseur<small>Vega</small></span><span class="ui-oncall-chip" style="--team:#0d9488"><i>MC</i>Manon Cros<small>Lyra</small></span><span class="ui-oncall-chip" style="--team:#f59e0b"><i>NF</i>Nadia Ferro<small>Orion</small></span></div>
+        </aside>
+      </div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div><div class="ui-pop-anchor" style="--x:18%;--y:30%">
+  <div class="ui-pop" role="dialog" aria-label="Comment lire une case">
+    <header><b>Comment lire une case</b><button class="ui-btn ui-btn--ghost" type="button" aria-label="Fermer">✕</button></header>
+    <div class="ui-pop-schema"><svg viewBox="0 0 360 90" class="ui-schema" role="img" aria-label="Une case météo"><rect x="20" y="10" width="110" height="70" rx="10" class="ui-sch-seg ui-sch-seg--cycle"/><text x="75" y="38" text-anchor="middle" font-size="22">⛅</text><text x="75" y="60" text-anchor="middle" class="ui-sch-strong">65 %</text><text x="75" y="74" text-anchor="middle">des points</text><text x="150" y="30">glyphe = niveau (le pire domaine)</text><text x="150" y="50">chiffre = la mesure brute</text><text x="150" y="70">unité = ce qu'on mesure</text></svg></div>
+    <div class="ui-pop-bd"><p>La couleur vient de la mesure et des seuils, jamais d'une saisie. Cliquer la ligne ouvre la fiche.</p></div>
+  </div></div><div class="ui-pop-anchor" style="--x:4%;--y:58%">
+  <div class="ui-pop" role="dialog" aria-label="Le niveau d'une équipe">
+    <header><b>Le niveau d'une équipe</b><button class="ui-btn ui-btn--ghost" type="button" aria-label="Fermer">✕</button></header>
+    <div class="ui-pop-schema"><svg viewBox="0 0 360 100" class="ui-schema" role="img" aria-label="Score = 100 − anomalies pondérées">
+      <text x="20" y="30">score = 100 − <tspan class="ui-sch-strong">anomalies pondérées</tspan> ÷ tickets actifs × 35</text>
+      <rect x="20" y="45" width="320" height="14" class="ui-sch-scale"/>
+      <text x="40" y="80">critique</text><text x="140" y="80">attention</text><text x="225" y="80">correct</text><text x="305" y="80">excellent</text>
+    </svg></div>
+    <div class="ui-pop-bd"><p>C'est le <b>pire</b> de ses domaines, pas la moyenne — une moyenne masquerait un orage.</p></div>
+  </div></div><div class="ui-pop-anchor" style="--x:62%;--y:20%">
+  <div class="ui-pop" role="dialog" aria-label="Lead time vs cycle time">
+    <header><b>Lead time vs cycle time</b><button class="ui-btn ui-btn--ghost" type="button" aria-label="Fermer">✕</button></header>
+    <div class="ui-pop-schema"><svg viewBox="0 0 360 110" class="ui-schema" role="img" aria-label="Lead time = attente + cycle time">
+      <line x1="20" y1="40" x2="340" y2="40" class="ui-sch-axis"/>
+      <circle cx="30" cy="40" r="8" class="ui-sch-node"/><text x="30" y="70" text-anchor="middle">Créé</text>
+      <circle cx="170" cy="40" r="8" class="ui-sch-node ui-sch-node--start"/><text x="170" y="70" text-anchor="middle">Démarré</text>
+      <circle cx="330" cy="40" r="8" class="ui-sch-node ui-sch-node--done"/><text x="330" y="70" text-anchor="middle">Terminé</text>
+      <rect x="40" y="32" width="120" height="16" class="ui-sch-seg ui-sch-seg--wait"/><text x="100" y="22" text-anchor="middle">attente 7 j</text>
+      <rect x="180" y="32" width="140" height="16" class="ui-sch-seg ui-sch-seg--cycle"/><text x="250" y="22" text-anchor="middle">cycle time 4 j</text>
+      <path d="M40 92 H320" class="ui-sch-brace"/><text x="180" y="105" text-anchor="middle" class="ui-sch-strong">lead time 11 j</text>
+    </svg></div>
+    <div class="ui-pop-bd"><p><b>Lead time</b> : de la création à la livraison — ce que <i>le client</i> attend. <b>Cycle time</b> : du démarrage à la livraison — ce que <i>l'équipe</i> maîtrise.</p><p>Réduire l'attente en file coûte moins que travailler plus vite.</p></div>
+  </div></div><div class="ui-pop-anchor" style="--x:62%;--y:58%">
+  <div class="ui-pop" role="dialog" aria-label="Le score de santé">
+    <header><b>Le score de santé</b><button class="ui-btn ui-btn--ghost" type="button" aria-label="Fermer">✕</button></header>
+    <div class="ui-pop-schema"><svg viewBox="0 0 360 100" class="ui-schema" role="img" aria-label="Score = 100 − anomalies pondérées">
+      <text x="20" y="30">score = 100 − <tspan class="ui-sch-strong">anomalies pondérées</tspan> ÷ tickets actifs × 35</text>
+      <rect x="20" y="45" width="320" height="14" class="ui-sch-scale"/>
+      <text x="40" y="80">critique</text><text x="140" y="80">attention</text><text x="225" y="80">correct</text><text x="305" y="80">excellent</text>
+    </svg></div>
+    <div class="ui-pop-bd"><p>Chaque anomalie pèse selon sa gravité (bloqué > 48 h pèse 3, sans estimation 1). Un ticket <code>done</code> n'entre jamais dans le compte.</p></div>
+  </div></div></div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">📱 Mobile — comprendre à 390 px <small>390 × 760 — faites défiler horizontalement</small></div>
+  <div class="gal-rail">
+    
+    <figure class="phone">
+      <span class="phone-tag">Aide</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Aide</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <header class="d3-hero"><div class="d3-hero-main"><i>🎓</i><div><small>Aide · Comprendre la météo</small><h2>Cinq domaines, une échelle</h2><p>Chaque case de la matrice vient d'une formule connue du site. Rien n'est un jugement : ce sont des chiffres traduits en couleur.</p></div></div><div class="d3-scale"><span class="d3-scale-it d3-cell--sun"><i>☀️</i>≥ 80 · beau</span><span class="d3-scale-it d3-cell--cloud"><i>⛅</i>60–79 · variable</span><span class="d3-scale-it d3-cell--rain"><i>🌧️</i>40–59 · attention</span><span class="d3-scale-it d3-cell--storm"><i>⛈️</i>< 40 · critique</span><span class="d3-scale-it d3-cell--none"><i>⚪</i>pas de donnée</span></div></header>
+  <div class="d3-how">
+    <article class="d3-how-card"><header><i>🏃</i><b>Sprint</b><small>relatif au temps · %</small></header>
+      <p class="d3-formula">points réalisés ÷ points engagés, comparé au temps écoulé</p>
+      <p class="ui-muted"><b>Source :</b> tickets du sprint actif — engagement = belongedToSprint(), réalisé = done ET isInSprint()</p>
+      <div class="d3-scalebar d3-scalebar--rel"><span class="d3-cell--storm">⛈️ &lt; −20</span><span class="d3-cell--rain">🌧️ −20 … −10</span><span class="d3-cell--cloud">⛅ ±10</span><span class="d3-cell--sun">☀️ ≥ +10</span></div>
+      <p class="d3-example">Vega : 34/52 = 65 % à 70 % du temps → écart −5 → ⛅</p>
+    </article>
+    <article class="d3-how-card"><header><i>🗓️</i><b>PI</b><small>relatif au temps · %</small></header>
+      <p class="d3-formula">points réalisés ÷ périmètre du PI, comparé au temps écoulé du PI</p>
+      <p class="ui-muted"><b>Source :</b> burnup (périmètre = features du PI, reports compris)</p>
+      <div class="d3-scalebar d3-scalebar--rel"><span class="d3-cell--storm">⛈️ &lt; −20</span><span class="d3-cell--rain">🌧️ −20 … −10</span><span class="d3-cell--cloud">⛅ ±10</span><span class="d3-cell--sun">☀️ ≥ +10</span></div>
+      <p class="d3-example">Vega : 75/134 = 56 % à 32 % du PI → écart +24 → ☀️</p>
+    </article>
+    <article class="d3-how-card"><header><i>🛡️</i><b>Santé</b><small>absolu · /100</small></header>
+      <p class="d3-formula">100 − (anomalies pondérées ÷ tickets actifs) × 35</p>
+      <p class="ui-muted"><b>Source :</b> 7 anomalies : bloqués, > 48 h, stagnants, sans lead, sans estimation, WIP, périmètre élargi</p>
+      <div class="d3-scalebar"><span class="d3-cell--storm">⛈️ &lt; 40</span><span class="d3-cell--rain">🌧️ 40–59</span><span class="d3-cell--cloud">⛅ 60–79</span><span class="d3-cell--sun">☀️ ≥ 80</span></div>
+      <p class="d3-example">Vega : 74 → ⛅ · Orion : 42 → ⛈️</p>
+    </article>
+    <article class="d3-how-card"><header><i>🎧</i><b>Support</b><small>absolu · %</small></header>
+      <p class="d3-formula">tickets support clos sous le seuil de cycle time ÷ tickets support clos</p>
+      <p class="ui-muted"><b>Source :</b> SLA review (seuil 10 j, réglable)</p>
+      <div class="d3-scalebar"><span class="d3-cell--storm">⛈️ &lt; 40</span><span class="d3-cell--rain">🌧️ 40–59</span><span class="d3-cell--cloud">⛅ 60–79</span><span class="d3-cell--sun">☀️ ≥ 80</span></div>
+      <p class="d3-example">Vega : 9/10 = 90 % → ☀️</p>
+    </article>
+    <article class="d3-how-card"><header><i>😊</i><b>Mood</b><small>absolu · /5</small></header>
+      <p class="d3-formula">moyenne des votes du dernier sprint × 20</p>
+      <p class="ui-muted"><b>Source :</b> votes Mood / ROTI (1 → 5), anonymes, dès 3 votes</p>
+      <div class="d3-scalebar"><span class="d3-cell--storm">⛈️ &lt; 40</span><span class="d3-cell--rain">🌧️ 40–59</span><span class="d3-cell--cloud">⛅ 60–79</span><span class="d3-cell--sun">☀️ ≥ 80</span></div>
+      <p class="d3-example">Vega : 3,8 × 20 = 76 → ⛅ · Polaris : aucun vote → ⚪</p>
+    </article>
+    <article class="d3-how-card d3-how-card--rule"><header><i>🧮</i><b>Le niveau d'une équipe</b><small>et d'un groupe</small></header><p class="d3-formula">le <b>pire</b> de ses cinq domaines</p><p class="ui-muted">Une moyenne masquerait un orage derrière quatre beaux temps. Une case ⚪ (pas de donnée) ne compte pas.</p><p class="d3-example">Vega : ⛅ ☀️ ⛅ ☀️ ⛅ → ⛅ · Orion : ⛈️ ⛅ ⛈️ 🌧️ ⛈️ → ⛈️</p></article>
+  </div>
+  
+  <header class="ui-sec">
+    <h2>📖 Glossaire visuel</h2><span class="ui-sec-sub">les mots du site, avec leur schéma</span>
+  </header>
+  <div class="ui-gloss"><article class="ui-gloss-card"><header><i>📌</i><b>Engagement vs réalisé</b></header><div class="ui-pop-schema"><svg viewBox="0 0 360 110" class="ui-schema" role="img" aria-label="Lead time = attente + cycle time">
+      <line x1="20" y1="40" x2="340" y2="40" class="ui-sch-axis"/>
+      <circle cx="30" cy="40" r="8" class="ui-sch-node"/><text x="30" y="70" text-anchor="middle">Créé</text>
+      <circle cx="170" cy="40" r="8" class="ui-sch-node ui-sch-node--start"/><text x="170" y="70" text-anchor="middle">Démarré</text>
+      <circle cx="330" cy="40" r="8" class="ui-sch-node ui-sch-node--done"/><text x="330" y="70" text-anchor="middle">Terminé</text>
+      <rect x="40" y="32" width="120" height="16" class="ui-sch-seg ui-sch-seg--wait"/><text x="100" y="22" text-anchor="middle">attente 7 j</text>
+      <rect x="180" y="32" width="140" height="16" class="ui-sch-seg ui-sch-seg--cycle"/><text x="250" y="22" text-anchor="middle">cycle time 4 j</text>
+      <path d="M40 92 H320" class="ui-sch-brace"/><text x="180" y="105" text-anchor="middle" class="ui-sch-strong">lead time 11 j</text>
+    </svg></div><p>L'engagement compte ce qui a fait partie du sprint (reports compris). Le réalisé exige d'être terminé <b>et</b> encore dans le sprint.</p></article><article class="ui-gloss-card"><header><i>↪</i><b>Ticket glissé</b></header><p>Engagé dans 30.1, livré ailleurs : JIRA le déplace à la clôture. Il reste dans l'engagement de 30.1, jamais dans son réalisé.</p></article><article class="ui-gloss-card"><header><i>🍃</i><b>Sprint de respiration</b></header><div class="ui-pop-schema"><svg viewBox="0 0 360 100" class="ui-schema" role="img" aria-label="Vélocité : points terminés par sprint">
+      <rect x="30" y="28.200000000000003" width="30" height="51.8" class="ui-sch-bar"/><rect x="80" y="24" width="30" height="56" class="ui-sch-bar"/><rect x="130" y="31" width="30" height="49" class="ui-sch-bar"/><rect x="180" y="18.400000000000006" width="30" height="61.599999999999994" class="ui-sch-bar"/><rect x="230" y="26.800000000000004" width="30" height="53.199999999999996" class="ui-sch-bar"/><rect x="280" y="22.6" width="30" height="57.4" class="ui-sch-bar"/>
+      <line x1="20" y1="25.400000000000006" x2="340" y2="25.400000000000006" class="ui-sch-dash"/><text x="345" y="29.400000000000006">moy.</text>
+      <text x="180" y="96" text-anchor="middle">le sprint 🍃 de respiration n'entre jamais dans la moyenne</text>
+    </svg></div><p>Le dernier sprint du PI : dette, I&A, préparation. Il ne compte ni dans la vélocité moyenne, ni dans la capacité, ni dans la charge suggérée.</p></article><article class="ui-gloss-card"><header><i>⚠</i><b>Capacité plafonnée</b></header><div class="ui-pop-schema"><svg viewBox="0 0 360 100" class="ui-schema" role="img" aria-label="Base = vélocité moyenne × sprints × (1 − absences)">
+      <text x="20" y="30" class="ui-sch-strong">vélocité moy. 2 PI</text><text x="150" y="30">×</text><text x="170" y="30" class="ui-sch-strong">sprints</text><text x="235" y="30">×</text><text x="255" y="30" class="ui-sch-strong">(1 − absences)</text>
+      <text x="20" y="60">39 pts × 4 × (1 − 9 %) = <tspan class="ui-sch-strong">142 pts</tspan></text>
+      <text x="20" y="85">⚠ ETP pondéré par rôle : Dev 100 % · Tech Lead 70 % · PO/SM 0 %</text>
+    </svg></div><p>Quand la fenêtre dépasse la dernière absence connue, le taux d'absence est un plancher et la base un plafond — le chiffre est montré avec sa réserve.</p></article><article class="ui-gloss-card"><header><i>⚡</i><b>Flow efficiency</b></header><div class="ui-pop-schema"><svg viewBox="0 0 360 90" class="ui-schema" role="img" aria-label="Flow efficiency = cycle / lead">
+      <rect x="20" y="20" width="320" height="26" class="ui-sch-seg ui-sch-seg--wait"/>
+      <rect x="20" y="20" width="116" height="26" class="ui-sch-seg ui-sch-seg--cycle"/>
+      <text x="78" y="37" text-anchor="middle" class="ui-sch-onbar">travail 36 %</text><text x="238" y="37" text-anchor="middle" class="ui-sch-onbar">attente 64 %</text>
+      <text x="20" y="72">repère : ~15 % courant · 40 %+ bon</text>
+    </svg></div><p>Part du lead time réellement passée à travailler le ticket. 15 % est courant, 40 % est bon : réduire l'attente vaut plus que travailler plus vite.</p></article><article class="ui-gloss-card"><header><i>🎯</i><b>Objectif commis / extension</b></header><div class="ui-pop-schema"><svg viewBox="0 0 360 90" class="ui-schema" role="img" aria-label="Objectif = rollup de ses features">
+      <rect x="20" y="15" width="320" height="22" rx="6" class="ui-sch-seg ui-sch-seg--cycle"/><text x="180" y="30" text-anchor="middle" class="ui-sch-onbar">Objectif · 45 % (rollup)</text>
+      <rect x="20" y="52" width="150" height="18" rx="4" class="ui-sch-seg ui-sch-seg--wait"/><text x="95" y="65" text-anchor="middle" class="ui-sch-onbar">FEAT-305 · 45 %</text>
+      <rect x="190" y="52" width="150" height="18" rx="4" class="ui-sch-seg ui-sch-seg--wait"/><text x="265" y="65" text-anchor="middle" class="ui-sch-onbar">FEAT-308 · 60 %</text>
+      <text x="180" y="86" text-anchor="middle">commis = engagement · extension = si le temps le permet</text>
+    </svg></div><p>Commis = engagement ferme, extension = si le temps le permet. La progression est un rollup des features liées, jamais saisie.</p></article></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Les formules</b><span>Une carte par domaine, l'échelle en tête ; le glossaire suit.</span></figcaption>
+    </figure>
+  </div>
+
+
+  <section class="gal-notes"><h2>Parti pris UX</h2><ul><li><strong>Expliquer par le dessin</strong> : chaque domaine a sa formule en une ligne, sa source dans le code du site, ses seuils sous forme de barre, et un exemple avec les vrais chiffres de la maquette.</li><li>Le mode apprentissage ouvre tous les « ? » en même temps : c'est ce qu'on montre à un nouveau Scrum Master la première fois, puis on l'éteint.</li><li>Le glossaire porte les règles métier du site (engagement vs réalisé, glissé, 🍃, plafond, flow efficiency, commis / extension) — les mêmes schémas que les popovers, jamais réécrits.</li></ul></section>
+
+  <aside class="fcp" aria-label="Panneau de navigation des maquettes">
+    <button class="fcp-toggle" type="button" aria-expanded="true" title="Replier">🎛️</button>
+    <div class="fcp-bd">
+      <div class="fcp-row"><small>Direction</small><div class="fcp-btns"><a class="fcp-btn" href="../mockup-1/01-dashboard.html" title="Cockpit — cette page n'existe que pour la direction approfondie">🧭 1</a><a class="fcp-btn" href="../mockup-2/01-dashboard.html" title="Journal de bord — cette page n'existe que pour la direction approfondie">📖 2</a><a class="fcp-btn is-active" href="../mockup-3/11-comprendre.html" title="Météo des équipes">🌤️ 3</a><a class="fcp-btn" href="../mockup-4/01-dashboard.html" title="Frise du PI — cette page n'existe que pour la direction approfondie">🛤️ 4</a></div></div>
+      <div class="fcp-row"><small>Écran</small><div class="fcp-btns fcp-btns--col"><a class="fcp-btn" href="01-dashboard.html">Dashboard</a><a class="fcp-btn" href="02-sections.html">PI · Rapports · Santé</a><a class="fcp-btn" href="03-modals.html">Modales</a><a class="fcp-btn" href="04-live.html">En séance</a><a class="fcp-btn" href="05-tv.html">Mode TV</a><a class="fcp-btn" href="06-equipe.html">Fiche équipe</a><a class="fcp-btn" href="07-previsions.html">Prévisions</a><a class="fcp-btn" href="08-board.html">Board & backlog</a><a class="fcp-btn" href="09-parametres.html">Paramètres</a><a class="fcp-btn" href="10-etats.html">États limites</a><a class="fcp-btn is-active" href="11-comprendre.html">Comprendre</a><a class="fcp-btn" href="12-tv-rotation.html">TV · rotation</a></div></div>
+      <div class="fcp-row"><small>Affichage</small><div class="fcp-btns"><button class="fcp-btn fcp-theme" type="button">🌓 Thème</button><button class="fcp-btn fcp-annot" type="button" aria-pressed="false">💡 Explications</button></div></div>
+      <div class="fcp-row"><a class="fcp-btn" href="../index.html">↖ Galerie</a></div>
+    </div>
+  </aside>
+
+  <script src="../_shared/bureau.js"></script>
+  <script src="../_shared/overlay.js"></script>
+</body>
+</html>

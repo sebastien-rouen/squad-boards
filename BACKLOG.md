@@ -1,6 +1,6 @@
 # BACKLOG — Squad Board
 
-> Dernière mise à jour : 2026-08-22
+> Dernière mise à jour : 2026-08-29
 >
 > Ce fichier ne contient que **ce qui reste à faire**. Les items soldés sont
 > dans [`docs/BACKLOG-ARCHIVE.md`](docs/BACKLOG-ARCHIVE.md) ; leur récit complet
@@ -12,11 +12,12 @@
 
 ## ✅ TODO
 
-- [ ] **#13 — Confidence vote → tendance (début vs fin de PI)** — le vote de confiance par objectif (#4, 3.13.0) est instantané. Stocker un horodatage / phase (`start|end`) pour tracer la **courbe de confiance** sur le PI. Réutiliser le stockage `type=confidence` existant en ajoutant un champ phase.
+- [~] **#13 — Confidence vote → tendance (début vs fin de PI)** — **partiel depuis 3.154.0** : la fiche équipe (Dashboard filtré) trace la tendance Mood & ✊ **sprint par sprint** sans nouvelle table ([meteo_fiche.js](static/js/components/meteo_fiche.js)). Reste la version *par objectif* avec phase `start|end` (stockage `type=confidence` + champ phase) — utile seulement si la tendance par sprint ne suffit pas à l'usage.
 - [ ] **Historique des niveaux Atlas** (évolution dans le temps d'une compétence) — nécessiterait une table d'historique.
-- [ ] **Refonte design du Dashboard** — répercuter sur le vrai Dashboard la direction retenue dans les maquettes ([static/mockups/dashboard-directions.html](static/mockups/dashboard-directions.html), 7 pistes A→G). **Direction retenue par l'utilisateur : F · Deux flux** (2 colonnes équilibrées : *Pilotage & flux* à gauche, *Équipe & risques* à droite). Principe : aéré entre sections, resserré entre cards.
-  - ⭐ **Conserver le contenu riche de `pi-sprints-strip-cards`** (mini-cartes de sprint du PI avec tickets groupés US / Buffer / Action, glissés, points — cf. `_renderPiSprintsStrip` dans [dashboard.js](static/js/views/dashboard.js)) : l'utilisateur l'apprécie et veut pouvoir le réutiliser tel quel sur le Dashboard (la version dans la maquette est simplifiée).
-- [ ] **Généraliser les helpers « ? » + tooltips** sur les cards/KPI du Dashboard (popover avec schéma SVG explicatif, **bordure conique « en spirale »**, fond `--surface-3` ; tooltips au survol des indicateurs) — prototypés dans la maquette ci-dessus, à porter dans l'app (réutiliser [help_popover.js](static/js/components/help_popover.js) + [tooltip.js](static/js/components/tooltip.js)).
+- [ ] **Généraliser les helpers « ? » + tooltips** sur les cards/KPI du Dashboard (popover avec schéma SVG explicatif, **bordure conique « en spirale »**, fond `--surface-3` ; tooltips au survol des indicateurs) — prototypés dans [static/mockups/dashboard-directions.html](static/mockups/dashboard-directions.html), à porter dans l'app (réutiliser [help_popover.js](static/js/components/help_popover.js) + [tooltip.js](static/js/components/tooltip.js)). Les « ? » météo (3.152.0) utilisent déjà `HELP_REGISTRY` : c'est le mécanisme à étendre, pas à doubler. Les schémas des maquettes de refonte (`static/mockups/refonte/_gen/ui-flows.js`, `SCHEMAS`) sont réutilisables tels quels.
+- [ ] **Identité Météo sur Board / Backlog** (`static/mockups/refonte/mockup-3/08-board.html`) — cosmétique : météo du sprint dans le titre du Board, vieillissement qui colore la carte entière en Kanban. **À décider après usage** de la matrice et de la fiche ; ne pas lancer sans demande.
+- [ ] **TV : écran « Sprint review »** dans la rotation (le rapport du dernier sprint clos, lecture seule) — la maquette `12-tv-rotation.html` le prévoit, `views/tv.js` a la place (`SCREENS`). Petit, mais attendre un retour sur la rotation actuelle (3 écrans + alerte) avant d'en ajouter un quatrième.
+- [ ] **Tolérance de démarrage réglable** (`METEO_START_TOLERANCE`, 15 %) et bandes relatives (`METEO_REL_BAND`) dans Paramètres → Météo — seulement si une équipe se plaint d'un 🌧️ en J2 ; aujourd'hui constantes de `utils/meteo.js`.
 
 <details>
 <summary>✅ Items TODO terminés</summary>

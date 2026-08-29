@@ -165,6 +165,9 @@ Deux réserves à garder en tête avant de coder :
 - **3.157.0** — les **prévisions multi-PI** (`07`) en tête de la Roadmap
   (`components/meteo_previsions.js`), les en-têtes de ligne produit dans la matrice (`10`),
   l'écran « fin de journée » de la TV (`12`).
+- **3.158.0** — `02-sections` : la matrice **dans Santé** (sous le score, groupée par ligne
+  produit), la ligne **🌤️ Météo dans les rapports** de sprint (texte / Slack / Confluence), la
+  tuile **« Météo du PI »** dans l'en-tête du PI Planning (`components/meteo_report.js`).
 - Reste : l'identité Météo sur Board / Backlog (`08`) — cosmétique, à décider après usage. La
   direction est **entièrement portée** pour ce qui touche au pilotage.
 

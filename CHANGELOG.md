@@ -1,3 +1,25 @@
+## [3.158.0] - 2026-08-30
+
+### 🌤️ La météo dans Santé, Rapports et PI Planning (maquette `02-sections`)
+
+La direction Météo arrive sur les trois autres vues de pilotage, avec **le même calcul**
+(`computeTeamMeteo`) — l'écran dit partout la même chose :
+
+- **Santé** — la matrice équipes × domaines (ou les pastilles si une équipe est filtrée)
+  s'affiche **sous le score**, avant les anomalies : c'est cette vue qui la nourrit (score
+  normalisé, anomalies), autant qu'elle la montre. Groupée par ligne produit quand il y en a
+  plusieurs ; une ligne cliquée filtre Santé sur l'équipe.
+- **Rapports** — une ligne **🌤️ Météo** dans le rapport de sprint, dans les trois formats
+  (texte, Slack, Confluence), juste après l'objectif : une équipe → ses cinq domaines
+  (« ⛅ Variable — 🏃 Sprint ⛅ 65 % · 🗓️ PI ☀️ 56 % · … »), plusieurs → le pire niveau et les
+  équipes en 🌧️ / ⛈️ nommées. Le rapport complet l'hérite. PI courant seulement.
+- **PI Planning** — une tuile **« Météo du PI »** dans l'en-tête (le domaine 🗓️ de la matrice :
+  avancement rapporté au temps écoulé) ; pour plusieurs équipes, le compte de celles en avance.
+  L'infobulle porte la ligne complète.
+
+Nouveau composant [meteo_report.js](static/js/components/meteo_report.js) (`meteoSummary`,
+`METEO_MC`) — pas de nouvelle règle, seulement une mise en forme.
+
 ## [3.157.0] - 2026-08-29
 
 ### 🔭 Prévisions multi-PI, lignes produit dans la matrice, fin de journée TV

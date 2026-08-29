@@ -10,6 +10,9 @@ import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAG
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
 import { registerExternalChart, renderCycleTime } from '../components/charts.js';
+import { METEO_GLYPH } from '../utils.js';
+import { meteoSummary, METEO_MC } from '../components/meteo_report.js';
+import { meteoContext } from '../components/meteo_matrix.js';
 import { updateInfoPanel } from '../components/infopanel.js';
 import { stageFlowCardHtml, bindStageFlowCard } from '../components/stage_flow_card.js';
 import { agingWipCardHtml, bindAgingWipCard } from '../components/aging_wip_card.js';
@@ -281,6 +284,19 @@ export function renderPI(container) {
                 <span class="metric-value">${piEpics.length}</span>
                 <span class="metric-sub">${piEpics.filter(e => e.status === 'done').length} termines</span>
             </div>
+            ${(() => {
+                // Météo du PI (domaine 🗓️ de la matrice) — PI courant seulement, même calcul que le Dashboard.
+                if (!isCurrentPi) return '';
+                const _t = store.get('team');
+                const m = meteoSummary((_t && _t !== 'all') ? teams.filter(x => x === _t) : teams, meteoContext(piNum));
+                if (!m) return '';
+                return `<div class="metric-card ${METEO_MC[m.pi.level]} meteo-metric" title="${esc(m.text)}">
+                    <span class="metric-icon">${m.glyph}</span>
+                    <span class="metric-label">Météo du PI</span>
+                    <span class="metric-value">${METEO_GLYPH[m.pi.level]} <span class="metric-denom">${esc(m.pi.value)}</span></span>
+                    <span class="metric-sub">${esc(m.pi.sub || m.label)}</span>
+                </div>`;
+            })()}
             <div class="metric-card ${objectivesFiltered.filter(o => o.status === 'done').length === objectivesFiltered.length && objectivesFiltered.length ? 'mc-done' : 'mc-warning'} mc-has-tooltip" data-mc-tt="mc-tt-obj">
                 <span class="metric-icon">🎯</span>
                 <span class="metric-label">Objectifs</span>

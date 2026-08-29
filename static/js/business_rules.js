@@ -102,3 +102,20 @@ export const ANOMALY_RULES = [
 
 /** Lookup by key — O(1) access for alert_modal.js */
 export const ANOMALY_BY_KEY = Object.fromEntries(ANOMALY_RULES.map(r => [r.key, r]));
+
+/**
+ * Score de santé 0–100 — SOURCE UNIQUE, partagée par health.js (score global) et par la
+ * météo des équipes (score par équipe). Pondération par gravité, puis NORMALISATION par le
+ * nombre de tickets actifs : une équipe de 3 avec 2 bloqués pèse plus qu'une de 8 avec 3.
+ * Un compte brut ne doit jamais être présenté comme un score.
+ *
+ * @param {Object<string, number>} countsByKey  anomalies par clé (cf. ANOMALY_RULES)
+ * @param {number} activeCount                  tickets non terminés du périmètre
+ */
+export const HEALTH_WEIGHTS = Object.freeze({ danger: 3, warning: 1.5, info: 0.5 });
+export function healthScore(countsByKey, activeCount) {
+    const base = Math.max(1, activeCount || 0);
+    let weighted = 0;
+    for (const a of ANOMALY_RULES) weighted += (countsByKey?.[a.key] || 0) * (HEALTH_WEIGHTS[a.sev] ?? 1);
+    return Math.max(0, Math.min(100, Math.round(100 - (weighted / base) * 35)));
+}

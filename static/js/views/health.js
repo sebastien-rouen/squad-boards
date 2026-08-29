@@ -18,7 +18,7 @@ import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
 import { sparkline, trendChip } from '../components/sparkline.js';
 import { velocityCardHtml, mountVelocityChart } from '../components/velocity_card.js';
-import { ANOMALY_RULES, isActionRetro } from '../business_rules.js';
+import { ANOMALY_RULES, isActionRetro, healthScore } from '../business_rules.js';
 import { VOTE_KINDS, setVotes, pushVote, voteCellHtml, voteTotalHtml, voteRowCls, voteCount, pickerHtml } from './health-votes.js';
 import { computeCoverage, coverageBannerHtml, wireCoverageBanner } from './health-coverage.js';
 
@@ -292,15 +292,11 @@ export function renderHealth(container) {
         }
     }
 
-    // Score global de santé : 100 - somme pondérée des anomalies / total
-    // Pondération : danger ×3, warning ×1.5, info ×0.5
+    // Score global de santé : formule UNIQUE dans business_rules.js (healthScore), partagée avec
+    // la météo des équipes du Dashboard — pondération danger ×3, warning ×1.5, info ×0.5,
+    // normalisée par les tickets actifs.
     const totalActiveTickets = allTickets.filter(t => teamsScope.includes(t.team) && t.status !== 'done').length || 1;
-    let weighted = 0;
-    for (const a of ANOMALIES) {
-        const w = a.sev === 'danger' ? 3 : a.sev === 'warning' ? 1.5 : 0.5;
-        weighted += totals[a.key] * w;
-    }
-    const score = Math.max(0, Math.min(100, Math.round(100 - (weighted / totalActiveTickets) * 35)));
+    const score = healthScore(totals, totalActiveTickets);
     const scoreLabel = score >= 80 ? 'Excellent' : score >= 60 ? 'Correct' : score >= 40 ? 'Attention' : 'Critique';
     const scoreCls   = score >= 80 ? 'health-score--good' : score >= 60 ? 'health-score--ok' : score >= 40 ? 'health-score--warn' : 'health-score--bad';
 

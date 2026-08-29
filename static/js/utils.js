@@ -11,6 +11,7 @@ export * from './utils/modals.js';
 export * from './utils/support.js';
 export * from './utils/sprint-scope.js';
 export * from './utils/capacity-base.js';
+export * from './utils/meteo.js';
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
 import { extractSprintLabel, sprintNamesOf } from './utils/sprint-scope.js';   // usages internes à ce fichier

@@ -1,0 +1,150 @@
+/* VIEW: Dashboard — Météo des équipes (matrice équipes × domaines + pastilles d'une équipe)
+   Cinq niveaux, une seule échelle de couleurs : la teinte vient des tokens sémantiques du
+   site (success / info / warning / danger / status-todo), donc elle suit le thème. */
+
+.meteo-card { margin-bottom: var(--sp-4); }
+.meteo-header { flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); }
+
+/* ── Niveaux : une variable `--wc` par niveau, appliquée aux cases, pastilles et légende ── */
+.meteo-cell--sun   { --wc: var(--success); --wc-text: var(--success-text); }
+.meteo-cell--cloud { --wc: var(--info);    --wc-text: var(--cyan-text); }
+.meteo-cell--rain  { --wc: var(--warning); --wc-text: var(--amber-text); }
+.meteo-cell--storm { --wc: var(--danger);  --wc-text: var(--status-blocked-text); }
+.meteo-cell--none  { --wc: var(--status-todo); --wc-text: var(--text-muted); }
+.meteo-cell--none .meteo-glyph { filter: grayscale(1); opacity: .7; }
+
+/* ── Légende ── */
+.meteo-scale {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1) var(--sp-2);
+    padding: 0 var(--sp-4) var(--sp-2);
+}
+.meteo-scale-it {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px var(--sp-2);
+    border: 1px solid color-mix(in srgb, var(--wc) 45%, transparent);
+    border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--wc) 12%, transparent);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+}
+.meteo-scale-it small { color: var(--text-muted); font-weight: var(--fw-normal); }
+
+/* ── Matrice ── */
+.meteo-wrap { overflow-x: auto; padding: 0 var(--sp-2) var(--sp-2); }
+.meteo-matrix {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 4px;
+    font-size: var(--fs-sm);
+}
+.meteo-matrix thead th {
+    padding: var(--sp-1) var(--sp-2);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--text-muted);
+}
+.meteo-matrix thead th:first-child { text-align: left; }
+.meteo-matrix tbody th {
+    padding: var(--sp-2) var(--sp-3);
+    text-align: left;
+    font-weight: var(--fw-semibold);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+.meteo-team { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.meteo-row { cursor: pointer; transition: transform var(--tr-fast); }
+.meteo-row:hover tbody th, .meteo-row:hover th { border-color: var(--team-color, var(--border)); }
+.meteo-row:hover .meteo-cell { filter: brightness(1.04); }
+.meteo-row:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.meteo-row:focus-visible th { border-color: var(--team-color, var(--border-focus)); }
+
+.meteo-cell {
+    padding: var(--sp-2) var(--sp-1);
+    text-align: center;
+    line-height: 1.15;
+    border-radius: var(--r-md);
+    background: color-mix(in srgb, var(--wc) 16%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--wc) 45%, transparent);
+    min-width: 96px;
+}
+.meteo-glyph { display: block; font-size: var(--fs-xl); }
+.meteo-val { display: block; font-size: var(--fs-base); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; color: var(--text); }
+.meteo-sub { display: block; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+
+/* Texte réservé aux lecteurs d'écran (le glyphe seul n'a pas de sens vocalisé). */
+.meteo-sr {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Pastilles d'une équipe seule ── */
+.meteo-pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-4);
+}
+.meteo-pills-lead {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    padding: 0 var(--sp-2);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--text-secondary);
+}
+.meteo-pill {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "glyph lbl" "glyph val";
+    column-gap: var(--sp-2);
+    align-items: center;
+    min-width: 132px;
+    min-height: 48px;
+    padding: var(--sp-1) var(--sp-3);
+    border-radius: var(--r-lg);
+    background: color-mix(in srgb, var(--wc) 16%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--wc) 45%, transparent);
+    color: var(--text);
+    text-decoration: none;
+}
+.meteo-pill .meteo-glyph { grid-area: glyph; font-size: var(--fs-2xl); }
+.meteo-pill-lbl { grid-area: lbl; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-secondary); }
+.meteo-pill .meteo-val { grid-area: val; font-size: var(--fs-lg); }
+a.meteo-pill:hover { text-decoration: none; box-shadow: var(--shadow-sm); border-color: var(--wc); }
+a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+
+/* ── Popover d'aide : l'échelle en une barre ── */
+.meteo-help-bar { display: flex; height: 36px; border-radius: var(--r-md); overflow: hidden; margin: var(--sp-2) 0; }
+.meteo-help-bar span {
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    background: color-mix(in srgb, var(--wc) 40%, var(--surface));
+    font-size: var(--fs-xs); font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden;
+}
+.meteo-help-list { margin: var(--sp-2) 0 0; padding-left: var(--sp-4); font-size: var(--fs-xs); color: var(--text-secondary); }
+.meteo-help-list li { margin-bottom: 4px; }
+
+/* ── Mobile : la matrice défile, les pastilles s'empilent par deux ── */
+@media (max-width: 640px) {
+    .meteo-matrix { border-spacing: 2px; }
+    .meteo-cell { min-width: 84px; padding: var(--sp-1); }
+    .meteo-glyph { font-size: var(--fs-lg); }
+    .meteo-pill { flex: 1 1 calc(50% - var(--sp-2)); min-width: 0; }
+    .meteo-pills-lead { flex: 1 1 100%; }
+}

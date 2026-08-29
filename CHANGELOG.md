@@ -1,3 +1,21 @@
+## [3.155.0] - 2026-08-29
+
+### 🌤️ Paramètres → Seuils météo, avec aperçu vivant
+
+Nouvel onglet **Météo** dans Paramètres ([settings-meteo.js](static/js/views/settings-meteo.js),
+même découpage que `settings-jira.js`) : les trois seuils de l'échelle absolue (attention /
+variable / beau, défauts 40 / 60 / 80), **identiques pour toutes les équipes** — une équipe ne se
+choisit pas une météo plus clémente, sinon deux ⛅ ne veulent plus dire la même chose.
+
+- **Aperçu vivant** : chaque saisie recalcule la vraie matrice avec le brouillon (mode
+  `preview` de `meteoMatrixHtml` : lignes inertes, sans « ? ») — on voit qui change de couleur
+  **avant** d'enregistrer.
+- Validation : entiers 1–100, croissants ; un refus s'explique dans la section, pas dans un toast.
+- Enregistrement dans `sb-meteo-thresholds` (local à ce navigateur, comme les autres `sb-*`) ;
+  « Valeurs par défaut » l'efface. Les bandes de l'échelle relative (±10, tolérance 15 %) sont
+  rappelées mais ne se règlent pas ici — ce sont des constantes de `utils/meteo.js`.
+- Alias `#settings/meteo` (app.js).
+
 ## [3.154.0] - 2026-08-29
 
 ### 😊👥 Fiche équipe : tendance du mood et roster du PI

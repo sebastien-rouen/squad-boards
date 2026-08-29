@@ -19,6 +19,7 @@ import {
 } from './settings-io.js';
 import { _parsePivotAbsencesCsv, _memberAbsenceInfo, _isTransverseTeam, diagnosePivotCsv, convertCommasToSemicolons } from './settings-absences-csv.js';
 import { jiraSectionHtml, wireJiraSection } from './settings-jira.js';
+import { meteoSectionHtml, wireMeteoSection } from './settings-meteo.js';
 import { piCongesDiff, knownPiNumbers } from '../utils/pi-weeks.js';
 import { makePersonPicker } from '../components/modal.js';
 import { mountNavRail } from '../components/nav-rail.js';
@@ -1059,6 +1060,8 @@ export function renderSettings(container) {
             </div>
         </div>
 
+        ${meteoSectionHtml()}
+
         <!-- ═══ Data ═══ -->
         <div class="settings-section">
             <div class="settings-section-header" data-stg-toggle><h3>Données</h3><svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg></div>
@@ -1128,6 +1131,9 @@ export function renderSettings(container) {
 
     // ── Plugin JIRA (connexion, sync, équipes masquées, groupes) ─────────────
     wireJiraSection(container, () => reloadAndRender(container));
+
+    // ── Seuils météo (échelle du Dashboard, aperçu vivant) ───────────────────
+    wireMeteoSection(container);
 
     // ── Slack webhook ─────────────────────────────────────────────────────────
     container.querySelector('#btn-save-slack')?.addEventListener('click', () => {
@@ -3512,6 +3518,7 @@ function _settingsApplyTabs(container) {
     const TAB_GROUPS = [
         { label: 'Équipe',        slugs: ['lignes-produit-groupes', 'equipes', 'membres', 'capacite-dev-de-travail-par-role', 'absences-conges'] },
         { label: 'Planning',      slugs: ['sprint-pi', 'rotation', 'faits-marquants', 'rappels-ceremonies'] },
+        { label: 'Météo',         slugs: ['seuils-meteo'] },
         { label: 'Intégrations',  slugs: ['calendriers-ics', 'plugin-jira-optionnel', 'slack-optionnel'] },
         { label: 'Système',       slugs: ['donnees', 'a-propos'] },
     ];
@@ -3606,6 +3613,7 @@ function _settingsApplyTabs(container) {
 
 function _settingsTabIcon(title) {
     const t = title.toLowerCase();
+    if (t.includes('météo') || t.includes('meteo')) return '🌤️';
     if (t.includes('groupe') || t.includes('ligne')) return '🌳';
     if (t.includes('equipe') || t.includes('équipe')) return '👥';
     if (t.includes('membre')) return '🧑';

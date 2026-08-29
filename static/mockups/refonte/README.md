@@ -175,8 +175,14 @@ Deux réserves à garder en tête avant de coder :
 - **3.160.0** — `11` : le **glossaire** et le **mode apprentissage** (toutes les explications
   d'un coup, bouton Aide + Ctrl+K) ; `03` : la **suppression annulable** (toast « Annuler » 8 s,
   API différée) et la bordure conique du popover « ? ».
-- Reste : le bandeau hors ligne et « sprint clos → rapport prêt » (`04`), le premier lancement
-  sans équipe (`10`), l'écran Sprint review de la TV (`12`) — lot suivant.
+- **3.161.0** — `04` : le bandeau **hors ligne** (dernier état connu, Réessayer qui sonde l'API)
+  et « **sprint clos → le rapport est prêt** » ; `10` : le **premier lancement** sans équipe
+  (démo / JIRA / à la main) ; `12` : l'écran **Sprint review** dans la rotation TV.
+
+**Bilan : les douze pages de la direction sont portées.** Ce qui ne l'a pas été l'a été à
+dessein — l'identité graphique des Board/Backlog (`08`, cosmétique) et les modales redessinées
+(`03`, le site avait déjà les siennes ; seuls la suppression annulable et la bordure du « ? »
+apportaient quelque chose).
 
 ## Régénérer et vérifier
 

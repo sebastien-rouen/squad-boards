@@ -14,7 +14,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, getCurrentPi, sumBy, METEO_GLYPH, METEO_LABEL, worstLevel } from '../utils.js';
+import { esc, getCurrentPi, sumBy, sprintScope, METEO_GLYPH, METEO_LABEL, worstLevel } from '../utils.js';
 import { ANOMALY_BY_KEY } from '../business_rules.js';
 import { meteoMatrixHtml, meteoContext, computeTeamMeteo } from '../components/meteo_matrix.js';
 import { meteoPlanHtml } from '../components/meteo_plan.js';
@@ -22,6 +22,7 @@ import { meteoPlanHtml } from '../components/meteo_plan.js';
 const SCREENS = [
     { id: 'meteo',   title: '🌤️ Météo du train', seconds: 30 },
     { id: 'plans',   title: '🧭 Plans d\'action',  seconds: 25 },
+    { id: 'review',  title: '📈 Sprint review',    seconds: 25 },
     { id: 'journee', title: '📅 Aujourd\'hui',     seconds: 20 },
 ];
 const ALERT = { id: 'alerte', title: '⛈️ Alerte', seconds: 20 };
@@ -85,6 +86,31 @@ function _screenPlans({ teams, teamObjects, ctx }) {
             ${meteoPlanHtml(r.team, ctx) || '<p class="tv-muted">Aucune anomalie — la météo vient du sprint ou du PI, pas des tickets.</p>'}
         </section>`;
     }).join('')}</div>`;
+}
+
+/** Sprint review : le dernier sprint CLOS du périmètre — engagement / réalisé / glissés, mood, tickets livrés. */
+function _screenReview({ teams, ctx }) {
+    const closed = (ctx.sprintInfoAll?.teamSprints || []).filter(s => teams.includes(s.team) && s.state === 'closed' && s.endDate)
+        .sort((a, b) => String(b.endDate).localeCompare(String(a.endDate)))[0];
+    if (!closed) return `<div class="tv-clear"><span aria-hidden="true">📈</span><h2>Aucun sprint clos</h2><p>La review arrivera avec le premier sprint terminé de ${esc(_scope().label)}.</p></div>`;
+    const scope = sprintScope((store.get('tickets') || []).filter(t => t.team === closed.team), closed.name);
+    const pts = sumBy(scope.engaged, t => t.points), donePts = sumBy(scope.done, t => t.points);
+    const pct = pts ? Math.round((donePts / pts) * 100) : 0;
+    const lbl = (String(closed.name).match(/(\d+\.\d+)/) || [])[1] || '';
+    const moods = (ctx.moodVotes || []).filter(v => v.team === closed.team && lbl && v.piSprint && v.piSprint.includes(lbl)).map(v => parseInt(v.value, 10)).filter(n => n >= 1 && n <= 5);
+    const mood = moods.length ? (moods.reduce((s, n) => s + n, 0) / moods.length).toFixed(1) : null;
+    const kpi = (label, value, sub, cls = '') => `<div class="metric-card ${cls}"><span class="metric-label">${label}</span><span class="metric-value">${value}</span><span class="metric-sub">${sub}</span></div>`;
+    const fmt = iso => new Date(`${String(iso).slice(0, 10)}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace(/\./g, '');
+    return `<div class="tv-review">
+        <div class="tv-journee-hd"><span aria-hidden="true">🏁</span><div><h2>${esc(closed.name)}</h2><p>${esc(closed.team)} · ${fmt(closed.startDate)} → ${fmt(closed.endDate)}${closed.goal ? ` · 🎯 ${esc(closed.goal)}` : ''}</p></div></div>
+        <div class="dashboard-metrics">
+            ${kpi('Tickets', `${scope.done.length}<span class="metric-denom"> / ${scope.engaged.length}</span>`, 'terminés dans le sprint', scope.done.length === scope.engaged.length ? 'mc-done' : 'mc-info')}
+            ${kpi('Points', `${donePts}<span class="metric-denom"> / ${pts}</span>`, `${pct} % de l'engagement`, pct >= 80 ? 'mc-done' : pct >= 50 ? 'mc-warning' : 'mc-danger')}
+            ${kpi('Glissés', scope.carried.length, scope.carried.length ? 'engagés ici, livrés ailleurs' : 'aucun report', scope.carried.length ? 'mc-warning' : 'mc-done')}
+            ${kpi('Mood', mood ?? '—', mood ? `/5 · ${moods.length} vote${moods.length > 1 ? 's' : ''}` : 'aucun vote', mood ? (mood >= 4 ? 'mc-done' : mood >= 3 ? 'mc-warning' : 'mc-danger') : 'mc-info')}
+        </div>
+        ${scope.done.length ? `<ul class="tv-list">${scope.done.slice(0, 8).map(t => `<li><span class="tv-list-ok" aria-hidden="true">✅</span><code>${esc(t.id)}</code><span>${esc(t.title || '')}</span><small>${t.points ? t.points + ' pts' : ''}</small></li>`).join('')}${scope.done.length > 8 ? `<li class="tv-muted">+ ${scope.done.length - 8} autres</li>` : ''}</ul>` : '<p class="tv-muted">Rien de terminé dans ce sprint.</p>'}
+    </div>`;
 }
 
 function _screenJournee({ teams, ctx }) {
@@ -178,6 +204,7 @@ export function renderTv(container) {
         $('tv-screen').innerHTML = s.id === 'alerte' ? _screenAlert(blockers)
             : s.id === 'meteo' ? _screenMeteo(args)
             : s.id === 'plans' ? _screenPlans(args)
+            : s.id === 'review' ? _screenReview(args)
             : _screenJournee(args);
         $('tv-screen').scrollTop = 0;
         clearTimeout(_st.timer);

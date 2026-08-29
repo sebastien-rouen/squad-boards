@@ -3,11 +3,27 @@
  * Full CRUD on all entities - no JIRA dependency.
  */
 
+// Signal réseau pour le bandeau hors ligne (offline_banner.js). Un `fetch` qui n'obtient
+// AUCUNE réponse est une panne de réseau ou de serveur — pas un 4xx/5xx, qui, lui, est une
+// réponse. Gardé silencieux hors navigateur (tests Node).
+const _emit = name => { if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') window.dispatchEvent?.(new CustomEvent(name)); };
+
 async function request(path, options = {}) {
-    const resp = await fetch(path, {
-        headers: { 'Content-Type': 'application/json', ...options.headers },
-        ...options,
-    });
+    let resp;
+    try {
+        resp = await fetch(path, {
+            headers: { 'Content-Type': 'application/json', ...options.headers },
+            ...options,
+        });
+    } catch (netErr) {
+        _emit('sb:api-offline');
+        const e = new Error('API injoignable — vérifie le réseau ou le serveur');
+        e.status = 0;
+        e.offline = true;
+        e.cause = netErr;
+        throw e;
+    }
+    _emit('sb:api-online');
     if (!resp.ok) {
         const err = await resp.json().catch(() => ({ detail: resp.statusText }));
         const e = new Error(err.detail || `HTTP ${resp.status}`);

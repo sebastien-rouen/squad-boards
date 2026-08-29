@@ -1,3 +1,28 @@
+## [3.161.0] - 2026-08-30
+
+### 📡 Hors ligne, sprint clos, premier lancement, Sprint review TV (maquettes `04`, `10`, `12`)
+
+- **📡 Bandeau hors ligne** ([offline_banner.js](static/js/components/offline_banner.js)) — sous
+  le topbar, comme le bandeau de synchro périmée : « Hors ligne — réseau coupé / API
+  injoignable. Affichage du dernier état connu (HH:MM) », avec un **Réessayer** qui sonde
+  réellement l'API avant de disparaître — un `online` du navigateur ne prouve pas que le serveur
+  répond. Deux signaux : le navigateur (`offline` / `online`) et `request()` ([api.js](static/js/api.js)),
+  qui distingue désormais un `fetch` **sans réponse** (`err.offline`, `status 0`, message
+  « API injoignable ») d'une réponse 4xx/5xx.
+- **🏁 Sprint clos → le rapport est prêt** — sur le Dashboard, pendant 3 jours après la clôture
+  d'un sprint de l'équipe : « clos le 27 août — 2/3 tickets · 13/18 pts · 1 glissé », lien vers
+  le rapport. Règle de `sprint-scope.js` (engagement reports compris, réalisé dans le sprint).
+- **🌤️ Premier lancement** ([first_launch.js](static/js/components/first_launch.js)) — le Dashboard
+  sans aucune équipe propose trois départs : la démo complète (`seedFullDemoData`, rechargement
+  des données), l'import JIRA, la création à la main. Jamais un écran vide.
+- **📈 Sprint review sur la TV** — quatrième écran de la rotation : le dernier sprint clos du
+  périmètre (objectif, tickets et points réalisés vs engagés, glissés, mood, tickets livrés).
+  `#tv/all/review` le fige.
+
+Vérifié en chargeant réellement les modules : bandeau 2/3 · 13/18 · 1 glissé et Orion hors
+fenêtre, premier lancement rendu sans équipe, écran review figé par le hash (2/3, mood 4,5),
+`fetch` en échec → erreur lisible + signal ; suite existante au vert.
+
 ## [3.160.0] - 2026-08-30
 
 ### 🎓 Comprendre : glossaire, mode apprentissage, suppression annulable (maquettes `11`, `03`)

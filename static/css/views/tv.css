@@ -96,6 +96,12 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
 .tv-list li { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); font-size: var(--fs-base); }
 .tv-list li small { color: var(--text-muted); }
 
+/* Sprint review : même grammaire que « Aujourd'hui » */
+.tv-review { display: flex; flex-direction: column; gap: var(--sp-4); }
+.tv-review .dashboard-metrics { margin: 0; }
+.tv-review .metric-value { font-size: var(--fs-3xl); }
+.tv-review .tv-journee-hd p { font-size: var(--fs-base); }
+
 /* Alerte plein écran */
 .tv-alert {
     display: flex;

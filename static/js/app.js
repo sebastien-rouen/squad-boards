@@ -53,6 +53,7 @@ const VIEW_LOADERS = {
     reports:    () => import('./views/reports.js').then(m => m.renderReports),
     settings:   () => import('./views/settings.js').then(m => m.renderSettings),
     team:       () => import('./views/team.js').then(m => m.renderTeam),
+    tv:         () => import('./views/tv.js').then(m => m.renderTv),
 };
 const _loadedRenderers = {};
 async function _getRenderer(view) {
@@ -208,6 +209,7 @@ function applyHash() {
             'sprint':      'sprint-pi',
             'calendriers': 'calendriers-ics',
             'donnees':     'donnees',
+            'meteo':       'seuils-meteo',
         };
         if (view === 'settings' && parts[1]) {
             const raw1 = decodeURIComponent(parts[1]);
@@ -344,6 +346,7 @@ function applyHash() {
 const VIEW_TITLES = Object.fromEntries(NAV_ITEMS.map(n => [n.id, n.label]));
 VIEW_TITLES.kanban = 'Board';           // redirections legacy
 VIEW_TITLES.picalendar = 'PI Planning';
+VIEW_TITLES.tv = 'Mode TV';              // hors NAV_ITEMS : entrée par le bouton 📺 ou #tv
 function _updateTitle() {
     const view  = store.get('view') || 'dashboard';
     const team  = store.get('team');

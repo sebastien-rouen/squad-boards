@@ -155,9 +155,16 @@ Deux réserves à garder en tête avant de coder :
 - **3.153.0** — le **plan d'action** de la fiche équipe (`06`) : sous les pastilles, une ligne
   par anomalie avec responsables et échéance, branchée sur la modale d'action de Santé
   (`components/meteo_plan.js`). Les pastilles Sprint/SLA défilent vers leur card.
-- Reste à porter, dans l'ordre d'utilité : l'alerte TV et la rotation (`12`), la tendance du
-  mood et le roster de la fiche (`06`), les seuils dans Paramètres (`09`), les prévisions
-  multi-PI (`07`).
+- **3.154.0** — la fiche complète (`06`) : tendance Mood & confiance par sprint, roster du PI
+  avec capacité par rôle et prochaine absence (`components/meteo_fiche.js`).
+- **3.155.0** — les **seuils météo** dans Paramètres → Météo (`09`) avec aperçu vivant
+  (`views/settings-meteo.js`).
+- **3.156.0** — le **mode TV** (`12`) : `#tv`, rotation météo → plans d'action → aujourd'hui,
+  alerte ⛈️ en tête de tour tant qu'un blocker > 48 h existe, bandeau de rappel
+  (`views/tv.js`, `css/views/tv.css`).
+- Reste à porter : les prévisions multi-PI (`07`), les en-têtes de ligne produit dans la
+  matrice à 12 équipes (`10`), l'écran « fin de journée » de la TV (`12`), l'identité Météo sur
+  Board / Backlog (`08`) — ce dernier est cosmétique, à décider après usage.
 
 ## Régénérer et vérifier
 

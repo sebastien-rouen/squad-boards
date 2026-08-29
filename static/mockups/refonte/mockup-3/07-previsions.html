@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup 3 — Météo des équipes — Prévisions</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="stylesheet" href="../../../css/tokens.css">
+  <link rel="stylesheet" href="../_shared/ui.css">
+  <link rel="stylesheet" href="../_shared/ui-pi.css">
+  <link rel="stylesheet" href="../_shared/ui-health.css">
+  <link rel="stylesheet" href="../_shared/ui-flows.css">
+  <link rel="stylesheet" href="../_shared/ui-pages.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="deep.css">
+  <link rel="stylesheet" href="../_shared/gallery.css">
+  <link rel="stylesheet" href="../_shared/bureau.css">
+  <link rel="stylesheet" href="../_shared/overlay.css">
+</head>
+<body class="gallery" data-dir="mockup-3">
+
+  <script>
+    /* Aperçu iframe de l'index : seul le premier cadre doit apparaître */
+    if (window.self !== window.top) document.body.classList.add('is-embedded');
+    /* Le site démarre en clair, la TV se lit en sombre : chaque direction doit tenir dans les deux. */
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.gal-theme, .fcp-theme')) return;
+      const racine = document.documentElement;
+      const versClair = racine.getAttribute('data-theme') !== 'light';
+      racine.setAttribute('data-theme', versClair ? 'light' : 'dark');
+      document.querySelectorAll('.gal-theme').forEach((b) => { b.textContent = versClair ? '🌙 Voir en sombre' : '☀️ Voir en clair'; });
+    });
+  </script>
+
+  <header class="gal-head">
+    <div class="gal-head-top">
+      <a class="gal-back" href="../index.html">← Toutes les directions</a>
+      <button class="gal-theme" type="button">☀️ Voir en clair</button>
+    </div>
+    <h1>🌤️ Mockup 3 — Météo des équipes · Prévisions</h1>
+    <p class="gal-sub">Une matrice équipes × domaines en pastilles météo ; un clic ouvre la fiche. La météo à cinq PI : ce qui a été tenu, ce qui se joue, ce qui s'annonce — la roadmap racontée comme une prévision.</p>
+  </header>
+
+    <nav class="gal-nav">
+      <a href="01-dashboard.html">Dashboard</a>
+      <a href="02-sections.html">PI · Rapports · Santé</a>
+      <a href="03-modals.html">Modales</a>
+      <a href="04-live.html">En séance</a>
+      <a href="05-tv.html">Mode TV</a>
+      <a href="06-equipe.html">Fiche équipe</a>
+      <a href="07-previsions.html" aria-current="page">Prévisions</a>
+      <a href="08-board.html">Board & backlog</a>
+      <a href="09-parametres.html">Paramètres</a>
+      <a href="10-etats.html">États limites</a>
+      <a href="11-comprendre.html">Comprendre</a>
+      <a href="12-tv-rotation.html">TV · rotation</a>
+    </nav>
+
+
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Prévisions · Roadmap multi-PI <small>1280 × 820, réduit pour tenir · PI-2 → PI+2, prédictibilité, vélocité, features</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it is-active" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Prévisions</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    <div class="ui-pisel" role="group" aria-label="Choisir le PI"><button type="button" class="ui-pisel-btn">PI 29</button><button type="button" class="ui-pisel-btn is-active">PI 30</button><button type="button" class="ui-pisel-btn">PI 31</button></div>
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <header class="d3-hero"><div class="d3-hero-main"><i>🔭</i><div><small>Prévisions</small><h2>PI 31 : risque de surcharge</h2><p>L'engagement prévu (187 pts) dépasse la base de capacité (142) de 32 %. Deux PI sur deux ont livré moins que leur engagement.</p></div></div><div class="d3-scale"><span class="d3-scale-it d3-cell--sun"><i>☀️</i>≥ 80 · beau</span><span class="d3-scale-it d3-cell--cloud"><i>⛅</i>60–79 · variable</span><span class="d3-scale-it d3-cell--rain"><i>🌧️</i>40–59 · attention</span><span class="d3-scale-it d3-cell--storm"><i>⛈️</i>< 40 · critique</span><span class="d3-scale-it d3-cell--none"><i>⚪</i>pas de donnée</span></div></header>
+  
+  <div class="d3-fc"><article class="d3-fc-col d3-fc-col--past d3-cell--sun">
+        <header><small>passé</small><b>PI 28</b></header>
+        <i>☀️</i><strong>92 %</strong><span>109/118 pts · tenu</span>
+      </article><article class="d3-fc-col d3-fc-col--past d3-cell--cloud">
+        <header><small>passé</small><b>PI 29</b></header>
+        <i>⛅</i><strong>78 %</strong><span>98/126 pts · 2 features reportées</span>
+      </article><article class="d3-fc-col d3-fc-col--current d3-cell--sun">
+        <header><small>en cours</small><b>PI 30</b></header>
+        <i>☀️</i><strong>56 %</strong><span>75/134 pts · à J22/68</span>
+      </article><article class="d3-fc-col d3-fc-col--planned d3-cell--rain">
+        <header><small>prévision</small><b>PI 31</b></header>
+        <i>🌧️</i><strong>132 %</strong><span>187 engagés / 142 de base</span>
+      </article><article class="d3-fc-col d3-fc-col--unplanned d3-cell--none">
+        <header><small>à planifier</small><b>PI 32</b></header>
+        <i>⚪</i><strong>—</strong><span>PI Planning le 12–13 oct.</span>
+      </article></div>
+  <div class="ui-duo ui-duo--wide">
+    
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">📐 Prédictibilité <button class="ui-help" type="button" data-help="capbase" aria-label="Comprendre 📐 Prédictibilité" title="Comprendre 📐 Prédictibilité">?</button></span>
+      <span class="ui-card-sub">mesure SAFe</span>
+    </header>
+    <div class="ui-card-bd"><div class="d3-pred"><span class="ui-ring ui-ring--lg ui-ring--warn" style="--pct:71"><b>71 %</b><small>cible 80</small></span><div><p>Moyenne livrée sur les 2 PI précédents : <b>103 pts</b>. Capacité nette du PI courant : <b>146 pts</b>. L'équipe livre en général <b>7 pts sur 10</b> de ce qu'elle pourrait.</p><p class="ui-muted">Sous 80 %, le PI Planning devrait engager <b>moins</b> que la base — pas plus.</p></div></div></div>
+    
+  </article>
+    
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">📊 Vélocité sur 12 sprints</span>
+      <span class="ui-card-sub">moy. 39 · 🍃 exclus</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-velo" style="--target:84%"><span class="ui-velo-target"><i>cible 42</i></span><span class="ui-velo-bar" style="--h:66%"><b>33</b><i>28.1</i></span><span class="ui-velo-bar" style="--h:72%"><b>36</b><i>28.2</i></span><span class="ui-velo-bar" style="--h:62%"><b>31</b><i>28.3</i></span><span class="ui-velo-bar" style="--h:78%"><b>39</b><i>28.4</i></span><span class="ui-velo-bar" style="--h:70%"><b>35</b><i>28.5</i></span><span class="ui-velo-bar" style="--h:74%"><b>37</b><i>29.1</i></span><span class="ui-velo-bar" style="--h:80%"><b>40</b><i>29.2</i></span><span class="ui-velo-bar" style="--h:70%"><b>35</b><i>29.3</i></span><span class="ui-velo-bar" style="--h:88%"><b>44</b><i>29.4</i></span><span class="ui-velo-bar" style="--h:76%"><b>38</b><i>29.5</i></span><span class="ui-velo-bar" style="--h:82%"><b>41</b><i>30.1</i></span><span class="ui-velo-bar is-current" style="--h:68%"><b>34</b><i>30.2</i></span></div></div>
+    
+  </article>
+  </div>
+  
+  <header class="ui-sec">
+    <h2>🗺️ Features sur trois PI</h2><span class="ui-sec-sub">la roadmap, une barre par feature</span>
+  </header>
+  
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Roadmap PI 30 → 32</span>
+      <span class="ui-card-sub">7 features · 4 équipes</span>
+    </header>
+    <div class="ui-card-bd">
+    <div class="d3-rm"><div class="d3-rm-hd"><span></span><span class="is-now">PI 30</span><span class="">PI 31</span><span class="">PI 32</span></div>
+    <div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#3b82f6"></span><code>FEAT-301</code> Export RH automatisé</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:0;--to:1;--team:#3b82f6"><i style="width:70%"></i><b>70 %</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#3b82f6"></span><code>FEAT-305</code> Sync JIRA incrémentale &amp; archive</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:0;--to:2;--team:#3b82f6"><i style="width:45%"></i><b>45 %</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#0d9488"></span><code>FEAT-308</code> Calendriers ICS robustes</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:0;--to:1;--team:#0d9488"><i style="width:60%"></i><b>60 %</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#f59e0b"></span><code>FEAT-311</code> Observabilité du train</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:0;--to:2;--team:#f59e0b"><i style="width:30%"></i><b>30 %</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#3b82f6"></span><code>FEAT-314</code> Atlas v2 — appétences</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:0;--to:2;--team:#3b82f6"><i style="width:10%"></i><b>10 %</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#8b5cf6"></span><code>FEAT-320</code> Portail self-service RH</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:1;--to:3;--team:#8b5cf6"><i style="width:0%"></i><b>à planifier</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#f59e0b"></span><code>FEAT-322</code> Migration SQLite → Postgres</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:1;--to:2;--team:#f59e0b"><i style="width:0%"></i><b>à planifier</b></span></span></div>
+    </div></div>
+    
+  </article>
+  <div class="ui-duo">
+    
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">⚡ Capacité du PI 31</span>
+      <span class="ui-card-sub">base suggérée par équipe</span>
+    </header>
+    <div class="ui-card-bd">
+  <table class="ui-table ui-cap">
+    <thead><tr><th>Équipe</th><th>ETP</th><th>Sprints</th><th>Jours</th><th>Absences</th><th>Net</th><th>Base suggérée <button class="ui-help" type="button" data-help="capbase" aria-label="Comment la base est calculée" title="Comment la base est calculée">?</button></th></tr></thead>
+    <tbody><tr><td><span class="ui-dot" style="--dot:#3b82f6"></span>Vega</td><td>4.0</td><td>4 <small>+ 🍃</small></td><td>160</td><td class="is-warn">− 14</td><td><b>146</b></td><td class="">156</td></tr><tr><td><span class="ui-dot" style="--dot:#0d9488"></span>Lyra</td><td>3.7</td><td>4 <small>+ 🍃</small></td><td>148</td><td class="is-warn">− 22</td><td><b>126</b></td><td class="">132</td></tr><tr><td><span class="ui-dot" style="--dot:#f59e0b"></span>Orion</td><td>4.7</td><td>4 <small>+ 🍃</small></td><td>188</td><td class="is-warn">− 9</td><td><b>179</b></td><td class="is-capped">171 ⚠</td></tr><tr><td><span class="ui-dot" style="--dot:#8b5cf6"></span>Sirius</td><td>3.0</td><td>4 <small>+ 🍃</small></td><td>120</td><td class="is-warn">− 6</td><td><b>114</b></td><td class="">118</td></tr></tbody>
+  </table>
+  <p class="ui-muted">⚠ Orion : la fenêtre dépasse la dernière absence connue — la base est un <b>plafond</b>, pas une prévision. Le sprint de respiration 🍃 ne compte nulle part.</p></div>
+    
+  </article>
+    
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">🔗 Dépendances à lever avant le PI 31</span>
+      
+    </header>
+    <div class="ui-card-bd">
+  <div class="ui-deps">
+    <table class="ui-table ui-deps-mx"><thead><tr><th>de ↓ vers →</th><th><span class="ui-dot" style="--dot:#3b82f6"></span>Vega</th><th><span class="ui-dot" style="--dot:#0d9488"></span>Lyra</th><th><span class="ui-dot" style="--dot:#f59e0b"></span>Orion</th><th><span class="ui-dot" style="--dot:#8b5cf6"></span>Sirius</th></tr></thead>
+    <tbody><tr><th>Vega</th><td class="is-self">—</td><td class="is-cross">1</td><td class="is-cross">2</td><td class=""></td></tr><tr><th>Lyra</th><td class=""></td><td class="is-self">—</td><td class=""></td><td class="is-cross">1</td></tr><tr><th>Orion</th><td class=""></td><td class=""></td><td class="is-self">—</td><td class=""></td></tr><tr><th>Sirius</th><td class=""></td><td class=""></td><td class=""></td><td class="is-self">—</td></tr></tbody></table>
+    <div class="ui-deps-sum"><span class="ui-kpi ui-kpi--warn"><span class="ui-kpi-lbl">Liens inter-équipes</span><span class="ui-kpi-val">3</span><span class="ui-kpi-sub">bloquants, à traiter en séance</span></span>
+      <ul class="ui-deps-list"><li><code>VEGA-415</code> ← attend <code>ORION-71</code> <em>API archive</em></li><li><code>VEGA-417</code> ← attend <code>ORION-74</code> <em>endpoint sprints</em></li><li><code>LYRA-201</code> ← attend <code>SIRIUS-40</code> <em>pool de connexions</em></li></ul></div>
+  </div></div>
+    
+  </article>
+  </div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">📱 Mobile — les prévisions à 390 px <small>390 × 760 — faites défiler horizontalement</small></div>
+  <div class="gal-rail">
+    
+    <figure class="phone">
+      <span class="phone-tag">Roadmap</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it is-active" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Prévisions</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <header class="d3-hero"><div class="d3-hero-main"><i>🔭</i><div><small>Prévisions</small><h2>PI 31 : risque de surcharge</h2><p>L'engagement prévu (187 pts) dépasse la base de capacité (142) de 32 %. Deux PI sur deux ont livré moins que leur engagement.</p></div></div><div class="d3-scale"><span class="d3-scale-it d3-cell--sun"><i>☀️</i>≥ 80 · beau</span><span class="d3-scale-it d3-cell--cloud"><i>⛅</i>60–79 · variable</span><span class="d3-scale-it d3-cell--rain"><i>🌧️</i>40–59 · attention</span><span class="d3-scale-it d3-cell--storm"><i>⛈️</i>< 40 · critique</span><span class="d3-scale-it d3-cell--none"><i>⚪</i>pas de donnée</span></div></header>
+  
+  <div class="d3-fc"><article class="d3-fc-col d3-fc-col--past d3-cell--sun">
+        <header><small>passé</small><b>PI 28</b></header>
+        <i>☀️</i><strong>92 %</strong><span>109/118 pts · tenu</span>
+      </article><article class="d3-fc-col d3-fc-col--past d3-cell--cloud">
+        <header><small>passé</small><b>PI 29</b></header>
+        <i>⛅</i><strong>78 %</strong><span>98/126 pts · 2 features reportées</span>
+      </article><article class="d3-fc-col d3-fc-col--current d3-cell--sun">
+        <header><small>en cours</small><b>PI 30</b></header>
+        <i>☀️</i><strong>56 %</strong><span>75/134 pts · à J22/68</span>
+      </article><article class="d3-fc-col d3-fc-col--planned d3-cell--rain">
+        <header><small>prévision</small><b>PI 31</b></header>
+        <i>🌧️</i><strong>132 %</strong><span>187 engagés / 142 de base</span>
+      </article><article class="d3-fc-col d3-fc-col--unplanned d3-cell--none">
+        <header><small>à planifier</small><b>PI 32</b></header>
+        <i>⚪</i><strong>—</strong><span>PI Planning le 12–13 oct.</span>
+      </article></div>
+  <div class="ui-duo ui-duo--wide">
+    
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">📐 Prédictibilité <button class="ui-help" type="button" data-help="capbase" aria-label="Comprendre 📐 Prédictibilité" title="Comprendre 📐 Prédictibilité">?</button></span>
+      <span class="ui-card-sub">mesure SAFe</span>
+    </header>
+    <div class="ui-card-bd"><div class="d3-pred"><span class="ui-ring ui-ring--lg ui-ring--warn" style="--pct:71"><b>71 %</b><small>cible 80</small></span><div><p>Moyenne livrée sur les 2 PI précédents : <b>103 pts</b>. Capacité nette du PI courant : <b>146 pts</b>. L'équipe livre en général <b>7 pts sur 10</b> de ce qu'elle pourrait.</p><p class="ui-muted">Sous 80 %, le PI Planning devrait engager <b>moins</b> que la base — pas plus.</p></div></div></div>
+    
+  </article>
+    
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">📊 Vélocité sur 12 sprints</span>
+      <span class="ui-card-sub">moy. 39 · 🍃 exclus</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-velo" style="--target:84%"><span class="ui-velo-target"><i>cible 42</i></span><span class="ui-velo-bar" style="--h:66%"><b>33</b><i>28.1</i></span><span class="ui-velo-bar" style="--h:72%"><b>36</b><i>28.2</i></span><span class="ui-velo-bar" style="--h:62%"><b>31</b><i>28.3</i></span><span class="ui-velo-bar" style="--h:78%"><b>39</b><i>28.4</i></span><span class="ui-velo-bar" style="--h:70%"><b>35</b><i>28.5</i></span><span class="ui-velo-bar" style="--h:74%"><b>37</b><i>29.1</i></span><span class="ui-velo-bar" style="--h:80%"><b>40</b><i>29.2</i></span><span class="ui-velo-bar" style="--h:70%"><b>35</b><i>29.3</i></span><span class="ui-velo-bar" style="--h:88%"><b>44</b><i>29.4</i></span><span class="ui-velo-bar" style="--h:76%"><b>38</b><i>29.5</i></span><span class="ui-velo-bar" style="--h:82%"><b>41</b><i>30.1</i></span><span class="ui-velo-bar is-current" style="--h:68%"><b>34</b><i>30.2</i></span></div></div>
+    
+  </article>
+  </div>
+  
+  <header class="ui-sec">
+    <h2>🗺️ Features sur trois PI</h2><span class="ui-sec-sub">la roadmap, une barre par feature</span>
+  </header>
+  
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Roadmap PI 30 → 32</span>
+      <span class="ui-card-sub">7 features · 4 équipes</span>
+    </header>
+    <div class="ui-card-bd">
+    <div class="d3-rm"><div class="d3-rm-hd"><span></span><span class="is-now">PI 30</span><span class="">PI 31</span><span class="">PI 32</span></div>
+    <div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#3b82f6"></span><code>FEAT-301</code> Export RH automatisé</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:0;--to:1;--team:#3b82f6"><i style="width:70%"></i><b>70 %</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#3b82f6"></span><code>FEAT-305</code> Sync JIRA incrémentale &amp; archive</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:0;--to:2;--team:#3b82f6"><i style="width:45%"></i><b>45 %</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#0d9488"></span><code>FEAT-308</code> Calendriers ICS robustes</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:0;--to:1;--team:#0d9488"><i style="width:60%"></i><b>60 %</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#f59e0b"></span><code>FEAT-311</code> Observabilité du train</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:0;--to:2;--team:#f59e0b"><i style="width:30%"></i><b>30 %</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#3b82f6"></span><code>FEAT-314</code> Atlas v2 — appétences</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:0;--to:2;--team:#3b82f6"><i style="width:10%"></i><b>10 %</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#8b5cf6"></span><code>FEAT-320</code> Portail self-service RH</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:1;--to:3;--team:#8b5cf6"><i style="width:0%"></i><b>à planifier</b></span></span></div><div class="d3-rm-row"><span class="d3-rm-lbl"><span class="ui-dot" style="--dot:#f59e0b"></span><code>FEAT-322</code> Migration SQLite → Postgres</span><span class="d3-rm-track"><span class="d3-rm-bar" style="--from:1;--to:2;--team:#f59e0b"><i style="width:0%"></i><b>à planifier</b></span></span></div>
+    </div></div>
+    
+  </article>
+  <div class="ui-duo">
+    
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">⚡ Capacité du PI 31</span>
+      <span class="ui-card-sub">base suggérée par équipe</span>
+    </header>
+    <div class="ui-card-bd">
+  <table class="ui-table ui-cap">
+    <thead><tr><th>Équipe</th><th>ETP</th><th>Sprints</th><th>Jours</th><th>Absences</th><th>Net</th><th>Base suggérée <button class="ui-help" type="button" data-help="capbase" aria-label="Comment la base est calculée" title="Comment la base est calculée">?</button></th></tr></thead>
+    <tbody><tr><td><span class="ui-dot" style="--dot:#3b82f6"></span>Vega</td><td>4.0</td><td>4 <small>+ 🍃</small></td><td>160</td><td class="is-warn">− 14</td><td><b>146</b></td><td class="">156</td></tr><tr><td><span class="ui-dot" style="--dot:#0d9488"></span>Lyra</td><td>3.7</td><td>4 <small>+ 🍃</small></td><td>148</td><td class="is-warn">− 22</td><td><b>126</b></td><td class="">132</td></tr><tr><td><span class="ui-dot" style="--dot:#f59e0b"></span>Orion</td><td>4.7</td><td>4 <small>+ 🍃</small></td><td>188</td><td class="is-warn">− 9</td><td><b>179</b></td><td class="is-capped">171 ⚠</td></tr><tr><td><span class="ui-dot" style="--dot:#8b5cf6"></span>Sirius</td><td>3.0</td><td>4 <small>+ 🍃</small></td><td>120</td><td class="is-warn">− 6</td><td><b>114</b></td><td class="">118</td></tr></tbody>
+  </table>
+  <p class="ui-muted">⚠ Orion : la fenêtre dépasse la dernière absence connue — la base est un <b>plafond</b>, pas une prévision. Le sprint de respiration 🍃 ne compte nulle part.</p></div>
+    
+  </article>
+    
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">🔗 Dépendances à lever avant le PI 31</span>
+      
+    </header>
+    <div class="ui-card-bd">
+  <div class="ui-deps">
+    <table class="ui-table ui-deps-mx"><thead><tr><th>de ↓ vers →</th><th><span class="ui-dot" style="--dot:#3b82f6"></span>Vega</th><th><span class="ui-dot" style="--dot:#0d9488"></span>Lyra</th><th><span class="ui-dot" style="--dot:#f59e0b"></span>Orion</th><th><span class="ui-dot" style="--dot:#8b5cf6"></span>Sirius</th></tr></thead>
+    <tbody><tr><th>Vega</th><td class="is-self">—</td><td class="is-cross">1</td><td class="is-cross">2</td><td class=""></td></tr><tr><th>Lyra</th><td class=""></td><td class="is-self">—</td><td class=""></td><td class="is-cross">1</td></tr><tr><th>Orion</th><td class=""></td><td class=""></td><td class="is-self">—</td><td class=""></td></tr><tr><th>Sirius</th><td class=""></td><td class=""></td><td class=""></td><td class="is-self">—</td></tr></tbody></table>
+    <div class="ui-deps-sum"><span class="ui-kpi ui-kpi--warn"><span class="ui-kpi-lbl">Liens inter-équipes</span><span class="ui-kpi-val">3</span><span class="ui-kpi-sub">bloquants, à traiter en séance</span></span>
+      <ul class="ui-deps-list"><li><code>VEGA-415</code> ← attend <code>ORION-71</code> <em>API archive</em></li><li><code>VEGA-417</code> ← attend <code>ORION-74</code> <em>endpoint sprints</em></li><li><code>LYRA-201</code> ← attend <code>SIRIUS-40</code> <em>pool de connexions</em></li></ul></div>
+  </div></div>
+    
+  </article>
+  </div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Cinq PI</b><span>La frise des PI défile horizontalement ; la roadmap devient une liste de barres.</span></figcaption>
+    </figure>
+  </div>
+
+
+  <section class="gal-notes"><h2>Parti pris UX</h2><ul><li><strong>Une prévision, pas une promesse.</strong> Le PI 31 est 🌧️ avant d'avoir commencé : l'engagement dépasse la base, et la base elle-même est plafonnée pour Orion. C'est le moment de le dire — au PI Planning, pas à la revue.</li><li>La prédictibilité SAFe (livré ÷ capacité) est expliquée en une phrase : « l'équipe livre 7 points sur 10 de ce qu'elle pourrait ». Le chiffre seul ne dit rien.</li><li>Les 🍃 sont exclus de la vélocité sur 12 sprints — la règle de <code>breathIdxOf()</code>, visible.</li></ul></section>
+
+  <aside class="fcp" aria-label="Panneau de navigation des maquettes">
+    <button class="fcp-toggle" type="button" aria-expanded="true" title="Replier">🎛️</button>
+    <div class="fcp-bd">
+      <div class="fcp-row"><small>Direction</small><div class="fcp-btns"><a class="fcp-btn" href="../mockup-1/01-dashboard.html" title="Cockpit — cette page n'existe que pour la direction approfondie">🧭 1</a><a class="fcp-btn" href="../mockup-2/01-dashboard.html" title="Journal de bord — cette page n'existe que pour la direction approfondie">📖 2</a><a class="fcp-btn is-active" href="../mockup-3/07-previsions.html" title="Météo des équipes">🌤️ 3</a><a class="fcp-btn" href="../mockup-4/01-dashboard.html" title="Frise du PI — cette page n'existe que pour la direction approfondie">🛤️ 4</a></div></div>
+      <div class="fcp-row"><small>Écran</small><div class="fcp-btns fcp-btns--col"><a class="fcp-btn" href="01-dashboard.html">Dashboard</a><a class="fcp-btn" href="02-sections.html">PI · Rapports · Santé</a><a class="fcp-btn" href="03-modals.html">Modales</a><a class="fcp-btn" href="04-live.html">En séance</a><a class="fcp-btn" href="05-tv.html">Mode TV</a><a class="fcp-btn" href="06-equipe.html">Fiche équipe</a><a class="fcp-btn is-active" href="07-previsions.html">Prévisions</a><a class="fcp-btn" href="08-board.html">Board & backlog</a><a class="fcp-btn" href="09-parametres.html">Paramètres</a><a class="fcp-btn" href="10-etats.html">États limites</a><a class="fcp-btn" href="11-comprendre.html">Comprendre</a><a class="fcp-btn" href="12-tv-rotation.html">TV · rotation</a></div></div>
+      <div class="fcp-row"><small>Affichage</small><div class="fcp-btns"><button class="fcp-btn fcp-theme" type="button">🌓 Thème</button><button class="fcp-btn fcp-annot" type="button" aria-pressed="false">💡 Explications</button></div></div>
+      <div class="fcp-row"><a class="fcp-btn" href="../index.html">↖ Galerie</a></div>
+    </div>
+  </aside>
+
+  <script src="../_shared/bureau.js"></script>
+  <script src="../_shared/overlay.js"></script>
+</body>
+</html>

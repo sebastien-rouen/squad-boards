@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup 4 — Frise du PI — Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="stylesheet" href="../../../css/tokens.css">
+  <link rel="stylesheet" href="../_shared/ui.css">
+  <link rel="stylesheet" href="../_shared/ui-pi.css">
+  <link rel="stylesheet" href="../_shared/ui-health.css">
+  <link rel="stylesheet" href="../_shared/ui-flows.css">
+  <link rel="stylesheet" href="../_shared/ui-pages.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../_shared/gallery.css">
+  <link rel="stylesheet" href="../_shared/bureau.css">
+  <link rel="stylesheet" href="../_shared/overlay.css">
+</head>
+<body class="gallery" data-dir="mockup-4">
+
+  <script>
+    /* Aperçu iframe de l'index : seul le premier cadre doit apparaître */
+    if (window.self !== window.top) document.body.classList.add('is-embedded');
+    /* Le site démarre en clair, la TV se lit en sombre : chaque direction doit tenir dans les deux. */
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.gal-theme, .fcp-theme')) return;
+      const racine = document.documentElement;
+      const versClair = racine.getAttribute('data-theme') !== 'light';
+      racine.setAttribute('data-theme', versClair ? 'light' : 'dark');
+      document.querySelectorAll('.gal-theme').forEach((b) => { b.textContent = versClair ? '🌙 Voir en sombre' : '☀️ Voir en clair'; });
+    });
+  </script>
+
+  <header class="gal-head">
+    <div class="gal-head-top">
+      <a class="gal-back" href="../index.html">← Toutes les directions</a>
+      <button class="gal-theme" type="button">☀️ Voir en clair</button>
+    </div>
+    <h1>🛤️ Mockup 4 — Frise du PI · Dashboard</h1>
+    <p class="gal-sub">Tout est ancré sur l'axe des sprints ; le présent est un curseur qui avance. L'écran principal : desktop, puis mobile pour vérifier que la direction tient aux deux tailles.</p>
+  </header>
+
+    <nav class="gal-nav">
+      <a href="01-dashboard.html" aria-current="page">Dashboard</a>
+      <a href="02-sections.html">PI · Rapports · Santé</a>
+      <a href="03-modals.html">Modales</a>
+      <a href="04-live.html">En séance</a>
+      <a href="05-tv.html">Mode TV</a>
+    </nav>
+
+
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Dashboard · Vega · Ité 30.2 <small>1280 × 820, réduit pour tenir · cliquez « 💡 Explications » en bas à droite</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+      <header class="d4-pihead">
+        <div><small>Program Increment</small><h2>PI #30 <span>3 août → 9 oct.</span></h2></div>
+        <div class="d4-pihead-kpis">
+  <div class="ui-kpi ui-kpi--info" data-dom="pi">
+    <span class="ui-kpi-lbl">Périmètre</span>
+    <span class="ui-kpi-val">134<small> pts</small></span>
+    <span class="ui-kpi-sub">75 réalisés · 56 %</span>
+  </div>
+  <div class="ui-kpi ui-kpi--warn" data-dom="pi">
+    <span class="ui-kpi-lbl">Objectifs</span>
+    <span class="ui-kpi-val">1<small>/3</small></span>
+    <span class="ui-kpi-sub">atteint · 2 en cours</span>
+  </div>
+  <div class="ui-kpi ui-kpi--good" data-dom="health">
+    <span class="ui-kpi-lbl">Confiance</span>
+    <span class="ui-kpi-val">4,1<small>/5</small></span>
+    <span class="ui-kpi-sub">Fist of Five 30.2</span>
+  </div>
+  <div class="ui-kpi ui-kpi--warn" data-dom="pi">
+    <span class="ui-kpi-lbl">Dépendances</span>
+    <span class="ui-kpi-val">3</span>
+    <span class="ui-kpi-sub">inter-équipes ouvertes</span>
+  </div></div>
+      </header>
+      <div class="d4-rail" style="--now:32%">
+        <span class="d4-now"><i>aujourd'hui · 25 août</i></span>
+        <div class="d4-col d4-col--closed">
+      <header class="d4-col-hd"><b>30.1</b><span>03/08 → 14/08</span></header>
+      <div class="d4-col-bar"><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:85%"></span></span><b>41/48</b></div>
+      <p class="d4-col-goal">Automatiser l'export RH des absences</p>
+      <ul class="d4-col-grps"><li><span>📗 US <small>10</small></span><b>30/34</b></li><li><span>🧯 Buffer <small>4</small></span><b>6/8</b></li><li><span>🛠️ Action <small>4</small></span><b>5/6</b></li></ul>
+      <span class="ui-slip">↪ 2 glissés vers 30.2</span>
+      <div class="d4-col-ft"><span>😊 3.6</span><span>✊ 4</span><a href="#reports">rapport ›</a></div>
+    </div><div class="d4-col d4-col--active">
+      <header class="d4-col-hd"><b>30.2</b><span>17/08 → 28/08</span></header>
+      <div class="d4-col-bar"><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--warn" style="width:65%"></span></span><b>34/52</b></div>
+      <p class="d4-col-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <ul class="d4-col-grps"><li><span>📗 US <small>8</small></span><b>26/38</b></li><li><span>🧯 Buffer <small>3</small></span><b>5/8</b></li><li><span>🛠️ Action <small>3</small></span><b>3/6</b></li></ul>
+      
+      <div class="d4-col-ft is-now"><b>J7/10</b><span>3 j restants</span><span>78 % à temps</span></div>
+    </div><div class="d4-col d4-col--future">
+      <header class="d4-col-hd"><b>30.3</b><span>31/08 → 11/09</span></header>
+      <div class="d4-col-bar"><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></span><b>0/44</b></div>
+      <p class="d4-col-goal">Sync incrémentale : archive des sprints clos</p>
+      <ul class="d4-col-grps"><li><span>📗 US <small>7</small></span><b>0/32</b></li><li><span>🧯 Buffer <small>2</small></span><b>0/6</b></li><li><span>🛠️ Action <small>2</small></span><b>0/6</b></li></ul>
+      
+      <div class="d4-col-ft"><span>base 39 pts</span><span>44 engagés</span></div>
+    </div><div class="d4-col d4-col--future">
+      <header class="d4-col-hd"><b>30.4</b><span>14/09 → 25/09</span></header>
+      <div class="d4-col-bar"><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></span><b>0/40</b></div>
+      <p class="d4-col-goal">Atlas v2 — cartographie des appétences</p>
+      <ul class="d4-col-grps"><li><span>📗 US <small>6</small></span><b>0/30</b></li><li><span>🧯 Buffer <small>2</small></span><b>0/6</b></li><li><span>🛠️ Action <small>1</small></span><b>0/4</b></li></ul>
+      
+      <div class="d4-col-ft"><span>base 39 pts</span><span>40 engagés</span></div>
+    </div><div class="d4-col d4-col--breath">
+      <header class="d4-col-hd"><b>🍃 30.5</b><span>28/09 → 09/10</span></header>
+      
+      <p class="d4-col-goal">Respiration — dette, I&amp;A, préparation PI 31</p>
+      
+      
+      <div class="d4-col-ft"><span>dette · I&amp;A · prépa PI 31</span></div>
+    </div>
+      </div>
+      <div class="d4-under">
+        <section class="d4-under-col"><header class="ui-sec"><h2>⏱️ Maintenant · Ité 30.2</h2><span class="ui-sec-sub">ce qui se joue cette semaine</span></header><div class="ui-kpi-grid ui-kpi-grid--primary">
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">Tickets</span>
+    <span class="ui-kpi-val">14</span>
+    <span class="ui-kpi-sub">9 terminés · 64 %</span>
+  </div>
+  <div class="ui-kpi ui-kpi--warn" data-dom="flow">
+    <span class="ui-kpi-lbl">Story points</span>
+    <span class="ui-kpi-val">34<small>/52</small></span>
+    <span class="ui-kpi-sub">65 % réalisés</span>
+  </div>
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">En cours</span>
+    <span class="ui-kpi-val">3</span>
+    <span class="ui-kpi-sub">tickets actifs</span>
+  </div>
+  <div class="ui-kpi ui-kpi--bad" data-dom="flow">
+    <span class="ui-kpi-lbl">Bloqués</span>
+    <span class="ui-kpi-val">1</span>
+    <span class="ui-kpi-sub">attention requise</span>
+  </div></div>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Lead time & cycle time <button class="ui-help" type="button" data-help="lct" aria-label="Comprendre Lead time &amp; cycle time" title="Comprendre Lead time &amp; cycle time">?</button></span>
+      <span class="ui-card-sub">9 tickets terminés</span>
+    </header>
+    <div class="ui-card-bd">
+    <div class="ui-lct">
+      <span class="ui-lct-node">📥<small>Créé</small></span>
+      <span class="ui-lct-seg ui-lct-seg--wait"><i>Attente</i><b>7 j</b></span>
+      <span class="ui-lct-node">▶️<small>Démarré</small></span>
+      <span class="ui-lct-seg ui-lct-seg--cycle"><i>Cycle time</i><b>4 j</b></span>
+      <span class="ui-lct-node">✅<small>Terminé</small></span>
+    </div>
+    <div class="ui-lct-lead">⟵ Lead time médian · <b>11 j</b> ⟶</div>
+    <div class="ui-floweff"><span>⚡ Flow efficiency</span><span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--warn" style="width:36%"></span></span><b>36 %</b></div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Tickets bloqués ou stagnants</span>
+      <span class="ui-card-sub">sans mouvement depuis ≥ 5 j</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-stuck">
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-blocked)"></span><code>VEGA-412</code><span class="ui-stuck-title">Export CSV — encodage UTF-8 BOM</span>
+        <span class="ui-badge ui-badge--blocked">Bloqué</span><span class="ui-stuck-lead">Théo Vasseur</span><b class="ui-stuck-age is-warn">3 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>VEGA-398</code><span class="ui-stuck-title">Refacto du parseur CSV pivot RH</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Lucie Arnaud</span><b class="ui-stuck-age is-bad">8 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>LYRA-201</code><span class="ui-stuck-title">Calendrier ICS — refresh en pool</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Manon Cros</span><b class="ui-stuck-age is-warn">6 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-test)"></span><code>ORION-88</code><span class="ui-stuck-title">Migration SQLite → colonne created_at</span>
+        <span class="ui-badge ui-badge--test">Test</span><span class="ui-stuck-lead is-none">Non assigné</span><b class="ui-stuck-age is-bad">11 j</b></li></ul></div>
+    
+  </article></section>
+        <section class="d4-under-col"><header class="ui-sec"><h2>🗓️ Sur le PI</h2><span class="ui-sec-sub">tendance et équipes</span></header>
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Burnup</span>
+      <span class="ui-card-sub">134 pts · 75 réalisés</span>
+    </header>
+    <div class="ui-card-bd">
+  <svg class="ui-burnup" viewBox="0 0 520 200" role="img" aria-label="Burnup du PI : périmètre 134 points, réalisé 75">
+    <g><line x1="36" x2="508" y1="174" y2="174" class="ui-burnup-grid"/><text x="30" y="178" class="ui-burnup-lbl" text-anchor="end">0</text></g><g><line x1="36" x2="508" y1="120.00000000000001" y2="120.00000000000001" class="ui-burnup-grid"/><text x="30" y="124.00000000000001" class="ui-burnup-lbl" text-anchor="end">50</text></g><g><line x1="36" x2="508" y1="66" y2="66" class="ui-burnup-grid"/><text x="30" y="70" class="ui-burnup-lbl" text-anchor="end">100</text></g><g><line x1="36" x2="508" y1="12" y2="12" class="ui-burnup-grid"/><text x="30" y="16" class="ui-burnup-lbl" text-anchor="end">150</text></g>
+    <text x="36" y="192" class="ui-burnup-lbl" text-anchor="middle">PIP</text><text x="130.4" y="192" class="ui-burnup-lbl" text-anchor="middle">30.1</text><text x="224.8" y="192" class="ui-burnup-lbl" text-anchor="middle">30.2</text><text x="319.2" y="192" class="ui-burnup-lbl" text-anchor="middle">30.3</text><text x="413.6" y="192" class="ui-burnup-lbl" text-anchor="middle">30.4</text><text x="508" y="192" class="ui-burnup-lbl" text-anchor="middle">30.5</text>
+    <path d="M36.0,35.8 L130.4,35.8 L224.8,31.4 L319.2,29.3 L413.6,29.3 L508.0,29.3" class="ui-burnup-scope"/>
+    <path d="M36.0,174.0 L130.4,129.7 L224.8,93.0" class="ui-burnup-done"/>
+    <line x1="224.8" x2="224.8" y1="12" y2="174" class="ui-burnup-now"/>
+    <text x="230.8" y="24" class="ui-burnup-lbl">aujourd'hui</text>
+    <circle cx="224.8" cy="93" r="4" class="ui-burnup-pt"/>
+  </svg>
+  <div class="ui-legend"><span><i style="--dot:var(--status-todo)"></i>Périmètre 134 pts</span><span><i style="--dot:var(--status-done)"></i>Réalisé 75 pts · 56 %</span></div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Vélocité <button class="ui-help" type="button" data-help="velocity" aria-label="Comprendre Vélocité" title="Comprendre Vélocité">?</button></span>
+      <span class="ui-card-sub">moy. 39 pts · cible 42</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-velo" style="--target:83%">
+          <span class="ui-velo-target"><i>cible 42</i></span>
+          <span class="ui-velo-bar" style="--h:73%"><b>37</b><i>29.1</i></span><span class="ui-velo-bar" style="--h:79%"><b>40</b><i>29.2</i></span><span class="ui-velo-bar" style="--h:69%"><b>35</b><i>29.3</i></span><span class="ui-velo-bar" style="--h:87%"><b>44</b><i>29.4</i></span><span class="ui-velo-bar" style="--h:75%"><b>38</b><i>29.5</i></span><span class="ui-velo-bar" style="--h:81%"><b>41</b><i>30.1</i></span><span class="ui-velo-bar is-current" style="--h:67%"><b>34</b><i>30.2</i></span>
+        </div></div>
+    
+  </article><div class="ui-teams">
+    <article class="ui-team" style="--team:#3b82f6">
+      <header><span class="ui-team-dot"></span><b>Vega</b><span class="ui-team-health ui-team-health--warn">74</span></header>
+      <span class="ui-ring ui-ring--warn" style="--pct:65"><b>65 %</b></span>
+      <dl><dt>Tickets</dt><dd>9/14</dd><dt>Points</dt><dd>34/52</dd><dt>Bloqués</dt><dd class="is-bad">1</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#0d9488">
+      <header><span class="ui-team-dot"></span><b>Lyra</b><span class="ui-team-health ui-team-health--warn">61</span></header>
+      <span class="ui-ring ui-ring--bad" style="--pct:35"><b>35 %</b></span>
+      <dl><dt>Tickets</dt><dd>5/12</dd><dt>Points</dt><dd>14/40</dd><dt>Bloqués</dt><dd class="">0</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#f59e0b">
+      <header><span class="ui-team-dot"></span><b>Orion</b><span class="ui-team-health ui-team-health--bad">42</span></header>
+      <span class="ui-ring ui-ring--bad" style="--pct:30"><b>30 %</b></span>
+      <dl><dt>Tickets</dt><dd>6/17</dd><dt>Points</dt><dd>18/61</dd><dt>Bloqués</dt><dd class="is-bad">3</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#8b5cf6">
+      <header><span class="ui-team-dot"></span><b>Sirius</b><span class="ui-team-health ui-team-health--good">88</span></header>
+      <span class="ui-ring ui-ring--good" style="--pct:83"><b>83 %</b></span>
+      <dl><dt>Tickets</dt><dd>7/9</dd><dt>Points</dt><dd>25/30</dd><dt>Bloqués</dt><dd class="">0</dd></dl>
+    </article></div></section>
+      </div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        <span class="ui-annot" style="--x:22%;--y:9%"><b>1</b></span><span class="ui-annot" style="--x:45%;--y:28%"><b>2</b></span><span class="ui-annot" style="--x:62%;--y:58%"><b>3</b></span><span class="ui-annot" style="--x:4%;--y:30%"><b>4</b></span>
+      </div>
+    </div>
+  </div>
+  <div class="gal-annot-legend"><ol class="ui-annot-legend"><li><b>1</b><span>En-tête du PI : période, périmètre, objectifs, confiance, dépendances — les quatre chiffres qui résument un Program Increment.</span></li><li><b>2</b><span>La frise : une colonne par sprint, le sprint de respiration 🍃 à part ; les colonnes closes portent leurs votes et un lien vers le rapport, la colonne active son compte à rebours.</span></li><li><b>3</b><span>Le curseur « aujourd'hui » traverse la frise : on voit d'un coup où l'on en est du PI, pas seulement du sprint.</span></li><li><b>4</b><span>Sous la frise, deux temps : « Maintenant » (le sprint, ses KPI, ses bloqués) et « Sur le PI » (burnup, vélocité, équipes).</span></li></ol></div>
+  
+  <div class="gal-group gal-group--vue">📱 Mobile — la même page à 390 px <small>390 × 760 — faites défiler horizontalement</small></div>
+  <div class="gal-rail">
+    
+    <figure class="phone">
+      <span class="phone-tag">Sur le pouce</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+      <header class="d4-pihead">
+        <div><small>Program Increment</small><h2>PI #30 <span>3 août → 9 oct.</span></h2></div>
+        <div class="d4-pihead-kpis">
+  <div class="ui-kpi ui-kpi--info" data-dom="pi">
+    <span class="ui-kpi-lbl">Périmètre</span>
+    <span class="ui-kpi-val">134<small> pts</small></span>
+    <span class="ui-kpi-sub">75 réalisés · 56 %</span>
+  </div>
+  <div class="ui-kpi ui-kpi--warn" data-dom="pi">
+    <span class="ui-kpi-lbl">Objectifs</span>
+    <span class="ui-kpi-val">1<small>/3</small></span>
+    <span class="ui-kpi-sub">atteint · 2 en cours</span>
+  </div>
+  <div class="ui-kpi ui-kpi--good" data-dom="health">
+    <span class="ui-kpi-lbl">Confiance</span>
+    <span class="ui-kpi-val">4,1<small>/5</small></span>
+    <span class="ui-kpi-sub">Fist of Five 30.2</span>
+  </div>
+  <div class="ui-kpi ui-kpi--warn" data-dom="pi">
+    <span class="ui-kpi-lbl">Dépendances</span>
+    <span class="ui-kpi-val">3</span>
+    <span class="ui-kpi-sub">inter-équipes ouvertes</span>
+  </div></div>
+      </header>
+      <div class="d4-rail" style="--now:32%">
+        <span class="d4-now"><i>aujourd'hui · 25 août</i></span>
+        <div class="d4-col d4-col--closed">
+      <header class="d4-col-hd"><b>30.1</b><span>03/08 → 14/08</span></header>
+      <div class="d4-col-bar"><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:85%"></span></span><b>41/48</b></div>
+      <p class="d4-col-goal">Automatiser l'export RH des absences</p>
+      <ul class="d4-col-grps"><li><span>📗 US <small>10</small></span><b>30/34</b></li><li><span>🧯 Buffer <small>4</small></span><b>6/8</b></li><li><span>🛠️ Action <small>4</small></span><b>5/6</b></li></ul>
+      <span class="ui-slip">↪ 2 glissés vers 30.2</span>
+      <div class="d4-col-ft"><span>😊 3.6</span><span>✊ 4</span><a href="#reports">rapport ›</a></div>
+    </div><div class="d4-col d4-col--active">
+      <header class="d4-col-hd"><b>30.2</b><span>17/08 → 28/08</span></header>
+      <div class="d4-col-bar"><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--warn" style="width:65%"></span></span><b>34/52</b></div>
+      <p class="d4-col-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <ul class="d4-col-grps"><li><span>📗 US <small>8</small></span><b>26/38</b></li><li><span>🧯 Buffer <small>3</small></span><b>5/8</b></li><li><span>🛠️ Action <small>3</small></span><b>3/6</b></li></ul>
+      
+      <div class="d4-col-ft is-now"><b>J7/10</b><span>3 j restants</span><span>78 % à temps</span></div>
+    </div><div class="d4-col d4-col--future">
+      <header class="d4-col-hd"><b>30.3</b><span>31/08 → 11/09</span></header>
+      <div class="d4-col-bar"><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></span><b>0/44</b></div>
+      <p class="d4-col-goal">Sync incrémentale : archive des sprints clos</p>
+      <ul class="d4-col-grps"><li><span>📗 US <small>7</small></span><b>0/32</b></li><li><span>🧯 Buffer <small>2</small></span><b>0/6</b></li><li><span>🛠️ Action <small>2</small></span><b>0/6</b></li></ul>
+      
+      <div class="d4-col-ft"><span>base 39 pts</span><span>44 engagés</span></div>
+    </div><div class="d4-col d4-col--future">
+      <header class="d4-col-hd"><b>30.4</b><span>14/09 → 25/09</span></header>
+      <div class="d4-col-bar"><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></span><b>0/40</b></div>
+      <p class="d4-col-goal">Atlas v2 — cartographie des appétences</p>
+      <ul class="d4-col-grps"><li><span>📗 US <small>6</small></span><b>0/30</b></li><li><span>🧯 Buffer <small>2</small></span><b>0/6</b></li><li><span>🛠️ Action <small>1</small></span><b>0/4</b></li></ul>
+      
+      <div class="d4-col-ft"><span>base 39 pts</span><span>40 engagés</span></div>
+    </div><div class="d4-col d4-col--breath">
+      <header class="d4-col-hd"><b>🍃 30.5</b><span>28/09 → 09/10</span></header>
+      
+      <p class="d4-col-goal">Respiration — dette, I&amp;A, préparation PI 31</p>
+      
+      
+      <div class="d4-col-ft"><span>dette · I&amp;A · prépa PI 31</span></div>
+    </div>
+      </div>
+      <div class="d4-under">
+        <section class="d4-under-col"><header class="ui-sec"><h2>⏱️ Maintenant · Ité 30.2</h2><span class="ui-sec-sub">ce qui se joue cette semaine</span></header><div class="ui-kpi-grid ui-kpi-grid--primary">
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">Tickets</span>
+    <span class="ui-kpi-val">14</span>
+    <span class="ui-kpi-sub">9 terminés · 64 %</span>
+  </div>
+  <div class="ui-kpi ui-kpi--warn" data-dom="flow">
+    <span class="ui-kpi-lbl">Story points</span>
+    <span class="ui-kpi-val">34<small>/52</small></span>
+    <span class="ui-kpi-sub">65 % réalisés</span>
+  </div>
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">En cours</span>
+    <span class="ui-kpi-val">3</span>
+    <span class="ui-kpi-sub">tickets actifs</span>
+  </div>
+  <div class="ui-kpi ui-kpi--bad" data-dom="flow">
+    <span class="ui-kpi-lbl">Bloqués</span>
+    <span class="ui-kpi-val">1</span>
+    <span class="ui-kpi-sub">attention requise</span>
+  </div></div>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Lead time & cycle time <button class="ui-help" type="button" data-help="lct" aria-label="Comprendre Lead time &amp; cycle time" title="Comprendre Lead time &amp; cycle time">?</button></span>
+      <span class="ui-card-sub">9 tickets terminés</span>
+    </header>
+    <div class="ui-card-bd">
+    <div class="ui-lct">
+      <span class="ui-lct-node">📥<small>Créé</small></span>
+      <span class="ui-lct-seg ui-lct-seg--wait"><i>Attente</i><b>7 j</b></span>
+      <span class="ui-lct-node">▶️<small>Démarré</small></span>
+      <span class="ui-lct-seg ui-lct-seg--cycle"><i>Cycle time</i><b>4 j</b></span>
+      <span class="ui-lct-node">✅<small>Terminé</small></span>
+    </div>
+    <div class="ui-lct-lead">⟵ Lead time médian · <b>11 j</b> ⟶</div>
+    <div class="ui-floweff"><span>⚡ Flow efficiency</span><span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--warn" style="width:36%"></span></span><b>36 %</b></div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Tickets bloqués ou stagnants</span>
+      <span class="ui-card-sub">sans mouvement depuis ≥ 5 j</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-stuck">
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-blocked)"></span><code>VEGA-412</code><span class="ui-stuck-title">Export CSV — encodage UTF-8 BOM</span>
+        <span class="ui-badge ui-badge--blocked">Bloqué</span><span class="ui-stuck-lead">Théo Vasseur</span><b class="ui-stuck-age is-warn">3 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>VEGA-398</code><span class="ui-stuck-title">Refacto du parseur CSV pivot RH</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Lucie Arnaud</span><b class="ui-stuck-age is-bad">8 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>LYRA-201</code><span class="ui-stuck-title">Calendrier ICS — refresh en pool</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Manon Cros</span><b class="ui-stuck-age is-warn">6 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-test)"></span><code>ORION-88</code><span class="ui-stuck-title">Migration SQLite → colonne created_at</span>
+        <span class="ui-badge ui-badge--test">Test</span><span class="ui-stuck-lead is-none">Non assigné</span><b class="ui-stuck-age is-bad">11 j</b></li></ul></div>
+    
+  </article></section>
+        <section class="d4-under-col"><header class="ui-sec"><h2>🗓️ Sur le PI</h2><span class="ui-sec-sub">tendance et équipes</span></header>
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Burnup</span>
+      <span class="ui-card-sub">134 pts · 75 réalisés</span>
+    </header>
+    <div class="ui-card-bd">
+  <svg class="ui-burnup" viewBox="0 0 520 200" role="img" aria-label="Burnup du PI : périmètre 134 points, réalisé 75">
+    <g><line x1="36" x2="508" y1="174" y2="174" class="ui-burnup-grid"/><text x="30" y="178" class="ui-burnup-lbl" text-anchor="end">0</text></g><g><line x1="36" x2="508" y1="120.00000000000001" y2="120.00000000000001" class="ui-burnup-grid"/><text x="30" y="124.00000000000001" class="ui-burnup-lbl" text-anchor="end">50</text></g><g><line x1="36" x2="508" y1="66" y2="66" class="ui-burnup-grid"/><text x="30" y="70" class="ui-burnup-lbl" text-anchor="end">100</text></g><g><line x1="36" x2="508" y1="12" y2="12" class="ui-burnup-grid"/><text x="30" y="16" class="ui-burnup-lbl" text-anchor="end">150</text></g>
+    <text x="36" y="192" class="ui-burnup-lbl" text-anchor="middle">PIP</text><text x="130.4" y="192" class="ui-burnup-lbl" text-anchor="middle">30.1</text><text x="224.8" y="192" class="ui-burnup-lbl" text-anchor="middle">30.2</text><text x="319.2" y="192" class="ui-burnup-lbl" text-anchor="middle">30.3</text><text x="413.6" y="192" class="ui-burnup-lbl" text-anchor="middle">30.4</text><text x="508" y="192" class="ui-burnup-lbl" text-anchor="middle">30.5</text>
+    <path d="M36.0,35.8 L130.4,35.8 L224.8,31.4 L319.2,29.3 L413.6,29.3 L508.0,29.3" class="ui-burnup-scope"/>
+    <path d="M36.0,174.0 L130.4,129.7 L224.8,93.0" class="ui-burnup-done"/>
+    <line x1="224.8" x2="224.8" y1="12" y2="174" class="ui-burnup-now"/>
+    <text x="230.8" y="24" class="ui-burnup-lbl">aujourd'hui</text>
+    <circle cx="224.8" cy="93" r="4" class="ui-burnup-pt"/>
+  </svg>
+  <div class="ui-legend"><span><i style="--dot:var(--status-todo)"></i>Périmètre 134 pts</span><span><i style="--dot:var(--status-done)"></i>Réalisé 75 pts · 56 %</span></div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Vélocité <button class="ui-help" type="button" data-help="velocity" aria-label="Comprendre Vélocité" title="Comprendre Vélocité">?</button></span>
+      <span class="ui-card-sub">moy. 39 pts · cible 42</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-velo" style="--target:83%">
+          <span class="ui-velo-target"><i>cible 42</i></span>
+          <span class="ui-velo-bar" style="--h:73%"><b>37</b><i>29.1</i></span><span class="ui-velo-bar" style="--h:79%"><b>40</b><i>29.2</i></span><span class="ui-velo-bar" style="--h:69%"><b>35</b><i>29.3</i></span><span class="ui-velo-bar" style="--h:87%"><b>44</b><i>29.4</i></span><span class="ui-velo-bar" style="--h:75%"><b>38</b><i>29.5</i></span><span class="ui-velo-bar" style="--h:81%"><b>41</b><i>30.1</i></span><span class="ui-velo-bar is-current" style="--h:67%"><b>34</b><i>30.2</i></span>
+        </div></div>
+    
+  </article><div class="ui-teams">
+    <article class="ui-team" style="--team:#3b82f6">
+      <header><span class="ui-team-dot"></span><b>Vega</b><span class="ui-team-health ui-team-health--warn">74</span></header>
+      <span class="ui-ring ui-ring--warn" style="--pct:65"><b>65 %</b></span>
+      <dl><dt>Tickets</dt><dd>9/14</dd><dt>Points</dt><dd>34/52</dd><dt>Bloqués</dt><dd class="is-bad">1</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#0d9488">
+      <header><span class="ui-team-dot"></span><b>Lyra</b><span class="ui-team-health ui-team-health--warn">61</span></header>
+      <span class="ui-ring ui-ring--bad" style="--pct:35"><b>35 %</b></span>
+      <dl><dt>Tickets</dt><dd>5/12</dd><dt>Points</dt><dd>14/40</dd><dt>Bloqués</dt><dd class="">0</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#f59e0b">
+      <header><span class="ui-team-dot"></span><b>Orion</b><span class="ui-team-health ui-team-health--bad">42</span></header>
+      <span class="ui-ring ui-ring--bad" style="--pct:30"><b>30 %</b></span>
+      <dl><dt>Tickets</dt><dd>6/17</dd><dt>Points</dt><dd>18/61</dd><dt>Bloqués</dt><dd class="is-bad">3</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#8b5cf6">
+      <header><span class="ui-team-dot"></span><b>Sirius</b><span class="ui-team-health ui-team-health--good">88</span></header>
+      <span class="ui-ring ui-ring--good" style="--pct:83"><b>83 %</b></span>
+      <dl><dt>Tickets</dt><dd>7/9</dd><dt>Points</dt><dd>25/30</dd><dt>Bloqués</dt><dd class="">0</dd></dl>
+    </article></div></section>
+      </div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Dashboard mobile</b><span>La direction se replie en une colonne, dans l'ordre de lecture du desktop. Sidebar → barre d'onglets.</span></figcaption>
+    </figure>
+    <figure class="phone">
+      <span class="phone-tag">État vide</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  
+  
+  <div class="ui-empty"><span class="ui-empty-ico">🫙</span><b>Aucun sprint actif pour Lyra</b><p>Le dernier sprint connu (30.1) est clos et 30.2 n'a pas démarré côté JIRA. Le Dashboard affiche le PI à défaut.</p><button class="ui-btn ui-btn--primary" type="button">Voir le PI #30</button></div>
+  
+  <header class="ui-sec">
+    <h2>🗓️ Le PI en attendant</h2><span class="ui-sec-sub">sprints connus</span>
+  </header>
+  
+  <div class="ui-strip">
+    <article class="ui-strip-card ui-strip-card--closed">
+      <header class="ui-strip-hd"><span class="ui-strip-st">✓</span><b>30.1</b><span class="ui-strip-dates">03/08 → 14/08</span></header>
+      <p class="ui-strip-goal">Automatiser l'export RH des absences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:85%"></span></div>
+      <div class="ui-strip-nums"><span><b>41</b>/48 pts</span><span>15/18 tk</span><span class="ui-slip">↪ 2 glissés</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--active">
+      <header class="ui-strip-hd"><span class="ui-strip-st">▶</span><b>30.2</b><span class="ui-strip-dates">17/08 → 28/08</span></header>
+      <p class="ui-strip-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--warn" style="width:65%"></span></div>
+      <div class="ui-strip-nums"><span><b>34</b>/52 pts</span><span>9/14 tk</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.3</b><span class="ui-strip-dates">31/08 → 11/09</span></header>
+      <p class="ui-strip-goal">Sync incrémentale : archive des sprints clos</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/44 pts</span><span>0/11 tk</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.4</b><span class="ui-strip-dates">14/09 → 25/09</span></header>
+      <p class="ui-strip-goal">Atlas v2 — cartographie des appétences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/40 pts</span><span>0/9 tk</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--breath">
+      <header class="ui-strip-hd"><span class="ui-strip-st">🍃</span><b>30.5</b><span class="ui-strip-dates">28/09 → 09/10</span></header>
+      <p class="ui-strip-goal">Respiration — dette, I&amp;A, préparation PI 31</p>
+      <div class="ui-strip-nums"><span>Respiration — pas de charge</span></div>
+      
+    </article></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Aucun sprint actif</b><span>Un état vide qui dit pourquoi et propose la suite, jamais un écran blanc.</span></figcaption>
+    </figure>
+  </div>
+
+
+  <section class="gal-notes"><h2>Parti pris UX</h2><ul><li><strong>PI Planning, suivi de sprint et rapport deviennent la même vue à des instants différents : on ne change plus de page, on regarde ailleurs sur la frise.</strong></li><li>Limite assumée : Exige la largeur — sur mobile la frise se replie en liste et perd son sens.</li><li>Moment idéal : Suivi continu du PI, préparation de l'I&A, TV de plateau.</li><li>Les composants (KPI, cartes, bande des sprints, listes) sont <strong>les mêmes dans les quatre directions</strong> — seul le pont de tokens <code>--ui-*</code> et la mise en page changent. C'est ce qui rend la comparaison honnête.</li></ul></section>
+
+  <aside class="fcp" aria-label="Panneau de navigation des maquettes">
+    <button class="fcp-toggle" type="button" aria-expanded="true" title="Replier">🎛️</button>
+    <div class="fcp-bd">
+      <div class="fcp-row"><small>Direction</small><div class="fcp-btns"><a class="fcp-btn" href="../mockup-1/01-dashboard.html" title="Cockpit">🧭 1</a><a class="fcp-btn" href="../mockup-2/01-dashboard.html" title="Journal de bord">📖 2</a><a class="fcp-btn" href="../mockup-3/01-dashboard.html" title="Météo des équipes">🌤️ 3</a><a class="fcp-btn is-active" href="../mockup-4/01-dashboard.html" title="Frise du PI">🛤️ 4</a></div></div>
+      <div class="fcp-row"><small>Écran</small><div class="fcp-btns fcp-btns--col"><a class="fcp-btn is-active" href="01-dashboard.html">Dashboard</a><a class="fcp-btn" href="02-sections.html">PI · Rapports · Santé</a><a class="fcp-btn" href="03-modals.html">Modales</a><a class="fcp-btn" href="04-live.html">En séance</a><a class="fcp-btn" href="05-tv.html">Mode TV</a></div></div>
+      <div class="fcp-row"><small>Affichage</small><div class="fcp-btns"><button class="fcp-btn fcp-theme" type="button">🌓 Thème</button><button class="fcp-btn fcp-annot" type="button" aria-pressed="false">💡 Explications</button></div></div>
+      <div class="fcp-row"><a class="fcp-btn" href="../index.html">↖ Galerie</a></div>
+    </div>
+  </aside>
+
+  <script src="../_shared/bureau.js"></script>
+  <script src="../_shared/overlay.js"></script>
+</body>
+</html>

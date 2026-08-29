@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup 2 — Journal de bord — Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="stylesheet" href="../../../css/tokens.css">
+  <link rel="stylesheet" href="../_shared/ui.css">
+  <link rel="stylesheet" href="../_shared/ui-pi.css">
+  <link rel="stylesheet" href="../_shared/ui-health.css">
+  <link rel="stylesheet" href="../_shared/ui-flows.css">
+  <link rel="stylesheet" href="../_shared/ui-pages.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../_shared/gallery.css">
+  <link rel="stylesheet" href="../_shared/bureau.css">
+  <link rel="stylesheet" href="../_shared/overlay.css">
+</head>
+<body class="gallery" data-dir="mockup-2">
+
+  <script>
+    /* Aperçu iframe de l'index : seul le premier cadre doit apparaître */
+    if (window.self !== window.top) document.body.classList.add('is-embedded');
+    /* Le site démarre en clair, la TV se lit en sombre : chaque direction doit tenir dans les deux. */
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.gal-theme, .fcp-theme')) return;
+      const racine = document.documentElement;
+      const versClair = racine.getAttribute('data-theme') !== 'light';
+      racine.setAttribute('data-theme', versClair ? 'light' : 'dark');
+      document.querySelectorAll('.gal-theme').forEach((b) => { b.textContent = versClair ? '🌙 Voir en sombre' : '☀️ Voir en clair'; });
+    });
+  </script>
+
+  <header class="gal-head">
+    <div class="gal-head-top">
+      <a class="gal-back" href="../index.html">← Toutes les directions</a>
+      <button class="gal-theme" type="button">☀️ Voir en clair</button>
+    </div>
+    <h1>📖 Mockup 2 — Journal de bord · Dashboard</h1>
+    <p class="gal-sub">Chapitres, phrases de synthèse et schémas intégrés — le Dashboard se lit comme une note. L'écran principal : desktop, puis mobile pour vérifier que la direction tient aux deux tailles.</p>
+  </header>
+
+    <nav class="gal-nav">
+      <a href="01-dashboard.html" aria-current="page">Dashboard</a>
+      <a href="02-sections.html">PI · Rapports · Santé</a>
+      <a href="03-modals.html">Modales</a>
+      <a href="04-live.html">En séance</a>
+      <a href="05-tv.html">Mode TV</a>
+    </nav>
+
+
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Dashboard · Vega · Ité 30.2 <small>1280 × 820, réduit pour tenir · cliquez « 💡 Explications » en bas à droite</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+      <div class="d2-journal">
+        <div class="d2-body">
+          <header class="d2-masthead"><small>Journal de bord · Vega</small><h1>Ité 30.2, jour 7 sur 10</h1><p>25 août 2026 · PI #30 · rédigé automatiquement à 14:37</p></header>
+          
+  <section class="d2-chap" id="chap-1">
+    <header class="d2-chap-hd"><span class="d2-num">01</span><h2>Le cap</h2></header>
+    <p class="d2-lede">Le sprint vise <b>« l'export CSV des absences »</b>. À 70 % du temps, 65 % des points sont réalisés : <b>léger retard, rattrapable</b> si VEGA-412 se débloque cette semaine.</p>
+    <div class="d2-duo">
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">🎯 Objectif du sprint</span>
+      <span class="ui-card-sub">Ité 30.2</span>
+    </header>
+    <div class="ui-card-bd"><p class="ui-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-goal-meta"><span>9/14 tickets</span><span>34/52 pts</span><span>J7/10</span></div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">🗓️ Objectifs du PI <button class="ui-help" type="button" data-help="objectives" aria-label="Comprendre 🗓️ Objectifs du PI" title="Comprendre 🗓️ Objectifs du PI">?</button></span>
+      <span class="ui-card-sub">PI #30 · 1/3 atteint</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-objs">
+      <li class="ui-obj">
+        <span class="ui-obj-name">Export RH automatisé</span>
+        <span class="ui-tag ui-tag--commit">Commis</span>
+        <span class="ui-obj-bv" title="Business value">8 BV</span>
+        <span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--warn" style="width:70%"></span></span>
+        <b class="ui-obj-pct">70 %</b>
+      </li>
+      <li class="ui-obj">
+        <span class="ui-obj-name">Sync JIRA incrémentale</span>
+        <span class="ui-tag ui-tag--commit">Commis</span>
+        <span class="ui-obj-bv" title="Business value">9 BV</span>
+        <span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--bad" style="width:45%"></span></span>
+        <b class="ui-obj-pct">45 %</b>
+      </li>
+      <li class="ui-obj">
+        <span class="ui-obj-name">Atlas v2 — appétences</span>
+        <span class="ui-tag ui-tag--stretch">Extension</span>
+        <span class="ui-obj-bv" title="Business value">5 BV</span>
+        <span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--bad" style="width:10%"></span></span>
+        <b class="ui-obj-pct">10 %</b>
+      </li></ul></div>
+    
+  </article></div>
+  </section>
+          
+  <section class="d2-chap" id="chap-2">
+    <header class="d2-chap-hd"><span class="d2-num">02</span><h2>Le rythme</h2></header>
+    <p class="d2-lede">Six tickets terminés cette semaine, deux de plus que la précédente. Un ticket met <b>4 jours</b> à traverser l'équipe… mais en attend <b>7</b> avant d'être pris : l'attente pèse deux fois plus que le travail.</p>
+    
+  <section class="ui-sprint" data-dom="flow">
+    <div class="ui-sprint-top">
+      <span class="ui-sprint-name">▶ Vega - Ite 30.2</span>
+      <span class="ui-sprint-dates">17 → 28 août</span>
+      <span class="ui-sprint-left"><b>3</b> jours restants</span>
+    </div>
+    <div class="ui-tl" role="img" aria-label="Sprint à 70 % du temps, 65 % des points réalisés">
+      <span class="ui-tl-fill" style="width:65%"></span>
+      <span class="ui-tl-today" style="left:70%"><i>aujourd'hui</i></span>
+    </div>
+    <div class="ui-tl-scale"><span>17 août</span><span>65 % des points · 70 % du temps</span><span>28 août</span></div>
+  </section><div class="ui-kpi-grid ui-kpi-grid--primary">
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">Tickets</span>
+    <span class="ui-kpi-val">14</span>
+    <span class="ui-kpi-sub">9 terminés · 64 %</span>
+  </div>
+  <div class="ui-kpi ui-kpi--warn" data-dom="flow">
+    <span class="ui-kpi-lbl">Story points</span>
+    <span class="ui-kpi-val">34<small>/52</small></span>
+    <span class="ui-kpi-sub">65 % réalisés</span>
+  </div>
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">En cours</span>
+    <span class="ui-kpi-val">3</span>
+    <span class="ui-kpi-sub">tickets actifs</span>
+  </div>
+  <div class="ui-kpi ui-kpi--bad" data-dom="flow">
+    <span class="ui-kpi-lbl">Bloqués</span>
+    <span class="ui-kpi-val">1</span>
+    <span class="ui-kpi-sub">attention requise</span>
+  </div></div><div class="d2-duo">
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Lead time & cycle time <button class="ui-help" type="button" data-help="lct" aria-label="Comprendre Lead time &amp; cycle time" title="Comprendre Lead time &amp; cycle time">?</button></span>
+      <span class="ui-card-sub">9 tickets terminés</span>
+    </header>
+    <div class="ui-card-bd">
+    <div class="ui-lct">
+      <span class="ui-lct-node">📥<small>Créé</small></span>
+      <span class="ui-lct-seg ui-lct-seg--wait"><i>Attente</i><b>7 j</b></span>
+      <span class="ui-lct-node">▶️<small>Démarré</small></span>
+      <span class="ui-lct-seg ui-lct-seg--cycle"><i>Cycle time</i><b>4 j</b></span>
+      <span class="ui-lct-node">✅<small>Terminé</small></span>
+    </div>
+    <div class="ui-lct-lead">⟵ Lead time médian · <b>11 j</b> ⟶</div>
+    <div class="ui-floweff"><span>⚡ Flow efficiency</span><span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--warn" style="width:36%"></span></span><b>36 %</b></div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Temps par colonne <button class="ui-help" type="button" data-help="stages" aria-label="Comprendre Temps par colonne" title="Comprendre Temps par colonne">?</button></span>
+      <span class="ui-card-sub">médianes · reports compris</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-stage"><span class="ui-stage-seg" style="flex:6.5;--seg:var(--status-todo)"><i>À faire</i><b>6.5 j</b></span><span class="ui-stage-seg" style="flex:3.2;--seg:var(--status-inprog)"><i>En cours</i><b>3.2 j</b></span><span class="ui-stage-seg" style="flex:1.4;--seg:var(--status-review)"><i>Revue</i><b>1.4 j</b></span><span class="ui-stage-seg" style="flex:1.8;--seg:var(--status-test)"><i>Test</i><b>1.8 j</b></span><span class="ui-stage-seg" style="flex:2.1;--seg:var(--status-done)"><i>À livrer</i><b>2.1 j</b></span></div>
+        <p class="ui-muted">15.0 j de traversée médiane — la file « À faire » en prend 43 %.</p></div>
+    
+  </article></div>
+  </section>
+          
+  <section class="d2-chap" id="chap-3">
+    <header class="d2-chap-hd"><span class="d2-num">03</span><h2>Le PI, sprint par sprint</h2></header>
+    <p class="d2-lede">Le 30.1 a tenu 85 % de son engagement, deux tickets ont glissé vers le 30.2. Les 30.3 et 30.4 sont chargés à hauteur de la vélocité moyenne ; le 30.5 respire.</p>
+    
+  <div class="ui-strip">
+    <article class="ui-strip-card ui-strip-card--closed">
+      <header class="ui-strip-hd"><span class="ui-strip-st">✓</span><b>30.1</b><span class="ui-strip-dates">03/08 → 14/08</span></header>
+      <p class="ui-strip-goal">Automatiser l'export RH des absences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:85%"></span></div>
+      <div class="ui-strip-nums"><span><b>41</b>/48 pts</span><span>15/18 tk</span><span class="ui-slip">↪ 2 glissés</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(10)</small></span><span>34 pts · <b>30</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(4)</small></span><span>8 pts · <b>6</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(4)</small></span><span>6 pts · <b>5</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--active">
+      <header class="ui-strip-hd"><span class="ui-strip-st">▶</span><b>30.2</b><span class="ui-strip-dates">17/08 → 28/08</span></header>
+      <p class="ui-strip-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--warn" style="width:65%"></span></div>
+      <div class="ui-strip-nums"><span><b>34</b>/52 pts</span><span>9/14 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(8)</small></span><span>38 pts · <b>26</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(3)</small></span><span>8 pts · <b>5</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(3)</small></span><span>6 pts · <b>3</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.3</b><span class="ui-strip-dates">31/08 → 11/09</span></header>
+      <p class="ui-strip-goal">Sync incrémentale : archive des sprints clos</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/44 pts</span><span>0/11 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(7)</small></span><span>32 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.4</b><span class="ui-strip-dates">14/09 → 25/09</span></header>
+      <p class="ui-strip-goal">Atlas v2 — cartographie des appétences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/40 pts</span><span>0/9 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(6)</small></span><span>30 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(1)</small></span><span>4 pts · <b>0</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--breath">
+      <header class="ui-strip-hd"><span class="ui-strip-st">🍃</span><b>30.5</b><span class="ui-strip-dates">28/09 → 09/10</span></header>
+      <p class="ui-strip-goal">Respiration — dette, I&amp;A, préparation PI 31</p>
+      <div class="ui-strip-nums"><span>Respiration — pas de charge</span></div>
+      
+    </article></div>
+  </section>
+          
+  <section class="d2-chap" id="chap-4">
+    <header class="d2-chap-hd"><span class="d2-num">04</span><h2>La livraison</h2></header>
+    <p class="d2-lede">Vélocité 34 en cours contre 39 de moyenne — normal à J7. La simulation donne <b>78 % de chances</b> de finir à temps ; au-delà de mardi, on est dans les 15 % défavorables.</p>
+    <div class="d2-duo">
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Vélocité <button class="ui-help" type="button" data-help="velocity" aria-label="Comprendre Vélocité" title="Comprendre Vélocité">?</button></span>
+      <span class="ui-card-sub">moy. 39 pts · cible 42</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-velo" style="--target:83%">
+          <span class="ui-velo-target"><i>cible 42</i></span>
+          <span class="ui-velo-bar" style="--h:73%"><b>37</b><i>29.1</i></span><span class="ui-velo-bar" style="--h:79%"><b>40</b><i>29.2</i></span><span class="ui-velo-bar" style="--h:69%"><b>35</b><i>29.3</i></span><span class="ui-velo-bar" style="--h:87%"><b>44</b><i>29.4</i></span><span class="ui-velo-bar" style="--h:75%"><b>38</b><i>29.5</i></span><span class="ui-velo-bar" style="--h:81%"><b>41</b><i>30.1</i></span><span class="ui-velo-bar is-current" style="--h:67%"><b>34</b><i>30.2</i></span>
+        </div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Prévision de fin de sprint <button class="ui-help" type="button" data-help="forecast" aria-label="Comprendre Prévision de fin de sprint" title="Comprendre Prévision de fin de sprint">?</button></span>
+      <span class="ui-card-sub">5 000 simulations</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-forecast">
+      <span class="ui-gauge ui-gauge--warn" style="--pct:78"><b>78 %</b><i>de finir à temps</i></span>
+      <dl class="ui-forecast-dl"><dt>Fin probable (P50)</dt><dd>ven. 28 août</dd><dt>Fin prudente (P85)</dt><dd>mar. 1 sept.</dd></dl>
+    </div></div>
+    
+  </article></div>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Ancienneté du travail en cours <button class="ui-help" type="button" data-help="aging" aria-label="Comprendre Ancienneté du travail en cours" title="Comprendre Ancienneté du travail en cours">?</button></span>
+      <span class="ui-card-sub">P50 4 j · P85 9 j</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-aging">
+      <div class="ui-aging-col"><header>En cours <small>3</small></header>
+        <span class="ui-chip ui-chip--good">VEGA-415<b>2 j</b></span><span class="ui-chip ui-chip--warn">VEGA-398<b>8 j</b></span><span class="ui-chip ui-chip--warn">LYRA-201<b>6 j</b></span>
+      </div>
+      <div class="ui-aging-col"><header>Revue <small>1</small></header>
+        <span class="ui-chip ui-chip--good">VEGA-417<b>1 j</b></span>
+      </div>
+      <div class="ui-aging-col"><header>Test <small>2</small></header>
+        <span class="ui-chip ui-chip--good">VEGA-420<b>1 j</b></span><span class="ui-chip ui-chip--bad">ORION-88<b>11 j</b></span>
+      </div></div></div>
+    
+  </article>
+  </section>
+          
+  <section class="d2-chap" id="chap-5">
+    <header class="d2-chap-hd"><span class="d2-num">05</span><h2>Les équipes et les signaux</h2></header>
+    <p class="d2-lede">Orion concentre les risques du train : trois bloqués, score de santé à 42. Chez Vega, deux tickets stagnent depuis plus d'une semaine — VEGA-398 n'a pas bougé depuis 8 jours.</p>
+    <div class="ui-teams">
+    <article class="ui-team" style="--team:#3b82f6">
+      <header><span class="ui-team-dot"></span><b>Vega</b><span class="ui-team-health ui-team-health--warn">74</span></header>
+      <span class="ui-ring ui-ring--warn" style="--pct:65"><b>65 %</b></span>
+      <dl><dt>Tickets</dt><dd>9/14</dd><dt>Points</dt><dd>34/52</dd><dt>Bloqués</dt><dd class="is-bad">1</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#0d9488">
+      <header><span class="ui-team-dot"></span><b>Lyra</b><span class="ui-team-health ui-team-health--warn">61</span></header>
+      <span class="ui-ring ui-ring--bad" style="--pct:35"><b>35 %</b></span>
+      <dl><dt>Tickets</dt><dd>5/12</dd><dt>Points</dt><dd>14/40</dd><dt>Bloqués</dt><dd class="">0</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#f59e0b">
+      <header><span class="ui-team-dot"></span><b>Orion</b><span class="ui-team-health ui-team-health--bad">42</span></header>
+      <span class="ui-ring ui-ring--bad" style="--pct:30"><b>30 %</b></span>
+      <dl><dt>Tickets</dt><dd>6/17</dd><dt>Points</dt><dd>18/61</dd><dt>Bloqués</dt><dd class="is-bad">3</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#8b5cf6">
+      <header><span class="ui-team-dot"></span><b>Sirius</b><span class="ui-team-health ui-team-health--good">88</span></header>
+      <span class="ui-ring ui-ring--good" style="--pct:83"><b>83 %</b></span>
+      <dl><dt>Tickets</dt><dd>7/9</dd><dt>Points</dt><dd>25/30</dd><dt>Bloqués</dt><dd class="">0</dd></dl>
+    </article></div><div class="d2-duo">
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Tickets bloqués ou stagnants</span>
+      <span class="ui-card-sub">sans mouvement depuis ≥ 5 j</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-stuck">
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-blocked)"></span><code>VEGA-412</code><span class="ui-stuck-title">Export CSV — encodage UTF-8 BOM</span>
+        <span class="ui-badge ui-badge--blocked">Bloqué</span><span class="ui-stuck-lead">Théo Vasseur</span><b class="ui-stuck-age is-warn">3 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>VEGA-398</code><span class="ui-stuck-title">Refacto du parseur CSV pivot RH</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Lucie Arnaud</span><b class="ui-stuck-age is-bad">8 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>LYRA-201</code><span class="ui-stuck-title">Calendrier ICS — refresh en pool</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Manon Cros</span><b class="ui-stuck-age is-warn">6 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-test)"></span><code>ORION-88</code><span class="ui-stuck-title">Migration SQLite → colonne created_at</span>
+        <span class="ui-badge ui-badge--test">Test</span><span class="ui-stuck-lead is-none">Non assigné</span><b class="ui-stuck-age is-bad">11 j</b></li></ul></div>
+    
+  </article>
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Respect du seuil de cycle time <button class="ui-help" type="button" data-help="sla" aria-label="Comprendre Respect du seuil de cycle time" title="Comprendre Respect du seuil de cycle time">?</button></span>
+      <span class="ui-card-sub">seuil 10 j · 9 tickets</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-sla"><span class="ui-ring ui-ring--good" style="--pct:78"><b>78 %</b></span>
+      <ul><li>7 tickets sous le seuil</li><li class="is-warn">2 au-dessus — VEGA-398 (14 j), ORION-88 (17 j)</li></ul></div></div>
+    
+  </article></div>
+  <article class="ui-card " data-dom="report">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Activité récente</span>
+      <span class="ui-card-sub">5 changements</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-feed"><li><time>il y a 12 min</time><b>Théo Vasseur</b><code>VEGA-417</code><span>En cours → Revue</span></li><li><time>il y a 40 min</time><b>Maxime Giraud</b><code>VEGA-420</code><span>+2 pts</span></li><li><time>il y a 2 h</time><b>Chloé Mercier</b><code>VEGA-421</code><span>Revue → Terminé</span></li><li><time>hier 17:40</time><b>Lucie Arnaud</b><code>VEGA-409</code><span>Test → Terminé</span></li><li><time>hier 09:15</time><b>Théo Vasseur</b><code>VEGA-412</code><span>En cours → Bloqué</span></li></ul></div>
+    
+  </article>
+  </section>
+        </div>
+        <nav class="d2-toc" aria-label="Sommaire"><small>Sommaire</small><a href="#chap-1" class="is-active"><b>01</b>Le cap</a><a href="#chap-2"><b>02</b>Le rythme</a><a href="#chap-3"><b>03</b>Le PI, sprint par sprint</a><a href="#chap-4"><b>04</b>La livraison</a><a href="#chap-5"><b>05</b>Les équipes</a><small>Lecture · 4 min</small></nav>
+      </div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        <span class="ui-annot" style="--x:22%;--y:9%"><b>1</b></span><span class="ui-annot" style="--x:45%;--y:28%"><b>2</b></span><span class="ui-annot" style="--x:62%;--y:58%"><b>3</b></span><span class="ui-annot" style="--x:4%;--y:30%"><b>4</b></span>
+      </div>
+    </div>
+  </div>
+  <div class="gal-annot-legend"><ol class="ui-annot-legend"><li><b>1</b><span>Manchette : le Dashboard porte une date, un sujet et une durée de lecture — c'est une note, pas un tableau de bord.</span></li><li><b>2</b><span>Chaque chapitre ouvre par une phrase de synthèse en français qui traduit les chiffres ; les cartes viennent ensuite comme preuves.</span></li><li><b>3</b><span>Sommaire collant à droite : sur desktop, on saute d'un chapitre à l'autre ; sur TV, il devient l'indicateur de rotation.</span></li><li><b>4</b><span>Titres en serif et colonne plafonnée à 980 px : la largeur de lecture d'un article, pas celle d'un écran.</span></li></ol></div>
+  
+  <div class="gal-group gal-group--vue">📱 Mobile — la même page à 390 px <small>390 × 760 — faites défiler horizontalement</small></div>
+  <div class="gal-rail">
+    
+    <figure class="phone">
+      <span class="phone-tag">Sur le pouce</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+      <div class="d2-journal">
+        <div class="d2-body">
+          <header class="d2-masthead"><small>Journal de bord · Vega</small><h1>Ité 30.2, jour 7 sur 10</h1><p>25 août 2026 · PI #30 · rédigé automatiquement à 14:37</p></header>
+          
+  <section class="d2-chap" id="chap-1">
+    <header class="d2-chap-hd"><span class="d2-num">01</span><h2>Le cap</h2></header>
+    <p class="d2-lede">Le sprint vise <b>« l'export CSV des absences »</b>. À 70 % du temps, 65 % des points sont réalisés : <b>léger retard, rattrapable</b> si VEGA-412 se débloque cette semaine.</p>
+    <div class="d2-duo">
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">🎯 Objectif du sprint</span>
+      <span class="ui-card-sub">Ité 30.2</span>
+    </header>
+    <div class="ui-card-bd"><p class="ui-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-goal-meta"><span>9/14 tickets</span><span>34/52 pts</span><span>J7/10</span></div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">🗓️ Objectifs du PI <button class="ui-help" type="button" data-help="objectives" aria-label="Comprendre 🗓️ Objectifs du PI" title="Comprendre 🗓️ Objectifs du PI">?</button></span>
+      <span class="ui-card-sub">PI #30 · 1/3 atteint</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-objs">
+      <li class="ui-obj">
+        <span class="ui-obj-name">Export RH automatisé</span>
+        <span class="ui-tag ui-tag--commit">Commis</span>
+        <span class="ui-obj-bv" title="Business value">8 BV</span>
+        <span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--warn" style="width:70%"></span></span>
+        <b class="ui-obj-pct">70 %</b>
+      </li>
+      <li class="ui-obj">
+        <span class="ui-obj-name">Sync JIRA incrémentale</span>
+        <span class="ui-tag ui-tag--commit">Commis</span>
+        <span class="ui-obj-bv" title="Business value">9 BV</span>
+        <span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--bad" style="width:45%"></span></span>
+        <b class="ui-obj-pct">45 %</b>
+      </li>
+      <li class="ui-obj">
+        <span class="ui-obj-name">Atlas v2 — appétences</span>
+        <span class="ui-tag ui-tag--stretch">Extension</span>
+        <span class="ui-obj-bv" title="Business value">5 BV</span>
+        <span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--bad" style="width:10%"></span></span>
+        <b class="ui-obj-pct">10 %</b>
+      </li></ul></div>
+    
+  </article></div>
+  </section>
+          
+  <section class="d2-chap" id="chap-2">
+    <header class="d2-chap-hd"><span class="d2-num">02</span><h2>Le rythme</h2></header>
+    <p class="d2-lede">Six tickets terminés cette semaine, deux de plus que la précédente. Un ticket met <b>4 jours</b> à traverser l'équipe… mais en attend <b>7</b> avant d'être pris : l'attente pèse deux fois plus que le travail.</p>
+    
+  <section class="ui-sprint" data-dom="flow">
+    <div class="ui-sprint-top">
+      <span class="ui-sprint-name">▶ Vega - Ite 30.2</span>
+      <span class="ui-sprint-dates">17 → 28 août</span>
+      <span class="ui-sprint-left"><b>3</b> jours restants</span>
+    </div>
+    <div class="ui-tl" role="img" aria-label="Sprint à 70 % du temps, 65 % des points réalisés">
+      <span class="ui-tl-fill" style="width:65%"></span>
+      <span class="ui-tl-today" style="left:70%"><i>aujourd'hui</i></span>
+    </div>
+    <div class="ui-tl-scale"><span>17 août</span><span>65 % des points · 70 % du temps</span><span>28 août</span></div>
+  </section><div class="ui-kpi-grid ui-kpi-grid--primary">
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">Tickets</span>
+    <span class="ui-kpi-val">14</span>
+    <span class="ui-kpi-sub">9 terminés · 64 %</span>
+  </div>
+  <div class="ui-kpi ui-kpi--warn" data-dom="flow">
+    <span class="ui-kpi-lbl">Story points</span>
+    <span class="ui-kpi-val">34<small>/52</small></span>
+    <span class="ui-kpi-sub">65 % réalisés</span>
+  </div>
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">En cours</span>
+    <span class="ui-kpi-val">3</span>
+    <span class="ui-kpi-sub">tickets actifs</span>
+  </div>
+  <div class="ui-kpi ui-kpi--bad" data-dom="flow">
+    <span class="ui-kpi-lbl">Bloqués</span>
+    <span class="ui-kpi-val">1</span>
+    <span class="ui-kpi-sub">attention requise</span>
+  </div></div><div class="d2-duo">
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Lead time & cycle time <button class="ui-help" type="button" data-help="lct" aria-label="Comprendre Lead time &amp; cycle time" title="Comprendre Lead time &amp; cycle time">?</button></span>
+      <span class="ui-card-sub">9 tickets terminés</span>
+    </header>
+    <div class="ui-card-bd">
+    <div class="ui-lct">
+      <span class="ui-lct-node">📥<small>Créé</small></span>
+      <span class="ui-lct-seg ui-lct-seg--wait"><i>Attente</i><b>7 j</b></span>
+      <span class="ui-lct-node">▶️<small>Démarré</small></span>
+      <span class="ui-lct-seg ui-lct-seg--cycle"><i>Cycle time</i><b>4 j</b></span>
+      <span class="ui-lct-node">✅<small>Terminé</small></span>
+    </div>
+    <div class="ui-lct-lead">⟵ Lead time médian · <b>11 j</b> ⟶</div>
+    <div class="ui-floweff"><span>⚡ Flow efficiency</span><span class="ui-bar"><span class="ui-bar-fill ui-bar-fill--warn" style="width:36%"></span></span><b>36 %</b></div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Temps par colonne <button class="ui-help" type="button" data-help="stages" aria-label="Comprendre Temps par colonne" title="Comprendre Temps par colonne">?</button></span>
+      <span class="ui-card-sub">médianes · reports compris</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-stage"><span class="ui-stage-seg" style="flex:6.5;--seg:var(--status-todo)"><i>À faire</i><b>6.5 j</b></span><span class="ui-stage-seg" style="flex:3.2;--seg:var(--status-inprog)"><i>En cours</i><b>3.2 j</b></span><span class="ui-stage-seg" style="flex:1.4;--seg:var(--status-review)"><i>Revue</i><b>1.4 j</b></span><span class="ui-stage-seg" style="flex:1.8;--seg:var(--status-test)"><i>Test</i><b>1.8 j</b></span><span class="ui-stage-seg" style="flex:2.1;--seg:var(--status-done)"><i>À livrer</i><b>2.1 j</b></span></div>
+        <p class="ui-muted">15.0 j de traversée médiane — la file « À faire » en prend 43 %.</p></div>
+    
+  </article></div>
+  </section>
+          
+  <section class="d2-chap" id="chap-3">
+    <header class="d2-chap-hd"><span class="d2-num">03</span><h2>Le PI, sprint par sprint</h2></header>
+    <p class="d2-lede">Le 30.1 a tenu 85 % de son engagement, deux tickets ont glissé vers le 30.2. Les 30.3 et 30.4 sont chargés à hauteur de la vélocité moyenne ; le 30.5 respire.</p>
+    
+  <div class="ui-strip">
+    <article class="ui-strip-card ui-strip-card--closed">
+      <header class="ui-strip-hd"><span class="ui-strip-st">✓</span><b>30.1</b><span class="ui-strip-dates">03/08 → 14/08</span></header>
+      <p class="ui-strip-goal">Automatiser l'export RH des absences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:85%"></span></div>
+      <div class="ui-strip-nums"><span><b>41</b>/48 pts</span><span>15/18 tk</span><span class="ui-slip">↪ 2 glissés</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(10)</small></span><span>34 pts · <b>30</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(4)</small></span><span>8 pts · <b>6</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(4)</small></span><span>6 pts · <b>5</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--active">
+      <header class="ui-strip-hd"><span class="ui-strip-st">▶</span><b>30.2</b><span class="ui-strip-dates">17/08 → 28/08</span></header>
+      <p class="ui-strip-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--warn" style="width:65%"></span></div>
+      <div class="ui-strip-nums"><span><b>34</b>/52 pts</span><span>9/14 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(8)</small></span><span>38 pts · <b>26</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(3)</small></span><span>8 pts · <b>5</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(3)</small></span><span>6 pts · <b>3</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.3</b><span class="ui-strip-dates">31/08 → 11/09</span></header>
+      <p class="ui-strip-goal">Sync incrémentale : archive des sprints clos</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/44 pts</span><span>0/11 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(7)</small></span><span>32 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.4</b><span class="ui-strip-dates">14/09 → 25/09</span></header>
+      <p class="ui-strip-goal">Atlas v2 — cartographie des appétences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/40 pts</span><span>0/9 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(6)</small></span><span>30 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(1)</small></span><span>4 pts · <b>0</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--breath">
+      <header class="ui-strip-hd"><span class="ui-strip-st">🍃</span><b>30.5</b><span class="ui-strip-dates">28/09 → 09/10</span></header>
+      <p class="ui-strip-goal">Respiration — dette, I&amp;A, préparation PI 31</p>
+      <div class="ui-strip-nums"><span>Respiration — pas de charge</span></div>
+      
+    </article></div>
+  </section>
+          
+  <section class="d2-chap" id="chap-4">
+    <header class="d2-chap-hd"><span class="d2-num">04</span><h2>La livraison</h2></header>
+    <p class="d2-lede">Vélocité 34 en cours contre 39 de moyenne — normal à J7. La simulation donne <b>78 % de chances</b> de finir à temps ; au-delà de mardi, on est dans les 15 % défavorables.</p>
+    <div class="d2-duo">
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Vélocité <button class="ui-help" type="button" data-help="velocity" aria-label="Comprendre Vélocité" title="Comprendre Vélocité">?</button></span>
+      <span class="ui-card-sub">moy. 39 pts · cible 42</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-velo" style="--target:83%">
+          <span class="ui-velo-target"><i>cible 42</i></span>
+          <span class="ui-velo-bar" style="--h:73%"><b>37</b><i>29.1</i></span><span class="ui-velo-bar" style="--h:79%"><b>40</b><i>29.2</i></span><span class="ui-velo-bar" style="--h:69%"><b>35</b><i>29.3</i></span><span class="ui-velo-bar" style="--h:87%"><b>44</b><i>29.4</i></span><span class="ui-velo-bar" style="--h:75%"><b>38</b><i>29.5</i></span><span class="ui-velo-bar" style="--h:81%"><b>41</b><i>30.1</i></span><span class="ui-velo-bar is-current" style="--h:67%"><b>34</b><i>30.2</i></span>
+        </div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Prévision de fin de sprint <button class="ui-help" type="button" data-help="forecast" aria-label="Comprendre Prévision de fin de sprint" title="Comprendre Prévision de fin de sprint">?</button></span>
+      <span class="ui-card-sub">5 000 simulations</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-forecast">
+      <span class="ui-gauge ui-gauge--warn" style="--pct:78"><b>78 %</b><i>de finir à temps</i></span>
+      <dl class="ui-forecast-dl"><dt>Fin probable (P50)</dt><dd>ven. 28 août</dd><dt>Fin prudente (P85)</dt><dd>mar. 1 sept.</dd></dl>
+    </div></div>
+    
+  </article></div>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Ancienneté du travail en cours <button class="ui-help" type="button" data-help="aging" aria-label="Comprendre Ancienneté du travail en cours" title="Comprendre Ancienneté du travail en cours">?</button></span>
+      <span class="ui-card-sub">P50 4 j · P85 9 j</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-aging">
+      <div class="ui-aging-col"><header>En cours <small>3</small></header>
+        <span class="ui-chip ui-chip--good">VEGA-415<b>2 j</b></span><span class="ui-chip ui-chip--warn">VEGA-398<b>8 j</b></span><span class="ui-chip ui-chip--warn">LYRA-201<b>6 j</b></span>
+      </div>
+      <div class="ui-aging-col"><header>Revue <small>1</small></header>
+        <span class="ui-chip ui-chip--good">VEGA-417<b>1 j</b></span>
+      </div>
+      <div class="ui-aging-col"><header>Test <small>2</small></header>
+        <span class="ui-chip ui-chip--good">VEGA-420<b>1 j</b></span><span class="ui-chip ui-chip--bad">ORION-88<b>11 j</b></span>
+      </div></div></div>
+    
+  </article>
+  </section>
+          
+  <section class="d2-chap" id="chap-5">
+    <header class="d2-chap-hd"><span class="d2-num">05</span><h2>Les équipes et les signaux</h2></header>
+    <p class="d2-lede">Orion concentre les risques du train : trois bloqués, score de santé à 42. Chez Vega, deux tickets stagnent depuis plus d'une semaine — VEGA-398 n'a pas bougé depuis 8 jours.</p>
+    <div class="ui-teams">
+    <article class="ui-team" style="--team:#3b82f6">
+      <header><span class="ui-team-dot"></span><b>Vega</b><span class="ui-team-health ui-team-health--warn">74</span></header>
+      <span class="ui-ring ui-ring--warn" style="--pct:65"><b>65 %</b></span>
+      <dl><dt>Tickets</dt><dd>9/14</dd><dt>Points</dt><dd>34/52</dd><dt>Bloqués</dt><dd class="is-bad">1</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#0d9488">
+      <header><span class="ui-team-dot"></span><b>Lyra</b><span class="ui-team-health ui-team-health--warn">61</span></header>
+      <span class="ui-ring ui-ring--bad" style="--pct:35"><b>35 %</b></span>
+      <dl><dt>Tickets</dt><dd>5/12</dd><dt>Points</dt><dd>14/40</dd><dt>Bloqués</dt><dd class="">0</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#f59e0b">
+      <header><span class="ui-team-dot"></span><b>Orion</b><span class="ui-team-health ui-team-health--bad">42</span></header>
+      <span class="ui-ring ui-ring--bad" style="--pct:30"><b>30 %</b></span>
+      <dl><dt>Tickets</dt><dd>6/17</dd><dt>Points</dt><dd>18/61</dd><dt>Bloqués</dt><dd class="is-bad">3</dd></dl>
+    </article>
+    <article class="ui-team" style="--team:#8b5cf6">
+      <header><span class="ui-team-dot"></span><b>Sirius</b><span class="ui-team-health ui-team-health--good">88</span></header>
+      <span class="ui-ring ui-ring--good" style="--pct:83"><b>83 %</b></span>
+      <dl><dt>Tickets</dt><dd>7/9</dd><dt>Points</dt><dd>25/30</dd><dt>Bloqués</dt><dd class="">0</dd></dl>
+    </article></div><div class="d2-duo">
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Tickets bloqués ou stagnants</span>
+      <span class="ui-card-sub">sans mouvement depuis ≥ 5 j</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-stuck">
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-blocked)"></span><code>VEGA-412</code><span class="ui-stuck-title">Export CSV — encodage UTF-8 BOM</span>
+        <span class="ui-badge ui-badge--blocked">Bloqué</span><span class="ui-stuck-lead">Théo Vasseur</span><b class="ui-stuck-age is-warn">3 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>VEGA-398</code><span class="ui-stuck-title">Refacto du parseur CSV pivot RH</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Lucie Arnaud</span><b class="ui-stuck-age is-bad">8 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>LYRA-201</code><span class="ui-stuck-title">Calendrier ICS — refresh en pool</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Manon Cros</span><b class="ui-stuck-age is-warn">6 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-test)"></span><code>ORION-88</code><span class="ui-stuck-title">Migration SQLite → colonne created_at</span>
+        <span class="ui-badge ui-badge--test">Test</span><span class="ui-stuck-lead is-none">Non assigné</span><b class="ui-stuck-age is-bad">11 j</b></li></ul></div>
+    
+  </article>
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Respect du seuil de cycle time <button class="ui-help" type="button" data-help="sla" aria-label="Comprendre Respect du seuil de cycle time" title="Comprendre Respect du seuil de cycle time">?</button></span>
+      <span class="ui-card-sub">seuil 10 j · 9 tickets</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-sla"><span class="ui-ring ui-ring--good" style="--pct:78"><b>78 %</b></span>
+      <ul><li>7 tickets sous le seuil</li><li class="is-warn">2 au-dessus — VEGA-398 (14 j), ORION-88 (17 j)</li></ul></div></div>
+    
+  </article></div>
+  <article class="ui-card " data-dom="report">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Activité récente</span>
+      <span class="ui-card-sub">5 changements</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-feed"><li><time>il y a 12 min</time><b>Théo Vasseur</b><code>VEGA-417</code><span>En cours → Revue</span></li><li><time>il y a 40 min</time><b>Maxime Giraud</b><code>VEGA-420</code><span>+2 pts</span></li><li><time>il y a 2 h</time><b>Chloé Mercier</b><code>VEGA-421</code><span>Revue → Terminé</span></li><li><time>hier 17:40</time><b>Lucie Arnaud</b><code>VEGA-409</code><span>Test → Terminé</span></li><li><time>hier 09:15</time><b>Théo Vasseur</b><code>VEGA-412</code><span>En cours → Bloqué</span></li></ul></div>
+    
+  </article>
+  </section>
+        </div>
+        <nav class="d2-toc" aria-label="Sommaire"><small>Sommaire</small><a href="#chap-1" class="is-active"><b>01</b>Le cap</a><a href="#chap-2"><b>02</b>Le rythme</a><a href="#chap-3"><b>03</b>Le PI, sprint par sprint</a><a href="#chap-4"><b>04</b>La livraison</a><a href="#chap-5"><b>05</b>Les équipes</a><small>Lecture · 4 min</small></nav>
+      </div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Dashboard mobile</b><span>La direction se replie en une colonne, dans l'ordre de lecture du desktop. Sidebar → barre d'onglets.</span></figcaption>
+    </figure>
+    <figure class="phone">
+      <span class="phone-tag">État vide</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  
+  
+  <div class="ui-empty"><span class="ui-empty-ico">🫙</span><b>Aucun sprint actif pour Lyra</b><p>Le dernier sprint connu (30.1) est clos et 30.2 n'a pas démarré côté JIRA. Le Dashboard affiche le PI à défaut.</p><button class="ui-btn ui-btn--primary" type="button">Voir le PI #30</button></div>
+  
+  <header class="ui-sec">
+    <h2>🗓️ Le PI en attendant</h2><span class="ui-sec-sub">sprints connus</span>
+  </header>
+  
+  <div class="ui-strip">
+    <article class="ui-strip-card ui-strip-card--closed">
+      <header class="ui-strip-hd"><span class="ui-strip-st">✓</span><b>30.1</b><span class="ui-strip-dates">03/08 → 14/08</span></header>
+      <p class="ui-strip-goal">Automatiser l'export RH des absences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:85%"></span></div>
+      <div class="ui-strip-nums"><span><b>41</b>/48 pts</span><span>15/18 tk</span><span class="ui-slip">↪ 2 glissés</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--active">
+      <header class="ui-strip-hd"><span class="ui-strip-st">▶</span><b>30.2</b><span class="ui-strip-dates">17/08 → 28/08</span></header>
+      <p class="ui-strip-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--warn" style="width:65%"></span></div>
+      <div class="ui-strip-nums"><span><b>34</b>/52 pts</span><span>9/14 tk</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.3</b><span class="ui-strip-dates">31/08 → 11/09</span></header>
+      <p class="ui-strip-goal">Sync incrémentale : archive des sprints clos</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/44 pts</span><span>0/11 tk</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.4</b><span class="ui-strip-dates">14/09 → 25/09</span></header>
+      <p class="ui-strip-goal">Atlas v2 — cartographie des appétences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/40 pts</span><span>0/9 tk</span></div>
+      
+    </article>
+    <article class="ui-strip-card ui-strip-card--breath">
+      <header class="ui-strip-hd"><span class="ui-strip-st">🍃</span><b>30.5</b><span class="ui-strip-dates">28/09 → 09/10</span></header>
+      <p class="ui-strip-goal">Respiration — dette, I&amp;A, préparation PI 31</p>
+      <div class="ui-strip-nums"><span>Respiration — pas de charge</span></div>
+      
+    </article></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Aucun sprint actif</b><span>Un état vide qui dit pourquoi et propose la suite, jamais un écran blanc.</span></figcaption>
+    </figure>
+  </div>
+
+
+  <section class="gal-notes"><h2>Parti pris UX</h2><ul><li><strong>Un manager qui découvre l'équipe comprend sans qu'on lui explique : chaque chiffre est traduit en français.</strong></li><li>Limite assumée : Plus long à parcourir ; sur TV il faut faire défiler ou tourner les chapitres.</li><li>Moment idéal : Point hebdo avec le management, préparation d'un rapport, onboarding.</li><li>Les composants (KPI, cartes, bande des sprints, listes) sont <strong>les mêmes dans les quatre directions</strong> — seul le pont de tokens <code>--ui-*</code> et la mise en page changent. C'est ce qui rend la comparaison honnête.</li></ul></section>
+
+  <aside class="fcp" aria-label="Panneau de navigation des maquettes">
+    <button class="fcp-toggle" type="button" aria-expanded="true" title="Replier">🎛️</button>
+    <div class="fcp-bd">
+      <div class="fcp-row"><small>Direction</small><div class="fcp-btns"><a class="fcp-btn" href="../mockup-1/01-dashboard.html" title="Cockpit">🧭 1</a><a class="fcp-btn is-active" href="../mockup-2/01-dashboard.html" title="Journal de bord">📖 2</a><a class="fcp-btn" href="../mockup-3/01-dashboard.html" title="Météo des équipes">🌤️ 3</a><a class="fcp-btn" href="../mockup-4/01-dashboard.html" title="Frise du PI">🛤️ 4</a></div></div>
+      <div class="fcp-row"><small>Écran</small><div class="fcp-btns fcp-btns--col"><a class="fcp-btn is-active" href="01-dashboard.html">Dashboard</a><a class="fcp-btn" href="02-sections.html">PI · Rapports · Santé</a><a class="fcp-btn" href="03-modals.html">Modales</a><a class="fcp-btn" href="04-live.html">En séance</a><a class="fcp-btn" href="05-tv.html">Mode TV</a></div></div>
+      <div class="fcp-row"><small>Affichage</small><div class="fcp-btns"><button class="fcp-btn fcp-theme" type="button">🌓 Thème</button><button class="fcp-btn fcp-annot" type="button" aria-pressed="false">💡 Explications</button></div></div>
+      <div class="fcp-row"><a class="fcp-btn" href="../index.html">↖ Galerie</a></div>
+    </div>
+  </aside>
+
+  <script src="../_shared/bureau.js"></script>
+  <script src="../_shared/overlay.js"></script>
+</body>
+</html>

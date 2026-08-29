@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup 3 — Météo des équipes — États & cas limites</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="stylesheet" href="../../../css/tokens.css">
+  <link rel="stylesheet" href="../_shared/ui.css">
+  <link rel="stylesheet" href="../_shared/ui-pi.css">
+  <link rel="stylesheet" href="../_shared/ui-health.css">
+  <link rel="stylesheet" href="../_shared/ui-flows.css">
+  <link rel="stylesheet" href="../_shared/ui-pages.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="deep.css">
+  <link rel="stylesheet" href="../_shared/gallery.css">
+  <link rel="stylesheet" href="../_shared/bureau.css">
+  <link rel="stylesheet" href="../_shared/overlay.css">
+</head>
+<body class="gallery" data-dir="mockup-3">
+
+  <script>
+    /* Aperçu iframe de l'index : seul le premier cadre doit apparaître */
+    if (window.self !== window.top) document.body.classList.add('is-embedded');
+    /* Le site démarre en clair, la TV se lit en sombre : chaque direction doit tenir dans les deux. */
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.gal-theme, .fcp-theme')) return;
+      const racine = document.documentElement;
+      const versClair = racine.getAttribute('data-theme') !== 'light';
+      racine.setAttribute('data-theme', versClair ? 'light' : 'dark');
+      document.querySelectorAll('.gal-theme').forEach((b) => { b.textContent = versClair ? '🌙 Voir en sombre' : '☀️ Voir en clair'; });
+    });
+  </script>
+
+  <header class="gal-head">
+    <div class="gal-head-top">
+      <a class="gal-back" href="../index.html">← Toutes les directions</a>
+      <button class="gal-theme" type="button">☀️ Voir en clair</button>
+    </div>
+    <h1>🌤️ Mockup 3 — Météo des équipes · États & cas limites</h1>
+    <p class="gal-sub">Une matrice équipes × domaines en pastilles météo ; un clic ouvre la fiche. Douze équipes, une seule, aucune ; fin de PI ; sans JIRA ; pas de donnée. Une direction se juge sur ses cas limites.</p>
+  </header>
+
+    <nav class="gal-nav">
+      <a href="01-dashboard.html">Dashboard</a>
+      <a href="02-sections.html">PI · Rapports · Santé</a>
+      <a href="03-modals.html">Modales</a>
+      <a href="04-live.html">En séance</a>
+      <a href="05-tv.html">Mode TV</a>
+      <a href="06-equipe.html">Fiche équipe</a>
+      <a href="07-previsions.html">Prévisions</a>
+      <a href="08-board.html">Board & backlog</a>
+      <a href="09-parametres.html">Paramètres</a>
+      <a href="10-etats.html" aria-current="page">États limites</a>
+      <a href="11-comprendre.html">Comprendre</a>
+      <a href="12-tv-rotation.html">TV · rotation</a>
+    </nav>
+
+
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Douze équipes, trois lignes produit <small>1280 × 820, réduit pour tenir · en-têtes de groupe avec le pire niveau du groupe</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <header class="d3-hero"><div class="d3-hero-main"><i>⛅</i><div><small>Météo du train · 3 lignes produit</small><h2>Variable — deux orages</h2><p>12 équipes · 56 personnes · Capella et Orion en ⛈️ · 2 domaines sans donnée</p></div></div><div class="d3-scale"><span class="d3-scale-it d3-cell--sun"><i>☀️</i>≥ 80 · beau</span><span class="d3-scale-it d3-cell--cloud"><i>⛅</i>60–79 · variable</span><span class="d3-scale-it d3-cell--rain"><i>🌧️</i>40–59 · attention</span><span class="d3-scale-it d3-cell--storm"><i>⛈️</i>< 40 · critique</span><span class="d3-scale-it d3-cell--none"><i>⚪</i>pas de donnée</span></div></header>
+  <div class="ui-table-wrap">
+  <table class="d3-matrix d3-matrix--grouped">
+    <thead><tr><th>Équipe</th><th>🏃 Sprint</th><th>🗓️ PI</th><th>🛡️ Santé</th><th>🎧 Support</th><th>😊 Mood</th><th></th></tr></thead>
+    <tbody><tr class="d3-grp-row"><th colspan="7"><span>⛈️ Produit</span><small>4 équipes · 20 pers.</small></th></tr><tr class="" style="--team:#3b82f6">
+      <th><span class="d3-team"><i></i>Vega<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>65 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>56 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>74</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.8</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#0d9488">
+      <th><span class="d3-team"><i></i>Lyra<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>35 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>48 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>61</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>75 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f59e0b">
+      <th><span class="d3-team"><i></i>Orion<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>30 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>31 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>42</b><small>3 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#8b5cf6">
+      <th><span class="d3-team"><i></i>Sirius<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>83 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>71 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>95 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="d3-grp-row"><th colspan="7"><span>⛈️ Plateforme</span><small>4 équipes · 20 pers.</small></th></tr><tr class="" style="--team:#06b6d4">
+      <th><span class="d3-team"><i></i>Altaïr<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--rain"><i>🌧️</i><b>58 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>60 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>70</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>80 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.5</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#10b981">
+      <th><span class="d3-team"><i></i>Deneb<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>72 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>66 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>81</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.0</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f97316">
+      <th><span class="d3-team"><i></i>Rigel<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>44 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>40 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55</b><small>2 bloqués</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>62 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.0</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#6366f1">
+      <th><span class="d3-team"><i></i>Mizar<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>91 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>80 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>97 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="d3-grp-row"><th colspan="7"><span>⛈️ Data</span><small>4 équipes · 16 pers.</small></th></tr><tr class="" style="--team:#ec4899">
+      <th><span class="d3-team"><i></i>Antarès<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--rain"><i>🌧️</i><b>50 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>52 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>63</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--none"><i>⚪</i><b>—</b><small>pas de SLA</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#14b8a6">
+      <th><span class="d3-team"><i></i>Polaris<small>3 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>68 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>58 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>77</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>85 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--none"><i>⚪</i><b>—</b><small>aucun vote</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#ef4444">
+      <th><span class="d3-team"><i></i>Capella<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>22 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>28 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--storm"><i>⛈️</i><b>38</b><small>4 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>40 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#84cc16">
+      <th><span class="d3-team"><i></i>Castor<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>76 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>70 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>84</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.1</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr></tbody>
+  </table></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Une seule équipe <small>1280 × 820, réduit pour tenir · le Dashboard devient la fiche</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <header class="d3-hero"><div class="d3-hero-main"><i>☀️</i><div><small>Une seule équipe</small><h2>Vega — Beau</h2><p>Avec une équipe, la matrice tient en une ligne : le Dashboard <b>est</b> la fiche.</p></div></div><div class="d3-scale"><span class="d3-scale-it d3-cell--sun"><i>☀️</i>≥ 80 · beau</span><span class="d3-scale-it d3-cell--cloud"><i>⛅</i>60–79 · variable</span><span class="d3-scale-it d3-cell--rain"><i>🌧️</i>40–59 · attention</span><span class="d3-scale-it d3-cell--storm"><i>⛈️</i>< 40 · critique</span></div></header>
+  <div class="ui-table-wrap">
+  <table class="d3-matrix">
+    <thead><tr><th>Équipe</th><th>🏃 Sprint</th><th>🗓️ PI</th><th>🛡️ Santé</th><th>🎧 Support</th><th>😊 Mood</th><th></th></tr></thead>
+    <tbody><tr class="is-selected" style="--team:#3b82f6">
+      <th><span class="d3-team"><i></i>Vega<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>65 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>56 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>74</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.8</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr></tbody>
+  </table></div>
+  
+  
+  <header class="d3-hero d3-hero--team" style="--team:#3b82f6">
+    <div class="d3-hero-main"><i>⛅</i><div><small>Météo de l'équipe</small><h2><span class="d3-team"><i></i>Vega</span> — Variable</h2><p>Ité 30.2 à J7/10 — le sprint est à l'heure, le PI en avance, un ticket bloqué depuis 3 jours.</p></div></div>
+    <nav class="d3-pills" aria-label="Domaines"><a class="d3-pill d3-cell--cloud" href="#sec-sprint"><i>⛅</i><span>🏃 Sprint</span><b>65 %</b></a><a class="d3-pill d3-cell--sun" href="#sec-pi"><i>☀️</i><span>🗓️ PI</span><b>56 %</b></a><a class="d3-pill d3-cell--cloud" href="#sec-health"><i>⛅</i><span>🛡️ Santé</span><b>74</b></a><a class="d3-pill d3-cell--sun" href="#sec-support"><i>☀️</i><span>🎧 Support</span><b>90 %</b></a><a class="d3-pill d3-cell--cloud" href="#sec-mood"><i>⛅</i><span>😊 Mood</span><b>3.8</b></a></nav>
+  </header>
+  <header class="ui-sec d3-fiche-sec" id="sec-sprint"><h2>🏃 Sprint en cours</h2><span class="ui-sec-sub">engagement · réalisé · prévision</span></header>
+  
+  <section class="ui-sprint" data-dom="flow">
+    <div class="ui-sprint-top">
+      <span class="ui-sprint-name">▶ Vega - Ite 30.2</span>
+      <span class="ui-sprint-dates">17 → 28 août</span>
+      <span class="ui-sprint-left"><b>3</b> jours restants</span>
+    </div>
+    <div class="ui-tl" role="img" aria-label="Sprint à 70 % du temps, 65 % des points réalisés">
+      <span class="ui-tl-fill" style="width:65%"></span>
+      <span class="ui-tl-today" style="left:70%"><i>aujourd'hui</i></span>
+    </div>
+    <div class="ui-tl-scale"><span>17 août</span><span>65 % des points · 70 % du temps</span><span>28 août</span></div>
+  </section>
+  <div class="ui-kpi-grid ui-kpi-grid--primary">
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">Tickets</span>
+    <span class="ui-kpi-val">14</span>
+    <span class="ui-kpi-sub">9 terminés · 64 %</span>
+  </div>
+  <div class="ui-kpi ui-kpi--warn" data-dom="flow">
+    <span class="ui-kpi-lbl">Story points</span>
+    <span class="ui-kpi-val">34<small>/52</small></span>
+    <span class="ui-kpi-sub">65 % réalisés</span>
+  </div>
+  <div class="ui-kpi ui-kpi--info" data-dom="flow">
+    <span class="ui-kpi-lbl">En cours</span>
+    <span class="ui-kpi-val">3</span>
+    <span class="ui-kpi-sub">tickets actifs</span>
+  </div>
+  <div class="ui-kpi ui-kpi--bad" data-dom="flow">
+    <span class="ui-kpi-lbl">Bloqués</span>
+    <span class="ui-kpi-val">1</span>
+    <span class="ui-kpi-sub">attention requise</span>
+  </div></div>
+  <div class="ui-duo">
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">🎯 Objectif du sprint</span>
+      <span class="ui-card-sub">Ité 30.2</span>
+    </header>
+    <div class="ui-card-bd"><p class="ui-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-goal-meta"><span>9/14 tickets</span><span>34/52 pts</span><span>J7/10</span></div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="flow">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Prévision de fin de sprint <button class="ui-help" type="button" data-help="forecast" aria-label="Comprendre Prévision de fin de sprint" title="Comprendre Prévision de fin de sprint">?</button></span>
+      <span class="ui-card-sub">5 000 simulations</span>
+    </header>
+    <div class="ui-card-bd"><div class="ui-forecast">
+      <span class="ui-gauge ui-gauge--warn" style="--pct:78"><b>78 %</b><i>de finir à temps</i></span>
+      <dl class="ui-forecast-dl"><dt>Fin probable (P50)</dt><dd>ven. 28 août</dd><dt>Fin prudente (P85)</dt><dd>mar. 1 sept.</dd></dl>
+    </div></div>
+    
+  </article></div>
+  <header class="ui-sec d3-fiche-sec" id="sec-pi"><h2>🗓️ Le PI #30</h2><span class="ui-sec-sub">objectifs et sprints</span></header>
+  <div class="ui-duo ui-duo--wide">
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Objectifs</span>
+      <span class="ui-card-sub">1/3 atteint</span>
+    </header>
+    <div class="ui-card-bd">
+  <div class="ui-pi-objs">
+    <section class="ui-pi-objgrp"><h3>🎯 Engagements <small>2</small></h3>
+        
+        <article class="ui-pi-obj">
+          <span class="ui-ring ui-ring--warn" style="--pct:70"><b>70 %</b></span>
+          <div class="ui-pi-obj-bd"><b>Export RH automatisé</b><span class="ui-muted">Vega · en cours</span></div>
+          <span class="ui-obj-bv">8 BV</span>
+          <button class="ui-btn ui-btn--ghost" type="button">✏️</button>
+        </article>
+        <article class="ui-pi-obj">
+          <span class="ui-ring ui-ring--bad" style="--pct:45"><b>45 %</b></span>
+          <div class="ui-pi-obj-bd"><b>Sync JIRA incrémentale</b><span class="ui-muted">Vega · en cours</span></div>
+          <span class="ui-obj-bv">9 BV</span>
+          <button class="ui-btn ui-btn--ghost" type="button">✏️</button>
+        </article></section><section class="ui-pi-objgrp"><h3>✨ Extension <small>1</small></h3>
+        
+        <article class="ui-pi-obj">
+          <span class="ui-ring ui-ring--bad" style="--pct:10"><b>10 %</b></span>
+          <div class="ui-pi-obj-bd"><b>Atlas v2 — appétences</b><span class="ui-muted">Vega · non démarré</span></div>
+          <span class="ui-obj-bv">5 BV</span>
+          <button class="ui-btn ui-btn--ghost" type="button">✏️</button>
+        </article></section>
+    <section class="ui-pi-objgrp ui-pi-objgrp--cross"><h3>🌐 Transverses <small>1</small></h3>
+      <article class="ui-pi-obj"><span class="ui-ring ui-ring--bad" style="--pct:30"><b>30 %</b></span><div class="ui-pi-obj-bd"><b>Observabilité du train</b><span class="ui-muted">sans équipe — jamais écarté en silence</span></div><span class="ui-obj-bv">6 BV</span></article>
+    </section>
+  </div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Burnup</span>
+      <span class="ui-card-sub">134 pts · 75 réalisés</span>
+    </header>
+    <div class="ui-card-bd">
+  <svg class="ui-burnup" viewBox="0 0 520 200" role="img" aria-label="Burnup du PI : périmètre 134 points, réalisé 75">
+    <g><line x1="36" x2="508" y1="174" y2="174" class="ui-burnup-grid"/><text x="30" y="178" class="ui-burnup-lbl" text-anchor="end">0</text></g><g><line x1="36" x2="508" y1="120.00000000000001" y2="120.00000000000001" class="ui-burnup-grid"/><text x="30" y="124.00000000000001" class="ui-burnup-lbl" text-anchor="end">50</text></g><g><line x1="36" x2="508" y1="66" y2="66" class="ui-burnup-grid"/><text x="30" y="70" class="ui-burnup-lbl" text-anchor="end">100</text></g><g><line x1="36" x2="508" y1="12" y2="12" class="ui-burnup-grid"/><text x="30" y="16" class="ui-burnup-lbl" text-anchor="end">150</text></g>
+    <text x="36" y="192" class="ui-burnup-lbl" text-anchor="middle">PIP</text><text x="130.4" y="192" class="ui-burnup-lbl" text-anchor="middle">30.1</text><text x="224.8" y="192" class="ui-burnup-lbl" text-anchor="middle">30.2</text><text x="319.2" y="192" class="ui-burnup-lbl" text-anchor="middle">30.3</text><text x="413.6" y="192" class="ui-burnup-lbl" text-anchor="middle">30.4</text><text x="508" y="192" class="ui-burnup-lbl" text-anchor="middle">30.5</text>
+    <path d="M36.0,35.8 L130.4,35.8 L224.8,31.4 L319.2,29.3 L413.6,29.3 L508.0,29.3" class="ui-burnup-scope"/>
+    <path d="M36.0,174.0 L130.4,129.7 L224.8,93.0" class="ui-burnup-done"/>
+    <line x1="224.8" x2="224.8" y1="12" y2="174" class="ui-burnup-now"/>
+    <text x="230.8" y="24" class="ui-burnup-lbl">aujourd'hui</text>
+    <circle cx="224.8" cy="93" r="4" class="ui-burnup-pt"/>
+  </svg>
+  <div class="ui-legend"><span><i style="--dot:var(--status-todo)"></i>Périmètre 134 pts</span><span><i style="--dot:var(--status-done)"></i>Réalisé 75 pts · 56 %</span></div></div>
+    
+  </article></div>
+  
+  <div class="ui-strip">
+    <article class="ui-strip-card ui-strip-card--closed">
+      <header class="ui-strip-hd"><span class="ui-strip-st">✓</span><b>30.1</b><span class="ui-strip-dates">03/08 → 14/08</span></header>
+      <p class="ui-strip-goal">Automatiser l'export RH des absences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:85%"></span></div>
+      <div class="ui-strip-nums"><span><b>41</b>/48 pts</span><span>15/18 tk</span><span class="ui-slip">↪ 2 glissés</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(10)</small></span><span>34 pts · <b>30</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(4)</small></span><span>8 pts · <b>6</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(4)</small></span><span>6 pts · <b>5</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--active">
+      <header class="ui-strip-hd"><span class="ui-strip-st">▶</span><b>30.2</b><span class="ui-strip-dates">17/08 → 28/08</span></header>
+      <p class="ui-strip-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--warn" style="width:65%"></span></div>
+      <div class="ui-strip-nums"><span><b>34</b>/52 pts</span><span>9/14 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(8)</small></span><span>38 pts · <b>26</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(3)</small></span><span>8 pts · <b>5</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(3)</small></span><span>6 pts · <b>3</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.3</b><span class="ui-strip-dates">31/08 → 11/09</span></header>
+      <p class="ui-strip-goal">Sync incrémentale : archive des sprints clos</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/44 pts</span><span>0/11 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(7)</small></span><span>32 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.4</b><span class="ui-strip-dates">14/09 → 25/09</span></header>
+      <p class="ui-strip-goal">Atlas v2 — cartographie des appétences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/40 pts</span><span>0/9 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(6)</small></span><span>30 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(1)</small></span><span>4 pts · <b>0</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--breath">
+      <header class="ui-strip-hd"><span class="ui-strip-st">🍃</span><b>30.5</b><span class="ui-strip-dates">28/09 → 09/10</span></header>
+      <p class="ui-strip-goal">Respiration — dette, I&amp;A, préparation PI 31</p>
+      <div class="ui-strip-nums"><span>Respiration — pas de charge</span></div>
+      
+    </article></div>
+  <header class="ui-sec d3-fiche-sec" id="sec-health"><h2>🛡️ Santé</h2><span class="ui-sec-sub">score 74 · 7 anomalies</span></header>
+  <div class="ui-duo"><div class="ui-hcards">
+  <button class="ui-hcard ui-hcard--danger" type="button" title="Tickets en statut bloqué">
+    <span class="ui-hcard-ico">🚫</span><b class="ui-hcard-val">1</b><span class="ui-hcard-lbl">Bloqués</span><small>Tickets en statut bloqué</small>
+  </button>
+  <button class="ui-hcard ui-hcard--danger" type="button" title="Bloqués sans mouvement depuis plus de 48 h">
+    <span class="ui-hcard-ico">🔴</span><b class="ui-hcard-val">1</b><span class="ui-hcard-lbl">Blockers > 48 h</span><small>Bloqués sans mouvement depuis plus de 48 h</small>
+  </button>
+  <button class="ui-hcard ui-hcard--warning" type="button" title="En cours sans mise à jour depuis plus de 5 jours">
+    <span class="ui-hcard-ico">🐌</span><b class="ui-hcard-val">3</b><span class="ui-hcard-lbl">Stagnants</span><small>En cours sans mise à jour depuis plus de 5 jours</small>
+  </button>
+  <button class="ui-hcard ui-hcard--warning" type="button" title="Tickets actifs sans leader">
+    <span class="ui-hcard-ico">👤</span><b class="ui-hcard-val">1</b><span class="ui-hcard-lbl">Sans assigné·e</span><small>Tickets actifs sans leader</small>
+  </button>
+  <button class="ui-hcard ui-hcard--warning" type="button" title="Tickets actifs sans story points">
+    <span class="ui-hcard-ico">📊</span><b class="ui-hcard-val">2</b><span class="ui-hcard-lbl">Sans estimation</span><small>Tickets actifs sans story points</small>
+  </button>
+  <button class="ui-hcard ui-hcard--info is-zero" type="button" title="En cours au-delà de la capacité de l'équipe">
+    <span class="ui-hcard-ico">🔄</span><b class="ui-hcard-val">0</b><span class="ui-hcard-lbl">WIP élevé</span><small>En cours au-delà de la capacité de l'équipe</small>
+  </button>
+  <button class="ui-hcard ui-hcard--info" type="button" title="Ajoutés après le début du sprint">
+    <span class="ui-hcard-ico">📈</span><b class="ui-hcard-val">2</b><span class="ui-hcard-lbl">Périmètre élargi</span><small>Ajoutés après le début du sprint</small>
+  </button></div>
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Tickets bloqués ou stagnants</span>
+      <span class="ui-card-sub">sans mouvement depuis ≥ 5 j</span>
+    </header>
+    <div class="ui-card-bd"><ul class="ui-stuck">
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-blocked)"></span><code>VEGA-412</code><span class="ui-stuck-title">Export CSV — encodage UTF-8 BOM</span>
+        <span class="ui-badge ui-badge--blocked">Bloqué</span><span class="ui-stuck-lead">Théo Vasseur</span><b class="ui-stuck-age is-warn">3 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>VEGA-398</code><span class="ui-stuck-title">Refacto du parseur CSV pivot RH</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Lucie Arnaud</span><b class="ui-stuck-age is-bad">8 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-inprog)"></span><code>LYRA-201</code><span class="ui-stuck-title">Calendrier ICS — refresh en pool</span>
+        <span class="ui-badge ui-badge--inprog">En cours</span><span class="ui-stuck-lead">Manon Cros</span><b class="ui-stuck-age is-warn">6 j</b></li>
+      <li class="ui-stuck-row"><span class="ui-dot" style="--dot:var(--status-test)"></span><code>ORION-88</code><span class="ui-stuck-title">Migration SQLite → colonne created_at</span>
+        <span class="ui-badge ui-badge--test">Test</span><span class="ui-stuck-lead is-none">Non assigné</span><b class="ui-stuck-age is-bad">11 j</b></li></ul></div>
+    
+  </article></div>
+  <header class="ui-sec d3-fiche-sec" id="sec-support"><h2>🎧 Support</h2><span class="ui-sec-sub">rotation du PI · SLA 90 %</span></header>
+  
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Rotation</span>
+      <span class="ui-card-sub">10 semaines · Théo cette semaine</span>
+    </header>
+    <div class="ui-card-bd">
+  <div class="ui-rota"><article class="ui-rota-week ui-rota-week--done"><header><b>S32</b><small>3 août</small></header><i class="ui-avatar">TV</i><span>Théo Vasseur</span><small>4 tickets</small></article><article class="ui-rota-week ui-rota-week--done"><header><b>S33</b><small>10 août</small></header><i class="ui-avatar">LA</i><span>Lucie Arnaud</span><small>2 tickets</small></article><article class="ui-rota-week ui-rota-week--done"><header><b>S34</b><small>17 août</small></header><i class="ui-avatar">MG</i><span>Maxime Giraud</span><small>5 tickets</small></article><article class="ui-rota-week ui-rota-week--now"><header><b>S35</b><small>24 août</small></header><i class="ui-avatar">TV</i><span>Théo Vasseur</span><small>3 tickets</small><em>cette semaine</em></article><article class="ui-rota-week ui-rota-week--next"><header><b>S36</b><small>31 août</small></header><i class="ui-avatar">NH</i><span>Nour Haddad</span></article><article class="ui-rota-week ui-rota-week--future"><header><b>S37</b><small>7 sept.</small></header><i class="ui-avatar">LA</i><span>Lucie Arnaud</span><em class="is-warn">⚠ Maxime absent</em></article><article class="ui-rota-week ui-rota-week--future"><header><b>S38</b><small>14 sept.</small></header><i class="ui-avatar">MG</i><span>Maxime Giraud</span></article><article class="ui-rota-week ui-rota-week--future"><header><b>S39</b><small>21 sept.</small></header><i class="ui-avatar">TV</i><span>Théo Vasseur</span></article><article class="ui-rota-week ui-rota-week--future"><header><b>S40</b><small>28 sept.</small></header><i class="ui-avatar">NH</i><span>Nour Haddad</span></article><article class="ui-rota-week ui-rota-week--future ui-rota-week--pip"><header><b>S41</b><small>5 oct.</small></header><i class="ui-avatar">LA</i><span>Lucie Arnaud</span><em>PIP</em></article></div>
+  <div class="ui-toolbar"><button class="ui-btn" type="button">🔀 Échanger deux semaines</button><button class="ui-btn ui-btn--danger-ghost" type="button">🎲 Régénérer (confirmation)</button><span class="ui-muted">Mode « semaine calendaire » · 1 personne par semaine</span></div></div>
+    
+  </article>
+  <header class="ui-sec d3-fiche-sec" id="sec-mood"><h2>😊 Mood & confiance</h2><span class="ui-sec-sub">tendance sur 7 sprints</span></header>
+  <div class="ui-duo">
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Tendance du mood</span>
+      <span class="ui-card-sub">3,2 → 3,8</span>
+    </header>
+    <div class="ui-card-bd"><div class="d3-trend"><svg class="ui-spark d3-trend-spark" viewBox="0 0 120 32" aria-hidden="true"><path d="M0,24.571428571428566 L20,17.714285714285715 L40,28 L60,10.85714285714285 L80,14.285714285714285 L100,10.85714285714285 L120,4" /><circle cx="120" cy="4" r="3"/></svg><div class="d3-trend-vals"><span><b>3.2</b><small>29.1</small></span><span><b>3.4</b><small>29.2</small></span><span><b>3.1</b><small>29.3</small></span><span><b>3.6</b><small>29.4</small></span><span><b>3.5</b><small>29.5</small></span><span><b>3.6</b><small>30.1</small></span><span><b>3.8</b><small>30.2</small></span></div></div></div>
+    
+  </article>
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Votes de l'ité 30.2</span>
+      
+    </header>
+    <div class="ui-card-bd"><div class="ui-vote-duo"><div class="ui-vote">
+      <div class="ui-vote-avg"><b>3.8</b><small>/5</small><span>5 votes</span></div>
+      <div class="ui-vote-dist"><span class="ui-vote-bar" style="--h:0%"><b></b><i>😞</i></span><span class="ui-vote-bar" style="--h:50%"><b>1</b><i>😕</i></span><span class="ui-vote-bar" style="--h:50%"><b>1</b><i>😐</i></span><span class="ui-vote-bar" style="--h:100%"><b>2</b><i>🙂</i></span><span class="ui-vote-bar" style="--h:50%"><b>1</b><i>😄</i></span></div>
+    </div><div class="ui-vote">
+      <div class="ui-vote-avg"><b>4.1</b><small>/5</small><span>5 votes</span></div>
+      <div class="ui-vote-dist"><span class="ui-vote-bar" style="--h:0%"><b></b><i>✊</i></span><span class="ui-vote-bar" style="--h:0%"><b></b><i>☝️</i></span><span class="ui-vote-bar" style="--h:33%"><b>1</b><i>✌️</i></span><span class="ui-vote-bar" style="--h:100%"><b>3</b><i>🤟</i></span><span class="ui-vote-bar" style="--h:33%"><b>1</b><i>🖐️</i></span></div>
+    </div></div></div>
+    
+  </article></div>
+  <header class="ui-sec d3-fiche-sec" id="sec-team"><h2>👥 L'équipe</h2><span class="ui-sec-sub">5 personnes · 3,7 ETP</span></header>
+  
+  <article class="ui-card " data-dom="health">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Roster du PI <button class="ui-help" type="button" data-help="capbase" aria-label="Comprendre Roster du PI" title="Comprendre Roster du PI">?</button></span>
+      <span class="ui-card-sub">capacité pondérée par rôle</span>
+    </header>
+    <div class="ui-card-bd">
+  <table class="ui-table ui-roster"><thead><tr><th>Membre</th><th>Rôle</th><th>Capacité</th><th>Prochaine absence</th><th>Compétences</th></tr></thead>
+  <tbody><tr><td><i class="ui-avatar">CM</i> Chloé Mercier</td><td>Scrum Master</td><td><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--info" style="width:0%"></span></span> 0 %</td><td class="">—</td><td class="ui-muted">facilitation · SAFe</td></tr><tr><td><i class="ui-avatar">TV</i> Théo Vasseur</td><td>Tech Lead</td><td><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--warn" style="width:70%"></span></span> 70 %</td><td class="is-warn">2–3 sept.</td><td class="ui-muted">FastAPI · SQLite</td></tr><tr><td><i class="ui-avatar">LA</i> Lucie Arnaud</td><td>Dev</td><td><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:100%"></span></span> 100 %</td><td class="">—</td><td class="ui-muted">JS · CSS · a11y</td></tr><tr><td><i class="ui-avatar">MG</i> Maxime Giraud</td><td>Dev</td><td><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:100%"></span></span> 100 %</td><td class="is-warn">7–11 sept.</td><td class="ui-muted">JIRA API · sync</td></tr><tr><td><i class="ui-avatar">NH</i> Nour Haddad</td><td>Dev</td><td><span class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:100%"></span></span> 100 %</td><td class="is-warn">14 sept. (½ j)</td><td class="ui-muted">Python · tests</td></tr></tbody>
+  <tfoot><tr><th>5 personnes</th><td></td><td><b>3,7 ETP</b></td><td colspan="2" class="ui-muted">18 j d'absence sur le PI · 91 % de capacité</td></tr></tfoot></table></div>
+    
+  </article></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Premier lancement <small>1280 × 820, réduit pour tenir · trois façons de commencer</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <div class="d3-first"><i>🌤️</i><h2>Bienvenue sur Squad Board</h2><p>Aucune équipe pour l'instant. La météo a besoin de trois choses : des équipes, un sprint, des tickets. Trois façons de commencer :</p>
+    <div class="d3-first-choices">
+      <button class="d3-first-choice" type="button"><i>🎲</i><b>Données de démo</b><span>Quatre équipes fictives, un PI complet — pour voir la météo tout de suite.</span></button>
+      <button class="d3-first-choice" type="button"><i>🔌</i><b>Importer depuis JIRA</b><span>Jeton + boards : la première sync remplit tout (≈ 2 min).</span></button>
+      <button class="d3-first-choice" type="button"><i>✏️</i><b>Créer à la main</b><span>Une équipe, un sprint, tes tickets. JIRA restera optionnel.</span></button>
+    </div></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Dernier jour du PI <small>1280 × 820, réduit pour tenir · bilan + checklist du PI Planning</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    <div class="ui-pisel" role="group" aria-label="Choisir le PI"><button type="button" class="ui-pisel-btn">PI 29</button><button type="button" class="ui-pisel-btn is-active">PI 30</button><button type="button" class="ui-pisel-btn">PI 31</button></div>
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <div class="ui-banner ui-banner--info"><span>🏁 <b>Dernier jour du PI 30</b> — 30.5 🍃 se termine ce soir. Le PI 31 n'est pas planifié : le PI Planning est dans 3 jours (12–13 oct.).</span><button class="ui-btn" type="button">Préparer le PI 31</button></div>
+  <header class="d3-hero"><div class="d3-hero-main"><i>⛅</i><div><small>Bilan du PI 30</small><h2>Variable — 78 % tenu</h2><p>105/134 pts · 2 objectifs commis sur 3 · prédictibilité 71 %</p></div></div><div class="d3-scale"><span class="d3-scale-it d3-cell--sun"><i>☀️</i>≥ 80 · beau</span><span class="d3-scale-it d3-cell--cloud"><i>⛅</i>60–79 · variable</span><span class="d3-scale-it d3-cell--rain"><i>🌧️</i>40–59 · attention</span><span class="d3-scale-it d3-cell--storm"><i>⛈️</i>< 40 · critique</span></div></header>
+  <div class="ui-table-wrap">
+  <table class="d3-matrix">
+    <thead><tr><th>Équipe</th><th>🏃 Sprint</th><th>🗓️ PI</th><th>🛡️ Santé</th><th>🎧 Support</th><th>😊 Mood</th><th></th></tr></thead>
+    <tbody><tr class="" style="--team:#3b82f6">
+      <th><span class="d3-team"><i></i>Vega<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>65 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>56 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>74</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.8</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#0d9488">
+      <th><span class="d3-team"><i></i>Lyra<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>35 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>48 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>61</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>75 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f59e0b">
+      <th><span class="d3-team"><i></i>Orion<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>30 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>31 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>42</b><small>3 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#8b5cf6">
+      <th><span class="d3-team"><i></i>Sirius<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>83 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>71 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>95 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr></tbody>
+  </table></div>
+  
+  <header class="ui-sec">
+    <h2>📋 Ce qu'il reste à faire avant le PI Planning</h2><span class="ui-sec-sub">checklist</span>
+  </header>
+  
+  <article class="ui-card " data-dom="pi">
+    <header class="ui-card-hd">
+      <span class="ui-card-title">Préparation</span>
+      
+    </header>
+    <div class="ui-card-bd"><ul class="d3-check"><li class="is-done">✅ Absences importées jusqu'au 18 déc.</li><li class="is-done">✅ Baseline des features du PI 30 figée</li><li>⬜ Capacité PI 31 validée (Orion : plafonnée ⚠)</li><li>⬜ Objectifs commis saisis (0/4 équipes)</li><li>⬜ Rotation support PI 31 générée</li><li>⬜ I&amp;A : 3 actions de rétro ouvertes</li></ul></div>
+    
+  </article></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Sans JIRA · pas de donnée <small>1280 × 820, réduit pour tenir · les cases ⚪ ne sont pas des ⛈️</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <div class="ui-banner ui-banner--info"><span>🔌 <b>Mode autoporteur</b> — aucun plugin JIRA configuré. Les tickets se créent ici (touche N) ; la météo se calcule sur ce que tu saisis.</span></div>
+  <header class="d3-hero"><div class="d3-hero-main"><i>⛅</i><div><small>Météo du train</small><h2>Variable</h2><p>2 équipes · 9 personnes · sans JIRA</p></div></div><div class="d3-scale"><span class="d3-scale-it d3-cell--sun"><i>☀️</i>≥ 80 · beau</span><span class="d3-scale-it d3-cell--cloud"><i>⛅</i>60–79 · variable</span><span class="d3-scale-it d3-cell--rain"><i>🌧️</i>40–59 · attention</span><span class="d3-scale-it d3-cell--storm"><i>⛈️</i>< 40 · critique</span><span class="d3-scale-it d3-cell--none"><i>⚪</i>pas de donnée</span></div></header>
+  <div class="ui-table-wrap">
+  <table class="d3-matrix">
+    <thead><tr><th>Équipe</th><th>🏃 Sprint</th><th>🗓️ PI</th><th>🛡️ Santé</th><th>🎧 Support</th><th>😊 Mood</th><th></th></tr></thead>
+    <tbody><tr class="is-selected" style="--team:#3b82f6">
+      <th><span class="d3-team"><i></i>Vega<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>65 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>56 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>74</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.8</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#0d9488">
+      <th><span class="d3-team"><i></i>Lyra<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>35 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>48 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>61</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--none"><i>⚪</i><b>—</b><small>pas de SLA</small></td><td class="d3-cell d3-cell--none"><i>⚪</i><b>—</b><small>aucun vote</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr></tbody>
+  </table></div>
+  <p class="ui-muted">⚪ Lyra n'a ni SLA ni votes : les cases restent <b>grises</b>, jamais rouges. L'absence de donnée n'est pas une mauvaise nouvelle, c'est une case à remplir.</p>
+  
+  <div class="ui-strip">
+    <article class="ui-strip-card ui-strip-card--closed">
+      <header class="ui-strip-hd"><span class="ui-strip-st">✓</span><b>30.1</b><span class="ui-strip-dates">03/08 → 14/08</span></header>
+      <p class="ui-strip-goal">Automatiser l'export RH des absences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--good" style="width:85%"></span></div>
+      <div class="ui-strip-nums"><span><b>41</b>/48 pts</span><span>15/18 tk</span><span class="ui-slip">↪ 2 glissés</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(10)</small></span><span>34 pts · <b>30</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(4)</small></span><span>8 pts · <b>6</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(4)</small></span><span>6 pts · <b>5</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--active">
+      <header class="ui-strip-hd"><span class="ui-strip-st">▶</span><b>30.2</b><span class="ui-strip-dates">17/08 → 28/08</span></header>
+      <p class="ui-strip-goal">Livrer l'export CSV des absences et stabiliser la sync JIRA</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--warn" style="width:65%"></span></div>
+      <div class="ui-strip-nums"><span><b>34</b>/52 pts</span><span>9/14 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(8)</small></span><span>38 pts · <b>26</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(3)</small></span><span>8 pts · <b>5</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(3)</small></span><span>6 pts · <b>3</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.3</b><span class="ui-strip-dates">31/08 → 11/09</span></header>
+      <p class="ui-strip-goal">Sync incrémentale : archive des sprints clos</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/44 pts</span><span>0/11 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(7)</small></span><span>32 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--future">
+      <header class="ui-strip-hd"><span class="ui-strip-st">○</span><b>30.4</b><span class="ui-strip-dates">14/09 → 25/09</span></header>
+      <p class="ui-strip-goal">Atlas v2 — cartographie des appétences</p>
+      <div class="ui-bar ui-bar--thin"><span class="ui-bar-fill ui-bar-fill--bad" style="width:0%"></span></div>
+      <div class="ui-strip-nums"><span><b>0</b>/40 pts</span><span>0/9 tk</span></div>
+      
+        <div class="ui-strip-groups">
+          
+          <div class="ui-strip-grp"><span>📗 US <small>(6)</small></span><span>30 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🧯 Buffer <small>(2)</small></span><span>6 pts · <b>0</b> fait</span></div>
+          <div class="ui-strip-grp"><span>🛠️ Action <small>(1)</small></span><span>4 pts · <b>0</b> fait</span></div>
+        </div>
+    </article>
+    <article class="ui-strip-card ui-strip-card--breath">
+      <header class="ui-strip-hd"><span class="ui-strip-st">🍃</span><b>30.5</b><span class="ui-strip-dates">28/09 → 09/10</span></header>
+      <p class="ui-strip-goal">Respiration — dette, I&amp;A, préparation PI 31</p>
+      <div class="ui-strip-nums"><span>Respiration — pas de charge</span></div>
+      
+    </article></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">📱 Mobile — cas limites à 390 px <small>390 × 760 — faites défiler horizontalement</small></div>
+  <div class="gal-rail">
+    
+    <figure class="phone">
+      <span class="phone-tag">12 équipes</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <header class="d3-hero"><div class="d3-hero-main"><i>⛅</i><div><small>Météo du train · 3 lignes produit</small><h2>Variable — deux orages</h2><p>12 équipes · 56 personnes · Capella et Orion en ⛈️ · 2 domaines sans donnée</p></div></div><div class="d3-scale"><span class="d3-scale-it d3-cell--sun"><i>☀️</i>≥ 80 · beau</span><span class="d3-scale-it d3-cell--cloud"><i>⛅</i>60–79 · variable</span><span class="d3-scale-it d3-cell--rain"><i>🌧️</i>40–59 · attention</span><span class="d3-scale-it d3-cell--storm"><i>⛈️</i>< 40 · critique</span><span class="d3-scale-it d3-cell--none"><i>⚪</i>pas de donnée</span></div></header>
+  <div class="ui-table-wrap">
+  <table class="d3-matrix d3-matrix--grouped">
+    <thead><tr><th>Équipe</th><th>🏃 Sprint</th><th>🗓️ PI</th><th>🛡️ Santé</th><th>🎧 Support</th><th>😊 Mood</th><th></th></tr></thead>
+    <tbody><tr class="d3-grp-row"><th colspan="7"><span>⛈️ Produit</span><small>4 équipes · 20 pers.</small></th></tr><tr class="" style="--team:#3b82f6">
+      <th><span class="d3-team"><i></i>Vega<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>65 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>56 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>74</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.8</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#0d9488">
+      <th><span class="d3-team"><i></i>Lyra<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>35 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>48 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>61</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>75 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f59e0b">
+      <th><span class="d3-team"><i></i>Orion<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>30 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>31 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>42</b><small>3 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#8b5cf6">
+      <th><span class="d3-team"><i></i>Sirius<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>83 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>71 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>95 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="d3-grp-row"><th colspan="7"><span>⛈️ Plateforme</span><small>4 équipes · 20 pers.</small></th></tr><tr class="" style="--team:#06b6d4">
+      <th><span class="d3-team"><i></i>Altaïr<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--rain"><i>🌧️</i><b>58 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>60 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>70</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>80 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.5</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#10b981">
+      <th><span class="d3-team"><i></i>Deneb<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>72 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>66 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>81</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.0</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f97316">
+      <th><span class="d3-team"><i></i>Rigel<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>44 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>40 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55</b><small>2 bloqués</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>62 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.0</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#6366f1">
+      <th><span class="d3-team"><i></i>Mizar<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>91 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>80 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>97 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="d3-grp-row"><th colspan="7"><span>⛈️ Data</span><small>4 équipes · 16 pers.</small></th></tr><tr class="" style="--team:#ec4899">
+      <th><span class="d3-team"><i></i>Antarès<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--rain"><i>🌧️</i><b>50 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>52 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>63</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--none"><i>⚪</i><b>—</b><small>pas de SLA</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#14b8a6">
+      <th><span class="d3-team"><i></i>Polaris<small>3 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>68 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>58 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>77</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>85 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--none"><i>⚪</i><b>—</b><small>aucun vote</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#ef4444">
+      <th><span class="d3-team"><i></i>Capella<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>22 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>28 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--storm"><i>⛈️</i><b>38</b><small>4 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>40 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#84cc16">
+      <th><span class="d3-team"><i></i>Castor<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>76 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>70 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>84</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.1</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr></tbody>
+  </table></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Train complet</b><span>La matrice défile horizontalement, les groupes restent des lignes collantes.</span></figcaption>
+    </figure>
+    <figure class="phone">
+      <span class="phone-tag">Vide</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it is-active" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Dashboard</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <div class="d3-first"><i>🌤️</i><h2>Bienvenue sur Squad Board</h2><p>Aucune équipe pour l'instant. La météo a besoin de trois choses : des équipes, un sprint, des tickets. Trois façons de commencer :</p>
+    <div class="d3-first-choices">
+      <button class="d3-first-choice" type="button"><i>🎲</i><b>Données de démo</b><span>Quatre équipes fictives, un PI complet — pour voir la météo tout de suite.</span></button>
+      <button class="d3-first-choice" type="button"><i>🔌</i><b>Importer depuis JIRA</b><span>Jeton + boards : la première sync remplit tout (≈ 2 min).</span></button>
+      <button class="d3-first-choice" type="button"><i>✏️</i><b>Créer à la main</b><span>Une équipe, un sprint, tes tickets. JIRA restera optionnel.</span></button>
+    </div></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it is-active" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Premier lancement</b><span>Trois grands boutons, une phrase chacun.</span></figcaption>
+    </figure>
+  </div>
+
+
+  <section class="gal-notes"><h2>Parti pris UX</h2><ul><li><strong>Le niveau d'un groupe est le pire de ses équipes</strong>, jamais une moyenne : une moyenne cache l'orage.</li><li><strong>⚪ Pas de donnée ≠ ⛈️.</strong> Une équipe sans SLA ni votes reste grise ; la colorer en rouge punirait celles qui n'ont pas encore branché le module.</li><li>À douze équipes la matrice tient encore sans défiler sur desktop (12 lignes × 5 domaines) ; au-delà, on filtre par ligne produit — le sélecteur du topbar existe déjà.</li></ul></section>
+
+  <aside class="fcp" aria-label="Panneau de navigation des maquettes">
+    <button class="fcp-toggle" type="button" aria-expanded="true" title="Replier">🎛️</button>
+    <div class="fcp-bd">
+      <div class="fcp-row"><small>Direction</small><div class="fcp-btns"><a class="fcp-btn" href="../mockup-1/01-dashboard.html" title="Cockpit — cette page n'existe que pour la direction approfondie">🧭 1</a><a class="fcp-btn" href="../mockup-2/01-dashboard.html" title="Journal de bord — cette page n'existe que pour la direction approfondie">📖 2</a><a class="fcp-btn is-active" href="../mockup-3/10-etats.html" title="Météo des équipes">🌤️ 3</a><a class="fcp-btn" href="../mockup-4/01-dashboard.html" title="Frise du PI — cette page n'existe que pour la direction approfondie">🛤️ 4</a></div></div>
+      <div class="fcp-row"><small>Écran</small><div class="fcp-btns fcp-btns--col"><a class="fcp-btn" href="01-dashboard.html">Dashboard</a><a class="fcp-btn" href="02-sections.html">PI · Rapports · Santé</a><a class="fcp-btn" href="03-modals.html">Modales</a><a class="fcp-btn" href="04-live.html">En séance</a><a class="fcp-btn" href="05-tv.html">Mode TV</a><a class="fcp-btn" href="06-equipe.html">Fiche équipe</a><a class="fcp-btn" href="07-previsions.html">Prévisions</a><a class="fcp-btn" href="08-board.html">Board & backlog</a><a class="fcp-btn" href="09-parametres.html">Paramètres</a><a class="fcp-btn is-active" href="10-etats.html">États limites</a><a class="fcp-btn" href="11-comprendre.html">Comprendre</a><a class="fcp-btn" href="12-tv-rotation.html">TV · rotation</a></div></div>
+      <div class="fcp-row"><small>Affichage</small><div class="fcp-btns"><button class="fcp-btn fcp-theme" type="button">🌓 Thème</button><button class="fcp-btn fcp-annot" type="button" aria-pressed="false">💡 Explications</button></div></div>
+      <div class="fcp-row"><a class="fcp-btn" href="../index.html">↖ Galerie</a></div>
+    </div>
+  </aside>
+
+  <script src="../_shared/bureau.js"></script>
+  <script src="../_shared/overlay.js"></script>
+</body>
+</html>

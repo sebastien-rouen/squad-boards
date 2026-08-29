@@ -1,0 +1,67 @@
+/* ========================================
+   CADRES DESKTOP ET TV À L'ÉCHELLE
+
+   Le desktop se dessine à SA taille réelle — 1280 × 820 — puis on le réduit
+   pour qu'il tienne dans la largeur disponible, à côté du rail mobile de la
+   même page. La TV fait pareil en 1920 × 1080. C'est ce qui permet de juger
+   une direction aux trois tailles d'un seul coup d'œil.
+
+   Trois points qui coûtent une reprise si on les oublie :
+
+   1. **`transform` ne change pas la place occupée.** Un cadre réduit de moitié
+      laisserait quand même 820 px de vide sous lui. D'où `.bureau-fenetre`,
+      dont la hauteur suit l'échelle et qui rogne le débord.
+   2. **L'échelle est plafonnée à 1** (côté JS).
+   3. **Aucune requête média ici.** Le cadre REPRÉSENTE un navigateur : la
+      disposition large est portée par la classe `.bureau` / `.tv`, jamais
+      par une largeur de fenêtre.
+   ======================================== */
+
+.bureau-zone { padding: 0 16px 16px; }
+
+/* Fenêtre de découpe : hauteur = hauteur du cadre × échelle. `--cadre-h` et
+   `--echelle` sont posées par `bureau.js` à partir de `data-w` / `data-h`. */
+.bureau-fenetre {
+  --echelle: 0.5;
+  --cadre-h: 820px;
+  height: calc(var(--cadre-h) * var(--echelle));
+  overflow: hidden;
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+  background: var(--ui-bg, #101014);
+}
+
+/* Le cadre lui-même, réduit par transformation. `position: relative` pour
+   que les pastilles d'annotation (absolues) se calent sur lui. */
+.bureau {
+  position: relative;
+  width: 1280px;
+  height: 820px;
+  transform: scale(var(--echelle));
+  transform-origin: top left;
+  overflow: hidden;
+  transform-style: flat;
+}
+
+.bureau.tv { width: 1920px; height: 1080px; }
+
+/* La TV a un cadre plus sobre et plus épais qu'une fenêtre de navigateur. */
+.bureau-fenetre--tv { border-radius: 8px; border-width: 3px; border-color: #0b0f18; }
+
+/* Le contenu du cadre défile pour son compte, comme un vrai navigateur. */
+.bureau > .desk { height: 100%; overflow-y: auto; overflow-x: hidden; }
+.bureau > .desk::-webkit-scrollbar { width: 10px; }
+.bureau > .desk::-webkit-scrollbar-thumb { background: var(--ui-surface-alt, #22222c); border-radius: 8px; }
+
+/* Intitulé de la vue — sans lui, on ne sait pas si le cadre du haut est une
+   vue réduite du desktop ou une maquette distincte. */
+.gal-group--vue { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.gal-group--vue small { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.02em; text-transform: none; opacity: 0.65; }
+
+/* Dans l'aperçu iframe de l'index : seul le premier cadre, sans marge. */
+body.is-embedded .gal-nav, body.is-embedded .gal-group, body.is-embedded .gal-rail,
+body.is-embedded .gal-notes, body.is-embedded .fcp, body.is-embedded .gal-annot-legend,
+body.is-embedded .bureau-zone ~ .bureau-zone { display: none; }
+body.is-embedded .bureau-zone { padding: 0; }
+body.is-embedded .bureau-fenetre { border: 0; border-radius: 0; box-shadow: none; }

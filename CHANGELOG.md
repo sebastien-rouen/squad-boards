@@ -1,3 +1,71 @@
+## [3.151.0] - 2026-08-29
+
+### 🌤️ Maquettes de refonte — la Météo des équipes, approfondie
+
+Direction préférée après la première revue ([static/mockups/refonte/](static/mockups/refonte/)) :
+**sept pages de plus** dans `mockup-3/`, là où une direction se juge — les écrans secondaires
+et les cas limites. 28 pages au total, panneau 🎛️ et index à jour (badge « Préférée »).
+
+| Page | Ce qu'elle a révélé |
+|---|---|
+| Fiche équipe (Vega ☀️, Orion ⛈️) | La fiche est le Dashboard d'équipe ; pour une ⛈️, la météo **propose** un plan d'action (anomalies pondérées → responsable + échéance) |
+| Prévisions (5 PI, prédictibilité, roadmap) | Le PI 31 est 🌧️ avant d'avoir commencé : engagement à 132 % de la base |
+| Board & backlog | La météo du sprint dans le titre du Board ; le vieillissement colore la carte entière |
+| Paramètres & **seuils météo** | Seuils réglables mais **globaux**, aperçu de la matrice avant d'enregistrer |
+| États limites (12 équipes, 1, 0, fin de PI, sans JIRA) | Niveau d'un groupe = le **pire** de ses équipes ; **⚪ pas de donnée ≠ ⛈️** |
+| Comprendre la météo | Une carte par domaine (formule, source, seuils, exemple), glossaire visuel, mode apprentissage |
+| TV · rotation & alerte | L'alerte ⛈️ plein écran (blocker > 48 h) nomme le ticket, la chaîne bloquée et qui peut lever |
+
+Le socle a bougé pour ça : cinquième niveau **⚪ pas de donnée**, calcul **absolu** (Santé,
+Support, Mood) ou **relatif au temps écoulé** (Sprint, PI : ±10 points = variable), niveau
+d'une équipe = pire de ses domaines, seuils à un seul endroit (`_gen/data-meteo.js`,
+`_gen/meteo-matrix.js`). Composants génériques nouveaux — board, backlog, paramètres, roster,
+rotation, glossaire — dans `_shared/ui-pages.css`, réutilisables par toute direction.
+
+Contrôles verts : `verify.js` (5 contrôles) et sonde Edge sur les 28 pages (aucune erreur,
+aucun débordement). Deux réserves écrites dans le README avant de coder : une **tolérance
+de démarrage** pour le calcul relatif (J1 ne doit pas être 🌧️), et lire le score de santé
+**normalisé** par tickets actifs, jamais un compte brut.
+
+## [3.150.0] - 2026-08-29
+
+### 🎨 Maquettes de refonte visuelle — quatre directions, desktop & TV
+
+Nouvelle galerie [static/mockups/refonte/](static/mockups/refonte/) pour choisir le parti
+pris d'une refonte : un Dashboard plus simple, le PI Planning, les rapports de sprint et la
+santé des équipes **en un coup d'œil**, coloré, avec des explications visuelles à la
+demande. Rien du site n'est touché.
+
+| | Parti pris | Point fort | Limite |
+|---|---|---|---|
+| 🧭 1 · Cockpit | Bento 12 colonnes, grands chiffres, une couleur par domaine | Tout tient sur un écran, TV = desktop | Peu de texte |
+| 📖 2 · Journal de bord | Chapitres, une phrase de synthèse par indicateur, serif | Compréhensible sans explication | Long à parcourir |
+| 🌤️ 3 · Météo des équipes | Matrice équipes × domaines ☀️⛅🌧️⛈️ + panneau de détail | Toutes les équipes d'un regard | Réducteur |
+| 🛤️ 4 · Frise du PI | Une colonne par sprint, curseur « aujourd'hui » | PI, sprint et rapport = une seule vue | Exige la largeur |
+
+Chaque direction est déclinée sur cinq pages — Dashboard (desktop + mobile + état vide),
+PI Planning / Rapports / Santé, modales & aide « ? » à schéma, mode « en séance » (daily,
+vote live, import JIRA, jeton expiré, hors ligne, sprint clos) et mode TV 1920 × 1080 —
+soit 21 pages et 120 écrans. Un panneau 🎛️ flottant permet de changer de direction **sur le
+même écran**, de basculer le thème et d'afficher des pastilles numérotées qui expliquent
+chaque zone. L'avis argumenté est dans le README du dossier (Météo pour le mur, Cockpit
+pour le poste, les phrases du Journal comme composant).
+
+Ce qui rend la comparaison honnête : même jeu de données synthétique, mêmes composants
+(`_shared/ui*.css` sur des tokens `--ui-*`), et les **vrais tokens du site**
+(`css/tokens.css`) derrière chaque direction — seul le pont et la mise en page changent.
+La bande des sprints du PI (US / Buffer / Action, glissés) est reprise telle quelle.
+
+Généré par `_gen/build.js` (idempotent, CommonJS — d'où le `package.json` local, le
+`package.json` racine étant en `"type": "module"`) et vérifié par `_gen/verify.js` :
+balises, liens, variables orphelines, classes **par page**, zéro requête média, ≤ 800 lignes.
+
+⚠️ Mesuré dans Edge plutôt que jugé à l'œil : un débordement de 26 px sur mobile venait de
+**texte** sortant de sa piste de grille (`34/52` dans une colonne de 13 px) — invisible pour
+`getBoundingClientRect`, qui mesure la boîte et non le texte. Seul `scrollWidth >
+clientWidth` sur un élément non défilant le voit. Corrigé (anneau et liste empilés sur
+mobile) et retenu pour toute sonde de maquette.
+
 ## [3.149.0] - 2026-08-28
 
 ### ✨ Rapport « PI Planning » : enfin dynamique, et lisible sprint par sprint

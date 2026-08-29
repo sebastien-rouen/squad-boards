@@ -1,0 +1,106 @@
+/* ========================================
+   MOCKUP 4 — FRISE DU PI
+   Tout est ancré sur l'axe des sprints : une colonne par sprint, le sprint
+   de respiration à part, un curseur « aujourd'hui » qui traverse la frise.
+   Chiffres en mono, coins nets, lignes franches.
+   ======================================== */
+
+/* ── Pont de tokens ── */
+body, .screen {
+  --ui-bg: var(--bg);
+  --ui-surface: var(--surface);
+  --ui-surface-alt: color-mix(in srgb, var(--surface) 92%, var(--text));
+  --ui-text: var(--text);
+  --ui-text-2: var(--text-secondary);
+  --ui-text-3: var(--text-muted);
+  --ui-accent: var(--primary);
+  --ui-accent-2: var(--status-done);
+  --ui-warn: var(--warning);
+  --ui-danger: var(--danger);
+  --ui-border: var(--border);
+  --ui-radius: 6px;
+  --ui-radius-sm: 4px;
+  --ui-shadow: none;
+  --ui-font: var(--font);
+  --ui-font-display: var(--font);
+  --ui-font-num: var(--font-mono);
+  --ui-font-mono: var(--font-mono);
+  --ui-dom-flow: var(--primary);
+  --ui-dom-pi: var(--type-epic);
+  --ui-dom-report: var(--warning);
+  --ui-dom-health: var(--status-done);
+}
+
+/* ── Identité : traits nets, mono pour tout chiffre ── */
+.ui-card, .ui-kpi, .ui-sprint, .ui-strip-card, .ui-pi-obj, .ui-hcard { border-width: 1.5px; }
+.ui-kpi-val { letter-spacing: -0.04em; }
+.ui-sec h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; }
+.ui-sec-sub { font-family: var(--ui-font-mono); font-size: 0.7rem; }
+.ui-card-sub { font-family: var(--ui-font-mono); }
+
+/* ── En-tête du PI ── */
+.d4-pihead { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; border: 2px solid var(--ui-text); border-radius: var(--ui-radius); background: var(--ui-surface); }
+.bureau .d4-pihead, .tv .d4-pihead { flex-direction: row; align-items: center; justify-content: space-between; }
+.d4-pihead small { display: block; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ui-text-3); }
+.d4-pihead h2 { font: 900 1.8rem/1 var(--ui-font-num); letter-spacing: -0.03em; }
+.d4-pihead h2 span { margin-left: 8px; font: 600 0.85rem var(--ui-font); color: var(--ui-text-2); letter-spacing: 0; }
+.d4-pihead-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.bureau .d4-pihead-kpis, .tv .d4-pihead-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); flex: 1 1 auto; max-width: 720px; }
+.d4-pihead-kpis .ui-kpi { padding: 8px 10px 8px 12px; }
+.d4-pihead-kpis .ui-kpi-val { font-size: 1.4rem; }
+
+/* ── La frise : liste sur mobile, 5 colonnes + piste + curseur en large ── */
+.d4-rail { --now: 0%; position: relative; display: flex; flex-direction: column; gap: 10px; }
+.bureau .d4-rail, .tv .d4-rail { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding-top: 36px; }
+.bureau .d4-rail::before, .tv .d4-rail::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--success) 0 var(--now), var(--ui-border) var(--now) 100%);
+}
+.d4-now { display: none; }
+.bureau .d4-now, .tv .d4-now { display: block; position: absolute; top: 4px; left: var(--now); z-index: 2; width: 3px; height: 24px; background: var(--danger); }
+.d4-now i { position: absolute; top: -2px; left: 8px; font: 800 0.68rem var(--ui-font-mono); font-style: normal; color: var(--danger); white-space: nowrap; }
+.d4-rail--pi { margin-top: 4px; }
+.tv .d4-rail--tv { padding-top: 44px; }
+
+.d4-col {
+  --c: var(--status-todo);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1.5px solid var(--ui-border);
+  border-top: 4px solid var(--c);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+}
+.d4-col--closed { --c: var(--success); }
+.d4-col--active { --c: var(--ui-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-accent) 35%, transparent); }
+.d4-col--future { --c: var(--status-todo); }
+.d4-col--breath { --c: var(--success); border-style: dashed; border-top-style: solid; }
+.d4-col-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.d4-col-hd b { font: 800 1.1rem var(--ui-font-num); }
+.d4-col-hd span { font: 600 0.68rem var(--ui-font-mono); color: var(--ui-text-3); }
+.d4-col-bar { display: flex; align-items: center; gap: 8px; font-size: 0.74rem; }
+.d4-col-bar b { font-family: var(--ui-font-num); white-space: nowrap; }
+.d4-col-goal { font-size: 0.8rem; line-height: 1.35; color: var(--ui-text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.d4-col-grps { display: flex; flex-direction: column; gap: 3px; padding-top: 6px; border-top: 1px dashed var(--ui-border); }
+.d4-col-grps li { display: flex; justify-content: space-between; gap: 6px; font-size: 0.72rem; color: var(--ui-text-2); }
+.d4-col-grps li b { font-family: var(--ui-font-num); color: var(--ui-text); }
+.d4-col-grps small { color: var(--ui-text-3); }
+.d4-col-ft { margin-top: auto; display: flex; flex-wrap: wrap; gap: 4px 10px; padding-top: 8px; border-top: 1px solid var(--ui-border); font-size: 0.72rem; color: var(--ui-text-2); }
+.d4-col-ft a { margin-left: auto; color: var(--ui-accent); font-weight: 700; }
+.d4-col-ft.is-now { color: var(--ui-text); }
+.d4-col-ft.is-now b { font: 800 1rem var(--ui-font-num); }
+
+/* ── Sous la frise : Maintenant · Sur le PI ── */
+.d4-under { display: flex; flex-direction: column; gap: 16px; }
+.bureau .d4-under, .tv .d4-under { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.d4-under-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tv .d4-under { grid-template-columns: 2fr 3fr; }

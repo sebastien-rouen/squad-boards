@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refonte visuelle — 4 directions · Squad Board</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="stylesheet" href="_shared/index.css">
+  <link rel="stylesheet" href="index-theme.css">
+</head>
+<body>
+  <header class="ix-hero">
+    <span class="ix-eyebrow">Squad Board · exploration UI · desktop &amp; TV</span>
+    <h1>Refonte visuelle — quatre directions</h1>
+    <p>Quatre partis pris de mise en page pour simplifier le pilotage : le Dashboard, le PI Planning, les rapports de sprint et la santé des équipes en un coup d'œil. Même contenu partout — seules l'identité et l'organisation changent, pour que la comparaison soit honnête.</p>
+    <p>Chaque direction est déclinée sur cinq pages : le Dashboard (desktop + mobile), les trois autres vues, les modales, le mode « en séance » et le mode TV 1920 × 1080. Le panneau 🎛️ en bas à droite de chaque page permet de sauter d'une direction à l'autre <b>sur le même écran</b>, de basculer le thème et d'afficher les <b>💡 explications</b> — des pastilles numérotées qui disent pourquoi chaque zone est là.</p>
+    <p><strong>Les pages démarrent en sombre</strong> (c'est le mode d'un écran mural) ; le bouton ☀️ bascule en clair, le thème par défaut du site.</p>
+    <div class="ix-stats"><div><b>4</b><span>Directions</span></div><div><b>27</b><span>Pages</span></div><div><b>164</b><span>Écrans</span></div><div><b>× 2</b><span>Thèmes</span></div><div><b>3</b><span>Tailles</span></div></div>
+  </header>
+
+  <section class="ix-sec">
+    <h2>Les quatre directions</h2>
+    <p>L'aperçu est le Dashboard réel, en desktop, à l'échelle. Cliquez un écran pour l'ouvrir en pleine page.</p>
+    <div class="ix-grid">
+      
+      <article class="ix-card">
+        <div class="ix-preview"><span class="ix-num">1</span><iframe src="mockup-1/01-dashboard.html" title="Aperçu — Cockpit" loading="lazy" tabindex="-1"></iframe></div>
+        <div class="ix-body">
+          <h3>🧭 Cockpit</h3>
+          <p>Mur de tuiles, grands chiffres, une couleur par domaine — lisible à trois mètres.</p>
+          <p><b>Point fort.</b> Tout tient sur un écran sans défiler : la TV et le desktop montrent la même chose.</p>
+          <p><b>Limite.</b> Peu de texte — la compréhension passe par les « ? » et les infobulles.</p>
+          
+          <div class="ix-traits"><span>Bento 12 colonnes</span><span>Domaines colorés</span><span>Chiffres 800</span><span>Sidebar icônes</span></div>
+        </div>
+        <nav class="ix-links">
+          <a href="mockup-1/01-dashboard.html"><i>📊</i>Dashboard<em>desktop + mobile</em></a>
+          <a href="mockup-1/02-sections.html"><i>🗂️</i>PI · Rapports · Santé<em>5 écrans + mobile</em></a>
+          <a href="mockup-1/03-modals.html"><i>✏️</i>Modales<em>6 écrans + mobile</em></a>
+          <a href="mockup-1/04-live.html"><i>🔴</i>En séance<em>6 écrans + mobile</em></a>
+          <a href="mockup-1/05-tv.html"><i>📺</i>Mode TV<em>4 écrans TV</em></a>
+          
+        </nav>
+      </article>
+      <article class="ix-card">
+        <div class="ix-preview"><span class="ix-num">2</span><iframe src="mockup-2/01-dashboard.html" title="Aperçu — Journal de bord" loading="lazy" tabindex="-1"></iframe></div>
+        <div class="ix-body">
+          <h3>📖 Journal de bord</h3>
+          <p>Chapitres, phrases de synthèse et schémas intégrés — le Dashboard se lit comme une note.</p>
+          <p><b>Point fort.</b> Un manager qui découvre l'équipe comprend sans qu'on lui explique : chaque chiffre est traduit en français.</p>
+          <p><b>Limite.</b> Plus long à parcourir ; sur TV il faut faire défiler ou tourner les chapitres.</p>
+          
+          <div class="ix-traits"><span>Colonne 980 px</span><span>Sommaire collant</span><span>Titres serif</span><span>Une phrase par chiffre</span></div>
+        </div>
+        <nav class="ix-links">
+          <a href="mockup-2/01-dashboard.html"><i>📊</i>Dashboard<em>desktop + mobile</em></a>
+          <a href="mockup-2/02-sections.html"><i>🗂️</i>PI · Rapports · Santé<em>5 écrans + mobile</em></a>
+          <a href="mockup-2/03-modals.html"><i>✏️</i>Modales<em>6 écrans + mobile</em></a>
+          <a href="mockup-2/04-live.html"><i>🔴</i>En séance<em>6 écrans + mobile</em></a>
+          <a href="mockup-2/05-tv.html"><i>📺</i>Mode TV<em>4 écrans TV</em></a>
+          
+        </nav>
+      </article>
+      <article class="ix-card ix-card--retenue">
+        <div class="ix-preview"><span class="ix-num">3</span><iframe src="mockup-3/01-dashboard.html" title="Aperçu — Météo des équipes" loading="lazy" tabindex="-1"></iframe></div>
+        <div class="ix-body">
+          <h3>🌤️ Météo des équipes <span class="ix-retenue">Préférée · approfondie</span></h3>
+          <p>Une matrice équipes × domaines en pastilles météo ; un clic ouvre la fiche.</p>
+          <p><b>Point fort.</b> La santé de toutes les équipes en un coup d'œil — c'est l'écran du RTE, pas celui d'une équipe.</p>
+          <p><b>Limite.</b> Réducteur par construction : un ⛈️ cache ses causes, d'où le panneau qui s'ouvre à côté.</p>
+          <p class="ix-ecart">🌤️ Direction préférée le 2026-08-29 : sept pages d'approfondissement (fiche équipe, prévisions, board, paramètres, cas limites, aide, TV) — l'avis est dans le README.</p>
+          <div class="ix-traits"><span>Matrice 4 × 5</span><span>4 niveaux ☀️⛅🌧️⛈️</span><span>Panneau de détail</span><span>Très coloré</span></div>
+        </div>
+        <nav class="ix-links">
+          <a href="mockup-3/01-dashboard.html"><i>📊</i>Dashboard<em>desktop + mobile</em></a>
+          <a href="mockup-3/02-sections.html"><i>🗂️</i>PI · Rapports · Santé<em>5 écrans + mobile</em></a>
+          <a href="mockup-3/03-modals.html"><i>✏️</i>Modales<em>6 écrans + mobile</em></a>
+          <a href="mockup-3/04-live.html"><i>🔴</i>En séance<em>6 écrans + mobile</em></a>
+          <a href="mockup-3/05-tv.html"><i>📺</i>Mode TV<em>4 écrans TV</em></a>
+          <a href="mockup-3/06-equipe.html"><i>🪪</i>Fiche équipe<em>2 écrans + mobile</em></a>
+          <a href="mockup-3/07-previsions.html"><i>🔭</i>Prévisions<em>desktop + mobile</em></a>
+          <a href="mockup-3/08-board.html"><i>🗂️</i>Board & backlog<em>3 écrans + mobile</em></a>
+          <a href="mockup-3/09-parametres.html"><i>⚙️</i>Paramètres<em>4 écrans + mobile</em></a>
+          <a href="mockup-3/10-etats.html"><i>🫙</i>États limites<em>5 écrans + mobile</em></a>
+          <a href="mockup-3/11-comprendre.html"><i>🎓</i>Comprendre<em>2 écrans + mobile</em></a>
+          <a href="mockup-3/12-tv-rotation.html"><i>📺</i>TV · rotation<em>4 écrans TV</em></a>
+        </nav>
+      </article>
+      <article class="ix-card">
+        <div class="ix-preview"><span class="ix-num">4</span><iframe src="mockup-4/01-dashboard.html" title="Aperçu — Frise du PI" loading="lazy" tabindex="-1"></iframe></div>
+        <div class="ix-body">
+          <h3>🛤️ Frise du PI</h3>
+          <p>Tout est ancré sur l'axe des sprints ; le présent est un curseur qui avance.</p>
+          <p><b>Point fort.</b> PI Planning, suivi de sprint et rapport deviennent la même vue à des instants différents : on ne change plus de page, on regarde ailleurs sur la frise.</p>
+          <p><b>Limite.</b> Exige la largeur — sur mobile la frise se replie en liste et perd son sens.</p>
+          
+          <div class="ix-traits"><span>Rail 5 + 🍃</span><span>Curseur aujourd'hui</span><span>Chiffres mono</span><span>Large obligatoire</span></div>
+        </div>
+        <nav class="ix-links">
+          <a href="mockup-4/01-dashboard.html"><i>📊</i>Dashboard<em>desktop + mobile</em></a>
+          <a href="mockup-4/02-sections.html"><i>🗂️</i>PI · Rapports · Santé<em>5 écrans + mobile</em></a>
+          <a href="mockup-4/03-modals.html"><i>✏️</i>Modales<em>6 écrans + mobile</em></a>
+          <a href="mockup-4/04-live.html"><i>🔴</i>En séance<em>6 écrans + mobile</em></a>
+          <a href="mockup-4/05-tv.html"><i>📺</i>Mode TV<em>4 écrans TV</em></a>
+          
+        </nav>
+      </article>
+    </div>
+  </section>
+
+  <section class="ix-sec">
+    <h2>Choisir</h2>
+    <p>Une direction par usage dominant — la question n'est pas « laquelle est la plus belle » mais « devant quel écran, avec qui ».</p>
+    <div class="ix-scroll"><table class="ix-table">
+      <thead><tr><th>Direction</th><th>Point fort</th><th>Limite</th><th>Moment idéal</th></tr></thead>
+      <tbody><tr><td>🧭 Cockpit</td><td>Tout tient sur un écran sans défiler : la TV et le desktop montrent la même chose.</td><td>Peu de texte — la compréhension passe par les « ? » et les infobulles.</td><td>Salle d'équipe avec un écran mural, revue de sprint, daily.</td></tr><tr><td>📖 Journal de bord</td><td>Un manager qui découvre l'équipe comprend sans qu'on lui explique : chaque chiffre est traduit en français.</td><td>Plus long à parcourir ; sur TV il faut faire défiler ou tourner les chapitres.</td><td>Point hebdo avec le management, préparation d'un rapport, onboarding.</td></tr><tr><td>🌤️ Météo des équipes</td><td>La santé de toutes les équipes en un coup d'œil — c'est l'écran du RTE, pas celui d'une équipe.</td><td>Réducteur par construction : un ⛈️ cache ses causes, d'où le panneau qui s'ouvre à côté.</td><td>Écran mural multi-équipes, ART sync, revue de PI.</td></tr><tr><td>🛤️ Frise du PI</td><td>PI Planning, suivi de sprint et rapport deviennent la même vue à des instants différents : on ne change plus de page, on regarde ailleurs sur la frise.</td><td>Exige la largeur — sur mobile la frise se replie en liste et perd son sens.</td><td>Suivi continu du PI, préparation de l'I&A, TV de plateau.</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section class="ix-sec">
+    <h2>Ce qui ne change pas</h2>
+    <div class="ix-principes">
+      <div class="ix-principe"><i>🧱</i><b>Mêmes composants partout</b><p>KPI, cartes, bande des sprints, matrice, rapport : écrits une fois dans <code>_shared/</code> sur les tokens <code>--ui-*</code>. Une direction ne fait qu'arranger et habiller.</p></div>
+      <div class="ix-principe"><i>🎨</i><b>Les vrais tokens du site</b><p>Chaque page charge <code>static/css/tokens.css</code> : couleurs de statut, espacements, rayons sont ceux de Squad Board. Rien n'est inventé qu'il faudrait re-porter.</p></div>
+      <div class="ix-principe"><i>❓</i><b>Expliquer par le dessin</b><p>Chaque « ? » ouvre un schéma (lead vs cycle, score, capacité, rollup). Les 💡 explications de chaque page disent pourquoi une zone est là.</p></div>
+      <div class="ix-principe"><i>📐</i><b>Aucune requête média</b><p>Desktop, TV et mobile cohabitent sur une même page : la disposition est portée par la classe du cadre, jamais par la largeur de la fenêtre.</p></div>
+    </div>
+  </section>
+
+  <footer class="ix-foot">Maquettes statiques — aucun appel API, aucune donnée réelle (équipes et personnes du jeu de démo). Générées par <code>_gen/build.js</code>, vérifiées par <code>_gen/verify.js</code>. Le README du dossier porte l'avis argumenté.</footer>
+</body>
+</html>

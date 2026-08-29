@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup 3 — Météo des équipes — Paramètres</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="stylesheet" href="../../../css/tokens.css">
+  <link rel="stylesheet" href="../_shared/ui.css">
+  <link rel="stylesheet" href="../_shared/ui-pi.css">
+  <link rel="stylesheet" href="../_shared/ui-health.css">
+  <link rel="stylesheet" href="../_shared/ui-flows.css">
+  <link rel="stylesheet" href="../_shared/ui-pages.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="deep.css">
+  <link rel="stylesheet" href="../_shared/gallery.css">
+  <link rel="stylesheet" href="../_shared/bureau.css">
+  <link rel="stylesheet" href="../_shared/overlay.css">
+</head>
+<body class="gallery" data-dir="mockup-3">
+
+  <script>
+    /* Aperçu iframe de l'index : seul le premier cadre doit apparaître */
+    if (window.self !== window.top) document.body.classList.add('is-embedded');
+    /* Le site démarre en clair, la TV se lit en sombre : chaque direction doit tenir dans les deux. */
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.gal-theme, .fcp-theme')) return;
+      const racine = document.documentElement;
+      const versClair = racine.getAttribute('data-theme') !== 'light';
+      racine.setAttribute('data-theme', versClair ? 'light' : 'dark');
+      document.querySelectorAll('.gal-theme').forEach((b) => { b.textContent = versClair ? '🌙 Voir en sombre' : '☀️ Voir en clair'; });
+    });
+  </script>
+
+  <header class="gal-head">
+    <div class="gal-head-top">
+      <a class="gal-back" href="../index.html">← Toutes les directions</a>
+      <button class="gal-theme" type="button">☀️ Voir en clair</button>
+    </div>
+    <h1>🌤️ Mockup 3 — Météo des équipes · Paramètres</h1>
+    <p class="gal-sub">Une matrice équipes × domaines en pastilles météo ; un clic ouvre la fiche. Les formulaires dans l'identité Météo — et les seuils de l'échelle, réglables mais globaux.</p>
+  </header>
+
+    <nav class="gal-nav">
+      <a href="01-dashboard.html">Dashboard</a>
+      <a href="02-sections.html">PI · Rapports · Santé</a>
+      <a href="03-modals.html">Modales</a>
+      <a href="04-live.html">En séance</a>
+      <a href="05-tv.html">Mode TV</a>
+      <a href="06-equipe.html">Fiche équipe</a>
+      <a href="07-previsions.html">Prévisions</a>
+      <a href="08-board.html">Board & backlog</a>
+      <a href="09-parametres.html" aria-current="page">Paramètres</a>
+      <a href="10-etats.html">États limites</a>
+      <a href="11-comprendre.html">Comprendre</a>
+      <a href="12-tv-rotation.html">TV · rotation</a>
+    </nav>
+
+
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Seuils météo <small>1280 × 820, réduit pour tenir · nouveau : l'échelle est un réglage, avec aperçu</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Paramètres</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content"><nav class="ui-stg-tabs" aria-label="Sections"><div class="ui-stg-grp"><small>Équipe</small><div><a class="ui-stg-tab" href="#settings/groupes"><i>🧩</i><span>Lignes produit</span></a><a class="ui-stg-tab" href="#settings/equipes"><i>🏷️</i><span>Équipes</span></a><a class="ui-stg-tab" href="#settings/membres"><i>👤</i><span>Membres</span></a><a class="ui-stg-tab" href="#settings/roles"><i>⚡</i><span>Capacité par rôle</span></a><a class="ui-stg-tab" href="#settings/absences"><i>🌴</i><span>Absences</span></a></div></div><div class="ui-stg-grp"><small>Planning</small><div><a class="ui-stg-tab" href="#settings/sprint-pi"><i>🗓️</i><span>Sprint & PI</span></a><a class="ui-stg-tab" href="#settings/rotation"><i>🛡️</i><span>Rotation</span></a><a class="ui-stg-tab" href="#settings/faits"><i>📌</i><span>Faits marquants</span></a><a class="ui-stg-tab" href="#settings/rappels"><i>🔔</i><span>Rappels</span></a></div></div><div class="ui-stg-grp"><small>Météo</small><div><a class="ui-stg-tab is-active" href="#settings/seuils"><i>🌤️</i><span>Seuils météo</span></a></div></div><div class="ui-stg-grp"><small>Intégrations</small><div><a class="ui-stg-tab" href="#settings/ics"><i>📅</i><span>Calendriers ICS</span></a><a class="ui-stg-tab" href="#settings/jira"><i>🔌</i><span>Plugin JIRA</span></a><a class="ui-stg-tab" href="#settings/slack"><i>💬</i><span>Slack</span></a></div></div><div class="ui-stg-grp"><small>Système</small><div><a class="ui-stg-tab" href="#settings/donnees"><i>💾</i><span>Données</span></a><a class="ui-stg-tab" href="#settings/apropos"><i>ℹ️</i><span>À propos</span></a></div></div></nav><div class="ui-stg-body">
+  <section class="ui-stg-sec"><header><h3>🌤️ Seuils de la météo</h3><span class="ui-muted">la même échelle partout — c'est ce qui rend la matrice lisible</span></header>
+    <p class="ui-muted">Quatre niveaux, trois seuils, <b>les mêmes pour tous les domaines absolus</b> (Santé, Support, Mood × 20). Les domaines relatifs (Sprint, PI) comparent l'avancement au temps écoulé : ±10 points = variable, −20 = attention.</p>
+    <div class="d3-thr">
+      <div class="d3-thr-bar"><span class="d3-thr-seg d3-cell--storm" style="flex:40"><i>⛈️</i>0 – 39</span><span class="d3-thr-seg d3-cell--rain" style="flex:20"><i>🌧️</i>40 – 59</span><span class="d3-thr-seg d3-cell--cloud" style="flex:20"><i>⛅</i>60 – 79</span><span class="d3-thr-seg d3-cell--sun" style="flex:20"><i>☀️</i>80 – 100</span></div>
+      <div class="d3-thr-marks"><span class="d3-thr-mark" style="--at:40%"><b>40</b></span><span class="d3-thr-mark" style="--at:60%"><b>60</b></span><span class="d3-thr-mark" style="--at:80%"><b>80</b></span></div>
+    </div>
+    <div class="ui-form-grid"><label class="ui-field"><span class="ui-field-lbl">Seuil « critique »</span><div class="ui-seg" role="radiogroup"><button type="button" class="ui-seg-btn" aria-pressed="false">30</button><button type="button" class="ui-seg-btn is-active" aria-pressed="true">40</button><button type="button" class="ui-seg-btn" aria-pressed="false">50</button></div></label><label class="ui-field"><span class="ui-field-lbl">Seuil « attention »</span><div class="ui-seg" role="radiogroup"><button type="button" class="ui-seg-btn" aria-pressed="false">50</button><button type="button" class="ui-seg-btn is-active" aria-pressed="true">60</button><button type="button" class="ui-seg-btn" aria-pressed="false">70</button></div></label><label class="ui-field"><span class="ui-field-lbl">Seuil « beau »</span><div class="ui-seg" role="radiogroup"><button type="button" class="ui-seg-btn" aria-pressed="false">75</button><button type="button" class="ui-seg-btn is-active" aria-pressed="true">80</button><button type="button" class="ui-seg-btn" aria-pressed="false">85</button><button type="button" class="ui-seg-btn" aria-pressed="false">90</button></div></label><label class="ui-field"><span class="ui-field-lbl">Écart relatif (sprint, PI)</span><div class="ui-seg" role="radiogroup"><button type="button" class="ui-seg-btn" aria-pressed="false">± 5</button><button type="button" class="ui-seg-btn is-active" aria-pressed="true">± 10</button><button type="button" class="ui-seg-btn" aria-pressed="false">± 15</button></div><small class="ui-field-hint">en points d'avancement vs temps écoulé</small></label></div>
+    <div class="d3-thr-preview"><b>Aperçu avec ces seuils</b><div class="ui-table-wrap">
+  <table class="d3-matrix d3-matrix--compact">
+    <thead><tr><th>Équipe</th><th>🏃 Sprint</th><th>🗓️ PI</th><th>🛡️ Santé</th><th>🎧 Support</th><th>😊 Mood</th><th></th></tr></thead>
+    <tbody><tr class="is-selected" style="--team:#3b82f6">
+      <th><span class="d3-team"><i></i>Vega<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>65 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>56 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>74</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.8</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#0d9488">
+      <th><span class="d3-team"><i></i>Lyra<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>35 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>48 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>61</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>75 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f59e0b">
+      <th><span class="d3-team"><i></i>Orion<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>30 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>31 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>42</b><small>3 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#8b5cf6">
+      <th><span class="d3-team"><i></i>Sirius<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>83 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>71 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>95 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr></tbody>
+  </table></div></div>
+    <div class="ui-toolbar"><button class="ui-btn ui-btn--primary" type="button">Enregistrer</button><button class="ui-btn ui-btn--ghost" type="button">Revenir aux valeurs par défaut</button><span class="ui-muted">Les seuils sont <b>globaux</b> : une équipe ne se choisit pas une météo plus clémente.</span></div></section></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Absences · import CSV <small>1280 × 820, réduit pour tenir · le parser dit ce qu'il écarte</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Paramètres</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content"><nav class="ui-stg-tabs" aria-label="Sections"><div class="ui-stg-grp"><small>Équipe</small><div><a class="ui-stg-tab" href="#settings/groupes"><i>🧩</i><span>Lignes produit</span></a><a class="ui-stg-tab" href="#settings/equipes"><i>🏷️</i><span>Équipes</span></a><a class="ui-stg-tab" href="#settings/membres"><i>👤</i><span>Membres</span></a><a class="ui-stg-tab" href="#settings/roles"><i>⚡</i><span>Capacité par rôle</span></a><a class="ui-stg-tab is-active" href="#settings/absences"><i>🌴</i><span>Absences</span></a></div></div><div class="ui-stg-grp"><small>Planning</small><div><a class="ui-stg-tab" href="#settings/sprint-pi"><i>🗓️</i><span>Sprint & PI</span></a><a class="ui-stg-tab" href="#settings/rotation"><i>🛡️</i><span>Rotation</span></a><a class="ui-stg-tab" href="#settings/faits"><i>📌</i><span>Faits marquants</span></a><a class="ui-stg-tab" href="#settings/rappels"><i>🔔</i><span>Rappels</span></a></div></div><div class="ui-stg-grp"><small>Météo</small><div><a class="ui-stg-tab" href="#settings/seuils"><i>🌤️</i><span>Seuils météo</span></a></div></div><div class="ui-stg-grp"><small>Intégrations</small><div><a class="ui-stg-tab" href="#settings/ics"><i>📅</i><span>Calendriers ICS</span></a><a class="ui-stg-tab" href="#settings/jira"><i>🔌</i><span>Plugin JIRA</span></a><a class="ui-stg-tab" href="#settings/slack"><i>💬</i><span>Slack</span></a></div></div><div class="ui-stg-grp"><small>Système</small><div><a class="ui-stg-tab" href="#settings/donnees"><i>💾</i><span>Données</span></a><a class="ui-stg-tab" href="#settings/apropos"><i>ℹ️</i><span>À propos</span></a></div></div></nav><div class="ui-stg-body">
+  <section class="ui-stg-sec"><header><h3>🌴 Import des absences (CSV)</h3><span class="ui-muted">format « ligne par absence » ou pivot RH (colonnes-dates), détecté automatiquement</span></header>
+    <div class="ui-import">
+      <textarea class="ui-textarea" rows="6" aria-label="CSV">Nom;Equipe;Debut;Fin;Type;Jours
+Théo Vasseur;Vega;2026-09-02;2026-09-03;conge;2
+Maxime Giraud;Vega;2026-09-07;2026-09-11;conge;5
+Nour Haddad;Vega;2026-09-14;2026-09-14;conge;0,5
+Lucie Arnaud;Vega;2026-09-21;2026-09-21;CP;</textarea>
+      <div class="ui-import-res">
+        <b>Format « ligne par absence » reconnu</b>
+        <div class="ui-import-nums"><span class="ui-kpi ui-kpi--good"><span class="ui-kpi-lbl">Absences</span><span class="ui-kpi-val">3</span><span class="ui-kpi-sub">2 nouvelles · 1 mise à jour (½ j)</span></span><span class="ui-kpi ui-kpi--warn"><span class="ui-kpi-lbl">Écartées</span><span class="ui-kpi-val">1</span><span class="ui-kpi-sub">« CP » n'est pas un nombre</span></span><span class="ui-kpi ui-kpi--info"><span class="ui-kpi-lbl">Chevauchements</span><span class="ui-kpi-val">0</span><span class="ui-kpi-sub">partiels, à arbitrer</span></span></div>
+        <p class="ui-muted">⚠️ Ligne 5 : <code>Lucie Arnaud;…;CP;</code> — seul un nombre vaut absence ; la ligne est ignorée <b>et dite</b>, jamais en silence.</p>
+        <div class="ui-seg"><button type="button" class="ui-seg-btn is-active">➕ Ajouter</button><button type="button" class="ui-seg-btn">♻️ Écraser du 2 sept. au 21 sept. (PIP compris)</button></div>
+        <div class="ui-toolbar"><button class="ui-btn ui-btn--primary" type="button">Importer 3 absences</button><button class="ui-btn ui-btn--ghost" type="button">Annuler</button></div>
+      </div>
+    </div></section></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Sprint & PI <small>1280 × 820, réduit pour tenir · saisie manuelle prioritaire, récapitulatif</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Paramètres</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content"><nav class="ui-stg-tabs" aria-label="Sections"><div class="ui-stg-grp"><small>Équipe</small><div><a class="ui-stg-tab" href="#settings/groupes"><i>🧩</i><span>Lignes produit</span></a><a class="ui-stg-tab" href="#settings/equipes"><i>🏷️</i><span>Équipes</span></a><a class="ui-stg-tab" href="#settings/membres"><i>👤</i><span>Membres</span></a><a class="ui-stg-tab" href="#settings/roles"><i>⚡</i><span>Capacité par rôle</span></a><a class="ui-stg-tab" href="#settings/absences"><i>🌴</i><span>Absences</span></a></div></div><div class="ui-stg-grp"><small>Planning</small><div><a class="ui-stg-tab is-active" href="#settings/sprint-pi"><i>🗓️</i><span>Sprint & PI</span></a><a class="ui-stg-tab" href="#settings/rotation"><i>🛡️</i><span>Rotation</span></a><a class="ui-stg-tab" href="#settings/faits"><i>📌</i><span>Faits marquants</span></a><a class="ui-stg-tab" href="#settings/rappels"><i>🔔</i><span>Rappels</span></a></div></div><div class="ui-stg-grp"><small>Météo</small><div><a class="ui-stg-tab" href="#settings/seuils"><i>🌤️</i><span>Seuils météo</span></a></div></div><div class="ui-stg-grp"><small>Intégrations</small><div><a class="ui-stg-tab" href="#settings/ics"><i>📅</i><span>Calendriers ICS</span></a><a class="ui-stg-tab" href="#settings/jira"><i>🔌</i><span>Plugin JIRA</span></a><a class="ui-stg-tab" href="#settings/slack"><i>💬</i><span>Slack</span></a></div></div><div class="ui-stg-grp"><small>Système</small><div><a class="ui-stg-tab" href="#settings/donnees"><i>💾</i><span>Données</span></a><a class="ui-stg-tab" href="#settings/apropos"><i>ℹ️</i><span>À propos</span></a></div></div></nav><div class="ui-stg-body">
+  <section class="ui-stg-sec"><header><h3>🗓️ Sprint & PI</h3><span class="ui-muted">saisie manuelle prioritaire sur l'import Congés</span></header><div class="ui-form-grid">
+    <label class="ui-field"><span class="ui-field-lbl">PI courant</span><input class="ui-input" type="text" value="30" placeholder=""><small class="ui-field-hint">détecté depuis les noms de sprint (« Ite 30.2 ») — écrasable</small></label>
+    <label class="ui-field"><span class="ui-field-lbl">Début du PI</span><input class="ui-input" type="text" value="2026-08-03" placeholder=""><small class="ui-field-hint">clé d'appariement des rotations : le changer les rend invisibles → bouton « Recaler »</small></label>
+    <label class="ui-field"><span class="ui-field-lbl">Sprints par PI</span><div class="ui-seg" role="radiogroup"><button type="button" class="ui-seg-btn" aria-pressed="false">4</button><button type="button" class="ui-seg-btn is-active" aria-pressed="true">5</button><button type="button" class="ui-seg-btn" aria-pressed="false">6</button></div><small class="ui-field-hint">le dernier est la respiration 🍃</small></label>
+    <label class="ui-field"><span class="ui-field-lbl">Durée d'un sprint</span><div class="ui-seg" role="radiogroup"><button type="button" class="ui-seg-btn" aria-pressed="false">1 sem.</button><button type="button" class="ui-seg-btn is-active" aria-pressed="true">2 sem.</button><button type="button" class="ui-seg-btn" aria-pressed="false">3 sem.</button></div></label>
+    <label class="ui-field"><span class="ui-field-lbl">Jours de PI Planning (PIP)</span><div class="ui-chips"><span class="ui-chip is-on">12 oct. ✕</span><span class="ui-chip is-on">13 oct. ✕</span><button class="ui-btn ui-btn--ghost" type="button">+ jour</button></div><small class="ui-field-hint">récupérables, hors capacité</small></label>
+    <label class="ui-field"><span class="ui-field-lbl">Cible de vélocité</span><input class="ui-input" type="text" value="42" placeholder=""><small class="ui-field-hint">ligne pointillée sur le graphe</small></label>
+  </div>
+  <div class="ui-note">📐 Récapitulatif : PI 30 = 3 août → 9 oct. · 5 sprints de 10 j ouvrés · 1 férié (15 août) · PIP 12–13 oct. — <b>écart CSV Congés : aucun</b>.</div></section></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Équipes & lignes produit <small>1280 × 820, réduit pour tenir · couleur = identité de la ligne de matrice</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Paramètres</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content"><nav class="ui-stg-tabs" aria-label="Sections"><div class="ui-stg-grp"><small>Équipe</small><div><a class="ui-stg-tab" href="#settings/groupes"><i>🧩</i><span>Lignes produit</span></a><a class="ui-stg-tab is-active" href="#settings/equipes"><i>🏷️</i><span>Équipes</span></a><a class="ui-stg-tab" href="#settings/membres"><i>👤</i><span>Membres</span></a><a class="ui-stg-tab" href="#settings/roles"><i>⚡</i><span>Capacité par rôle</span></a><a class="ui-stg-tab" href="#settings/absences"><i>🌴</i><span>Absences</span></a></div></div><div class="ui-stg-grp"><small>Planning</small><div><a class="ui-stg-tab" href="#settings/sprint-pi"><i>🗓️</i><span>Sprint & PI</span></a><a class="ui-stg-tab" href="#settings/rotation"><i>🛡️</i><span>Rotation</span></a><a class="ui-stg-tab" href="#settings/faits"><i>📌</i><span>Faits marquants</span></a><a class="ui-stg-tab" href="#settings/rappels"><i>🔔</i><span>Rappels</span></a></div></div><div class="ui-stg-grp"><small>Météo</small><div><a class="ui-stg-tab" href="#settings/seuils"><i>🌤️</i><span>Seuils météo</span></a></div></div><div class="ui-stg-grp"><small>Intégrations</small><div><a class="ui-stg-tab" href="#settings/ics"><i>📅</i><span>Calendriers ICS</span></a><a class="ui-stg-tab" href="#settings/jira"><i>🔌</i><span>Plugin JIRA</span></a><a class="ui-stg-tab" href="#settings/slack"><i>💬</i><span>Slack</span></a></div></div><div class="ui-stg-grp"><small>Système</small><div><a class="ui-stg-tab" href="#settings/donnees"><i>💾</i><span>Données</span></a><a class="ui-stg-tab" href="#settings/apropos"><i>ℹ️</i><span>À propos</span></a></div></div></nav><div class="ui-stg-body">
+  <section class="ui-stg-sec"><header><h3>🏷️ Équipes</h3><span class="ui-muted">4 équipes · 2 lignes produit</span></header><table class="ui-table ui-stg-table"><thead><tr><th>Équipe</th><th>Couleur</th><th>Ligne produit</th><th>Membres</th><th>Board JIRA</th><th></th></tr></thead>
+    <tbody><tr><td><b>Vega</b></td><td><span class="ui-swatch" style="--team:#3b82f6"></span><code>#3b82f6</code></td><td>Produit</td><td>5</td><td><code>VEGA-SCRUM</code></td><td><button class="ui-btn ui-btn--ghost" type="button">✏️</button></td></tr><tr><td><b>Lyra</b></td><td><span class="ui-swatch" style="--team:#0d9488"></span><code>#0d9488</code></td><td>Produit</td><td>5</td><td><code>LYRA-SCRUM</code></td><td><button class="ui-btn ui-btn--ghost" type="button">✏️</button></td></tr><tr><td><b>Orion</b></td><td><span class="ui-swatch" style="--team:#f59e0b"></span><code>#f59e0b</code></td><td>Produit</td><td>6</td><td><code>ORION-SCRUM</code></td><td><button class="ui-btn ui-btn--ghost" type="button">✏️</button></td></tr><tr><td><b>Sirius</b></td><td><span class="ui-swatch" style="--team:#8b5cf6"></span><code>#8b5cf6</code></td><td>Produit</td><td>4</td><td><code>SIRIUS-SCRUM</code></td><td><button class="ui-btn ui-btn--ghost" type="button">✏️</button></td></tr></tbody></table>
+    <button class="ui-btn ui-btn--primary" type="button">+ Équipe</button></section>
+  <section class="ui-stg-sec"><header><h3>🧩 Lignes produit</h3><span class="ui-muted">un filtre du topbar par ligne</span></header><div class="ui-chips"><span class="ui-chip is-on">Constellation Produit · Vega, Lyra</span><span class="ui-chip is-on">Constellation Plateforme · Orion, Sirius</span><button class="ui-btn ui-btn--ghost" type="button">+ ligne produit</button></div></section></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">📱 Mobile — paramètres à 390 px <small>390 × 760 — faites défiler horizontalement</small></div>
+  <div class="gal-rail">
+    
+    <figure class="phone">
+      <span class="phone-tag">Seuils</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Paramètres</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content"><nav class="ui-stg-tabs" aria-label="Sections"><div class="ui-stg-grp"><small>Équipe</small><div><a class="ui-stg-tab" href="#settings/groupes"><i>🧩</i><span>Lignes produit</span></a><a class="ui-stg-tab" href="#settings/equipes"><i>🏷️</i><span>Équipes</span></a><a class="ui-stg-tab" href="#settings/membres"><i>👤</i><span>Membres</span></a><a class="ui-stg-tab" href="#settings/roles"><i>⚡</i><span>Capacité par rôle</span></a><a class="ui-stg-tab" href="#settings/absences"><i>🌴</i><span>Absences</span></a></div></div><div class="ui-stg-grp"><small>Planning</small><div><a class="ui-stg-tab" href="#settings/sprint-pi"><i>🗓️</i><span>Sprint & PI</span></a><a class="ui-stg-tab" href="#settings/rotation"><i>🛡️</i><span>Rotation</span></a><a class="ui-stg-tab" href="#settings/faits"><i>📌</i><span>Faits marquants</span></a><a class="ui-stg-tab" href="#settings/rappels"><i>🔔</i><span>Rappels</span></a></div></div><div class="ui-stg-grp"><small>Météo</small><div><a class="ui-stg-tab is-active" href="#settings/seuils"><i>🌤️</i><span>Seuils météo</span></a></div></div><div class="ui-stg-grp"><small>Intégrations</small><div><a class="ui-stg-tab" href="#settings/ics"><i>📅</i><span>Calendriers ICS</span></a><a class="ui-stg-tab" href="#settings/jira"><i>🔌</i><span>Plugin JIRA</span></a><a class="ui-stg-tab" href="#settings/slack"><i>💬</i><span>Slack</span></a></div></div><div class="ui-stg-grp"><small>Système</small><div><a class="ui-stg-tab" href="#settings/donnees"><i>💾</i><span>Données</span></a><a class="ui-stg-tab" href="#settings/apropos"><i>ℹ️</i><span>À propos</span></a></div></div></nav><div class="ui-stg-body">
+  <section class="ui-stg-sec"><header><h3>🌤️ Seuils de la météo</h3><span class="ui-muted">la même échelle partout — c'est ce qui rend la matrice lisible</span></header>
+    <p class="ui-muted">Quatre niveaux, trois seuils, <b>les mêmes pour tous les domaines absolus</b> (Santé, Support, Mood × 20). Les domaines relatifs (Sprint, PI) comparent l'avancement au temps écoulé : ±10 points = variable, −20 = attention.</p>
+    <div class="d3-thr">
+      <div class="d3-thr-bar"><span class="d3-thr-seg d3-cell--storm" style="flex:40"><i>⛈️</i>0 – 39</span><span class="d3-thr-seg d3-cell--rain" style="flex:20"><i>🌧️</i>40 – 59</span><span class="d3-thr-seg d3-cell--cloud" style="flex:20"><i>⛅</i>60 – 79</span><span class="d3-thr-seg d3-cell--sun" style="flex:20"><i>☀️</i>80 – 100</span></div>
+      <div class="d3-thr-marks"><span class="d3-thr-mark" style="--at:40%"><b>40</b></span><span class="d3-thr-mark" style="--at:60%"><b>60</b></span><span class="d3-thr-mark" style="--at:80%"><b>80</b></span></div>
+    </div>
+    <div class="ui-form-grid"><label class="ui-field"><span class="ui-field-lbl">Seuil « critique »</span><div class="ui-seg" role="radiogroup"><button type="button" class="ui-seg-btn" aria-pressed="false">30</button><button type="button" class="ui-seg-btn is-active" aria-pressed="true">40</button><button type="button" class="ui-seg-btn" aria-pressed="false">50</button></div></label><label class="ui-field"><span class="ui-field-lbl">Seuil « attention »</span><div class="ui-seg" role="radiogroup"><button type="button" class="ui-seg-btn" aria-pressed="false">50</button><button type="button" class="ui-seg-btn is-active" aria-pressed="true">60</button><button type="button" class="ui-seg-btn" aria-pressed="false">70</button></div></label><label class="ui-field"><span class="ui-field-lbl">Seuil « beau »</span><div class="ui-seg" role="radiogroup"><button type="button" class="ui-seg-btn" aria-pressed="false">75</button><button type="button" class="ui-seg-btn is-active" aria-pressed="true">80</button><button type="button" class="ui-seg-btn" aria-pressed="false">85</button><button type="button" class="ui-seg-btn" aria-pressed="false">90</button></div></label><label class="ui-field"><span class="ui-field-lbl">Écart relatif (sprint, PI)</span><div class="ui-seg" role="radiogroup"><button type="button" class="ui-seg-btn" aria-pressed="false">± 5</button><button type="button" class="ui-seg-btn is-active" aria-pressed="true">± 10</button><button type="button" class="ui-seg-btn" aria-pressed="false">± 15</button></div><small class="ui-field-hint">en points d'avancement vs temps écoulé</small></label></div>
+    <div class="d3-thr-preview"><b>Aperçu avec ces seuils</b><div class="ui-table-wrap">
+  <table class="d3-matrix d3-matrix--compact">
+    <thead><tr><th>Équipe</th><th>🏃 Sprint</th><th>🗓️ PI</th><th>🛡️ Santé</th><th>🎧 Support</th><th>😊 Mood</th><th></th></tr></thead>
+    <tbody><tr class="is-selected" style="--team:#3b82f6">
+      <th><span class="d3-team"><i></i>Vega<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--cloud"><i>⛅</i><b>65 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>56 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>74</b><small>1 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>90 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.8</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#0d9488">
+      <th><span class="d3-team"><i></i>Lyra<small>5 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>35 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>48 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>61</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>75 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>3.2</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#f59e0b">
+      <th><span class="d3-team"><i></i>Orion<small>6 pers.</small></span></th>
+      <td class="d3-cell d3-cell--storm"><i>⛈️</i><b>30 %</b><small>des points</small></td><td class="d3-cell d3-cell--cloud"><i>⛅</i><b>31 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>42</b><small>3 bloqués</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>55 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--rain"><i>🌧️</i><b>2.6</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr><tr class="" style="--team:#8b5cf6">
+      <th><span class="d3-team"><i></i>Sirius<small>4 pers.</small></span></th>
+      <td class="d3-cell d3-cell--sun"><i>☀️</i><b>83 %</b><small>des points</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>71 %</b><small>du périmètre</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>88</b><small>0 bloqué</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>95 %</b><small>SLA tenu</small></td><td class="d3-cell d3-cell--sun"><i>☀️</i><b>4.4</b><small>/5</small></td>
+      <td class="d3-open"><a class="ui-btn ui-btn--ghost" href="06-equipe.html">Fiche ›</a></td>
+    </tr></tbody>
+  </table></div></div>
+    <div class="ui-toolbar"><button class="ui-btn ui-btn--primary" type="button">Enregistrer</button><button class="ui-btn ui-btn--ghost" type="button">Revenir aux valeurs par défaut</button><span class="ui-muted">Les seuils sont <b>globaux</b> : une équipe ne se choisit pas une météo plus clémente.</span></div></section></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Échelle</b><span>Les onglets groupés deviennent un rail ; la barre reste sur une ligne.</span></figcaption>
+    </figure>
+    <figure class="phone">
+      <span class="phone-tag">Import</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Paramètres</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content"><nav class="ui-stg-tabs" aria-label="Sections"><div class="ui-stg-grp"><small>Équipe</small><div><a class="ui-stg-tab" href="#settings/groupes"><i>🧩</i><span>Lignes produit</span></a><a class="ui-stg-tab" href="#settings/equipes"><i>🏷️</i><span>Équipes</span></a><a class="ui-stg-tab" href="#settings/membres"><i>👤</i><span>Membres</span></a><a class="ui-stg-tab" href="#settings/roles"><i>⚡</i><span>Capacité par rôle</span></a><a class="ui-stg-tab is-active" href="#settings/absences"><i>🌴</i><span>Absences</span></a></div></div><div class="ui-stg-grp"><small>Planning</small><div><a class="ui-stg-tab" href="#settings/sprint-pi"><i>🗓️</i><span>Sprint & PI</span></a><a class="ui-stg-tab" href="#settings/rotation"><i>🛡️</i><span>Rotation</span></a><a class="ui-stg-tab" href="#settings/faits"><i>📌</i><span>Faits marquants</span></a><a class="ui-stg-tab" href="#settings/rappels"><i>🔔</i><span>Rappels</span></a></div></div><div class="ui-stg-grp"><small>Météo</small><div><a class="ui-stg-tab" href="#settings/seuils"><i>🌤️</i><span>Seuils météo</span></a></div></div><div class="ui-stg-grp"><small>Intégrations</small><div><a class="ui-stg-tab" href="#settings/ics"><i>📅</i><span>Calendriers ICS</span></a><a class="ui-stg-tab" href="#settings/jira"><i>🔌</i><span>Plugin JIRA</span></a><a class="ui-stg-tab" href="#settings/slack"><i>💬</i><span>Slack</span></a></div></div><div class="ui-stg-grp"><small>Système</small><div><a class="ui-stg-tab" href="#settings/donnees"><i>💾</i><span>Données</span></a><a class="ui-stg-tab" href="#settings/apropos"><i>ℹ️</i><span>À propos</span></a></div></div></nav><div class="ui-stg-body">
+  <section class="ui-stg-sec"><header><h3>🌴 Import des absences (CSV)</h3><span class="ui-muted">format « ligne par absence » ou pivot RH (colonnes-dates), détecté automatiquement</span></header>
+    <div class="ui-import">
+      <textarea class="ui-textarea" rows="6" aria-label="CSV">Nom;Equipe;Debut;Fin;Type;Jours
+Théo Vasseur;Vega;2026-09-02;2026-09-03;conge;2
+Maxime Giraud;Vega;2026-09-07;2026-09-11;conge;5
+Nour Haddad;Vega;2026-09-14;2026-09-14;conge;0,5
+Lucie Arnaud;Vega;2026-09-21;2026-09-21;CP;</textarea>
+      <div class="ui-import-res">
+        <b>Format « ligne par absence » reconnu</b>
+        <div class="ui-import-nums"><span class="ui-kpi ui-kpi--good"><span class="ui-kpi-lbl">Absences</span><span class="ui-kpi-val">3</span><span class="ui-kpi-sub">2 nouvelles · 1 mise à jour (½ j)</span></span><span class="ui-kpi ui-kpi--warn"><span class="ui-kpi-lbl">Écartées</span><span class="ui-kpi-val">1</span><span class="ui-kpi-sub">« CP » n'est pas un nombre</span></span><span class="ui-kpi ui-kpi--info"><span class="ui-kpi-lbl">Chevauchements</span><span class="ui-kpi-val">0</span><span class="ui-kpi-sub">partiels, à arbitrer</span></span></div>
+        <p class="ui-muted">⚠️ Ligne 5 : <code>Lucie Arnaud;…;CP;</code> — seul un nombre vaut absence ; la ligne est ignorée <b>et dite</b>, jamais en silence.</p>
+        <div class="ui-seg"><button type="button" class="ui-seg-btn is-active">➕ Ajouter</button><button type="button" class="ui-seg-btn">♻️ Écraser du 2 sept. au 21 sept. (PIP compris)</button></div>
+        <div class="ui-toolbar"><button class="ui-btn ui-btn--primary" type="button">Importer 3 absences</button><button class="ui-btn ui-btn--ghost" type="button">Annuler</button></div>
+      </div>
+    </div></section></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Absences</b><span>Le résultat de l'analyse s'affiche sous la zone de collage, avec les lignes écartées.</span></figcaption>
+    </figure>
+  </div>
+
+
+  <section class="gal-notes"><h2>Parti pris UX</h2><ul><li><strong>Les seuils sont globaux.</strong> Réglables (une organisation qui vit à 70 % de prédictibilité ne veut pas un train ⛈️ en permanence), mais identiques pour toutes les équipes — sinon la matrice ment.</li><li>L'aperçu sous les seuils recalcule la matrice réelle : on voit qui change de couleur avant d'enregistrer.</li><li>L'import CSV reprend la règle du site : ce qui est écarté est <strong>compté et montré</strong> (« CP » n'est pas un nombre), jamais avalé.</li></ul></section>
+
+  <aside class="fcp" aria-label="Panneau de navigation des maquettes">
+    <button class="fcp-toggle" type="button" aria-expanded="true" title="Replier">🎛️</button>
+    <div class="fcp-bd">
+      <div class="fcp-row"><small>Direction</small><div class="fcp-btns"><a class="fcp-btn" href="../mockup-1/01-dashboard.html" title="Cockpit — cette page n'existe que pour la direction approfondie">🧭 1</a><a class="fcp-btn" href="../mockup-2/01-dashboard.html" title="Journal de bord — cette page n'existe que pour la direction approfondie">📖 2</a><a class="fcp-btn is-active" href="../mockup-3/09-parametres.html" title="Météo des équipes">🌤️ 3</a><a class="fcp-btn" href="../mockup-4/01-dashboard.html" title="Frise du PI — cette page n'existe que pour la direction approfondie">🛤️ 4</a></div></div>
+      <div class="fcp-row"><small>Écran</small><div class="fcp-btns fcp-btns--col"><a class="fcp-btn" href="01-dashboard.html">Dashboard</a><a class="fcp-btn" href="02-sections.html">PI · Rapports · Santé</a><a class="fcp-btn" href="03-modals.html">Modales</a><a class="fcp-btn" href="04-live.html">En séance</a><a class="fcp-btn" href="05-tv.html">Mode TV</a><a class="fcp-btn" href="06-equipe.html">Fiche équipe</a><a class="fcp-btn" href="07-previsions.html">Prévisions</a><a class="fcp-btn" href="08-board.html">Board & backlog</a><a class="fcp-btn is-active" href="09-parametres.html">Paramètres</a><a class="fcp-btn" href="10-etats.html">États limites</a><a class="fcp-btn" href="11-comprendre.html">Comprendre</a><a class="fcp-btn" href="12-tv-rotation.html">TV · rotation</a></div></div>
+      <div class="fcp-row"><small>Affichage</small><div class="fcp-btns"><button class="fcp-btn fcp-theme" type="button">🌓 Thème</button><button class="fcp-btn fcp-annot" type="button" aria-pressed="false">💡 Explications</button></div></div>
+      <div class="fcp-row"><a class="fcp-btn" href="../index.html">↖ Galerie</a></div>
+    </div>
+  </aside>
+
+  <script src="../_shared/bureau.js"></script>
+  <script src="../_shared/overlay.js"></script>
+</body>
+</html>

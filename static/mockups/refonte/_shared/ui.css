@@ -1,0 +1,462 @@
+/* ========================================
+   COMPOSANTS PARTAGÉS — coquille + Dashboard
+   Tout est construit sur les tokens `--ui-*`, posés par le pont de chaque
+   direction (mockup-N/style.css) à partir des VRAIS tokens du site
+   (static/css/tokens.css). Aucune couleur en dur ici.
+
+   Disposition : MOBILE par défaut ; `.bureau .x` et `.tv .x` portent la
+   disposition large. Jamais de requête média — le cadre représente un
+   navigateur, pas la fenêtre réelle.
+   ======================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body, .screen {
+  margin: 0;
+  font-family: var(--ui-font);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ui-text);
+  background: var(--ui-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Le cadre se comporte comme un body : conteneur des `position: fixed`. */
+.screen {
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transform: translateZ(0);
+}
+
+.desk h1, .desk h2, .desk h3, .desk h4, .desk p, .desk ul, .desk ol, .desk dl, .desk dd, .desk figure { margin: 0; }
+.desk ul, .desk ol { padding: 0; list-style: none; }
+.desk code { font-family: var(--ui-font-mono); font-size: 0.8em; padding: 1px 5px; border-radius: 4px; background: var(--ui-surface-alt); color: var(--ui-text-2); }
+.desk kbd { font-family: var(--ui-font-mono); font-size: 0.68rem; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--ui-border); color: var(--ui-text-3); }
+.desk svg { display: block; max-width: 100%; }
+.desk button, .desk input, .desk select { font: inherit; color: inherit; }
+.desk a { color: inherit; text-decoration: none; }
+
+.ui-muted { font-size: 0.8rem; color: var(--ui-text-2); }
+.ui-muted b { color: var(--ui-text); }
+.is-bad { color: var(--status-blocked-text); }
+.is-warn { color: var(--amber-text); }
+.is-good { color: var(--success-text); }
+.is-capped { color: var(--amber-text); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+
+/* ========================================
+   COQUILLE : sidebar · topbar · contenu · tabbar
+   ======================================== */
+.ui-app { display: flex; flex-direction: column; min-height: 100%; }
+.ui-main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+
+.ui-side { display: none; }
+
+.ui-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--ui-border);
+  background: color-mix(in srgb, var(--ui-bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+}
+.ui-top-title { margin: 0; font: 700 1.125rem/1.2 var(--ui-font-display); letter-spacing: -0.01em; }
+.ui-top-mode { padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--status-blocked-text); }
+.ui-search { display: none; align-items: center; gap: 10px; flex: 0 1 300px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--ui-border); background: var(--ui-surface); color: var(--ui-text-3); font-size: 0.82rem; cursor: pointer; }
+.ui-search kbd { margin-left: auto; }
+.ui-top-actions { margin-left: auto; display: flex; gap: 6px; }
+.ui-top-actions .ui-btn:not(.ui-btn--primary) { display: none; }
+
+.ui-content { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 14px 14px 96px; min-width: 0; }
+
+.ui-tabbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  border-top: 1px solid var(--ui-border);
+  background: color-mix(in srgb, var(--ui-surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+}
+.ui-tabbar-it { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; padding: 8px 0 6px; font-size: 0.66rem; font-weight: 700; color: var(--ui-text-3); }
+.ui-tabbar-it i { font-style: normal; font-size: 1.15rem; }
+.ui-tabbar-it.is-active { color: var(--ui-accent); }
+
+/* — Large : sidebar visible, tabbar masquée — */
+.bureau .ui-app, .tv .ui-app { flex-direction: row; }
+.bureau .ui-tabbar, .tv .ui-tabbar { display: none; }
+.bureau .ui-search { display: flex; }
+.bureau .ui-top-actions .ui-btn { display: inline-flex; }
+.bureau .ui-top { padding: 10px 24px; }
+.bureau .ui-content { gap: 20px; padding: 20px 24px 48px; max-width: 1600px; }
+
+.bureau .ui-side, .tv .ui-side {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 220px;
+  width: 220px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 820px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  border-right: 1px solid var(--ui-border);
+}
+.tv .ui-side { height: 1080px; }
+.ui-side-logo { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); font-weight: 700; }
+.ui-side-logo b { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--ui-accent); color: #fff; font-size: 0.8rem; }
+.ui-side-nav { display: flex; flex-direction: column; gap: 2px; padding: 8px; flex: 1; }
+.ui-side-grp { padding: 10px 12px 4px; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #64748b; }
+.ui-side-grp--foot { margin-top: auto; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 12px; text-transform: none; letter-spacing: 0; font-size: 0.8rem; color: #94a3b8; }
+.ui-nav-it { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; color: #94a3b8; font-size: 0.82rem; font-weight: 500; white-space: nowrap; }
+.ui-nav-it i { font-style: normal; width: 18px; text-align: center; flex: 0 0 auto; }
+.ui-nav-it kbd { margin-left: auto; border-color: rgba(255, 255, 255, 0.12); color: #64748b; }
+.ui-nav-it:hover { background: rgba(255, 255, 255, 0.06); color: #e2e8f0; }
+.ui-nav-it.is-active { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+.ui-side-teams { padding: 10px 12px 14px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.ui-side-teams > div { display: flex; gap: 4px; flex-wrap: wrap; }
+.ui-team-btn { width: 32px; height: 28px; border: 0; border-radius: 6px; background: var(--team); color: #fff; font-size: 0.68rem; font-weight: 800; opacity: 0.45; cursor: pointer; }
+.ui-team-btn.is-active { opacity: 1; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25); }
+
+/* Sidebar compacte (icônes seules) */
+.bureau .ui-side--compact { flex-basis: 64px; width: 64px; }
+.ui-side--compact .ui-side-logo span, .ui-side--compact .ui-nav-it span, .ui-side--compact .ui-nav-it kbd, .ui-side--compact .ui-side-grp { display: none; }
+.ui-side--compact .ui-side-logo { justify-content: center; padding: 0; }
+.ui-side--compact .ui-nav-it { justify-content: center; padding: 10px 0; }
+.ui-side--compact .ui-nav-it i { font-size: 1.1rem; }
+.ui-side--compact .ui-side-teams > div { flex-direction: column; align-items: center; }
+
+/* ========================================
+   BRIQUES : boutons · sections · cartes · aide
+   ======================================== */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.bureau .ui-btn { min-height: 34px; }
+.ui-btn--primary { background: var(--ui-accent); border-color: transparent; color: #fff; }
+.ui-btn--ghost { background: transparent; border-color: transparent; color: var(--ui-text-2); }
+.ui-btn--danger { background: var(--danger); border-color: transparent; color: #fff; }
+.ui-btn--danger-ghost { background: transparent; border-color: transparent; color: var(--status-blocked-text); }
+.ui-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.ui-spacer { flex: 1; }
+
+.ui-sec { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0 -4px; }
+.ui-sec h2 { margin: 0; font: 800 1rem/1.2 var(--ui-font-display); letter-spacing: -0.01em; }
+.ui-sec-sub { font-size: 0.78rem; color: var(--ui-text-3); }
+.ui-sec .ui-btn { margin-left: auto; }
+
+.ui-card {
+  --dom: var(--ui-dom-flow);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow);
+  overflow: hidden;
+}
+.ui-card[data-dom="pi"] { --dom: var(--ui-dom-pi); }
+.ui-card[data-dom="report"] { --dom: var(--ui-dom-report); }
+.ui-card[data-dom="health"] { --dom: var(--ui-dom-health); }
+.ui-card-hd { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; padding: 12px 14px 0; }
+.ui-card-title { display: inline-flex; align-items: center; gap: 6px; font-size: 0.92rem; font-weight: 700; }
+.ui-card-sub { margin-left: auto; font-size: 0.75rem; color: var(--ui-text-3); }
+.ui-card-bd { display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 14px; min-width: 0; }
+.ui-card-ft { padding: 8px 14px 12px; border-top: 1px solid var(--ui-border); font-size: 0.78rem; color: var(--ui-text-2); }
+
+.ui-help {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--ui-border);
+  border-radius: 50%;
+  background: var(--ui-surface-alt);
+  color: var(--ui-text-2);
+  font: 700 0.68rem/1 var(--ui-font);
+  cursor: pointer;
+}
+.ui-help:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+
+.ui-duo { display: grid; gap: 14px; }
+.bureau .ui-duo, .tv .ui-duo { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.bureau .ui-duo--wide { grid-template-columns: 2fr 3fr; }
+
+/* ========================================
+   KPI
+   ======================================== */
+.ui-kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.bureau .ui-kpi-grid, .tv .ui-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+/* Les huit KPI tiennent sur une rangée en TV ; les secondaires sont un cran plus discrets. */
+.bureau .ui-kpi-grid--primary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tv .ui-kpi-grid--all { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.ui-kpi-grid--secondary .ui-kpi-val { font-size: 1.45rem; }
+
+.ui-kpi {
+  --kpi-c: var(--ui-accent);
+  --dom: var(--ui-dom-flow);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px 12px 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  box-shadow: inset 3px 0 0 var(--kpi-c), var(--ui-shadow);
+  min-width: 0;
+}
+.ui-kpi[data-dom="pi"] { --dom: var(--ui-dom-pi); }
+.ui-kpi[data-dom="health"] { --dom: var(--ui-dom-health); }
+.ui-kpi--good { --kpi-c: var(--success); }
+.ui-kpi--warn { --kpi-c: var(--warning); }
+.ui-kpi--bad { --kpi-c: var(--danger); }
+.ui-kpi--info { --kpi-c: var(--ui-accent); }
+.ui-kpi-lbl { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ui-text-3); }
+.ui-kpi-val { display: flex; align-items: baseline; gap: 6px; font: 800 1.7rem/1.1 var(--ui-font-num); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.ui-kpi-val small { font-size: 0.9rem; font-weight: 600; color: var(--ui-text-3); }
+.ui-kpi-trend { font-size: 0.72rem; font-style: normal; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+.ui-kpi-trend.is-up { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success-text); }
+.ui-kpi-trend.is-down { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--status-blocked-text); }
+.ui-kpi-sub { font-size: 0.76rem; color: var(--ui-text-2); }
+
+/* ========================================
+   CAP : objectif de sprint · objectifs PI · barres · tags
+   ======================================== */
+.ui-goal { font: 600 1.05rem/1.35 var(--ui-font-display); }
+.ui-goal-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.ui-goal-meta span { padding: 3px 9px; border-radius: 999px; background: var(--ui-surface-alt); font-size: 0.74rem; font-weight: 700; color: var(--ui-text-2); }
+
+.ui-bar { display: block; flex: 1; height: 8px; min-width: 40px; border-radius: 999px; background: var(--ui-surface-alt); overflow: hidden; }
+.ui-bar--thin { height: 5px; }
+.ui-bar-fill { display: block; height: 100%; border-radius: inherit; background: var(--ui-accent); }
+.ui-bar-fill--good { background: var(--success); }
+.ui-bar-fill--warn { background: var(--warning); }
+.ui-bar-fill--bad { background: var(--danger); }
+.ui-bar-fill--info { background: var(--ui-accent); }
+
+.ui-tag { padding: 2px 8px; border-radius: 999px; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.ui-tag--commit { background: color-mix(in srgb, var(--ui-dom-pi) 18%, transparent); color: var(--indigo-text); }
+.ui-tag--stretch { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--amber-text); }
+.ui-obj-bv { font-size: 0.74rem; font-weight: 800; color: var(--amber-text); white-space: nowrap; }
+
+.ui-objs { display: flex; flex-direction: column; gap: 10px; }
+.ui-obj { display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: "name tag bv" "bar bar pct"; gap: 6px 8px; align-items: center; }
+.ui-obj-name { grid-area: name; font-weight: 600; font-size: 0.88rem; }
+.ui-obj .ui-tag { grid-area: tag; }
+.ui-obj .ui-obj-bv { grid-area: bv; }
+.ui-obj .ui-bar { grid-area: bar; }
+.ui-obj-pct { grid-area: pct; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.ui-objs--compact .ui-obj { grid-template-columns: 1fr auto auto auto; grid-template-areas: "name tag bv pct" "bar bar bar bar"; }
+
+/* ========================================
+   SPRINT EN COURS : frise J7/10
+   ======================================== */
+.ui-sprint { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); }
+.ui-sprint-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.ui-sprint-name { font: 800 1.05rem/1.2 var(--ui-font-display); }
+.ui-sprint-dates { font-size: 0.8rem; color: var(--ui-text-2); }
+.ui-sprint-left { margin-left: auto; font-size: 0.8rem; color: var(--ui-text-2); }
+.ui-sprint-left b { font-size: 1.1rem; color: var(--ui-text); font-family: var(--ui-font-num); }
+.ui-tl { position: relative; height: 12px; border-radius: 999px; background: var(--ui-surface-alt); }
+.ui-tl-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--ui-accent), color-mix(in srgb, var(--ui-accent) 60%, var(--ui-dom-pi))); }
+.ui-tl-today { position: absolute; top: -5px; bottom: -5px; width: 3px; border-radius: 2px; background: var(--ui-text); }
+.ui-tl-today i { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 0.64rem; font-style: normal; font-weight: 700; white-space: nowrap; color: var(--ui-text-2); }
+.ui-tl-scale { display: flex; justify-content: space-between; gap: 8px; font-size: 0.72rem; color: var(--ui-text-3); }
+
+/* ========================================
+   BANDE DES SPRINTS DU PI (contenu riche conservé)
+   ======================================== */
+.ui-strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr); gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.bureau .ui-strip, .tv .ui-strip { grid-auto-flow: row; grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: visible; gap: 12px; }
+.ui-strip-card {
+  --strip-c: var(--status-todo);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--ui-border);
+  border-top: 3px solid var(--strip-c);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+}
+.ui-strip-card--closed { --strip-c: var(--success); }
+.ui-strip-card--active { --strip-c: var(--ui-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-accent) 30%, transparent); }
+.ui-strip-card--future { --strip-c: var(--status-todo); }
+.ui-strip-card--breath { --strip-c: var(--success); border-style: dashed; border-top-style: solid; opacity: 0.85; }
+.ui-strip-hd { display: flex; align-items: baseline; gap: 6px; }
+.ui-strip-hd b { font-family: var(--ui-font-num); font-size: 1rem; }
+.ui-strip-st { color: var(--strip-c); font-weight: 800; }
+.ui-strip-dates { margin-left: auto; font-size: 0.7rem; color: var(--ui-text-3); white-space: nowrap; }
+.ui-strip-goal { font-size: 0.8rem; line-height: 1.35; color: var(--ui-text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ui-strip-goal.is-empty { font-style: italic; color: var(--ui-text-3); }
+.ui-strip-nums { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.74rem; color: var(--ui-text-2); }
+.ui-strip-nums b { color: var(--ui-text); font-family: var(--ui-font-num); }
+.ui-slip { font-size: 0.7rem; font-weight: 700; font-style: normal; color: var(--amber-text); white-space: nowrap; }
+.ui-strip-groups { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; padding-top: 6px; border-top: 1px dashed var(--ui-border); }
+.ui-strip-grp { display: flex; justify-content: space-between; gap: 6px; font-size: 0.72rem; color: var(--ui-text-2); }
+.ui-strip-grp small { color: var(--ui-text-3); }
+.ui-strip-grp b { color: var(--ui-text); }
+
+/* ========================================
+   FLUX : lead/cycle · temps par colonne · vélocité · aging · prévision
+   ======================================== */
+.ui-lct { display: flex; align-items: center; gap: 4px; }
+.ui-lct-node { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 1rem; flex: 0 0 auto; }
+.ui-lct-node small { font-size: 0.62rem; color: var(--ui-text-3); }
+.ui-lct-seg { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 4px 6px; border-radius: 6px; font-size: 0.7rem; min-width: 0; }
+.ui-lct-seg i { font-style: normal; color: var(--ui-text-3); white-space: nowrap; }
+.ui-lct-seg b { font-family: var(--ui-font-num); font-size: 0.9rem; }
+.ui-lct-seg--wait { background: color-mix(in srgb, var(--status-todo) 22%, transparent); }
+.ui-lct-seg--cycle { background: color-mix(in srgb, var(--ui-accent) 22%, transparent); }
+.ui-lct-lead { text-align: center; font-size: 0.74rem; color: var(--ui-text-2); }
+.ui-floweff { display: flex; align-items: center; gap: 10px; font-size: 0.78rem; }
+.ui-floweff b { font-family: var(--ui-font-num); }
+
+.ui-stage { display: flex; height: 48px; border-radius: var(--ui-radius-sm); overflow: hidden; }
+.ui-stage-seg { --seg: var(--ui-accent); display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; background: var(--seg); color: #fff; font-size: 0.66rem; line-height: 1.2; padding: 0 4px; overflow: hidden; }
+.ui-stage-seg i { font-style: normal; opacity: 0.9; white-space: nowrap; }
+.ui-stage-seg b { font-family: var(--ui-font-num); font-size: 0.82rem; }
+
+/* Variables contextuelles (`--h`, `--target`, `--pct`) : une valeur par défaut au niveau du
+   composant, redéfinie en ligne — sans elle, un `var()` non défini rend un élément invisible
+   sans la moindre erreur console. */
+.ui-velo { --target: 100%; position: relative; display: flex; align-items: flex-end; gap: 8px; height: 94px; margin: 16px 0 24px; }
+.ui-velo--sm { height: 64px; }
+.ui-velo-bar { --h: 0%; position: relative; flex: 1; min-width: 12px; height: var(--h); border-radius: 5px 5px 0 0; background: color-mix(in srgb, var(--ui-accent) 55%, var(--ui-surface-alt)); }
+.ui-velo-bar.is-current { background: var(--ui-accent); outline: 2px dashed color-mix(in srgb, var(--ui-accent) 60%, transparent); outline-offset: 2px; }
+.ui-velo-bar b { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font: 700 0.68rem var(--ui-font-num); }
+.ui-velo-bar i { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 0.64rem; font-style: normal; color: var(--ui-text-3); white-space: nowrap; }
+.ui-velo-target { position: absolute; left: 0; right: 0; bottom: var(--target); border-top: 2px dashed var(--warning); z-index: 1; pointer-events: none; }
+.ui-velo-target i { position: absolute; right: 0; top: -14px; font-size: 0.62rem; font-style: normal; font-weight: 700; color: var(--amber-text); }
+
+.ui-aging { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ui-aging-col { display: flex; flex-direction: column; gap: 5px; padding: 8px; border-radius: var(--ui-radius-sm); background: var(--ui-surface-alt); }
+.ui-aging-col header { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ui-text-3); }
+.ui-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; background: var(--ui-surface); border: 1px solid var(--ui-border); font: 600 0.7rem var(--ui-font-mono); }
+.ui-chip b { font-family: var(--ui-font-num); }
+.ui-chip--good { border-color: color-mix(in srgb, var(--success) 50%, transparent); }
+.ui-chip--warn { border-color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.ui-chip--bad { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+
+.ui-forecast { display: flex; align-items: center; gap: 16px; }
+.ui-gauge { --ring: var(--ui-accent); --pct: 0; position: relative; display: grid; place-items: center; width: 96px; height: 96px; flex: 0 0 auto; border-radius: 50%; background: conic-gradient(var(--ring) calc(var(--pct) * 1%), var(--ui-surface-alt) 0); }
+.ui-gauge::before { content: ""; position: absolute; inset: 9px; border-radius: 50%; background: var(--ui-surface); }
+.ui-gauge b, .ui-gauge i { position: relative; }
+.ui-gauge b { font: 800 1.25rem var(--ui-font-num); }
+.ui-gauge i { font-size: 0.6rem; font-style: normal; color: var(--ui-text-3); text-align: center; line-height: 1.1; }
+.ui-gauge--good { --ring: var(--success); }
+.ui-gauge--warn { --ring: var(--warning); }
+.ui-gauge--bad { --ring: var(--danger); }
+.ui-forecast-dl { display: grid; grid-template-columns: auto auto; gap: 4px 12px; font-size: 0.8rem; }
+.ui-forecast-dl dt { color: var(--ui-text-3); }
+.ui-forecast-dl dd { font-weight: 700; }
+
+/* ========================================
+   ÉQUIPES & SIGNAUX
+   ======================================== */
+.ui-ring { --ring: var(--ui-accent); --pct: 0; position: relative; display: grid; place-items: center; width: 56px; height: 56px; flex: 0 0 auto; border-radius: 50%; background: conic-gradient(var(--ring) calc(var(--pct) * 1%), var(--ui-surface-alt) 0); }
+.ui-ring::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--ui-surface); }
+.ui-ring b, .ui-ring small { position: relative; }
+.ui-ring b { font: 800 0.78rem var(--ui-font-num); }
+.ui-ring--good { --ring: var(--success); }
+.ui-ring--warn { --ring: var(--warning); }
+.ui-ring--bad { --ring: var(--danger); }
+.ui-ring--lg { width: 104px; height: 104px; }
+.ui-ring--lg::before { inset: 10px; }
+.ui-ring--lg b { font-size: 1.75rem; }
+.ui-ring--lg small { font-size: 0.66rem; color: var(--ui-text-3); margin-top: -2px; }
+
+.ui-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.bureau .ui-teams, .tv .ui-teams { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+/* Anneau en `auto`, liste en `minmax(0, 1fr)` : une colonne `auto` ne rétrécit jamais et
+   faisait déborder la carte de 26 px sur mobile (mesuré par la sonde). */
+/* Sur mobile (deux cartes de 166 px), anneau et liste s'empilent : côte à côte, le texte
+   « 34/52 » débordait de sa piste — un débordement de TEXTE, que seul `scrollWidth` voit. */
+.ui-team { --team: var(--ui-accent); display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px 10px; padding: 10px 12px; border: 1px solid var(--ui-border); border-left: 4px solid var(--team); border-radius: var(--ui-radius); background: var(--ui-surface); }
+.ui-team header { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+.ui-team-dot, .ui-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--dot, var(--team)); flex: 0 0 auto; margin-right: 6px; }
+.ui-team-dot { margin: 0; }
+.ui-team-health { margin-left: auto; padding: 2px 8px; border-radius: 999px; font: 800 0.72rem var(--ui-font-num); }
+.ui-team-health--good { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success-text); }
+.ui-team-health--warn { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--amber-text); }
+.ui-team-health--bad { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--status-blocked-text); }
+.bureau .ui-team, .tv .ui-team { grid-template-columns: auto minmax(0, 1fr); }
+.ui-team dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; font-size: 0.76rem; align-content: start; min-width: 0; }
+.ui-team dd { white-space: nowrap; }
+/* Dans une demi-colonne (Frise, Journal), quatre cartes ne tiennent pas : deux par rangée. */
+.bureau .d4-under .ui-teams, .bureau .d2-duo .ui-teams, .bureau .ui-pi-aside .ui-teams { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ui-team dt { color: var(--ui-text-3); }
+.ui-team dd { font-weight: 700; font-family: var(--ui-font-num); }
+
+.ui-sla { display: flex; align-items: center; gap: 14px; }
+.ui-sla ul { font-size: 0.8rem; display: flex; flex-direction: column; gap: 4px; }
+
+.ui-stuck { display: flex; flex-direction: column; }
+.ui-stuck-row { display: grid; grid-template-columns: auto auto 1fr auto; gap: 4px 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--ui-border); font-size: 0.8rem; }
+.ui-stuck-row:first-child { border-top: 0; }
+.ui-stuck-title { grid-column: 1 / -1; font-weight: 600; }
+.ui-stuck-lead { color: var(--ui-text-2); font-size: 0.74rem; }
+.ui-stuck-lead.is-none { color: var(--amber-text); font-style: italic; }
+.ui-stuck-age { font-family: var(--ui-font-num); }
+.bureau .ui-stuck-row, .tv .ui-stuck-row { grid-template-columns: 16px 86px 1fr auto 130px 40px; }
+.bureau .ui-stuck-title, .tv .ui-stuck-title { grid-column: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ui-badge { padding: 2px 8px; border-radius: 999px; font-size: 0.66rem; font-weight: 800; white-space: nowrap; }
+.ui-badge--todo { background: var(--status-todo-bg); color: var(--status-todo-text); }
+.ui-badge--inprog { background: var(--status-inprog-bg); color: var(--status-inprog-text); }
+.ui-badge--review { background: var(--status-review-bg); color: var(--status-review-text); }
+.ui-badge--test { background: var(--status-test-bg); color: var(--status-test-text); }
+.ui-badge--blocked { background: var(--status-blocked-bg); color: var(--status-blocked-text); }
+.ui-badge--done { background: var(--status-done-bg); color: var(--status-done-text); }
+
+.ui-feed { display: flex; flex-direction: column; }
+.ui-feed li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 7px 0; border-top: 1px solid var(--ui-border); font-size: 0.78rem; }
+.ui-feed li:first-child { border-top: 0; }
+.ui-feed time { flex: 0 0 90px; color: var(--ui-text-3); font-size: 0.7rem; }
+.ui-feed span { color: var(--ui-text-2); }
+
+.ui-oncall { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ui-oncall-lbl { font-size: 0.74rem; font-weight: 700; color: var(--ui-text-2); }
+.ui-oncall-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 999px; border: 1px solid var(--ui-border); background: var(--ui-surface); font-size: 0.76rem; font-weight: 600; }
+.ui-oncall-chip i { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--team); color: #fff; font: 800 0.62rem var(--ui-font); }
+.ui-oncall-chip small { color: var(--ui-text-3); }
+
+/* ========================================
+   ÉTAT VIDE
+   ======================================== */
+.ui-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 20px; text-align: center; border: 1px dashed var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); }
+.ui-empty-ico { font-size: 2.25rem; }
+.ui-empty b { font: 700 1.05rem var(--ui-font-display); }
+.ui-empty p { max-width: 46ch; font-size: 0.85rem; color: var(--ui-text-2); }
+
+/* ========================================
+   TABLES
+   ======================================== */
+.ui-table-wrap { overflow-x: auto; }
+.ui-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.ui-table th, .ui-table td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--ui-border); white-space: nowrap; vertical-align: middle; }
+.ui-table thead th { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ui-text-3); }
+.ui-table tbody th { font-weight: 700; }
+.ui-table td b { font-family: var(--ui-font-num); }

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup 3 — Météo des équipes — Board & backlog</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="stylesheet" href="../../../css/tokens.css">
+  <link rel="stylesheet" href="../_shared/ui.css">
+  <link rel="stylesheet" href="../_shared/ui-pi.css">
+  <link rel="stylesheet" href="../_shared/ui-health.css">
+  <link rel="stylesheet" href="../_shared/ui-flows.css">
+  <link rel="stylesheet" href="../_shared/ui-pages.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="deep.css">
+  <link rel="stylesheet" href="../_shared/gallery.css">
+  <link rel="stylesheet" href="../_shared/bureau.css">
+  <link rel="stylesheet" href="../_shared/overlay.css">
+</head>
+<body class="gallery" data-dir="mockup-3">
+
+  <script>
+    /* Aperçu iframe de l'index : seul le premier cadre doit apparaître */
+    if (window.self !== window.top) document.body.classList.add('is-embedded');
+    /* Le site démarre en clair, la TV se lit en sombre : chaque direction doit tenir dans les deux. */
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.gal-theme, .fcp-theme')) return;
+      const racine = document.documentElement;
+      const versClair = racine.getAttribute('data-theme') !== 'light';
+      racine.setAttribute('data-theme', versClair ? 'light' : 'dark');
+      document.querySelectorAll('.gal-theme').forEach((b) => { b.textContent = versClair ? '🌙 Voir en sombre' : '☀️ Voir en clair'; });
+    });
+  </script>
+
+  <header class="gal-head">
+    <div class="gal-head-top">
+      <a class="gal-back" href="../index.html">← Toutes les directions</a>
+      <button class="gal-theme" type="button">☀️ Voir en clair</button>
+    </div>
+    <h1>🌤️ Mockup 3 — Météo des équipes · Board & backlog</h1>
+    <p class="gal-sub">Une matrice équipes × domaines en pastilles météo ; un clic ouvre la fiche. Le quotidien : Scrum, Kanban avec vieillissement, backlog groupé et actions en masse.</p>
+  </header>
+
+    <nav class="gal-nav">
+      <a href="01-dashboard.html">Dashboard</a>
+      <a href="02-sections.html">PI · Rapports · Santé</a>
+      <a href="03-modals.html">Modales</a>
+      <a href="04-live.html">En séance</a>
+      <a href="05-tv.html">Mode TV</a>
+      <a href="06-equipe.html">Fiche équipe</a>
+      <a href="07-previsions.html">Prévisions</a>
+      <a href="08-board.html" aria-current="page">Board & backlog</a>
+      <a href="09-parametres.html">Paramètres</a>
+      <a href="10-etats.html">États limites</a>
+      <a href="11-comprendre.html">Comprendre</a>
+      <a href="12-tv-rotation.html">TV · rotation</a>
+    </nav>
+
+
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Board Scrum <small>1280 × 820, réduit pour tenir · colonnes, WIP, filtres — la météo du sprint dans le titre</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it is-active" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Board</h1>
+    <span class="ui-top-mode">☀️ 65 %</span>
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  
+  <div class="ui-toolbar">
+    <div class="ui-seg" role="radiogroup" aria-label="Mode"><button type="button" class="ui-seg-btn is-active">🏃 Scrum</button><button type="button" class="ui-seg-btn">🗂️ Kanban</button></div>
+    <div class="ui-seg" role="radiogroup" aria-label="Disposition"><button type="button" class="ui-seg-btn is-active" title="Colonnes">▥</button><button type="button" class="ui-seg-btn" title="Swimlanes">☰</button><button type="button" class="ui-seg-btn" title="Liste">≡</button></div>
+    <div class="ui-filters"><span class="ui-chip is-on">Vega ✕</span><span class="ui-chip">Mes tickets</span><span class="ui-chip">📗 Story</span><span class="ui-chip">🐛 Bug</span><span class="ui-chip">Sans estimation</span></div>
+    <button class="ui-btn ui-btn--ghost" type="button">📈 Graphes ▾</button>
+  </div>
+  <div class="ui-board"><div class="ui-board-col" data-st="todo"><header>À faire <small>1 · 5 pts</small></header>
+        <article class="ui-tk"><header><code>VEGA-424</code><i>📗</i></header><span>Import : remonter les cellules ignorées</span><footer><b>5 pts</b><i class="ui-avatar">—</i></footer></article>
+        <button class="ui-tk ui-tk--add" type="button">+ Ajouter (N)</button>
+      </div><div class="ui-board-col" data-st="inprog"><header>En cours <small>3/4 · 16 pts</small></header>
+        <article class="ui-tk is-blocked"><header><code>VEGA-412</code><i>📗</i></header><span>Export CSV — encodage UTF-8 BOM pour Excel FR</span><footer><b>5 pts</b><i class="ui-avatar">TV</i><em>🚫 3 j</em></footer></article><article class="ui-tk"><header><code>VEGA-415</code><i>📗</i></header><span>Sync JIRA — mémoire des sprints clos vides</span><footer><b>8 pts</b><i class="ui-avatar">MG</i></footer></article><article class="ui-tk"><header><code>VEGA-398</code><i>🛠️</i></header><span>Refacto du parseur CSV pivot RH</span><footer><b>3 pts</b><i class="ui-avatar">LA</i></footer></article>
+        
+      </div><div class="ui-board-col" data-st="review"><header>Revue <small>1/2 · 5 pts</small></header>
+        <article class="ui-tk"><header><code>VEGA-417</code><i>📗</i></header><span>Bandeau de couverture : sprints rapatriés</span><footer><b>5 pts</b><i class="ui-avatar">TV</i></footer></article>
+        
+      </div><div class="ui-board-col" data-st="test"><header>Test <small>1/3 · 2 pts</small></header>
+        <article class="ui-tk"><header><code>VEGA-420</code><i>🐛</i></header><span>Bug — capacité négative si absence hors roster</span><footer><b>2 pts</b><i class="ui-avatar">MG</i></footer></article>
+        
+      </div><div class="ui-board-col" data-st="done"><header>Terminé <small>4 · 9 pts</small></header>
+        <article class="ui-tk"><header><code>VEGA-409</code><i>📗</i></header><span>Colonne « Jours » : demi-journées acceptées</span><footer><b>3 pts</b><i class="ui-avatar">LA</i></footer></article><article class="ui-tk"><header><code>VEGA-421</code><i>🛡️</i></header><span>Support — jeton JIRA expiré non signalé</span><footer><b>2 pts</b><i class="ui-avatar">CM</i></footer></article><article class="ui-tk"><header><code>VEGA-425</code><i>📗</i></header><span>Écraser : fenêtre PIP comprise</span><footer><b>3 pts</b><i class="ui-avatar">TV</i></footer></article><article class="ui-tk"><header><code>VEGA-426</code><i>🛠️</i></header><span>Doc — guide Scrum Master : rotation</span><footer><b>1 pts</b><i class="ui-avatar">CM</i></footer></article>
+        
+      </div></div>
+  </main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it is-active" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Board Kanban · vieillissement <small>1280 × 820, réduit pour tenir · chaque carte colorée par son âge vs P50/P85</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it is-active" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Board</h1>
+    <span class="ui-top-mode">⛅ WIP 5/4</span>
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  
+  <div class="ui-toolbar">
+    <div class="ui-seg" role="radiogroup" aria-label="Mode"><button type="button" class="ui-seg-btn">🏃 Scrum</button><button type="button" class="ui-seg-btn is-active">🗂️ Kanban</button></div>
+    <div class="ui-seg" role="radiogroup" aria-label="Disposition"><button type="button" class="ui-seg-btn is-active" title="Colonnes">▥</button><button type="button" class="ui-seg-btn" title="Swimlanes">☰</button><button type="button" class="ui-seg-btn" title="Liste">≡</button></div>
+    <div class="ui-filters"><span class="ui-chip is-on">Vega ✕</span><span class="ui-chip">Mes tickets</span><span class="ui-chip">📗 Story</span><span class="ui-chip">🐛 Bug</span><span class="ui-chip">Sans estimation</span></div>
+    <button class="ui-btn ui-btn--ghost" type="button">📈 Graphes ▾</button>
+  </div>
+  <div class="ui-board ui-board--aging"><div class="ui-board-col" data-st="todo"><header>À faire <small>1 · 5 pts</small></header>
+        <article class="ui-tk ui-tk--ok"><header><code>VEGA-424</code><i>📗</i></header><span>Import : remonter les cellules ignorées</span><footer><b>5 pts</b><i class="ui-avatar">—</i></footer></article>
+        <button class="ui-tk ui-tk--add" type="button">+ Ajouter (N)</button>
+      </div><div class="ui-board-col" data-st="inprog"><header>En cours <small>3/4 · 16 pts</small></header>
+        <article class="ui-tk is-blocked ui-tk--ok"><header><code>VEGA-412</code><i>📗</i></header><span>Export CSV — encodage UTF-8 BOM pour Excel FR</span><footer><b>5 pts</b><em class="ui-tk-age">3 j</em><i class="ui-avatar">TV</i><em>🚫 3 j</em></footer></article><article class="ui-tk ui-tk--ok"><header><code>VEGA-415</code><i>📗</i></header><span>Sync JIRA — mémoire des sprints clos vides</span><footer><b>8 pts</b><em class="ui-tk-age">2 j</em><i class="ui-avatar">MG</i></footer></article><article class="ui-tk ui-tk--warn"><header><code>VEGA-398</code><i>🛠️</i></header><span>Refacto du parseur CSV pivot RH</span><footer><b>3 pts</b><em class="ui-tk-age">8 j</em><i class="ui-avatar">LA</i></footer></article>
+        
+      </div><div class="ui-board-col" data-st="review"><header>Revue <small>1/2 · 5 pts</small></header>
+        <article class="ui-tk ui-tk--ok"><header><code>VEGA-417</code><i>📗</i></header><span>Bandeau de couverture : sprints rapatriés</span><footer><b>5 pts</b><em class="ui-tk-age">1 j</em><i class="ui-avatar">TV</i></footer></article>
+        
+      </div><div class="ui-board-col" data-st="test"><header>Test <small>1/3 · 2 pts</small></header>
+        <article class="ui-tk ui-tk--ok"><header><code>VEGA-420</code><i>🐛</i></header><span>Bug — capacité négative si absence hors roster</span><footer><b>2 pts</b><em class="ui-tk-age">1 j</em><i class="ui-avatar">MG</i></footer></article>
+        
+      </div><div class="ui-board-col" data-st="done"><header>Terminé <small>4 · 9 pts</small></header>
+        <article class="ui-tk ui-tk--ok"><header><code>VEGA-409</code><i>📗</i></header><span>Colonne « Jours » : demi-journées acceptées</span><footer><b>3 pts</b><i class="ui-avatar">LA</i></footer></article><article class="ui-tk ui-tk--ok"><header><code>VEGA-421</code><i>🛡️</i></header><span>Support — jeton JIRA expiré non signalé</span><footer><b>2 pts</b><i class="ui-avatar">CM</i></footer></article><article class="ui-tk ui-tk--ok"><header><code>VEGA-425</code><i>📗</i></header><span>Écraser : fenêtre PIP comprise</span><footer><b>3 pts</b><i class="ui-avatar">TV</i></footer></article><article class="ui-tk ui-tk--ok"><header><code>VEGA-426</code><i>🛠️</i></header><span>Doc — guide Scrum Master : rotation</span><footer><b>1 pts</b><i class="ui-avatar">CM</i></footer></article>
+        
+      </div></div>
+  <div class="ui-legend"><span><i style="--dot:var(--success)"></i>≤ P50 (4 j)</span><span><i style="--dot:var(--warning)"></i>P50 → P85</span><span><i style="--dot:var(--danger)"></i>&gt; P85 (9 j) — à traiter au daily</span></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it is-active" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">🖥️ Desktop — Backlog <small>1280 × 820, réduit pour tenir · groupé par sprint, 3 sélectionnés, barre d'actions</small></div>
+  <div class="bureau-zone">
+    <div class="bureau-fenetre" data-w="1280" data-h="820">
+      <div class="bureau screen">
+        <div class="desk">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it is-active" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Backlog</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <div class="ui-toolbar">
+    <input class="ui-input ui-input--search" type="search" placeholder="Filtrer par titre, id, personne…" aria-label="Filtrer">
+    <div class="ui-filters"><span class="ui-chip is-on">Vega ✕</span><span class="ui-chip is-on">PI 30 ✕</span><span class="ui-chip">Statut ▾</span><span class="ui-chip">Type ▾</span><span class="ui-chip">Epic ▾</span></div>
+    <label class="ui-field ui-field--inline"><span class="ui-field-lbl">Grouper</span><select class="ui-input"><option>par sprint</option><option>par PI</option><option>par epic</option><option>aucun</option></select></label>
+  </div>
+  <div class="ui-backlog">
+    <section class="ui-bl-grp"><header><b>30.2 · en cours</b><small>10 tickets · 37 pts</small></header>
+      <label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-412"><i>📗</i><code>VEGA-412</code><span class="ui-bl-title">Export CSV — encodage UTF-8 BOM pour Excel FR</span><span class="ui-badge ui-badge--blocked">Bloqué</span><em class="ui-bl-prio ui-bl-prio--haute">haute</em><b>5</b><i class="ui-avatar">TV</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-409"><i>📗</i><code>VEGA-409</code><span class="ui-bl-title">Colonne « Jours » : demi-journées acceptées</span><span class="ui-badge ui-badge--done">Terminé</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>3</b><i class="ui-avatar">LA</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-415"><i>📗</i><code>VEGA-415</code><span class="ui-bl-title">Sync JIRA — mémoire des sprints clos vides</span><span class="ui-badge ui-badge--inprog">En cours</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>8</b><i class="ui-avatar">MG</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-417"><i>📗</i><code>VEGA-417</code><span class="ui-bl-title">Bandeau de couverture : sprints rapatriés</span><span class="ui-badge ui-badge--review">Revue</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>5</b><i class="ui-avatar">TV</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-398"><i>🛠️</i><code>VEGA-398</code><span class="ui-bl-title">Refacto du parseur CSV pivot RH</span><span class="ui-badge ui-badge--inprog">En cours</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>3</b><i class="ui-avatar">LA</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-420"><i>🐛</i><code>VEGA-420</code><span class="ui-bl-title">Bug — capacité négative si absence hors roster</span><span class="ui-badge ui-badge--test">Test</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>2</b><i class="ui-avatar">MG</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-421"><i>🛡️</i><code>VEGA-421</code><span class="ui-bl-title">Support — jeton JIRA expiré non signalé</span><span class="ui-badge ui-badge--done">Terminé</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>2</b><i class="ui-avatar">CM</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-424"><i>📗</i><code>VEGA-424</code><span class="ui-bl-title">Import : remonter les cellules ignorées</span><span class="ui-badge ui-badge--todo">À faire</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>5</b><i class="ui-avatar is-none">—</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-425"><i>📗</i><code>VEGA-425</code><span class="ui-bl-title">Écraser : fenêtre PIP comprise</span><span class="ui-badge ui-badge--done">Terminé</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>3</b><i class="ui-avatar">TV</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-426"><i>🛠️</i><code>VEGA-426</code><span class="ui-bl-title">Doc — guide Scrum Master : rotation</span><span class="ui-badge ui-badge--done">Terminé</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>1</b><i class="ui-avatar">CM</i></label>
+    </section>
+    <section class="ui-bl-grp"><header><b>30.3</b><small>2 tickets · 11 pts</small></header>
+      <label class="ui-bl-row is-selected"><input type="checkbox" checked aria-label="Sélectionner VEGA-430"><i>📗</i><code>VEGA-430</code><span class="ui-bl-title">Archive des sprints clos — réinjection</span><span class="ui-badge ui-badge--todo">À faire</span><em class="ui-bl-prio ui-bl-prio--haute">haute</em><b>8</b><i class="ui-avatar is-none">—</i></label><label class="ui-bl-row is-selected"><input type="checkbox" checked aria-label="Sélectionner VEGA-431"><i>🛠️</i><code>VEGA-431</code><span class="ui-bl-title">Mémoire des sprints vides — purge</span><span class="ui-badge ui-badge--todo">À faire</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>3</b><i class="ui-avatar">MG</i></label>
+    </section>
+    <section class="ui-bl-grp"><header><b>30.4</b><small>1 tickets · 13 pts</small></header>
+      <label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-432"><i>📗</i><code>VEGA-432</code><span class="ui-bl-title">Atlas — import des appétences</span><span class="ui-badge ui-badge--todo">À faire</span><em class="ui-bl-prio ui-bl-prio--basse">basse</em><b>13</b><i class="ui-avatar is-none">—</i></label>
+    </section>
+    <section class="ui-bl-grp"><header><b>Sans sprint</b><small>1 tickets · 0 pts</small></header>
+      <label class="ui-bl-row is-selected"><input type="checkbox" checked aria-label="Sélectionner VEGA-433"><i>🐛</i><code>VEGA-433</code><span class="ui-bl-title">Bug — capacité négative (bis)</span><span class="ui-badge ui-badge--todo">À faire</span><em class="ui-bl-prio ui-bl-prio--haute">haute</em><b>?</b><i class="ui-avatar is-none">—</i></label>
+    </section>
+  </div>
+  <div class="ui-bulk"><b>3 sélectionnés</b><button class="ui-btn" type="button">→ Sprint ▾</button><button class="ui-btn" type="button">👤 Assigner ▾</button><button class="ui-btn" type="button">🏷️ Étiqueter</button><button class="ui-btn ui-btn--danger-ghost" type="button">Supprimer</button><span class="ui-spacer"></span><button class="ui-btn ui-btn--ghost" type="button">Tout désélectionner</button></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <div class="gal-group gal-group--vue">📱 Mobile — board & backlog à 390 px <small>390 × 760 — faites défiler horizontalement</small></div>
+  <div class="gal-rail">
+    
+    <figure class="phone">
+      <span class="phone-tag">Board</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it is-active" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Board</h1>
+    <span class="ui-top-mode">☀️ 65 %</span>
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  
+  <div class="ui-toolbar">
+    <div class="ui-seg" role="radiogroup" aria-label="Mode"><button type="button" class="ui-seg-btn is-active">🏃 Scrum</button><button type="button" class="ui-seg-btn">🗂️ Kanban</button></div>
+    <div class="ui-seg" role="radiogroup" aria-label="Disposition"><button type="button" class="ui-seg-btn is-active" title="Colonnes">▥</button><button type="button" class="ui-seg-btn" title="Swimlanes">☰</button><button type="button" class="ui-seg-btn" title="Liste">≡</button></div>
+    <div class="ui-filters"><span class="ui-chip is-on">Vega ✕</span><span class="ui-chip">Mes tickets</span><span class="ui-chip">📗 Story</span><span class="ui-chip">🐛 Bug</span><span class="ui-chip">Sans estimation</span></div>
+    <button class="ui-btn ui-btn--ghost" type="button">📈 Graphes ▾</button>
+  </div>
+  <div class="ui-board"><div class="ui-board-col" data-st="todo"><header>À faire <small>1 · 5 pts</small></header>
+        <article class="ui-tk"><header><code>VEGA-424</code><i>📗</i></header><span>Import : remonter les cellules ignorées</span><footer><b>5 pts</b><i class="ui-avatar">—</i></footer></article>
+        <button class="ui-tk ui-tk--add" type="button">+ Ajouter (N)</button>
+      </div><div class="ui-board-col" data-st="inprog"><header>En cours <small>3/4 · 16 pts</small></header>
+        <article class="ui-tk is-blocked"><header><code>VEGA-412</code><i>📗</i></header><span>Export CSV — encodage UTF-8 BOM pour Excel FR</span><footer><b>5 pts</b><i class="ui-avatar">TV</i><em>🚫 3 j</em></footer></article><article class="ui-tk"><header><code>VEGA-415</code><i>📗</i></header><span>Sync JIRA — mémoire des sprints clos vides</span><footer><b>8 pts</b><i class="ui-avatar">MG</i></footer></article><article class="ui-tk"><header><code>VEGA-398</code><i>🛠️</i></header><span>Refacto du parseur CSV pivot RH</span><footer><b>3 pts</b><i class="ui-avatar">LA</i></footer></article>
+        
+      </div><div class="ui-board-col" data-st="review"><header>Revue <small>1/2 · 5 pts</small></header>
+        <article class="ui-tk"><header><code>VEGA-417</code><i>📗</i></header><span>Bandeau de couverture : sprints rapatriés</span><footer><b>5 pts</b><i class="ui-avatar">TV</i></footer></article>
+        
+      </div><div class="ui-board-col" data-st="test"><header>Test <small>1/3 · 2 pts</small></header>
+        <article class="ui-tk"><header><code>VEGA-420</code><i>🐛</i></header><span>Bug — capacité négative si absence hors roster</span><footer><b>2 pts</b><i class="ui-avatar">MG</i></footer></article>
+        
+      </div><div class="ui-board-col" data-st="done"><header>Terminé <small>4 · 9 pts</small></header>
+        <article class="ui-tk"><header><code>VEGA-409</code><i>📗</i></header><span>Colonne « Jours » : demi-journées acceptées</span><footer><b>3 pts</b><i class="ui-avatar">LA</i></footer></article><article class="ui-tk"><header><code>VEGA-421</code><i>🛡️</i></header><span>Support — jeton JIRA expiré non signalé</span><footer><b>2 pts</b><i class="ui-avatar">CM</i></footer></article><article class="ui-tk"><header><code>VEGA-425</code><i>📗</i></header><span>Écraser : fenêtre PIP comprise</span><footer><b>3 pts</b><i class="ui-avatar">TV</i></footer></article><article class="ui-tk"><header><code>VEGA-426</code><i>🛠️</i></header><span>Doc — guide Scrum Master : rotation</span><footer><b>1 pts</b><i class="ui-avatar">CM</i></footer></article>
+        
+      </div></div>
+  </main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it is-active" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Scrum</b><span>Une colonne à la fois, défilement horizontal avec accroche.</span></figcaption>
+    </figure>
+    <figure class="phone">
+      <span class="phone-tag">Backlog</span>
+      <div class="phone-frame"><div class="screen">
+  <div class="ui-app ">
+    
+  <aside class="ui-side">
+    <div class="ui-side-logo"><b>SB</b><span>Squad Board</span></div>
+    <nav class="ui-side-nav" aria-label="Pilotage">
+      <small class="ui-side-grp">Pilotage</small>
+      <a class="ui-nav-it" href="#dashboard" data-dom="flow"><i>▦</i><span>Dashboard</span><kbd>1</kbd></a><a class="ui-nav-it" href="#board" data-dom="flow"><i>▥</i><span>Board</span><kbd>2</kbd></a><a class="ui-nav-it is-active" href="#backlog" data-dom="flow"><i>☰</i><span>Backlog</span><kbd>3</kbd></a><a class="ui-nav-it" href="#pi" data-dom="pi"><i>🗓</i><span>PI Planning</span><kbd>4</kbd></a><a class="ui-nav-it" href="#roadmap" data-dom="pi"><i>🗺</i><span>Roadmap</span><kbd>5</kbd></a><a class="ui-nav-it" href="#health" data-dom="health"><i>🛡</i><span>Santé</span><kbd>6</kbd></a><a class="ui-nav-it" href="#reports" data-dom="report"><i>📈</i><span>Rapports</span><kbd>7</kbd></a><a class="ui-nav-it" href="#retro" data-dom="health"><i>↻</i><span>Amélioration</span><kbd>8</kbd></a>
+      <small class="ui-side-grp">Équipe &amp; RH ▸</small>
+      <small class="ui-side-grp ui-side-grp--foot">⚙️ Paramètres <kbd>,</kbd></small>
+    </nav>
+    <div class="ui-side-teams"><small class="ui-side-grp">Équipes</small><div><button type="button" class="ui-team-btn is-active" style="--team:#3b82f6" title="Vega">VE</button><button type="button" class="ui-team-btn" style="--team:#0d9488" title="Lyra">LY</button><button type="button" class="ui-team-btn" style="--team:#f59e0b" title="Orion">OR</button><button type="button" class="ui-team-btn" style="--team:#8b5cf6" title="Sirius">SI</button></div></div>
+  </aside>
+    <div class="ui-main">
+      
+  <header class="ui-top">
+    <h1 class="ui-top-title">Backlog</h1>
+    
+    <button class="ui-search" type="button"><span>🔍 Rechercher…</span><kbd>Ctrl K</kbd></button>
+    
+    <div class="ui-top-actions"><button class="ui-btn" type="button">▶ Daily</button><button class="ui-btn" type="button">Mes tickets</button><button class="ui-btn ui-btn--primary" type="button">+ Nouveau</button></div>
+  </header>
+      <main class="ui-content">
+  <div class="ui-toolbar">
+    <input class="ui-input ui-input--search" type="search" placeholder="Filtrer par titre, id, personne…" aria-label="Filtrer">
+    <div class="ui-filters"><span class="ui-chip is-on">Vega ✕</span><span class="ui-chip is-on">PI 30 ✕</span><span class="ui-chip">Statut ▾</span><span class="ui-chip">Type ▾</span><span class="ui-chip">Epic ▾</span></div>
+    <label class="ui-field ui-field--inline"><span class="ui-field-lbl">Grouper</span><select class="ui-input"><option>par sprint</option><option>par PI</option><option>par epic</option><option>aucun</option></select></label>
+  </div>
+  <div class="ui-backlog">
+    <section class="ui-bl-grp"><header><b>30.2 · en cours</b><small>10 tickets · 37 pts</small></header>
+      <label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-412"><i>📗</i><code>VEGA-412</code><span class="ui-bl-title">Export CSV — encodage UTF-8 BOM pour Excel FR</span><span class="ui-badge ui-badge--blocked">Bloqué</span><em class="ui-bl-prio ui-bl-prio--haute">haute</em><b>5</b><i class="ui-avatar">TV</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-409"><i>📗</i><code>VEGA-409</code><span class="ui-bl-title">Colonne « Jours » : demi-journées acceptées</span><span class="ui-badge ui-badge--done">Terminé</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>3</b><i class="ui-avatar">LA</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-415"><i>📗</i><code>VEGA-415</code><span class="ui-bl-title">Sync JIRA — mémoire des sprints clos vides</span><span class="ui-badge ui-badge--inprog">En cours</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>8</b><i class="ui-avatar">MG</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-417"><i>📗</i><code>VEGA-417</code><span class="ui-bl-title">Bandeau de couverture : sprints rapatriés</span><span class="ui-badge ui-badge--review">Revue</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>5</b><i class="ui-avatar">TV</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-398"><i>🛠️</i><code>VEGA-398</code><span class="ui-bl-title">Refacto du parseur CSV pivot RH</span><span class="ui-badge ui-badge--inprog">En cours</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>3</b><i class="ui-avatar">LA</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-420"><i>🐛</i><code>VEGA-420</code><span class="ui-bl-title">Bug — capacité négative si absence hors roster</span><span class="ui-badge ui-badge--test">Test</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>2</b><i class="ui-avatar">MG</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-421"><i>🛡️</i><code>VEGA-421</code><span class="ui-bl-title">Support — jeton JIRA expiré non signalé</span><span class="ui-badge ui-badge--done">Terminé</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>2</b><i class="ui-avatar">CM</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-424"><i>📗</i><code>VEGA-424</code><span class="ui-bl-title">Import : remonter les cellules ignorées</span><span class="ui-badge ui-badge--todo">À faire</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>5</b><i class="ui-avatar is-none">—</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-425"><i>📗</i><code>VEGA-425</code><span class="ui-bl-title">Écraser : fenêtre PIP comprise</span><span class="ui-badge ui-badge--done">Terminé</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>3</b><i class="ui-avatar">TV</i></label><label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-426"><i>🛠️</i><code>VEGA-426</code><span class="ui-bl-title">Doc — guide Scrum Master : rotation</span><span class="ui-badge ui-badge--done">Terminé</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>1</b><i class="ui-avatar">CM</i></label>
+    </section>
+    <section class="ui-bl-grp"><header><b>30.3</b><small>2 tickets · 11 pts</small></header>
+      <label class="ui-bl-row is-selected"><input type="checkbox" checked aria-label="Sélectionner VEGA-430"><i>📗</i><code>VEGA-430</code><span class="ui-bl-title">Archive des sprints clos — réinjection</span><span class="ui-badge ui-badge--todo">À faire</span><em class="ui-bl-prio ui-bl-prio--haute">haute</em><b>8</b><i class="ui-avatar is-none">—</i></label><label class="ui-bl-row is-selected"><input type="checkbox" checked aria-label="Sélectionner VEGA-431"><i>🛠️</i><code>VEGA-431</code><span class="ui-bl-title">Mémoire des sprints vides — purge</span><span class="ui-badge ui-badge--todo">À faire</span><em class="ui-bl-prio ui-bl-prio--normale">normale</em><b>3</b><i class="ui-avatar">MG</i></label>
+    </section>
+    <section class="ui-bl-grp"><header><b>30.4</b><small>1 tickets · 13 pts</small></header>
+      <label class="ui-bl-row"><input type="checkbox" aria-label="Sélectionner VEGA-432"><i>📗</i><code>VEGA-432</code><span class="ui-bl-title">Atlas — import des appétences</span><span class="ui-badge ui-badge--todo">À faire</span><em class="ui-bl-prio ui-bl-prio--basse">basse</em><b>13</b><i class="ui-avatar is-none">—</i></label>
+    </section>
+    <section class="ui-bl-grp"><header><b>Sans sprint</b><small>1 tickets · 0 pts</small></header>
+      <label class="ui-bl-row is-selected"><input type="checkbox" checked aria-label="Sélectionner VEGA-433"><i>🐛</i><code>VEGA-433</code><span class="ui-bl-title">Bug — capacité négative (bis)</span><span class="ui-badge ui-badge--todo">À faire</span><em class="ui-bl-prio ui-bl-prio--haute">haute</em><b>?</b><i class="ui-avatar is-none">—</i></label>
+    </section>
+  </div>
+  <div class="ui-bulk"><b>3 sélectionnés</b><button class="ui-btn" type="button">→ Sprint ▾</button><button class="ui-btn" type="button">👤 Assigner ▾</button><button class="ui-btn" type="button">🏷️ Étiqueter</button><button class="ui-btn ui-btn--danger-ghost" type="button">Supprimer</button><span class="ui-spacer"></span><button class="ui-btn ui-btn--ghost" type="button">Tout désélectionner</button></div></main>
+    </div>
+    
+  <nav class="ui-tabbar" aria-label="Navigation principale"><a class="ui-tabbar-it" href="#dashboard"><i>▦</i><span>Dashboard</span></a><a class="ui-tabbar-it" href="#board"><i>▥</i><span>Board</span></a><a class="ui-tabbar-it" href="#pi"><i>🗓</i><span>PI</span></a><a class="ui-tabbar-it" href="#health"><i>🛡</i><span>Santé</span></a><a class="ui-tabbar-it" href="#more"><i>⋯</i><span>Plus</span></a></nav>
+  </div></div></div>
+      <figcaption><b>Groupé</b><span>La barre d'actions se colle au-dessus de la barre d'onglets.</span></figcaption>
+    </figure>
+  </div>
+
+
+  <section class="gal-notes"><h2>Parti pris UX</h2><ul><li>Le titre du Board porte la <strong>météo du sprint</strong> (☀️ 65 %) : on sait où on en est sans ouvrir le Dashboard.</li><li>En Kanban, le vieillissement colore la carte, pas seulement un chiffre — un ticket rouge dans « En cours » se voit depuis la porte de la salle.</li><li>Le backlog garde les <strong>trois dispositions</strong> du site (colonnes, swimlanes, liste) et le groupement par sprint / PI / epic.</li></ul></section>
+
+  <aside class="fcp" aria-label="Panneau de navigation des maquettes">
+    <button class="fcp-toggle" type="button" aria-expanded="true" title="Replier">🎛️</button>
+    <div class="fcp-bd">
+      <div class="fcp-row"><small>Direction</small><div class="fcp-btns"><a class="fcp-btn" href="../mockup-1/01-dashboard.html" title="Cockpit — cette page n'existe que pour la direction approfondie">🧭 1</a><a class="fcp-btn" href="../mockup-2/01-dashboard.html" title="Journal de bord — cette page n'existe que pour la direction approfondie">📖 2</a><a class="fcp-btn is-active" href="../mockup-3/08-board.html" title="Météo des équipes">🌤️ 3</a><a class="fcp-btn" href="../mockup-4/01-dashboard.html" title="Frise du PI — cette page n'existe que pour la direction approfondie">🛤️ 4</a></div></div>
+      <div class="fcp-row"><small>Écran</small><div class="fcp-btns fcp-btns--col"><a class="fcp-btn" href="01-dashboard.html">Dashboard</a><a class="fcp-btn" href="02-sections.html">PI · Rapports · Santé</a><a class="fcp-btn" href="03-modals.html">Modales</a><a class="fcp-btn" href="04-live.html">En séance</a><a class="fcp-btn" href="05-tv.html">Mode TV</a><a class="fcp-btn" href="06-equipe.html">Fiche équipe</a><a class="fcp-btn" href="07-previsions.html">Prévisions</a><a class="fcp-btn is-active" href="08-board.html">Board & backlog</a><a class="fcp-btn" href="09-parametres.html">Paramètres</a><a class="fcp-btn" href="10-etats.html">États limites</a><a class="fcp-btn" href="11-comprendre.html">Comprendre</a><a class="fcp-btn" href="12-tv-rotation.html">TV · rotation</a></div></div>
+      <div class="fcp-row"><small>Affichage</small><div class="fcp-btns"><button class="fcp-btn fcp-theme" type="button">🌓 Thème</button><button class="fcp-btn fcp-annot" type="button" aria-pressed="false">💡 Explications</button></div></div>
+      <div class="fcp-row"><a class="fcp-btn" href="../index.html">↖ Galerie</a></div>
+    </div>
+  </aside>
+
+  <script src="../_shared/bureau.js"></script>
+  <script src="../_shared/overlay.js"></script>
+</body>
+</html>

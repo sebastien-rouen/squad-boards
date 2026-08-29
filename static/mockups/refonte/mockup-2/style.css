@@ -1,0 +1,82 @@
+/* ========================================
+   MOCKUP 2 — JOURNAL DE BORD
+   Éditorial : chapitres numérotés, une phrase de synthèse par indicateur,
+   titres serif, colonne de lecture plafonnée, sommaire collant.
+   ======================================== */
+
+/* ── Pont de tokens — palette réchauffée à partir des tokens du site ── */
+body, .screen {
+  --ui-bg: color-mix(in srgb, var(--bg) 94%, #f59e0b);
+  --ui-surface: color-mix(in srgb, var(--surface) 97%, #f59e0b);
+  --ui-surface-alt: color-mix(in srgb, var(--surface) 90%, var(--text));
+  --ui-text: var(--text);
+  --ui-text-2: var(--text-secondary);
+  --ui-text-3: var(--text-muted);
+  --ui-accent: var(--primary);
+  --ui-accent-2: var(--status-done);
+  --ui-warn: var(--warning);
+  --ui-danger: var(--danger);
+  --ui-border: color-mix(in srgb, var(--border) 65%, transparent);
+  --ui-radius: 16px;
+  --ui-radius-sm: 10px;
+  --ui-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 28px rgba(0, 0, 0, 0.07);
+  --ui-font: var(--font);
+  --ui-font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --ui-font-num: var(--font);
+  --ui-font-mono: var(--font-mono);
+  --ui-dom-flow: var(--primary);
+  --ui-dom-pi: var(--type-epic);
+  --ui-dom-report: var(--warning);
+  --ui-dom-health: var(--status-done);
+}
+
+/* ── Identité : cartes sans bordure, ombre douce, titres serif ── */
+.ui-card, .ui-kpi, .ui-sprint, .ui-strip-card, .ui-pi-obj, .ui-rpt, .ui-hscore { border-color: transparent; box-shadow: var(--ui-shadow); }
+.ui-strip-card { border-top-color: var(--strip-c); }
+.ui-card-title, .ui-sec h2, .ui-top-title, .ui-hcard-lbl { font-family: var(--ui-font-display); }
+.ui-card-title { font-size: 1rem; }
+.ui-kpi-lbl { text-transform: none; letter-spacing: 0; font-size: 0.78rem; font-weight: 600; color: var(--ui-text-2); }
+.ui-kpi-val { font-family: var(--ui-font-display); font-weight: 700; letter-spacing: 0; }
+
+/* ── Journal : colonne de lecture + sommaire ── */
+.d2-journal { display: flex; flex-direction: column; gap: 20px; }
+.bureau .d2-journal, .tv .d2-journal { display: grid; grid-template-columns: minmax(0, 980px) 200px; gap: 32px; justify-content: center; align-items: start; }
+.d2-body { display: flex; flex-direction: column; gap: 32px; min-width: 0; }
+.bureau .d2-body { gap: 44px; }
+
+.d2-masthead { padding-bottom: 14px; border-bottom: 2px solid var(--ui-text); }
+.d2-masthead small { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ui-dom-report); }
+.d2-masthead h1 { margin: 6px 0 4px; font: 700 2rem/1.1 var(--ui-font-display); letter-spacing: -0.02em; }
+.bureau .d2-masthead h1 { font-size: 2.6rem; }
+.d2-masthead p { font-size: 0.8rem; color: var(--ui-text-3); }
+
+.d2-chap { display: flex; flex-direction: column; gap: 14px; }
+.d2-chap-hd { display: flex; align-items: baseline; gap: 12px; }
+.d2-num { font: 700 2.4rem/1 var(--ui-font-display); color: var(--ui-dom-report); opacity: 0.85; }
+.d2-chap-hd h2 { font: 700 1.45rem/1.2 var(--ui-font-display); letter-spacing: -0.01em; }
+.d2-lede { max-width: 68ch; padding-left: 14px; border-left: 3px solid var(--ui-dom-report); font: 400 1.05rem/1.55 var(--ui-font-display); color: var(--ui-text-2); }
+.d2-lede b { color: var(--ui-text); font-weight: 700; }
+.d2-duo { display: grid; gap: 14px; }
+.bureau .d2-duo, .tv .d2-duo { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+
+.d2-toc { display: none; }
+.bureau .d2-toc, .tv .d2-toc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: 80px;
+  padding: 12px;
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow);
+}
+.d2-toc small { padding: 4px 8px; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ui-text-3); }
+.d2-toc small:last-child { margin-top: 6px; border-top: 1px solid var(--ui-border); padding-top: 10px; text-transform: none; letter-spacing: 0; font-weight: 600; }
+.d2-toc a { display: flex; align-items: baseline; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 0.8rem; color: var(--ui-text-2); }
+.d2-toc a b { font: 700 0.9rem var(--ui-font-display); color: var(--ui-dom-report); }
+.d2-toc a.is-active { background: var(--ui-surface-alt); color: var(--ui-text); }
+
+/* En mode TV, le journal prend toute la largeur : le sommaire devient repère de rotation. */
+.tv .d2-journal { grid-template-columns: minmax(0, 1fr); }
+.tv .d2-toc { display: none; }

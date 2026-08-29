@@ -1,0 +1,128 @@
+/* ========================================
+   MOCKUP 3 — MÉTÉO DES ÉQUIPES
+   Matrice équipes × domaines en pastilles météo (4 niveaux), panneau de
+   détail au clic. Très coloré, bordures épaisses, écriture manuscrite
+   pour les repères — la police « Patrick Hand » du site (schémas d'aide).
+   ======================================== */
+
+@font-face {
+  font-family: "Patrick Hand";
+  src: url("../../../fonts/patrick-hand-latin.woff2") format("woff2");
+  font-display: swap;
+}
+
+/* ── Pont de tokens ── */
+body, .screen {
+  --ui-bg: var(--bg);
+  --ui-surface: var(--surface);
+  --ui-surface-alt: color-mix(in srgb, var(--surface) 92%, var(--text));
+  --ui-text: var(--text);
+  --ui-text-2: var(--text-secondary);
+  --ui-text-3: var(--text-muted);
+  --ui-accent: var(--primary);
+  --ui-accent-2: var(--status-done);
+  --ui-warn: var(--warning);
+  --ui-danger: var(--danger);
+  --ui-border: var(--border);
+  --ui-radius: 18px;
+  --ui-radius-sm: 12px;
+  --ui-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  --ui-font: var(--font);
+  --ui-font-display: var(--font);
+  --ui-font-num: var(--font);
+  --ui-font-mono: var(--font-mono);
+  --ui-hand: "Patrick Hand", "Segoe Print", "Comic Sans MS", cursive;
+  --ui-dom-flow: var(--primary);
+  --ui-dom-pi: var(--type-epic);
+  --ui-dom-report: var(--warning);
+  --ui-dom-health: var(--status-done);
+  /* L'échelle météo — la même partout */
+  --w-sun: var(--success);
+  --w-cloud: var(--info);
+  --w-rain: var(--warning);
+  --w-storm: var(--danger);
+}
+
+/* ── Identité : traits épais, chiffres très gras, un peu de manuscrit ── */
+.ui-card, .ui-kpi, .ui-sprint, .ui-strip-card, .ui-btn, .ui-pi-obj, .ui-hcard, .ui-team { border-width: 2px; }
+.ui-kpi-val, .ui-hcard-val { font-weight: 900; }
+.ui-goal { font-family: var(--ui-hand); font-size: 1.25rem; font-weight: 400; }
+.ui-sec h2 { font-size: 1.05rem; }
+.ui-tab.is-active, .ui-pisel-btn.is-active { font-weight: 800; }
+
+/* ── Bandeau météo ── */
+.d3-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 2px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--w-cloud) 22%, var(--ui-surface)), color-mix(in srgb, var(--w-sun) 18%, var(--ui-surface)));
+}
+.bureau .d3-hero, .tv .d3-hero { flex-direction: row; align-items: center; justify-content: space-between; padding: 18px 24px; }
+.d3-hero-main { display: flex; align-items: center; gap: 16px; }
+.d3-hero-main > i { font-size: 3.2rem; font-style: normal; line-height: 1; }
+.d3-hero-main small { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ui-text-3); }
+.d3-hero-main h2 { font: 800 1.5rem/1.1 var(--ui-font-display); }
+.d3-hero-main p { font-size: 0.82rem; color: var(--ui-text-2); }
+.d3-scale { display: flex; flex-wrap: wrap; gap: 6px; }
+.d3-scale-it { --wc: var(--w-cloud); display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 2px solid var(--wc); border-radius: 999px; background: color-mix(in srgb, var(--wc) 18%, var(--ui-surface)); font-size: 0.72rem; font-weight: 700; }
+.d3-scale-it i { font-style: normal; }
+
+/* ── Grille : matrice + panneau ── */
+.d3-grid { display: flex; flex-direction: column; gap: 16px; }
+.bureau .d3-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+.d3-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.d3-matrix { width: 100%; border-collapse: separate; border-spacing: 4px; font-size: 0.78rem; }
+.d3-matrix thead th { padding: 4px; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; text-align: center; color: var(--ui-text-3); }
+.d3-matrix thead th:first-child { text-align: left; }
+.d3-matrix tbody th { padding: 6px 8px; border: 2px solid var(--ui-border); border-radius: var(--ui-radius-sm); background: var(--ui-surface); text-align: left; }
+.d3-matrix tr.is-selected th { border-color: var(--team); box-shadow: 0 0 0 2px color-mix(in srgb, var(--team) 30%, transparent); }
+.d3-team { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+.d3-team i { width: 12px; height: 12px; border-radius: 4px; background: var(--team); flex: 0 0 auto; }
+.d3-team small { font-weight: 500; color: var(--ui-text-3); }
+.d3-cell {
+  --wc: var(--w-cloud);
+  padding: 8px 6px;
+  border: 2px solid color-mix(in srgb, var(--wc) 55%, transparent);
+  border-radius: var(--ui-radius-sm);
+  background: color-mix(in srgb, var(--wc) 22%, var(--ui-surface));
+  text-align: center;
+  line-height: 1.15;
+}
+.d3-cell--sun { --wc: var(--w-sun); }
+.d3-cell--cloud { --wc: var(--w-cloud); }
+.d3-cell--rain { --wc: var(--w-rain); }
+.d3-cell--storm { --wc: var(--w-storm); }
+.d3-cell i { display: block; font-size: 1.3rem; font-style: normal; }
+.d3-cell b { display: block; font: 900 1.05rem var(--ui-font-num); }
+.d3-cell small { font-size: 0.62rem; color: var(--ui-text-2); }
+.d3-open { display: none; }
+.bureau .d3-open { display: table-cell; text-align: right; }
+.d3-matrix--compact .d3-cell { padding: 6px 4px; }
+.d3-matrix--compact .d3-cell i { font-size: 1rem; }
+
+.d3-panel { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 2px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); }
+.bureau .d3-panel { position: sticky; top: 76px; }
+.d3-panel-hd { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; border-bottom: 2px dashed var(--ui-border); }
+.d3-panel-w { font-size: 1.6rem; font-style: normal; }
+.d3-panel-hd .ui-btn { margin-left: auto; }
+.bureau .d3-panel .ui-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bureau .d3-panel .ui-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.d3-panel .ui-strip-card { padding: 8px 10px; }
+
+.d3-agenda { display: flex; flex-direction: column; }
+.d3-agenda li { display: grid; grid-template-columns: 76px 1fr; gap: 0 10px; padding: 6px 0; border-top: 1px dashed var(--ui-border); font-size: 0.8rem; }
+.d3-agenda li:first-child { border-top: 0; }
+.d3-agenda time { grid-row: span 2; font: 400 1rem var(--ui-hand); color: var(--ui-dom-pi); }
+.d3-agenda span { color: var(--ui-text-3); font-size: 0.72rem; }
+
+/* ── TV : la matrice en grand, les signaux à droite ── */
+.d3-tv { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 20px; align-items: start; }
+.d3-tv-side { display: flex; flex-direction: column; gap: 16px; }
+.d3-tv .d3-cell i { font-size: 1.9rem; }
+.d3-tv .d3-cell b { font-size: 1.45rem; }
+.d3-tv .d3-cell { padding: 12px 8px; }
+.d3-tv .d3-open { display: none; }

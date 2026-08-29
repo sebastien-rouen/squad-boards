@@ -10,7 +10,7 @@
  * `lastKnownAbsenceDate`, `piInfo.piBaselines`, table `support`.
  */
 
-import { esc, extractPiNum, getSprintForTeam, breathIdxOf, isBreathSprint, sprintIdx, lastKnownAbsenceDate, teamNameMatches } from '../utils.js';
+import { esc, extractPiNum, getSprintForTeam, breathIdxOf, isBreathSprint, sprintIdx, lastKnownAbsenceDate, teamNameMatches, sprintScope, sumBy } from '../utils.js';
 import { loadPiCfg } from '../utils/pi-config.js';
 
 const DAY = 86400000;
@@ -29,6 +29,32 @@ function _lastSprintOfPi(team, sprintInfoAll, piNum, sprintsPerPI) {
     const idx = sprintIdx(active.name) || 0;
     if (isBreathSprint(active.name, breathIdx) || (idx > 0 && idx === lastIdx)) return { sprint: active, breath: isBreathSprint(active.name, breathIdx) };
     return null;
+}
+
+/**
+ * SPRINT CLOS → RAPPORT PRÊT : un sprint de l'équipe s'est terminé il y a moins de `days` jours.
+ * Le bandeau donne le bilan en une ligne (engagement / réalisé / glissés, règle de
+ * sprint-scope.js) et mène au rapport. Une ligne par équipe, trois au plus.
+ */
+export function recentlyClosedHtml({ teams = [], sprintInfoAll, tickets = [], days = 3 } = {}) {
+    const todayIso = _iso(new Date().toISOString());
+    const floor = _iso(new Date(Date.now() - days * DAY).toISOString());
+    const all = sprintInfoAll?.teamSprints || [];
+    const rows = teams.map(t => {
+        const s = all.filter(x => x.team === t && x.state === 'closed' && x.endDate && _iso(x.endDate) >= floor && _iso(x.endDate) <= todayIso)
+            .sort((a, b) => String(b.endDate).localeCompare(String(a.endDate)))[0];
+        if (!s) return null;
+        const scope = sprintScope(tickets.filter(x => x.team === t), s.name);
+        return { team: t, sprint: s, engaged: scope.engaged.length, done: scope.done.length, carried: scope.carried.length, pts: sumBy(scope.engaged, x => x.points), donePts: sumBy(scope.done, x => x.points) };
+    }).filter(Boolean).slice(0, 3);
+    if (!rows.length) return '';
+    return `<div class="meteo-closed">${rows.map(r => `
+        <a class="meteo-closed-row" href="#reports/${encodeURIComponent(r.team)}/sprint">
+            <span aria-hidden="true">🏁</span>
+            <span class="meteo-closed-txt"><b>${esc(r.sprint.name)}</b> clos le ${esc(_fmt(r.sprint.endDate))} — le rapport est prêt</span>
+            <span class="meteo-closed-nums">${r.done}/${r.engaged} tickets · ${r.donePts}/${r.pts} pts${r.carried ? ` · ${r.carried} glissé${r.carried > 1 ? 's' : ''}` : ''}</span>
+            <span class="meteo-closed-cta">Ouvrir le rapport ›</span>
+        </a>`).join('')}</div>`;
 }
 
 /**

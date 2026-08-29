@@ -25,6 +25,7 @@ import { initCmdPalette } from './components/cmdpalette.js';
 import { initTooltips } from './components/tooltip.js';
 import { initShortcutsModal } from './components/shortcuts_modal.js';
 import { initHelpPopovers, openLearnMode } from './components/help_popover.js';
+import { initOfflineBanner } from './components/offline_banner.js';
 import { toggleFavoritesDropdown } from './components/favorites.js';
 import { initTeamSwitcher, openTeamSwitcher } from './components/team_switcher.js';
 // sprint_tickets_modal.js (Review/Demo) est chargé à la demande — wrappers lazy plus bas
@@ -629,6 +630,7 @@ async function init() {
     initHelpPopovers();
     // Mode apprentissage : toutes les explications des « ? » d'un coup (pied de sidebar, Ctrl+K).
     document.getElementById('btn-learn')?.addEventListener('click', () => openLearnMode());
+    initOfflineBanner();
     initChartZoom();
     initDiagramZoom();
     window.__squadBoard = window.__squadBoard || {};
@@ -656,6 +658,8 @@ async function init() {
         });
     };
     if (window.__squadBoard) window.__squadBoard.refreshSyncButtonLabel = refreshSyncButtonLabel;
+    // Rechargement complet des données — utilisé par le premier lancement (jeu de démo).
+    if (window.__squadBoard) window.__squadBoard.loadAllData = loadAllData;
     refreshSyncButtonLabel();
 
     // JIRA import — clic direct = sync rapide selon paramètre (mode merge, recommandé)

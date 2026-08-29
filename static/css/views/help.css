@@ -74,6 +74,9 @@
 .gloss-item p strong { color: var(--text); }
 .gloss-item .help-diagram { margin-top: var(--sp-2); }
 
+/* ── Bandeau hors ligne : même place que le bandeau de synchro périmée, teinte d'alerte ── */
+.stale-banner--offline { background: var(--warning-bg); border-color: var(--warning-border); color: var(--amber-text); }
+
 /* ── Toast annulable : bouton « Annuler » + barre de temps ── */
 .toast-undo { display: flex; align-items: center; gap: var(--sp-3); position: relative; overflow: hidden; padding-right: var(--sp-2); }
 .toast-undo-btn {

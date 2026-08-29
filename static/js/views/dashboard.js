@@ -19,7 +19,8 @@ import { forecastCardHtml } from '../components/forecast_card.js';
 import { meteoMatrixHtml, meteoPillsHtml, meteoContext, bindMeteoMatrix } from '../components/meteo_matrix.js';
 import { meteoPlanHtml, bindMeteoPlan } from '../components/meteo_plan.js';
 import { meteoFicheHtml } from '../components/meteo_fiche.js';
-import { endOfPiHtml } from '../components/meteo_endpi.js';
+import { endOfPiHtml, recentlyClosedHtml } from '../components/meteo_endpi.js';
+import { firstLaunchHtml, bindFirstLaunch } from '../components/first_launch.js';
 
 export function renderDashboard(container) {
     const team = store.get('team');
@@ -461,6 +462,12 @@ export function renderDashboard(container) {
     })() : '';
 
     container.innerHTML = `
+        <!-- Premier lancement : aucune équipe → trois façons de commencer, jamais un écran vide -->
+        ${allTeams.length === 0 ? firstLaunchHtml() : ''}
+
+        <!-- Sprint clos il y a moins de 3 jours → le rapport est prêt -->
+        ${isCurrentPi ? recentlyClosedHtml({ teams, sprintInfoAll, tickets: allTickets }) : ''}
+
         <!-- Widget : qui est en support aujourd'hui -->
         ${(() => {
             const todayIso = new Date().toISOString().slice(0, 10);
@@ -793,6 +800,7 @@ export function renderDashboard(container) {
         bindSlaReviewCard(container, tickets);
         bindMeteoMatrix(container);
         bindMeteoPlan(container);
+        bindFirstLaunch(container);
     });
 
     // Liste "bloqués / stagnants" → ouvre le ticket au clic

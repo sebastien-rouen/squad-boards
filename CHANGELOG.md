@@ -17,7 +17,9 @@
   des données), l'import JIRA, la création à la main. Jamais un écran vide.
 - **📈 Sprint review sur la TV** — quatrième écran de la rotation : le dernier sprint clos du
   périmètre (objectif, tickets et points réalisés vs engagés, glissés, mood, tickets livrés).
-  `#tv/all/review` le fige.
+  `#tv/all/review` le fige — et un écran figé l'emporte désormais sur le mode nuit et sur
+  l'alerte (une intention explicite passe avant l'automatisme ; trouvé en vérifiant après
+  minuit).
 
 Vérifié en chargeant réellement les modules : bandeau 2/3 · 13/18 · 1 glissé et Orion hors
 fenêtre, premier lancement rendu sans équipe, écran review figé par le hash (2/3, mood 4,5),

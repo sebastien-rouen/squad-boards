@@ -162,9 +162,11 @@ Deux réserves à garder en tête avant de coder :
 - **3.156.0** — le **mode TV** (`12`) : `#tv`, rotation météo → plans d'action → aujourd'hui,
   alerte ⛈️ en tête de tour tant qu'un blocker > 48 h existe, bandeau de rappel
   (`views/tv.js`, `css/views/tv.css`).
-- Reste à porter : les prévisions multi-PI (`07`), les en-têtes de ligne produit dans la
-  matrice à 12 équipes (`10`), l'écran « fin de journée » de la TV (`12`), l'identité Météo sur
-  Board / Backlog (`08`) — ce dernier est cosmétique, à décider après usage.
+- **3.157.0** — les **prévisions multi-PI** (`07`) en tête de la Roadmap
+  (`components/meteo_previsions.js`), les en-têtes de ligne produit dans la matrice (`10`),
+  l'écran « fin de journée » de la TV (`12`).
+- Reste : l'identité Météo sur Board / Backlog (`08`) — cosmétique, à décider après usage. La
+  direction est **entièrement portée** pour ce qui touche au pilotage.
 
 ## Régénérer et vérifier
 

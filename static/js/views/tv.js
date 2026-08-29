@@ -25,6 +25,10 @@ const SCREENS = [
     { id: 'journee', title: '📅 Aujourd\'hui',     seconds: 20 },
 ];
 const ALERT = { id: 'alerte', title: '⛈️ Alerte', seconds: 20 };
+// Le soir (19 h → 8 h), plus de rotation : le bilan du jour seul, tamisé — pour celui qui part en
+// dernier et pour ne pas faire tourner un mur d'écrans dans un open space vide. `sb-tv-night=0` le coupe.
+const NIGHT = { id: 'journee', title: '🌙 Fin de journée', seconds: 120 };
+const _isNight = () => { const h = new Date().getHours(); return localStorage.getItem('sb-tv-night') !== '0' && (h >= 19 || h < 8); };
 const MAX_PLANS = 3;
 const MAX_ALERTS = 3;
 
@@ -65,7 +69,8 @@ function _blockers(teams) {
 /* ── Écrans ─────────────────────────────────────────────────────────── */
 
 function _screenMeteo({ teams, teamObjects, ctx }) {
-    return `<div class="tv-meteo">${meteoMatrixHtml(teams, ctx, teamObjects, { preview: true, title: 'Météo du train' })}</div>`;
+    const groups = store.get('group') ? [] : (store.get('groups') || []);
+    return `<div class="tv-meteo">${meteoMatrixHtml(teams, ctx, teamObjects, { preview: true, title: 'Météo du train', groups })}</div>`;
 }
 
 function _screenPlans({ teams, teamObjects, ctx }) {
@@ -146,7 +151,10 @@ export function renderTv(container) {
     const cycle = () => {
         const { teams } = _scope();
         const blockers = _blockers(teams);
-        const screens = blockers.length ? [ALERT, ...SCREENS] : SCREENS;
+        const night = _isNight();
+        $('tv-root').classList.toggle('is-night', night);
+        const base = night ? [NIGHT] : SCREENS;
+        const screens = blockers.length ? [ALERT, ...base] : base;
         return { screens: locked ? screens.filter(s => s.id === locked).concat(screens.filter(s => s.id !== locked)).slice(0, locked ? 1 : screens.length) : screens, blockers, teams };
     };
 

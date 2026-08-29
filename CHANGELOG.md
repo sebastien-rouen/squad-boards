@@ -1,3 +1,37 @@
+## [3.157.0] - 2026-08-29
+
+### 🔭 Prévisions multi-PI, lignes produit dans la matrice, fin de journée TV
+
+Trois compléments de la Météo des équipes, dans le prolongement des maquettes (`07`, `10`, `12`).
+
+**🔭 Prévisions — la météo à cinq PI** ([meteo_previsions.js](static/js/components/meteo_previsions.js)),
+en tête de la **Roadmap**, autour du PI *courant* (pas du PI affiché par le sélecteur) :
+
+| PI | Mesure | Échelle |
+|---|---|---|
+| passé | Σ `velocity` / Σ `estimated` des sprints JIRA (repli : tickets terminés) | absolue — la même que la prédictibilité SAFe |
+| en cours | % du périmètre `belongedToPi` réalisé, comparé au temps écoulé du PI | relative |
+| à venir | engagement (Σ `estimated` des sprints, sinon Σ points des features du PI) rapporté à la **base de capacité** (`piCapacityBase`, celle de Santé) | ≤ 100 % ☀️ · ≤ 115 % ⛅ · ≤ 130 % 🌧️ · au-delà ⛈️ |
+| inconnu | — | ⚪ à planifier |
+
+Un PI peut donc être 🌧️ **avant d'avoir commencé** — et c'est le moment de le dire, au PI
+Planning plutôt qu'à la revue (le sous-titre le formule ainsi). Une phrase de prédictibilité
+suit : livré en moyenne sur les PI passés, base du PI suivant (⚠ plafond si les absences ne
+sont pas connues jusqu'au bout), engagement prévu en % du livré habituel.
+
+**🧩 Lignes produit dans la matrice** : quand le périmètre couvre au moins deux lignes produit,
+la matrice se groupe — un en-tête par ligne portant le **pire niveau** de ses équipes (jamais une
+moyenne : elle cacherait un orage), puis « Autres équipes ». Dashboard et écran TV.
+
+**🌙 Fin de journée sur la TV** : de 19 h à 8 h, plus de rotation — le bilan du jour seul,
+tamisé, 2 min par tour, l'alerte ⛈️ toujours en tête si un blocker > 48 h subsiste.
+`sb-tv-night=0` désactive.
+
+Vérifié en chargeant réellement les modules : PI 28 ☀️ 90 %, PI 29 ⛅ 70 %, PI 30 relatif,
+PI 31 surchargé (414 % d'une base de 87 pts sur le jeu synthétique), PI 32 ⚪ ; en-têtes de
+groupe (2), un seul groupe = pas d'en-tête, équipe hors groupe → « Autres équipes » ; suite
+existante au vert (242).
+
 ## [3.156.0] - 2026-08-29
 
 ### 📺 Mode TV : la météo du train en rotation, et l'alerte qui l'interrompt

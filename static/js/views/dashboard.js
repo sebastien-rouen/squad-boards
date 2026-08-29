@@ -493,7 +493,7 @@ export function renderDashboard(container) {
 
         <!-- Météo des équipes (PI courant) : matrice équipes × domaines quand plusieurs équipes sont
              affichées, rangée de pastilles quand une seule — composant meteo_matrix.js -->
-        ${isCurrentPi && teams.length > 1 ? meteoMatrixHtml(teams, meteoContext(displayPiNum), teamObjects)
+        ${isCurrentPi && teams.length > 1 ? meteoMatrixHtml(teams, meteoContext(displayPiNum), teamObjects, { groups: groupId ? [] : groups })
             : isCurrentPi && teams.length === 1 ? meteoPillsHtml(teams[0], meteoContext(displayPiNum), teamObjects) + meteoPlanHtml(teams[0], meteoContext(displayPiNum)) + meteoFicheHtml(teams[0], meteoContext(displayPiNum)) : ''}
 
         <!-- Bande "Cap de l'équipe" : Objectif de sprint ⟷ Objectifs du PI (au-dessus du bandeau) -->

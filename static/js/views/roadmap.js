@@ -10,6 +10,8 @@ import { renderVelocityChart } from '../components/charts.js';
 import { renderItemDepGraph, extractDependencyEdges } from '../components/dep_graph.js';
 import * as api from '../api.js';
 import { toast } from '../utils.js';
+import { meteoForecastHtml } from '../components/meteo_previsions.js';
+import { meteoContext } from '../components/meteo_matrix.js';
 
 export function renderRoadmap(container) {
     const team = store.get('team');
@@ -207,7 +209,18 @@ export function renderRoadmap(container) {
         return { name: t, color, ticketCount: tt.length, pts, featureCount: feats.length };
     });
 
+    // Périmètre de la météo : les équipes du filtre (une, une ligne produit, ou toutes).
+    const _meteoTeams = (() => {
+        const groupId = store.get('group');
+        const g = groupId ? (store.get('groups') || []).find(x => x.id === groupId) : null;
+        if (g?.teams?.length) return teams.filter(t => g.teams.includes(t));
+        return (team && team !== 'all') ? teams.filter(t => t === team) : teams;
+    })();
+
     container.innerHTML = `
+        <!-- Prévisions : la météo à cinq PI, autour du PI COURANT (pas du PI affiché) -->
+        ${meteoForecastHtml({ teams: _meteoTeams, current: _basePi, ctx: meteoContext(_basePi), tickets: allTickets, features: allFeatures })}
+
         <!-- Velocity Breakdown -->
         <div class="dashboard-metrics mb-4">
             <div class="metric-card ${pct(donePts, totalPts) >= 80 ? 'mc-done' : pct(donePts, totalPts) >= 50 ? 'mc-warning' : 'mc-danger'}">

@@ -148,16 +148,48 @@ export function meteoScaleHtml(thresholds = null) {
  * La matrice — une ligne par équipe, cliquable (→ filtre équipe).
  * @param {string[]} teams  équipes du périmètre affiché
  */
+/** Ligne de la matrice pour une équipe. */
+const _rowHtml = (r, preview) => `
+                <tr class="meteo-row" ${preview ? '' : `data-team="${esc(r.team)}" tabindex="0" role="button" aria-label="Ouvrir l'équipe ${esc(r.team)} — ${esc(METEO_LABEL[r.level])}"`} style="--team-color:${r.color}">
+                    <th scope="row"><span class="meteo-team"><span class="team-dot" style="background:${r.color}"></span>${esc(r.team)}${r.blocked ? `<span class="team-card-stat team-card-stat--blocked" title="${r.blocked} bloqué${r.blocked > 1 ? 's' : ''}">⚠ ${r.blocked}</span>` : ''}</span></th>
+                    ${r.domains.map(_cell).join('')}
+                </tr>`;
+
+/**
+ * Lignes groupées par ligne produit : un en-tête par groupe portant le PIRE niveau de ses
+ * équipes (jamais une moyenne — elle cacherait un orage), puis « Autres équipes ».
+ */
+const _groupedRows = (rows, groups, preview) => {
+    const byName = new Map(rows.map(r => [r.team, r]));
+    const placed = new Set();
+    const block = (label, color, list) => {
+        if (!list.length) return '';
+        const worst = worstLevel(list.map(r => r.level));
+        return `<tr class="meteo-grp-row" style="--grp-color:${color || 'var(--border)'}"><th scope="rowgroup" colspan="${1 + DOMAINS.length}"><span aria-hidden="true">${METEO_GLYPH[worst]}</span> ${esc(label)}<small>${list.length} équipe${list.length > 1 ? 's' : ''} · ${esc(METEO_LABEL[worst].toLowerCase())}</small></th></tr>${list.map(r => _rowHtml(r, preview)).join('')}`;
+    };
+    let html = '';
+    for (const g of groups) {
+        const list = (g.teams || []).map(t => byName.get(t)).filter(Boolean);
+        list.forEach(r => placed.add(r.team));
+        html += block(g.name, g.color, list);
+    }
+    html += block('Autres équipes', null, rows.filter(r => !placed.has(r.team)));
+    return html;
+};
+
 /**
  * @param {object} [opts]
  * @param {boolean} [opts.preview]  aperçu (Paramètres, TV) : lignes non cliquables, sans « ? »
  * @param {string}  [opts.title]    titre de la card
+ * @param {Array}   [opts.groups]   lignes produit (`store.groups`) : en-têtes de groupe si ≥ 2 groupes
  */
-export function meteoMatrixHtml(teams, ctx, teamObjects = [], { preview = false, title = 'Météo des équipes' } = {}) {
+export function meteoMatrixHtml(teams, ctx, teamObjects = [], { preview = false, title = 'Météo des équipes', groups = [] } = {}) {
     const rows = teams.map((t, i) => computeTeamMeteo(t, { ...ctx, color: _teamColor(t, teamObjects, i) }));
     const worst = worstLevel(rows.map(r => r.level));
     const storms = rows.filter(r => r.level === 'storm').length;
     const sub = storms ? `${storms} équipe${storms > 1 ? 's' : ''} en ⛈️` : `${rows.length} équipes · ${METEO_LABEL[worst].toLowerCase()}`;
+    const relevantGroups = (groups || []).filter(g => (g.teams || []).some(t => teams.includes(t)));
+    const body = relevantGroups.length >= 2 ? _groupedRows(rows, relevantGroups, preview) : rows.map(r => _rowHtml(r, preview)).join('');
     return `
     <section class="card meteo-card${preview ? ' meteo-card--preview' : ''}" aria-labelledby="meteo-title">
         <div class="card-header meteo-header">
@@ -169,11 +201,7 @@ export function meteoMatrixHtml(teams, ctx, teamObjects = [], { preview = false,
             <table class="meteo-matrix">
                 <caption class="meteo-sr">Météo par équipe et par domaine</caption>
                 <thead><tr><th scope="col">Équipe</th>${DOMAINS.map(dm => `<th scope="col" title="${esc(dm.hint)}"><span aria-hidden="true">${dm.icon}</span> ${dm.label}</th>`).join('')}</tr></thead>
-                <tbody>${rows.map(r => `
-                <tr class="meteo-row" ${preview ? '' : `data-team="${esc(r.team)}" tabindex="0" role="button" aria-label="Ouvrir l'équipe ${esc(r.team)} — ${esc(METEO_LABEL[r.level])}"`} style="--team-color:${r.color}">
-                    <th scope="row"><span class="meteo-team"><span class="team-dot" style="background:${r.color}"></span>${esc(r.team)}${r.blocked ? `<span class="team-card-stat team-card-stat--blocked" title="${r.blocked} bloqué${r.blocked > 1 ? 's' : ''}">⚠ ${r.blocked}</span>` : ''}</span></th>
-                    ${r.domains.map(_cell).join('')}
-                </tr>`).join('')}</tbody>
+                <tbody>${body}</tbody>
             </table>
         </div>
     </section>`;

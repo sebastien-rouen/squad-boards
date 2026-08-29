@@ -1,3 +1,44 @@
+## [3.152.0] - 2026-08-29
+
+### 🌤️ Dashboard : la météo des équipes, portée depuis les maquettes
+
+Première brique de la direction « Météo des équipes » (préférée dans
+[static/mockups/refonte/](static/mockups/refonte/)) dans le vrai Dashboard, sur le PI courant :
+
+| Périmètre affiché | Ce qui apparaît en tête du Dashboard |
+|---|---|
+| Plusieurs équipes (« Tous » ou une ligne produit) | la **matrice équipes × domaines** — une ligne par équipe, cliquable (→ filtre équipe), clavier compris |
+| Une équipe | la **rangée de cinq pastilles** de l'équipe ; Santé et PI sont des liens vers leurs vues |
+
+Cinq domaines, chacun rattaché à une mesure **qui existait déjà** — rien n'est inventé :
+🏃 Sprint (engagement `belongedToSprint`, réalisé `done` ∧ `isInSprint`, vs temps écoulé),
+🗓️ PI (`belongedToPi` vs fenêtre des sprints du PI), 🛡️ Santé (score de `health.js`),
+🎧 SLA (modèle de la card SLA Review), 😊 Mood (votes du sprint × 20).
+
+**Une seule échelle**, cinq niveaux ☀️ ⛅ 🌧️ ⛈️ **⚪**, dans [utils/meteo.js](static/js/utils/meteo.js)
+(module pur, exporté par le barrel) :
+- **absolu** (Santé, SLA, Mood) : seuils 80 / 60 / 40, surchargeables pour toute l'organisation
+  via `sb-meteo-thresholds` — jamais par équipe, sinon deux ⛅ ne veulent plus dire la même chose ;
+- **relatif au temps écoulé** (Sprint, PI) : ±10 points = ⛅, jusqu'à −20 = 🌧️, au-delà = ⛈️ ;
+  **tolérance de démarrage** sous 15 % du temps (J1 n'est plus un orage — réserve du README, levée) ;
+- **niveau d'une équipe = le pire de ses domaines** ; **⚪ pas de donnée n'est jamais un mauvais
+  signe** (aucun vote, aucun sprint) et n'entre pas dans le calcul.
+
+⚠️ **Le score de santé a désormais une source unique** : `healthScore(counts, activeCount)` dans
+[business_rules.js](static/js/business_rules.js), **normalisé par tickets actifs** — `health.js`
+l'utilise (même résultat qu'avant, vérifié), la météo aussi. Un compte brut d'anomalies ne doit
+jamais être présenté comme un score. `sla_review_card.js` exporte son modèle (`slaModel`) pour
+la même raison.
+
+Le « ? » de la matrice ouvre une explication à schéma (échelle en barre, les deux calculs, la règle
+du pire) ; la légende de l'échelle est toujours visible, jamais dans une infobulle. Glyphes doublés
+d'un libellé pour lecteur d'écran ; la matrice défile sur mobile, les pastilles s'empilent par deux.
+
+Fichiers : `utils/meteo.js`, `components/meteo_matrix.js`, `css/views/meteo.css` (nouveaux) ;
+`dashboard.js` (+5 lignes), `health.js`, `business_rules.js`, `sla_review_card.js`,
+`help_popover.js`, `index.html`. Vérifié en chargeant réellement les modules (faux DOM des tests)
+et par la suite existante (242 tests) — pas de nouveau test, à la demande.
+
 ## [3.151.0] - 2026-08-29
 
 ### 🌤️ Maquettes de refonte — la Météo des équipes, approfondie

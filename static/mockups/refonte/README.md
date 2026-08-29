@@ -146,6 +146,15 @@ Deux réserves à garder en tête avant de coder :
   plus ⛈️ qu'une de 8 avec 3. Le site normalise déjà par tickets actifs — vérifier que la
   matrice lit ce score-là, et non un compte brut.
 
+## Porté dans le site
+
+- **3.152.0 (2026-08-29)** — la matrice et les pastilles sont dans le vrai Dashboard
+  (`components/meteo_matrix.js`, `utils/meteo.js`, `css/views/meteo.css`). Les deux réserves
+  ci-dessus sont levées : tolérance de démarrage (`METEO_START_TOLERANCE`) et score de santé
+  normalisé (`healthScore()` dans `business_rules.js`, source unique avec `health.js`).
+- Reste à porter, dans l'ordre d'utilité : la fiche équipe (`06`), l'alerte TV et la rotation
+  (`12`), les seuils dans Paramètres (`09`), les prévisions multi-PI (`07`).
+
 ## Régénérer et vérifier
 
 ```bash

@@ -289,6 +289,17 @@ python main.py          # http://localhost:3001  — Swagger /docs
   où il ne l'a pas été. Les helpers Slack/Confluence `B`/`E`/`SB`/`CS` vivent dans
   [reports-fmt.js](static/js/views/reports-fmt.js) — les importer depuis `reports.js` créerait
   un cycle et mettrait ces `const` fléchées en TDZ.
+- **Météo des équipes** (3.152.0, [meteo_matrix.js](static/js/components/meteo_matrix.js)) :
+  l'ÉCHELLE vit dans [utils/meteo.js](static/js/utils/meteo.js) (pur, via le barrel) — cinq
+  niveaux ☀️ ⛅ 🌧️ ⛈️ ⚪, `weatherOf(score)` pour l'absolu, `weatherRel(pct, timePct)` pour
+  le relatif au temps (tolérance de démarrage sous 15 %), `worstLevel()` pour une équipe.
+  Seuils GLOBAUX (`sb-meteo-thresholds`), jamais par équipe. ⚪ = pas de donnée, jamais un
+  mauvais signe. Chaque domaine relit une mesure existante — ne pas recalculer : sprint =
+  `sprint-scope.js`, PI = `belongedToPi`, santé = `healthScore()` de
+  [business_rules.js](static/js/business_rules.js) (**source unique**, normalisée par tickets
+  actifs, utilisée aussi par `health.js`), SLA = `slaModel` de `sla_review_card.js`, mood =
+  `store.moodVotes` du sprint actif. Direction visuelle et pages à venir :
+  [static/mockups/refonte/](static/mockups/refonte/README.md).
 - **Refresh ICS et pool SQLite** (3.149.0, [calendars.py](app/routers/calendars.py)) :
   `refresh_calendar` **rend sa connexion au pool avant le fetch réseau** (`session.close()`,
   puis un second `session.get()` recharge l'objet détaché). Tenir la session pendant l'appel

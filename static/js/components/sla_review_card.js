@@ -71,6 +71,9 @@ function _model(tickets) {
     };
 }
 
+/** Le modèle seul — la météo des équipes (meteo_matrix.js) le relit par équipe, même règle. */
+export const slaModel = _model;
+
 export function slaReviewCardHtml(tickets) {
     const m = _model(tickets);
     if (!m.done.length) return '';

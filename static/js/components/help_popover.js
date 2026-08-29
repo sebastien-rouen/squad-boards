@@ -11,7 +11,7 @@
  * Clic (pas survol) → fonctionne au doigt sur mobile. Fermeture : clic extérieur / Échap / scroll.
  */
 
-import { esc } from '../utils.js';
+import { esc, meteoThresholds, METEO_REL_BAND, METEO_START_TOLERANCE } from '../utils.js';
 
 /** Bouton icône « ? » à insérer dans un card-header. `key` référence une entrée de HELP_REGISTRY. */
 export function helpIconHtml({ key = '', label = 'Explication', extraClass = '' } = {}) {
@@ -258,8 +258,31 @@ export function slaDiagramSvg() {
     </p>`;
 }
 
+/** Météo des équipes : l'échelle en une barre, les deux calculs, la règle du pire. */
+export function meteoDiagramHtml() {
+    const th = meteoThresholds();
+    const seg = (lv, glyph, txt, flex) => `<span class="meteo-cell--${lv}" style="flex:${flex}">${glyph} ${txt}</span>`;
+    return `
+    <div class="meteo-help-bar" role="img" aria-label="Échelle : critique sous ${th.rain}, attention jusqu'à ${th.cloud}, variable jusqu'à ${th.sun}, beau au-delà">
+        ${seg('storm', '⛈️', `< ${th.rain}`, th.rain)}${seg('rain', '🌧️', `${th.rain}–${th.cloud - 1}`, th.cloud - th.rain)}${seg('cloud', '⛅', `${th.cloud}–${th.sun - 1}`, th.sun - th.cloud)}${seg('sun', '☀️', `≥ ${th.sun}`, 100 - th.sun)}
+    </div>
+    <p class="help-popover-note">
+        Chaque case vient d'une mesure <strong>qui existe déjà</strong> dans le site, traduite en couleur
+        par <strong>une seule échelle</strong>. Rien n'est un jugement : ce sont les chiffres du Dashboard,
+        de Santé, de SLA Review et des votes, lus d'un coup.
+    </p>
+    <ul class="meteo-help-list">
+        <li><strong>Santé, SLA, Mood × 20</strong> — score absolu sur 100, seuils ci-dessus.</li>
+        <li><strong>Sprint, PI</strong> — avancement <em>comparé au temps écoulé</em> : ±${METEO_REL_BAND} points = ⛅,
+            jusqu'à −${2 * METEO_REL_BAND} = 🌧️, au-delà = ⛈️. Sous ${METEO_START_TOLERANCE} % du temps, on ne juge pas encore.</li>
+        <li><strong>Le niveau d'une équipe</strong> = le <em>pire</em> de ses domaines — une moyenne cacherait un orage.</li>
+        <li><strong>⚪ Pas de donnée</strong> (aucun vote, aucun sprint) n'est jamais une mauvaise nouvelle et ne compte pas.</li>
+    </ul>`;
+}
+
 // Registre des schémas — clé = data-help-key posé par helpIconHtml.
 const HELP_REGISTRY = {
+    'meteo':      { title: 'Météo des équipes',                 build: meteoDiagramHtml },
     'lct':        { title: 'Lead time & Cycle time',            build: lctDiagramSvg },
     'aging-wip':  { title: 'Ancienneté du travail en cours',    build: agingWipDiagramSvg },
     'stage-flow': { title: 'Temps par colonne',                 build: stageFlowDiagramSvg },

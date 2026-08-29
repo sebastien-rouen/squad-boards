@@ -11,7 +11,7 @@
  * Clic (pas survol) → fonctionne au doigt sur mobile. Fermeture : clic extérieur / Échap / scroll.
  */
 
-import { esc, meteoThresholds, METEO_REL_BAND, METEO_START_TOLERANCE, METEO_DOMAINS } from '../utils.js';
+import { esc, meteoThresholds, METEO_REL_BAND, METEO_START_TOLERANCE, METEO_DOMAINS, trapFocus } from '../utils.js';
 
 /** Bouton icône « ? » à insérer dans un card-header. `key` référence une entrée de HELP_REGISTRY. */
 export function helpIconHtml({ key = '', label = 'Explication', extraClass = '' } = {}) {
@@ -90,12 +90,78 @@ export function initHelpPopovers() {
     if (window.__helpPopoversInit) return;
     window.__helpPopoversInit = true;
     document.addEventListener('click', e => {
+        // Liens en pied de popover : un autre sujet (glossaire…) ou le mode apprentissage.
+        const link = e.target.closest?.('[data-help-open], [data-help-learn]');
+        if (link) {
+            e.preventDefault(); e.stopPropagation();
+            if (link.dataset.helpLearn !== undefined) { openLearnMode(link.dataset.helpLearn || ''); return; }
+            const anchor = document.querySelector('.card-help-btn[data-help-key]') || link;
+            const entry = HELP_REGISTRY[link.dataset.helpOpen];
+            if (entry) openHelpPopover(anchor, { title: entry.title, bodyHtml: entry.build() });
+            return;
+        }
         const btn = e.target.closest?.('.card-help-btn[data-help-key]');
         if (!btn) return;
         e.stopPropagation();
         const entry = HELP_REGISTRY[btn.dataset.helpKey];
         if (entry) openHelpPopover(btn, { title: entry.title, bodyHtml: entry.build() });
     });
+}
+
+/** Pied commun des popovers : vers le glossaire et vers « tout comprendre ». */
+function _helpLinks(except = '') {
+    return `<div class="help-popover-links">
+        ${except === 'glossaire' ? '' : '<button type="button" class="btn btn-secondary btn-sm" data-help-open="glossaire">📖 Glossaire</button>'}
+        <button type="button" class="btn btn-secondary btn-sm" data-help-learn="">🎓 Tout comprendre</button>
+    </div>`;
+}
+
+/**
+ * MODE APPRENTISSAGE — toutes les explications d'un coup, en accordéon. C'est ce qu'on montre à
+ * un nouveau Scrum Master la première fois ; ensuite chaque « ? » suffit. `openKey` = entrée à
+ * déplier en premier (sinon la première).
+ */
+export function openLearnMode(openKey = '') {
+    document.querySelector('.learn-backdrop')?.remove();
+    document.querySelector('.help-popover')?.remove();
+    const keys = Object.keys(HELP_REGISTRY);
+    const first = keys.includes(openKey) ? openKey : keys[0];
+    const wrap = document.createElement('div');
+    wrap.className = 'learn-backdrop';
+    wrap.innerHTML = `
+        <div class="learn-modal" role="dialog" aria-modal="true" aria-labelledby="learn-title">
+            <div class="learn-hd">
+                <div><h2 id="learn-title">🎓 Comprendre les indicateurs</h2><p>Chaque carte du site a son « ? » ; ici, toutes les explications d'un coup — à lire une fois, puis à oublier.</p></div>
+                <button type="button" class="btn-icon" data-learn-close aria-label="Fermer">✕</button>
+            </div>
+            <div class="learn-bd">
+                ${keys.map(k => `<details class="learn-item"${k === first ? ' open' : ''}><summary>${esc(HELP_REGISTRY[k].title)}</summary><div class="learn-item-bd">${HELP_REGISTRY[k].build()}</div></details>`).join('')}
+            </div>
+            <div class="learn-ft"><kbd>Échap</kbd> fermer · les mêmes textes que les « ? » des cartes — une seule source (<code>HELP_REGISTRY</code>)</div>
+        </div>`;
+    document.body.appendChild(wrap);
+    const modal = wrap.querySelector('.learn-modal');
+    const release = trapFocus(modal);
+    const close = () => { release?.(); wrap.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = ev => { if (ev.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    wrap.addEventListener('click', ev => { if (ev.target === wrap || ev.target.closest('[data-learn-close]')) close(); });
+    wrap.querySelector('.learn-item[open] > summary')?.focus();
+    return close;
+}
+
+/** GLOSSAIRE — les mots du site, avec leur règle. Les schémas existants sont réutilisés, jamais redessinés. */
+export function glossaryHtml() {
+    const items = [
+        { icon: '📌', term: 'Engagement vs réalisé', text: 'L\'<strong>engagement</strong> d\'un sprint compte tout ce qui en a fait partie, reports compris (<code>belongedToSprint</code>). Le <strong>réalisé</strong> exige d\'être terminé <strong>et</strong> encore dans le sprint : un ticket fini ailleurs ne crédite pas le sprint qu\'il a quitté.' },
+        { icon: '↪', term: 'Ticket glissé', text: 'Engagé dans 30.1, livré dans 30.2 : JIRA le déplace à la clôture. Il reste dans l\'engagement de 30.1 (chip <code>↪ 30.2</code>) et n\'entre jamais dans son réalisé.' },
+        { icon: '🍃', term: 'Sprint de respiration', text: 'Le dernier sprint du PI : dette, Inspect &amp; Adapt, préparation du PI suivant. Il ne compte <strong>ni</strong> dans la vélocité moyenne, <strong>ni</strong> dans la capacité, <strong>ni</strong> comme charge suggérée.', svg: velocityDiagramSvg },
+        { icon: '⚠', term: 'Capacité plafonnée', text: 'Quand la fenêtre dépasse la dernière absence connue, le taux d\'absence est un <strong>plancher</strong> et la base de capacité un <strong>plafond</strong>. Le chiffre est toujours montré avec cette réserve (cellule orange, ⚠).' },
+        { icon: '⚡', term: 'Flow efficiency', text: 'Part du lead time réellement passée à travailler le ticket (cycle ÷ lead). ~15 % est courant, 40 %+ est bon : réduire l\'attente en file vaut plus que travailler plus vite.', svg: lctDiagramSvg },
+        { icon: '🎯', term: 'Objectif commis / extension', text: '<strong>Commis</strong> = engagement ferme, <strong>extension</strong> (stretch) = si le temps le permet. La progression d\'un objectif est un rollup de ses features, jamais saisie à la main.' },
+        { icon: '🌤️', term: 'Météo des équipes', text: 'Cinq domaines, une échelle (☀️ ⛅ 🌧️ ⛈️ ⚪). Le niveau d\'une équipe est le <strong>pire</strong> de ses domaines ; ⚪ pas de donnée n\'est jamais un mauvais signe.' },
+    ];
+    return `<div class="gloss-list">${items.map(g => `<div class="gloss-item"><b>${g.icon} ${esc(g.term)}</b><p>${g.text}</p>${g.svg ? g.svg() : ''}</div>`).join('')}</div>${_helpLinks('glossaire')}`;
 }
 
 // Flèche (tête de triangle) réutilisable dans les schémas : direction 'down' | 'right'.
@@ -281,12 +347,13 @@ export function meteoDiagramHtml() {
     <table class="meteo-help-table" aria-label="Formule et source de chaque domaine">
         <thead><tr><th>Domaine</th><th>Formule</th><th>Source dans le site</th></tr></thead>
         <tbody>${METEO_DOMAINS.map(d => `<tr><th scope="row">${d.icon} ${esc(d.label)} <small>${d.kind === 'rel' ? 'relatif' : 'absolu'}</small></th><td>${esc(d.formula)}</td><td>${esc(d.source)}</td></tr>`).join('')}</tbody>
-    </table>`;
+    </table>${_helpLinks()}`;
 }
 
 // Registre des schémas — clé = data-help-key posé par helpIconHtml.
 const HELP_REGISTRY = {
     'meteo':      { title: 'Météo des équipes',                 build: meteoDiagramHtml },
+    'glossaire':  { title: 'Glossaire',                         build: glossaryHtml },
     'lct':        { title: 'Lead time & Cycle time',            build: lctDiagramSvg },
     'aging-wip':  { title: 'Ancienneté du travail en cours',    build: agingWipDiagramSvg },
     'stage-flow': { title: 'Temps par colonne',                 build: stageFlowDiagramSvg },

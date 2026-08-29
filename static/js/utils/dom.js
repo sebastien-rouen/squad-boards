@@ -43,6 +43,40 @@ export function trapFocus(root) {
 }
 
 /** Show a toast notification. */
+/**
+ * Toast ANNULABLE : le geste est déjà fait à l'écran, l'action définitive n'a lieu qu'après
+ * `seconds` sans « Annuler ». Une suppression annulable vaut mieux qu'une confirmation
+ * bloquante — `confirmDanger` reste réservé à l'irréversible (régénérer une rotation).
+ *
+ * @param {string}   message
+ * @param {object}   o
+ * @param {Function} o.onUndo    rétablit l'état d'avant
+ * @param {Function} o.onCommit  exécute l'action définitive (peut être async)
+ * @param {number}   [o.seconds=8]
+ */
+export function toastUndo(message, { onUndo, onCommit, seconds = 8 } = {}) {
+    const container = document.getElementById('toast-container');
+    if (!container) { onCommit?.(); return; }
+    const el = document.createElement('div');
+    el.className = 'toast toast-info toast-undo';
+    el.style.setProperty('--toast-undo-ms', `${seconds * 1000}ms`);
+    const txt = document.createElement('span');
+    txt.textContent = message;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toast-undo-btn';
+    btn.textContent = 'Annuler';
+    const bar = document.createElement('i');
+    bar.className = 'toast-undo-bar';
+    bar.setAttribute('aria-hidden', 'true');
+    el.append(txt, btn, bar);
+    container.appendChild(el);
+    const remove = () => { el.classList.add('toast-out'); el.addEventListener('animationend', () => el.remove()); };
+    const timer = setTimeout(() => { remove(); onCommit?.(); }, seconds * 1000);
+    btn.addEventListener('click', () => { clearTimeout(timer); remove(); onUndo?.(); });
+    btn.focus({ preventScroll: true });
+}
+
 export function toast(message, type = 'info', duration = 3500) {
     const container = document.getElementById('toast-container');
     if (!container) return;

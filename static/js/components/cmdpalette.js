@@ -173,6 +173,16 @@ const ACTIONS = [
         },
     },
     {
+        id: 'learn-mode', label: 'Comprendre les indicateurs (toutes les explications)', icon: '🎓',
+        keywords: 'comprendre aide apprentissage explication indicateurs formules meteo help',
+        run: () => import('./help_popover.js').then(m => m.openLearnMode()),
+    },
+    {
+        id: 'glossary', label: 'Glossaire (engagement, glissé, respiration, plafond…)', icon: '📖',
+        keywords: 'glossaire definitions mots vocabulaire engagement realise glisse respiration plafond flow',
+        run: () => import('./help_popover.js').then(m => m.openLearnMode('glossaire')),
+    },
+    {
         id: 'open-cal-week', label: 'Ouvrir le calendrier de la semaine', icon: '📅',
         keywords: 'calendrier semaine week meetings réunions',
         run: () => import('./cal_banner.js').then(m => m.openCalWeekModal()),

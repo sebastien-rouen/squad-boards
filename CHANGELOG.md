@@ -1,3 +1,28 @@
+## [3.160.0] - 2026-08-30
+
+### 🎓 Comprendre : glossaire, mode apprentissage, suppression annulable (maquettes `11`, `03`)
+
+- **🎓 Mode apprentissage** — bouton **Aide** en pied de sidebar (et Ctrl+K « comprendre ») : une
+  modale accessible qui déplie **toutes les explications des « ? »** d'un coup (lead time, âge du
+  travail, temps par colonne, vélocité, SLA, météo, glossaire). Même source que les cartes
+  (`HELP_REGISTRY`) : rien n'est réécrit. À lire une fois, puis à oublier.
+- **📖 Glossaire** — sept mots du site avec leur règle : engagement vs réalisé, ticket glissé,
+  sprint de respiration, capacité plafonnée, flow efficiency, commis / extension, météo. Les
+  schémas existants sont réutilisés (vélocité, lead time). Accessible depuis chaque popover
+  météo (« Glossaire » · « Tout comprendre »), par Ctrl+K « glossaire », et dans le mode
+  apprentissage.
+- **❓ Popover à bordure conique** (BACKLOG) — double fond (surface en `padding-box`, dégradé
+  conique en `border-box`) : la bordure en dégradé existe malgré `overflow: hidden`.
+- **🗑️ Suppression annulable** — supprimer un ticket (feature, epic) ne demande plus de
+  confirmation : il disparaît tout de suite, un toast **« Annuler »** reste 8 s avec une barre
+  de temps, et l'API n'est appelée qu'après. En cas d'échec de l'API, le ticket revient avec le
+  message d'erreur. `toastUndo()` ([utils/dom.js](static/js/utils/dom.js)) est générique ;
+  `confirmDanger` reste réservé à l'irréversible (régénérer une rotation).
+
+Nouvelle feuille [help.css](static/css/views/help.css). Vérifié en chargeant réellement les
+modules : 7 entrées, liens croisés, modale ouverte sur l'entrée demandée puis fermée, Annuler
+empêche le commit et sinon commit après délai, message échappé ; suite existante au vert.
+
 ## [3.159.0] - 2026-08-30
 
 ### 🏁 Fin de PI, météo sur le Board, formules dans l'aide (maquettes `08`, `10`, `11`)

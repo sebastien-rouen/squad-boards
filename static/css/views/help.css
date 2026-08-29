@@ -1,0 +1,91 @@
+/* VIEW: Aide — popover « ? » à bordure conique, mode apprentissage, toast annulable.
+   Chargé après base.css : les règles ci-dessous surchargent le fond du popover. */
+
+/* ── Popover « ? » : bordure conique « en spirale » (BACKLOG), fond de surface ──
+   Double fond : la surface en padding-box, le dégradé conique en border-box — c'est ce qui
+   fait exister une bordure en dégradé malgré `overflow: hidden`. */
+.help-popover {
+    border: 2px solid transparent;
+    background:
+        linear-gradient(var(--surface), var(--surface)) padding-box,
+        conic-gradient(from 210deg, var(--primary), var(--type-epic), var(--status-done), var(--warning), var(--primary)) border-box;
+}
+
+/* ── Mode apprentissage : toutes les explications d'un coup ── */
+.learn-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    background: rgba(8, 12, 22, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-4);
+}
+.learn-modal {
+    display: flex;
+    flex-direction: column;
+    width: min(760px, 100%);
+    max-height: min(88vh, 900px);
+    border-radius: var(--r-xl);
+    background: var(--surface);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+}
+.learn-hd {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5) var(--sp-3);
+    border-bottom: 1px solid var(--border);
+}
+.learn-hd h2 { flex: 1; margin: 0; font-size: var(--fs-xl); }
+.learn-hd p { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+.learn-bd { flex: 1; overflow-y: auto; padding: var(--sp-3) var(--sp-5) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
+.learn-item { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg); }
+.learn-item > summary {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+    cursor: pointer;
+    font-weight: var(--fw-semibold);
+    list-style: none;
+}
+.learn-item > summary::-webkit-details-marker { display: none; }
+.learn-item > summary::after { content: '▸'; margin-left: auto; color: var(--text-muted); transition: transform var(--tr-fast); }
+.learn-item[open] > summary::after { transform: rotate(90deg); }
+.learn-item > summary:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; border-radius: var(--r-lg); }
+.learn-item-bd { padding: 0 var(--sp-4) var(--sp-4); }
+.learn-item-bd .help-popover-note { margin-top: var(--sp-2); }
+.learn-ft { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--border); font-size: var(--fs-xs); color: var(--text-muted); }
+.learn-ft kbd { font-family: var(--font-mono); padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--r-sm); }
+
+/* Liens en pied de popover (glossaire, tout comprendre) */
+.help-popover-links { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: 0 var(--sp-4) var(--sp-3); }
+.help-popover-links .btn { min-height: 30px; }
+
+/* ── Glossaire ── */
+.gloss-list { display: grid; gap: var(--sp-2); }
+.gloss-item { padding: var(--sp-3); border-radius: var(--r-md); background: var(--bg); border: 1px solid var(--border); }
+.gloss-item b { display: block; margin-bottom: 2px; }
+.gloss-item p { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+.gloss-item p strong { color: var(--text); }
+.gloss-item .help-diagram { margin-top: var(--sp-2); }
+
+/* ── Toast annulable : bouton « Annuler » + barre de temps ── */
+.toast-undo { display: flex; align-items: center; gap: var(--sp-3); position: relative; overflow: hidden; padding-right: var(--sp-2); }
+.toast-undo-btn {
+    margin-left: auto;
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-sm);
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    font-weight: var(--fw-bold);
+    text-decoration: underline;
+    cursor: pointer;
+}
+.toast-undo-btn:hover, .toast-undo-btn:focus-visible { background: rgba(255, 255, 255, 0.22); outline: none; }
+.toast-undo-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: currentColor; opacity: .55; transform-origin: left; animation: toast-undo-bar var(--toast-undo-ms, 8000ms) linear forwards; }
+@keyframes toast-undo-bar { from { transform: scaleX(1); } to { transform: scaleX(0); } }

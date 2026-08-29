@@ -1,3 +1,26 @@
+## [3.153.0] - 2026-08-29
+
+### 🧭 Fiche équipe : le plan d'action — la météo qui propose
+
+Deuxième brique de la Météo des équipes, sur le Dashboard **filtré sur une équipe** :
+
+- **Plan d'action** ([meteo_plan.js](static/js/components/meteo_plan.js)) sous les pastilles :
+  une ligne par anomalie détectée (`ANOMALY_RULES`), triée par gravité puis effectif, avec
+  l'effectif, les **responsables concernés** (initiales, `+n` au-delà de deux, « non assigné »
+  quand c'est l'action elle-même) et une **échéance dérivée de la gravité** — aujourd'hui /
+  cette semaine / avant le prochain sprint. Une liste sans « qui » ni « quand » n'est pas un plan.
+  Chaque ligne ouvre la **modale d'action existante** (`openAlertModal`, celle de Santé), qui
+  liste les tickets et permet de les corriger en ligne — rien n'est réinventé.
+  La card est teintée par le niveau de l'équipe (⛈️ / 🌧️ : « Ce qui ferait revenir le soleil »,
+  sinon « À garder à l'œil ») et **disparaît** quand il n'y a aucune anomalie.
+- Les pastilles **Sprint** et **SLA** font défiler jusqu'à leur card du Dashboard ; Santé et PI
+  mènent toujours à leur vue.
+- `computeTeamMeteo()` expose désormais `anomalies[]` (règle, effectif, responsables) —
+  même contexte que `health.js` (WIP vs capacité du jour, début de sprint).
+
+Vérifié en chargeant réellement les modules : Orion ⛈️ (bloqués en premier, 3 responsables,
+`+1`, échéances), Vega sans card, XSS échappé ; suite existante au vert (242).
+
 ## [3.152.0] - 2026-08-29
 
 ### 🌤️ Dashboard : la météo des équipes, portée depuis les maquettes

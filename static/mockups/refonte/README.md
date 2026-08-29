@@ -152,8 +152,12 @@ Deux réserves à garder en tête avant de coder :
   (`components/meteo_matrix.js`, `utils/meteo.js`, `css/views/meteo.css`). Les deux réserves
   ci-dessus sont levées : tolérance de démarrage (`METEO_START_TOLERANCE`) et score de santé
   normalisé (`healthScore()` dans `business_rules.js`, source unique avec `health.js`).
-- Reste à porter, dans l'ordre d'utilité : la fiche équipe (`06`), l'alerte TV et la rotation
-  (`12`), les seuils dans Paramètres (`09`), les prévisions multi-PI (`07`).
+- **3.153.0** — le **plan d'action** de la fiche équipe (`06`) : sous les pastilles, une ligne
+  par anomalie avec responsables et échéance, branchée sur la modale d'action de Santé
+  (`components/meteo_plan.js`). Les pastilles Sprint/SLA défilent vers leur card.
+- Reste à porter, dans l'ordre d'utilité : l'alerte TV et la rotation (`12`), la tendance du
+  mood et le roster de la fiche (`06`), les seuils dans Paramètres (`09`), les prévisions
+  multi-PI (`07`).
 
 ## Régénérer et vérifier
 

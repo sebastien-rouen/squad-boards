@@ -130,6 +130,70 @@
 a.meteo-pill:hover { text-decoration: none; box-shadow: var(--shadow-sm); border-color: var(--wc); }
 a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 
+/* ── Plan d'action d'une équipe (fiche) ── */
+.meteo-plan { margin-bottom: var(--sp-4); }
+.meteo-plan--storm { border-top: 3px solid var(--danger); }
+.meteo-plan--rain  { border-top: 3px solid var(--warning); }
+.meteo-plan--cloud, .meteo-plan--sun { border-top: 3px solid var(--border); }
+.meteo-plan-list { display: flex; flex-direction: column; gap: var(--sp-2); padding: 0 var(--sp-4) var(--sp-4); }
+.meteo-plan-row {
+    --wc: var(--info);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "ico txt n" "ico meta meta";
+    align-items: center;
+    column-gap: var(--sp-3);
+    row-gap: 4px;
+    width: 100%;
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid color-mix(in srgb, var(--wc) 40%, var(--border));
+    border-left: 4px solid var(--wc);
+    border-radius: var(--r-md);
+    background: color-mix(in srgb, var(--wc) 6%, var(--surface));
+    text-align: left;
+    color: var(--text);
+    transition: box-shadow var(--tr-fast), border-color var(--tr-fast);
+}
+.meteo-plan-row:hover { box-shadow: var(--shadow-sm); border-color: var(--wc); }
+.meteo-plan-row:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.meteo-plan-row--danger  { --wc: var(--danger); }
+.meteo-plan-row--warning { --wc: var(--warning); }
+.meteo-plan-row--info    { --wc: var(--info); }
+.meteo-plan-ico { grid-area: ico; font-size: var(--fs-xl); }
+.meteo-plan-txt { grid-area: txt; display: flex; flex-direction: column; min-width: 0; }
+.meteo-plan-txt b { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.meteo-plan-txt span { font-size: var(--fs-xs); color: var(--text-secondary); }
+.meteo-plan-n {
+    grid-area: n;
+    min-width: 32px;
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--wc) 18%, transparent);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+.meteo-plan-who { grid-area: meta; display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--text-secondary); }
+.meteo-plan-who--none { color: var(--amber-text); font-style: italic; }
+.meteo-plan-avatar {
+    display: inline-grid; place-items: center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--surface-active);
+    font-size: 9px; font-weight: var(--fw-bold);
+    color: var(--text-secondary);
+}
+.meteo-plan-when { grid-area: meta; justify-self: end; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--wc-text, var(--text-secondary)); text-transform: uppercase; letter-spacing: .04em; }
+.meteo-plan-row--danger .meteo-plan-when  { --wc-text: var(--status-blocked-text); }
+.meteo-plan-row--warning .meteo-plan-when { --wc-text: var(--amber-text); }
+.meteo-plan-row--info .meteo-plan-when    { --wc-text: var(--cyan-text); }
+@media (min-width: 900px) {
+    .meteo-plan-row { grid-template-columns: auto 1fr auto 140px 150px; grid-template-areas: "ico txt n who when"; }
+    .meteo-plan-who { grid-area: who; }
+    .meteo-plan-when { grid-area: when; }
+}
+
 /* ── Popover d'aide : l'échelle en une barre ── */
 .meteo-help-bar { display: flex; height: 36px; border-radius: var(--r-md); overflow: hidden; margin: var(--sp-2) 0; }
 .meteo-help-bar span {

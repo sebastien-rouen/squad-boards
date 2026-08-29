@@ -72,15 +72,22 @@ export function computeTeamMeteo(team, {
     }
 
     // 🛡️ Santé — même contexte que health.js (WIP vs capacité du jour, début de sprint).
+    // Les anomalies détaillées (règle, effectif, responsables) alimentent le plan d'action.
+    let anomalies = [];
     if (tt.length) {
         const sprintStartMs = sprint?.startDate ? new Date(String(sprint.startDate).slice(0, 10)).getTime() : 0;
         const wipMax = wipThreshold(teamCapacity(team, members, absences));
         const ctx = { sprintStartMs, wipExceededTeams: countWip(tt) > wipMax ? new Set([team]) : new Set() };
         const counts = {};
-        for (const a of ANOMALY_RULES) counts[a.key] = tt.filter(t => a.match(t, ctx)).length;
+        anomalies = ANOMALY_RULES.map(a => {
+            const hits = tt.filter(t => a.match(t, ctx));
+            counts[a.key] = hits.length;
+            const leaders = [...new Set(hits.map(t => t.leader || t.assignee).filter(Boolean))];
+            return { key: a.key, icon: a.icon, label: a.label, title: a.title, intro: a.intro, sev: a.sev, n: hits.length, leaders };
+        });
         const score = healthScore(counts, active.length);
-        const anomalies = Object.values(counts).reduce((s, n) => s + n, 0);
-        d.health = { level: weatherOf(score, th), value: String(score), sub: `${anomalies} anomalie${anomalies > 1 ? 's' : ''} · ${active.length} actif${active.length > 1 ? 's' : ''}` };
+        const total = anomalies.reduce((s, a) => s + a.n, 0);
+        d.health = { level: weatherOf(score, th), value: String(score), sub: `${total} anomalie${total > 1 ? 's' : ''} · ${active.length} actif${active.length > 1 ? 's' : ''}` };
     } else {
         d.health = { level: 'none', value: '—', sub: 'aucun ticket' };
     }
@@ -103,7 +110,7 @@ export function computeTeamMeteo(team, {
     }
 
     const domains = DOMAINS.map(dom => ({ ...dom, ...d[dom.key], title: `${dom.icon} ${dom.label} — ${METEO_LABEL[d[dom.key].level]} · ${dom.hint}` }));
-    return { team, color, level: worstLevel(domains.map(x => x.level)), blocked: countBlocked(active), domains };
+    return { team, color, level: worstLevel(domains.map(x => x.level)), blocked: countBlocked(active), domains, anomalies };
 }
 
 /** Contexte commun à toutes les équipes, lu une seule fois dans le store. */
@@ -167,24 +174,29 @@ export function meteoMatrixHtml(teams, ctx, teamObjects = []) {
 /** Les cinq pastilles d'une équipe seule (en tête du Dashboard filtré). */
 export function meteoPillsHtml(team, ctx, teamObjects = []) {
     const r = computeTeamMeteo(team, { ...ctx, color: _teamColor(team, teamObjects, 0) });
+    // Santé et PI mènent à leur vue ; Sprint et SLA font défiler jusqu'à leur card du Dashboard.
     const links = { health: `#health/${encodeURIComponent(team)}`, pi: `#pi/${encodeURIComponent(team)}/objectives` };
+    const scrolls = { sprint: '.sprint-header', sla: '.sla-card' };
     return `
     <nav class="meteo-pills" aria-label="Météo de ${esc(team)}">
         <span class="meteo-pills-lead" title="${esc(METEO_LABEL[r.level])}"><span aria-hidden="true">${METEO_GLYPH[r.level]}</span> ${esc(METEO_LABEL[r.level])} ${helpIconHtml({ key: 'meteo', label: 'Comprendre la météo des équipes' })}</span>
         ${r.domains.map(dm => {
             const inner = `<span class="meteo-glyph" aria-hidden="true">${METEO_GLYPH[dm.level]}</span><span class="meteo-pill-lbl">${dm.icon} ${dm.label}</span><strong class="meteo-val">${esc(dm.value)}</strong><span class="meteo-sr">${esc(METEO_LABEL[dm.level])}</span>`;
-            return links[dm.key]
-                ? `<a class="meteo-pill meteo-cell--${dm.level}" href="${links[dm.key]}" title="${esc(dm.title)}">${inner}</a>`
-                : `<span class="meteo-pill meteo-cell--${dm.level}" title="${esc(dm.title)}">${inner}</span>`;
+            if (links[dm.key]) return `<a class="meteo-pill meteo-cell--${dm.level}" href="${links[dm.key]}" title="${esc(dm.title)}">${inner}</a>`;
+            if (scrolls[dm.key]) return `<button type="button" class="meteo-pill meteo-cell--${dm.level}" data-scroll="${scrolls[dm.key]}" title="${esc(dm.title)}">${inner}</button>`;
+            return `<span class="meteo-pill meteo-cell--${dm.level}" title="${esc(dm.title)}">${inner}</span>`;
         }).join('')}
     </nav>`;
 }
 
-/** Une ligne de la matrice → filtre équipe (souris et clavier). */
+/** Une ligne de la matrice → filtre équipe (souris et clavier) ; une pastille → sa card. */
 export function bindMeteoMatrix(container) {
     const open = row => { const t = row?.dataset?.team; if (t) store.set('team', t); };
     container.querySelectorAll('.meteo-row').forEach(row => {
         row.addEventListener('click', e => { if (!e.target.closest('a, button')) open(row); });
         row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(row); } });
+    });
+    container.querySelectorAll('.meteo-pill[data-scroll]').forEach(btn => {
+        btn.addEventListener('click', () => container.querySelector(btn.dataset.scroll)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     });
 }

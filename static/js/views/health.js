@@ -21,6 +21,7 @@ import { velocityCardHtml, mountVelocityChart } from '../components/velocity_car
 import { ANOMALY_RULES, isActionRetro, healthScore } from '../business_rules.js';
 import { VOTE_KINDS, setVotes, pushVote, voteCellHtml, voteTotalHtml, voteRowCls, voteCount, pickerHtml } from './health-votes.js';
 import { computeCoverage, coverageBannerHtml, wireCoverageBanner } from './health-coverage.js';
+import { meteoMatrixHtml, meteoPillsHtml, meteoContext, bindMeteoMatrix } from '../components/meteo_matrix.js';
 
 // Historique local du score Health (snapshot à chaque visite, max 30 entrées)
 const HEALTH_HIST_KEY = 'sb-health-history';
@@ -634,6 +635,12 @@ export function renderHealth(container) {
                 ${capacityCard}
             </div>
 
+            <!-- Météo par équipe : la même matrice que le Dashboard — c'est cette vue qui la nourrit
+                 (score de santé, anomalies). PI courant seulement. -->
+            ${piOffset === 0 && teamsScope.length > 1
+                ? meteoMatrixHtml(teamsScope, meteoContext(currentPiNum), teamObjects, { groups: _activeGroup ? [] : groups, title: 'Météo par équipe' })
+                : piOffset === 0 && teamsScope.length === 1 ? meteoPillsHtml(teamsScope[0], meteoContext(currentPiNum), teamObjects) : ''}
+
             ${coverageBannerHtml(_coverage)}
 
             <div class="health-velo-host">
@@ -680,6 +687,7 @@ C'est un point de départ chiffré, pas un engagement : la « Charge prévue » 
     `;
 
     wireCoverageBanner(container);
+    bindMeteoMatrix(container);
 
     // Graphe(s) de vélocité (Chart.js) — monté(s) après insertion du DOM.
     // Mode ligne produit : un graphe par équipe du groupe (canvasId dédié par équipe).

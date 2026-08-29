@@ -10,6 +10,8 @@ import { FIST_SCALE, slackToEmoji, buildMoodSlackRaw, buildFistSlackRaw, wireSla
 import * as api from '../api.js';
 import { PI_GENERATOR } from './reports-pi.js';
 import { B, E, SB, CS } from './reports-fmt.js';
+import { meteoSummary } from '../components/meteo_report.js';
+import { meteoContext } from '../components/meteo_matrix.js';
 
 let _format = 'text';
 let _chartsCollapsed = localStorage.getItem('sb-rpt-charts-collapsed') === 'true';
@@ -96,9 +98,18 @@ export function renderReports(container) {
     // `teamTickets` = tickets de l'equipe SANS reduction au PI affiche : la section PI en a
     // besoin pour retrouver le perimetre engage d'un sprint (un reporte porte le sprint
     // d'arrivee, souvent d'un autre PI — cf utils/sprint-scope.js).
+    // Météo du périmètre (PI courant seulement) : une ligne dans le rapport de sprint, même
+    // calcul que la matrice du Dashboard — le rapport dit ce que l'écran montre.
+    const _meteo = (() => {
+        if (!_isCurrentPi || !_basePiNum) return null;
+        const groupId = store.get('group');
+        const g = groupId ? (store.get('groups') || []).find(x => x.id === groupId) : null;
+        const scope = (team && team !== 'all') ? teams.filter(t => t === team) : (g?.teams?.length ? teams.filter(t => g.teams.includes(t)) : teams);
+        return meteoSummary(scope, meteoContext(_basePiNum));
+    })();
     const ctx = { tickets: displayTickets, teamTickets: tickets, features, sprintInfo, teams, team, piInfo,
                   absences, support, statusCounts, total, done, totalPts, donePts,
-                  displayPiNum, isCurrentPi: _isCurrentPi };
+                  displayPiNum, isCurrentPi: _isCurrentPi, meteo: _meteo };
     const dLeft = _dLeft(sprintInfo?.endDate);
 
     const sections = [
@@ -1164,6 +1175,7 @@ const GENERATORS = {
             r += `Tickets: ${done}/${total} (${pct(done, total)}%)\nPoints: ${donePts}/${totalPts} (${pct(donePts, totalPts)}%)\n`;
             if (blocked) r += `Bloques: ${blocked}\n`;
             if (sprintInfo?.goal) r += `\nObjectif: ${sprintInfo.goal}\n`;
+            if (ctx.meteo) r += `Meteo: ${ctx.meteo.text}\n`;
             if (teams.length > 1 && team === 'all') r += `\nPar equipe:\n${teamBreakdown(tickets, teams, 'text')}`;
             return r;
         },
@@ -1204,6 +1216,7 @@ const GENERATORS = {
             const _spLabel = _sp.piSprint ? `Sprint ${_sp.display}` : 'Sprint';
             let r = `<div class="s-header">${E('📋')} ${esc(_spLabel)} · ${esc(teamLabel)}${period}</div>`;
             if (sprintInfo?.goal) r += `${E('🎯')} ${B('Objectif')} : ${esc(sprintInfo.goal)}\n`;
+            if (ctx.meteo) r += `${E('🌤️')} ${B('Météo')} : ${esc(ctx.meteo.text)}\n`;
             r += `${E('📊')} ${B('Tickets')} : ${done}/${total} ${SB(ticketPct + '%', _clr(ticketPct))}\n`;
             r += `${E('💎')} ${B('Points')}  : ${donePts}/${totalPts} ${SB(ptsPct + '%', _clr(ptsPct))}\n`;
             const blocked = tickets.filter(t => t.status === 'blocked');
@@ -1258,6 +1271,7 @@ const GENERATORS = {
             let r = `<h2>${esc(sprintInfo?.name || 'Sprint')}</h2>`;
             r += `<p><strong>Équipe :</strong> ${esc(teamLabel)}${period}</p>`;
             if (sprintInfo?.goal) r += `<blockquote style="border-left:4px solid #0052cc;padding:8px 16px;background:#f4f5f7;margin:8px 0;border-radius:0 4px 4px 0"><strong>🎯 Objectif :</strong> ${esc(sprintInfo.goal)}</blockquote>`;
+            if (ctx.meteo) r += `<p><strong>🌤️ Météo :</strong> ${esc(ctx.meteo.text)}</p>`;
             r += `<h3>Métriques</h3><table><tr><th>Indicateur</th><th>Valeur</th><th>Progression</th></tr>`;
             r += `<tr><td>Tickets terminés</td><td>${done}/${total}</td><td>${CS(ticketPct + '%', _clr(ticketPct))}</td></tr>`;
             r += `<tr><td>Story Points</td><td>${donePts}/${totalPts}</td><td>${CS(ptsPct + '%', _clr(ptsPct))}</td></tr>`;

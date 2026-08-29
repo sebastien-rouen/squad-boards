@@ -262,6 +262,11 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 .meteo-fc-note { padding: 0 var(--sp-4) var(--sp-3); font-size: var(--fs-sm); color: var(--text-secondary); }
 .meteo-fc-note .is-warn { color: var(--amber-text); }
 
+/* Santé : la matrice sous le score, l'espace d'une section */
+.health-view > .meteo-card, .health-view > .meteo-pills { margin-top: var(--sp-4); }
+/* PI Planning : la tuile « Météo du PI » garde la grille des autres tuiles */
+.meteo-metric .metric-value { display: flex; align-items: baseline; gap: var(--sp-1); }
+
 /* Aperçu (Paramètres, TV) : lignes inertes */
 .meteo-card--preview .meteo-row { cursor: default; }
 .meteo-card--preview .meteo-row:hover .meteo-cell { filter: none; }

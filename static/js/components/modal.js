@@ -5,7 +5,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, trapFocus } from '../utils.js';
+import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, toastUndo, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, trapFocus } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS, TYPE_ICONS } from '../config.js';
 
 const overlay = () => document.getElementById('modal-overlay');
@@ -892,18 +892,24 @@ export function openTicketModal(ticketId) {
 
     bodyEl().querySelector('#btn-edit-ticket')?.addEventListener('click', () => { closeModal(); openEditModal(ticket); });
 
-    bodyEl().querySelector('#btn-delete-ticket')?.addEventListener('click', async () => {
-        const ok = await confirmDanger(
-            `Supprimer ${ticket.id} ?`,
-            `${ticket.title}\n\nCette action est irréversible. Le ticket sera retiré de la base locale (la sync JIRA suivante peut le réimporter si la source contient encore l'issue).`
-        );
-        if (!ok) return;
-        try {
-            const del = ticket.type === 'feature' ? api.deleteFeature : ticket.type === 'epic' ? api.deleteEpic : api.deleteTicket;
-            await del(ticket.id); await refreshData(); closeModal();
-            toast('Supprime', 'info');
-            window.__squadBoard.rerenderView?.();
-        } catch (err) { toast(err.message, 'error'); }
+    // Suppression ANNULABLE : le ticket disparaît tout de suite de l'écran, l'API n'est appelée
+    // qu'après 8 s sans « Annuler » — plus de confirmation bloquante pour un geste réversible
+    // (`confirmDanger` reste réservé à l'irréversible, ex. régénérer une rotation).
+    bodyEl().querySelector('#btn-delete-ticket')?.addEventListener('click', () => {
+        const key = ticket.type === 'feature' ? 'features' : ticket.type === 'epic' ? 'epics' : 'tickets';
+        const del = ticket.type === 'feature' ? api.deleteFeature : ticket.type === 'epic' ? api.deleteEpic : api.deleteTicket;
+        const before = store.get(key) || [];
+        store.set(key, before.filter(t => t.id !== ticket.id));
+        closeModal();
+        window.__squadBoard.rerenderView?.();
+        toastUndo(`${ticket.id} supprimé`, {
+            onUndo: () => { store.set(key, before); window.__squadBoard.rerenderView?.(); },
+            onCommit: async () => {
+                try { await del(ticket.id); await refreshData(); }
+                catch (err) { toast(err.message, 'error'); store.set(key, before); }
+                window.__squadBoard.rerenderView?.();
+            },
+        });
     });
 
     // E : copie URL JIRA

@@ -172,11 +172,11 @@ Deux réserves à garder en tête avant de coder :
   la carte entière ; `10` : le bandeau **fin de PI** avec la checklist du PI Planning calculée sur
   les données (`components/meteo_endpi.js`) ; `11` : les formules et sources des cinq domaines
   dans l'aide « ? » (`METEO_DOMAINS`).
-- Reste, volontairement non porté : le « premier lancement » (`10`, le site crée déjà des données
-  de démo), le mode apprentissage qui ouvre tous les « ? » d'un coup (`11`) et l'écran Sprint
-  review de la TV (`12`) — inscrits au BACKLOG, à ne lancer que sur demande. Les modales et
-  états live (`03`, `04`) existaient déjà dans le site ; les maquettes n'en changeaient que
-  l'habillage.
+- **3.160.0** — `11` : le **glossaire** et le **mode apprentissage** (toutes les explications
+  d'un coup, bouton Aide + Ctrl+K) ; `03` : la **suppression annulable** (toast « Annuler » 8 s,
+  API différée) et la bordure conique du popover « ? ».
+- Reste : le bandeau hors ligne et « sprint clos → rapport prêt » (`04`), le premier lancement
+  sans équipe (`10`), l'écran Sprint review de la TV (`12`) — lot suivant.
 
 ## Régénérer et vérifier
 

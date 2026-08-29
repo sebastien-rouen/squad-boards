@@ -36,9 +36,10 @@ const _sprintLabel = name => (String(name || '').match(/(\d+\.\d+)/) || [])[1] |
  * @returns {{ team, color, level, blocked, domains: Array<{key, icon, label, level, value, sub, title}> }}
  */
 export function computeTeamMeteo(team, {
-    tickets, sprintInfoAll, piNum, members = [], absences = [], moodVotes = [], color = null,
+    tickets, sprintInfoAll, piNum, members = [], absences = [], moodVotes = [], color = null, thresholds = null,
 } = {}) {
-    const th = meteoThresholds();
+    // `thresholds` : surcharge ponctuelle (aperçu des Paramètres), sinon les seuils effectifs.
+    const th = thresholds || meteoThresholds();
     const tt = (tickets || []).filter(t => t.team === team);
     const active = tt.filter(t => t.status !== 'done');
     const sprint = getSprintForTeam(team, sprintInfoAll);
@@ -119,9 +120,11 @@ export function meteoContext(piNum) {
         tickets: store.get('tickets') || [],
         sprintInfoAll: store.get('sprintInfo'),
         piNum,
+        piInfo: store.get('piInfo') || null,
         members: store.get('members') || [],
         absences: store.get('absences') || [],
         moodVotes: store.get('moodVotes') || [],
+        fistVotes: store.get('fistVotes') || [],
     };
 }
 
@@ -135,8 +138,8 @@ const _cell = dom => `<td class="meteo-cell meteo-cell--${dom.level}" title="${e
 </td>`;
 
 /** Légende de l'échelle — toujours visible, jamais dans une infobulle. */
-export function meteoScaleHtml() {
-    const th = meteoThresholds();
+export function meteoScaleHtml(thresholds = null) {
+    const th = thresholds || meteoThresholds();
     const items = [['sun', `≥ ${th.sun}`], ['cloud', `${th.cloud}–${th.sun - 1}`], ['rain', `${th.rain}–${th.cloud - 1}`], ['storm', `< ${th.rain}`], ['none', '']];
     return `<div class="meteo-scale" aria-label="Échelle de la météo">${items.map(([lv, r]) => `<span class="meteo-scale-it meteo-cell--${lv}"><span aria-hidden="true">${METEO_GLYPH[lv]}</span> ${METEO_LABEL[lv]}${r ? ` <small>${r}</small>` : ''}</span>`).join('')}</div>`;
 }
@@ -145,24 +148,29 @@ export function meteoScaleHtml() {
  * La matrice — une ligne par équipe, cliquable (→ filtre équipe).
  * @param {string[]} teams  équipes du périmètre affiché
  */
-export function meteoMatrixHtml(teams, ctx, teamObjects = []) {
+/**
+ * @param {object} [opts]
+ * @param {boolean} [opts.preview]  aperçu (Paramètres, TV) : lignes non cliquables, sans « ? »
+ * @param {string}  [opts.title]    titre de la card
+ */
+export function meteoMatrixHtml(teams, ctx, teamObjects = [], { preview = false, title = 'Météo des équipes' } = {}) {
     const rows = teams.map((t, i) => computeTeamMeteo(t, { ...ctx, color: _teamColor(t, teamObjects, i) }));
     const worst = worstLevel(rows.map(r => r.level));
     const storms = rows.filter(r => r.level === 'storm').length;
     const sub = storms ? `${storms} équipe${storms > 1 ? 's' : ''} en ⛈️` : `${rows.length} équipes · ${METEO_LABEL[worst].toLowerCase()}`;
     return `
-    <section class="card meteo-card" aria-labelledby="meteo-title">
+    <section class="card meteo-card${preview ? ' meteo-card--preview' : ''}" aria-labelledby="meteo-title">
         <div class="card-header meteo-header">
-            <span class="card-title" id="meteo-title">${METEO_GLYPH[worst]} Météo des équipes ${helpIconHtml({ key: 'meteo', label: 'Comprendre la météo des équipes' })}</span>
-            <span class="card-subtitle">${esc(sub)} — cliquer une ligne ouvre l'équipe</span>
+            <span class="card-title" id="meteo-title">${METEO_GLYPH[worst]} ${esc(title)} ${preview ? '' : helpIconHtml({ key: 'meteo', label: 'Comprendre la météo des équipes' })}</span>
+            <span class="card-subtitle">${esc(sub)}${preview ? '' : ' — cliquer une ligne ouvre l\'équipe'}</span>
         </div>
-        ${meteoScaleHtml()}
+        ${meteoScaleHtml(ctx.thresholds || null)}
         <div class="meteo-wrap">
             <table class="meteo-matrix">
                 <caption class="meteo-sr">Météo par équipe et par domaine</caption>
                 <thead><tr><th scope="col">Équipe</th>${DOMAINS.map(dm => `<th scope="col" title="${esc(dm.hint)}"><span aria-hidden="true">${dm.icon}</span> ${dm.label}</th>`).join('')}</tr></thead>
                 <tbody>${rows.map(r => `
-                <tr class="meteo-row" data-team="${esc(r.team)}" tabindex="0" role="button" aria-label="Ouvrir l'équipe ${esc(r.team)} — ${esc(METEO_LABEL[r.level])}" style="--team-color:${r.color}">
+                <tr class="meteo-row" ${preview ? '' : `data-team="${esc(r.team)}" tabindex="0" role="button" aria-label="Ouvrir l'équipe ${esc(r.team)} — ${esc(METEO_LABEL[r.level])}"`} style="--team-color:${r.color}">
                     <th scope="row"><span class="meteo-team"><span class="team-dot" style="background:${r.color}"></span>${esc(r.team)}${r.blocked ? `<span class="team-card-stat team-card-stat--blocked" title="${r.blocked} bloqué${r.blocked > 1 ? 's' : ''}">⚠ ${r.blocked}</span>` : ''}</span></th>
                     ${r.domains.map(_cell).join('')}
                 </tr>`).join('')}</tbody>

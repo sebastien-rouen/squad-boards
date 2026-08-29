@@ -1,3 +1,22 @@
+## [3.154.0] - 2026-08-29
+
+### 😊👥 Fiche équipe : tendance du mood et roster du PI
+
+Sous le plan d'action du Dashboard filtré, une rangée de plus
+([meteo_fiche.js](static/js/components/meteo_fiche.js)) :
+
+- **Tendance Mood & confiance** — la moyenne des votes de chaque sprint de l'équipe (clos + actif,
+  8 derniers), en sparkline puis case par case avec le ✊ Fist of Five en dessous et le sprint en
+  cours mis en avant. Appariement par clé `NN.N` comme `health-votes.js`. Répond au **#13 du
+  BACKLOG** (courbe de confiance) sans nouvelle table : les votes existent déjà par sprint. Sous
+  deux sprints votés, la card dit ce qu'il manque au lieu d'afficher une courbe vide.
+- **L'équipe — roster du PI** — `effectiveRosterForPi` (snapshot du PI, sinon dérivation des
+  absences), capacité pondérée par rôle (`teamEtp`, Paramètres → capacité par rôle : un PO à 0 %
+  est listé mais ne compte pas), rôle inconnu signalé, **prochaine absence** de chacun (« 2 → 3 sept.
+  (2 j) », « 🌴 absent » si en cours). Le sous-titre donne l'ETP réel, pas le nombre de têtes.
+
+`meteoContext()` porte désormais `piInfo` et `fistVotes`.
+
 ## [3.153.0] - 2026-08-29
 
 ### 🧭 Fiche équipe : le plan d'action — la météo qui propose

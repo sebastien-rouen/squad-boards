@@ -168,8 +168,15 @@ Deux réserves à garder en tête avant de coder :
 - **3.158.0** — `02-sections` : la matrice **dans Santé** (sous le score, groupée par ligne
   produit), la ligne **🌤️ Météo dans les rapports** de sprint (texte / Slack / Confluence), la
   tuile **« Météo du PI »** dans l'en-tête du PI Planning (`components/meteo_report.js`).
-- Reste : l'identité Météo sur Board / Backlog (`08`) — cosmétique, à décider après usage. La
-  direction est **entièrement portée** pour ce qui touche au pilotage.
+- **3.159.0** — `08` : la météo du sprint dans l'en-tête du Board, le vieillissement qui teinte
+  la carte entière ; `10` : le bandeau **fin de PI** avec la checklist du PI Planning calculée sur
+  les données (`components/meteo_endpi.js`) ; `11` : les formules et sources des cinq domaines
+  dans l'aide « ? » (`METEO_DOMAINS`).
+- Reste, volontairement non porté : le « premier lancement » (`10`, le site crée déjà des données
+  de démo), le mode apprentissage qui ouvre tous les « ? » d'un coup (`11`) et l'écran Sprint
+  review de la TV (`12`) — inscrits au BACKLOG, à ne lancer que sur demande. Les modales et
+  états live (`03`, `04`) existaient déjà dans le site ; les maquettes n'en changeaient que
+  l'habillage.
 
 ## Régénérer et vérifier
 

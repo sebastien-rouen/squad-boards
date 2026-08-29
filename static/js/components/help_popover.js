@@ -11,7 +11,7 @@
  * Clic (pas survol) → fonctionne au doigt sur mobile. Fermeture : clic extérieur / Échap / scroll.
  */
 
-import { esc, meteoThresholds, METEO_REL_BAND, METEO_START_TOLERANCE } from '../utils.js';
+import { esc, meteoThresholds, METEO_REL_BAND, METEO_START_TOLERANCE, METEO_DOMAINS } from '../utils.js';
 
 /** Bouton icône « ? » à insérer dans un card-header. `key` référence une entrée de HELP_REGISTRY. */
 export function helpIconHtml({ key = '', label = 'Explication', extraClass = '' } = {}) {
@@ -277,7 +277,11 @@ export function meteoDiagramHtml() {
             jusqu'à −${2 * METEO_REL_BAND} = 🌧️, au-delà = ⛈️. Sous ${METEO_START_TOLERANCE} % du temps, on ne juge pas encore.</li>
         <li><strong>Le niveau d'une équipe</strong> = le <em>pire</em> de ses domaines — une moyenne cacherait un orage.</li>
         <li><strong>⚪ Pas de donnée</strong> (aucun vote, aucun sprint) n'est jamais une mauvaise nouvelle et ne compte pas.</li>
-    </ul>`;
+    </ul>
+    <table class="meteo-help-table" aria-label="Formule et source de chaque domaine">
+        <thead><tr><th>Domaine</th><th>Formule</th><th>Source dans le site</th></tr></thead>
+        <tbody>${METEO_DOMAINS.map(d => `<tr><th scope="row">${d.icon} ${esc(d.label)} <small>${d.kind === 'rel' ? 'relatif' : 'absolu'}</small></th><td>${esc(d.formula)}</td><td>${esc(d.source)}</td></tr>`).join('')}</tbody>
+    </table>`;
 }
 
 // Registre des schémas — clé = data-help-key posé par helpIconHtml.

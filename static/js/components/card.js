@@ -20,10 +20,15 @@ const _DWELL_SOURCE_LABEL = {
  * data-driven : ambre entre P50 et P85, rouge au-delà du P85 (le ticket sort de la zone habituelle
  * de SA colonne). Sans repère fiable, on retombe sur des seuils fixes (4 j / 7 j).
  */
-function _dwellChip(ticket, ageRefs) {
-    if (!ticket || ticket.status === 'done') return '';
+/**
+ * Zone d'ancienneté d'un ticket dans sa colonne — `{ zone, d, refTip }` ou `null` si sans objet.
+ * Partagée par la pastille ET par la teinte de la carte entière (identité Météo du Board) :
+ * une seule règle, deux rendus.
+ */
+function _dwellZone(ticket, ageRefs) {
+    if (!ticket || ticket.status === 'done') return null;
     const d = daysInCurrentColumn(ticket);
-    if (!d || d.days < 2) return '';
+    if (!d || d.days < 2) return null;
     let zone = 'ok';
     let refTip = '';
     const gk = currentStageGroupKey(ticket);
@@ -37,6 +42,19 @@ function _dwellChip(ticket, ageRefs) {
         if (d.days >= 7) zone = 'crit';
         else if (d.days >= 4) zone = 'warn';
     }
+    return { zone, d, refTip };
+}
+
+/** Classe de carte selon l'ancienneté — vide sous le P50 (une carte saine reste neutre). */
+export function dwellCardClass(ticket, ageRefs) {
+    const z = _dwellZone(ticket, ageRefs);
+    return z && z.zone !== 'ok' ? ` ticket-card--age-${z.zone}` : '';
+}
+
+function _dwellChip(ticket, ageRefs) {
+    const z = _dwellZone(ticket, ageRefs);
+    if (!z) return '';
+    const { zone, d, refTip } = z;
     const srcLbl = _DWELL_SOURCE_LABEL[d.source] || '';
     const zoneLbl = zone === 'crit' ? ' — au-delà de l\'habituel, à débloquer' : zone === 'warn' ? ' — à surveiller' : '';
     const title = `${d.days} jour${d.days > 1 ? 's' : ''} dans cette colonne · ${srcLbl} (${fmtDate(d.sinceIso)})${refTip}${zoneLbl}`;
@@ -81,7 +99,7 @@ export function renderCard(ticket, { ageRefs } = {}) {
     const extraCount = contributors.length > 2 ? contributors.length - 2 : 0;
 
     return `
-        <div class="ticket-card${flagClass}" data-ticket-id="${esc(ticket.id)}" title="${esc(ticket.title)}" draggable="true"
+        <div class="ticket-card${flagClass}${dwellCardClass(ticket, ageRefs)}" data-ticket-id="${esc(ticket.id)}" title="${esc(ticket.title)}" draggable="true"
              tabindex="0" role="button" aria-label="${esc(ticket.id)} · ${esc(ticket.title)} — Entrée : ouvrir · Alt+←/→ : changer de colonne">
             <div class="ticket-card-top">
                 ${typeBadge(ticket.type, { title: false })}

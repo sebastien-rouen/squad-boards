@@ -6,6 +6,8 @@
 import { store } from '../state.js';
 import * as api from '../api.js';
 import { esc, filterByTeam, filterByMine, sumBy, pct, progressColor, fmtDate, fmtRelative, sortTickets, initials, hashColor, toast, getSprintForTeam, isBufferItem, countBlocked, typeBadge, statusBadge, computeStageAgeRefs } from '../utils.js';
+import { getCurrentPi, METEO_GLYPH, METEO_LABEL } from '../utils.js';
+import { computeTeamMeteo, meteoContext } from '../components/meteo_matrix.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
 import { STATUS_ORDER, STATUS_LABELS, WIP_LIMITS } from '../config.js';
 import { renderCard, bindCardClicks } from '../components/card.js';
@@ -158,6 +160,18 @@ export function renderSprint(container) {
     // Override si l'utilisateur a choisi un autre sprint dans le sélecteur (PI précédent/courant/suivant)
     const teamSprintsArr = Array.isArray(globalSprintInfo?.teamSprints) ? globalSprintInfo.teamSprints : [];
     const pickedSprintName = _getSprintPick();
+
+    // Météo du sprint (identité Météo du Board) : la case 🏃 de la matrice du Dashboard, pour le
+    // sprint ACTIF d'une équipe — même calcul, un clic ouvre la fiche. Rien sur « Tous » ni sur
+    // un sprint passé choisi dans le sélecteur : la météo ne parle que du présent.
+    const _boardMeteo = (() => {
+        if (!team || team === 'all' || (pickedSprintName && pickedSprintName !== activeSprintName)) return '';
+        const piNum = getCurrentPi({ sprintInfo: globalSprintInfo, piInfo: store.get('piInfo') });
+        const d = computeTeamMeteo(team, meteoContext(piNum)).domains.find(x => x.key === 'sprint');
+        if (!d) return '';
+        return `<a class="meteo-pill meteo-pill--sm meteo-cell--${d.level}" href="#dashboard/${encodeURIComponent(team)}" title="${esc(d.title)} — ouvrir la fiche de l'équipe">
+            <span class="meteo-glyph" aria-hidden="true">${METEO_GLYPH[d.level]}</span><span class="meteo-pill-lbl">🏃 Sprint</span><strong class="meteo-val">${esc(d.value)}</strong><span class="meteo-sr">${esc(METEO_LABEL[d.level])}</span></a>`;
+    })();
     if (pickedSprintName && pickedSprintName !== activeSprintName) {
         const ts = (team && team !== 'all')
             ? teamSprintsArr.filter(s => s.team === team)
@@ -390,6 +404,7 @@ export function renderSprint(container) {
                 <div class="sprint-header-col sprint-header-col--info">
                     <div class="sprint-info">
                         <span class="sprint-name">${esc(sprintInfo?.name || 'Sprint')}</span>
+                        ${_boardMeteo}
                         ${sprintInfo?.startDate ? `<span class="sprint-dates">${fmtDate(sprintInfo.startDate)} → ${fmtDate(sprintInfo.endDate)}</span>` : ''}
                     </div>
                     ${sprintInfo?.goal ? `<div class="sprint-goal-bar" title="Objectif de sprint">

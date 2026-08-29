@@ -1,3 +1,27 @@
+## [3.159.0] - 2026-08-30
+
+### 🏁 Fin de PI, météo sur le Board, formules dans l'aide (maquettes `08`, `10`, `11`)
+
+- **🏁 Fin de PI** ([meteo_endpi.js](static/js/components/meteo_endpi.js)) — quand le sprint actif
+  d'une équipe est le **dernier de son PI** (respiration 🍃 ou dernier index), le Dashboard ouvre
+  par un bandeau « Dernier sprint du PI #N · J−x · PI Planning #N+1 : dates » et une **checklist
+  calculée sur les données**, pas cochée à la main : sprints du PI+1 connus côté JIRA, objectifs
+  du PI+1 saisis, absences connues jusqu'à la fin du PI+1, baseline du PI courant figée, rotation
+  support du PI+1 générée. Chaque ligne mène là où ça se règle ; en périmètre multi-équipes,
+  chaque ligne compte `x/n équipes`. Dates du PI Planning lues dans `pi-cfg-<N+1>` (`pipDates`).
+- **🏃 Board** — la case Sprint de la matrice s'affiche dans l'en-tête du Board d'une équipe
+  (sprint actif seulement ; rien sur « Tous » ni sur un sprint passé choisi dans le sélecteur), et
+  mène à la fiche. Le **vieillissement teinte la carte entière** (liseré + fond ambre / rouge,
+  Scrum et Kanban) : même règle que la pastille `ticket-dwell` (`dwellCardClass`, une seule
+  fonction `_dwellZone`) — une carte saine reste neutre.
+- **❓ Aide « Météo des équipes »** — le popover porte désormais un tableau **formule + source
+  dans le site** pour chacun des cinq domaines. Les domaines vivent dans `utils/meteo.js`
+  (`METEO_DOMAINS`), lus par la matrice ET par l'aide : une seule définition.
+
+Vérifié en chargeant réellement les modules (respiration détectée, 4/5 faits avec liens, pas de
+bandeau hors dernier sprint, teinte crit / neutre / terminé, pastille du Board pour une équipe
+seulement) ; suite existante au vert (242).
+
 ## [3.158.0] - 2026-08-30
 
 ### 🌤️ La météo dans Santé, Rapports et PI Planning (maquette `02-sections`)

@@ -267,6 +267,36 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 /* PI Planning : la tuile « Météo du PI » garde la grille des autres tuiles */
 .meteo-metric .metric-value { display: flex; align-items: baseline; gap: var(--sp-1); }
 
+/* ── Board : météo du sprint dans l'en-tête, vieillissement qui teinte la carte ── */
+.meteo-pill--sm { min-width: 0; min-height: 34px; padding: 2px var(--sp-2); border-radius: var(--r-md); margin-left: var(--sp-2); vertical-align: middle; }
+.meteo-pill--sm .meteo-glyph { font-size: var(--fs-lg); }
+.meteo-pill--sm .meteo-val { font-size: var(--fs-sm); }
+.ticket-card--age-warn { box-shadow: inset 3px 0 0 var(--warning); background: color-mix(in srgb, var(--warning) 6%, var(--surface)); }
+.ticket-card--age-crit { box-shadow: inset 3px 0 0 var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
+
+/* ── Fin de PI : bandeau + checklist du PI Planning ── */
+.meteo-endpi { margin-bottom: var(--sp-4); border-top: 3px solid var(--warning); }
+.meteo-endpi--ready { border-top-color: var(--success); }
+.meteo-endpi-list { display: flex; flex-direction: column; gap: var(--sp-1); padding: 0 var(--sp-4) var(--sp-3); }
+.meteo-endpi-list a { display: grid; grid-template-columns: auto 1fr; grid-template-areas: "check lbl" "check detail"; column-gap: var(--sp-2); align-items: center; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-md); color: var(--text); text-decoration: none; }
+.meteo-endpi-list a:hover { background: var(--surface-hover); text-decoration: none; }
+.meteo-endpi-check { grid-area: check; font-size: var(--fs-base); }
+.meteo-endpi-lbl { grid-area: lbl; font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.meteo-endpi-list small { grid-area: detail; font-size: var(--fs-xs); color: var(--text-secondary); }
+.meteo-endpi-list li.is-done .meteo-endpi-lbl { color: var(--text-muted); text-decoration: line-through; }
+@media (min-width: 900px) {
+    .meteo-endpi-list a { grid-template-columns: auto auto 1fr; grid-template-areas: "check lbl detail"; }
+    .meteo-endpi-list small { text-align: right; }
+}
+
+/* ── Aide « ? » : la formule et la source de chaque domaine ── */
+.meteo-help-table { width: 100%; margin-top: var(--sp-2); border-collapse: collapse; font-size: var(--fs-xs); }
+.meteo-help-table th, .meteo-help-table td { padding: 4px var(--sp-2); text-align: left; vertical-align: top; border-top: 1px solid var(--border); }
+.meteo-help-table thead th { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border-top: 0; }
+.meteo-help-table tbody th { white-space: nowrap; font-weight: var(--fw-semibold); }
+.meteo-help-table tbody th small { display: block; font-weight: var(--fw-normal); color: var(--text-muted); }
+.meteo-help-table td { color: var(--text-secondary); }
+
 /* Aperçu (Paramètres, TV) : lignes inertes */
 .meteo-card--preview .meteo-row { cursor: default; }
 .meteo-card--preview .meteo-row:hover .meteo-cell { filter: none; }

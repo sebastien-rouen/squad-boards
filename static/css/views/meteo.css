@@ -220,6 +220,48 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 .meteo-roster-table td.is-now { color: var(--amber-text); font-weight: var(--fw-semibold); }
 .meteo-roster-table td.is-next { color: var(--text-secondary); }
 
+/* En-tête de ligne produit : le pire niveau du groupe, liseré à la couleur du groupe */
+.meteo-grp-row th {
+    padding: var(--sp-3) var(--sp-2) var(--sp-1);
+    border: 0;
+    border-left: 3px solid var(--grp-color, var(--border));
+    border-radius: 0;
+    background: transparent;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.meteo-grp-row th small { margin-left: var(--sp-2); font-weight: var(--fw-normal); letter-spacing: 0; text-transform: none; color: var(--text-muted); }
+
+/* ── Prévisions : la météo à cinq PI (Roadmap) ── */
+.meteo-fc-card { margin-bottom: var(--sp-4); }
+.meteo-fc { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-2); padding: 0 var(--sp-4) var(--sp-3); }
+.meteo-fc-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: var(--sp-3) var(--sp-2);
+    border-radius: var(--r-lg);
+    background: color-mix(in srgb, var(--wc) 16%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--wc) 45%, transparent);
+    text-align: center;
+}
+.meteo-fc-col header { display: flex; flex-direction: column; align-items: center; }
+.meteo-fc-col header small { font-size: 10px; font-weight: var(--fw-semibold); letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.meteo-fc-col header b { font-size: var(--fs-lg); font-weight: var(--fw-bold); }
+.meteo-fc-col .meteo-glyph { font-size: var(--fs-3xl); }
+.meteo-fc-val { font-size: var(--fs-xl); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+.meteo-fc-sub { font-size: var(--fs-xs); color: var(--text-secondary); }
+.meteo-fc-col--current { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 40%, transparent); }
+.meteo-fc-col--past { opacity: .85; }
+.meteo-fc-col--unplanned { border-style: dashed; }
+.meteo-fc-note { padding: 0 var(--sp-4) var(--sp-3); font-size: var(--fs-sm); color: var(--text-secondary); }
+.meteo-fc-note .is-warn { color: var(--amber-text); }
+
 /* Aperçu (Paramètres, TV) : lignes inertes */
 .meteo-card--preview .meteo-row { cursor: default; }
 .meteo-card--preview .meteo-row:hover .meteo-cell { filter: none; }

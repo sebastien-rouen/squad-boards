@@ -37,6 +37,9 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
 .tv-dots i.is-alert { background: var(--danger); }
 .tv-btn { font-size: var(--fs-lg); }
 .tv.is-paused .tv-dots i.is-on { background: var(--warning); }
+/* Fin de journée : tamisé, sans rotation */
+.tv.is-night { filter: brightness(.82); }
+.tv.is-night .tv-top { background: var(--bg); }
 
 /* ── Bandeau d'alerte persistant sur les autres écrans ── */
 .tv-strip {

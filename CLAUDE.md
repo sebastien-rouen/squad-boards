@@ -298,8 +298,15 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `sprint-scope.js`, PI = `belongedToPi`, santé = `healthScore()` de
   [business_rules.js](static/js/business_rules.js) (**source unique**, normalisée par tickets
   actifs, utilisée aussi par `health.js`), SLA = `slaModel` de `sla_review_card.js`, mood =
-  `store.moodVotes` du sprint actif. Direction visuelle et pages à venir :
-  [static/mockups/refonte/](static/mockups/refonte/README.md).
+  `store.moodVotes` du sprint actif. Dashboard filtré = **fiche équipe** : plan d'action
+  ([meteo_plan.js](static/js/components/meteo_plan.js), ouvre `openAlertModal`), tendance des
+  votes + roster ([meteo_fiche.js](static/js/components/meteo_fiche.js)). Seuils réglables dans
+  Paramètres → Météo ([settings-meteo.js](static/js/views/settings-meteo.js), pattern
+  settings-jira, aperçu = vraie matrice en mode `preview`). **Mode TV** ([tv.js](static/js/views/tv.js),
+  `#tv`, hors `NAV_ITEMS`) : rotation météo → plans → aujourd'hui, l'alerte `oldBlockers`
+  en tête de tour ; ⚠️ la vue pose `body.tv-mode` et des timers — `_cleanup()` est appelé au
+  re-rendu ET via `store.on('view')`, ne pas ajouter d'écouteur hors de `_st.unsubs`.
+  Direction visuelle et pages restantes : [static/mockups/refonte/](static/mockups/refonte/README.md).
 - **Refresh ICS et pool SQLite** (3.149.0, [calendars.py](app/routers/calendars.py)) :
   `refresh_calendar` **rend sa connexion au pool avant le fetch réseau** (`session.close()`,
   puis un second `session.get()` recharge l'objet détaché). Tenir la session pendant l'appel

@@ -375,6 +375,8 @@ export function initTopbar() {
     };
     document.getElementById('btn-daily')?.addEventListener('click', goDaily);
     document.getElementById('more-daily')?.addEventListener('click', goDaily);
+    // Mode TV : vue hors NAV_ITEMS (pas de raccourci chiffré), entrée par ce bouton ou #tv.
+    document.getElementById('btn-tv')?.addEventListener('click', () => store.set('view', 'tv'));
 
     // Keyboard shortcuts
     document.addEventListener('keydown', e => {

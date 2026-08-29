@@ -1,3 +1,28 @@
+## [3.156.0] - 2026-08-29
+
+### 📺 Mode TV : la météo du train en rotation, et l'alerte qui l'interrompt
+
+Nouvelle vue `#tv` ([tv.js](static/js/views/tv.js), hors `NAV_ITEMS` : bouton **📺 TV** du
+topbar, ou l'URL) — ce que l'écran mural affiche seul, sans sidebar ni topbar, agrandi
+(`zoom` réglable par `--tv-zoom`) :
+
+| Écran | Contenu | Durée |
+|---|---|---|
+| 🌤️ Météo du train | la matrice équipes × domaines en grand | 30 s |
+| 🧭 Plans d'action | les équipes en 🌧️ / ⛈️ (3 max) avec leur plan ; « ☀️ Rien à débloquer » sinon | 25 s |
+| 📅 Aujourd'hui | terminés du jour, en cours, bloqués (dont > 48 h), équipes à surveiller | 20 s |
+| ⛈️ **Alerte** | **en tête de chaque tour tant qu'un blocker > 48 h existe** : ticket, équipe, responsable, depuis quand (3 max) | 20 s |
+
+L'alerte est la règle `oldBlockers` de Santé (`ANOMALY_BY_KEY`), pas une réécriture. Elle ne
+bloque pas la rotation indéfiniment : elle la **précède à chaque tour** jusqu'à ce que le ticket
+bouge, et un bandeau rouge la rappelle sur les autres écrans. Périmètre = celui du topbar
+(toutes les équipes, une ligne produit, ou une équipe).
+
+Clavier : ← → écran, Espace pause (le survol aussi), F plein écran, Échap quitter. `#tv/all/meteo`
+fige un écran ; `sb-tv-seconds` force une durée unique. La vue se redessine à chaque sync
+(`store.on('tickets')`) sans repartir du premier écran, et se nettoie (timers, écouteurs, classe
+`tv-mode`) dès qu'on la quitte — vérifié.
+
 ## [3.155.0] - 2026-08-29
 
 ### 🌤️ Paramètres → Seuils météo, avec aperçu vivant

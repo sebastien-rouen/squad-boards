@@ -15,19 +15,15 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, belongedToSprint, isInSprint, belongedToPi, countBlocked, teamCapacity, wipThreshold, countWip, weatherOf, weatherRel, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, meteoThresholds } from '../utils.js';
+import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, belongedToSprint, isInSprint, belongedToPi, countBlocked, teamCapacity, wipThreshold, countWip, weatherOf, weatherRel, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds } from '../utils.js';
 import { ANOMALY_RULES, healthScore } from '../business_rules.js';
 import { slaModel } from './sla_review_card.js';
 import { helpIconHtml } from './help_popover.js';
 import { TEAM_COLORS } from '../config.js';
 
-const DOMAINS = [
-    { key: 'sprint', icon: '🏃', label: 'Sprint', hint: 'points réalisés / engagés, comparé au temps écoulé du sprint' },
-    { key: 'pi',     icon: '🗓️', label: 'PI',     hint: 'points réalisés / périmètre du PI, comparé au temps écoulé du PI' },
-    { key: 'health', icon: '🛡️', label: 'Santé',  hint: 'score de santé 0–100 (anomalies pondérées, normalisées par tickets actifs)' },
-    { key: 'sla',    icon: '🎧', label: 'SLA',    hint: 'part des tickets terminés sous le seuil de cycle time' },
-    { key: 'mood',   icon: '😊', label: 'Mood',   hint: 'moyenne des votes Mood du sprint (1 → 5)' },
-];
+// Les domaines vivent dans utils/meteo.js (partagés avec l'aide « ? ») ; on ne garde ici
+// que ce qu'il faut pour rendre une cellule.
+const DOMAINS = METEO_DOMAINS.map(({ key, icon, label, hint }) => ({ key, icon, label, hint }));
 
 const _sprintLabel = name => (String(name || '').match(/(\d+\.\d+)/) || [])[1] || '';
 

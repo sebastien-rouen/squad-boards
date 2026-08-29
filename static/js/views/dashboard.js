@@ -19,6 +19,7 @@ import { forecastCardHtml } from '../components/forecast_card.js';
 import { meteoMatrixHtml, meteoPillsHtml, meteoContext, bindMeteoMatrix } from '../components/meteo_matrix.js';
 import { meteoPlanHtml, bindMeteoPlan } from '../components/meteo_plan.js';
 import { meteoFicheHtml } from '../components/meteo_fiche.js';
+import { endOfPiHtml } from '../components/meteo_endpi.js';
 
 export function renderDashboard(container) {
     const team = store.get('team');
@@ -495,6 +496,9 @@ export function renderDashboard(container) {
              affichées, rangée de pastilles quand une seule — composant meteo_matrix.js -->
         ${isCurrentPi && teams.length > 1 ? meteoMatrixHtml(teams, meteoContext(displayPiNum), teamObjects, { groups: groupId ? [] : groups })
             : isCurrentPi && teams.length === 1 ? meteoPillsHtml(teams[0], meteoContext(displayPiNum), teamObjects) + meteoPlanHtml(teams[0], meteoContext(displayPiNum)) + meteoFicheHtml(teams[0], meteoContext(displayPiNum)) : ''}
+
+        <!-- Fin de PI : bandeau + checklist du PI Planning, seulement sur le dernier sprint du PI -->
+        ${isCurrentPi ? endOfPiHtml({ teams, sprintInfoAll, piNum: displayPiNum, piInfo, absences: store.get('absences') || [], support: store.get('support') || [] }) : ''}
 
         <!-- Bande "Cap de l'équipe" : Objectif de sprint ⟷ Objectifs du PI (au-dessus du bandeau) -->
         ${_goalsBandHtml}

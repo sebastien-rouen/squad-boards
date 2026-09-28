@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Détecteur d'évènements — maquette</title>
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="_shared/gallery.css">
+<link rel="stylesheet" href="_shared/tc.css">
+<link rel="stylesheet" href="_shared/detection.css">
+</head>
+<body class="gallery">
+<header class="gal-head">
+    <a href="index.html">← Galerie « Calendrier de l'équipe »</a>
+    <h1>🧭 Le détecteur — comment chaque évènement est rangé</h1>
+    <p>Deux axes indépendants. La <b>nature</b> vient du titre, par des règles ordonnées (la plus spécifique d'abord).
+       La <b>portée</b> vient de l'agenda source : équipe, groupe, train ou opérations. Ce qui n'est pas devinable se
+       <b>positionne à la main</b> — une fois par titre, pour toutes les équipes. Ce tableau de bord serait l'onglet
+       « Agendas » de Paramètres.</p>
+</header>
+<nav class="gal-nav" aria-label="Sections">
+    <a href="#equipes">Par équipe</a><a href="#agendas">Agendas reliés</a><a href="#positionner">À positionner</a><a href="#regles">Règles</a>
+    <span class="gal-spacer"></span><a href="#" data-theme-toggle>🌓 Thème</a>
+</nav>
+<main class="gal-main" id="det"></main>
+<script src="_shared/data.js"></script>
+<script src="_shared/classify.js"></script>
+<script src="_shared/tc-core.js"></script>
+<script src="_shared/detection.js"></script>
+</body>
+</html>

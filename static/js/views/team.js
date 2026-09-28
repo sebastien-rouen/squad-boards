@@ -11,8 +11,9 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, toast, hashColor, initials, deriveMembersFromAbsences, confirmDanger, copyToClipboard, promptModal, extractTeam, getCurrentPi, diagramFrameHtml, fileExt, ZOOMABLE_IMAGE_EXT } from '../utils.js';
+import { esc, toast, hashColor, initials, effectiveRosterForPi, teamNameMatches, confirmDanger, copyToClipboard, promptModal, extractTeam, getCurrentPi, diagramFrameHtml, fileExt, ZOOMABLE_IMAGE_EXT } from '../utils.js';
 import { openMemberCard } from './atlas.js';
+import { mountTeamCalendar } from '../components/team_calendar.js';
 
 const IDENTITY_FIELDS = [
     { key: 'vision', label: 'Vision' },
@@ -95,8 +96,14 @@ export function renderTeam(container) {
 
     const teamObj   = (store.get('teamObjects') || []).find(t => t.name === team);
     const color     = teamObj?.color || hashColor(team);
-    const members   = deriveMembersFromAbsences(store.get('absences') || [], store.get('members') || [])
-        .filter(m => m.team === team);
+    // Roster du PI d'AUJOURD'HUI (snapshot `piMembers[<PI>]` de l'import Congés, repli sur les
+    // absences si aucun snapshot). Dériver des absences de TOUT l'historique gardait quiconque avait
+    // posé un congé dans l'équipe, même parti depuis plusieurs PI (COLSENET : roster du PI 29 seul).
+    const _piInfo   = store.get('piInfo');
+    const _todayPi  = getCurrentPi({ sprintInfo: store.get('sprintInfo'), piInfo: _piInfo });
+    const members   = effectiveRosterForPi(_piInfo, _todayPi, store.get('absences') || [], store.get('members') || [])
+        .filter(m => teamNameMatches(m.team, team))
+        .filter((m, i, all) => all.findIndex(x => x.name === m.name) === i);   // une personne = une pastille
     const sortedMembers = _sortedMembers(members);
     const formerMembers = _formerMembers(team, members);
     const identity  = (store.get('teamIdentities') || []).find(i => i.team === team) || {};
@@ -138,6 +145,9 @@ export function renderTeam(container) {
             </div>
         </div>
 
+        <!-- Agenda de l'équipe : ICS rangés (nature + portée), Semaine / Itération, comparaison -->
+        <div class="team-calendar-host" id="team-calendar-host"></div>
+
         ${empty ? `
             <div class="team-id-banner">
                 <div>
@@ -171,6 +181,7 @@ export function renderTeam(container) {
         </div>
     `;
 
+    mountTeamCalendar(container.querySelector('#team-calendar-host'), team);
     _bindIdentityForm(container, team);
     _bindBanner(container);
     _bindAdminToggle(container);

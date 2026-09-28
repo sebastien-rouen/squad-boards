@@ -4,8 +4,9 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, buildSupportPiWeeks, getSupportWeekMode, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, getSupportWeekMode, supportWeekHead, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel, isSupportAbsent } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
+import { buildPiWeeks } from '../utils/pi-weeks.js';
 import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAGE_INTRO } from '../components/sondage.js';
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
@@ -2300,35 +2301,12 @@ function renderSupportRota(el, { teams, teamObjects }) {
             const tObj  = teamObjects.find(o => o.name === teamName);
             const color = tObj?.color || '#64748b';
             const mode  = getSupportWeekMode(teamName);
-            const { curWeeks, nextWeeks, curPiNum, nextPiNum } = buildSupportPiWeeks(piInfo, sprintInfo, mode);
-
-            // Calcule les semaines pour le PI sélectionné via piOffset
-            const sprintCnt = piInfo?.sprintsPerPI || 5;
-            const sprintDur = piInfo?.sprintDuration || 14;
-            const targetPiNum = basePiNum ? Math.max(1, basePiNum + piOffset) : curPiNum;
-            // Décale le piStart du nombre de PI d'écart
-            const piStart = (() => {
-                const base = curWeeks[0]?.weekStart || new Date().toISOString().slice(0,10);
-                const d = new Date(base + 'T00:00:00');
-                d.setDate(d.getDate() + piOffset * sprintCnt * sprintDur);
-                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            })();
-            // Reconstruit les semaines pour ce PI
-            const wps = Math.max(1, Math.floor(sprintDur / 7));
-            const allWeeks = (() => {
-                const ws = [];
-                for (let s = 0; s < sprintCnt; s++) {
-                    const d = new Date(piStart + 'T00:00:00');
-                    d.setDate(d.getDate() + s * sprintDur);
-                    for (let w = 0; w < wps; w++) {
-                        const wStart = new Date(d); wStart.setDate(d.getDate() + w * 7);
-                        const wEnd   = new Date(wStart); wEnd.setDate(wStart.getDate() + 6);
-                        const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-                        ws.push({ label: `${targetPiNum}.${s + 1}.${w + 1}`, weekStart: fmt(wStart), weekEnd: fmt(wEnd) });
-                    }
-                }
-                return ws;
-            })();
+            // Semaines du PI sélectionné — source unique utils/pi-weeks.js, même calcul que
+            // « Paramètres → Rotation » et la page Support (recul sur le jour du mode, semaine de
+            // transition, nombre d'itérations propre au PI visé). L'ancienne reconstruction locale
+            // prolongeait la cadence du PI courant avec SON nombre de sprints : PI 30 (6) → PI 31
+            // (5) donnait des semaines décalées, sans aucune rotation en base en face.
+            const { weeks: allWeeks, piNum: targetPiNum } = buildPiWeeks({ piInfo, sprintInfo, piOffset, weekMode: mode });
             const panelPiNum = targetPiNum;
             const teamMembers = allMembers.filter(m => _matchTeam(m.team, teamName));
             // N'afficher que les membres actifs (support activé)
@@ -2355,8 +2333,9 @@ function renderSupportRota(el, { teams, teamObjects }) {
             // En-têtes semaines
             const weekRow = allWeeks.map(w => {
                 const isCur = today >= w.weekStart && today <= w.weekEnd;
-                return `<th class="rot-wk-th${isCur ? ' rot-wk-current' : ''}${showNext ? ' rot-wk-next-pi' : ''}">
-                    <span class="rot-wk-label">${w.label}</span>
+                const wh = supportWeekHead(w);
+                return `<th class="rot-wk-th${isCur ? ' rot-wk-current' : ''}${showNext ? ' rot-wk-next-pi' : ''}${wh.cls}">
+                    <span class="rot-wk-label"${wh.title ? ` title="${wh.title}"` : ''}>${wh.text}</span>
                     <span class="rot-wk-dates">${_rotFmtCapDate(w.weekStart)}</span>
                 </th>`;
             }).join('');
@@ -2372,7 +2351,7 @@ function renderSupportRota(el, { teams, teamObjects }) {
                     // Détermine absent/partial à la semaine à partir des jours individuels
                     const dayLevels = wdList.map(d => supportAbsenceDayLevel(m.name, d.iso, absences));
                     const absCount  = dayLevels.filter(l => l === 'full').length + dayLevels.filter(l => l === 'half').length * 0.5;
-                    const absent    = absCount >= 2.5;
+                    const absent    = isSupportAbsent(absCount);   // même seuil que le tirage (règle n°1)
                     const partial   = absCount > 0 && !absent;
                     const cls = ['rot-cell', absent ? 'rot-cell-absent' : '', partial ? 'rot-cell-partial' : '', isCur ? 'rot-cell-current' : '', showNext ? 'rot-cell-next-pi' : ''].filter(Boolean).join(' ');
                     // Cellule figée. Semaine pleine → ✓ compact ; couverture partielle ou absences → strip.
@@ -2490,31 +2469,8 @@ function renderSupportRota(el, { teams, teamObjects }) {
                 e.stopPropagation();
                 const teamName = btn.dataset.rotCopy;
                 const piOffset = store.get('piOffset') || 0;
-                const sprintCnt = piInfo?.sprintsPerPI || 5;
-                const sprintDur = piInfo?.sprintDuration || 14;
-                const targetPiNum = basePiNum ? Math.max(1, basePiNum + piOffset) : 0;
-                const piStart = (() => {
-                    const { curWeeks } = buildSupportPiWeeks(piInfo, sprintInfo, getSupportWeekMode(teamName));
-                    const base = curWeeks[0]?.weekStart || new Date().toISOString().slice(0, 10);
-                    const d = new Date(base + 'T00:00:00');
-                    d.setDate(d.getDate() + piOffset * sprintCnt * sprintDur);
-                    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                })();
-                const wps = Math.max(1, Math.floor(sprintDur / 7));
-                const piWeeks = (() => {
-                    const ws = [];
-                    for (let s = 0; s < sprintCnt; s++) {
-                        const d = new Date(piStart + 'T00:00:00');
-                        d.setDate(d.getDate() + s * sprintDur);
-                        for (let w = 0; w < wps; w++) {
-                            const wStart = new Date(d); wStart.setDate(d.getDate() + w * 7);
-                            const wEnd   = new Date(wStart); wEnd.setDate(wStart.getDate() + 6);
-                            const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-                            ws.push({ label: `${targetPiNum}.${s + 1}.${w + 1}`, weekStart: fmt(wStart), weekEnd: fmt(wEnd) });
-                        }
-                    }
-                    return ws;
-                })();
+                // Mêmes semaines que la grille affichée (source unique utils/pi-weeks.js).
+                const { weeks: piWeeks, piNum: targetPiNum } = buildPiWeeks({ piInfo, sprintInfo, piOffset, weekMode: getSupportWeekMode(teamName) });
                 const teamSup = (store.get('support') || []).filter(s => _matchTeam(s.team, teamName));
                 const roleLabel = localStorage.getItem(`rot-label-${teamName}`) || 'Support N3 OPS';
                 const _fmtD = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };

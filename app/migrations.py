@@ -4,7 +4,55 @@ Pas de classe de modèle ici : uniquement du SQL brut via SQLAlchemy, pour
 rester importable sans cycle. Le seed du catalogue Atlas (dépendant des modèles)
 vit dans app.models.seed.
 """
+from datetime import date, timedelta
+
 from sqlalchemy import inspect as sa_inspect, text
+
+
+# Jour de bascule de chaque mode de semaine — même table que SUPPORT_WEEK_MODES côté front
+# (static/js/utils/support.js) : 0 = dimanche … 6 = samedi, comme `Date.getDay()`.
+_WEEK_MODE_DOW = {"monday": 1, "tuesday": 2, "wednesday": 3, "thursday": 4, "friday": 5}
+
+
+def _shift_iso(iso, days):
+    return (date.fromisoformat(iso[:10]) + timedelta(days=days)).isoformat()
+
+
+def _resnap_support_weeks(conn):
+    """Recale `week_start` de chaque rotation support sur le jour de bascule de SON `week_mode`.
+
+    Le front apparie les rotations sur `weekStart` STRICT et calcule ces clés en reculant la
+    date de début du PI jusqu'au jour du mode (`snapToWeekMode`, 6 jours max). Jusqu'en 3.162.0
+    un PI épinglé (autre que le courant) n'était pas recalé : ses rotations ont été écrites sur
+    des lundis/dimanches JIRA que ni le mode « Jeu → Mer » ni le même PI devenu courant ne
+    réaffichent — une rotation entière rendue invisible au changement de PI.
+    Idempotent : une ligne déjà sur le bon jour n'est pas touchée ; une ligne dont la clé cible
+    existe déjà pour la même équipe est laissée telle quelle (jamais deux rotations sur une
+    même clé). Les `member_days` (indices 0-4 dans la fenêtre) suivent la nouvelle fenêtre.
+    """
+    rows = conn.execute(text(
+        "SELECT id, team, week_start, week_mode FROM supportrotation "
+        "WHERE week_start IS NOT NULL AND week_start != ''"
+    )).fetchall()
+    taken = {(r[1], r[2]) for r in rows}
+    for rid, team, start, mode in rows:
+        target = _WEEK_MODE_DOW.get(mode or "")
+        try:
+            dow = date.fromisoformat(start[:10]).isoweekday() % 7
+        except ValueError:
+            continue
+        if target is None or dow == target:
+            continue
+        new_start = _shift_iso(start, -((dow - target + 7) % 7))
+        if (team, new_start) in taken:
+            continue
+        conn.execute(
+            text("UPDATE supportrotation SET week_start = :s, week_end = :e WHERE id = :i"),
+            {"s": new_start, "e": _shift_iso(new_start, 6), "i": rid},
+        )
+        taken.discard((team, start))
+        taken.add((team, new_start))
+    conn.commit()
 
 
 def run_migrations(engine):
@@ -34,6 +82,10 @@ def run_migrations(engine):
         ("piconfig", "pi_members",        "ALTER TABLE piconfig ADD COLUMN pi_members JSON DEFAULT '{}'"),
         ("piconfig", "pi_objectives",     "ALTER TABLE piconfig ADD COLUMN pi_objectives JSON DEFAULT '{}'"),
         ("piconfig", "pi_baselines",      "ALTER TABLE piconfig ADD COLUMN pi_baselines JSON DEFAULT '{}'"),
+        # Mode de semaine de support par équipe ({ "Gabbiano": "thursday" }) — était en localStorage
+        # (`rot-mode-<équipe>`), donc propre à chaque navigateur. Sur piconfig et pas sur team :
+        # une synchro complète (import `replace`) supprime et recrée toutes les équipes.
+        ("piconfig", "support_week_modes", "ALTER TABLE piconfig ADD COLUMN support_week_modes JSON DEFAULT '{}'"),
         ("workshoptemplate", "icon",       "ALTER TABLE workshoptemplate ADD COLUMN icon TEXT DEFAULT '📋'"),
     ]
     with engine.connect() as conn:
@@ -60,3 +112,9 @@ def run_migrations(engine):
                 conn.commit()
             except Exception:
                 pass
+        # Recale les rotations support sur le jour de bascule de leur mode (3.162.1) —
+        # données, pas schéma : idempotent, tout ou rien.
+        try:
+            _resnap_support_weeks(conn)
+        except Exception:
+            conn.rollback()

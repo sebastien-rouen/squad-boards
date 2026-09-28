@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D · Synthèse — États : masqué, sans agenda, chargement, périmé, vide, erreur</title>
+<link rel="stylesheet" href="../../../css/tokens.css">
+<link rel="stylesheet" href="../_shared/gallery.css">
+</head>
+<body class="gallery">
+<!-- GÉNÉRÉ par gen-gallery.cjs — ne pas éditer à la main (voir README.md) -->
+<header class="gal-head">
+    <a href="../index.html">← Galerie « Calendrier de l'équipe »</a>
+    <h1>D · Synthèse — États : masqué, sans agenda, chargement, périmé, vide, erreur</h1>
+    <p>Les cas réels, pas des hypothèses : Lion partage son agenda en « disponibilités seulement » (37 créneaux « Busy » sur 37), Etoile n'a aucun agenda relié.</p>
+</header>
+<nav class="gal-nav" aria-label="Écrans">
+    <a href="01-principal.html">01 Principal</a><a href="02-comparer.html">02 Comparer</a><a href="03-fiche.html">03 Fiche & positionner</a><a href="04-etats.html" aria-current="page">04 États</a><a href="05-zoom.html">05 Zoom</a>
+    <span class="gal-spacer"></span><a href="../detection.html">🧭 Détecteur</a>
+</nav>
+<main class="gal-main">
+    <div class="gal-group">🖥️ Desktop — 1280 × 820, réduit pour tenir</div>
+    <div class="gal-desks gal-desks--2">
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Lion&amp;banner=masked&amp;day=2026-09-21" data-teamlock="1" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Détails masqués (Lion)</b> — hachuré, 🔒, et le bandeau dit comment régler le partage.</figcaption></figure>
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Etoile&amp;state=noical" data-teamlock="1" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Sans agenda (Etoile, Océane)</b> — un état vide utile, avec l’action.</figcaption></figure>
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Gabbiano&amp;state=loading" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Chargement</b> — squelette à la forme de la vue.</figcaption></figure>
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Gabbiano&amp;state=stale&amp;banner=stale" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Périmé</b> — on montre ce qu’on a, point orange et bandeau.</figcaption></figure>
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Gabbiano&amp;state=empty" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Vide après filtres</b> — « Réinitialiser les filtres ».</figcaption></figure>
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Gabbiano&amp;state=error" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Erreur ICS</b> — cause probable et où la corriger.</figcaption></figure>
+    </div>
+    <div class="gal-group">📱 Mobile — 390 × 760</div>
+    <div class="gal-rail">
+        <figure class="phone"><iframe data-src="../frame.html?dir=hybrid&amp;team=Lion&amp;banner=masked&amp;day=2026-09-21" data-teamlock="1" title="Mobile" loading="lazy"></iframe><figcaption>Lion, détails masqués.</figcaption></figure>
+        <figure class="phone"><iframe data-src="../frame.html?dir=hybrid&amp;team=Etoile&amp;state=noical" data-teamlock="1" title="Mobile" loading="lazy"></iframe><figcaption>Etoile, sans agenda.</figcaption></figure>
+        <figure class="phone"><iframe data-src="../frame.html?dir=hybrid&amp;team=Gabbiano&amp;state=loading" title="Mobile" loading="lazy"></iframe><figcaption>Chargement.</figcaption></figure>
+    </div>
+    <section class="gal-ux"><h2>Parti pris UX</h2><ul><li><b>Un état = une cause + une action</b> : « partager avec tous les détails », « relier un agenda », « réinitialiser les filtres ».</li><li><b>Périmé n'est pas bloquant</b> : un agenda d'hier reste utile ; on le dit, on ne le cache pas.</li><li><b>Le masqué reste visible</b> : Lion est occupé, on ne sait juste pas à quoi — l'information de charge demeure.</li></ul></section>
+</main>
+
+<aside class="gal-fcp" aria-label="Panneau de démo">
+    <button class="gal-fcp-toggle" type="button">🎛️ Démo</button>
+    <label>Équipe affichée<select data-team><option value="">(celle de l'écran)</option><option>Ami</option><option>Bellier</option><option>Caméléon</option><option>Dezir</option><option>Etoile</option><option>Fuego</option><option>Gabbiano</option><option>Helica</option><option>Initiale</option><option>Juke</option><option>Kadjar</option><option>Lion</option><option>Océane</option></select></label>
+    <button class="gal-fcp-btn" type="button" data-theme-toggle>🌓 Thème clair / sombre</button>
+    <label>Direction</label>
+    <div class="gal-fcp-dirs"><a href="../d-synthese/04-etats.html" aria-current="true">D</a><a href="../a-semaine/04-etats.html" aria-current="false">A</a><a href="../b-couloirs/04-etats.html" aria-current="false">B</a><a href="../c-mosaique/04-etats.html" aria-current="false">C</a></div>
+</aside>
+<script src="../_shared/gallery.js"></script>
+</body>
+</html>

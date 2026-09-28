@@ -1,0 +1,380 @@
+/**
+ * Rotation mutualisee (pool multi-equipes) — carte de « Parametres -> Rotation », ses deux
+ * vues de recapitulatif, et les reperes que le pool pose dans la grille par equipe.
+ *
+ * Extrait de support-rotation.css (3.162.0), qui atteignait les 800 lignes. Charge apres
+ * lui dans index.html : les surcharges des cellules de total (`.rot-count-pool`) comptent
+ * sur cet ordre.
+ */
+/* ══ Rotation mutualisée (pool multi-équipes) ══════════════════════════════════
+   Carte de « Paramètres → Rotation » qui compose UNE astreinte commune à plusieurs
+   équipes, par poste. Elle vit hors de #rot-panels : les re-renders de la grille ne
+   la touchent pas. Cf. static/js/views/settings-rotation-pool.js */
+
+.rot-pool {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    margin-bottom: var(--sp-3);
+    overflow: hidden;
+}
+
+.rot-pool-hdr {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-2) var(--sp-3);
+    background: color-mix(in srgb, var(--type-support, #8b5cf6) 8%, transparent);
+    border-bottom: 1px solid var(--border);
+}
+.rot-pool-title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+/* Un pool n'est « actif » qu'une fois son tirage enregistre : l'etat se lit dans l'en-tete
+   plutot que dans une case a cocher, qui laissait croire qu'il fallait l'armer pour tirer. */
+.rot-pool-state {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    padding: 1px 8px;
+    border-radius: var(--r-full);
+    color: var(--text-muted);
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+}
+.rot-pool-state.is-on {
+    color: var(--success-text, #047857);
+    background: color-mix(in srgb, var(--success) 12%, transparent);
+    border-color: color-mix(in srgb, var(--success) 35%, transparent);
+}
+/* Le résumé pousse à droite et reste lisible quand la ligne wrappe sur mobile. */
+.rot-pool-summary { margin-left: auto; color: var(--text-secondary); }
+
+.rot-pool-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+}
+.rot-pool-intro { line-height: var(--lh-normal); margin: 0; }
+.rot-pool-intro a { color: var(--primary); }
+
+.rot-pool-field { display: flex; flex-direction: column; gap: var(--sp-2); }
+.rot-pool-field--row {
+    flex-direction: row;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+}
+.rot-pool-field-hdr { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.rot-pool-field-hdr .label { margin: 0; }
+.rot-pool-mode { display: flex; flex-direction: column; gap: var(--sp-1); }
+.rot-pool-actions { display: flex; gap: var(--sp-2); margin-left: auto; flex-wrap: wrap; }
+
+/* ── Équipes du pool ────────────────────────────────────────────────────────── */
+.rot-pool-teams { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.rot-pool-team {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-1) var(--sp-2);
+    font-size: var(--fs-xs);
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    cursor: pointer;
+    transition: border-color var(--tr-fast), background var(--tr-fast);
+}
+.rot-pool-team:hover { border-color: var(--border-hover); }
+.rot-pool-team.is-on {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+    font-weight: var(--fw-medium);
+}
+.rot-pool-team input { margin: 0; cursor: pointer; }
+.rot-pool-team-dot { width: 8px; height: 8px; border-radius: var(--r-full); flex: none; }
+.rot-pool-team-count {
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--surface);
+    border-radius: var(--r-full);
+    padding: 0 6px;
+}
+
+/* ── Composition par poste ──────────────────────────────────────────────────── */
+.rot-pool-roles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--sp-2);
+}
+.rot-pool-role {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    padding: var(--sp-1) var(--sp-2);
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    font-size: var(--fs-xs);
+}
+.rot-pool-role-main {
+    display: grid;
+    grid-template-columns: 1fr auto 64px;
+    align-items: center;
+    gap: var(--sp-2);
+}
+/* Fusion/separation : seconde ligne, pour que le libelle d'un poste groupe
+   (« Dev + Tech Lead ») garde toute la largeur au-dessus. */
+.rot-pool-role-merge { display: flex; align-items: center; gap: var(--sp-2); }
+.rot-pool-merge-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 10px;
+    padding: 1px var(--sp-2);
+    color: var(--text-muted);
+}
+.rot-pool-role.is-grouped {
+    border-color: color-mix(in srgb, var(--type-support, #8b5cf6) 45%, transparent);
+}
+.rot-pool-role.is-on {
+    background: color-mix(in srgb, var(--type-support, #8b5cf6) 8%, transparent);
+    border-color: color-mix(in srgb, var(--type-support, #8b5cf6) 35%, transparent);
+}
+/* Quota supérieur au vivier : le manque ne sera jamais comblé par un autre poste. */
+.rot-pool-role.is-short { border-color: color-mix(in srgb, var(--warning) 55%, transparent); }
+/* Le nom du poste ne doit jamais pousser le champ hors de la carte (cf. grilles à piste
+   figée : sans min-width:0 un libellé long déborde silencieusement de sa colonne). */
+.rot-pool-role-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: var(--fw-medium);
+}
+.rot-pool-role-supply { color: var(--text-muted); font-size: 10px; white-space: nowrap; }
+.rot-pool-role-input { padding: 2px var(--sp-2); text-align: center; font-size: var(--fs-xs); }
+
+.rot-pool-warn {
+    margin: 0;
+    padding: var(--sp-2);
+    font-size: var(--fs-xs);
+    line-height: var(--lh-normal);
+    color: var(--amber-text, #b45309);
+    background: color-mix(in srgb, var(--warning) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+    border-radius: var(--r-sm);
+}
+
+/* ── Récapitulatif semaine × poste ──────────────────────────────────────────── */
+.rot-pool-recap { display: flex; flex-direction: column; gap: var(--sp-2); }
+.rot-pool-recap:empty { display: none; }
+.rot-pool-recap-hdr { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+/* Copier/Slack sont ancres au tableau affiche : ce qui part dans le message est ce qu'on lit. */
+.rot-pool-recap-actions { display: flex; gap: var(--sp-2); margin-left: auto; flex-wrap: wrap; }
+.rot-pool-empty { margin: 0; line-height: var(--lh-normal); }
+
+.rot-pool-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.rot-pool-table th,
+.rot-pool-table td {
+    border: 1px solid var(--border);
+    padding: var(--sp-1) var(--sp-2);
+    text-align: left;
+    vertical-align: top;
+}
+.rot-pool-table thead th {
+    background: var(--bg);
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+}
+.rot-pool-q { color: var(--text-muted); font-weight: var(--fw-normal); }
+.rot-pool-wk { white-space: nowrap; font-weight: var(--fw-semibold); }
+.rot-pool-wk small { display: block; font-weight: var(--fw-normal); color: var(--text-muted); }
+/* Aperçu non enregistré : la bordure en pointillés dit à l'œil que rien n'est en base. */
+.rot-pool-table.is-preview { outline: 1px dashed color-mix(in srgb, var(--primary) 55%, transparent); }
+
+.rot-pool-cell { min-width: 120px; }
+.rot-pool-cell.is-short { background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.rot-pool-cell--extra { min-width: 0; }
+.rot-pool-hole { color: var(--text-muted); }
+.rot-pool-miss { display: block; margin-top: 2px; font-size: 10px; color: var(--amber-text, #b45309); }
+
+.rot-pool-chip {
+    display: inline-block;
+    margin: 1px 2px 1px 0;
+    padding: 1px 7px;
+    border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--chip, #64748b) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--chip, #64748b) 45%, transparent);
+    white-space: nowrap;
+}
+/* Role reel d'une personne sur un poste groupe — plus discret que le nom, jamais a sa place. */
+.rot-pool-chip-role {
+    font-style: normal;
+    font-size: 9px;
+    opacity: .75;
+    margin-left: 4px;
+}
+.rot-pool-chip--extra {
+    background: var(--surface-hover);
+    border-style: dashed;
+    border-color: var(--border-hover);
+    color: var(--text-muted);
+}
+
+/* ── Repères du pool dans la grille par équipe ──────────────────────────────── */
+.rot-pool-badge {
+    display: inline-block;
+    margin-right: var(--sp-2);
+    padding: 0 6px;
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    color: var(--purple-text, #6b21a8);
+    background: color-mix(in srgb, var(--type-support, #8b5cf6) 14%, transparent);
+    border-radius: var(--r-full);
+}
+/* Total neutre : en pool, l'effectif cible est celui du POOL, pas de l'équipe — un
+   « 0/2 » rouge sur une équipe qui ne fournit personne cette semaine-là serait faux. */
+.rot-count-cell.rot-count-pool {
+    color: var(--text-secondary) !important;
+    font-weight: var(--fw-semibold);
+}
+
+/* ── Focus pool : masque les équipes hors pool le temps de relire un aperçu ────
+   Purement CSS, comme le mode « Congés seuls » : rien n'est retiré du rendu, sortir du
+   mode ne demande donc aucune reconstruction. Le bouton n'existe que pendant un aperçu,
+   et l'état retombe avec le brouillon (cf. settings-rotation-pool.js). */
+#rot-panels.rot-focus-pool .rot-panel[data-pool-member="0"] { display: none; }
+
+/* ── Bascule de vue du récapitulatif ──────────────────────────────────────────── */
+.rot-pool-views { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+
+/* ── Vue « Par poste » : une ligne par personne, une colonne par semaine ───────
+   Les personnes à zéro passage RESTENT listées : c'est l'absence de pastille qui
+   révèle un déséquilibre, un tableau des seuls affectés le cacherait. */
+.rot-pool-poste-block { display: flex; flex-direction: column; gap: var(--sp-1); }
+.rot-pool-poste-block + .rot-pool-poste-block { margin-top: var(--sp-3); }
+.rot-pool-poste-hdr {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    font-size: var(--fs-sm);
+}
+
+/* ── Vue « par poste » : la grille rot-grid, en une seule table ────────────────
+   Meme rendu et memes rot-strip que la grille par equipe (donc modifiable au meme
+   endroit) ; ce bloc n'ajoute que le groupement par poste et la colonne de totaux. */
+.rot-pool-grid-hint { margin: 0 0 var(--sp-2); }
+
+/* Ligne de separation d'un poste : elle traverse toute la table, d'ou le fond plein. */
+.rot-poste-sep th {
+    text-align: left;
+    background: color-mix(in srgb, var(--type-support, #8b5cf6) 10%, var(--bg));
+    padding: var(--sp-2) var(--sp-3) !important;
+}
+.rot-poste-sep .rot-poste-name { font-weight: var(--fw-semibold); margin-right: var(--sp-2); }
+.rot-poste-sep .text-xs { margin-right: var(--sp-2); }
+
+.rot-pool-table--postes th,
+.rot-pool-table--postes td { text-align: center; }
+.rot-pool-person {
+    text-align: left !important;
+    /* La colonne d'identite reste lisible quand la table defile sur 12 semaines — sinon
+       les pastilles se lisent sans savoir a qui elles appartiennent. */
+    white-space: nowrap;
+    /* Colonne d'identité collée à gauche : sur 12 semaines la table défile, et un nom qui
+       sort de l'écran rend les pastilles illisibles. */
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--surface);
+}
+.rot-pool-table--postes thead .rot-pool-person,
+.rot-pool-table--postes tfoot .rot-pool-person { background: var(--bg); }
+/* Bande de couleur de l'equipe sur toute la colonne d'identite : le tri groupe les
+   coequipiers, mais une ligne lue seule doit rester rattachable a son equipe.
+   Selecteur a deux classes : `.rot-pool-table--postes th` (0,1,1) l'emporterait sinon sur
+   `.rot-pool-person` (0,1,0) et sa bordure raccourcie effacerait la bande. */
+.rot-pool-table--postes .rot-pool-person {
+    border-left: 3px solid var(--chip, var(--border));
+    padding-left: var(--sp-2);
+}
+.rot-pool-person-name { margin-right: 4px; }
+/* Nom d'equipe porte par la premiere ligne du bloc seulement — le repeter noierait les noms. */
+.rot-pool-person-team {
+    display: block;
+    font-size: 9px;
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: color-mix(in srgb, var(--chip, var(--text-muted)) 70%, var(--text));
+    margin-bottom: 1px;
+}
+.rot-pool-table--postes tr.is-team-start > * { border-top: 2px solid var(--border-hover); }
+.rot-pool-slot-th { font-size: 10px; font-weight: var(--fw-medium); color: var(--text-muted); }
+.rot-pool-slot { min-width: 34px; color: var(--border-hover); }
+.rot-pool-slot.is-on { color: var(--primary); font-size: 14px; line-height: 1; }
+.rot-pool-slot.is-short { color: var(--amber-text, #b45309); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.rot-pool-tot { font-weight: var(--fw-semibold); min-width: 38px; }
+.rot-pool-tot.is-zero { color: var(--text-muted); font-weight: var(--fw-normal); }
+/* Jamais tiré sur tout le PI : à remarquer, pas à cacher. */
+.rot-pool-table--postes tr.is-idle .rot-pool-person-name { color: var(--text-muted); }
+.rot-pool-table--postes tr.is-outsider { opacity: .85; }
+.rot-pool-cover td, .rot-pool-cover th { background: var(--bg); font-size: 10px; }
+
+/* ── Equite de la charge sur un poste ────────────────────────────────────────
+   Un ecart de 1 est inevitable (les creneaux ne tombent pas juste sur l'effectif) : le
+   badge reste neutre. Au-dela il informe sans crier — un 0 s'explique souvent par des
+   conges, pas par un tirage injuste. */
+.rot-pool-equity {
+    font-size: 10px;
+    font-weight: var(--fw-semibold);
+    padding: 1px 8px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--border);
+    background: var(--surface-hover);
+    color: var(--text-secondary);
+    cursor: help;
+}
+.rot-pool-equity.is-ok {
+    color: var(--success-text, #047857);
+    background: color-mix(in srgb, var(--success) 10%, transparent);
+    border-color: color-mix(in srgb, var(--success) 30%, transparent);
+}
+/* `is-watch` (ecart de 2 sans personne a zero) garde volontairement le style neutre de
+   base : c'est un ecart a regarder, pas une anomalie. La regle existe pour que l'absence
+   de couleur se lise comme un choix, pas comme un oubli. */
+.rot-pool-equity.is-watch { color: var(--text-secondary); }
+.rot-pool-equity.is-off {
+    color: var(--amber-text, #b45309);
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
+    border-color: color-mix(in srgb, var(--warning) 35%, transparent);
+}
+.rot-pool-tot.is-max { color: var(--amber-text, #b45309); }
+.rot-pool-tot.is-min { color: var(--text-muted); }
+
+/* Bande de couleur d'equipe dans la grille unique : meme role que dans la table par poste,
+   mais sur `.rot-member-td` (structure rot-grid). */
+.rot-pool-grid .rot-pool-person,
+.rot-pool-grid .rot-member-th {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+}
+.rot-pool-grid .rot-pool-person {
+    border-left: 3px solid var(--chip, var(--border));
+    background: var(--surface);
+}
+/* La ligne « Couverture » colle elle aussi : sinon elle se decale au defilement et on lit
+   une couverture sous la mauvaise semaine. */
+.rot-pool-grid .rot-member-th { background: var(--bg); }
+.rot-pool-grid tr.is-team-start > * { border-top: 2px solid var(--border-hover); }
+.rot-pool-grid tr.is-idle .rot-pool-person-name { color: var(--text-muted); }
+.rot-pool-grid .rot-pool-tot {
+    text-align: center;
+    font-weight: var(--fw-semibold);
+    background: var(--bg);
+}
+/* Apercu : la grille decrit un brouillon qui n'est pas en base, les pastilles y sont
+   desactivees — le liserés en pointilles dit pourquoi rien ne repond au clic. */
+.rot-pool-grid.is-preview { outline: 1px dashed color-mix(in srgb, var(--primary) 55%, transparent); }

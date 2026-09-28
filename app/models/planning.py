@@ -45,6 +45,10 @@ class PIConfig(SQLModel, table=True):
     # Snapshot de commitment (baseline figée au lancement d'un PI) — pour mesurer engagé vs livré
     # vs scope creep. Forme : { "30": { capturedAt, committedPts, features:[{id,title,team,points,status}] } }
     pi_baselines: dict = Field(default={}, sa_column=Column(JSON))
+    # Mode de semaine de support par équipe : { "Gabbiano": "thursday", "Fuego": "friday" }.
+    # Clés = SUPPORT_WEEK_MODES du front (monday … friday). Ici et pas sur `team` : une synchro
+    # complète supprime et recrée les équipes. Écrit clé par clé (PUT /api/pi/support-week-mode).
+    support_week_modes: dict = Field(default={}, sa_column=Column(JSON))
     updated_at: str = Field(default_factory=_now)
 
 

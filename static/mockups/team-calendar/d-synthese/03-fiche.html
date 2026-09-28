@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D · Synthèse — Fiche d’évènement et positionnement manuel</title>
+<link rel="stylesheet" href="../../../css/tokens.css">
+<link rel="stylesheet" href="../_shared/gallery.css">
+</head>
+<body class="gallery">
+<!-- GÉNÉRÉ par gen-gallery.cjs — ne pas éditer à la main (voir README.md) -->
+<header class="gal-head">
+    <a href="../index.html">← Galerie « Calendrier de l'équipe »</a>
+    <h1>D · Synthèse — Fiche d’évènement et positionnement manuel</h1>
+    <p>Un clic ouvre la fiche : horaires, agenda source, nature et portée, et « Classer comme… ». Corriger un évènement range TOUS ceux du même titre, dans toutes les équipes — le détecteur apprend.</p>
+</header>
+<nav class="gal-nav" aria-label="Écrans">
+    <a href="01-principal.html">01 Principal</a><a href="02-comparer.html">02 Comparer</a><a href="03-fiche.html" aria-current="page">03 Fiche & positionner</a><a href="04-etats.html">04 États</a><a href="05-zoom.html">05 Zoom</a>
+    <span class="gal-spacer"></span><a href="../detection.html">🧭 Détecteur</a>
+</nav>
+<main class="gal-main">
+    <div class="gal-group">🖥️ Desktop — 1280 × 820, réduit pour tenir</div>
+    <div class="gal-desks">
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Gabbiano&amp;select=Gabbiano%20-%20R%C3%A9tro%402026-10-02" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Fiche d’un évènement détecté</b> — « 🧭 détecté automatiquement », portée, agenda source.</figcaption></figure>
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Helica&amp;select=(%F0%9F%AA%84%E2%9C%A8)%402026-09-25&amp;day=2026-09-25" data-teamlock="1" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Positionner à la main</b> — « (🪄✨) » (21 occurrences chez Helica) n’est pas devinable : on le range, la règle vaut pour tous.</figcaption></figure>
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Helica&amp;banner=learned&amp;day=2026-09-25" data-teamlock="1" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Confirmation annulable</b> — bandeau informatif avec « Annuler », les blocs corrigés portent un ✎.</figcaption></figure>
+    </div>
+    <div class="gal-group">📱 Mobile — 390 × 760</div>
+    <div class="gal-rail">
+        <figure class="phone"><iframe data-src="../frame.html?dir=hybrid&amp;team=Helica&amp;select=(%F0%9F%AA%84%E2%9C%A8)%402026-09-25&amp;day=2026-09-25" data-teamlock="1" title="Mobile" loading="lazy"></iframe><figcaption>La fiche devient une <b>feuille du bas</b>, pouce-accessible.</figcaption></figure>
+    </div>
+    <section class="gal-ux"><h2>Parti pris UX</h2><ul><li><b>Positionner = corriger une règle, pas un évènement</b> : sinon la correction disparaît au prochain import ICS.</li><li><b>Toujours dire d'où vient la nature</b> : « détecté automatiquement » ou « rangé à la main », avec « Revenir à la détection ».</li><li><b>Annulable plutôt que confirmé</b> : pas de modale « Êtes-vous sûr ? », un bandeau avec Annuler.</li></ul></section>
+</main>
+
+<aside class="gal-fcp" aria-label="Panneau de démo">
+    <button class="gal-fcp-toggle" type="button">🎛️ Démo</button>
+    <label>Équipe affichée<select data-team><option value="">(celle de l'écran)</option><option>Ami</option><option>Bellier</option><option>Caméléon</option><option>Dezir</option><option>Etoile</option><option>Fuego</option><option>Gabbiano</option><option>Helica</option><option>Initiale</option><option>Juke</option><option>Kadjar</option><option>Lion</option><option>Océane</option></select></label>
+    <button class="gal-fcp-btn" type="button" data-theme-toggle>🌓 Thème clair / sombre</button>
+    <label>Direction</label>
+    <div class="gal-fcp-dirs"><a href="../d-synthese/03-fiche.html" aria-current="true">D</a><a href="../a-semaine/03-fiche.html" aria-current="false">A</a><a href="../b-couloirs/03-fiche.html" aria-current="false">B</a><a href="../c-mosaique/03-fiche.html" aria-current="false">C</a></div>
+</aside>
+<script src="../_shared/gallery.js"></script>
+</body>
+</html>

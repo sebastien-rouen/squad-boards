@@ -98,6 +98,12 @@
 .rot-wk-current .rot-wk-dates {
     color: color-mix(in srgb, var(--danger) 70%, var(--text-muted));
 }
+/* Semaine de transition : fin du PI (PIP) + premiers jours du PI suivant — partagée avec la
+   grille du PI suivant (même weekStart). Pointillé = la couture entre deux PI. */
+.rot-wk-transition { border-left: 2px dashed var(--border); }
+.rot-wk-transition .rot-wk-label { font-style: italic; color: var(--text-muted); }
+.rot-wk-current.rot-wk-transition .rot-wk-label { color: var(--danger); }
+.rot-pool-wk.rot-wk-transition { border-left: none; border-top: 2px dashed var(--border); font-style: italic; }
 /* Verrouillage des semaines */
 .rot-wk-past { background: var(--surface-alt, var(--surface-hover)); }
 .rot-wk-locked { background: color-mix(in srgb, var(--warning) 8%, transparent) !important; }
@@ -463,4 +469,3 @@
     border-radius: var(--r-sm); padding: 1px 7px;
 }
 .abs-csv-preview-member em { color: var(--text-muted); font-style: normal; font-size: 9px; margin-left: 3px; }
-

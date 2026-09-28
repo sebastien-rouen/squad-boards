@@ -3,7 +3,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam } from '../utils.js';
+import { esc, filterByTeam, gridSupportRows } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -192,7 +192,8 @@ export function renderPICalendar(container) {
                     ${visTeams.map((t, i) => {
                         const tObj        = teamObjects.find(o => o.name === t);
                         const color       = tObj?.color || TEAM_COLORS[i % TEAM_COLORS.length];
-                        const teamRot     = support.filter(s => s.team === t);
+                        // Lignes de la grille seulement : mode actuel de l'équipe, sans doublons
+                        const teamRot     = gridSupportRows(support).filter(s => s.team === t);
                         const teamTickets = tickets.filter(tk => tk.team === t);
                         const teamAbs     = absences.filter(a => a.team === t && a.startDate <= piEnd && (a.endDate || a.startDate) >= piStartDate);
                         const teamObjs    = allObjs.filter(o => (o.team || '') === t);

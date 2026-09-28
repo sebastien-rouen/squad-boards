@@ -5,7 +5,7 @@
 
 import { store } from './state.js';
 import * as api from './api.js';
-import { mapStatus, mapType, extractTeam, toast, parseWikiMarkup } from './utils.js';
+import { mapStatus, mapType, extractTeam, extractSprintLabel, toast, parseWikiMarkup } from './utils.js';
 import { SYNC_CONFIG, SYNC_DEFAULTS, syncSetting, CYCLE_START_STATUSES, CYCLE_END_STATUS } from './config.js';
 
 /**
@@ -584,7 +584,9 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
             // le vrai nom depuis le sprint ("Initiale - Ité 29.5" → "Initiale").
             // On ne remplace que si le nom extrait du sprint est PLUS LONG que celui du board
             // (heuristique : un nom plus long = plus spécifique, moins susceptible d'être un alias court).
-            const teamFromSprintName = extractTeam(s.name);
+            // ⚠️ Seulement si le nom porte un numéro d'itération (« NN.N ») : sinon rien n'a été
+            // retiré et le nom entier deviendrait une équipe (sprint futur « Prochain PI »).
+            const teamFromSprintName = extractSprintLabel(s.name) ? extractTeam(s.name) : '';
             const effectiveTeam = (teamFromSprintName && teamFromSprintName !== 'Autre'
                 && teamFromSprintName !== teamName && teamFromSprintName.length > teamName.length)
                 ? teamFromSprintName

@@ -19,6 +19,7 @@ import {
 } from './settings-io.js';
 import { _parsePivotAbsencesCsv, _memberAbsenceInfo, _isTransverseTeam, diagnosePivotCsv, convertCommasToSemicolons } from './settings-absences-csv.js';
 import { jiraSectionHtml, wireJiraSection } from './settings-jira.js';
+import { calDetectHtml, wireCalDetect } from './settings-cal-detect.js';
 import { meteoSectionHtml, wireMeteoSection } from './settings-meteo.js';
 import { piCongesDiff, knownPiNumbers } from '../utils/pi-weeks.js';
 import { makePersonPicker } from '../components/modal.js';
@@ -29,6 +30,8 @@ import {
     _rotBuildPiWeeks, _rotSetCollapsed, _shuffleOneTeam, _jiraSprint1Start,
     _rotToolbarHtml, _rotWireToolbar, _rotSupportHidden,
 } from './settings-rotation.js';
+// Rotation mutualisée (pool multi-équipes, composition par poste) — carte autonome
+import { poolSectionHtml, wirePoolSection } from './settings-rotation-pool.js';
 import { addExcludedTeam } from '../sync.js';
 
 // ── Reminder configuration — extraite dans reminders.js (consommée par l'info-panel
@@ -623,6 +626,8 @@ export function renderSettings(container) {
 
                 <hr class="hr-section">
 
+                ${poolSectionHtml()}
+
                 ${_selGroup ? `
                 <div class="rot-group-bar" id="rot-group-bar">
                     <span class="text-xs text-muted">Groupe <strong>${esc(_selGroup.name)}</strong> — ${rotTeamNames.length} équipe${rotTeamNames.length !== 1 ? 's' : ''}</span>
@@ -817,8 +822,11 @@ export function renderSettings(container) {
                         // On filtre AVANT de tronquer : un PI dont les Congés ont été importés
                         // doit rester listé même si JIRA connaît des boards de PI plus récents
                         // (« PI#32 », « PI#33 »… existent souvent bien avant leurs sprints).
+                        // Modes de semaine de toutes les équipes : un jour d'écart qui reste
+                        // dans la même semaine de bascule n'est pas un écart (cf. piCongesDiff).
+                        const _modesEquipes = [...new Set((store.get('teams') || []).map(t => getSupportWeekMode(t)))];
                         const _diffs = knownPiNumbers(sprintInfo)
-                            .map(n => piCongesDiff(sprintInfo, n, piInfo))
+                            .map(n => piCongesDiff(sprintInfo, n, piInfo, _modesEquipes))
                             .filter(d => d.startCsv || d.sprintsCsv)
                             .slice(-6);
                         if (!_diffs.length) return '';
@@ -829,7 +837,9 @@ export function renderSettings(container) {
                                 ? '<span class="pi-recap-badge pi-recap-badge--on">🔒 calé sur Congés</span>'
                                 : d.ecart
                                     ? '<span class="pi-recap-badge pi-recap-badge--warn">⚠ écart</span>'
-                                    : '<span class="pi-recap-badge pi-recap-badge--ok">✓ aligné</span>';
+                                    : d.memeSemaine
+                                        ? '<span class="pi-recap-badge pi-recap-badge--ok" title="Les deux dates reculent sur la même semaine de bascule : recaler ne déplacerait aucune semaine de la grille">✓ même semaine</span>'
+                                        : '<span class="pi-recap-badge pi-recap-badge--ok">✓ aligné</span>';
                             return `<tr${d.ecart ? ' class="pi-recap-row--warn"' : ''}>
                                 <td><strong>PI ${d.piNum}</strong></td>
                                 <td>${_j(d.startUsed)} <span class="text-muted">(${_src[d.source] || d.source})</span></td>
@@ -1000,6 +1010,8 @@ export function renderSettings(container) {
                     </div>
                 ` : '<p class="text-muted text-sm mb-4">Aucun calendrier configuré</p>'}
 
+                ${calendars.length ? calDetectHtml() : ''}
+
                 <h4 class="text-sm font-semibold mb-2">Ajouter un calendrier</h4>
                 <div class="form-row mb-2">
                     <div class="form-group">
@@ -1131,6 +1143,7 @@ export function renderSettings(container) {
 
     // ── Plugin JIRA (connexion, sync, équipes masquées, groupes) ─────────────
     wireJiraSection(container, () => reloadAndRender(container));
+    wireCalDetect(container);
 
     // ── Seuils météo (échelle du Dashboard, aperçu vivant) ───────────────────
     wireMeteoSection(container);
@@ -2155,6 +2168,8 @@ export function renderSettings(container) {
     // Barre d'outils (« Congés seuls ») : hors de #rot-panels, donc câblée à part — les
     // re-renders de la grille ne doivent pas la re-câbler (listeners empilés).
     _rotWireToolbar(container);
+    // Rotation mutualisée : carte autonome, elle aussi hors de #rot-panels
+    wirePoolSection(container);
 
     // ── Support - affectation rapide (équipe déduite du 1er membre) ───────────
     const _supMembers = [];          // noms des membres sélectionnés (chips)

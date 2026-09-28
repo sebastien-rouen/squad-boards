@@ -3,7 +3,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem } from '../utils.js';
+import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, currentSupportRows } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 import { renderPIVelocityChart, renderStatusChart, renderTypeChart, renderBurndown, renderBurnup, renderCycleTime, renderWIPAge } from '../components/charts.js';
 import { FIST_SCALE, slackToEmoji, buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, moodThemeIndex, SONDAGE_THEME_COUNT, SONDAGE_INTRO } from '../components/sondage.js';
@@ -1404,8 +1404,7 @@ const GENERATORS = {
     support: {
         text: ctx => {
             const { tickets, support } = ctx;
-            const now = new Date().toISOString().slice(0, 10);
-            const cur = support.filter(s => s.weekStart <= now && s.weekEnd >= now);
+            const cur = currentSupportRows(support);   // même rotation que la grille Paramètres
             let r = '=== Support ===\n';
             if (cur.length) { r += 'Rotation:\n'; for (const s of cur) r += `  ${s.team}: ${(s.members||[]).join(', ')}\n`; }
             const sup = tickets.filter(t => t.type === 'support');
@@ -1414,8 +1413,7 @@ const GENERATORS = {
         },
         slack: ctx => {
             const { tickets, support } = ctx;
-            const now = new Date().toISOString().slice(0, 10);
-            const cur = support.filter(s => s.weekStart <= now && s.weekEnd >= now);
+            const cur = currentSupportRows(support);   // même rotation que la grille Paramètres
             let r = `<div class="s-header">${E('🛡️')} Support</div><hr class="s-divider">`;
             if (cur.length) { for (const s of cur) r += `${B(s.team)}: ${(s.members||[]).join(', ')}\n`; r += '\n'; }
             const sup = tickets.filter(t => t.type === 'support');
@@ -1424,8 +1422,7 @@ const GENERATORS = {
         },
         confluence: ctx => {
             const { tickets, support } = ctx;
-            const now = new Date().toISOString().slice(0, 10);
-            const cur = support.filter(s => s.weekStart <= now && s.weekEnd >= now);
+            const cur = currentSupportRows(support);   // même rotation que la grille Paramètres
             let r = `<h2>Support</h2>`;
             if (cur.length) { r += `<h3>Rotation</h3><table><tr><th>Equipe</th><th>Membres</th></tr>${cur.map(s => `<tr><td>${esc(s.team)}</td><td>${(s.members||[]).join(', ')}</td></tr>`).join('')}</table>`; }
             const sup = tickets.filter(t => t.type === 'support');

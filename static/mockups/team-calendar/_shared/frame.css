@@ -1,0 +1,7 @@
+/* Cadre de maquette : ce que le JS du site ferait (sidebar peuplée, contenu défilant). */
+body { background: var(--bg); }
+.sidebar-nav .nav-main, .sidebar-nav .nav-secondary { display: grid; gap: 2px; padding: 0 var(--sp-2); }
+.sidebar-nav .nav-secondary { margin-top: var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid rgba(255, 255, 255, .08); }
+.content { overflow-y: auto; }
+.tcf-ghost { opacity: .55; }
+#tc-mount { margin-bottom: var(--sp-4); }

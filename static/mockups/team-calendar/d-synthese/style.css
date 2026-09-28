@@ -1,0 +1,31 @@
+/* Direction D — « Synthèse » : A (grille horaire) pour la semaine, B (couloirs) pour l'itération.
+   Aucune règle de vue dupliquée : les deux feuilles d'origine sont importées telles quelles. */
+@import url('../a-semaine/style.css');
+@import url('../b-couloirs/style.css');
+
+/* Bascule entre les deux représentations : fondu court (désactivé en mouvement réduit) */
+.tch { animation: tch-in .18s ease-out; }
+@keyframes tch-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tch { animation: none; } }
+
+/* Fil de zoom au-dessus de la grille horaire */
+.tch-crumb { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-5) 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.tch-back {
+    height: 32px; padding: 0 var(--sp-3); border-radius: var(--r-full); border: 1px solid var(--border);
+    background: var(--surface); color: var(--primary); font-weight: var(--fw-medium); font-size: var(--fs-sm);
+}
+.tch-back:hover { background: var(--primary-bg); }
+.tch-hint { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin: var(--sp-3) var(--sp-5) 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--info-bg); border: 1px solid var(--info-border); font-size: var(--fs-sm); color: var(--text); }
+
+/* Couloirs : en-têtes de jour cliquables (zoom), semaine d'ancre encadrée */
+button.tcl-dayhead { position: relative; width: 100%; background: none; border-radius: var(--r-md) var(--r-md) 0 0; cursor: zoom-in; padding-top: 4px; }
+button.tcl-dayhead:hover { background: var(--surface-hover); }
+button.tcl-dayhead i { position: absolute; right: 4px; top: 4px; font-style: normal; font-size: 10px; opacity: 0; transition: opacity var(--tr-fast); }
+button.tcl-dayhead:hover i, button.tcl-dayhead:focus-visible i { opacity: .8; }
+.tcl-dayhead.is-focus { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.tcl-cell.is-focus { background-color: color-mix(in srgb, var(--primary) 3%, transparent); }
+
+@media (max-width: 640px) {
+    .tch-crumb { padding: var(--sp-2) var(--sp-4) 0; flex-wrap: wrap; }
+    .tch-back { height: 44px; }
+}

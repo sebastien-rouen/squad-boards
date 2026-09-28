@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D · Synthèse — Comparer avec d’autres équipes</title>
+<link rel="stylesheet" href="../../../css/tokens.css">
+<link rel="stylesheet" href="../_shared/gallery.css">
+</head>
+<body class="gallery">
+<!-- GÉNÉRÉ par gen-gallery.cjs — ne pas éditer à la main (voir README.md) -->
+<header class="gal-head">
+    <a href="../index.html">← Galerie « Calendrier de l'équipe »</a>
+    <h1>D · Synthèse — Comparer avec d’autres équipes</h1>
+    <p>« Comparer » ouvre une liste à cocher (le motif « Autres agendas » de Google Agenda). Les équipes cochées deviennent des pastilles retirables. Le train n'est dessiné qu'une fois, dans un couloir « Commun ».</p>
+</header>
+<nav class="gal-nav" aria-label="Écrans">
+    <a href="01-principal.html">01 Principal</a><a href="02-comparer.html" aria-current="page">02 Comparer</a><a href="03-fiche.html">03 Fiche & positionner</a><a href="04-etats.html">04 États</a><a href="05-zoom.html">05 Zoom</a>
+    <span class="gal-spacer"></span><a href="../detection.html">🧭 Détecteur</a>
+</nav>
+<main class="gal-main">
+    <div class="gal-group">🖥️ Desktop — 1280 × 820, réduit pour tenir</div>
+    <div class="gal-desks">
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Gabbiano&amp;cmp=Fuego&amp;pop=1" title="Desktop" loading="lazy"></iframe></div><figcaption><b>La liste à cocher</b> — recherche, couleur de chaque équipe, volume d’évènements, « sans agenda » signalé. Plafond à 3 : au-delà, illisible.</figcaption></figure>
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=hybrid&amp;team=Gabbiano&amp;cmp=Fuego%2CHelica" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Trois équipes + Commun</b> — les évènements du train (démo d’itération, CoP, PI Planning) sont regroupés une seule fois au lieu d’être triplés.</figcaption></figure>
+    </div>
+    <div class="gal-group">📱 Mobile — 390 × 760</div>
+    <div class="gal-rail">
+        <figure class="phone"><iframe data-src="../frame.html?dir=hybrid&amp;team=Gabbiano&amp;cmp=Fuego%2CHelica" title="Mobile" loading="lazy"></iframe><figcaption><b>Comparaison mobile</b> — mêmes couleurs d’équipe, une section par équipe.</figcaption></figure>
+        <figure class="phone"><iframe data-src="../frame.html?dir=hybrid&amp;team=Gabbiano&amp;cmp=Fuego&amp;pop=1" title="Mobile" loading="lazy"></iframe><figcaption>La liste à cocher devient une <b>feuille du bas</b> (bottom sheet).</figcaption></figure>
+    </div>
+    <section class="gal-ux"><h2>Parti pris UX</h2><ul><li><b>Cocher plutôt que choisir</b> : la case à cocher dit « en plus de la mienne » ; un sélecteur remplacerait l'équipe courante.</li><li><b>Le commun une seule fois</b> : sans ce couloir, comparer 3 équipes triple la démo d'itération et le PI Planning — le bruit masque les vraies différences.</li><li><b>3 équipes au plus</b> : case grisée au-delà, avec l'explication en infobulle — pas une erreur après coup.</li></ul></section>
+</main>
+
+<aside class="gal-fcp" aria-label="Panneau de démo">
+    <button class="gal-fcp-toggle" type="button">🎛️ Démo</button>
+    <label>Équipe affichée<select data-team><option value="">(celle de l'écran)</option><option>Ami</option><option>Bellier</option><option>Caméléon</option><option>Dezir</option><option>Etoile</option><option>Fuego</option><option>Gabbiano</option><option>Helica</option><option>Initiale</option><option>Juke</option><option>Kadjar</option><option>Lion</option><option>Océane</option></select></label>
+    <button class="gal-fcp-btn" type="button" data-theme-toggle>🌓 Thème clair / sombre</button>
+    <label>Direction</label>
+    <div class="gal-fcp-dirs"><a href="../d-synthese/02-comparer.html" aria-current="true">D</a><a href="../a-semaine/02-comparer.html" aria-current="false">A</a><a href="../b-couloirs/02-comparer.html" aria-current="false">B</a><a href="../c-mosaique/02-comparer.html" aria-current="false">C</a></div>
+</aside>
+<script src="../_shared/gallery.js"></script>
+</body>
+</html>

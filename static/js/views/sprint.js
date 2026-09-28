@@ -6,7 +6,7 @@
 import { store } from '../state.js';
 import * as api from '../api.js';
 import { esc, filterByTeam, filterByMine, sumBy, pct, progressColor, fmtDate, fmtRelative, sortTickets, initials, hashColor, toast, getSprintForTeam, isBufferItem, countBlocked, typeBadge, statusBadge, computeStageAgeRefs } from '../utils.js';
-import { getCurrentPi, METEO_GLYPH, METEO_LABEL } from '../utils.js';
+import { getCurrentPi, METEO_GLYPH, METEO_LABEL, currentSupportRows } from '../utils.js';
 import { computeTeamMeteo, meteoContext } from '../components/meteo_matrix.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
 import { STATUS_ORDER, STATUS_LABELS, WIP_LIMITS } from '../config.js';
@@ -319,8 +319,8 @@ export function renderSprint(container) {
     const events    = store.get('events') || [];
 
     // Support banner data — regroupé par équipe (les rotations sont par team)
-    const now = new Date().toISOString().slice(0, 10);
-    const currentSupport = support.filter(s => s.weekStart <= now && s.weekEnd >= now);
+    // Rotation en vigueur = celle de la grille Paramètres (mode actuel, doublons fusionnés)
+    const currentSupport = currentSupportRows(support);
     const supportMembers = currentSupport.flatMap(s => (s.members || []).map(m => ({ name: m, team: s.team })));
     const supportByTeam = supportMembers.reduce((acc, m) => {
         const k = m.team || '';

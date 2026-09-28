@@ -74,13 +74,30 @@ describe('savePiCfg fusionne', () => {
 });
 
 describe('écart PI ↔ Congés (piCongesDiff)', () => {
-    test('détecte un décalage d\'un jour', () => {
+    test('un jour d’écart dans la même semaine de bascule n’est pas un écart', () => {
+        // JIRA dimanche 06/09, CSV lundi 07/09 : tous deux reculent au vendredi 04/09 (mode
+        // par défaut) — recaler ne déplacerait aucune clé weekStart.
         cfg.savePiCfg(31, { startDateFromCsv: '2026-09-07', sprintsPerPIFromCsv: 5 });
         const d = piWeeks.piCongesDiff(SPRINT_INFO, 31, PI_INFO);
-        assert.equal(d.ecart, true);
+        assert.equal(d.ecart, false);
+        assert.equal(d.memeSemaine, true);
         assert.equal(d.startUsed, '2026-09-06', 'la grille suit JIRA');
         assert.equal(d.startCsv, '2026-09-07');
         assert.equal(d.source, 'jira');
+    });
+
+    test('le même jour d’écart devient un écart pour une équipe en « Lun → Dim »', () => {
+        // 06/09 (dimanche) recule au lundi 31/08, 07/09 est déjà un lundi : deux semaines.
+        cfg.savePiCfg(31, { startDateFromCsv: '2026-09-07', sprintsPerPIFromCsv: 5 });
+        const d = piWeeks.piCongesDiff(SPRINT_INFO, 31, PI_INFO, ['friday', 'monday']);
+        assert.equal(d.ecart, true);
+        assert.equal(d.memeSemaine, false);
+    });
+
+    test('une semaine d’écart est un écart quel que soit le mode', () => {
+        cfg.savePiCfg(31, { startDateFromCsv: '2026-09-14', sprintsPerPIFromCsv: 5 });
+        assert.equal(piWeeks.piCongesDiff(SPRINT_INFO, 31, PI_INFO).ecart, true);
+        assert.equal(piWeeks.piCongesDiff(SPRINT_INFO, 31, PI_INFO, ['thursday']).ecart, true);
     });
 
     test('pas d\'écart quand le CSV confirme JIRA', () => {

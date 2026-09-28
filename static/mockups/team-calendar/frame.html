@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Équipe — agenda (maquette)</title>
+    <!-- VRAIS CSS du site (effet miroir) : la maquette suit le site quand il évolue -->
+    <link rel="stylesheet" href="../../css/tokens.css">
+    <link rel="stylesheet" href="../../css/base.css">
+    <link rel="stylesheet" href="../../css/views/team.css">
+    <!-- Seul ajout : la carte « Agenda de l'équipe » + la direction choisie -->
+    <link rel="stylesheet" href="_shared/tc.css">
+    <link rel="stylesheet" href="_shared/frame.css">
+    <!-- Feuille de la direction choisie posée AVANT tout rendu : la basculer depuis frame.js
+         affichait la mosaïque un instant sans style (flash détecté par la vérification au rendu) -->
+    <script>
+        (function () {
+            var dirs = { week: 'a-semaine', lanes: 'b-couloirs', mosaic: 'c-mosaique', hybrid: 'd-synthese' };
+            var d = new URLSearchParams(location.search).get('dir');
+            document.write('<link rel="stylesheet" id="dir-css" href="' + (dirs[d] || dirs.week) + '/style.css">');
+        })();
+    </script>
+</head>
+<body>
+    <!--
+      Cadre piloté par l'URL — chaque écran de la galerie est une iframe de cette page :
+        ?dir=week|lanes|mosaic|hybrid  &team=Gabbiano  &cmp=Fuego,Helica  &period=week|iteration
+        &state=nominal|noical|empty|error|loading|stale  &banner=masked|stale|learned
+        &pop=1 (popover Comparer ouvert)  &select=Titre@AAAA-MM-JJ (fiche ouverte)  &theme=light
+      Une iframe a SA largeur : les requêtes média du site (≤ 1024 px, ≤ 640 px) jouent pour de vrai.
+    -->
+    <aside class="sidebar" aria-label="Navigation">
+        <div class="sidebar-header"><div class="sidebar-logo">SB</div><span class="sidebar-title">Squad Board</span></div>
+        <nav class="sidebar-nav">
+            <div class="nav-main">
+                <a class="nav-item">📊 <span>Dashboard</span></a><a class="nav-item">🗂️ <span>Board</span></a>
+                <a class="nav-item">📋 <span>Backlog</span></a><a class="nav-item">🗓️ <span>PI Planning</span></a>
+                <a class="nav-item">🛡️ <span>Santé</span></a><a class="nav-item">📈 <span>Rapports</span></a>
+            </div>
+            <div class="nav-secondary">
+                <a class="nav-item active" aria-current="page">🪪 <span>Équipe</span></a><a class="nav-item">🛎️ <span>Support</span></a>
+                <a class="nav-item">🧭 <span>Atlas</span></a><a class="nav-item">📅 <span>Agenda</span></a>
+            </div>
+        </nav>
+    </aside>
+
+    <main class="app">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="btn-icon mobile-only" aria-label="Menu">☰</button>
+                <h1 class="topbar-title topbar-breadcrumb" id="crumb"></h1>
+            </div>
+            <div class="topbar-center"><button class="search-trigger" aria-label="Rechercher">🔎 <span class="search-trigger__label">Rechercher…</span></button></div>
+            <div class="topbar-right"><button class="btn btn-primary">+ Nouveau</button></div>
+        </header>
+        <div class="content-layout">
+            <div class="content">
+                <div id="team-header"></div>
+                <div id="tc-mount"></div>
+                <div class="card team-id-card tcf-ghost">
+                    <div class="card-header"><span class="card-title">Fiche d'identité</span></div>
+                    <p class="text-muted text-sm">Vision, périmètre, « qui sommes-nous ? »… (inchangé)</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="_shared/data.js"></script>
+    <script src="_shared/classify.js"></script>
+    <script src="_shared/tc-core.js"></script>
+    <script src="_shared/tc-ui.js"></script>
+    <script src="_shared/tc-week.js"></script>
+    <script src="_shared/tc-lanes.js"></script>
+    <script src="_shared/tc-mosaic.js"></script>
+    <script src="_shared/tc-hybrid.js"></script>
+    <script src="_shared/frame.js"></script>
+</body>
+</html>

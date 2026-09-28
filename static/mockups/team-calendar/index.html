@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendrier de l'équipe — galerie</title>
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="_shared/gallery.css">
+</head>
+<body class="gallery">
+<!-- GÉNÉRÉ par gen-gallery.cjs — ne pas éditer à la main (voir README.md) -->
+<header class="gal-head">
+    <a href="../">← Maquettes Squad Board</a>
+    <h1>📅 Calendrier de l'équipe — détecter, voir, comparer</h1>
+    <p>Sur la page <b>#team/{équipe}</b> : les évènements de l'agenda Google de l'équipe, <b>rangés automatiquement</b>
+       (97,3 % des 3 580 évènements réels), affichés sur un calendrier, et <b>comparables</b> avec d'autres équipes à cocher.
+       Trois directions explorées, puis <b>D · Synthèse retenue</b> (la clarté de A, le sprint entier de B), desktop et mobile, sur les vraies données des 13 équipes.</p>
+</header>
+<nav class="gal-nav" aria-label="Sections">
+    <a href="#directions" aria-current="page">Directions</a><a href="detection.html">🧭 Détecteur (comment ça range)</a><a href="#choisir">Choisir</a>
+    <span class="gal-spacer"></span><a href="README.md">README</a>
+</nav>
+<main class="gal-main">
+    <div class="ix-callout">💡 <b>Le cœur n'est pas la vue, c'est le rangement.</b> Chaque évènement reçoit une <b>nature</b> (déduite du titre :
+    Daily, Démo, Support, Absence…) et une <b>portée</b> (déduite de l'agenda source : équipe, groupe, train, opérations). Les trois directions
+    partagent ce détecteur, la fiche « Classer comme… » et les filtres — seule la vue change. Voir <a href="detection.html">le détecteur</a>.</div>
+    <div class="gal-group" id="directions">Directions</div>
+    <div class="ix-grid">
+    <article class="ix-card ix-reco">
+        <div class="ix-preview"><div class="bureau-fenetre"><iframe class="bureau" data-src="frame.html?dir=hybrid&amp;team=Gabbiano&amp;cmp=Fuego&amp;period=iteration" title="Aperçu Synthèse" loading="lazy"></iframe></div></div>
+        <div class="ix-body">
+            <h3>D · Synthèse<span class="ix-badge">Retenue</span></h3>
+            <p><b>La clarté de A, le sprint entier de B.</b> Retenue après avis : « Semaine » montre la grille horaire de A, « Itération » les couloirs de B — le sélecteur choisit la période ET la représentation, comme Jour / Semaine / Mois des agendas standard. Un clic sur un jour de l'itération ouvre sa semaine ; « Tout le sprint » en revient.</p>
+            <dl class="ix-traits"><dt>Point fort</dt><dd>Heure exacte ET vue du sprint, sans rien réapprendre</dd><dt>Limite</dt><dd>Deux représentations à maintenir (mais aucune nouvelle : A et B telles quelles)</dd><dt>Moment idéal</dt><dd>Tous les jours (semaine) et en préparation de rétro ou de PI Planning (itération)</dd></dl>
+        </div>
+        <div class="ix-links"><a href="d-synthese/01-principal.html">D01 · Écran principal</a><a href="d-synthese/02-comparer.html">D02 · Comparer avec d’autres équipes</a><a href="d-synthese/03-fiche.html">D03 · Fiche d’évènement et positionnement manuel</a><a href="d-synthese/04-etats.html">D04 · États : masqué, sans agenda, chargement, périmé, vide, erreur</a><a href="d-synthese/05-zoom.html">D05 · Du sprint à la semaine, et retour</a></div>
+    </article>
+    <article class="ix-card">
+        <div class="ix-preview"><div class="bureau-fenetre"><iframe class="bureau" data-src="frame.html?dir=week&amp;team=Gabbiano&amp;cmp=" title="Aperçu Semaine" loading="lazy"></iframe></div></div>
+        <div class="ix-body">
+            <h3>A · Semaine</h3>
+            <p><b>La grille horaire standard.</b> Le format que tout le monde lit sans apprendre : Google Agenda, Outlook. Jours en colonnes, heures en lignes, bandeau pour le support et les absences, ligne rouge « maintenant ».</p>
+            <dl class="ix-traits"><dt>Point fort</dt><dd>Zéro apprentissage ; les conflits d’horaire se voient</dd><dt>Limite</dt><dd>Comparer plus de 2 équipes serre les colonnes</dd><dt>Moment idéal</dt><dd>Organiser sa semaine, trouver un créneau</dd></dl>
+        </div>
+        <div class="ix-links"><a href="a-semaine/01-principal.html">A01 · Écran principal</a><a href="a-semaine/02-comparer.html">A02 · Comparer avec d’autres équipes</a><a href="a-semaine/03-fiche.html">A03 · Fiche d’évènement et positionnement manuel</a><a href="a-semaine/04-etats.html">A04 · États : masqué, sans agenda, chargement, périmé, vide, erreur</a></div>
+    </article>
+    <article class="ix-card">
+        <div class="ix-preview"><div class="bureau-fenetre"><iframe class="bureau" data-src="frame.html?dir=lanes&amp;team=Gabbiano&amp;cmp=Fuego%2CHelica" title="Aperçu Couloirs" loading="lazy"></iframe></div></div>
+        <div class="ix-body">
+            <h3>B · Couloirs</h3>
+            <p><b>Une ligne par équipe.</b> La frise « ressources » (Teams Shifts, Gantt) : une ligne par équipe, une colonne par jour ouvré de l'itération. Les démos, rétros et plannings s'alignent verticalement d'une équipe à l'autre.</p>
+            <dl class="ix-traits"><dt>Point fort</dt><dd>Comparer : le rythme de 3 équipes d’un coup d’œil</dd><dt>Limite</dt><dd>L’heure exacte passe au second plan</dd><dt>Moment idéal</dt><dd>PI Planning, rétro de train, harmoniser les cadences</dd></dl>
+        </div>
+        <div class="ix-links"><a href="b-couloirs/01-principal.html">B01 · Écran principal</a><a href="b-couloirs/02-comparer.html">B02 · Comparer avec d’autres équipes</a><a href="b-couloirs/03-fiche.html">B03 · Fiche d’évènement et positionnement manuel</a><a href="b-couloirs/04-etats.html">B04 · États : masqué, sans agenda, chargement, périmé, vide, erreur</a></div>
+    </article>
+    <article class="ix-card">
+        <div class="ix-preview"><div class="bureau-fenetre"><iframe class="bureau" data-src="frame.html?dir=mosaic&amp;team=Gabbiano&amp;cmp=" title="Aperçu Mosaïque" loading="lazy"></iframe></div></div>
+        <div class="ix-body">
+            <h3>C · Mosaïque</h3>
+            <p><b>L'itération en cases.</b> Le mois condensé sur l'itération (Apple Calendrier, Notion) : une case par jour ouvré avec les jalons, et l'agenda du jour sélectionné à côté. Le plus calme ; se transpose naturellement en mobile.</p>
+            <dl class="ix-traits"><dt>Point fort</dt><dd>Lisible d’un coup d’œil, excellent en mobile</dd><dt>Limite</dt><dd>Les chevauchements horaires ne se voient pas</dd><dt>Moment idéal</dt><dd>Consulter, préparer la journée, écran d’accueil</dd></dl>
+        </div>
+        <div class="ix-links"><a href="c-mosaique/01-principal.html">C01 · Écran principal</a><a href="c-mosaique/02-comparer.html">C02 · Comparer avec d’autres équipes</a><a href="c-mosaique/03-fiche.html">C03 · Fiche d’évènement et positionnement manuel</a><a href="c-mosaique/04-etats.html">C04 · États : masqué, sans agenda, chargement, périmé, vide, erreur</a></div>
+    </article>
+    </div>
+    <div class="gal-group" id="choisir">Choisir</div>
+    <table class="ix-table">
+        <thead><tr><th>Besoin</th><th>D · Synthèse</th><th>A · Semaine</th><th>B · Couloirs</th><th>C · Mosaïque</th></tr></thead>
+        <tbody>
+            <tr><td>Comparer 2-3 équipes</td><td>🟢 itération</td><td>🟡 serré au-delà de 2</td><td>🟢 fait pour ça</td><td>🟡 pastilles seulement</td></tr>
+            <tr><td>Voir l'heure exacte, les conflits</td><td>🟢 semaine</td><td>🟢</td><td>🟡 heure de début</td><td>🔴</td></tr>
+            <tr><td>Itération entière (10 jours)</td><td>🟢</td><td>🟡 dense</td><td>🟢 tient sans défiler en 1280</td><td>🟢</td></tr>
+            <tr><td>Mobile</td><td>🟢</td><td>🟢 vue Jour</td><td>🟢 un jour à la fois</td><td>🟢 naturel</td></tr>
+            <tr><td>Apprentissage</td><td>🟢 aucun</td><td>🟢 aucun</td><td>🟢 faible</td><td>🟢 aucun</td></tr>
+        </tbody>
+    </table>
+</main>
+<script src="_shared/gallery.js"></script>
+</body>
+</html>

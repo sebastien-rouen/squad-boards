@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, hashColor, toast, getSprintForTeam, getCurrentPi, extractTeam, relevantCalendars, lastCalendarSync } from '../utils.js';
+import { esc, hashColor, toast, getSprintForTeam, getCurrentPi, extractTeam, relevantCalendars, lastCalendarSync, supportMembersOnDay, previousWorkingDayIso, calNatureWithRules } from '../utils.js';
 import * as api from '../api.js';
 
 // ── Jours fériés France ───────────────────────────────────────────────────────
@@ -161,21 +161,20 @@ const _SCRUM_DETAILS = {
         example: '« Démo live de la feature login, le métier valide et demande un ajustement sur l\'erreur 401. »',
     },
 };
+// Nature du détecteur commun (utils/cal-classify.js) → clé de cérémonie du bandeau. L'ancien
+// détecteur local ignorait « Raffinage de tickets » et « Démonstration d'itération », et rangeait
+// le PI Planning (train) avec le sprint planning. Les règles positionnées à la main s'appliquent aussi.
+const _SCRUM_OF_NATURE = {
+    daily:    ['daily',      '🌅', 'Daily'],
+    planning: ['planning',   '🎯', 'Planning'],
+    affinage: ['refinement', '🔍', 'Refinement'],
+    demo:     ['review',     '🎤', 'Sprint Review'],
+    retro:    ['retro',      '🔁', 'Rétro'],
+};
 function _detectScrumType(title) {
-    const t = (title || '').toLowerCase();
-    if (!t) return null;
-    const mk = (key, icon, label) => ({ key, icon, label, details: _SCRUM_DETAILS[key] });
-    if (/sprint\s*review|sprint\s*demo|démo\s*sprint|review\s*sprint/.test(t))
-        return mk('review',     '🎤', 'Sprint Review');
-    if (/sprint\s*planning|planning\s*sprint|pi\s*planning/.test(t))
-        return mk('planning',   '🎯', 'Planning');
-    if (/\bdaily\b|stand[- ]?up|standup|scrum\s*matinal/.test(t))
-        return mk('daily',      '🌅', 'Daily');
-    if (/refinement|grooming|backlog\s*refinement|raffinement/.test(t))
-        return mk('refinement', '🔍', 'Refinement');
-    if (/r[ée]tro(?:spective)?\b|retrospective\b/.test(t))
-        return mk('retro',      '🔁', 'Rétro');
-    return null;
+    if (!title) return null;
+    const m = _SCRUM_OF_NATURE[calNatureWithRules(title, store.get('calendarRules')).nature];
+    return m ? { key: m[0], icon: m[1], label: m[2], details: _SCRUM_DETAILS[m[0]] } : null;
 }
 
 function _chip(ev, idx = 0) {
@@ -805,11 +804,12 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
     ];
     const _SUP_ABBR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
     const _supAll = store.get('support') || [];
+    // supportMembersOnDay = même lecture que la grille Paramètres → Rotation (mode actuel de
+    // l'équipe + jours cochés) — un recouvrement de dates mêlait les lignes d'un ancien mode.
     const _supForDay = dk => new Set(
-        _supAll
-            .filter(r => (!_currentTeam || _currentTeam === 'all' || r.team === _currentTeam)
-                && r.weekStart <= dk && r.weekEnd >= dk)
-            .flatMap(r => r.members || [])
+        supportMembersOnDay(_supAll, dk)
+            .filter(m => !_currentTeam || _currentTeam === 'all' || m.team === _currentTeam)
+            .map(m => m.name)
     );
     const _supWkKeys = days.slice(0, 5).map(_dayKey);
     const _supSetsEq = (a, b) => a.size === b.size && [...a].every(x => b.has(x));
@@ -1037,9 +1037,9 @@ function _buildDaySlack(evs, day) {
     const team = store.get('team');
     const _supAllDay = store.get('support') || [];
     const _supForDayKey = k => [...new Set(
-        _supAllDay
-            .filter(r => (!team || team === 'all' || r.team === team) && r.weekStart <= k && r.weekEnd >= k)
-            .flatMap(r => r.members || [])
+        supportMembersOnDay(_supAllDay, k)
+            .filter(m => !team || team === 'all' || m.team === team)
+            .map(m => m.name)
     )];
     // Noms RH au format "NOM, Prénom" (jamais l'inverse — cf docs/regles-metier.md) : le prénom
     // est ce qui suit la virgule. Fallback sur le 1er mot si jamais un nom sans virgule traîne.
@@ -1052,7 +1052,8 @@ function _buildDaySlack(evs, day) {
     const todaySup = _supForDayKey(dk);
     let supportLine = '';
     if (todaySup.length) {
-        const prevDk  = _dayKey(new Date(day.getTime() - 86400000));
+        // Veille OUVRÉE : un lundi se compare au vendredi (le week-end ne compte personne)
+        const prevDk  = previousWorkingDayIso(dk);
         const prevSup = _supForDayKey(prevDk);
         const changed = prevSup.length && (prevSup.length !== todaySup.length || !prevSup.every(m => todaySup.includes(m)));
         supportLine = changed

@@ -4,7 +4,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, belongedToPi, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast, supportWorkingDays, supportDaysForMember, initials } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, belongedToPi, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast, initials, supportMembersOnDay, todayIsoLocal, effectiveRosterForPi, teamNameMatches } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { renderCycleTime } from '../components/charts.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
@@ -470,21 +470,19 @@ export function renderDashboard(container) {
 
         <!-- Widget : qui est en support aujourd'hui -->
         ${(() => {
-            const todayIso = new Date().toISOString().slice(0, 10);
+            const todayIso = todayIsoLocal();   // heure locale : toISOString() donnait la veille avant 2 h
             const support  = store.get('support') || [];
             const teamObjects = store.get('teamObjects') || [];
-            const curEntries = support.filter(s => s.weekStart <= todayIso && s.weekEnd >= todayIso);
-            if (!curEntries.length) return '';
-            // Pour chaque entrée, filtre les membres qui couvrent réellement aujourd'hui
-            const oncall = curEntries.flatMap(entry => {
-                const wd     = supportWorkingDays(entry.weekStart);
-                const todayWd = wd.find(d => d.iso === todayIso);
-                if (!todayWd) return [];
-                return (entry.members || []).filter(m => {
-                    const days = supportDaysForMember(entry, m);
-                    return days.includes(todayWd.index);
-                }).map(m => ({ name: m, team: entry.team, color: (teamObjects.find(o => o.name === entry.team) || {}).color || '#64748b' }));
-            });
+            // Roster du PI courant : un membre sorti de l'équipe n'est plus de support (comme la
+            // page Support et le panneau latéral, cf. effectiveRosterForPi).
+            const _piInfo = store.get('piInfo');
+            const roster = effectiveRosterForPi(_piInfo, getCurrentPi({ sprintInfo: store.get('sprintInfo'), piInfo: _piInfo }),
+                store.get('absences') || [], store.get('members') || []);
+            // supportMembersOnDay = même lecture que la grille Paramètres → Rotation : semaine du
+            // mode ACTUEL de chaque équipe (doublons fusionnés) × jours cochés pour chaque membre.
+            const oncall = supportMembersOnDay(support, todayIso)
+                .filter(m => roster.some(r => r.name === m.name && teamNameMatches(r.team, m.team)))
+                .map(m => ({ ...m, color: (teamObjects.find(o => o.name === m.team) || {}).color || '#64748b' }));
             if (!oncall.length) return '';
             const chips = oncall.map(({ name, color }) => {
                 const ini = initials(name);

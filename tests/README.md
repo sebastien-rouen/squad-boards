@@ -19,7 +19,7 @@ node --test --test-name-pattern "itérations" "tests/*.test.mjs"
 | Fichier | Couvre |
 |---|---|
 | `rotation.test.mjs` | matching d'équipe, roster du shuffle, en-tête de colonne, itérations |
-| `pi-weeks.test.mjs` | égalité Rotation ↔ Support, ancrage, régularité des semaines |
+| `pi-weeks.test.mjs` | égalité Rotation ↔ Support, ancrage, régularité des semaines, jour de bascule du mode (« Jeu → Mer »), stabilité des clés au changement de PI |
 | `pi-config.test.mjs` | priorité des sources `pi-cfg-<N>`, fusion, écart PI ↔ Congés |
 | `recalage.test.mjs` | bandeau « Recaler ce PI sur les Congés », effet et retour arrière |
 | `objectifs-pi.test.mjs` | rendu des objectifs et envoi réel de l'enregistrement |

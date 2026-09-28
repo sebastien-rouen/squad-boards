@@ -1,3 +1,546 @@
+## [3.167.1] - 2026-09-29
+
+### Agenda de l'équipe — plus de place, et le détecteur dans Paramètres
+
+- **Page Équipe sans panneau latéral droit** ([infopanel.js](static/js/components/infopanel.js)) : comme
+  Paramètres, la vue `team` vide le panneau (masqué par `.info-panel:empty`). Un jour de la grille
+  passe de **133 à 185 px** à 1280 (217 px à 1440) ; titres incomplets en Semaine 9 → 5 (les longs
+  intitulés MEP en créneau de 30 min, lisibles au survol). Le panneau reste partout ailleurs.
+- **Paramètres → Calendriers ICS : « 🧭 Détecteur d'évènements »** ([settings-cal-detect.js](static/js/views/settings-cal-detect.js),
+  appelé par settings.js comme la section JIRA) : alertes par agenda (détails masqués — Lion, 155
+  créneaux ; agenda d'équipe partagé avec d'autres — Kadjar/Juke ; équipes sans agenda — Etoile,
+  Océane), couverture par équipe (part rangée + répartition des natures), file « À positionner »
+  (70 titres non reconnus, les 40 plus fréquents affichés, rangés en un choix) et liste « Rangés à
+  la main » avec « Revenir à la détection ». Réutilise `saveRule` / `dropRule` de la carte.
+- Vérifié dans la vraie application (sonde Edge, données réelles) : panneau masqué sur l'Équipe et
+  présent sur le Dashboard, section détecteur à 13 équipes, rangement effectif (70 → 69), aucune
+  erreur JS.
+
+## [3.167.0] - 2026-09-29
+
+### Page Équipe — carte « Agenda de l'équipe » (direction D de la maquette)
+
+- **Nouvelle carte** sur `#team/{équipe}`, sous l'en-tête ([team_calendar.js](static/js/components/team_calendar.js),
+  [team_calendar_views.js](static/js/components/team_calendar_views.js), [team-calendar.css](static/css/views/team-calendar.css)) :
+  **Semaine** = grille horaire, **Itération** = couloirs (une ligne par équipe, dates JIRA réelles),
+  zoom d'un jour de l'itération vers sa semaine et fil « ↩ Tout le sprint ». **Comparer** : cases à
+  cocher (3 équipes max), le train dessiné une seule fois dans « Train & commun ». Filtres de nature
+  et de portée (Opérations masqué par défaut), fiche d'évènement, bandeau « Journée » (support,
+  absences), pied : charge de réunions (base 7 h/j), taux de rangement, fraîcheur de synchro. États :
+  chargement, sans agenda (→ `#settings/calendriers`), vide après filtres, agenda masqué, périmé (> 48 h).
+  Vue Semaine / Itération retenue par personne (`localStorage sb-team-cal-period`), Semaine par défaut.
+- **Détecteur commun** ([utils/cal-classify.js](static/js/utils/cal-classify.js), via le barrel) : nature
+  depuis le titre (14 natures, 97,3 % des 3 580 évènements réels), portée depuis l'agenda source,
+  titre court (`calShortTitle`). Le **bandeau calendrier** bascule dessus (`_detectScrumType`) : il
+  reconnaît enfin « Raffinage de tickets » et « Démonstration d'itération », et ne range plus le PI
+  Planning (train) avec le sprint planning.
+- **Positionner à la main** : « Classer comme… » dans la fiche crée une règle par titre normalisé,
+  partagée par toutes les équipes ; « Revenir à la détection » la supprime. Table `calendar_rule`
+  (créée au démarrage), routes `GET / PUT /api/calendar-rules`, `DELETE /api/calendar-rules/{id}`
+  ([app/routers/calendar_rules.py](app/routers/calendar_rules.py)) ; règles chargées à part de
+  `/api/all` (contrat inchangé). Sauvegarde : `data/board.avant-calendar-rule-2026-09-28.bak.db`.
+- Défauts trouvés en faisant tourner la vraie application (sonde Edge, `/api/all` construit depuis
+  la base réelle) et corrigés, en miroir dans la maquette : case à cocher « Comparer » positionnée
+  sous la barre latérale (ligne non ancrée) ; popover « Comparer » et fiche restés ouverts par-dessus
+  les évènements → fermeture au clic extérieur et sur Échap ; titres rognés dans des colonnes de
+  133 px (panneau droit) → nombre de lignes calculé sur la hauteur réelle du bloc.
+- Vérifié (sans test ajouté, à la demande) : parcours complet bureau et mobile vert — Semaine,
+  Itération (0 titre coupé ni rogné sur 54), rituels en tête de ligne, zoom, comparaison, Échap,
+  « Classer comme » puis « Revenir à la détection », aucune erreur JS, bandeau calendrier intact.
+  Reste en Semaine : de longs intitulés MEP dans des créneaux de 30 min, lisibles au survol.
+
+## [3.166.2] - 2026-09-28
+
+### Maquette — calendrier de l'équipe : titres lisibles
+
+- **Retour** : « je ne vois que les 5 premiers caractères du Daily Fuego ». Mesuré : en Itération,
+  **100 %** des titres étaient coupés (~3 caractères visibles) ; en Semaine, 14 sur 26.
+- **Titre court** (`_shared/tc-core.js`, `shortTitle`) : sans emoji, sans le nom de l'équipe de la ligne
+  ni « ERPC - » (« 🔥 Daily Fuego » → « Daily ») ; titre complet en infobulle et dans la fiche.
+- **Couloirs** : nom au-dessus, heure dessous, sans limite de lignes, césure française ; rituels
+  quotidiens une seule fois dans l'en-tête de ligne (« Daily · 9h45 · 9/10 j ») ; en comparaison,
+  3 évènements par case (jalons d'abord) puis « + N autres ».
+- **Grille horaire** : heure à 52 px, titre sur 2-3 lignes selon la durée ; survol ou focus clavier =
+  titre entier. Semaine à 3 équipes : conseil « voir l'itération ».
+- Résultat mesuré (largeur ET hauteur) : Itération seule et comparée **0 titre coupé ni rogné** ;
+  Semaine seule, 5 longs intitulés MEP lisibles au survol. Vérification complète toujours verte
+  (64 rendus, zoom aller-retour).
+
+## [3.166.1] - 2026-09-28
+
+### Maquette — calendrier de l'équipe : direction D « Synthèse » retenue
+
+- Retour : « la clarté du A, et voir l'ensemble du sprint sur le B ». Nouvelle direction
+  **[D · Synthèse](static/mockups/team-calendar/d-synthese/01-principal.html)** : le sélecteur
+  Semaine / Itération choisit la période ET la représentation (grille horaire de A, couloirs de B),
+  comme Jour / Semaine / Mois des agendas standard.
+- **Zoom** ([05-zoom.html](static/mockups/team-calendar/d-synthese/05-zoom.html)) : un clic sur un jour
+  de l'itération ouvre sa semaine en grille horaire, la semaine visée étant encadrée d'avance ; le fil
+  « ↩ Tout le sprint 31.2 · semaine 2 sur 2 » ramène. Filtres, portées, équipes comparées et fiche
+  sont conservés.
+- **Aucun rendu propre** : `_shared/tc-hybrid.js` aiguille vers les vues A et B, `d-synthese/style.css`
+  importe leurs feuilles — pas de troisième implémentation à maintenir.
+- Vérifié (Edge, en HTTP) : 64 rendus sans classe orpheline (la sonde descend désormais dans les
+  `@import`), aucun lien cassé, zoom aller-retour validé sur bureau et mobile (`_gen/sonde-zoom.cjs`).
+
+## [3.166.0] - 2026-09-28
+
+### Maquette — calendrier de l'équipe : détecter, voir, comparer (rien d'implémenté — à valider)
+
+- **[static/mockups/team-calendar/](static/mockups/team-calendar/)** : galerie de 3 directions
+  (A · Semaine, B · Couloirs, C · Mosaïque) × 4 écrans (principal, comparer, fiche & positionner,
+  états), desktop 1280 et mobile 390 sur chaque page, sur les **données réelles** des 13 équipes
+  (1 059 évènements ICS, 14/09 → 18/10). Chaque écran est une iframe de `frame.html`, qui charge les
+  vrais CSS du site (miroir). Page **Détecteur** : couverture par équipe, agendas reliés et leurs
+  alertes, file « À positionner », règles.
+- **Détecteur à deux axes** (`_shared/classify.js`, destiné à être porté tel quel) : nature depuis le
+  titre (14 natures), portée depuis l'agenda source (équipe, groupe, train, opérations). **97,3 %**
+  des 3 580 évènements réels rangés automatiquement. Le reste se positionne à la main, une règle
+  par titre, pour toutes les équipes. Le détecteur actuel du bandeau calendrier ne reconnaît ni
+  « Raffinage » ni « Démonstration d'itération ».
+- **Constats sur les données** : Lion partage son agenda en « disponibilités seulement » (37 « Busy »
+  sur 37) ; Etoile et Océane n'ont aucun agenda relié ; l'agenda « ERPC - Kadjar » est déclaré
+  partagé avec Juke ; la démo d'itération arrive par deux agendas (dédoublonnée).
+- Recommandation dans le [README](static/mockups/team-calendar/README.md) : **B · Couloirs** pour la
+  page Équipe (comparer est ce que Google Agenda ne fait pas), C en complément mobile. Trois points
+  à trancher, et un plan d'implémentation en 5 étapes.
+- Vérifié dans Edge (en HTTP : en `file://`, les règles CSS sont illisibles) : 42 rendus sans classe
+  orpheline, aucune variable orpheline, aucun lien cassé, aucune erreur JS, cibles tactiles
+  ≥ 44 px en mobile.
+
+## [3.165.4] - 2026-09-28
+
+### Page Équipe — les membres du PI d'aujourd'hui
+
+- **Symptôme** : Guillaume COLSENET apparaît toujours dans `/#team/Gabbiano`, alors qu'il a quitté
+  l'équipe après le PI 29.
+- **Cause** : la liste « Membres » de la carte d'en-tête (`team-id-header`) était dérivée des
+  absences de TOUT l'historique (`deriveMembersFromAbsences`). Quiconque avait posé un congé dans
+  l'équipe y restait. COLSENET n'est que dans le roster du PI 29 (dernière absence le 11/06).
+- **Correctif** ([team.js](static/js/views/team.js)) : roster du PI COURANT (`getCurrentPi`) via
+  `effectiveRosterForPi` (snapshot `piMembers[<PI>]` de l'import Congés, repli sur les absences
+  sans snapshot), apparié par `teamNameMatches`, une pastille par personne. C'est la même source
+  que la capacité, la rotation et le panneau latéral. « En mémoire — PI précédent » continue de
+  lister ceux du PI précédent qui ne sont plus dans le roster.
+- Vérifié sur les données réelles (PI 31) : Gabbiano 7 → 6 (COLSENET retiré, rôles conservés),
+  Fuego 15 → 14 (BENHABBOUR), Helica 7 → 5 (BOURDET-PEES, CHABLE).
+
+## [3.165.3] - 2026-09-28
+
+### Rotation support — un seul seuil d'absence, partout
+
+- **Avant** : la grille, le récap du pool et l'onglet Rotation du PI marquaient « absent » dès
+  **2,5 jours**, pendant que le tirage (mélange, pool) et la page Support appliquaient la règle
+  métier documentée, **≥ 3 jours** ([docs/regles-metier.md](docs/regles-metier.md)). Un membre à
+  2,5 jours était grisé dans la grille mais pouvait être tiré au sort : **39 cellules** dans ce
+  cas sur le PI 31.
+- **Source unique** ([utils/support.js](static/js/utils/support.js)) : `SUPPORT_ABSENT_MIN_DAYS = 3`
+  et `isSupportAbsent(jours)`, utilisés par le tirage, le pool, la page Support, la grille, le
+  récap du pool et l'onglet Rotation du PI. Une cellule à 2,5 jours s'affiche « partiel ».
+- **Récap du pool** ([settings-rotation-pool-recap.js](static/js/views/settings-rotation-pool-recap.js)) :
+  troisième copie du compteur à durée totale (cf. 3.165.2), remplacée par `supportAbsenceDays`.
+
+## [3.165.2] - 2026-09-28
+
+### Rotation support — absences comptées dans la semaine, tableau de la page Support au bon mode
+
+- **Symptôme** : Kevin marqué « absent ≥ 3j » sur la semaine 31.4.1 (ven. 16/10 → jeu. 22/10) de
+  la page Support, alors qu'il est présent dans la grille.
+- **Cause 1 — durée totale au lieu des jours de la semaine** : `supportAbsenceDays` additionnait
+  `days` (durée TOTALE) de chaque absence qui chevauche la semaine. Le congé de Kevin
+  (05 → 16/10, 10 jours) ne mord que sur le vendredi 16, mais comptait 10. Même copie dans la
+  grille (`_rotAbsDays`). Ce compteur décide aussi de l'**exclusion du tirage** (mélange et pool,
+  règle « absence ≥ 3 jours ») : des membres présents 4 jours sur 5 en étaient écartés.
+  **196 statuts faux** sur le PI 31 (132 membres, 3 modes de semaine), par exemple 30 jours → 2,5.
+- **Cause 2 — jours calendaires** : `supportAbsenceDayLevel` répartissait la durée (en jours
+  ouvrés) sur les jours CALENDAIRES, week-ends compris. 10 jours du 05 au 16/10 donnaient
+  10/12 = 0,83 par jour, donc « ½ journée » au lieu de « journée ». Répartition désormais sur les
+  jours ouvrés.
+- **Correctif** ([utils/support.js](static/js/utils/support.js)) : `supportAbsenceDays` = somme,
+  sur les jours ouvrés de la semaine, du niveau du jour (1 / 0,5), jamais plus de 5. La grille
+  délègue à cette source unique ([settings-rotation-weeks.js](static/js/views/settings-rotation-weeks.js)).
+- **Cause 3 — tableau de la page Support au mode par défaut** ([support.js](static/js/views/support.js)) :
+  les semaines étaient calculées une seule fois avec le mode par défaut (vendredi) pour toutes les
+  équipes, `teamMode` n'étant lu que pour le libellé. Pour Fuego (« Lun → Dim »), la page montrait
+  les anciennes lignes du vendredi au lieu de celles de la grille. Semaines désormais calculées
+  par équipe avec son mode, comme la grille. La génération utilisait déjà le bon mode.
+- Vérifié sur les 378 absences réelles (sonde Node, vraies fonctions) : Kevin = 1 jour la semaine
+  du 16/10, 0 jour sur sa semaine 31.4.1 (19/10), 5 jours en plein congé.
+- Fuego : la conversion « Ven → Jeu » → « Lun → Dim » a été faite à la main dans la grille
+  (9 semaines, 31.1.1 → 31.5.1). Les 10 lignes du vendredi restent en base, invisibles.
+
+## [3.165.1] - 2026-09-28
+
+### Synchro JIRA — chaque sprint rangé sous la bonne équipe
+
+- **Cause racine du « · 20.4 »** (3.165.0 le contournait côté lecture) : pour chaque sprint, la
+  synchro déduit l'équipe du NOM du sprint avec `extractTeam`, et le préfère au nom du board s'il
+  est plus long. L'expression ne retirait que « - Ité 31.2 » : « Team F - itération 31.2 » donnait
+  « F - itération 31.2 », plus long que « Fuego », donc retenu. Même chose pour « Itération »
+  (Ami, Bellier, Océane), le numéro nu « Caméléon - 31.2 » et le tiret collé « Etoile-Ité 31.2 ».
+- **`extractTeam`** ([utils.js](static/js/utils.js)) : tiret avec ou sans espaces, mot-clé
+  facultatif (Ité, Iter, Itér, Itération, Sprint, S), puis un numéro. Un numéro est exigé, donc
+  « GCOM - Fuego » reste intact. Vérifié sur les vrais noms : 150 noms de sprints sur 635 mieux
+  extraits, **aucun nom d'équipe sans numéro modifié**.
+- **Heuristique de la synchro** ([sync.js](static/js/sync.js)) : on ne tire l'équipe du nom d'un
+  sprint que si ce nom porte un numéro d'itération. Sinon le sprint futur « Prochain PI » devenait
+  une équipe.
+- Simulation sur les données réelles (board reconstitué à partir de l'équipe des tickets) :
+  **31 sprints actifs et futurs sur 31** rattachés à la bonne équipe, contre 15 mal rangés avant.
+- ⚠️ Les sprints déjà en base gardent leur mauvais rattachement jusqu'à la prochaine synchro :
+  une synchro **rapide** (JIRA 14j) corrige les sprints actifs et futurs (même `jiraId`, remplacés),
+  une **complète** corrige aussi l'historique clos. Entre-temps, `activeSprintFromTickets` (3.165.0)
+  retrouve le bon sprint actif.
+
+## [3.165.0] - 2026-09-28
+
+### Mode de semaine de support enregistré en base
+
+- **Avant** : le mode (« Jeu → Mer »…) était enregistré dans le navigateur (`rot-mode-<équipe>`).
+  Un autre poste voyait toutes les équipes en « Ven → Jeu », et la grille, la page Support, le
+  Dashboard et l'Agenda y lisaient d'autres semaines que celles saisies.
+- **Base** : colonne JSON `piconfig.support_week_modes` ({ équipe: mode }), exposée en
+  `piInfo.supportWeekModes`, restaurée par l'import. Sur `piconfig` et pas sur `team` : une
+  synchro complète supprime et recrée les équipes. Nouvelle route `PUT /api/pi/support-week-mode`
+  ({ team, mode }, mode validé), qui fusionne équipe par équipe : deux postes qui règlent deux
+  équipes ne s'écrasent pas.
+- **Front** : `getSupportWeekMode()` lit la base d'abord, puis le localStorage, puis le défaut.
+  Les trois écritures (grille, page Support, pool) passent par `saveSupportWeekMode()`
+  ([support-week-mode.js](static/js/support-week-mode.js)).
+- **Reprise automatique** : au chargement, les modes de ce navigateur que la base ne connaît pas
+  encore y sont envoyés (`migrateLocalWeekModes`). La base l'emporte toujours.
+- Sauvegarde avant migration : `data/board.avant-week-modes-2026-09-28.bak.db`.
+
+### Panneau latéral — le bon sprint et le bon PI
+
+- **Symptôme** : « ✊ Aucun vote confiance · 20.4 » sur `#pi/Fuego/objectives`.
+- **Cause** : le sprint actif de Fuego est rangé par la synchro sous `team: 'F - itération 31.2'`
+  (nom du board JIRA). `getSprintForTeam('Fuego')` ne trouvait que des sprints clos et renvoyait
+  le premier du tableau : « Team K - Ité 20.4 », de 2024. Le panneau en déduisait **PI 20** (votes,
+  features) et le fil d'Ariane affichait ce sprint. Même défaut pour **6 équipes sur 13** (Ami,
+  Bellier, Caméléon, Etoile, Fuego, Océane).
+- **Correctif** ([utils.js](static/js/utils.js), [utils/sprint-scope.js](static/js/utils/sprint-scope.js)) :
+  sans sprint actif rattaché à l'équipe, `activeSprintFromTickets` retient le sprint actif que les
+  tickets de l'équipe référencent le plus (mémoïsé). Sans sprint actif du tout, on prend le plus
+  RÉCENT, et non plus le premier du tableau. Les 13 équipes retombent sur leur sprint 31.2 (PI 31).
+- **Votes du panneau selon le PI SÉLECTIONNÉ** ([infopanel.js](static/js/components/infopanel.js)) :
+  même base que la page de vote (PI courant + `piOffset`). PI courant → sprint en cours (« 31.2 ») ;
+  autre PI → tous les votes de ce PI, libellé « PI 30 ». Un sprint hors du PI courant ne sert plus
+  jamais de clé.
+
+## [3.164.1] - 2026-09-28
+
+### Rotation support — les dernières vues alignées sur la grille
+
+- **Même défaut qu'en 3.164.0**, repéré dans cinq autres rendus qui filtraient les lignes par
+  recouvrement de dates. Les lignes d'un ancien mode de semaine et les doublons s'y mêlaient :
+  barre support + message Slack du bandeau calendrier ([cal_banner.js](static/js/components/cal_banner.js)),
+  Agenda ([agenda.js](static/js/views/agenda.js)), bloc Support des rapports texte / Slack /
+  Confluence ([reports.js](static/js/views/reports.js)), bandeau support du Board
+  ([sprint.js](static/js/views/sprint.js)), badges 🎧 du Calendrier PI ([picalendar.js](static/js/views/picalendar.js)).
+- **Deux sources uniques de plus** ([utils/support.js](static/js/utils/support.js)) :
+  `supportMembersOnDay(support, jour)` (qui est de support TEL JOUR : mode actuel × jours cochés
+  dans la grille, personne le week-end) et `gridSupportRows(support)` (toutes les lignes que la
+  grille peut afficher, pour une période : sprint, PI). Le Dashboard (`db-oncall-bar`) utilise
+  désormais `supportMembersOnDay` au lieu de sa copie locale du calcul.
+- **Jours partiels respectés dans le bandeau calendrier et l'Agenda** : un membre coché sur le
+  seul vendredi n'apparaît plus de support du lundi au jeudi.
+- **Message Slack du bandeau** : la comparaison « sortant --> entrant » se fait avec la veille
+  OUVRÉE (`previousWorkingDayIso`). Un lundi se compare au vendredi : le dimanche ne compte plus
+  personne, et la relève du week-end restait donc invisible.
+- Vérifié (sonde Node, vraies lignes de `board.db`) : RIVIERE (vendredi seulement) est de
+  support le 25/09 et pas le 28/09, personne le samedi, 71 lignes → 43 lignes de grille sans
+  doublon.
+- **Purge de la base** (validée, exécutée sur le serveur) : 23 lignes invisibles dans la grille
+  supprimées — 3 doublons de la semaine de transition 31.5.3 et 20 lignes « Ven → Jeu » du PI 31
+  de Gabbiano et Helica (passées en « Jeu → Mer »). 71 → 48 lignes, 0 doublon, un seul mode par
+  équipe sur le PI 31 ; l'historique du PI 30 (6 lignes) est conservé. Sauvegarde :
+  `data/board.avant-purge-rotation-2026-09-28.bak.db`.
+
+## [3.164.0] - 2026-09-28
+
+### Rotation support — page Support, panneau latéral et Dashboard alignés sur la grille
+
+- **Symptôme** : les hero-cards « 🛎️ Rotation cette semaine » (`#support`), le panneau
+  « Support cette semaine » et le bandeau « Support aujourd'hui » du Dashboard ne montraient
+  pas les membres de la grille Paramètres → Rotation. Le 28/09 : **6 cartes au lieu de 4**,
+  Gabbiano et Helica en double, avec les membres de l'ancienne grille mêlés à la nouvelle.
+- **Cause 1 — changement de mode** : les trois rendus prenaient toute ligne dont les dates
+  recouvrent aujourd'hui (`weekStart <= jour <= weekEnd`). Les lignes d'un ANCIEN mode restent
+  en base : Gabbiano et Helica, passées de « Ven → Jeu » à « Jeu → Mer », gardaient leurs
+  semaines du vendredi (10 lignes chacune) en plus des nouvelles. La grille, elle, ne lit que
+  la semaine qui commence au jour de bascule du mode actuel.
+- **Cause 2 — doublons de la semaine de transition** : 31.5.3 / 32.1.1 (jeudi 12/11) avait 2
+  lignes pour Gabbiano et 3 pour Helica, créées à 11 ms d'écart par un double clic dans la
+  grille → 8 cartes ce jour-là pour 3 équipes.
+- **Source unique `currentSupportRows(support, jour)`** ([utils/support.js](static/js/utils/support.js)) :
+  semaine = `snapToWeekMode(jour, getSupportWeekMode(équipe))`, une entrée par équipe. Les
+  doublons sont **fusionnés** en une carte : les membres viennent de la ligne que la grille
+  affiche (premier `find`), et les libellés distincts sont réunis (`weekLabels`, « 31.5.3 · 32.1.1 »).
+  Branchée sur [support.js](static/js/views/support.js), [infopanel.js](static/js/components/infopanel.js)
+  et [dashboard.js](static/js/views/dashboard.js).
+- **Jours partiels visibles** (`supportPartialDaysLabel`) : un membre posé sur certains jours
+  dans la grille (pastilles) affiche ses jours (« V ») sur sa hero-card et dans le panneau,
+  au lieu de passer pour « de support toute la semaine ».
+- **Dashboard** : le bandeau écarte désormais les membres sortis du roster du PI, comme la
+  page Support et le panneau.
+- **Date locale** (`todayIsoLocal`) au lieu de `toISOString()` (UTC) : entre minuit et 2 h, en
+  été, c'était la rotation de la veille qui s'affichait le jour de bascule.
+- **Serveur — plus de doublons** ([app/routers/support.py](app/routers/support.py)) :
+  `POST /api/support` sur une (équipe, `weekStart`) déjà en base **fusionne** dans la ligne
+  existante (union des membres ; une semaine pleine l'emporte sur des jours partiels) au lieu
+  d'en créer une deuxième.
+- Vérifié sur les 71 vraies lignes de `board.db` (sonde Node, vraie fonction) sur 5 jours
+  (24/09, 25/09, 28/09, 12/11, 16/11) : une carte par équipe, seulement le mode actuel, mêmes
+  membres que la grille.
+- ⚠️ Les lignes d'ancien mode et les doublons **restent en base** (ignorés à l'affichage). Pas
+  de purge sans validation.
+
+## [3.163.1] - 2026-09-28
+
+### Topbar — la barre ne glisse plus sous la sidebar sur petit écran de bureau
+
+- **Cause** : entre 1025 et 1700 px, la topbar complète (fil d'Ariane équipe + sprint,
+  sélecteur de PI, badge agenda, Daily, TV…) réclamait jusqu'à ~1400 px pour 1060 px
+  disponibles à 1280 px (MacBook 13") — 382 px de trop. `body { overflow: hidden }`
+  n'empêche pas un `focus()`/`scrollIntoView` de faire défiler la page : `.app` partait
+  vers la gauche SOUS la sidebar fixe, et seul un zoom (reflow) la remettait en place.
+- **Compaction par paliers** ([css/topbar-fit.css](static/css/topbar-fit.css), chargé juste
+  après `base.css`) : ≤ 1699 px recherche et badge agenda en icône seule ; ≤ 1519 px Daily
+  et TV en icône seule, « courant » du PI replié, marges resserrées ; ≤ 1279 px le
+  sélecteur de PI quitte la barre (son miroir du menu ⋮ reste). Aucune action retirée.
+- **Fil d'Ariane compressible** (`.topbar-left` : `flex-shrink: 1; min-width: 0`) : sous
+  ~1150 px en vue Board, les segments s'ellipsent au lieu de pousser les boutons.
+- **Filet de sécurité** : `.app { overflow-x: clip }` — un débordement futur est coupé au
+  lieu d'élargir le document (`clip`, pas `hidden` : menus et sticky intacts).
+- **Bouton TV** : l'emoji 📺 sort du libellé (le bouton était VIDE sous 1024 px, où tous
+  les `.btn-label` sont masqués) ; `aria-label` sur Daily et TV, dont le texte se replie.
+- Vérifié par sonde Edge (vrai `index.html` + vrais CSS) sur 3 vues × 8 largeurs
+  (1024 → 1920) : 24/24 sans débordement, fil d'Ariane du Dashboard complet dès 1025 px.
+
+## [3.163.0] - 2026-09-03
+
+### Rotation — la semaine de transition reste affichée en fin de PI
+
+- **Grille par équipe, pool mutualisé, page Support, onglet Rotation du PI : la semaine qui
+  chevauche la fin du PI est désormais affichée** ([utils/support.js](static/js/utils/support.js),
+  `makePiWeeks`). En « Jeu → Mer », le PI 31 (lundi 07/09 → dimanche 15/11) donnait dix semaines
+  du jeudi 03/09 au mercredi 11/11 : le PIP (jeudi 12, vendredi 13/11) puis lundi 16 → mercredi
+  18 n'avaient aucune colonne — trois jours de support impossibles à planifier. Une 11ᵉ semaine
+  `31.5.3` (`transition: true`, en-tête « ↪ » en italique, bord pointillé) commence le jeudi
+  12/11. C'est aussi la première semaine du PI 32 (même `weekStart`, donc même rotation en
+  base) : les deux grilles montrent et modifient la même semaine. Règle : le recul sur le jour
+  de bascule laisse toujours un jour ouvré à découvert dès qu'il est non nul, donc la semaine
+  est ajoutée dans ce cas et seulement dans ce cas — un PI qui commence le jour de bascule
+  (PI 30, vendredi 12/06, mode par défaut) n'en a pas.
+- **Une seule fabrique de semaines** : `buildSupportPiWeeks` (PI courant et suivant),
+  `buildPiWeeks` (PI épinglé, prolongation de cadence) et les deux recalculs locaux de
+  [pi.js](static/js/views/pi.js) (onglet Rotation du PI, message à copier) passent par
+  `makePiWeeks`. Ces derniers prolongeaient la cadence du PI courant avec SON nombre de sprints
+  (PI 30 à 6 → PI 31 à 5 : semaines décalées, sans rotation en base en face) — corrigé au
+  passage.
+- **Les deux libellés dans l'en-tête** — la semaine partagée s'affiche « ↪ 31.5.3 · 32.1.1 »
+  côté transition et « 32.1.1 · 31.5.3 » côté première semaine du PI suivant (`sharedWith`,
+  posé par `buildPiWeeks` seulement si les deux calculs tombent sur le même `weekStart` — un
+  PI suivant daté ailleurs ne reçoit rien). Un seul rendu d'en-tête, `supportWeekHead(w)`,
+  pour la grille, le récap du pool, la page Support et l'onglet du PI.
+- **PI sans sprint JIRA : cadence prolongée PI par PI** — le PI 32 n'existe pas encore dans
+  JIRA ; sa date était extrapolée depuis le PI courant avec un pas uniforme
+  `offset × sprints du PI visé` (6, hérités du PI 30), soit deux semaines trop tard, et sa
+  première semaine ne coïncidait jamais avec la transition du PI 31. `buildPiWeeks` part
+  désormais du PI daté le plus proche et additionne le nombre de sprints de CHAQUE PI
+  intermédiaire (PI 31 : 5) — 15/11 reculé au jeudi 12/11, la même semaine.
+- Tests : `pi-weeks.test.mjs` (semaine de transition en « Jeu → Mer », transition du PI 30 =
+  première semaine du PI 31, aucune transition quand le PI commence le jour de bascule, deux
+  libellés des deux côtés, prolongation chaînée du PI 32).
+
+---
+
+## [3.162.1] - 2026-09-03
+
+### Correctif — Rotation : le mode « Jeu → Mer » sans effet sur un PI épinglé
+
+- **`#settings/rotation` (grille par équipe ET carte ⧉ Rotation mutualisée) : choisir
+  « Semaine : Jeu → Mer » laissait les pastilles du lundi au vendredi** dès que le PI affiché
+  n'était pas le courant (PI 31 vu depuis PI 30). `buildPiWeeks`
+  ([utils/pi-weeks.js](static/js/utils/pi-weeks.js)) ne snappait la date de début sur le jour
+  du mode que pour le PI courant ; la branche « PI épinglé » gardait la date JIRA brute (lundi
+  07/09), et `supportWorkingDays()` en déduisait L M M J V quel que soit le mode. Ce non-snap
+  était une décision de 3.141.x (« ne pas changer l'ancrage des rotations enregistrées ») — mais
+  il préparait pire : les 40 rotations du PI 31 en base sont clées sur des lundis, alors que le
+  même PI devenu courant aurait été relu sur des vendredis/jeudis → **toute la rotation du PI 31
+  aurait disparu de la grille au changement de PI**.
+- Les deux branches passent par un helper unique `snapToWeekMode(iso, mode)`
+  ([utils/support.js](static/js/utils/support.js), recul de 6 jours max) : un PI a les mêmes
+  clés `weekStart` qu'il soit vu comme PI+1 ou comme PI courant — testé pour les cinq modes
+  (`pi-weeks.test.mjs`), y compris via `buildPiWeeks` tel que l'appelle le pool mutualisé.
+- **Migration des lignes en base** ([app/migrations.py](app/migrations.py), au démarrage,
+  idempotente) : chaque rotation dont `week_start` ne tombe pas sur le jour de son propre
+  `week_mode` est reculée sur ce jour (`week_end` = +6). En drafts : 40 lignes PI 31 (lundi →
+  vendredi ou jeudi selon l'équipe) et 5 lignes Helica/Estafette PI 30 (mercredi → lundi). Une
+  ligne dont la clé cible existe déjà pour la même équipe est laissée telle quelle.
+  ⚠️ Les `member_days` sont des indices dans la fenêtre : un membre coché « L M _ J V » sur une
+  semaine lundi→dimanche se relit « V L _ M J » sur la fenêtre vendredi→jeudi (1 ligne
+  concernée en drafts, Fuego 31.5.2) — à revérifier dans la grille.
+- Effet assumé : un recalage « sur les Congés » qui reste dans la même semaine de bascule
+  (JIRA dimanche 06/09 → CSV lundi 07/09) ne déplace plus aucune clé — les rotations restent
+  appariées (`recalage.test.mjs` mis à jour en conséquence).
+- **Bandeau « Recaler ce PI sur les Congés » : plus d'écart signalé quand recaler ne changerait
+  rien** — `piCongesDiff()` comparait les dates brutes (JIRA 06/09 ≠ CSV 07/09) et proposait un
+  recalage sans effet sur la grille. L'écart de date s'évalue désormais après recul sur le jour
+  de bascule, pour chacun des modes des équipes affichées (4ᵉ argument) : même vendredi 04/09
+  partout → pas de bandeau ; mais une seule équipe en « Lun → Dim » (31/08 vs 07/09) suffit à
+  le réafficher. Le récap « PI vs Congés » de Sprint & PI passe les modes de toutes les équipes
+  et distingue « ✓ même semaine » (dates brutes différentes, aucune clé déplacée) de « ✓ aligné ».
+
+---
+
+## [3.162.0] - 2026-09-01
+
+### ⧉ Rotation mutualisée — une astreinte pour plusieurs équipes, composée par poste
+
+- **⧉ Carte « Rotation mutualisée »** ([settings-rotation-pool.js](static/js/views/settings-rotation-pool.js),
+  `/#settings/rotation`) — coche les équipes qui partagent une même astreinte (bouton
+  **Toute la ligne GDEM** quand un groupe est sélectionné dans le bandeau du haut), puis dis
+  combien de personnes de chaque **poste** tu veux chaque semaine : `Dev ×2`, `Product Owner ×1`.
+  Le poste vient de `member.role` (Paramètres → Membres), jointé au roster du PI par
+  `effectiveRosterForPi` — la même source que la grille. Chaque poste affiche son vivier
+  (« 11 dispo ») et passe en orange si le quota le dépasse.
+- **👁 Aperçu du tirage → 💾 Enregistrer ce tirage** — deux temps, jamais un seul clic. L'aperçu
+  calcule et affiche la composition (tableau semaine × poste, pastilles aux couleurs d'équipe)
+  **sans rien écrire** ; l'enregistrement écrit **exactement ce tirage-là**, jamais un nouveau
+  calcul — le départage des ex-aequo est aléatoire, recalculer aurait enregistré autre chose
+  que ce qui venait d'être relu. Le bouton d'écriture reste grisé tant qu'aucun aperçu n'a été
+  lancé, et tout changement de réglage jette le brouillon.
+  La carte est **utilisable sans rien activer** : un pool devient « actif » (repère ⧉ dans la
+  grille, alignement du jour de bascule) **au moment de l'enregistrement**, pas avant — on ne
+  marque pas des équipes comme mutualisées sur un brouillon. Un bouton **Ne plus mutualiser**
+  retire le repère sans toucher à la rotation déjà en base.
+- **📋 Copier / 💬 Slack au niveau du pool** — dans le bandeau du tableau, donc ce qui part dans
+  le message est exactement ce qui est affiché (un brouillon est annoncé comme tel). Une ligne
+  par semaine, les personnes **groupées par poste** — c'est tout l'intérêt du pool, trois
+  messages par équipe ne diraient pas qui tient le rôle de PO cette semaine-là. Clic droit sur
+  **Copier** pour personnaliser le libellé (`rot-pool-label-<clé>`).
+  ```
+  🎧 *Astreinte mutualisée — Gabbiano · Initiale · Helica — PI30*
+
+    • 30.1.1 (12/06/2026 → 18/06/2026) — Dev : @Jean-Baptiste ROUX, @Roger HUANG · Product Owner : @Elsa SZTYKMAN
+  ```
+- **⛓ Postes fusionnables — `Dev + Tech Lead` groupes par defaut** — un Tech Lead tient le
+  creneau d'un Dev : demander « 2 Dev » sans ce regroupement les ecartait du tirage, et deux
+  quotas separes (`2 Dev` + `1 Tech Lead`) ne disent PAS la meme chose — ils imposent la
+  composition au lieu de la laisser libre. Sur GDEM la ligne devient `⛓ Dev + Tech Lead —
+  13 dispo` au lieu de `11` et `2`. Chaque ligne porte un `⛓ fusionner avec…` et, sur un
+  poste groupe, un `⫠ separer` : la fusion additionne les quotas, la separation les reporte
+  sur le premier role. Deux groupes par defaut : `Dev + Tech Lead` et `Testeur.se + Test Lead`. `DEFAULT_ROLE_GROUPS` n'est qu'un DEFAUT — `pool.roleGroups` prime des
+  que le pool a ses propres fusions, `{}` compris (« ne rien grouper »). Les quotas d'un pool
+  enregistre avant une fusion sont reportes sur le poste (`remapQuotasToPostes`), sinon les
+  lignes devenaient orphelines et le pool visait 0 personne.
+  Le role REEL reste affiche partout ou il compte : petit libelle sous le nom dans le recap,
+  et `@Roger HUANG (Tech Lead)` dans le message Slack — la fusion ne doit pas faire perdre
+  l'information qui l'a motivee.
+- **👥 Deux lectures d'un même tirage** ([settings-rotation-pool-recap.js](static/js/views/settings-rotation-pool-recap.js)) —
+  bascule dans le bandeau du récap. **📅 Par semaine** : qui est d'astreinte, la lecture de
+  tous les jours, celle qu'on colle dans Slack. **👥 Par poste** : **UNE seule grille au
+  format `rot-grid`**, avec les mêmes `rot-strip` jour par jour que la grille par équipe —
+  donc lisible ET **modifiable** au même endroit, sans avoir à retrouver l'équipe de chacun
+  panneau par panneau. Les lignes sont groupées par poste (séparateur + couverture en pied de
+  groupe), triées par équipe puis prénom, et une colonne « Tot. » ferme chaque ligne : c'est
+  l'apport de cette vue, voir d'un coup qui porte la charge. Les personnes **jamais tirées y
+  restent listées** — c'est l'absence de pastille qui révèle un déséquilibre.
+  Une écriture depuis cette grille part dans la rotation de l'équipe du membre et relit les
+  deux vues. ⚠️ En **aperçu**, les pastilles sont désactivées : le brouillon n'existe pas en
+  base, l'écriture porterait sur une entrée absente. Idem pour une personne sans équipe
+  connue (affectée hors vivier) : pas de rotation cible, donc pas d'édition.
+  Pas de cadenas dans l'en-tête, en revanche : le verrou est un état (équipe, semaine) et une
+  colonne couvre ici plusieurs équipes — un seul cadenas y mentirait. Il reste dans la grille
+  par équipe, et les semaines verrouillées sont simplement non modifiables ici.
+  **Couleurs d'équipe et tri par équipe puis prénom** : bande de couleur sur toute la colonne
+  d'identité (une ligne lue seule reste rattachable à son équipe), nom de l'équipe porté par
+  la première ligne de son bloc seulement — le répéter seize fois noierait les noms — et
+  séparateur au changement d'équipe. Colonne d'identité collée à gauche, ligne « Couverture »
+  comprise : sur 12 semaines la table défile, et une couverture décalée se lirait sous la
+  mauvaise semaine.
+- **♻️ Câblage des pastilles partagé** — `_rotWireDayCells(root, onSaved)` sort de
+  `_rotWirePanelEvents` ([settings-rotation.js](static/js/views/settings-rotation.js)) et prend
+  un **sous-arbre** en paramètre. Le récap le rappelle sur son seul nœud : recâbler tout le
+  conteneur aurait ajouté un SECOND écouteur sur chaque pastille de la grille, et un clic
+  aurait basculé le jour deux fois — donc rien.
+- **⚖️ Écart de charge par poste** — badge dans l'en-tête de chaque bloc (`2–3 passages`,
+  `3 passages chacun`) et marquage des extrêmes dans la colonne des totaux. Un écart de 1 est
+  INÉVITABLE — 36 créneaux pour 13 personnes ne tombent pas juste — et reste vert ; un écart
+  de 2 sans personne à zéro passe en neutre assumé ; au-delà, ou dès qu'un membre est à 0
+  quand un autre est à 2, le badge s'allume en orange. Le libellé reste factuel : un 0
+  s'explique très souvent par des congés ou une semaine verrouillée, pas par un tirage
+  injuste, et l'infobulle le dit plutôt que de crier au loup.
+- **🙈 Se concentrer sur le pool pendant la relecture** — pendant un aperçu SEULEMENT, un
+  bouton masque dans la grille les panneaux des équipes hors pool (`data-pool-member` +
+  classe `rot-focus-pool`, purement CSS comme le mode « Congés seuls » : rien n'est retiré du
+  rendu). Il n'apparaît que s'il y a réellement quelque chose à masquer, et l'état retombe
+  avec le brouillon — le laisser actif masquerait des équipes sans plus aucun bouton pour
+  les rappeler.
+- **🧮 Règles du tirage** (`generatePooledSupportRotation`, [utils/support.js](static/js/utils/support.js)) —
+  absence ≥ 3 j écartée, pas deux semaines consécutives (relâché si le vivier s'épuise),
+  passé et semaines verrouillées préservés, équité par personne **puis par équipe** (sans quoi
+  la plus grosse équipe du pool assure toute l'astreinte). Les postes sont servis du vivier le
+  plus étroit au plus large : avec un seul PO disponible, le servir après les Dev suffisait à
+  le rater. Un poste sous-doté est remonté en `shortfalls`, **jamais** comblé par un autre
+  poste — « 2 Dev + 1 PO » ne devient pas 3 Dev en silence.
+- **🗃️ Aucun objet « pool » en base** — le tirage est réparti dans les rotations des VRAIES
+  équipes (une entrée `support` par équipe et par semaine), donc la page Support, l'agenda, le
+  panneau latéral et le message Slack par équipe continuent de fonctionner sans rien connaître
+  du pool. La config (équipes, quotas, mode semaine) vit en localStorage `rot-pools`, indexée
+  par groupe, comme les autres réglages de la grille.
+- **📅 Jour de bascule aligné** — enregistrer un tirage force `rot-mode-<équipe>` sur le mode du
+  pool : `weekStart` est la clé d'appariement des rotations, et deux modes différents produisent
+  deux séries de semaines sans aucune date commune (rotation écrite en base mais invisible dans
+  la grille). La carte annonce les équipes qui vont changer, avant.
+- **Repères dans la grille par équipe** ([settings-rotation.js](static/js/views/settings-rotation.js)) —
+  badge `⧉ mutualisée` dans l'en-tête du panneau, et ligne de total en `⧉ 2` neutre au lieu de
+  `0/2` en rouge : en pool, l'effectif cible est celui du **pool**, et une équipe peut
+  légitimement ne fournir personne une semaine donnée.
+
+### 🧹 `settings-rotation.js` repasse sous la limite de 800 lignes
+
+- Le fichier était à **912 lignes** (limite : 800). Trois blocs en sortent, chacun avec une
+  frontière nette — et tous **ré-exportés** depuis `settings-rotation.js`, donc ni la suite de
+  tests ni `settings.js` n'ont changé d'import :
+  [settings-rotation-weeks.js](static/js/views/settings-rotation-weeks.js) (semaines d'un PI,
+  dates, absences), [settings-rotation-display.js](static/js/views/settings-rotation-display.js)
+  (panneaux pliés, PI épinglé, mode « Congés seuls » — que du localStorage),
+  [settings-rotation-message.js](static/js/views/settings-rotation-message.js) (noms et message
+  d'une équipe). Reste **761 lignes**. Un alias mort (`_lsPiCfg`) est supprimé au passage.
+- Même traitement côté CSS : `support-rotation.css` atteignait 797 lignes, le pool part dans
+  [support-pool.css](static/css/views/support-pool.css) (338 l.), chargé juste après lui —
+  les surcharges de `.rot-count-pool` comptent sur cet ordre. Reste 465 lignes.
+
+### 🐛 Le shuffle par équipe n'efface plus les autres PI
+
+- `POST /api/support/bulk` purge TOUTES les lignes de l'équipe avant d'insérer, et le shuffle
+  n'envoyait que les semaines du PI affiché : shuffler le PI 31 supprimait la rotation du PI 30,
+  **silencieusement** (la grille n'affiche qu'un PI à la fois). `carrySupportRowsOutside()`
+  ([utils/support.js](static/js/utils/support.js)) reporte les semaines hors fenêtre ; utilisée
+  par le shuffle par équipe, le shuffle de groupe et l'enregistrement du pool.
+
+Vérifié en chargeant réellement les modules avec les données de `board.db` : sur GDEM
+(Gabbiano · Initiale · Helica, 16 personnes — 11 Dev, 3 PO, 2 Tech Lead), PI 30, 12 semaines
+→ 9 semaines conformes, et 3 semaines d'août signalées sans PO (les trois PO du pool sont en
+congés) plutôt que complétées par un Dev. Avec le poste groupé `Dev + Tech Lead` (13 dispo)
+et un quota de 3, les deux Tech Lead sont effectivement tirés (6 créneaux sur 36), et un pool
+enregistré en `2 Dev + 1 Tech Lead` se relit bien en `3 Dev + Tech Lead`. Vue par poste
+contrôlée sur le même tirage (2 blocs, 16 lignes, couverture `3/3` par semaine), et bouton de
+focus rendu dans les quatre combinaisons aperçu × équipes-à-masquer. Vue par poste rendue en
+**une seule table** `rot-grid` (2 séparateurs de poste, 12 colonnes semaine, 960 pastilles =
+16 personnes × 12 semaines × 5 jours, 225 allumées, tous les `data-rot-*` présents) et
+intégralement désactivée en aperçu. Tri par équipe puis
+prénom vérifié bloc par bloc (Gabbiano → Helica → Initiale, couleurs `#f97316` / `#8b5cf6`
+portées par chaque ligne), et les trois niveaux du badge d'équité contrôlés sur des tirages
+fabriqués (1-1-1-1 vert, 3-2-2-1 neutre, 2-2-0-0 et 3-1-0-0 orange). Contrôlé aussi : carte utilisable sans
+activation (Aperçu actif, Enregistrer grisé, récap qui invite au tirage), bascule
+brouillon → active à l'enregistrement, noms du tirage retrouvés dans le tableau rendu, report
+d'une semaine de PI 29 hors fenêtre, verrou manuel, congés ≥ 3 j, absence de semaines
+consécutives et équité par équipe. Suite existante au vert (242/242).
+
 ## [3.161.0] - 2026-08-30
 
 ### 📡 Hors ligne, sprint clos, premier lancement, Sprint review TV (maquettes `04`, `10`, `12`)

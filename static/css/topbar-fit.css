@@ -1,0 +1,42 @@
+/* ── Topbar — compaction par paliers sur petit écran de bureau ─────────────────
+   Entre 1025 px (sous ce seuil, la sidebar passe en tiroir, cf. base.css) et 1700 px,
+   la sidebar fixe prend 220 px et la topbar complète réclame jusqu'à ~1400 px
+   (fil d'Ariane équipe + sprint, sélecteur de PI, badge agenda). Mesuré sur un
+   MacBook 13" à 1280 px : 382 px de trop.
+   On retire d'abord les libellés redondants avec une icône + une infobulle, jamais
+   une action : chaque bouton reste joignable. Seuils calés par mesure (Edge, pire cas
+   « Dashboard › équipe › 📌 sprint ») : le fil d'Ariane doit tenir sans ellipse dès
+   1280 px. Sous 1280 px, il s'ellipse (.bc-seg) plutôt que de pousser les boutons. */
+
+/* Palier 1 — ≤ 1699 px : recherche et badge agenda en icône seule */
+@media (min-width: 1025px) and (max-width: 1699px) {
+    .topbar-center .search-trigger__label,
+    .topbar-center .search-trigger__kbd { display: none; }
+    .topbar-center .search-trigger {
+        max-width: max-content;
+        flex: 0 0 auto;
+        padding: var(--sp-1) var(--sp-2);
+    }
+    /* Le mini-calendrier (jour + mois) suffit ; « Semaine / vue détaillée » reste en infobulle */
+    #btn-cal-sync .cal-mini-label { display: none; }
+    #btn-cal-sync { padding-right: 4px; gap: 0; }
+}
+
+/* Palier 2 — ≤ 1519 px (MacBook Air 13", 1440 / 1470) : Daily et TV en icône seule,
+   « courant » du PI replié (le PI courant garde sa teinte primaire et son infobulle),
+   marges resserrées */
+@media (min-width: 1025px) and (max-width: 1519px) {
+    #btn-daily .btn-label,
+    #btn-tv .btn-label { display: none; }
+    #btn-daily,
+    #btn-tv { padding-inline: var(--sp-2); }
+    .pi-selector-btn small { display: none; }
+    .topbar { padding-inline: var(--sp-4); gap: var(--sp-3); }
+    .topbar-right { gap: var(--sp-2); }
+}
+
+/* Palier 3 — ≤ 1279 px : le sélecteur de PI quitte la barre. Rien n'est perdu : son
+   miroir vit dans le menu ⋮ (#more-pi-selector) à toutes les tailles. */
+@media (min-width: 1025px) and (max-width: 1279px) {
+    #pi-selector-host { display: none; }
+}

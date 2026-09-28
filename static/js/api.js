@@ -107,6 +107,8 @@ export const setPiMembers    = (piNumber, members) => request(`/api/pi/members/$
 export const setPiObjectives = (piNumber, objectives) => request(`/api/pi/objectives/${piNumber}`, { method: 'PUT', body: JSON.stringify({ objectives }) });
 // Baseline de commitment d'un PI (fusion) — { features:[{id,title,team,points,status}], committedPts }
 export const setPiBaseline   = (piNumber, payload) => request(`/api/pi/baseline/${piNumber}`, { method: 'PUT', body: JSON.stringify(payload) });
+// Mode de semaine de support d'UNE équipe (fusion côté serveur, les autres équipes sont préservées)
+export const setSupportWeekMode = (team, mode) => request('/api/pi/support-week-mode', { method: 'PUT', body: JSON.stringify({ team, mode }) });
 
 // ── Groups (lignes produit) ───────────────────────────────────────────────────
 export const getGroups       = ()   => request('/api/groups');
@@ -248,6 +250,10 @@ export const createCalendar    = data        => request('/api/calendars', { meth
 export const updateCalendar    = (id, data)  => request(`/api/calendars/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteCalendar    = id          => request(`/api/calendars/${id}`, { method: 'DELETE' });
 export const refreshCalendar   = id          => request(`/api/calendars/${id}/refresh`, { method: 'POST' });
+// Natures d'évènements positionnées à la main (« Classer comme… »), une règle par titre normalisé
+export const getCalendarRules   = ()   => request('/api/calendar-rules');
+export const saveCalendarRule   = data => request('/api/calendar-rules', { method: 'PUT', body: JSON.stringify(data) });
+export const deleteCalendarRule = id   => request(`/api/calendar-rules/${id}`, { method: 'DELETE' });
 export const getCalendarEvents = (params={}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([,v]) => v)).toString();
     return request(`/api/calendars/events${qs ? '?' + qs : ''}`);

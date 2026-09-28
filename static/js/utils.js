@@ -12,9 +12,10 @@ export * from './utils/support.js';
 export * from './utils/sprint-scope.js';
 export * from './utils/capacity-base.js';
 export * from './utils/meteo.js';
+export * from './utils/cal-classify.js';   // détecteur d'agenda (nature + portée), 3.167.0
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
-import { extractSprintLabel, sprintNamesOf } from './utils/sprint-scope.js';   // usages internes à ce fichier
+import { extractSprintLabel, sprintNamesOf, activeSprintFromTickets } from './utils/sprint-scope.js';   // usages internes à ce fichier
 import { getInactiveSupportMembers } from './utils/support.js';   // usages internes à ce fichier
 
 
@@ -152,9 +153,15 @@ export function fieldLabelFr(field) {
  */
 export function extractTeam(name) {
     if (!name) return 'Autre';
+    // Suffixe d'itération : tiret avec OU sans espaces (« Etoile-Ité 31.2 », « Team B- Itération »),
+    // mot-clé FACULTATIF (Ité, Iter, Itér, Itération, Sprint, S — « Caméléon - 31.2 » n'en a pas),
+    // puis un numéro. Un numéro est exigé : « GCOM - Fuego » reste intact.
+    // L'ancienne forme ne connaissait ni « Itération » ni le tiret collé ni le numéro nu : la
+    // synchro rangeait alors le sprint actif de Fuego sous « F - itération 31.2 » (plus long que
+    // le nom du board, donc préféré), et 6 équipes sur 13 perdaient leur sprint (3.165.1).
     return (name || '')
         .replace(/^(?:Sprint|Équipe|Equipe|Team|Board|Kanban)\s+/i, '')
-        .replace(/\s+-\s+(?:It[eé]|Iter|Sprint|S)\s*[\d.]+.*/i, '')
+        .replace(/\s*-\s*(?:It[eé]r?(?:ation)?|Sprint|S)?\s*\d+(?:\.\d+)*\b.*$/i, '')
         .trim() || name.trim();
 }
 
@@ -786,6 +793,13 @@ export function getSprintForTeam(team, sprintInfo = null, targetDate = null) {
     if (team && team !== 'all' && !candidates.length) {
         candidates = arr.filter(s => extractTeam(s.name) === team);
     }
+    // Aucun sprint ACTIF rattaché à l'équipe : board JIRA mal nommé (Fuego → « F - itération
+    // 31.2 »). On ajoute le sprint actif que ses tickets référencent — cf. activeSprintFromTickets.
+    if (team && team !== 'all' && !candidates.some(s => s.state === 'active')) {
+        const ref = activeSprintFromTickets(team, arr,
+            (typeof window !== 'undefined' && window.__squadBoard?.store?.get('tickets')) || []);
+        if (ref) candidates = [...candidates, ref];
+    }
 
     // Si targetDate fournie, on cherche le sprint qui contient cette date
     if (targetDate && candidates.length) {
@@ -814,9 +828,11 @@ export function getSprintForTeam(team, sprintInfo = null, targetDate = null) {
         return null;
     }
 
-    // Équipe spécifique sans targetDate : on cherche un sprint actif sinon le premier
+    // Équipe spécifique sans targetDate : sprint actif, sinon le plus RÉCENT (et non le premier
+    // du tableau — pour Fuego, c'était un sprint de 2024).
     if (team && team !== 'all') {
-        return candidates.find(s => s.state === 'active') || candidates[0] || null;
+        return candidates.find(s => s.state === 'active')
+            || candidates.reduce((best, s) => (!best || String(s.startDate || '') > String(best.startDate || '')) ? s : best, null);
     }
     // "Toutes les équipes" (ou pas de team) → sprint global pour la rétrocompat
     return {

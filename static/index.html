@@ -7,6 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
     <link rel="stylesheet" href="/css/tokens.css">
     <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/topbar-fit.css">
     <!-- views.css éclaté par vue/composant — ORDRE = ordre de cascade (ne pas réordonner) -->
     <link rel="stylesheet" href="/css/views/health.css">
     <link rel="stylesheet" href="/css/views/health-coverage.css">
@@ -27,6 +28,7 @@
     <link rel="stylesheet" href="/css/views/print.css">
     <link rel="stylesheet" href="/css/views/pi-config.css">
     <link rel="stylesheet" href="/css/views/support-rotation.css">
+    <link rel="stylesheet" href="/css/views/support-pool.css">
     <link rel="stylesheet" href="/css/views/pi-import.css">
     <link rel="stylesheet" href="/css/views/support.css">
     <link rel="stylesheet" href="/css/views/pi-calendar.css">
@@ -40,6 +42,7 @@
     <link rel="stylesheet" href="/css/backlog.css">
     <link rel="stylesheet" href="/css/views/chart-zoom.css">
     <link rel="stylesheet" href="/css/views/team.css">
+    <link rel="stylesheet" href="/css/views/team-calendar.css">
     <link rel="stylesheet" href="/css/views/cmd-section.css">
     <!-- En DERNIER : .nav-rail passe la barre en flex-wrap:nowrap, et les feuilles de
          vue posent flex-wrap:wrap sur la meme barre avec la MEME specificite. A specificite
@@ -134,12 +137,13 @@
                 <div id="pi-selector-host" class="pi-selector-host" hidden></div>
             </div>
             <div class="topbar-right">
-                <button id="btn-daily" class="btn btn-secondary" data-tooltip="Aller au Daily — Board, graphes repliés, timer 15 min">
+                <button id="btn-daily" class="btn btn-secondary" aria-label="Aller au Daily" data-tooltip="Aller au Daily — Board, graphes repliés, timer 15 min">
                     <svg class="icon"><use href="#i-play"/></svg>
                     <span class="btn-label">Daily</span>
                 </button>
-                <button id="btn-tv" class="btn btn-secondary" data-tooltip="Mode TV — météo du train en rotation, alerte blockers > 48 h, plein écran">
-                    <span class="btn-label">📺 TV</span>
+                <button id="btn-tv" class="btn btn-secondary" aria-label="Mode TV" data-tooltip="Mode TV — météo du train en rotation, alerte blockers > 48 h, plein écran">
+                    <span aria-hidden="true">📺</span>
+                    <span class="btn-label">TV</span>
                 </button>
                 <button id="btn-my-tickets" class="btn btn-secondary btn-toggle" data-tooltip="Voir uniquement mes tickets" aria-pressed="false">
                     <span class="btn-label">Mes tickets</span>

@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam, isBufferItem, getCurrentPi, typeBadge, teamCapacity, wipThreshold, extractSprintLabel, effectiveRosterForPi, teamNameMatches } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam, isBufferItem, getCurrentPi, typeBadge, teamCapacity, wipThreshold, extractSprintLabel, effectiveRosterForPi, teamNameMatches, currentSupportRows, supportPartialDaysLabel } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
 import { loadReminders, REMINDER_DEFS } from '../reminders.js';
 import { openAlertModal } from './alert_modal.js';
@@ -75,7 +75,9 @@ export function updateInfoPanel() {
         ? allTeamFeatures.filter(f => _inPi(f.piSprint) || _inPi(f.sprintName) || (f.labels || []).some(_inPi))
         : allTeamFeatures;
 
-    if (['settings'].includes(view)) { el.innerHTML = ''; return; }
+    // Panneau vide = masqué (.info-panel:empty). Page Équipe (3.167.1) : la carte « Agenda de l'équipe »
+    // a besoin de la largeur — avec le panneau, un jour ne faisait que 133 px à 1280 et les titres étaient coupés.
+    if (['settings', 'team'].includes(view)) { el.innerHTML = ''; return; }
 
     const total    = tickets.length;
     const done     = tickets.filter(t => t.status === 'done').length;
@@ -105,11 +107,12 @@ export function updateInfoPanel() {
     const featTodo     = (featuresByStatus.todo || []).length;
     const featPctClr   = featurePct >= 80 ? 'var(--status-done)' : featurePct >= 50 ? 'var(--status-inprog)' : 'var(--status-blocked)';
 
-    const now = new Date().toISOString().slice(0, 10);
     // Support de la semaine : limité à l'équipe sélectionnée dans le sidebar (sinon toutes
     // les équipes s'accumulaient dans une seule card, peu utile une fois une équipe choisie).
-    const currentSupportRaw = support.filter(s => s.weekStart <= now && s.weekEnd >= now
-        && (!team || team === 'all' || s.team === team));
+    // currentSupportRows = la semaine du mode ACTUEL de chaque équipe, comme la grille
+    // Paramètres → Rotation (un recouvrement de dates ramassait aussi les lignes d'un ancien mode).
+    const currentSupportRaw = currentSupportRows(support)
+        .filter(s => !team || team === 'all' || s.team === team);
     // Filtre les membres qui ont quitté l'équipe depuis que cette semaine a été shuffle :
     // une rotation déjà générée garde des noms figés en base, jamais réécrits tant que
     // personne ne relance un shuffle — un membre parti continuerait sinon d'apparaître ici
@@ -132,7 +135,17 @@ export function updateInfoPanel() {
     // Label du sprint courant dans le PI (ex: "29.1") — extrait directement du nom du sprint
     // actif plutôt que reconstruit depuis piInfo.number + index (qui produit un label tronqué
     // type ".1" si piInfo.number est vide/obsolète, et ne matche alors plus aucun vote).
-    const curLabel = extractSprintLabel(sprintInfo?.name) || null;
+    // PI SÉLECTIONNÉ dans la topbar (PI courant + piOffset) — même base que la page de vote
+    // (pi.js renderVotingPanel). PI courant → le sprint en cours (« 31.2 ») ; autre PI → tous
+    // les votes de ce PI (préfixe « 30. »), libellé « PI 30 ».
+    const _selPiNum = curPiNum ? Math.max(1, curPiNum + (store.get('piOffset') || 0)) : 0;
+    const _sprintLbl = extractSprintLabel(sprintInfo?.name);
+    const curLabel = (_sprintLbl && _selPiNum === curPiNum && _sprintLbl.split('.')[0] === String(curPiNum))
+        ? _sprintLbl : null;
+    const _votePiPrefix = (!curLabel && _selPiNum) ? `${_selPiNum}.` : null;
+    const voteLabel = curLabel || (_selPiNum ? `PI ${_selPiNum}` : null);
+    const _inVoteScope = v => curLabel ? v.piSprint === curLabel
+        : _votePiPrefix ? String(v.piSprint || '').startsWith(_votePiPrefix) : true;
 
     // Sprint time progress
     let timePct = 0;
@@ -431,8 +444,7 @@ export function updateInfoPanel() {
     // ── Mood Meter ────────────────────────────────────────────────────────
     if (dLeft !== null && reminders.mood.enabled && dLeft <= reminders.mood.dBefore) {
         const filtered = moodVotes.filter(v =>
-            (team === 'all' || v.team === team) &&
-            (curLabel ? v.piSprint === curLabel : true)
+            (team === 'all' || v.team === team) && _inVoteScope(v)
         );
         const moodAvg  = filtered.length
             ? Math.round(filtered.reduce((s, v) => s + v.value, 0) / filtered.length * 10) / 10
@@ -458,7 +470,7 @@ export function updateInfoPanel() {
                     <div class="panel-bar-fill" style="width:${moodPct}%;background:${moodClr}"></div>
                 </div>
             ` : `
-                <div class="panel-sub mt-1">Aucun vote${curLabel ? ` · ${curLabel}` : ''}</div>
+                <div class="panel-sub mt-1">Aucun vote${voteLabel ? ` · ${esc(voteLabel)}` : ''}</div>
             `}
         </div>`;
     }
@@ -477,8 +489,7 @@ export function updateInfoPanel() {
             const objClr    = objPct >= 80 ? 'var(--status-done)' : objPct >= 40 ? 'var(--status-inprog)' : 'var(--status-todo)';
 
             const fistFiltered = fistVotes.filter(v =>
-                (team === 'all' || v.team === team) &&
-                (curLabel ? v.piSprint === curLabel : true)
+                (team === 'all' || v.team === team) && _inVoteScope(v)
             );
             const fistAvg = fistFiltered.length
                 ? Math.round(fistFiltered.reduce((s, v) => s + v.value, 0) / fistFiltered.length * 10) / 10
@@ -511,7 +522,7 @@ export function updateInfoPanel() {
                 </div>
                 ${fistAvg !== null ? `
                 <div class="panel-meter-row mt-2">
-                    <span class="panel-sub" style="margin-right:6px">✊ Vote confiance${curLabel ? ` · ${curLabel}` : ''}</span>
+                    <span class="panel-sub" style="margin-right:6px">✊ Vote confiance${voteLabel ? ` · ${esc(voteLabel)}` : ''}</span>
                     <span class="panel-meter-score" style="color:${fistClr};font-size:1rem">${fistAvg}</span>
                     <span class="panel-meter-max">/5</span>
                     <span class="panel-meter-count">${fistFiltered.length} vote${fistFiltered.length > 1 ? 's' : ''}</span>
@@ -519,7 +530,7 @@ export function updateInfoPanel() {
                 <div class="panel-bar-track mt-1">
                     <div class="panel-bar-fill" style="width:${Math.round((fistAvg/5)*100)}%;background:${fistClr}"></div>
                 </div>
-                ` : curLabel ? `<div class="panel-sub mt-2">✊ Aucun vote confiance · ${curLabel}</div>` : ''}
+                ` : voteLabel ? `<div class="panel-sub mt-2">✊ Aucun vote confiance · ${esc(voteLabel)}</div>` : ''}
             </div>`;
         }
     }
@@ -541,7 +552,10 @@ export function updateInfoPanel() {
                             <span class="panel-support-dot" style="background:${color}"></span>
                             ${esc(s.team)}
                         </div>
-                        ${(s.members || []).map(m => `<div class="panel-list-item panel-list-item--indent"><span>${esc(m)}</span></div>`).join('')}
+                        ${(s.members || []).map(m => {
+                            const days = supportPartialDaysLabel(s, m);   // jours partiels de la grille
+                            return `<div class="panel-list-item panel-list-item--indent"><span>${esc(m)}</span>${days ? `<span class="text-muted text-xs" title="Jours de support">${esc(days)}</span>` : ''}</div>`;
+                        }).join('')}
                     </div>`;
                 }).join('')}
             </div>

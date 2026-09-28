@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, getCurrentPi, effectiveRosterForPi, teamNameMatches, toast } from '../utils.js';
+import { esc, getCurrentPi, effectiveRosterForPi, teamNameMatches, toast, supportMembersOnDay } from '../utils.js';
 
 const ABSENCE_CONFIG = {
     conge:     { label: 'Congé',     color: '#991b1b', bg: '#fecaca' },
@@ -210,11 +210,12 @@ export function renderAgenda(container) {
     // Filtre les noms qui ne sont plus dans le roster effectif : une rotation déjà shuffle garde
     // des noms figés en base, jamais réécrits quand un membre quitte l'équipe (même symptôme que
     // le panneau latéral "Support cette semaine" et la page Support — cf. effectiveRosterForPi).
+    // supportMembersOnDay : mode actuel de l'équipe + jours cochés dans la grille (source unique).
     const _supportForDay = dayIso => new Set(
-        support.filter(r => {
-            if (currentTeam && currentTeam !== 'all' && r.team !== currentTeam) return false;
-            return r.weekStart <= dayIso && r.weekEnd >= dayIso;
-        }).flatMap(r => (r.members || []).filter(m => members.some(eff => eff.name === m && teamNameMatches(eff.team, r.team))))
+        supportMembersOnDay(support, dayIso)
+            .filter(m => (!currentTeam || currentTeam === 'all' || m.team === currentTeam)
+                && members.some(eff => eff.name === m.name && teamNameMatches(eff.team, m.team)))
+            .map(m => m.name)
     );
     const _setsEq = (a, b) => a.size === b.size && [...a].every(x => b.has(x));
     const _supportSegs = [];

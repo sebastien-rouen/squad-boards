@@ -1,0 +1,73 @@
+/* Direction A — « Semaine » : grille horaire.
+   Parti pris : le format que tout le monde lit sans apprendre (Google Agenda / Outlook). */
+
+.tcw {
+    display: grid;
+    grid-template-columns: 52px repeat(var(--days), minmax(0, 1fr));
+    padding: 0 var(--sp-5) var(--sp-4) var(--sp-3);
+}
+.tcw-corner { position: sticky; top: 0; background: var(--surface); z-index: 3; }
+.tcw-corner--allday {
+    display: grid; place-items: center end; padding-right: 8px;
+    font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em;
+    border-bottom: 1px solid var(--border);
+}
+
+/* En-têtes de jours : le jour courant en pastille pleine, comme partout */
+.tcw-dayhead {
+    position: sticky; top: 0; z-index: 3; background: var(--surface);
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px;
+    padding: var(--sp-3) 2px var(--sp-2); border-left: 1px solid transparent;
+}
+.tcw-dow { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.tcw-num { font-size: 20px; font-weight: var(--fw-semibold); color: var(--text); line-height: 1; width: 34px; height: 34px; display: inline-grid; place-items: center; border-radius: 50%; }
+.tcw-dayhead.is-today .tcw-dow { color: var(--primary); font-weight: var(--fw-semibold); }
+.tcw-dayhead.is-today .tcw-num { background: var(--primary); color: #fff; }
+.tcw-sublabels { flex: 1 0 100%; display: grid; grid-template-columns: repeat(var(--lanes), minmax(0, 1fr)); gap: 3px; margin-top: 4px; }
+.tcw-sublabels span {
+    font-size: 10px; font-weight: var(--fw-semibold); color: var(--text-secondary); text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-bottom: 3px solid var(--team); padding-bottom: 2px;
+}
+
+/* Bandeau journée */
+.tcw-allday-cell {
+    display: grid; grid-template-columns: repeat(var(--lanes), minmax(0, 1fr)); gap: 3px;
+    padding: 4px 3px; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    min-height: 30px; align-content: start;
+}
+.tcw-allday-cell .tc-tag { width: 100%; }
+
+/* Gouttière des heures + colonnes */
+.tcw-gutter { grid-column: 1; display: grid; grid-auto-rows: var(--tc-hour); }
+.tcw-hour { position: relative; }
+.tcw-hour span { position: absolute; top: -7px; right: 8px; font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.tcw-hour:first-child span { display: none; }
+.tcw-cols {
+    grid-column: 2 / -1; display: grid; grid-template-columns: repeat(var(--days), minmax(0, 1fr));
+    height: calc(11 * var(--tc-hour));
+    background-image: repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px var(--tc-hour));
+}
+.tcw-day {
+    position: relative; display: grid; grid-template-columns: repeat(var(--lanes), minmax(0, 1fr));
+    border-left: 1px solid var(--border);
+}
+.tcw-day.is-today { background: color-mix(in srgb, var(--primary) 4%, transparent); }
+.tcw-lane { position: relative; }
+.tcw-lane + .tcw-lane { border-left: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); }
+.tcw-lane.is-common { background: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--text-muted) 5%, transparent) 8px 16px); }
+/* En comparaison, un liseré de la couleur d'équipe dit à qui est chaque bloc sans lire */
+.tcw[style*="--lanes:2"] .tc-ev, .tcw[style*="--lanes:3"] .tc-ev, .tcw[style*="--lanes:4"] .tc-ev,
+.tcw[style*="--lanes:5"] .tc-ev { box-shadow: inset 0 -2px 0 var(--team); }
+
+.tcw-now { position: absolute; left: -4px; right: 0; height: 2px; background: var(--tc-now); z-index: 4; pointer-events: none; }
+.tcw-now::before { content: ''; position: absolute; left: -4px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--tc-now); }
+
+/* ── Mobile : vue Jour + sélecteur de jours ──────────────────────────────────── */
+.tcw-phone { padding-top: var(--sp-2); }
+.tcw-mtags { padding: 0 var(--sp-4) var(--sp-2); }
+.tcw--one { padding: 0 var(--sp-4) var(--sp-4) 0; }
+.tcw--one .tcw-dayhead { padding-top: 0; }
+/* Au doigt, un daily de 15 min ferait 11 px : hauteur plancher, comme les applis d'agenda */
+.tcw--one .tc-ev { min-height: 26px; }
+.tcw--one .tc-ev-t { font-size: 12.5px; }

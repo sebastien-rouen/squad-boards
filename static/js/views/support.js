@@ -9,13 +9,15 @@ import {
     esc, filterByTeam, groupBy, toast,
     generateSupportRotation, supportAbsenceDays,
     initials, hashColor,
-    SUPPORT_WEEK_MODES, getSupportWeekMode,
+    SUPPORT_WEEK_MODES, getSupportWeekMode, supportWeekHead,
     supportWorkingDays, supportDaysForMember,
     isMemberSupportActive, effectiveRosterForPi, teamNameMatches, getCurrentPi,
-    confirmDanger,
+    confirmDanger, currentSupportRows, supportPartialDaysLabel, todayIsoLocal,
+    isSupportAbsent, SUPPORT_ABSENT_MIN_DAYS,
 } from '../utils.js';
 import { buildPiWeeks } from '../utils/pi-weeks.js';
 import * as api from '../api.js';
+import { saveSupportWeekMode } from '../support-week-mode.js';
 
 function _fmtDay(iso) {
     if (!iso) return '';
@@ -67,13 +69,16 @@ function _heroCard(rot, teamObjects, absences, rosterMembers = []) {
     const remainTxt = remaining === 0 ? 'Dernier jour' : remaining === 1 ? '1j restant' : `${remaining}j restants`;
     const rotMembers = (rot.members || []).filter(m => rosterMembers.some(r => r.name === m && teamNameMatches(r.team, rot.team)));
     const memberChips = rotMembers.map(m => {
-        const absent = supportAbsenceDays(m, wStart, wEnd, absences) >= 3;
-        return `<div class="sup-hero-member${absent ? ' is-absent' : ''}" title="${esc(m)}${absent ? ' · absent ≥ 3j' : ''}">
+        const absent = isSupportAbsent(supportAbsenceDays(m, wStart, wEnd, absences));
+        // Jours partiels posés dans la grille (pastilles) : « J V » plutôt que toute la semaine
+        const days = supportPartialDaysLabel(rot, m);
+        return `<div class="sup-hero-member${absent ? ' is-absent' : ''}" title="${esc(m)}${absent ? ` · absent ≥ ${SUPPORT_ABSENT_MIN_DAYS}j` : ''}${days ? ` · jours : ${esc(days)}` : ''}">
             ${_avatar(m, 36)}
             <div class="sup-hero-member-info">
                 <span class="sup-hero-member-name">${esc(m)}</span>
                 ${absent ? '<span class="sup-hero-member-tag sup-hero-member-tag--absent">Absent</span>'
                           : '<span class="sup-hero-member-tag sup-hero-member-tag--avail">Disponible</span>'}
+                ${days ? `<span class="sup-hero-member-tag sup-hero-member-tag--days">${esc(days)}</span>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -87,7 +92,7 @@ function _heroCard(rot, teamObjects, absences, rosterMembers = []) {
             <span class="sup-hero-card-badge">EN COURS</span>
         </div>
         <div class="sup-hero-card-meta">
-            <span class="sup-hero-card-week">📆 ${esc(rot.weekLabel || '')}</span>
+            <span class="sup-hero-card-week">📆 ${esc((rot.weekLabels || [rot.weekLabel]).filter(Boolean).join(' · '))}</span>
             <span class="sup-hero-card-dates">${_fmtDay(wStart)} → ${_fmtDay(wEnd)}</span>
             <span class="sup-hero-card-remain ${remaining <= 1 ? 'is-urgent' : ''}">${remainTxt}</span>
         </div>
@@ -160,9 +165,11 @@ export function renderSupport(container) {
     const open    = tickets.filter(t => t.status !== 'done');
     const done    = tickets.filter(t => t.status === 'done');
 
-    // Current week rotation
-    const today = new Date().toISOString().slice(0, 10);
-    const curRot = support.filter(s => s.weekStart <= today && s.weekEnd >= today);
+    // Rotation en vigueur : UNE carte par équipe, la semaine de son mode actuel — la même que
+    // la grille Paramètres → Rotation (currentSupportRows : anciens modes écartés, doublons de la
+    // semaine de transition fusionnés).
+    const today = todayIsoLocal();
+    const curRot = currentSupportRows(support, today);
 
     // Stats
     const avgAge    = open.length ? Math.round(open.reduce((s, t) => s + _daysOpen(t.createdAt), 0) / open.length) : 0;
@@ -347,7 +354,7 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
 
     const showPast = localStorage.getItem('sup-show-past') === 'true';   // OFF par défaut
     const allWeeks = displayWeeks;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIsoLocal();
     // Filtrage du passé : on garde uniquement les semaines en cours + futures, sauf si l'utilisateur a explicitement demandé l'historique.
     const visibleWeeks = showPast ? allWeeks : allWeeks.filter(w => w.weekEnd >= today);
     const hiddenPastCount = allWeeks.length - visibleWeeks.length;
@@ -370,7 +377,10 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
         // Recalcule les semaines pour le mode de cette équipe si différent du défaut
         // Semaines telles que calculées par la source unique : les re-snapper ici désalignait
         // cette grille de celle de « Paramètres → Rotation » (et donc des rotations en base).
-        const teamAllWeeks = displayWeeks;
+        // ⚠️ Semaines calculées AVEC le mode de l'équipe, comme la grille (_rotBuildPiWeeks(team)) :
+        // `displayWeeks` est calculé avec le mode par défaut (vendredi) et montrait, pour une équipe
+        // en « Lun → Dim », les anciennes lignes du vendredi au lieu de celles saisies.
+        const { weeks: teamAllWeeks, base: _teamBase } = _supPiWeeks(piInfo, sprintInfo, piOffset, teamMode);
         const teamVisibleWeeks = showPast ? teamAllWeeks : teamAllWeeks.filter(w => w.weekEnd >= today);
         const modeLabel = SUPPORT_WEEK_MODES[teamMode]?.label || teamMode;
 
@@ -382,7 +392,7 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
         }
 
         // Détection PI-frontière pour l'affichage de séparateurs (PI courant vs suivant)
-        const curWeekKeys = new Set(curWeeks.map(w => `${w.weekStart}|${w.weekEnd}`));
+        const curWeekKeys = new Set(_teamBase.curWeeks.map(w => `${w.weekStart}|${w.weekEnd}`));
 
         const rows = teamVisibleWeeks.map(w => {
             const rot = teamSupport.find(s => s.weekStart === w.weekStart && s.weekEnd === w.weekEnd);
@@ -394,14 +404,15 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
             const stateLbl = isCurrent ? 'EN COURS' : isPast ? 'PASSÉ 🔒' : 'À VENIR';
             const rotMembers = (rot?.members || []).filter(m => derivedNames.has(m));
             const _wd = supportWorkingDays(w.weekStart);
+            const wh  = supportWeekHead(w);
             const memberCells = rotMembers.map(m => {
-                const absent = supportAbsenceDays(m, w.weekStart, w.weekEnd, absences) >= 3;
+                const absent = isSupportAbsent(supportAbsenceDays(m, w.weekStart, w.weekEnd, absences));
                 const days = supportDaysForMember(rot, m);
                 // Couverture partielle → badge des jours (semaine pleine = pas de badge).
                 const dayBadge = (days.length && days.length < 5)
                     ? `<span class="sup-row-member-days" title="Jours de support">${days.map(di => _wd[di]?.letter || '').join('')}</span>`
                     : '';
-                return `<div class="sup-row-member${absent ? ' is-absent' : ''}" title="${esc(m)}${absent ? ' · absent ≥ 3j' : ''}">
+                return `<div class="sup-row-member${absent ? ' is-absent' : ''}" title="${esc(m)}${absent ? ` · absent ≥ ${SUPPORT_ABSENT_MIN_DAYS}j` : ''}">
                     ${_avatar(m, 24)}
                     <span class="sup-row-member-name">${esc(m)}</span>
                     ${dayBadge}
@@ -421,7 +432,7 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
 
             return `<tr class="sup-row sup-row--${state}${inCurPi ? '' : ' sup-row--next-pi'}" data-week-start="${w.weekStart}" data-week-end="${w.weekEnd}">
                 <td class="sup-row-week">
-                    <div class="sup-row-week-lbl">${esc(w.label)}</div>
+                    <div class="sup-row-week-lbl${wh.cls}"${wh.title ? ` title="${wh.title}"` : ''}>${esc(wh.text)}</div>
                     <div class="sup-row-week-dates">${_fmtDay(w.weekStart)} → ${_fmtDay(w.weekEnd)}</div>
                 </td>
                 <td class="sup-row-state-td"><span class="sup-row-state sup-row-state--${state}">${stateLbl}</span></td>
@@ -624,7 +635,7 @@ function _wirePiTimeline(container) {
     container.querySelectorAll('[data-sup-mode]').forEach(sel => {
         sel.addEventListener('change', () => {
             const team = sel.dataset.supMode;
-            if (team) localStorage.setItem(`rot-mode-${team}`, sel.value);
+            if (team) saveSupportWeekMode(team, sel.value).catch(e => toast(`Mode de semaine non enregistré : ${e.message}`, 'error'));
             _rerender();
         });
     });

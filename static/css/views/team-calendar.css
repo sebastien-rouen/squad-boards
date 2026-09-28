@@ -1,0 +1,485 @@
+/* Carte « Agenda de l'équipe » (page Équipe) — components/team_calendar.js + team_calendar_views.js.
+   Portage des feuilles VALIDÉES de la maquette static/mockups/team-calendar/ (direction D) :
+   toute retouche ici doit aussi être reportée dans la maquette (effet miroir). */
+
+/* ════════ Composant commun ════════ */
+/* Carte « Agenda de l'équipe » — composant commun aux trois directions.
+   Bâti sur les jetons du site (tokens.css) : seule la palette des NATURES est ajoutée ici. */
+
+/* ── Palette des natures (clair) ─────────────────────────────────────────────── */
+:root {
+    --n-daily: #0284c7;  --n-planning: #4f46e5; --n-affinage: #7c3aed; --n-demo: #db2777;
+    --n-retro: #d97706;  --n-train: #0d9488;    --n-community: #16a34a; --n-sync: #475569;
+    --n-release: #ea580c; --n-support: #ca8a04; --n-off: #dc2626;       --n-busy: #94a3b8;
+    --n-focus: #0891b2;  --n-other: #71717a;
+    --tc-hour: 52px;            /* hauteur d'une heure — 44 px ne laissait qu'une ligne de titre à 45 min */
+    --tc-tint: 14%;             /* teinte de fond d'un bloc */
+    --tc-now: #ef4444;
+}
+[data-theme="dark"] {
+    --n-daily: #38bdf8;  --n-planning: #818cf8; --n-affinage: #a78bfa; --n-demo: #f472b6;
+    --n-retro: #fbbf24;  --n-train: #2dd4bf;    --n-community: #4ade80; --n-sync: #94a3b8;
+    --n-release: #fb923c; --n-support: #facc15; --n-off: #f87171;       --n-busy: #64748b;
+    --n-focus: #22d3ee;  --n-other: #a1a1aa;
+    --tc-tint: 22%;
+}
+[data-k="daily"]     { --k: var(--n-daily); }     [data-k="planning"] { --k: var(--n-planning); }
+[data-k="affinage"]  { --k: var(--n-affinage); }  [data-k="demo"]     { --k: var(--n-demo); }
+[data-k="retro"]     { --k: var(--n-retro); }     [data-k="train"]    { --k: var(--n-train); }
+[data-k="community"] { --k: var(--n-community); } [data-k="sync"]     { --k: var(--n-sync); }
+[data-k="release"]   { --k: var(--n-release); }   [data-k="support"]  { --k: var(--n-support); }
+[data-k="off"]       { --k: var(--n-off); }       [data-k="busy"]     { --k: var(--n-busy); }
+[data-k="focus"]     { --k: var(--n-focus); }     [data-k="other"]    { --k: var(--n-other); }
+
+/* ── Carte ───────────────────────────────────────────────────────────────────── */
+.tc-card { --k: var(--n-other); --team: var(--primary); padding: 0; overflow: visible; }
+.tc-head {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-4);
+    padding: var(--sp-4) var(--sp-5) var(--sp-3);
+}
+.tc-title { display: flex; flex-direction: column; gap: 2px; margin-right: auto; min-width: 0; }
+.tc-title strong { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--text); }
+.tc-sub { font-size: var(--fs-sm); color: var(--text-muted); }
+.tc-nav { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.tc-iconbtn {
+    width: 36px; height: 36px; display: inline-grid; place-items: center;
+    border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface);
+    color: var(--text-secondary); font-size: 1rem; line-height: 1;
+}
+.tc-iconbtn:hover { background: var(--surface-hover); color: var(--text); }
+.tc-today {
+    height: 36px; padding: 0 var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md);
+    background: var(--surface); color: var(--text); font-weight: var(--fw-medium); font-size: var(--fs-sm);
+}
+.tc-seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--bg); border-radius: var(--r-md); }
+.tc-seg button {
+    height: 30px; padding: 0 var(--sp-3); border-radius: calc(var(--r-md) - 2px);
+    font-size: var(--fs-sm); color: var(--text-secondary); font-weight: var(--fw-medium);
+}
+.tc-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+
+/* Bouton « Comparer » + liste à cocher (popover standard, façon « Autres agendas ») */
+.tc-compare { position: relative; }
+.tc-compare > button {
+    height: 36px; padding: 0 var(--sp-3); display: inline-flex; align-items: center; gap: var(--sp-2);
+    border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface);
+    color: var(--text); font-size: var(--fs-sm); font-weight: var(--fw-medium);
+}
+.tc-compare > button .tc-count {
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-full);
+    background: var(--primary); color: #fff; font-size: 11px; display: inline-grid; place-items: center;
+}
+.tc-pop {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: 280px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+    box-shadow: var(--shadow-xl); padding: var(--sp-2);
+}
+.tc-pop[hidden] { display: none; }
+.tc-pop-title { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); padding: var(--sp-2) var(--sp-2) var(--sp-1); }
+.tc-pop-search {
+    width: 100%; height: 34px; margin: 0 0 var(--sp-1); padding: 0 var(--sp-3);
+    border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); color: var(--text);
+}
+/* position: relative : la case masquée s'ancre SUR sa ligne — sans quoi elle se plaçait sous la barre
+   latérale du site (focus clavier au mauvais endroit, clic intercepté — mesuré dans l'application) */
+.tc-check {
+    position: relative; display: flex; align-items: center; gap: var(--sp-3); min-height: 40px; padding: 0 var(--sp-2);
+    border-radius: var(--r-md); cursor: pointer; font-size: var(--fs-sm); color: var(--text);
+}
+.tc-check:hover { background: var(--surface-hover); }
+.tc-check input { position: absolute; opacity: 0; pointer-events: none; }
+.tc-box {
+    width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--team);
+    display: grid; place-items: center; flex: 0 0 auto; transition: background var(--tr-fast);
+}
+.tc-check input:checked + .tc-box { background: var(--team); }
+.tc-check input:checked + .tc-box::after { content: '✓'; color: #fff; font-size: 12px; font-weight: 700; }
+.tc-check input:focus-visible + .tc-box { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.tc-check .tc-meta { margin-left: auto; font-size: var(--fs-xs); color: var(--text-muted); }
+.tc-check[aria-disabled="true"] { opacity: .55; cursor: default; }
+
+/* Équipes comparées : pastilles retirables */
+.tc-compared { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: 0 var(--sp-5) var(--sp-3); }
+.tc-team-pill {
+    display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 4px 0 10px;
+    border-radius: var(--r-full); background: color-mix(in srgb, var(--team) 12%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--team) 35%, var(--border));
+    font-size: var(--fs-sm); color: var(--text); font-weight: var(--fw-medium);
+}
+.tc-team-pill::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--team); }
+.tc-team-pill button { width: 22px; height: 22px; border-radius: 50%; color: var(--text-muted); }
+.tc-team-pill button:hover { background: var(--surface-active); color: var(--text); }
+.tc-team-pill--me { padding-right: 10px; }
+
+/* ── Filtres de nature (chips) ───────────────────────────────────────────────── */
+.tc-filters {
+    display: flex; gap: var(--sp-2); padding: var(--sp-2) var(--sp-5) var(--sp-3);
+    overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border);
+}
+.tc-filters::-webkit-scrollbar { display: none; }
+.tc-chip {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px;
+    border-radius: var(--r-full); border: 1px solid var(--border); background: var(--surface);
+    font-size: var(--fs-xs); color: var(--text-secondary); font-weight: var(--fw-medium);
+}
+.tc-chip::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--k); }
+.tc-chip b { font-weight: var(--fw-semibold); color: var(--text); }
+.tc-chip[aria-pressed="false"] { opacity: .45; }
+.tc-chip[aria-pressed="false"]::before { background: transparent; box-shadow: inset 0 0 0 2px var(--k); }
+.tc-chip--scope::before { display: none; }
+.tc-sep { flex: 0 0 1px; background: var(--border); margin: 4px 2px; }
+
+.tc-body { position: relative; }
+
+/* ── Bloc d'évènement (commun) ───────────────────────────────────────────────── */
+.tc-ev {
+    --bgk: color-mix(in srgb, var(--k) var(--tc-tint), var(--surface));
+    position: relative; display: block; width: 100%; text-align: left; overflow: hidden;
+    background: var(--bgk); border-left: 3px solid var(--k); border-radius: 6px;
+    color: var(--text); font-size: 11.5px; line-height: 1.25; padding: 3px 6px;
+    transition: box-shadow var(--tr-fast), transform var(--tr-fast);
+}
+.tc-ev:hover, .tc-ev:focus-visible { box-shadow: var(--shadow-md); z-index: 5; outline: none; }
+.tc-ev:focus-visible { box-shadow: 0 0 0 2px var(--border-focus); }
+.tc-ev-t { display: block; font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Blocs de la grille : le titre prend les lignes que la hauteur permet (1 à 3), coupe au mot */
+.tc-ev--multi .tc-ev-t {
+    white-space: normal; overflow-wrap: anywhere; hyphens: auto; line-height: 1.2;
+    display: -webkit-box; -webkit-box-orient: vertical; line-clamp: var(--lines, 2); -webkit-line-clamp: var(--lines, 2);
+}
+/* Survol / focus clavier : le bloc s'élargit pour montrer le titre ENTIER (motif des agendas standard) */
+.tc-ev--l1:hover, .tc-ev--l1:focus-visible, .tcl-pill:hover, .tcl-pill:focus-visible {
+    width: max-content !important; min-width: 100%; max-width: 280px; z-index: 12;
+}
+.tc-ev--l1:hover .tc-ev-t, .tc-ev--l1:focus-visible .tc-ev-t { overflow: visible; }
+.tc-ev--multi:hover, .tc-ev--multi:focus-visible { width: max-content !important; min-width: 100%; max-width: 280px; z-index: 12; height: auto !important; }
+.tc-ev--multi:hover .tc-ev-t, .tc-ev--multi:focus-visible .tc-ev-t { -webkit-line-clamp: unset; line-clamp: none; }
+.tc-ev-h { display: block; color: var(--text-secondary); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.tc-ev[data-k="busy"], .tc-ev[data-k="focus"] {
+    background: repeating-linear-gradient(135deg, var(--bgk) 0 6px, color-mix(in srgb, var(--k) 6%, var(--surface)) 6px 12px);
+}
+.tc-ev.is-corrected::after { content: '✎'; position: absolute; top: 2px; right: 4px; font-size: 10px; color: var(--k); }
+.tc-ev.is-dim { opacity: .28; }
+.tc-ev.is-selected { box-shadow: 0 0 0 2px var(--k), var(--shadow-lg); z-index: 6; }
+
+/* Bandeau journée (support, absences, MEP) */
+.tc-allday { display: flex; flex-wrap: wrap; gap: 3px; }
+.tc-tag {
+    display: inline-flex; align-items: center; gap: 4px; max-width: 100%; height: 20px; padding: 0 6px;
+    border-radius: 5px; font-size: 10.5px; font-weight: var(--fw-medium);
+    background: color-mix(in srgb, var(--k) var(--tc-tint), var(--surface)); color: var(--text);
+    border: 1px solid color-mix(in srgb, var(--k) 30%, transparent);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── Pied : charge + qualité de détection + fraîcheur ────────────────────────── */
+.tc-foot {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5);
+    padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--border);
+    font-size: var(--fs-xs); color: var(--text-muted);
+}
+.tc-foot strong { color: var(--text); font-weight: var(--fw-semibold); }
+.tc-foot .tc-fresh { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.tc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+.tc-dot--warn { background: var(--warning); }
+.tc-meter { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.tc-meter-bar { width: 90px; height: 6px; border-radius: var(--r-full); background: var(--bg-alt); overflow: hidden; }
+.tc-meter-bar span { display: block; height: 100%; background: var(--primary); border-radius: inherit; }
+
+/* ── Fiche d'évènement (popover) + « Classer comme » ─────────────────────────── */
+.tc-detail {
+    position: absolute; z-index: 40; width: 320px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-xl);
+    overflow: hidden;
+}
+.tc-detail[hidden] { display: none; }
+.tc-detail-band { height: 6px; background: var(--k); }
+.tc-detail-body { padding: var(--sp-4); display: grid; gap: var(--sp-2); }
+.tc-detail h4 { margin: 0; font-size: var(--fs-base); line-height: 1.3; color: var(--text); }
+.tc-detail-row { display: flex; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text-secondary); }
+.tc-detail-row span:first-child { width: 20px; text-align: center; }
+.tc-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.tc-badge {
+    display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: var(--r-full);
+    font-size: 11px; font-weight: var(--fw-medium); background: var(--bg); color: var(--text-secondary);
+}
+.tc-badge--k { background: color-mix(in srgb, var(--k) var(--tc-tint), var(--surface)); color: var(--text); }
+.tc-reclass { border-top: 1px solid var(--border); padding: var(--sp-3) var(--sp-4); background: var(--bg); display: grid; gap: var(--sp-2); }
+.tc-reclass label { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.tc-reclass select { height: 36px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text); padding: 0 var(--sp-2); }
+.tc-reclass p { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.tc-close { position: absolute; top: 10px; right: 8px; width: 28px; height: 28px; border-radius: 50%; color: var(--text-muted); }
+.tc-close:hover { background: var(--surface-hover); }
+
+/* ── États : vide, sans agenda, détails masqués, périmé, chargement ─────────── */
+.tc-state {
+    display: grid; justify-items: center; text-align: center; gap: var(--sp-2);
+    padding: var(--sp-10) var(--sp-6); color: var(--text-secondary);
+}
+.tc-state-ico { font-size: 34px; line-height: 1; }
+.tc-state h5 { margin: 0; font-size: var(--fs-base); color: var(--text); }
+.tc-state p { margin: 0; max-width: 460px; font-size: var(--fs-sm); }
+.tc-state .btn { margin-top: var(--sp-2); }
+.tc-banner {
+    display: flex; align-items: flex-start; gap: var(--sp-3); margin: var(--sp-3) var(--sp-5) 0;
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); font-size: var(--fs-sm);
+    background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--text);
+}
+.tc-banner--info { background: var(--info-bg); border-color: var(--info-border); }
+.tc-banner b { font-weight: var(--fw-semibold); }
+.tc-skel { background: linear-gradient(90deg, var(--bg) 25%, var(--surface-hover) 50%, var(--bg) 75%); background-size: 200% 100%; animation: tc-shimmer 1.4s infinite; border-radius: 6px; }
+@keyframes tc-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .tc-skel { animation: none; } }
+
+/* ── Sélecteur de jours (mobile) — partagé par les directions A et B ─────────── */
+.tc-strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(44px, 1fr); gap: 6px; padding: 0 var(--sp-4) var(--sp-2); overflow-x: auto; scrollbar-width: none; }
+.tc-strip::-webkit-scrollbar { display: none; }
+.tc-pick {
+    display: grid; justify-items: center; gap: 2px; padding: 6px 0 5px; min-height: 58px;
+    border-radius: var(--r-lg); border: 1px solid var(--border); background: var(--surface);
+}
+.tc-pick span { font-size: 10px; text-transform: uppercase; color: var(--text-muted); }
+.tc-pick b { font-size: 17px; color: var(--text); }
+.tc-pick i { display: flex; gap: 3px; height: 6px; }
+.tc-pick em { width: 5px; height: 5px; border-radius: 50%; background: var(--team); }
+.tc-pick.is-today b { color: var(--primary); }
+.tc-pick.is-on { background: var(--primary); border-color: var(--primary); }
+.tc-pick.is-on span, .tc-pick.is-on b { color: #fff; }
+.tc-pick.is-on em { background: #fff; }
+
+/* ── Mobile (le cadre de 390 px EST la fenêtre de l'iframe : la requête média est juste) ── */
+@media (max-width: 640px) {
+    .tc-head { padding: var(--sp-3) var(--sp-4) var(--sp-2); }
+    .tc-filters, .tc-compared { padding-left: var(--sp-4); padding-right: var(--sp-4); }
+    .tc-foot { padding: var(--sp-3) var(--sp-4); }
+    .tc-foot .tc-fresh { margin-left: 0; }
+    /* Cibles tactiles ≥ 44 px (mesurées : chips 30, navigation 36, étiquettes 20, croix 22) */
+    .tc-iconbtn, .tc-today, .tc-compare > button { height: 44px; min-width: 44px; }
+    .tc-seg button { height: 44px; }
+    .tc-seg { padding: 3px; }
+    .tc-chip { height: 44px; padding: 0 14px; font-size: var(--fs-sm); }
+    .tc-tag { height: 44px; padding: 0 12px; font-size: 12.5px; }
+    .tc-team-pill { height: 46px; padding-left: 14px; }
+    .tc-team-pill button { width: 44px; height: 44px; }
+    .tc-check { min-height: 48px; }
+    .tc-pop { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; border-radius: var(--r-xl); }
+    .tc-detail { position: fixed; left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto; border-radius: var(--r-xl); }
+}
+
+/* ════════ Semaine — grille horaire ════════ */
+/* Direction A — « Semaine » : grille horaire.
+   Parti pris : le format que tout le monde lit sans apprendre (Google Agenda / Outlook). */
+
+.tcw {
+    display: grid;
+    grid-template-columns: 52px repeat(var(--days), minmax(0, 1fr));
+    padding: 0 var(--sp-5) var(--sp-4) var(--sp-3);
+}
+.tcw-corner { position: sticky; top: 0; background: var(--surface); z-index: 3; }
+.tcw-corner--allday {
+    display: grid; place-items: center end; padding-right: 8px;
+    font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em;
+    border-bottom: 1px solid var(--border);
+}
+
+/* En-têtes de jours : le jour courant en pastille pleine, comme partout */
+.tcw-dayhead {
+    position: sticky; top: 0; z-index: 3; background: var(--surface);
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px;
+    padding: var(--sp-3) 2px var(--sp-2); border-left: 1px solid transparent;
+}
+.tcw-dow { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.tcw-num { font-size: 20px; font-weight: var(--fw-semibold); color: var(--text); line-height: 1; width: 34px; height: 34px; display: inline-grid; place-items: center; border-radius: 50%; }
+.tcw-dayhead.is-today .tcw-dow { color: var(--primary); font-weight: var(--fw-semibold); }
+.tcw-dayhead.is-today .tcw-num { background: var(--primary); color: #fff; }
+.tcw-sublabels { flex: 1 0 100%; display: grid; grid-template-columns: repeat(var(--lanes), minmax(0, 1fr)); gap: 3px; margin-top: 4px; }
+.tcw-sublabels span {
+    font-size: 10px; font-weight: var(--fw-semibold); color: var(--text-secondary); text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-bottom: 3px solid var(--team); padding-bottom: 2px;
+}
+
+/* Bandeau journée */
+.tcw-allday-cell {
+    display: grid; grid-template-columns: repeat(var(--lanes), minmax(0, 1fr)); gap: 3px;
+    padding: 4px 3px; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    min-height: 30px; align-content: start;
+}
+.tcw-allday-cell .tc-tag { width: 100%; }
+
+/* Gouttière des heures + colonnes */
+.tcw-gutter { grid-column: 1; display: grid; grid-auto-rows: var(--tc-hour); }
+.tcw-hour { position: relative; }
+.tcw-hour span { position: absolute; top: -7px; right: 8px; font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.tcw-hour:first-child span { display: none; }
+.tcw-cols {
+    grid-column: 2 / -1; display: grid; grid-template-columns: repeat(var(--days), minmax(0, 1fr));
+    height: calc(11 * var(--tc-hour));
+    background-image: repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px var(--tc-hour));
+}
+.tcw-day {
+    position: relative; display: grid; grid-template-columns: repeat(var(--lanes), minmax(0, 1fr));
+    border-left: 1px solid var(--border);
+}
+.tcw-day.is-today { background: color-mix(in srgb, var(--primary) 4%, transparent); }
+.tcw-lane { position: relative; }
+.tcw-lane + .tcw-lane { border-left: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); }
+.tcw-lane.is-common { background: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--text-muted) 5%, transparent) 8px 16px); }
+/* En comparaison, un liseré de la couleur d'équipe dit à qui est chaque bloc sans lire */
+.tcw[style*="--lanes:2"] .tc-ev, .tcw[style*="--lanes:3"] .tc-ev, .tcw[style*="--lanes:4"] .tc-ev,
+.tcw[style*="--lanes:5"] .tc-ev { box-shadow: inset 0 -2px 0 var(--team); }
+
+.tcw-now { position: absolute; left: -4px; right: 0; height: 2px; background: var(--tc-now); z-index: 4; pointer-events: none; }
+.tcw-now::before { content: ''; position: absolute; left: -4px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--tc-now); }
+
+/* ── Mobile : vue Jour + sélecteur de jours ──────────────────────────────────── */
+.tcw-phone { padding-top: var(--sp-2); }
+.tcw-mtags { padding: 0 var(--sp-4) var(--sp-2); }
+.tcw--one { padding: 0 var(--sp-4) var(--sp-4) 0; }
+.tcw--one .tcw-dayhead { padding-top: 0; }
+/* Au doigt, un daily de 15 min ferait 11 px : hauteur plancher, comme les applis d'agenda */
+.tcw--one .tc-ev { min-height: 26px; }
+.tcw--one .tc-ev-t { font-size: 12.5px; }
+
+/* ════════ Itération — couloirs ════════ */
+/* Direction B — « Couloirs » : une ligne par équipe, une colonne par jour.
+   Parti pris : comparer d'un coup d'œil — les cérémonies s'alignent verticalement. */
+
+.tcl-scroll { overflow-x: auto; padding: var(--sp-3) var(--sp-5) var(--sp-4); }
+/* Largeur minimale = colonnes minimales, JAMAIS max-content : les titres sont en nowrap, max-content
+   prenait leur longueur complète (3 323 px de défilement horizontal mesurés). */
+.tcl { display: grid; grid-template-columns: 140px repeat(var(--days), minmax(80px, 1fr)); min-width: calc(140px + var(--days) * 80px); }
+.tcl > * { min-width: 0; }
+.tcl-corner { position: sticky; left: 0; z-index: 3; background: var(--surface); }
+
+.tcl-dayhead {
+    display: flex; align-items: baseline; justify-content: center; gap: 5px;
+    padding: 0 0 var(--sp-2); border-bottom: 2px solid var(--border);
+    font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em;
+}
+.tcl-dayhead b { font-size: var(--fs-lg); color: var(--text); letter-spacing: 0; }
+.tcl-dayhead.is-today { color: var(--primary); border-bottom-color: var(--primary); }
+.tcl-dayhead.is-today b { color: var(--primary); }
+.tcl-dayhead.is-week, .tcl-cell.is-week { border-left: 2px solid var(--border-hover); }
+
+/* En-tête de ligne : l'équipe, sa couleur, sa charge — collant au défilement horizontal */
+.tcl-rowhead {
+    position: sticky; left: 0; z-index: 2; background: var(--surface);
+    display: flex; flex-direction: column; justify-content: center; gap: 2px;
+    padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border); border-left: 4px solid var(--team);
+}
+.tcl-rowhead b { font-size: var(--fs-sm); color: var(--text); }
+.tcl-rowhead span { font-size: 11px; color: var(--text-muted); }
+.tcl-rowhead.is-me { background: color-mix(in srgb, var(--team) 6%, var(--surface)); }
+.tcl-rowhead.is-common { border-left-style: dashed; border-left-color: var(--text-muted); }
+
+.tcl-cell {
+    display: flex; flex-direction: column; gap: 3px; padding: 6px 4px; min-height: 64px;
+    border-bottom: 1px solid var(--border); border-left: 1px solid var(--border);
+}
+.tcl-cell.is-today { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.tcl-cell.is-common { background: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--text-muted) 5%, transparent) 8px 16px); }
+
+/* Nom au-dessus sur toute la largeur (2 lignes au besoin), heure dessous : l'ancienne ligne
+   « heure + emoji + titre » laissait ~3 caractères visibles dans une colonne de 80 px (mesuré) */
+.tcl-pill { display: grid; gap: 1px; padding: 4px 6px; }
+/* Pas de limite de lignes : la case grandit, le titre se lit EN ENTIER (3 lignes rognaient encore
+   14 titres sur 47 dans une colonne de ~63 px de texte). Césure française avant la coupe brutale. */
+.tcl-name { min-width: 0; font-weight: var(--fw-semibold); line-height: 1.2; hyphens: auto; overflow-wrap: anywhere; }
+.tcl-time { font-variant-numeric: tabular-nums; color: var(--text-secondary); font-size: 10.5px; }
+
+/* Rituels quotidiens : une fois dans l'en-tête de ligne, pas dix fois dans les cases */
+.tcl-rec { margin-top: 4px; padding: 3px 6px; display: grid; gap: 0; }
+.tcl-rec .tcl-name { font-size: 11px; }
+
+/* Mise en évidence d'une nature dans toutes les équipes */
+.tcl[data-hl]:not([data-hl=""]) .tc-ev { opacity: .25; }
+.tcl[data-hl="daily"] .tc-ev[data-k="daily"], .tcl[data-hl="planning"] .tc-ev[data-k="planning"],
+.tcl[data-hl="affinage"] .tc-ev[data-k="affinage"], .tcl[data-hl="demo"] .tc-ev[data-k="demo"],
+.tcl[data-hl="retro"] .tc-ev[data-k="retro"], .tcl[data-hl="train"] .tc-ev[data-k="train"],
+.tcl[data-hl="community"] .tc-ev[data-k="community"], .tcl[data-hl="sync"] .tc-ev[data-k="sync"],
+.tcl[data-hl="release"] .tc-ev[data-k="release"], .tcl[data-hl="support"] .tc-ev[data-k="support"],
+.tcl[data-hl="off"] .tc-ev[data-k="off"], .tcl[data-hl="busy"] .tc-ev[data-k="busy"],
+.tcl[data-hl="focus"] .tc-ev[data-k="focus"], .tcl[data-hl="other"] .tc-ev[data-k="other"] {
+    opacity: 1; box-shadow: 0 0 0 2px var(--k);
+}
+
+/* ── Mobile : jour par jour, une section par équipe ──────────────────────────── */
+.tcl-list { display: grid; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+.tcl-mday { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.tcl-mday header { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--bg); font-size: var(--fs-sm); text-transform: capitalize; }
+.tcl-mday header span { margin-left: auto; font-size: 11px; color: var(--primary); font-weight: var(--fw-semibold); text-transform: none; }
+.tcl-mday.is-today { border-color: var(--primary); }
+.tcl-msec { display: grid; gap: 3px; padding: var(--sp-2) var(--sp-3); border-left: 3px solid var(--team); }
+.tcl-msec + .tcl-msec { border-top: 1px solid var(--border); }
+.tcl-msec h6 { margin: 0 0 2px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.tcl-msec .tcl-pill { min-height: 44px; align-content: center; font-size: 13px; }
+.tcl-msec .tcl-pill:hover { width: 100% !important; }   /* mobile : la ligne a déjà toute la largeur */
+.tcl-free { margin: 0; padding: var(--sp-3); font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* « + N autres » : plafond explicite en comparaison (motif de la vue Mois des agendas) */
+.tcl-more {
+    align-self: flex-start; margin-top: 2px; padding: 2px 6px; border-radius: var(--r-sm);
+    font-size: 11px; font-weight: var(--fw-semibold); color: var(--primary); background: transparent;
+}
+.tcl-more:hover { background: var(--primary-bg); }
+.tcl-more:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+
+/* ════════ Synthèse — zoom et fil de retour ════════ */
+/* Direction D — « Synthèse » : A (grille horaire) pour la semaine, B (couloirs) pour l'itération.
+   Aucune règle de vue dupliquée : les deux feuilles d'origine sont importées telles quelles. */
+
+/* Bascule entre les deux représentations : fondu court (désactivé en mouvement réduit) */
+.tch { animation: tch-in .18s ease-out; }
+@keyframes tch-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tch { animation: none; } }
+
+/* Fil de zoom au-dessus de la grille horaire */
+.tch-crumb { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-5) 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.tch-back {
+    height: 32px; padding: 0 var(--sp-3); border-radius: var(--r-full); border: 1px solid var(--border);
+    background: var(--surface); color: var(--primary); font-weight: var(--fw-medium); font-size: var(--fs-sm);
+}
+.tch-back:hover { background: var(--primary-bg); }
+.tch-hint { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin: var(--sp-3) var(--sp-5) 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--info-bg); border: 1px solid var(--info-border); font-size: var(--fs-sm); color: var(--text); }
+
+/* Couloirs : en-têtes de jour cliquables (zoom), semaine d'ancre encadrée */
+button.tcl-dayhead { position: relative; width: 100%; background: none; border-radius: var(--r-md) var(--r-md) 0 0; cursor: zoom-in; padding-top: 4px; }
+button.tcl-dayhead:hover { background: var(--surface-hover); }
+button.tcl-dayhead i { position: absolute; right: 4px; top: 4px; font-style: normal; font-size: 10px; opacity: 0; transition: opacity var(--tr-fast); }
+button.tcl-dayhead:hover i, button.tcl-dayhead:focus-visible i { opacity: .8; }
+.tcl-dayhead.is-focus { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.tcl-cell.is-focus { background-color: color-mix(in srgb, var(--primary) 3%, transparent); }
+
+@media (max-width: 640px) {
+    .tch-crumb { padding: var(--sp-2) var(--sp-4) 0; flex-wrap: wrap; }
+    .tch-back { height: 44px; }
+}
+
+/* ════════ Propre au site ════════ */
+.tc-skeleton { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: var(--sp-3) var(--sp-5); }
+.tc-skeleton > div { display: grid; gap: 8px; align-content: start; }
+.tc-seg button:disabled { opacity: .45; cursor: not-allowed; }
+.team-calendar-host { margin-bottom: var(--sp-4); }
+
+/* ════════ Paramètres → Calendriers : détecteur (views/settings-cal-detect.js) ════════ */
+.tcd { margin: var(--sp-2) 0 var(--sp-5); padding: var(--sp-4); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg); }
+.tcd-h5 { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+.tcd-alerts { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.tcd-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.tcd-table th, .tcd-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.tcd-table th { color: var(--text-muted); font-weight: var(--fw-medium); }
+.tcd-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tcd-sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: middle; }
+.tcd-bar { display: flex; height: 10px; min-width: 180px; border-radius: var(--r-full); overflow: hidden; background: var(--bg-alt); }
+.tcd-bar span { background: var(--k); min-width: 3px; }
+.tcd-bar span + span { box-shadow: -1px 0 0 var(--surface); }
+.tcd-queue { display: grid; gap: 6px; }
+.tcd-q { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.tcd-q > div { display: grid; gap: 2px; min-width: 0; }
+.tcd-q b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tcd-q small { color: var(--text-muted); font-size: var(--fs-xs); }
+.tcd-q select { min-width: 210px; }
+.tcd-q.is-done { border-color: color-mix(in srgb, var(--success) 45%, var(--border)); }
+@media (max-width: 640px) { .tcd-q { flex-direction: column; align-items: stretch; } .tcd-q select { min-width: 0; } }

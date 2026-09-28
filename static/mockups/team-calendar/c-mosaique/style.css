@@ -1,0 +1,68 @@
+/* Direction C — « Mosaïque » : l'itération en cases + agenda du jour.
+   Parti pris : le coup d'œil calme ; le détail vit à côté, jamais dans la case. */
+
+.tcm { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--sp-4); padding: var(--sp-4) var(--sp-5); }
+.tcm-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; align-content: start; }
+.tcm-colhead { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; padding: 0 6px 2px; }
+.tcm-pad { min-height: 0; }
+
+.tcm-cell {
+    display: flex; flex-direction: column; gap: 3px; min-height: 132px; padding: 6px;
+    border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface);
+    cursor: pointer; transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
+}
+.tcm-cell:hover { border-color: var(--border-hover); }
+.tcm-cell:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.tcm-cell.is-on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), var(--shadow-sm); }
+.tcm-date { display: flex; align-items: baseline; gap: 4px; margin-bottom: 2px; }
+.tcm-date span { display: none; }
+.tcm-date b { font-size: var(--fs-sm); color: var(--text); width: 26px; height: 26px; display: inline-grid; place-items: center; border-radius: 50%; }
+.tcm-cell.is-today .tcm-date b { background: var(--primary); color: #fff; }
+
+.tcm-line { display: flex; align-items: center; gap: 5px; padding: 2px 5px; border-left: 0; background: transparent; border-radius: 5px; }
+.tcm-line:hover { background: var(--bgk); }
+.tcm-line i { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--k); }
+.tcm-t { flex: 0 0 auto; font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.tcm-n { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; }
+.tcm-more { font-size: 10.5px; color: var(--text-muted); padding: 0 5px; }
+
+/* Support et absences : des avatars, pas des lignes — ce sont des gens, pas des réunions */
+.tcm-avs { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 2px; }
+.tcm-av {
+    width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center;
+    font-size: 9px; font-weight: 700; color: var(--text);
+    background: color-mix(in srgb, var(--k) 25%, var(--surface)); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--k);
+}
+
+/* Comparaison : une rangée par équipe dans la case */
+.tcm-teamrow { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 5px; background: color-mix(in srgb, var(--team) 8%, transparent); }
+.tcm-teamrow b { flex: 0 0 30px; font-size: 10px; color: var(--text-secondary); border-left: 3px solid var(--team); padding-left: 4px; }
+.tcm-teamrow span { display: flex; flex-wrap: wrap; gap: 3px; }
+.tcm-teamrow i, .tcm-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--k); }
+
+/* Agenda du jour */
+.tcm-agenda { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: auto; align-self: start; background: var(--surface);
+    position: sticky; top: var(--sp-3); max-height: 560px; }
+.tcm--compact .tcm-agenda { position: static; max-height: none; }
+.tcm-agenda header { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); background: var(--bg); text-transform: capitalize; font-size: var(--fs-sm); }
+.tcm-agenda header span { margin-left: auto; text-transform: none; font-size: 11px; color: var(--primary); font-weight: var(--fw-semibold); }
+.tcm-group { display: grid; gap: 4px; padding: var(--sp-3) var(--sp-3) var(--sp-2); }
+.tcm-group + .tcm-group { border-top: 1px solid var(--border); }
+.tcm-group h6 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); border-left: 3px solid var(--team); padding-left: 6px; }
+.tcm-item { display: flex; gap: var(--sp-3); align-items: flex-start; padding: 8px 10px; min-height: 46px; }
+.tcm-when { flex: 0 0 44px; display: grid; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; font-size: 12px; }
+.tcm-when small, .tcm-what small { font-weight: var(--fw-normal); font-size: 10.5px; color: var(--text-muted); }
+.tcm-what { display: grid; gap: 1px; min-width: 0; }
+.tcm-what b { font-weight: var(--fw-semibold); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tcm-free { margin: 0; padding: var(--sp-5) var(--sp-4); font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* ── Mobile : cases à pastilles, agenda dessous ─────────────────────────────── */
+.tcm--compact { grid-template-columns: 1fr; padding: var(--sp-3) var(--sp-4); }
+.tcm--compact .tcm-grid { gap: 4px; }
+.tcm--compact .tcm-cell { min-height: 58px; padding: 4px; align-items: center; border-radius: var(--r-md); }
+.tcm--compact .tcm-date { margin: 0; }
+.tcm-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 44px; }
+.tcm-dots i { width: 6px; height: 6px; }
+.tcm--compact .tcm-teamrow b { display: none; }
+.tcm--compact .tcm-teamrow { padding: 1px 2px; border-left: 2px solid var(--team); }
+.tcm--compact .tcm-teamrow i { width: 5px; height: 5px; }

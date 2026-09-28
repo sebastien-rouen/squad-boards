@@ -1,0 +1,83 @@
+/* Direction B — « Couloirs » : une ligne par équipe, une colonne par jour.
+   Parti pris : comparer d'un coup d'œil — les cérémonies s'alignent verticalement. */
+
+.tcl-scroll { overflow-x: auto; padding: var(--sp-3) var(--sp-5) var(--sp-4); }
+/* Largeur minimale = colonnes minimales, JAMAIS max-content : les titres sont en nowrap, max-content
+   prenait leur longueur complète (3 323 px de défilement horizontal mesurés). */
+.tcl { display: grid; grid-template-columns: 140px repeat(var(--days), minmax(80px, 1fr)); min-width: calc(140px + var(--days) * 80px); }
+.tcl > * { min-width: 0; }
+.tcl-corner { position: sticky; left: 0; z-index: 3; background: var(--surface); }
+
+.tcl-dayhead {
+    display: flex; align-items: baseline; justify-content: center; gap: 5px;
+    padding: 0 0 var(--sp-2); border-bottom: 2px solid var(--border);
+    font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em;
+}
+.tcl-dayhead b { font-size: var(--fs-lg); color: var(--text); letter-spacing: 0; }
+.tcl-dayhead.is-today { color: var(--primary); border-bottom-color: var(--primary); }
+.tcl-dayhead.is-today b { color: var(--primary); }
+.tcl-dayhead.is-week, .tcl-cell.is-week { border-left: 2px solid var(--border-hover); }
+
+/* En-tête de ligne : l'équipe, sa couleur, sa charge — collant au défilement horizontal */
+.tcl-rowhead {
+    position: sticky; left: 0; z-index: 2; background: var(--surface);
+    display: flex; flex-direction: column; justify-content: center; gap: 2px;
+    padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border); border-left: 4px solid var(--team);
+}
+.tcl-rowhead b { font-size: var(--fs-sm); color: var(--text); }
+.tcl-rowhead span { font-size: 11px; color: var(--text-muted); }
+.tcl-rowhead.is-me { background: color-mix(in srgb, var(--team) 6%, var(--surface)); }
+.tcl-rowhead.is-common { border-left-style: dashed; border-left-color: var(--text-muted); }
+
+.tcl-cell {
+    display: flex; flex-direction: column; gap: 3px; padding: 6px 4px; min-height: 64px;
+    border-bottom: 1px solid var(--border); border-left: 1px solid var(--border);
+}
+.tcl-cell.is-today { background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.tcl-cell.is-common { background: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--text-muted) 5%, transparent) 8px 16px); }
+
+/* Nom au-dessus sur toute la largeur (2 lignes au besoin), heure dessous : l'ancienne ligne
+   « heure + emoji + titre » laissait ~3 caractères visibles dans une colonne de 80 px (mesuré) */
+.tcl-pill { display: grid; gap: 1px; padding: 4px 6px; }
+/* Pas de limite de lignes : la case grandit, le titre se lit EN ENTIER (3 lignes rognaient encore
+   14 titres sur 47 dans une colonne de ~63 px de texte). Césure française avant la coupe brutale. */
+.tcl-name { min-width: 0; font-weight: var(--fw-semibold); line-height: 1.2; hyphens: auto; overflow-wrap: anywhere; }
+.tcl-time { font-variant-numeric: tabular-nums; color: var(--text-secondary); font-size: 10.5px; }
+
+/* Rituels quotidiens : une fois dans l'en-tête de ligne, pas dix fois dans les cases */
+.tcl-rec { margin-top: 4px; padding: 3px 6px; display: grid; gap: 0; }
+.tcl-rec .tcl-name { font-size: 11px; }
+
+/* Mise en évidence d'une nature dans toutes les équipes */
+.tcl[data-hl]:not([data-hl=""]) .tc-ev { opacity: .25; }
+.tcl[data-hl="daily"] .tc-ev[data-k="daily"], .tcl[data-hl="planning"] .tc-ev[data-k="planning"],
+.tcl[data-hl="affinage"] .tc-ev[data-k="affinage"], .tcl[data-hl="demo"] .tc-ev[data-k="demo"],
+.tcl[data-hl="retro"] .tc-ev[data-k="retro"], .tcl[data-hl="train"] .tc-ev[data-k="train"],
+.tcl[data-hl="community"] .tc-ev[data-k="community"], .tcl[data-hl="sync"] .tc-ev[data-k="sync"],
+.tcl[data-hl="release"] .tc-ev[data-k="release"], .tcl[data-hl="support"] .tc-ev[data-k="support"],
+.tcl[data-hl="off"] .tc-ev[data-k="off"], .tcl[data-hl="busy"] .tc-ev[data-k="busy"],
+.tcl[data-hl="focus"] .tc-ev[data-k="focus"], .tcl[data-hl="other"] .tc-ev[data-k="other"] {
+    opacity: 1; box-shadow: 0 0 0 2px var(--k);
+}
+
+/* ── Mobile : jour par jour, une section par équipe ──────────────────────────── */
+.tcl-list { display: grid; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+.tcl-mday { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.tcl-mday header { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--bg); font-size: var(--fs-sm); text-transform: capitalize; }
+.tcl-mday header span { margin-left: auto; font-size: 11px; color: var(--primary); font-weight: var(--fw-semibold); text-transform: none; }
+.tcl-mday.is-today { border-color: var(--primary); }
+.tcl-msec { display: grid; gap: 3px; padding: var(--sp-2) var(--sp-3); border-left: 3px solid var(--team); }
+.tcl-msec + .tcl-msec { border-top: 1px solid var(--border); }
+.tcl-msec h6 { margin: 0 0 2px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.tcl-msec .tcl-pill { min-height: 44px; align-content: center; font-size: 13px; }
+.tcl-msec .tcl-pill:hover { width: 100% !important; }   /* mobile : la ligne a déjà toute la largeur */
+.tcl-free { margin: 0; padding: var(--sp-3); font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* « + N autres » : plafond explicite en comparaison (motif de la vue Mois des agendas) */
+.tcl-more {
+    align-self: flex-start; margin-top: 2px; padding: 2px 6px; border-radius: var(--r-sm);
+    font-size: 11px; font-weight: var(--fw-semibold); color: var(--primary); background: transparent;
+}
+.tcl-more:hover { background: var(--primary-bg); }
+.tcl-more:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }

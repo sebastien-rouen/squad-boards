@@ -641,6 +641,7 @@
 .sup-hero-member-tag { font-size: 9px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.04em; }
 .sup-hero-member-tag--avail  { color: var(--success); }
 .sup-hero-member-tag--absent { color: var(--danger); }
+.sup-hero-member-tag--days   { color: var(--text-muted); letter-spacing: 0.12em; }   /* jours partiels « J V » */
 
 /* ── Support : table rotation PI (style Monday-like) ───────────────────── */
 .sup-table-panel {

@@ -6,6 +6,7 @@
 import { store } from './state.js';
 import { NAV_ITEMS } from './config.js';
 import * as api from './api.js';
+import { migrateLocalWeekModes } from './support-week-mode.js';
 import { clearFilters as clearBacklogFilters } from './components/backlog-filters.js';
 import { toast, promptModal, esc } from './utils.js';
 // demo.js et sync.js sont chargés à la demande (seed du 1er lancement / clic sur Sync)
@@ -441,6 +442,8 @@ async function loadAllData() {
     store.set('retroItems', d.retroItems || []);
     store.set('sprintInfo', d.sprint || null);
     store.set('piInfo', d.pi || null);
+    // Modes de semaine réglés avant 3.165.0 (localStorage de CE navigateur) → en base, sans bloquer
+    migrateLocalWeekModes().catch(() => {});
     store.set('moodVotes', d.moodVotes || []);
     store.set('fistVotes', d.fistVotes || []);
     store.set('confidenceVotes', d.confidenceVotes || []);
@@ -449,6 +452,8 @@ async function loadAllData() {
     store.set('teamIdentities', d.teamIdentities || []);
     store.set('workshopTemplates', d.workshopTemplates || []);
     store.set('teamWorkshops', d.teamWorkshops || []);
+    // Règles d'agenda positionnées à la main — hors /api/all (contrat golden stable), sans bloquer
+    api.getCalendarRules().then(r => store.set('calendarRules', r || [])).catch(() => store.set('calendarRules', []));
     // Board column labels (persisted from last sync)
     try {
         const saved = localStorage.getItem('sb-boardColumns');

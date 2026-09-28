@@ -9,14 +9,28 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
+import { saveSupportWeekMode } from '../support-week-mode.js';
 import {
-    esc, toast, copyToClipboard, deriveMembersFromAbsences, generateSupportRotation, buildSupportPiWeeks,
-    SUPPORT_WEEK_MODES, SUPPORT_WEEK_MODE_DEFAULT, getSupportWeekMode, supportWorkingDays,
+    esc, toast, copyToClipboard, deriveMembersFromAbsences, generateSupportRotation,
+    SUPPORT_WEEK_MODES, getSupportWeekMode, supportWorkingDays, supportWeekHead,
     supportDaysForMember, supportAbsenceDayLevel, isMemberSupportActive, setMemberSupportActive,
+    isSupportAbsent,
     promptModal, teamNameMatches, confirmDanger, effectiveRosterForPi,
+    supportPoolForTeam, poolQuotaTotal, carrySupportRowsOutside,
 } from '../utils.js';
 import { loadPiCfg, savePiCfg } from '../utils/pi-config.js';
 import { buildPiWeeks, detectSprintsPerPI, jiraSprint1Start, piStartDate, piCongesDiff } from '../utils/pi-weeks.js';
+// Blocs extraits (3.162.0) — ce fichier depassait les 800 lignes. Ils restent RE-EXPORTES
+// plus bas : la suite de tests et settings.js les importent depuis ici depuis toujours.
+import {
+    _detectSprintsPerPI, _jiraSprint1Start, _rotBuildPiWeeks, _rotAbsDays,
+    _rotFirstWorkday, _rotLastWorkday, _rotFmtShort,
+} from './settings-rotation-weeks.js';
+import {
+    _rotIsCollapsed, _rotSetCollapsed, _rotPiOff,
+    _rotSupportHidden, _rotToolbarHtml, _rotWireToolbar,
+} from './settings-rotation-display.js';
+import { _fmtMemberName, _rotBuildCopyMessage, _sortSupportMembers } from './settings-rotation-message.js';
 
 async function _rotRefreshPanels(container) {
     const panelsEl = container.querySelector('#rot-panels');
@@ -72,18 +86,15 @@ async function _shuffleOneTeam(teamName) {
     const mpw      = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
     const teamMode = getSupportWeekMode(teamName);
     // `selectedWeeks` = les semaines RÉELLEMENT affichées par la grille pour le PI
-    // épinglé. Ne jamais retomber sur curWeeks/nextWeeks : les deux séries n'ont pas
-    // la même ancre. buildSupportPiWeeks() SNAPPE la date de début sur le jour de la
-    // semaine du mode ; la branche `_targetStart` de _rotBuildPiWeeks() utilise la
-    // date JIRA BRUTE du sprint <PI>.1, sans snap. Sur PI 31 (JIRA : dimanche
-    // 2026-09-06) la grille listait 06/09, 13/09… quand le shuffle écrivait 04/09,
-    // 11/09… (vendredi snappé) : zéro weekStart commun, dans les trois modes de
-    // semaine. La grille apparie sur `s.weekStart === w.weekStart`, donc la rotation
-    // était bien créée en base — toast de succès — mais sur des semaines que le
-    // panneau n'affiche jamais. Vu de l'utilisateur : « le Shuffle ne fait rien ».
-    // Au passage, nextWeeks ne connaît que PI+1 et hérite du nombre de sprints du PI
-    // courant : sur PI 30 (6 sprints) → PI 31 (5), il produisait 12 semaines au lieu
-    // de 10, et restait bloqué sur PI+1 pour un offset de +2.
+    // épinglé. Ne jamais retomber sur curWeeks/nextWeeks : nextWeeks ne connaît que
+    // PI+1 (un offset de +2 visait le mauvais PI) et hérite du nombre de sprints du PI
+    // courant (PI 30 à 6 sprints → PI 31 à 5 : 12 semaines au lieu de 10).
+    // Historique (3.141.x → 3.162.0) : la branche PI épinglé de buildPiWeeks gardait la
+    // date JIRA brute du sprint <PI>.1 quand buildSupportPiWeeks snappait celle du PI
+    // courant ; le shuffle écrivait sur des `weekStart` que la grille n'affichait jamais
+    // (« le Shuffle ne fait rien »), et le mode « Jeu → Mer » restait sans effet sur un
+    // PI épinglé. Depuis 3.162.1 les deux branches passent par snapToWeekMode — la
+    // grille apparie toujours strictement sur `s.weekStart === w.weekStart`.
     const { selectedWeeks, selectedPiNum } = _rotBuildPiWeeks(teamName);
     const weeks = selectedWeeks || [];
     if (!weeks.length) return { ok: false, reason: `Aucune semaine calculée pour le PI ${selectedPiNum || '?'} — vérifier la date de début du PI` };
@@ -104,13 +115,105 @@ async function _shuffleOneTeam(teamName) {
         team: teamName, weeks, memberNames: activeMembers, absences, existingSupport,
         membersPerWeek: mpw, weekMode: teamMode,
     });
-    await api.bulkCreateSupport(teamName, rotations);
+    // `bulk` purge TOUTES les lignes de l'équipe avant d'insérer : sans ce report, un
+    // shuffle sur le PI 31 effaçait la rotation du PI 30 (invisible, la grille n'affiche
+    // qu'un PI à la fois).
+    const carry = carrySupportRowsOutside(existingSupport, teamName, weeks);
+    await api.bulkCreateSupport(teamName, [...carry, ...rotations]);
     return {
         ok: true,
         weeks: weeks.length,
         piNum: selectedPiNum,
         preserved: rotations.filter(r => r._autoLocked || r.locked).length,
     };
+}
+
+/**
+ * Câble les pastilles jour d'un SOUS-ARBRE (clic = un jour, double-clic = la semaine,
+ * ← / → et Maj+Espace au clavier), et appelle `onSaved()` après chaque écriture.
+ *
+ * Le sous-arbre est un paramètre parce que la vue « par poste » de la rotation mutualisée
+ * rend les mêmes `rot-strip` hors de `#rot-panels` : recâbler tout le conteneur y aurait
+ * ajouté un SECOND écouteur sur chaque pastille de la grille — un clic aurait basculé
+ * le jour deux fois, donc rien.
+ *
+ * @param {Element} root      sous-arbre à câbler
+ * @param {Function} onSaved  rafraîchissement après écriture (async)
+ */
+function _rotWireDayCells(root, onSaved) {
+    // Toggle jour de support d'un membre (mini-strip).
+    // Clic simple = un jour ; double-clic = toute la semaine (remplit/vide).
+    root.querySelectorAll('[data-rot-day]:not([disabled])').forEach(btn => {
+
+        // Empêche le focus au clic (évite que le navigateur scrolle la cellule "into view").
+        btn.addEventListener('pointerdown', e => { e.preventDefault(); });
+
+        const persist = async (newDays) => {
+            const { rotDay: team, member, weekStart, weekEnd, weekLabel } = btn.dataset;
+            const support  = store.get('support') || [];
+            const existing = support.find(s => s.team === team && s.weekStart === weekStart);
+            const clean = [...new Set(newDays)].filter(d => d >= 0 && d <= 4).sort((a, b) => a - b);
+            const baseMembers = existing?.members || [];
+            const baseDays    = { ...(existing?.memberDays || {}) };
+            let members;
+            if (clean.length === 0) {
+                members = baseMembers.filter(m => m !== member);
+                delete baseDays[member];
+            } else {
+                members = baseMembers.includes(member) ? baseMembers : [...baseMembers, member];
+                if (clean.length === 5) delete baseDays[member];
+                else                    baseDays[member] = clean;
+            }
+            try {
+                if (existing) {
+                    await api.updateSupport(existing.id, { members, memberDays: baseDays });
+                } else {
+                    const mpw = parseInt(localStorage.getItem(`rot-mpw-${team}`)) || 2;
+                    await api.createSupport({ team, weekLabel, weekStart, weekEnd, members, memberDays: baseDays, weekMode: getSupportWeekMode(team), membersPerWeek: mpw });
+                }
+                await onSaved();
+            } catch (e) { toast(e.message, 'error'); }
+        };
+
+        const curDays = () => {
+            const { rotDay: team, member, weekStart } = btn.dataset;
+            const existing = (store.get('support') || []).find(s => s.team === team && s.weekStart === weekStart);
+            return supportDaysForMember(existing, member);
+        };
+
+        // e.detail : 1 = clic simple, 2 = deuxième clic d'un double-clic.
+        // On ignore le clic simple si le navigateur va enchaîner avec dblclick (detail >= 2).
+        btn.addEventListener('click', e => {
+            if (e.detail >= 2) return;
+            const di = parseInt(btn.dataset.dayIndex, 10);
+            const days = curDays();
+            persist(days.includes(di) ? days.filter(d => d !== di) : [...days, di]);
+        });
+        btn.addEventListener('dblclick', () => {
+            persist(curDays().length === 5 ? [] : [0, 1, 2, 3, 4]);
+        });
+    });
+
+    // ── Raccourcis clavier sur les pastilles jour ─────────────────────────────
+    // ← / → : déplace le focus vers le jour précédent/suivant dans la même ligne.
+    // Shift+Espace : toggle toute la semaine (équivalent double-clic).
+    root.querySelectorAll('[data-rot-day]:not([disabled])').forEach(btn => {
+        btn.addEventListener('keydown', e => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                const row = btn.closest('tr');
+                if (!row) return;
+                const days = [...row.querySelectorAll('.rot-day:not([disabled])')];
+                const idx  = days.indexOf(btn);
+                const next = e.key === 'ArrowRight' ? days[idx + 1] : days[idx - 1];
+                if (next) { next.focus(); next.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+            }
+            if (e.key === ' ' && e.shiftKey) {
+                e.preventDefault();
+                btn.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+            }
+        });
+    });
 }
 
 /** Câble tous les handlers data-rot-* sur les panneaux dans container */
@@ -181,7 +284,8 @@ function _rotWirePanelEvents(container) {
     // Mode semaine par équipe (vendredi par défaut, mercredi ou lundi possibles)
     container.querySelectorAll('[data-rot-mode]').forEach(sel => {
         sel.addEventListener('change', () => {
-            localStorage.setItem(`rot-mode-${sel.dataset.rotMode}`, sel.value);
+            // En base (partagé entre navigateurs) ; le store est à jour avant le re-rendu
+            saveSupportWeekMode(sel.dataset.rotMode, sel.value).catch(e => toast(`Mode de semaine non enregistré : ${e.message}`, 'error'));
             _rotRenderPanels(container, store.get('support') || []);
         });
     });
@@ -238,59 +342,8 @@ function _rotWirePanelEvents(container) {
         });
     });
 
-    // Toggle jour de support d'un membre (mini-strip).
-    // Clic simple = un jour ; double-clic = toute la semaine (remplit/vide).
-    container.querySelectorAll('[data-rot-day]:not([disabled])').forEach(btn => {
-
-        // Empêche le focus au clic (évite que le navigateur scrolle la cellule "into view").
-        btn.addEventListener('pointerdown', e => { e.preventDefault(); });
-
-        const persist = async (newDays) => {
-            const { rotDay: team, member, weekStart, weekEnd, weekLabel } = btn.dataset;
-            const support  = store.get('support') || [];
-            const existing = support.find(s => s.team === team && s.weekStart === weekStart);
-            const clean = [...new Set(newDays)].filter(d => d >= 0 && d <= 4).sort((a, b) => a - b);
-            const baseMembers = existing?.members || [];
-            const baseDays    = { ...(existing?.memberDays || {}) };
-            let members;
-            if (clean.length === 0) {
-                members = baseMembers.filter(m => m !== member);
-                delete baseDays[member];
-            } else {
-                members = baseMembers.includes(member) ? baseMembers : [...baseMembers, member];
-                if (clean.length === 5) delete baseDays[member];
-                else                    baseDays[member] = clean;
-            }
-            try {
-                if (existing) {
-                    await api.updateSupport(existing.id, { members, memberDays: baseDays });
-                } else {
-                    const mpw = parseInt(localStorage.getItem(`rot-mpw-${team}`)) || 2;
-                    await api.createSupport({ team, weekLabel, weekStart, weekEnd, members, memberDays: baseDays, weekMode: getSupportWeekMode(team), membersPerWeek: mpw });
-                }
-                await _rotRefreshPanels(container);
-            } catch (e) { toast(e.message, 'error'); }
-        };
-
-        const curDays = () => {
-            const { rotDay: team, member, weekStart } = btn.dataset;
-            const existing = (store.get('support') || []).find(s => s.team === team && s.weekStart === weekStart);
-            return supportDaysForMember(existing, member);
-        };
-
-        // e.detail : 1 = clic simple, 2 = deuxième clic d'un double-clic.
-        // On ignore le clic simple si le navigateur va enchaîner avec dblclick (detail >= 2).
-        btn.addEventListener('click', e => {
-            if (e.detail >= 2) return;
-            const di = parseInt(btn.dataset.dayIndex, 10);
-            const days = curDays();
-            persist(days.includes(di) ? days.filter(d => d !== di) : [...days, di]);
-        });
-        btn.addEventListener('dblclick', () => {
-            persist(curDays().length === 5 ? [] : [0, 1, 2, 3, 4]);
-        });
-    });
-
+    // Pastilles jour : câblage partagé avec la vue « par poste » du pool.
+    _rotWireDayCells(container, () => _rotRefreshPanels(container));
 
     // Shuffle (génération automatique) — règles métier centralisées dans utils.generateSupportRotation
     container.querySelectorAll('[data-rot-shuffle]').forEach(btn => {
@@ -341,27 +394,6 @@ function _rotWirePanelEvents(container) {
             } catch (err) {
                 toast(err.message, 'error', 6000);
                 btn.textContent = old; btn.disabled = false;
-            }
-        });
-    });
-
-    // ── Raccourcis clavier sur les pastilles jour ─────────────────────────────
-    // ← / → : déplace le focus vers le jour précédent/suivant dans la même ligne.
-    // Shift+Espace : toggle toute la semaine (équivalent double-clic).
-    container.querySelectorAll('[data-rot-day]:not([disabled])').forEach(btn => {
-        btn.addEventListener('keydown', e => {
-            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-                e.preventDefault();
-                const row = btn.closest('tr');
-                if (!row) return;
-                const days = [...row.querySelectorAll('.rot-day:not([disabled])')];
-                const idx  = days.indexOf(btn);
-                const next = e.key === 'ArrowRight' ? days[idx + 1] : days[idx - 1];
-                if (next) { next.focus(); next.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
-            }
-            if (e.key === ' ' && e.shiftKey) {
-                e.preventDefault();
-                btn.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
             }
         });
     });
@@ -439,170 +471,7 @@ function _rotWirePanelEvents(container) {
     });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Rotation Support - Grid helpers
-// ═══════════════════════════════════════════════════════════════════════════════
 
-/** Formate un nom "NOM, Prénom" → "Prénom NOM". Laisse inchangé si pas de virgule. */
-function _fmtMemberName(n) {
-    const comma = n.indexOf(',');
-    if (comma < 0) return n;
-    return `${n.slice(comma + 1).trim()} ${n.slice(0, comma).trim()}`;
-}
-
-/** Construit un message de rotation prêt à coller (Slack/Teams) pour une équipe.
- *  Format : en-tête (rôle support + PI) puis une ligne par itération avec dates + membres @. */
-function _rotBuildCopyMessage(teamName) {
-    const { selectedWeeks, selectedPiNum } = _rotBuildPiWeeks(teamName);
-    const support = (store.get('support') || []).filter(s => {
-        const t = (s.team || '').toLowerCase().trim(), g = teamName.toLowerCase().trim();
-        return t === g || (t && g && (t.includes(g) || g.includes(t)));
-    });
-    // Libellé de support configurable par équipe (défaut "Support N3 OPS")
-    const roleLabel = localStorage.getItem(`rot-label-${teamName}`) || 'Support N3 OPS';
-
-    const _fmtDate = iso => {
-        if (!iso) return '';
-        const [y, m, d] = iso.split('-');
-        return `${d}/${m}/${y}`;
-    };
-
-    // "@Prenom NOM" — premier mot tel quel, reste en MAJUSCULES
-    const _sn = n => { const nm = _fmtMemberName(n); const p = nm.trim().split(/\s+/); return p.length < 2 ? `@${nm}` : `@${p[0]} ${p.slice(1).join(' ').toUpperCase()}`; };
-
-    const lines = [`🎧 *${roleLabel} — PI${selectedPiNum || '?'}*`, ''];
-    for (const w of selectedWeeks) {
-        const entry = support.find(s => s.weekStart === w.weekStart);
-        const members = (entry?.members || []).map(_sn).join(', ');
-        lines.push(`  • ${w.label} (${_fmtDate(w.weekStart)} → ${_fmtDate(w.weekEnd)}) : ${members || '—'}`);
-    }
-    return lines.join('\n');
-}
-
-/** Trie une liste de noms membres : actifs en premier, puis par prénom puis nom.
- *  Format attendu : "NOM, Prénom" ou "Prénom NOM" — les deux cas sont gérés. */
-function _sortSupportMembers(names) {
-    const _parseName = n => {
-        // Format "NOM, Prénom" → { first: "Prénom", last: "NOM" }
-        const comma = n.indexOf(',');
-        if (comma > 0) return { first: n.slice(comma + 1).trim(), last: n.slice(0, comma).trim() };
-        // Format "Prénom NOM" → dernier mot = nom
-        const parts = n.trim().split(/\s+/);
-        return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] || '' };
-    };
-    return [...names].sort((a, b) => {
-        const aActive = isMemberSupportActive(a) ? 0 : 1;
-        const bActive = isMemberSupportActive(b) ? 0 : 1;
-        if (aActive !== bActive) return aActive - bActive;
-        const pa = _parseName(a), pb = _parseName(b);
-        const firstCmp = pa.first.localeCompare(pb.first, 'fr', { sensitivity: 'base' });
-        if (firstCmp !== 0) return firstCmp;
-        return pa.last.localeCompare(pb.last, 'fr', { sensitivity: 'base' });
-    });
-}
-
-/** Détecte le nombre réel de sprints d'un PI depuis les teamSprints JIRA (max index).
- *  Couvre les PI exceptionnels à 6 sprints (ex: PI30 avec un sprint 30.6). */
-const _lsPiCfg = loadPiCfg;   // config PI locale — cf. utils/pi-config.js
-
-const _detectSprintsPerPI = (piNum, fallback) => detectSprintsPerPI(store.get('sprintInfo'), piNum, fallback);
-
-const _jiraSprint1Start = (piNum) => jiraSprint1Start(store.get('sprintInfo'), piNum);
-
-/** Semaines du PI affiché pour une équipe — délègue à la source unique utils/pi-weeks.js.
- *  Conserve la forme historique { selectedWeeks, selectedPiNum, curWeeks, nextWeeks, … }
- *  attendue par la grille et le shuffle. */
-function _rotBuildPiWeeks(team = null) {
-    const { weeks, piNum, base } = buildPiWeeks({
-        piInfo: store.get('piInfo'),
-        sprintInfo: store.get('sprintInfo'),
-        piOffset: _rotPiOff(),
-        weekMode: team ? getSupportWeekMode(team) : SUPPORT_WEEK_MODE_DEFAULT,
-    });
-    return { ...base, selectedWeeks: weeks, selectedPiNum: piNum };
-}
-
-/** Nombre de jours d'absence pour un membre sur une plage */
-function _rotAbsDays(memberName, weekStart, weekEnd, absences) {
-    return absences
-        .filter(a => a.memberName === memberName && a.startDate <= weekEnd && a.endDate >= weekStart)
-        .reduce((sum, a) => sum + (a.days || 0), 0);
-}
-
-/** Premier jour OUVRÉ de la semaine — celui qu'affiche la première pastille de la colonne
- *  (supportWorkingDays saute samedi/dimanche). Quand la date de début du PI vient de JIRA
- *  sans être snappée (PI 31 : dimanche 2026-09-06), l'en-tête annonçait « 6 sept. » au-dessus
- *  d'une colonne qui commence le lundi 7. Correction d'AFFICHAGE seulement : `weekStart` reste
- *  la clé d'appariement des rotations déjà enregistrées en base. */
-function _rotFirstWorkday(weekStart) {
-    return supportWorkingDays(weekStart)[0]?.iso || weekStart;
-}
-
-/** Dernier jour ouvré de la semaine (infobulle de l'en-tête). */
-function _rotLastWorkday(weekStart) {
-    const days = supportWorkingDays(weekStart);
-    return days[days.length - 1]?.iso || weekStart;
-}
-
-/** Format court : "14 avr." */
-function _rotFmtShort(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-}
-
-/** État collapse par équipe (localStorage) */
-function _rotIsCollapsed(team) {
-    try { const s = JSON.parse(localStorage.getItem('rot-collapsed') || '{}'); return s[team] !== false; } catch { return true; }
-}
-function _rotSetCollapsed(team, val) {
-    try { const s = JSON.parse(localStorage.getItem('rot-collapsed') || '{}'); s[team] = val; localStorage.setItem('rot-collapsed', JSON.stringify(s)); } catch {}
-}
-
-// L'offset PI de la rotation lit directement store.get('piOffset') — piloté par le topbar.
-const _rotPiOff = () => store.get('piOffset') || 0;
-
-// ── Mode « Congés seuls » ───────────────────────────────────────────────────
-// Masque les marques d'affectation support de la grille pour ne laisser lire que les
-// congés des membres. Purement visuel (classe CSS sur #rot-panels) : rien n'est modifié
-// en base, et les cellules deviennent non cliquables tant que le mode est actif — un clic
-// sur une case dont on ne voit plus l'état affecterait quelqu'un à l'aveugle.
-const ROT_HIDE_KEY = 'rot-hide-support';
-const _rotSupportHidden = () => localStorage.getItem(ROT_HIDE_KEY) === 'true';
-
-/** Barre d'outils au-dessus des panneaux — rendue par settings.js, câblée une seule fois. */
-function _rotToolbarHtml() {
-    const off = _rotSupportHidden();
-    return `<div class="rot-toolbar">
-        <button type="button" class="btn btn-sm ${off ? 'btn-primary' : 'btn-secondary'} rot-hide-btn"
-                id="rot-toggle-support" aria-pressed="${off}"
-                title="${off ? 'Réafficher les affectations support dans la grille' : 'Masquer les affectations support pour ne lire que les congés'}">
-            ${off ? '🛎️ Afficher le support' : '🌴 Congés seuls'}
-        </button>
-        <span class="rot-toolbar-hint text-xs text-muted">${off
-            ? 'Support masqué — la grille ne montre que les congés (🟥 journée, 🟧 demi-journée). Grille non modifiable.'
-            : 'Masque les affectations support pour lire d’un coup d’œil les congés de l’équipe.'}</span>
-    </div>`;
-}
-
-/** Câble le toggle « Congés seuls ». À appeler UNE fois au montage de la vue Paramètres :
- *  la barre vit hors de #rot-panels, elle n'est donc pas recâblée par _rotRenderPanels. */
-function _rotWireToolbar(container) {
-    const btn = container.querySelector('#rot-toggle-support');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-        const next = !_rotSupportHidden();
-        localStorage.setItem(ROT_HIDE_KEY, String(next));
-        container.querySelector('#rot-panels')?.classList.toggle('rot-hide-support', next);
-        // Ré-étiquette le bouton et son aide sans re-rendre la grille (coûteux et inutile :
-        // le masquage est entièrement CSS).
-        const bar = btn.closest('.rot-toolbar');
-        if (bar) {
-            bar.outerHTML = _rotToolbarHtml();
-            _rotWireToolbar(container);
-        }
-    });
-}
 
 /** Rend tous les panneaux de rotation (un par équipe) */
 function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
@@ -652,8 +521,11 @@ function _rotPanelsHtml(teamNames, teamObjects, support, members, absences) {
     // L'écart est calculé par piCongesDiff (utils/pi-weeks.js), la même source que le
     // récapitulatif multi-PI de « Paramètres → Sprint & PI ». Le recalage reste un geste
     // explicite : `weekStart` est la clé d'appariement des rotations déjà enregistrées.
+    // Un écart de date n'en est un que s'il déplacerait une clé pour au moins une des
+    // équipes affichées — d'où leurs modes de semaine passés à piCongesDiff.
     const _piAffiche = _sp || curPiNum;
-    const _d = piCongesDiff(store.get('sprintInfo'), _piAffiche, store.get('piInfo'));
+    const _modes = [...new Set(teamNames.map(t => getSupportWeekMode(t)))];
+    const _d = piCongesDiff(store.get('sprintInfo'), _piAffiche, store.get('piInfo'), _modes);
     const _recale = _d.cale, _ecartDate = _d.ecartDate, _ecartCnt = _d.ecartCnt;
     const _startUtil = _d.startUsed, _sprintsUtil = _d.sprintsUsed;
     let congesBanner = '';
@@ -687,6 +559,14 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
                             _ignoredCurWeeks, _ignoredNextWeeks, showNext, today, curPiNum, _ignoredNextPiNum) {
     const collapsed  = _rotIsCollapsed(teamName);
     const mpw        = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
+    // Rotation mutualisée : l'effectif cible n'est plus celui de l'équipe mais celui du
+    // pool. Une équipe peut légitimement ne fournir personne une semaine donnée — afficher
+    // « 0/2 » en rouge serait un faux négatif. Cf. settings-rotation-pool.js.
+    const poolHit    = supportPoolForTeam(teamName);
+    const poolTotal  = poolHit ? poolQuotaTotal(poolHit.pool) : 0;
+    // `data-pool-member` sur le panneau : la carte du pool peut masquer les équipes hors
+    // pool le temps de relire un aperçu (classe `rot-focus-pool` sur #rot-panels). Purement
+    // CSS — rien n'est retiré du rendu, donc rien à reconstruire en sortant du mode.
     // Recalcul des semaines selon le mode de l'équipe ET l'offset PI sélectionné
     const { selectedWeeks, selectedPiNum } = _rotBuildPiWeeks(teamName);
     const allWeeks   = selectedWeeks;
@@ -706,17 +586,21 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
     // Résumé sur le PI affiché (pas toujours le courant)
     const filledWeeks = allWeeks.filter(w => _weekCount(w) > 0).length;
     const fullWeeks   = allWeeks.filter(w => _weekCount(w) === mpw).length;
-    const summaryColor = fullWeeks === allWeeks.length ? 'var(--success)' : filledWeeks > 0 ? 'var(--warning)' : 'var(--danger)';
+    const summaryColor = (poolHit ? filledWeeks === allWeeks.length : fullWeeks === allWeeks.length)
+        ? 'var(--success)' : filledWeeks > 0 ? 'var(--warning)' : 'var(--danger)';
     const piLabel = panelPiNum ? `PI ${panelPiNum}` : '';
     const activeCount = teamMembers.filter(isMemberSupportActive).length;
     const inactiveCount = teamMembers.length - activeCount;
     const memberSummary = inactiveCount > 0
         ? `${activeCount}/${teamMembers.length} actif${activeCount > 1 ? 's' : ''} <small class="rot-sum-inactive">(${inactiveCount} hors support)</small>`
         : `${teamMembers.length} membre${teamMembers.length > 1 ? 's' : ''}`;
-    const summaryHtml = `<span class="rot-sum">${memberSummary}${piLabel ? ` · ${piLabel}` : ''} · <span style="color:${summaryColor}">${filledWeeks}/${allWeeks.length} sem.</span></span>`;
+    const poolBadge = poolHit
+        ? `<span class="rot-pool-badge" title="Rotation mutualisée avec ${esc(poolHit.pool.teams.join(', '))} — ${poolTotal} personnes/semaine sur l'ensemble du pool">⧉ mutualisée</span>`
+        : '';
+    const summaryHtml = `<span class="rot-sum">${poolBadge}${memberSummary}${piLabel ? ` · ${piLabel}` : ''} · <span style="color:${summaryColor}">${filledWeeks}/${allWeeks.length} sem.</span></span>`;
 
     if (collapsed) {
-        return `<div class="rot-panel" id="rot-panel-${esc(teamName)}" data-rot-team="${esc(teamName)}" style="border-left:3px solid ${teamColor}">
+        return `<div class="rot-panel" id="rot-panel-${esc(teamName)}" data-rot-team="${esc(teamName)}" data-pool-member="${poolHit ? 1 : 0}" style="border-left:3px solid ${teamColor}">
             <div class="rot-panel-hdr" data-rot-toggle="${esc(teamName)}">
                 <span class="rot-chevron">▶</span>
                 <span class="rot-dot" style="background:${teamColor}"></span>
@@ -755,8 +639,9 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
                     data-rot-lock="${esc(teamName)}" data-week-start="${w.weekStart}" data-week-end="${w.weekEnd}"
                     title="${isManualLocked ? 'Verrouillée manuellement — clic pour déverrouiller' : 'Cliquer pour verrouiller (préservée lors d’un shuffle)'}">${isManualLocked ? '🔒' : '🔓'}</button>`;
         }
-        return `<th class="rot-wk-th${isCur ? ' rot-wk-current' : ''}${isNext ? ' rot-wk-next-pi' : ''}${isPast ? ' rot-wk-past' : ''}${isManualLocked ? ' rot-wk-locked' : ''}${isPastUnlocked ? ' rot-wk-unlocked' : ''}">
-            <span class="rot-wk-label">${w.label}</span>
+        const wh = supportWeekHead(w);
+        return `<th class="rot-wk-th${isCur ? ' rot-wk-current' : ''}${isNext ? ' rot-wk-next-pi' : ''}${isPast ? ' rot-wk-past' : ''}${isManualLocked ? ' rot-wk-locked' : ''}${isPastUnlocked ? ' rot-wk-unlocked' : ''}${wh.cls}">
+            <span class="rot-wk-label"${wh.title ? ` title="${wh.title}"` : ''}>${wh.text}</span>
             <span class="rot-wk-dates" title="Semaine travaillée du ${_rotFmtShort(_rotFirstWorkday(w.weekStart))} au ${_rotFmtShort(_rotLastWorkday(w.weekStart))}">${_rotFmtShort(_rotFirstWorkday(w.weekStart))}</span>
             ${lockBtn}
         </th>`;
@@ -766,7 +651,7 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
         const entry   = teamSupport.find(s => s.weekStart === w.weekStart);
         const sel     = entry && (entry.members || []).includes(member);
         const absDays = _rotAbsDays(member, w.weekStart, w.weekEnd, absences);
-        const absent  = absDays >= 2.5;
+        const absent  = isSupportAbsent(absDays);   // même seuil que le tirage (règle n°1)
         const partial = absDays > 0 && !absent;
         const isCur   = today >= w.weekStart && today <= w.weekEnd;
         const { isLocked, isPast } = _weekLockState(w);
@@ -805,8 +690,12 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
     const mkCountCell = (w, isNext) => {
         const cnt   = _weekCount(w);
         const isCur = today >= w.weekStart && today <= w.weekEnd;
-        const cls   = cnt === mpw ? 'rot-count-ok' : cnt > 0 ? 'rot-count-partial' : '';
-        return `<td class="rot-cell rot-count-cell ${cls}${isCur ? ' rot-cell-current' : ''}${isNext ? ' rot-cell-next-pi' : ''}">${cnt}/${mpw}</td>`;
+        const base  = `rot-cell rot-count-cell${isCur ? ' rot-cell-current' : ''}${isNext ? ' rot-cell-next-pi' : ''}`;
+        if (poolHit) {
+            return `<td class="${base} rot-count-pool" title="Rotation mutualisée (${esc(poolHit.pool.teams.join(', '))}) — cible de ${poolTotal}/semaine sur l'ensemble du pool, pas par équipe">⧉ ${cnt}</td>`;
+        }
+        const cls = cnt === mpw ? 'rot-count-ok' : cnt > 0 ? 'rot-count-partial' : '';
+        return `<td class="${base} ${cls}">${cnt}/${mpw}</td>`;
     };
 
     // ── En-têtes : un seul PI affiché (déterminé par le switch) ──────────────
@@ -842,7 +731,7 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
         ${allWeeks.map(w => mkCountCell(w, showNext)).join('')}
     </tr>`;
 
-    return `<div class="rot-panel" id="rot-panel-${esc(teamName)}" data-rot-team="${esc(teamName)}" style="border-left:3px solid ${teamColor}">
+    return `<div class="rot-panel" id="rot-panel-${esc(teamName)}" data-rot-team="${esc(teamName)}" data-pool-member="${poolHit ? 1 : 0}" style="border-left:3px solid ${teamColor}">
         <div class="rot-panel-hdr" data-rot-toggle="${esc(teamName)}">
             <span class="rot-chevron">▼</span>
             <span class="rot-dot" style="background:${teamColor}"></span>
@@ -884,8 +773,10 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
 export {
     _rotRefreshPanels, _rotRenderPanels, _rotWirePanelEvents, _rotPanelsHtml, _rotBuildPiWeeks,
     _rotSetCollapsed, _shuffleOneTeam, _jiraSprint1Start,
-    _rotToolbarHtml, _rotWireToolbar, _rotSupportHidden,
+    _rotToolbarHtml, _rotWireToolbar, _rotSupportHidden, _rotWireDayCells,
     // Exposés pour la suite de tests (tests/rotation.test.mjs) : sans eux, il fallait
     // fabriquer une copie « sonde » du module à chaque exécution.
     _detectSprintsPerPI, _rotFirstWorkday,
 };
+
+

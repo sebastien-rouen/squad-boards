@@ -18,3 +18,18 @@ class TeamCalendar(SQLModel, table=True):
     events_json: Optional[str] = None   # JSON: list[dict] events mis en cache
     created_at: str = Field(default_factory=_now)
     updated_at: str = Field(default_factory=_now)
+
+class CalendarRule(SQLModel, table=True):
+    """Nature d'évènement d'agenda POSITIONNÉE À LA MAIN (« Classer comme… » de la carte Agenda).
+
+    Une règle par TITRE normalisé (minuscules, sans accents ni emoji — `calNorm` côté front), partagée
+    par toutes les équipes : un titre a la même nature partout. Elle prime sur le détecteur
+    (`utils/cal-classify.js`) et survit aux imports ICS, qui ne réécrivent que `events_json`.
+    """
+    __tablename__ = "calendar_rule"
+    __table_args__ = _TA
+    id: str = Field(default_factory=_gen_id, primary_key=True)
+    title_norm: str = Field(index=True, unique=True)
+    nature: str = Field(default="other")
+    title_example: str = Field(default="")     # un titre d'origine, pour l'affichage
+    updated_at: str = Field(default_factory=_now)

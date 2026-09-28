@@ -119,3 +119,42 @@ export function sprintScope(tickets, sprintName) {
     }
     return { engaged, done, carried };
 }
+
+// ── Sprint ACTIF d'une équipe dont le board JIRA est mal rattaché ─────────────────────────
+// La synchro range parfois le sprint sous le nom du board au lieu de l'équipe : le sprint actif
+// de Fuego est stocké avec `team: 'F - itération 31.2'` (idem Ami, Bellier, Océane…). Filtrer
+// `teamSprints` sur `s.team === 'Fuego'` ne trouvait alors que des sprints clos, et
+// getSprintForTeam retombait sur le plus VIEUX (« Team K - Ité 20.4 », 2024) : panneau latéral,
+// fil d'Ariane et PI courant (20 au lieu de 31) faux pour toute l'équipe.
+// Les tickets, eux, portent la bonne équipe ET le bon sprint : on prend le sprint actif que
+// les tickets de l'équipe référencent le plus. Comptage mémoïsé par tableau de tickets.
+const _refCounts = new WeakMap();
+
+/**
+ * @param {string} team
+ * @param {Array} teamSprints  `sprintInfo.teamSprints`
+ * @param {Array} tickets      `store.get('tickets')`
+ * @returns {object|null} le sprint actif le plus référencé par les tickets de l'équipe
+ */
+export function activeSprintFromTickets(team, teamSprints, tickets) {
+    if (!team || !Array.isArray(tickets) || !tickets.length) return null;
+    let byTeam = _refCounts.get(tickets);
+    if (!byTeam) {
+        byTeam = new Map();
+        for (const t of tickets) {
+            if (!t.team || !t.sprintName) continue;
+            const m = byTeam.get(t.team) || new Map();
+            m.set(t.sprintName, (m.get(t.sprintName) || 0) + 1);
+            byTeam.set(t.team, m);
+        }
+        _refCounts.set(tickets, byTeam);
+    }
+    const counts = byTeam.get(team);
+    if (!counts) return null;
+    let best = null, bestN = 0;
+    for (const s of teamSprints || []) {
+        const n = s.state === 'active' ? (counts.get(s.name) || 0) : 0;
+        if (n > bestN) { best = s; bestN = n; }
+    }
+    return best;
+}

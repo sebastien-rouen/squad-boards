@@ -25,8 +25,42 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **XSS** : toujours `esc()` avant `innerHTML`.
 - **Mapping snake/camel** : back en `snake_case`, contrat front en `camelCase` (via `serializers.py`).
 - **PI courant** : UNIQUEMENT `getCurrentPi({sprintInfo, piInfo})` ([utils.js](static/js/utils.js)) — ne jamais réimplémenter la regex (bugs historiques).
+- **Rotation support EN VIGUEUR** (3.164.0) : UNIQUEMENT `currentSupportRows(support, jour)`
+  ([utils/support.js](static/js/utils/support.js)) — jamais `weekStart <= jour <= weekEnd`, qui
+  ramasse les lignes d'un ancien mode de semaine restées en base et les doublons (même équipe +
+  même `weekStart`). Référence = la grille Paramètres → Rotation (mode actuel, premier `find`).
+  Par JOUR (jours cochés compris) : `supportMembersOnDay` ; sur une période (sprint, PI) :
+  `gridSupportRows`. Toutes les vues sont migrées (3.164.1).
+- **Mode de semaine de support EN BASE** (3.165.0) : `piconfig.support_week_modes`
+  (`piInfo.supportWeekModes`), PAS sur `team` — une synchro complète supprime et recrée les
+  équipes. Lecture : `getSupportWeekMode()` (base > localStorage `rot-mode-*` > défaut).
+  Écriture : UNIQUEMENT `saveSupportWeekMode()` ([support-week-mode.js](static/js/support-week-mode.js),
+  `PUT /api/pi/support-week-mode`, fusion équipe par équipe) — jamais `localStorage.setItem`.
+- **Absences et rotation** (3.165.2/3) : jours d'absence d'une semaine = UNIQUEMENT
+  `supportAbsenceDays` (somme des jours OUVRÉS de la semaine, jamais la durée totale `a.days` d'un
+  congé qui la chevauche) ; seuil « absent » = UNIQUEMENT `isSupportAbsent` (≥ 3 j, règle métier
+  n°1 — la grille utilisait 2,5). Semaines d'une équipe = `buildPiWeeks` AVEC son mode, jamais
+  les semaines du mode par défaut réutilisées pour toutes les équipes.
+- **Évènements d'agenda (ICS)** (3.167.0) : nature et portée UNIQUEMENT via `utils/cal-classify.js`
+  (`calNatureWithRules` = règle positionnée > détecteur ; `calScope` depuis le champ CSV
+  `team_calendar.team`) — le bandeau calendrier et la carte « Agenda de l'équipe » partagent ce
+  détecteur, n'en écrire aucun autre. Règles à la main : table `calendar_rule`, clé `calNorm(titre)`
+  calculée CÔTÉ FRONT (une 2ᵉ normalisation divergerait). RÈGLES ORDONNÉES : relire les commentaires
+  avant d'en déplacer une (PI Planning avant planning, démo avant rétro, « Review des découpages »).
+  Carte : `components/team_calendar.js` (+ `_views.js`) ; `--tc-hour` du CSS et `HOUR_PX` du JS
+  doivent rester égaux. Toute retouche visuelle se reporte dans `static/mockups/team-calendar/` (miroir).
+- **Sprint d'une équipe** : `getSprintForTeam` — sprint rangé sous une fausse équipe
+  (`team: 'F - itération 31.2'` pour Fuego) → sprint actif retrouvé via les tickets
+  (`activeSprintFromTickets`). Sans lui : sprint de 2024 et PI courant faux (20 au lieu de 31).
+  Cause corrigée à la synchro en 3.165.1 (`extractTeam` : « Itération », numéro nu, tiret collé ;
+  équipe tirée du nom d'un sprint SEULEMENT s'il porte un « NN.N »). Le repli reste utile tant
+  qu'une synchro n'a pas réécrit les sprints déjà en base.
 - **Filtrage équipe** : tickets **ET features** via `filterByTeam(items, team)`. Un compteur "Features (N)" compte la liste **filtrée**.
-- **Membres d'une équipe** : source de vérité = table `absence` (CSV RH) via `deriveMembersFromAbsences()`. `store.get('members')` brut = autocomplete/recherche seulement (artefacts JIRA possibles).
+- **Membres d'une équipe** : source de vérité = import Congés (CSV RH). Pour « qui est dans
+  l'équipe À UN PI » (aujourd'hui = `getCurrentPi`) : `effectiveRosterForPi(piInfo, PI, …)`
+  (snapshot `piMembers[<PI>]`, repli absences) + `teamNameMatches`. `deriveMembersFromAbsences()`
+  seul = TOUT l'historique : il garde les partis (COLSENET, parti après le PI 29, restait dans
+  `/#team/Gabbiano` jusqu'en 3.165.4). `store.get('members')` brut = autocomplete/recherche seulement.
 - **Anomalies Health** : règle dupliquée dans [health.js](static/js/views/health.js) (`ANOMALIES[].match`) ET [alert_modal.js](static/js/components/alert_modal.js) (`_ACTIONABLES[].filter`) — **modifier les 2**.
 - **Statut `done`** exclu par défaut des anomalies actives ; lire le responsable via `t.leader || t.assignee` (legacy).
 - **Modèles** : `__table_args__ = {"extend_existing": True}` (hot reload).
@@ -42,8 +76,14 @@ python main.py          # http://localhost:3001  — Swagger /docs
   La saisie « Sprint & PI » pose `manual.<champ>` et prime ; l'import Congés n'écrit que
   `startDateFromCsv` / `sprintsPerPIFromCsv` et ne remplit les clés effectives que si elles
   sont vides.
-- **settings.js éclaté** (3.141.8) : `settings-rotation.js` (grille/shuffle),
-  `settings-io.js` (import/export de données), `settings-absences-csv.js` (parser du CSV
+- **settings.js éclaté** (3.141.8) : `settings-rotation.js` (grille/shuffle) et ses trois
+  satellites (3.162.0) `settings-rotation-weeks.js` (semaines d'un PI, dates, absences),
+  `-display.js` (pliage, PI épinglé, « Congés seuls » — que du localStorage) et
+  `-message.js` (noms + message d'une équipe), tous **ré-exportés** par `settings-rotation.js`
+  pour que tests et `settings.js` gardent leurs imports ;
+  `settings-rotation-pool.js` + `settings-rotation-pool-recap.js` (rotation mutualisée et
+  son récapitulatif, cf. plus bas), `settings-io.js`
+  (import/export de données), `settings-absences-csv.js` (parser du CSV
   Congés, sans aucune dépendance donc testable) et `settings-jira.js` (section Plugin JIRA :
   `jiraSectionHtml()` + `wireJiraSection()`). `settings.js` ne garde que le rendu et le
   câblage de la vue. `_openImportModal` reçoit son rafraîchissement par injection — importer
@@ -128,12 +168,30 @@ python main.py          # http://localhost:3001  — Swagger /docs
   ⚠️ Les durées ne sont **pas bornées au PI** : `stageDurations` cumule toute la vie du ticket,
   donc un ticket multi-PI compte sa durée entière dans chacun. Limite assumée, écrite dans l'aide.
 - **Écart PI ↔ Congés** : `piCongesDiff()` (utils/pi-weeks.js) est la source unique du bandeau
-  de recalage (Rotation) ET du récapitulatif multi-PI (Sprint & PI).
+  de recalage (Rotation) ET du récapitulatif multi-PI (Sprint & PI). L'écart de date s'évalue
+  après recul sur le jour de bascule des modes passés en 4ᵉ argument (équipes affichées) : un
+  jour d'écart dans la même semaine (`memeSemaine`) n'est pas un écart, recaler ne déplacerait
+  aucune clé (3.162.1).
 - **Semaines d'un PI** (3.141.6) : source unique `utils/pi-weeks.js` (`buildPiWeeks`) —
   consommée par « Paramètres → Rotation » ET la page Support. Ne JAMAIS recalculer des
   semaines ailleurs. `weekStart` est la clé d'appariement des rotations en base : le changer
   les rend invisibles, d'où le recalage explicite par bouton (`manual.startDate`). Agenda et
   info-panel apparient par recouvrement de dates et n'ont pas besoin de ce module.
+  ⚠️ **`weekStart` tombe TOUJOURS sur le jour de bascule du mode** (`snapToWeekMode`,
+  utils/support.js), PI courant ou épinglé (3.162.1) : c'est ce qui rend « Jeu → Mer »
+  effectif, et ce qui garantit qu'un PI écrit depuis PI+1 se relit une fois devenu courant.
+  Une branche qui ancrerait sur la date JIRA brute recréerait des rotations invisibles ;
+  `app/migrations.py` recale au démarrage les lignes en base sur leur propre `week_mode`.
+  **`makePiWeeks` (utils/support.js) est la SEULE fabrique de semaines** (3.163.0) : quand le
+  recul laisse la fin du PI à découvert, elle ajoute la **semaine de transition**
+  (`transition: true`, libellé `<PI>.<dernier sprint>.3`) — le PIP puis les premiers jours du
+  PI suivant, dont c'est aussi la 1ʳᵉ semaine (même `weekStart`). Ne pas la filtrer : en
+  « Jeu → Mer » elle porte trois jours de support (lun → mer) qui n'existeraient nulle part.
+  `buildPiWeeks` annote la semaine partagée des deux côtés (`sharedWith` = l'autre libellé) et
+  `supportWeekHead(w)` (support.js) rend l'en-tête « ↪ 31.5.3 · 32.1.1 » — le SEUL rendu
+  d'en-tête de semaine, pour la grille, le pool, la page Support et l'onglet du PI. Un PI sans
+  date propre prolonge la cadence depuis le PI daté le plus proche avec le nombre de sprints
+  de CHAQUE PI intermédiaire (`_chainedStart`), jamais `offset × sprints du PI visé`.
 - **Rotation Support** (3.141.4) : grille, shuffle et calcul des semaines d'un PI vivent dans
   [settings-rotation.js](static/js/views/settings-rotation.js) — **PAS dans settings.js**.
   Le nombre d'itérations d'un PI suit `pi-cfg-<N>` (Sprint & PI) > indices JIRA **de ce PI**
@@ -155,6 +213,62 @@ python main.py          # http://localhost:3001  — Swagger /docs
   - **Générer une rotation = réécriture** : toujours derrière `confirmDanger` — jamais de
     tirage sur simple clic. Le bouton « PI suivant » de la page Support ne s'affiche que si
     `_base.nextPiNum !== displayPiNum` (sinon doublon dès que le PI+1 est épinglé).
+  - **Rotation mutualisée** (3.162.0) : une astreinte assurée par PLUSIEURS équipes, composée
+    par **poste** (`member.role`) — carte de `/#settings/rotation` rendue par
+    [settings-rotation-pool.js](static/js/views/settings-rotation-pool.js), règles de tirage
+    dans `generatePooledSupportRotation` ([utils/support.js](static/js/utils/support.js)).
+    **Aucun objet « pool » en base** : le tirage est réparti dans les rotations des VRAIES
+    équipes, sinon la page Support, l'agenda, l'info-panel et le message Slack ne le verraient
+    pas. La config vit en localStorage `rot-pools`, indexée par **groupe** (topbar).
+    ⚠️ Les équipes d'un pool DOIVENT partager le même mode de semaine : `weekStart` est la
+    clé d'appariement et deux modes produisent deux séries de semaines sans date commune —
+    enregistrer un pool aligne donc les modes, et la carte l'annonce avant.
+    ⚠️ Un poste sous-doté est remonté en `shortfalls`, JAMAIS comblé par un autre poste ; les
+    postes sont servis du vivier le plus étroit au plus large (un seul PO servi après les Dev
+    se ratait). En pool, la ligne « Total » de la grille passe en `⧉ n` neutre : l'effectif
+    cible est celui du pool, une équipe peut légitimement ne fournir personne une semaine.
+    ⚠️ Le flux est en DEUX temps : « Aperçu du tirage » calcule et affiche sans écrire, puis
+    « Enregistrer ce tirage » écrit **exactement ce brouillon** (`_preview`) — jamais un
+    recalcul, le départage des ex-aequo étant aléatoire. Tout changement de réglage jette le
+    brouillon (`_persist`). `pool.enabled` n'est PAS une case à cocher : il passe à vrai à
+    l'enregistrement, et c'est lui qui pose le repère ⧉ et aligne les modes.
+    Le message « Copier / Slack » du pool groupe les personnes **par poste** et vit dans le
+    bandeau du tableau, pour coller à ce qui est affiché (brouillon compris, annoncé).
+    ⚠️ Un « poste » n'est PAS un rôle : `pool.roleGroups` fusionne des rôles interchangeables
+    (`DEFAULT_ROLE_GROUPS` = `Dev + Tech Lead`). Le générateur ne connaît que des postes —
+    `_poolMembers` résout `member.role` en poste (`role`) et garde le rôle RH (`realRole`)
+    pour l'affichage. `roleGroups` ABSENT ⇒ défaut ; `{}` ⇒ choix explicite de ne rien
+    grouper : `saveSupportPool` n'écrit donc la clé que si l'appelant en fournit une, sinon
+    le premier enregistrement venu effacerait le défaut. Les quotas d'un pool antérieur à une
+    fusion sont reportés par `remapQuotasToPostes` (somme), sans quoi ils deviennent des
+    lignes orphelines « 0 dispo » et le pool vise 0 personne.
+    Le récapitulatif vit dans [settings-rotation-pool-recap.js](static/js/views/settings-rotation-pool-recap.js)
+    (deux vues + message à coller) : il ne recalcule JAMAIS de tirage, l'appelant lui passe
+    `weekMembers(w)` qui pointe sur le brouillon ou sur l'état en base. La vue « par poste »
+    liste les personnes à **zéro passage** — c'est le vide qui se lit.
+    Le focus « masquer les équipes hors pool » est un mode de LECTURE : `data-pool-member`
+    sur les panneaux + classe `rot-focus-pool` sur `#rot-panels`, purement CSS, jamais
+    persisté, proposé seulement en aperçu et éteint avec le brouillon (`_persist`).
+    La vue « par poste » est **UNE seule table `rot-grid`** avec les mêmes `rot-strip` que la
+    grille par équipe, donc modifiable : les cellules portent les mêmes `data-rot-*` et le
+    câblage est celui de `_rotWireDayCells(root, onSaved)`, appelé sur le **nœud du récap** —
+    lui passer le conteneur entier ajouterait un second écouteur à chaque pastille de la
+    grille (un clic basculerait le jour deux fois, donc rien).
+    ⚠️ Pastilles désactivées en aperçu (le brouillon n'est pas en base) et pour un membre
+    sans équipe connue (pas de rotation cible). Pas de cadenas dans son en-tête : le verrou
+    est un état (équipe, semaine) et une colonne y couvre plusieurs équipes.
+    Elle trie par **équipe puis prénom** et porte la couleur d'équipe sur toute la colonne
+    d'identité ; le badge `⚖️` y signale l'écart de charge, mais un écart de 1 est INÉVITABLE
+    (les créneaux ne tombent pas juste sur l'effectif) et un 0 vient le plus souvent de
+    congés — d'où un libellé factuel et trois niveaux, jamais d'alerte.
+    CSS du pool dans [support-pool.css](static/css/views/support-pool.css), chargé APRÈS
+    `support-rotation.css` : les surcharges de `.rot-count-pool` comptent sur cet ordre.
+- **`bulk` support = purge puis insert** : `POST /api/support/bulk` supprime TOUTES les lignes
+  de l'équipe avant d'insérer. Toute génération doit donc reporter les semaines hors de sa
+  fenêtre via `carrySupportRowsOutside()` ([utils/support.js](static/js/utils/support.js)) —
+  sans quoi shuffler le PI 31 efface la rotation du PI 30, sans aucun signe (la grille
+  n'affiche qu'un PI à la fois). Appliqué au shuffle par équipe, au shuffle de groupe et à
+  l'enregistrement du pool (3.162.0).
 - **Scroller dans Paramètres** (3.141.22) : `.settings-tabs` est sticky en haut du scrollport
   et masquerait toute cible de `scrollIntoView`. Le décalage est porté **une seule fois** par
   `scroll-padding-top` sur `.content:has(.settings-tabs)` ([settings.css](static/css/views/settings.css)) —

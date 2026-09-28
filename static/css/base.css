@@ -607,6 +607,13 @@ body { display: flex; }
     flex-direction: column;
     height: 100vh;
     min-width: 0;
+    /* Filet de sécurité : si la topbar déborde malgré topbar-fit.css, le surplus est coupé
+       au lieu d'élargir le document. Sans lui, un focus()/scrollIntoView sur un bouton hors
+       champ faisait défiler la page vers la gauche et `.app` passait SOUS la sidebar fixe
+       (petit Mac, jusqu'à 382 px à 1280 px) — rétabli seulement par un zoom (reflow).
+       `clip` et non `hidden` : pas de conteneur de défilement, les menus déroulants et le
+       sticky des vues restent intacts. */
+    overflow-x: clip;
     transition: margin-left var(--tr-slow);
 }
 
@@ -626,11 +633,14 @@ body { display: flex; }
     flex-shrink: 0;
     position: relative; /* l'ombre passe au-dessus du contenu qui suit */
 }
+/* Le fil d'Ariane est le SEUL bloc compressible : ses segments passent en ellipse
+   (.bc-seg) plutôt que de pousser les boutons hors de l'écran. */
 .topbar-left {
     display: flex;
     align-items: center;
     gap: var(--sp-3);
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-width: 0;
 }
 .topbar-title {
     font-size: var(--fs-lg);

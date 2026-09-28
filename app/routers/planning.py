@@ -4,7 +4,7 @@ Inclut l'historisation des objectifs PI (snapshot par numéro de PI).
 """
 import re
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, HTTPException
 from sqlmodel import Session
 
 from app.common import _now
@@ -91,6 +91,8 @@ async def update_pi(request: Request, session: Session = Depends(get_session)):
         p.pi_objectives  = body.get("piObjectives") or {}
     if "piBaselines" in body:
         p.pi_baselines   = body.get("piBaselines") or {}
+    if "supportWeekModes" in body:
+        p.support_week_modes = body.get("supportWeekModes") or {}
     # Historisation auto : à chaque save des objectifs du PI courant, on snapshot dans
     # pi_objectives[number] pour que les PI passés restent consultables (dashboard / sélecteur).
     # Le snapshot ne s'écrase qu'à la clé du PI courant — les autres PI sont préservés.
@@ -122,6 +124,34 @@ async def set_pi_members(pi_number: int, request: Request, session: Session = De
     session.commit()
     session.refresh(p)
     return {"ok": True, "piNumber": pi_number, "count": len(members)}
+
+
+_WEEK_MODES = {"monday", "tuesday", "wednesday", "thursday", "friday"}
+
+
+@router.put("/api/pi/support-week-mode")
+async def set_support_week_mode(request: Request, session: Session = Depends(get_session)):
+    """Mode de semaine de support d'UNE équipe. Fusion — les autres équipes sont préservées.
+
+    Body : { team, mode } avec mode ∈ monday | tuesday | wednesday | thursday | friday.
+    Clé par clé plutôt que PUT /api/pi complet : deux navigateurs qui règlent deux équipes
+    différentes ne s'écrasent pas l'un l'autre.
+    """
+    body = await request.json()
+    team, mode = (body.get("team") or "").strip(), body.get("mode")
+    if not team or mode not in _WEEK_MODES:
+        raise HTTPException(400, "team et mode (monday … friday) requis")
+    p = session.get(PIConfig, "pi-1")
+    if not p:
+        p = PIConfig(id="pi-1")
+    modes = dict(p.support_week_modes or {})
+    modes[team] = mode
+    p.support_week_modes = modes
+    p.updated_at = _now()
+    session.add(p)
+    session.commit()
+    session.refresh(p)
+    return {"ok": True, "supportWeekModes": p.support_week_modes}
 
 
 @router.put("/api/pi/baseline/{pi_number}")

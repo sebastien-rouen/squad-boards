@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Équipe — frise des faits marquants (maquette)</title>
+    <!-- VRAIS CSS du site (effet miroir) -->
+    <link rel="stylesheet" href="../../css/tokens.css">
+    <link rel="stylesheet" href="../../css/base.css">
+    <link rel="stylesheet" href="../../css/views/team.css">
+    <link rel="stylesheet" href="_shared/tl.css">
+    <!-- Feuille de la frise posée AVANT tout rendu (la basculer après coup = flash non stylé) -->
+    <script>
+        (function () {
+            var dirs = { lanes: 'a-couloirs', story: 'b-recit' };
+            var d = new URLSearchParams(location.search).get('dir');
+            document.write('<link rel="stylesheet" href="' + (dirs[d] || dirs.lanes) + '/style.css">');
+        })();
+    </script>
+    <style>
+        body { background: var(--bg); }
+        .sidebar-nav .nav-main, .sidebar-nav .nav-secondary { display: grid; gap: 2px; padding: 0 var(--sp-2); }
+        .sidebar-nav .nav-secondary { margin-top: var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid rgba(255, 255, 255, .08); }
+        .content { overflow-y: auto; }
+        #tl-mount { margin-bottom: var(--sp-4); }
+    </style>
+</head>
+<body>
+    <!--
+      Cadre piloté par l'URL — chaque écran de la galerie est une iframe de cette page :
+        ?dir=lanes|story  &team=Initiale  &scope=team|train  &preset=pi|piprev|ete|6m|tout  &from=AAAA-MM-JJ&to=…
+        &cats=production,equipe  &state=loading|empty  &seed=1 (2 faits exemples, tirés de vrais tickets)
+        &add=1 (formulaire ouvert)  &select=N (fiche de la N-ième cible)  &theme=light
+    -->
+    <aside class="sidebar" aria-label="Navigation">
+        <div class="sidebar-header"><div class="sidebar-logo">SB</div><span class="sidebar-title">Squad Board</span></div>
+        <nav class="sidebar-nav">
+            <div class="nav-main">
+                <a class="nav-item">📊 <span>Dashboard</span></a><a class="nav-item">🗂️ <span>Board</span></a>
+                <a class="nav-item">📋 <span>Backlog</span></a><a class="nav-item">🗓️ <span>PI Planning</span></a>
+                <a class="nav-item">🛡️ <span>Santé</span></a><a class="nav-item">📈 <span>Rapports</span></a>
+            </div>
+            <div class="nav-secondary">
+                <a class="nav-item active" aria-current="page">🪪 <span>Équipe</span></a><a class="nav-item">🛎️ <span>Support</span></a>
+                <a class="nav-item">🧭 <span>Atlas</span></a><a class="nav-item">📅 <span>Agenda</span></a>
+            </div>
+        </nav>
+    </aside>
+    <main class="app">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="btn-icon mobile-only" aria-label="Menu">☰</button>
+                <h1 class="topbar-title topbar-breadcrumb" id="crumb"></h1>
+            </div>
+            <div class="topbar-center"><button class="search-trigger" aria-label="Rechercher">🔎 <span class="search-trigger__label">Rechercher…</span></button></div>
+            <div class="topbar-right"><button class="btn btn-primary">+ Nouveau</button></div>
+        </header>
+        <div class="content-layout">
+            <div class="content">
+                <div id="team-header"></div>
+                <div id="tl-mount"></div>
+            </div>
+        </div>
+    </main>
+    <script src="_shared/data.js"></script>
+    <script src="_shared/tl-core.js"></script>
+    <script src="_shared/tl-ui.js"></script>
+    <script src="_shared/tl-lanes.js"></script>
+    <script src="_shared/tl-story.js"></script>
+    <script>
+        (function () {
+            var T = window.TL, esc = T.esc, q = new URLSearchParams(location.search);
+            var dir = q.get('dir') === 'story' ? 'story' : 'lanes', team = q.get('team') || 'Initiale';
+            document.documentElement.dataset.theme = q.get('theme') === 'light' ? 'light' : 'dark';
+            document.getElementById('crumb').innerHTML = '<span class="bc-seg bc-seg--view">🪪 <span>Équipe</span></span><span class="bc-sep">›</span><span class="bc-seg bc-seg--team"><span class="bc-dot"></span>' + esc(team) + '</span>';
+            var roster = ((T.D.rosters['31'] || {})[team] || []);
+            document.getElementById('team-header').innerHTML = '<div class="team-id-header card"><div class="team-id-header-left">'
+                + '<span class="team-id-swatch" style="background:' + T.teamColor(team) + '">' + esc(team.slice(0, 2).toUpperCase()) + '</span>'
+                + '<div class="team-id-header-info"><h2>' + esc(team) + '</h2></div></div>'
+                + '<div class="team-id-roster"><span class="team-id-roster-label">Membres (' + roster.length + ')</span><div class="team-id-roster-list">'
+                + roster.map(function (m) { return '<button type="button" class="team-id-member-chip"><span class="team-id-member-name">' + esc(m.name) + '</span></button>'; }).join('')
+                + '</div></div></div>';
+            try { if (q.get('reset') === '1') localStorage.removeItem('sb-mockup-timeline-facts'); } catch (e) { /* privé */ }
+            var list = function (s) { return s ? s.split(',').filter(Boolean) : undefined; };
+            window.TLApp.mount(document.getElementById('tl-mount'), {
+                dir: dir, team: team, scope: q.get('scope') || 'team', preset: q.get('preset') || '6m',
+                from: q.get('from') || undefined, to: q.get('to') || undefined, cats: list(q.get('cats')),
+                state: q.get('state') || 'nominal', seed: q.get('seed') === '1', add: q.get('add') === '1', select: q.get('select') || undefined,
+            });
+        })();
+    </script>
+</body>
+</html>

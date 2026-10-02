@@ -1,0 +1,118 @@
+/* Frise 1 — « Couloirs du temps » : axe horizontal, une ligne par thème, mini-carte A → B. */
+
+.tll { padding: var(--sp-3) var(--sp-5) var(--sp-4); }
+.tll-scroll { overflow-x: auto; }
+.tll-grid { min-width: 720px; }
+.tll-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: stretch; border-bottom: 1px solid var(--border); }
+.tll-row--axis { border-bottom: 0; }
+.tll-label {
+    position: sticky; left: 0; z-index: 3; display: flex; align-items: center; padding: 0 var(--sp-2);
+    background: var(--surface); font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-secondary);
+    border-left: 3px solid var(--c, transparent);
+}
+.tll-track { position: relative; min-height: 46px; }
+.tll-lane--tall .tll-track { min-height: calc(30px + 4 * 22px); }
+
+/* Axe des mois + aujourd'hui */
+.tll-axis { position: relative; height: 24px; }
+.tll-month { position: absolute; top: 4px; font-size: 11px; color: var(--text-muted); text-transform: capitalize; padding-left: 4px; border-left: 1px solid var(--border); }
+.tll-today { position: absolute; top: 0; bottom: -100vh; width: 0; border-left: 2px solid var(--primary); z-index: 4; pointer-events: none; }
+.tll-today span { position: absolute; top: 2px; left: 4px; font-size: 10px; font-weight: var(--fw-semibold); color: var(--primary); white-space: nowrap; }
+.tll-grid { position: relative; overflow: hidden; }
+
+/* Rythme : PI en bandes, sprints en fines graduations, jalons en drapeaux */
+.tll-pi { position: absolute; top: 4px; height: 18px; background: color-mix(in srgb, var(--c-rythme) 12%, transparent); border-radius: 4px; }
+.tll-pi:nth-child(even) { background: color-mix(in srgb, var(--c-rythme) 20%, transparent); }
+.tll-pi span { position: sticky; left: 0; padding: 0 6px; font-size: 11px; font-weight: var(--fw-semibold); color: var(--c-rythme); line-height: 18px; }
+.tll-sprints { position: absolute; left: 0; right: 0; top: 24px; height: 16px; }
+.tll-sprint { position: absolute; top: 0; height: 16px; border-left: 1px solid color-mix(in srgb, var(--c-rythme) 45%, transparent); }
+.tll-sprint span { font-size: 10px; color: var(--text-muted); padding-left: 3px; white-space: nowrap; }
+.tll-flag { position: absolute; top: 2px; transform: translateX(-50%); font-size: 13px; line-height: 1; z-index: 2; }
+
+/* Présence : bande de chaleur + période creuse annotée */
+.tll-heats { position: absolute; left: 0; right: 0; bottom: 6px; height: 14px; }
+/* Présence : vert (100 %), orange (75-99 %), rouge (< 75 %) — lecture immédiate, sans dégradé à interpréter */
+.tll-heat { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--pl) 70%, transparent); border-right: 1px solid var(--surface); }
+.tll-low {
+    position: absolute; top: 4px; height: 20px; border: 1px solid var(--p-low); border-bottom: 0; border-radius: 6px 6px 0 0;
+    background: color-mix(in srgb, var(--p-low) 10%, transparent); text-align: left; overflow: hidden;
+}
+.tll-low span { display: block; padding: 0 6px; font-size: 11px; font-weight: var(--fw-semibold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 18px; }
+
+/* Production : pastilles dont la taille suit le nombre d'incidents de la semaine */
+.tll-inc {
+    position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+    width: calc(14px + var(--n) * 3px); height: calc(14px + var(--n) * 3px); border-radius: 50%;
+    background: var(--c-production); color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-production) 25%, transparent);
+}
+/* Livraisons : losanges */
+.tll-rel { position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 2; color: var(--c-livraison); font-size: 16px; line-height: 1; }
+
+/* Équipe : ▲ arrivée (vert), ▼ départ (rouge), ⇄ mobilité (bleu) ; pointillé = date « au PI » */
+.tll-move {
+    position: absolute; top: calc(8px + var(--row) * 22px); transform: translateX(-9px); z-index: 2;
+    display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px 0 3px; border-radius: var(--r-full);
+    font-size: 11px; font-weight: var(--fw-medium); color: var(--text); white-space: nowrap;
+    background: color-mix(in srgb, var(--m) var(--tl-tint), var(--surface)); border: 1px solid color-mix(in srgb, var(--m) 55%, transparent);
+}
+.tll-move i { width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 9px; color: #fff; background: var(--m); }
+.tll-move.is-in { --m: var(--c-in); } .tll-move.is-out { --m: var(--c-out); } .tll-move.is-move { --m: var(--c-move); }
+.tll-move.is-approx { border-style: dashed; }
+.tll-move.is-conflict::after { content: '⚠️'; font-size: 10px; }
+.tll-move:hover, .tll-move:focus-visible { z-index: 6; box-shadow: var(--shadow-md); }
+
+/* Faits saisis : barres (période) ou points (jour) */
+.tll-fact {
+    position: absolute; top: 10px; height: 24px; min-width: 22px; z-index: 2; border-radius: 6px; text-align: left; overflow: hidden;
+    background: color-mix(in srgb, var(--c-fait) var(--tl-tint), var(--surface)); border: 1px solid color-mix(in srgb, var(--c-fait) 50%, transparent);
+}
+.tll-fact--incident { background: color-mix(in srgb, var(--c-production) var(--tl-tint), var(--surface)); border-color: var(--c-production); top: 26px; height: 18px; }
+.tll-fact--gel { background: repeating-linear-gradient(135deg, color-mix(in srgb, #38bdf8 18%, var(--surface)) 0 6px, var(--surface) 6px 12px); border-color: #38bdf8; }
+.tll-fact span { display: block; padding: 0 6px; font-size: 11px; line-height: 22px; white-space: nowrap; color: var(--text); }
+.tll-fact--incident span { line-height: 16px; }
+.tll-empty { position: absolute; top: 50%; left: var(--sp-3); transform: translateY(-50%); font-size: var(--fs-xs); color: var(--text-muted); font-style: italic; }
+.tll button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+
+/* Mini-carte de toute l'année : fenêtre A → B à faire glisser */
+.tll-brush { position: relative; margin: var(--sp-4) 0 0 150px; height: 46px; border-radius: var(--r-md); background: var(--bg); cursor: pointer; touch-action: none; user-select: none; }
+.tll-brush-heat { position: absolute; left: 0; right: 0; top: 6px; height: 12px; }
+.tll-brush-heat i { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--pl) 70%, transparent); }
+.tll-brush-inc { position: absolute; left: 0; right: 0; top: 22px; height: 8px; }
+.tll-brush-inc b { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--c-production); transform: translateX(-50%); }
+.tll-brush-win { position: absolute; top: 0; bottom: 14px; border: 2px solid var(--primary); border-radius: 6px; background: color-mix(in srgb, var(--primary) 12%, transparent); cursor: grab; }
+.tll-handle { position: absolute; top: 50%; width: 12px; height: 26px; margin-top: -13px; border-radius: 4px; background: var(--primary); cursor: ew-resize; }
+.tll-handle[data-h="A"] { left: -7px; } .tll-handle[data-h="B"] { right: -7px; }
+.tll-handle:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.tll-brush-axis { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; }
+.tll-brush-axis span { position: absolute; font-size: 10px; color: var(--text-muted); text-transform: capitalize; }
+
+@media (max-width: 640px) {
+    .tll { padding: var(--sp-3) 0 var(--sp-4) var(--sp-4); }
+    .tll-row { grid-template-columns: 96px minmax(0, 1fr); }
+    .tll-label { font-size: 10.5px; }
+    .tll-brush { margin: var(--sp-3) var(--sp-4) 0 0; height: 56px; }
+    .tll-handle { width: 18px; height: 40px; margin-top: -20px; }
+    .tll-handle[data-h="A"] { left: -10px; } .tll-handle[data-h="B"] { right: -10px; }
+}
+
+/* Marqueurs regroupés : le nombre en exposant */
+.tll-flag small, .tll-rel small { position: absolute; top: -4px; right: -10px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--surface); border: 1px solid currentColor; font-size: 9px; font-weight: 700; line-height: 13px; }
+.tll-flag small { color: var(--c-rythme); }
+
+/* Mouvements regroupés (vue Train) : comptes colorés */
+.tll-mgroup { position: absolute; top: calc(6px + var(--row, 0) * 28px); transform: translateX(-8px); z-index: 2; display: inline-flex; gap: 3px; padding: 3px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-xs); }
+.tll-mgroup b { font-size: 11px; padding: 1px 5px; border-radius: 4px; color: #fff; white-space: nowrap; }
+.tll-mgroup .is-in { background: var(--c-in); } .tll-mgroup .is-out { background: var(--c-out); } .tll-mgroup .is-move { background: var(--c-move); }
+.tll-mgroup:hover, .tll-mgroup:focus-visible { z-index: 6; box-shadow: var(--shadow-md); }
+/* Fait court : le titre DÉPASSE de la barre sur un fond lisible, au lieu d'être coupé */
+.tll-fact { overflow: visible; }
+.tll-fact span { position: relative; width: max-content; max-width: 320px; background: color-mix(in srgb, var(--surface) 85%, transparent); border-radius: 4px; }
+
+/* 1v1 : pastilles violettes, taille selon le nombre regroupé */
+.tll-one {
+    position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+    width: calc(10px + var(--n) * 2px); height: calc(10px + var(--n) * 2px); border-radius: 50%;
+    background: var(--c-oneonone); color: #fff; font-size: 9px; font-weight: 700; display: grid; place-items: center;
+}
+.tll-one:hover, .tll-one:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-oneonone) 30%, transparent); z-index: 5; }

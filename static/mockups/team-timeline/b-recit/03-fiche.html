@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frise 2 · Fil du temps — Fiche d’un fait et ajout manuel</title>
+<link rel="stylesheet" href="../../../css/tokens.css">
+<link rel="stylesheet" href="../../team-calendar/_shared/gallery.css">
+</head>
+<body class="gallery">
+<!-- GÉNÉRÉ par _gen/gen-gallery.cjs — ne pas éditer à la main -->
+<header class="gal-head">
+    <a href="../index.html">← Galerie « Frise des faits marquants »</a>
+    <h1>Frise 2 · Fil du temps — Fiche d’un fait et ajout manuel</h1>
+    <p>Un clic ouvre la fiche : les tickets d'incident de la semaine, les personnes d'un mouvement (date exacte ou « au PI »), la période creuse. « ＋ Fait marquant » ajoute ce qu'aucune source ne voit (une panne, un gel).</p>
+</header>
+<nav class="gal-nav" aria-label="Écrans">
+    <a href="01-principal.html">01 Principal</a><a href="02-periode.html">02 Période A → B</a><a href="03-fiche.html" aria-current="page">03 Fiche & ajout</a><a href="04-etats.html">04 États</a>
+    <span class="gal-spacer"></span><a href="../a-couloirs/03-fiche.html">↔ Frise 1</a>
+</nav>
+<main class="gal-main">
+    <div class="gal-group">🖥️ Desktop — 1280 × 820, réduit pour tenir</div>
+    <div class="gal-desks gal-desks--2">
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=story&amp;reset=1&amp;team=Initiale&amp;preset=pi&amp;select=0" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Fiche</b> d’une cible (la première de la frise).</figcaption></figure>
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=story&amp;reset=1&amp;team=Initiale&amp;preset=pi&amp;add=1" title="Desktop" loading="lazy"></iframe></div><figcaption><b>＋ Fait marquant</b> — type (incident, gel, jalon, période, autre), dates, portée équipe ou train.</figcaption></figure>
+        <figure class="bureau-fig"><div class="bureau-fenetre"><iframe class="bureau" data-src="../frame.html?dir=story&amp;reset=1&amp;team=Initiale&amp;preset=pi&amp;seed=1" title="Desktop" loading="lazy"></iframe></div><figcaption><b>Faits saisis</b> — 2 exemples tirés de vrais tickets : la panne INES SPD du 22/09, le gel des MEP pendant le PI Planning.</figcaption></figure>
+    </div>
+    <div class="gal-group">📱 Mobile — 390 × 760</div>
+    <div class="gal-rail">
+        <figure class="phone"><iframe data-src="../frame.html?dir=story&amp;reset=1&amp;team=Initiale&amp;preset=pi&amp;add=1" title="Mobile" loading="lazy"></iframe><figcaption>Le formulaire en feuille du bas.</figcaption></figure>
+    </div>
+    <section class="gal-ux"><h2>Parti pris UX</h2><ul><li><b>Les sources automatiques d'abord</b> (tickets, rosters, check-lists, congés, agendas) ; la saisie ne sert qu'à ce qu'elles ne voient pas.</li><li><b>Les incohérences sont signalées</b> : RODRIGUEZ sort du roster d'Initiale au PI 30 puis a une check-list d'onboarding le 19/06 → « ⚠️ à vérifier », pas de choix silencieux.</li><li><b>Un fait saisi = la table `event` existante</b> (vide aujourd'hui) : aucun nouveau modèle.</li></ul></section>
+</main>
+<aside class="gal-fcp" aria-label="Panneau de démo">
+    <button class="gal-fcp-toggle" type="button">🎛️ Démo</button>
+    <label>Équipe affichée<select data-team><option value="">(celle de l'écran)</option><option>Ami</option><option>Bellier</option><option>Caméléon</option><option>Dezir</option><option>Etoile</option><option>Fuego</option><option>Gabbiano</option><option>Helica</option><option>Initiale</option><option>Juke</option><option>Kadjar</option><option>Lion</option><option>Océane</option></select></label>
+    <button class="gal-fcp-btn" type="button" data-theme-toggle>🌓 Thème clair / sombre</button>
+    <label>Frise</label>
+    <div class="gal-fcp-dirs"><a href="../a-couloirs/03-fiche.html" aria-current="false">1</a><a href="../b-recit/03-fiche.html" aria-current="true">2</a></div>
+</aside>
+<script src="../../team-calendar/_shared/gallery.js"></script>
+</body>
+</html>

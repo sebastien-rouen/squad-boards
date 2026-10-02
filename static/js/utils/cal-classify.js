@@ -51,7 +51,7 @@ const RULES = [
     ['train',     /pi\s*planning|pleniere|art\s*sync|coach\s*sync|po\s*sync|scrum\s*of\s*scrums|inspect|\badapt\b|i\s*&\s*a|journees?\s*innovation|system\s*demo/],
     ['community', /\bcopa?\b|communaute|guilde|chapter|la tech des|tech\s*talk|meetup|brown\s*bag|\bclub\b|formation|training|aprem tech|techme/],
     // 1:1 (« [1v1] Mohamed/Kévin », « O3 - Elsa/Tanisha ») et synchro de rôles (« Weekly … PO/TL/SMs »)
-    ['sync',      /\b1v1\b|^o3\b|one[- ]on[- ]one|weekly.*\b(po|tl|sms?)\b/],
+    ['sync',      /\b1v1\b|\bo3\b|one[- ]on[- ]one|weekly.*\b(po|tl|sms?)\b/],
     // « Review des découpages et chiffrages » est un affinage, pas une démo
     ['affinage',  /decoupage|chiffrage/],
     // Démo avant rétro : « Répétition démo », « Prépa démo », « Démonstration d'itération »

@@ -34,6 +34,14 @@ export function parseWikiMarkup(text) {
         blocks.push(`<blockquote>${parseWikiMarkup(body.trim())}</blockquote>`);
         return ph(idx);
     });
+    // {expand[:titre]} … {expand} : bloc repliable — le TITRE est gardé (sous-titres « 🟦 Itération 31.2.2 »
+    // du ticket de suivi support, lus par la frise de la page Équipe)
+    text = text.replace(/\{expand(?::(?:title=)?([^}]*))?\}([\s\S]*?)\{expand\}/gi, (_, title, body) => {
+        const idx = blocks.length;
+        const head = title && title.trim() ? `<p><strong>${esc(title.trim())}</strong></p>` : '';
+        blocks.push(`<div class="adf-expand">${head}${parseWikiMarkup(body.trim())}</div>`);
+        return ph(idx);
+    });
     // Panel macros: {info}, {note}, {warning}, {tip}, {panel}
     text = text.replace(/\{(info|note|warning|tip|panel)(?::[^}]*)?\}([\s\S]*?)\{\/?\1\}/gi, (_, type, body) => {
         const cls = type === 'warning' ? 'warning' : 'info';
@@ -55,9 +63,12 @@ export function parseWikiMarkup(text) {
         const hm = line.match(/^h([1-6])\.\s+(.*)/);
         if (hm) { out.push(`<h${hm[1]}>${_wikiInline(hm[2])}</h${hm[1]}>`); i++; continue; }
 
-        if (/^[*#]/.test(line)) {
+        // Puce = marqueur SUIVI D'UNE ESPACE (« * tâche », « ## sous-point »). Sans ce contrôle, une ligne
+        // en gras « *🟦 Itération 31.2.2* » était prise pour une puce puis JETÉE (pas d'espace après « * ») :
+        // tous les sous-titres du ticket de suivi support disparaissaient, sauf celui précédé d'une espace.
+        if (/^[*#]+\s/.test(line)) {
             const chunk = [];
-            while (i < lines.length && /^[*#]/.test(lines[i]) && lines[i].indexOf('\x02') < 0) chunk.push(lines[i++]);
+            while (i < lines.length && /^[*#]+\s/.test(lines[i]) && lines[i].indexOf('\x02') < 0) chunk.push(lines[i++]);
             out.push(_wikiList(chunk));
             continue;
         }

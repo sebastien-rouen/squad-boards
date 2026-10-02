@@ -12,6 +12,7 @@ import { PI_GENERATOR } from './reports-pi.js';
 import { B, E, SB, CS } from './reports-fmt.js';
 import { meteoSummary } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
+import { mountTrainMatrix } from '../components/train_matrix.js';
 
 let _format = 'text';
 let _chartsCollapsed = localStorage.getItem('sb-rpt-charts-collapsed') === 'true';
@@ -263,6 +264,9 @@ export function renderReports(container) {
             </div>
         </details>
 
+        <!-- 🚂 Le train semaine par semaine : matrice équipes × semaines (components/train_matrix.js) -->
+        <div class="train-matrix-host" id="train-matrix-host"></div>
+
         ${sections.map(s => {
             const isUrgent = s.id === 'pifist' && s.dLeft !== null && s.dLeft <= 1;
             const urgentBadge = isUrgent
@@ -308,6 +312,7 @@ export function renderReports(container) {
         </div>
     `;
 
+    mountTrainMatrix(container.querySelector('#train-matrix-host'));
     container.querySelectorAll('[data-fmt]').forEach(btn => {
         btn.addEventListener('click', () => {
             if (btn.dataset.fmt === _format) return;  // déjà actif → rien à faire

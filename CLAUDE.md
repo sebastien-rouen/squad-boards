@@ -23,6 +23,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
 
 ## Conventions critiques (footguns — à respecter systématiquement)
 - **XSS** : toujours `esc()` avant `innerHTML`.
+- **`base.css` n'est plus qu'un agrégateur** (3.178.0) : le CSS de base vit dans 6 feuilles consécutives
+  `css/base-{shell,components,overlays,utilities,palette,misc}.css`, liées DANS CET ORDRE par `index.html`.
+  Ajouter une règle dans le morceau de sa section (en-tête de chaque fichier) ; ne rien écrire dans
+  `base.css`, ne pas réordonner les liens (cascade).
+- **Synchro JIRA** : `sync.js` (orchestration, `_doImport`) + `sync-parse.js` (ticket, ADF, sprint / PI /
+  équipe, pagination) + `sync-report.js` (échecs partiels, équipes retirées, progression). Les tickets du
+  sprint actif arrivent en WIKI MARKUP (API Agile) → `utils/wiki.js`, pas `parseADF`.
 - **Mapping snake/camel** : back en `snake_case`, contrat front en `camelCase` (via `serializers.py`).
 - **PI courant** : UNIQUEMENT `getCurrentPi({sprintInfo, piInfo})` ([utils.js](static/js/utils.js)) — ne jamais réimplémenter la regex (bugs historiques).
 - **Rotation support EN VIGUEUR** (3.164.0) : UNIQUEMENT `currentSupportRows(support, jour)`
@@ -49,6 +56,27 @@ python main.py          # http://localhost:3001  — Swagger /docs
   avant d'en déplacer une (PI Planning avant planning, démo avant rétro, « Review des découpages »).
   Carte : `components/team_calendar.js` (+ `_views.js`) ; `--tc-hour` du CSS et `HOUR_PX` du JS
   doivent rester égaux. Toute retouche visuelle se reporte dans `static/mockups/team-calendar/` (miroir).
+- **Faits marquants (frise A → B, page Équipe)** (3.169.0) : `components/team_timeline_model.js`
+  (données du store, AUCUNE saisie par défaut), `_lanes.js` (couloirs + mini-carte), `team_timeline.js`
+  (coquille). Incident de prod = bug/support avec « prod » / « production » / « incident » en MOT
+  ENTIER, ou label `incident-prod` — PAS le label `désynchro` (campagnes de comparaison GDD/SPD).
+  Présence : vert 0 % d'absence, orange ≤ 25 %, rouge > 25 % (= seuil des périodes creuses).
+  1v1 = agendas de l'équipe via `eventsFor` (portée `team`). Faits saisis = table `event`, `teams`
+  vide = tout le train, `author` = nom saisi (pas de compte ; nom du poker `sb-poker-myname`).
+  Bascule 📖 Récit = `team_timeline_story.js` (frise 2, défaut sur mobile). « O3 » = 1v1 partout dans
+  le titre ; manager d'un 1v1 = ≥ 2 partenaires (1er chez Fuego, 2nd chez Gabbiano).
+  Jours fériés : `utils/holidays.js` (SOURCE UNIQUE, aussi pour cal_banner) — exclus des congés
+  (l'import RH les enregistre comme absences). Export : `team_timeline_export.js` (PNG html2canvas :
+  `img { display: block }` de base.css fausse sa mesure de ligne de base → correctif le temps de
+  l'export, ne pas le retirer). Opérations = portée `ops` de `calScope` (« ERPC - Opérations »),
+  production = « ⚠️ » / « [PROD_ ». Filtre « Sources d'agenda » = portées (`st.sources`) passées à
+  `collect()` — bulles : `team_timeline_detail.js` (gabarit `li` tête / texte / étiquettes) — la vue passe par `collectView(st)` (portée par couloir `st.laneTrain`, champs dans
+  `LANE_TRAIN_FIELDS`) ; modèle découpé en `_base.js` / `_support.js` (ré-exportés par `_model.js`). Support = tickets type `support` par semaine (+ check-lists on/offboarding distinguées)
+  + ticket de suivi du PI (titre « Paillettes support… ») découpé par titres « Itération X.Y.Z » ;
+  ces titres sont des blocs ADF `expand` → rendus par sync.js depuis 3.173.0 (resynchro nécessaire).
+  Filtres : `team_timeline_prefs.js` (localStorage `sb-team-tl-prefs-by-team`, PAR ÉQUIPE + marqueur d'URL `~frise=`, retiré
+  par `applyHash` AVANT tout autre marqueur — valeur sans « / » ni « ~ »).
+  Miroir : `static/mockups/team-timeline/`.
 - **Sprint d'une équipe** : `getSprintForTeam` — sprint rangé sous une fausse équipe
   (`team: 'F - itération 31.2'` pour Fuego) → sprint actif retrouvé via les tickets
   (`activeSprintFromTickets`). Sans lui : sprint de 2024 et PI courant faux (20 au lieu de 31).

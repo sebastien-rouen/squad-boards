@@ -14,6 +14,7 @@ import * as api from '../api.js';
 import { esc, toast, hashColor, initials, effectiveRosterForPi, teamNameMatches, confirmDanger, copyToClipboard, promptModal, extractTeam, getCurrentPi, diagramFrameHtml, fileExt, ZOOMABLE_IMAGE_EXT } from '../utils.js';
 import { openMemberCard } from './atlas.js';
 import { mountTeamCalendar } from '../components/team_calendar.js';
+import { mountTeamTimeline } from '../components/team_timeline.js';
 
 const IDENTITY_FIELDS = [
     { key: 'vision', label: 'Vision' },
@@ -148,6 +149,9 @@ export function renderTeam(container) {
         <!-- Agenda de l'équipe : ICS rangés (nature + portée), Semaine / Itération, comparaison -->
         <div class="team-calendar-host" id="team-calendar-host"></div>
 
+        <!-- Faits marquants : frise A → B (production, présence, turnover, MEP, 1v1, faits saisis) -->
+        <div class="team-timeline-host" id="team-timeline-host"></div>
+
         ${empty ? `
             <div class="team-id-banner">
                 <div>
@@ -182,6 +186,7 @@ export function renderTeam(container) {
     `;
 
     mountTeamCalendar(container.querySelector('#team-calendar-host'), team);
+    mountTeamTimeline(container.querySelector('#team-timeline-host'), team);
     _bindIdentityForm(container, team);
     _bindBanner(container);
     _bindAdminToggle(container);

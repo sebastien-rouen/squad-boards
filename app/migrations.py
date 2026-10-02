@@ -87,6 +87,8 @@ def run_migrations(engine):
         # une synchro complète (import `replace`) supprime et recrée toutes les équipes.
         ("piconfig", "support_week_modes", "ALTER TABLE piconfig ADD COLUMN support_week_modes JSON DEFAULT '{}'"),
         ("workshoptemplate", "icon",       "ALTER TABLE workshoptemplate ADD COLUMN icon TEXT DEFAULT '📋'"),
+        # Auteur d'un fait marquant (frise de la page Équipe, 3.170.0) — nom saisi, pas de compte
+        ("event", "author",                "ALTER TABLE event ADD COLUMN author TEXT DEFAULT ''"),
     ]
     with engine.connect() as conn:
         insp = sa_inspect(engine)

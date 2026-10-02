@@ -30,10 +30,20 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
 }
 .tv-top > b { font-size: var(--fs-2xl); font-weight: var(--fw-bold); letter-spacing: -.01em; }
 .tv-ctx { font-size: var(--fs-base); color: var(--text-secondary); }
+/* Données anciennes (dernière synchro JIRA > 2 h) : l'écran mural ne synchronise jamais lui-même */
+.tv-stale { padding: 2px var(--sp-2); border-radius: var(--r-full); background: var(--warning-bg, color-mix(in srgb, var(--warning) 16%, transparent)); border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent); color: var(--amber-text); font-size: var(--fs-sm); font-weight: var(--fw-semibold); white-space: nowrap; }
 .tv-clock { margin-left: auto; font-size: var(--fs-2xl); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
 .tv-dots { display: inline-flex; align-items: center; gap: 6px; }
 .tv-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-hover); transition: width var(--tr-base); }
-.tv-dots i.is-on { width: 24px; border-radius: var(--r-full); background: var(--primary); }
+.tv-dots i.is-on { position: relative; overflow: hidden; width: 24px; border-radius: var(--r-full); background: var(--primary); }
+/* Compte à rebours (tv.js → dots) : le point de l'écran courant se remplit jusqu'au suivant.
+   Fond atténué + remplissage plein : discret, lisible de loin ; figé à la pause. */
+.tv-dots i.is-on:has(b) { width: 30px; background: color-mix(in srgb, var(--primary) 28%, var(--border)); }
+.tv-dots i.is-alert.is-on:has(b) { background: color-mix(in srgb, var(--danger) 28%, var(--border)); }
+.tv-dots i b, .tv-pager button b { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit; background: var(--primary); animation: tv-countdown linear forwards; }
+.tv-dots i.is-alert b { background: var(--danger); }
+.tv.is-paused .tv-dots i b, .tv.is-paused .tv-pager button b { animation-play-state: paused; }
+@keyframes tv-countdown { from { width: 0; } to { width: 100%; } }
 .tv-dots i.is-alert { background: var(--danger); }
 .tv-btn { font-size: var(--fs-lg); }
 .tv.is-paused .tv-dots i.is-on { background: var(--warning); }
@@ -52,6 +62,9 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
     color: var(--status-blocked-text);
     font-size: var(--fs-base);
 }
+/* `display: flex` ci-dessus l'emportait sur l'attribut hidden : bande rouge vide sur l'alerte au 1er
+   tour, puis bandeau affiché en permanence (alerte comprise) dès sa première apparition. */
+.tv-strip[hidden] { display: none; }
 .tv-strip code { color: inherit; background: color-mix(in srgb, var(--danger) 14%, transparent); }
 
 /* ── Zone d'écran ── */
@@ -68,7 +81,20 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
 .tv-meteo .meteo-matrix tbody th { font-size: var(--fs-lg); }
 .tv-meteo .meteo-cell { padding: var(--sp-3) var(--sp-2); }
 
-/* Plans d'action : une colonne par équipe à surveiller */
+/* Réglages ⚙ (tv-settings.js) : panneau ancré sous le bouton, en haut à droite */
+.tv-top { position: relative; }
+.tv-settings { position: absolute; top: calc(100% + var(--sp-1)); right: var(--sp-6); z-index: 5; display: flex; flex-direction: column; gap: var(--sp-3); min-width: 18rem; padding: var(--sp-4); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-lg); font-size: var(--fs-sm); }
+.tv-settings[hidden] { display: none; }
+.tv-settings label { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); color: var(--text-secondary); }
+.tv-settings select { padding: var(--sp-1) var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); color: var(--text); font: inherit; }
+.tv-settings-check { justify-content: flex-start !important; flex-wrap: wrap; }
+.tv-settings-check small { flex-basis: 100%; padding-left: 1.6rem; color: var(--text-muted); }
+.tv-settings-note { color: var(--text-muted); font-size: var(--fs-xs); }
+
+/* Plans d'action : une colonne par équipe à surveiller, 3 par page, les suivantes en rotation */
+.tv-plans-screen { height: 100%; display: flex; flex-direction: column; }
+.tv-paged .tv-plans { flex: 1; min-height: 0; overflow-y: auto; align-content: start; }
+.tv-plan[hidden] { display: none; }
 .tv-plans { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); gap: var(--sp-4); }
 .tv-plan { border: 1px solid var(--border); border-top: 4px solid var(--team-color, var(--border)); border-radius: var(--r-lg); background: var(--surface); padding: var(--sp-4); }
 .tv-plan h2 { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xl); margin-bottom: var(--sp-3); }
@@ -94,7 +120,30 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
 .tv-journee .metric-value { font-size: var(--fs-3xl); }
 .tv-list { display: flex; flex-direction: column; gap: var(--sp-1); }
 .tv-list li { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); font-size: var(--fs-base); }
+.tv-list li[hidden] { display: none; }
+.tv-list-hd { font-size: var(--fs-base); font-weight: var(--fw-medium); color: var(--text-secondary); }
+.tv-list-hd b { color: var(--text); text-transform: capitalize; }
 .tv-list li small { color: var(--text-muted); }
+
+/* Liste paginée (review, aujourd'hui) : occupe la hauteur restante, tv.js la découpe en pages
+   qui tournent ; le pager (« 2 / 3 » + points cliquables) reste sous la liste. */
+.tv-journee, .tv-review { height: 100%; }
+.tv-paged { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+/* Deux colonnes dès que la largeur le permet (≥ 2 × 30rem), titres sur une ligne : hauteur de
+   ticket constante, deux fois plus de tickets par page. */
+.tv-paged .tv-list { position: relative; flex: 1; min-height: 0; overflow: hidden; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr)); align-content: start; gap: var(--sp-1) var(--sp-3); }
+.tv-paged .tv-list li > span:not(.tv-list-ok) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-paged .tv-list li small { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-pager { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.tv-pager[hidden] { display: none; }
+.tv-pager button { width: 10px; height: 10px; padding: 0; border: 0; border-radius: var(--r-full); background: var(--border-hover); cursor: pointer; transition: width var(--tr-base), background var(--tr-base); }
+.tv-pager button.is-on { width: 24px; background: var(--primary); }
+.tv-pager small { color: var(--text-muted); }
+
+/* Tickets cliquables → popin du ticket */
+.tv [data-ticket] { cursor: pointer; }
+.tv-list li[data-ticket]:hover, .tv-alert-tk:hover { border-color: var(--primary); }
+.tv [data-ticket]:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 /* Sprint review : même grammaire que « Aujourd'hui » */
 .tv-review { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -118,10 +167,22 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
 .tv-alert-hd small { display: block; font-size: var(--fs-sm); font-weight: var(--fw-bold); letter-spacing: .12em; text-transform: uppercase; color: var(--status-blocked-text); }
 .tv-alert-hd h2 { font-size: 2.4rem; line-height: 1.1; }
 .tv-alert-hd p { color: var(--text-secondary); font-size: var(--fs-base); }
-.tv-alert-since { margin-left: auto; font-size: 3.5rem; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; color: var(--status-blocked-text); }
-.tv-alert-list { display: flex; flex-direction: column; gap: var(--sp-3); }
-.tv-alert-tk { display: flex; flex-direction: column; gap: 4px; padding: var(--sp-4) var(--sp-5); border-left: 6px solid var(--danger); border-radius: var(--r-md); background: var(--surface); }
+.tv-alert-since { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; font-size: 3.5rem; line-height: 1; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; color: var(--status-blocked-text); }
+.tv-alert-since small { font-size: var(--fs-sm); font-weight: var(--fw-medium); letter-spacing: .04em; color: var(--text-secondary); margin-top: var(--sp-1); }
+/* La liste complète défile seule (tv.js → _autoScroll) ; l'en-tête reste en place. */
+.tv-alert-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-5); padding-right: var(--sp-2); scrollbar-width: thin; }
+.tv-alert-team h3 { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); font-size: var(--fs-xl); }
+.tv-alert-count { padding: 0 var(--sp-2); border-radius: var(--r-full); background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--status-blocked-text); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.tv-alert-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr)); gap: var(--sp-3); }
+.tv-alert-tk { display: flex; flex-direction: column; gap: 4px; padding: var(--sp-3) var(--sp-4); border-left: 6px solid var(--team-color, var(--danger)); border-radius: var(--r-md); background: var(--surface); }
+.tv-alert-tk-top { display: flex; align-items: center; gap: var(--sp-2); }
 .tv-alert-tk code { font-size: var(--fs-base); }
-.tv-alert-tk b { font-size: var(--fs-2xl); }
-.tv-alert-tk span { color: var(--text-secondary); font-size: var(--fs-base); }
+.tv-alert-why { margin-left: auto; font-size: var(--fs-sm); color: var(--status-blocked-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-alert-tk b { font-size: var(--fs-lg); line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tv-alert-tk span { color: var(--text-secondary); font-size: var(--fs-sm); }
+.tv-alert-tk strong { color: var(--text); font-weight: var(--fw-semibold); }
 .tv-alert-tk em { color: var(--amber-text); font-style: normal; }
+/* Reliquats hors alerte : encart sur fond de carte (le gris atténué était illisible sur le dégradé rouge) */
+.tv-alert-past { padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--surface); border: 1px dashed var(--border-hover); color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.6; }
+.tv-alert-past code { color: var(--text); background: var(--bg); padding: 1px 6px; border-radius: var(--r-sm); }
+.tv-alert-tk:hover { box-shadow: 0 0 0 1px var(--primary); }

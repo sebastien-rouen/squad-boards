@@ -277,7 +277,7 @@ export function renderHealth(container) {
         const wipMax       = wipThreshold(wipCapacity);
         const wipCount     = countWip(piTickets.filter(t => t.team === tm));
         const wipExceededTeams = wipCount > wipMax ? new Set([tm]) : new Set();
-        ctxByTeam[tm] = { sprintStartMs, wipCapacity, wipMax, wipCount, wipExceededTeams };
+        ctxByTeam[tm] = { sprintStartMs, wipCapacity, wipMax, wipCount, wipExceededTeams, curPi: targetPiNum };
     }
 
     const matrix = {}; // matrix[team][anomalyKey] = count

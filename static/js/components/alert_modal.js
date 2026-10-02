@@ -10,7 +10,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, sumBy, toast, deriveMembersFromAbsences, getStatusLabel, statusBadge, teamCapacity, wipThreshold, countWip, trapFocus } from '../utils.js';
+import { esc, sumBy, toast, deriveMembersFromAbsences, getStatusLabel, statusBadge, teamCapacity, wipThreshold, countWip, trapFocus, getCurrentPi } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { ANOMALY_BY_KEY } from '../business_rules.js';
@@ -52,7 +52,8 @@ export function openAlertModal(actionable, opts = {}) {
         wipDetails.push({ team: tm, count, max, exceeded, cap });
     }
 
-    const ctx = { sprintStartMs, wipExceededTeams };
+    // curPi : les blockers d'un PI révolu (reliquats de backlog) sont exclus, comme dans Santé et la TV.
+    const ctx = { sprintStartMs, wipExceededTeams, curPi: getCurrentPi({ sprintInfo, piInfo: store.get('piInfo') }) };
     const tickets = scopeTickets.filter(t => meta.match(t, ctx));
 
     const overlay = document.createElement('div');

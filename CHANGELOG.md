@@ -1,3 +1,258 @@
+## [3.191.0] - 2026-10-03
+
+### Mode TV — points du burnup datés et cliquables
+
+- Dans le burnup, chaque point d'un jour où des tickets ont été terminés est **cliquable** (→ tickets
+  terminés ce jour-là, même panneau que les barres du burndown), **daté** au survol / au focus
+  (« jeu. 24/9 · +8 ») et porte une info-bulle (« jeu. 24/9 — 8 pts faits (+8 ce jour-là) ») ; zone de
+  clic de 16 px de rayon autour du point. Les jours sans ticket terminé gardent un point simple.
+- Vérifié au banc Edge (vrai site) : Fuego, 3 points cliquables (24/9, 25/9, 30/9), libellé visible au
+  survol, clic à 10 px du point → GCOM-4335 / GCOM-4913 ; non-régression 3.190 ; 0 erreur JS.
+
+## [3.190.0] - 2026-10-03
+
+### Mode TV — repères du burndown / burnup cliquables → tickets du jour
+
+- **Barre « +N » du burndown → tickets terminés ce jour-là** (un ticket résolu le week-end compte pour
+  le jour ouvré suivant, comme dans le graphique) ; **« ▲+N » du burndown et du burnup → tickets ajoutés
+  au sprint ce jour-là**, avec leur état (📦 À faire, 🔄 En cours…). Panneau de la TV (même couche que
+  le détail météo) : jour, sprint, total « +8 pts », liste cliquable vers la popin du ticket ; ✕, fond
+  ou Échap ferment ; la rotation attend. Au clavier : Tab jusqu'au repère, Entrée.
+- Zone de clic d'au moins 26 px de haut (une barre d'un point fait quelques pixels) ; sur une carte
+  compacte, le clic sur un repère ouvre la liste, pas le zoom de la carte.
+- **Défaut trouvé au banc** : l'aire sous la courbe, dessinée par-dessus les barres, captait les clics.
+  Le décor des graphiques (`.tvs-chart *`) laisse désormais passer les clics, et les repères sont
+  dessinés en dernier.
+- Vérifié au banc Edge sur le vrai site : Fuego, barre du 24/09 → « 2 tickets terminés · +8 pts »
+  (GCOM-4335, GCOM-4913) → popin ; ▲ du burnup au clavier → « 1 ticket ajouté · +2 pts »
+  (GCOM-5042, À faire) ; carte compacte → liste sans zoom ; non-régression 3.188 / 3.189 ; 0 erreur JS.
+
+## [3.189.0] - 2026-10-03
+
+### Mode TV — météo explicite, burndown détaillé + burnup, « À savoir » en tuiles ; détail météo au Dashboard
+
+- **🌤️ Cellules de la Météo du train explicites** (TV, option `rich` de meteoMatrixHtml) : la ligne
+  grise abrégée (« 10/11 pts · 100 % du temps ») devient un visuel + des libellés — Sprint / PI : barre
+  « fait » à la couleur du temps qu'il fait au-dessus de la barre « temps écoulé » (l'écart des deux
+  EST la météo), « ✅ 10/11 pts faits », « ⏱️ 100 % du sprint écoulé » ; Santé : jauge, « ⚠️ 39
+  anomalies », « 🎫 sur 34 tickets actifs » ; SLA : « 🎯 15/24 livrés en ≤ 16 j », « 🐢 9 hors délai » ;
+  Mood : « 🗳️ 8 votes · sur 5 ». computeTeamMeteo expose `viz` / `meta` ; Dashboard et Santé inchangés.
+- **Détail d'une cellule au Dashboard et dans Santé** : même panneau qu'à la TV, dans sa propre couche
+  (sous la popin ticket) ; un clic sur le nom d'équipe ouvre toujours l'équipe. Échap ferme.
+- **🏃 Sprint en cours, grand format** : **burndown** détaillé (barres « +N » des points finis chaque jour
+  — un ticket fini le week-end compte le lundi —, « ▲+N » quand le périmètre grossit, projection) puis
+  **burnup** dessous (fait cumulé vs périmètre en marches, idéal, projection, « périmètre 37 » /
+  « 16 faits »). Titres « 📉 Burndown » / « 📈 Burnup » et total ajouté en cours de sprint.
+- **✨ À savoir en tuiles** : pastille d'icône, intitulé (« Dernier terminé · il y a 3 j », « Plus gros
+  reste », « Vélocité · 3 derniers sprints » avec une barre vélocité / engagement, « 9 reportés
+  ailleurs » avec les clés), contenu ; en grand format, rangée pleine largeur sous les graphiques
+  (3 tuiles sur écran bas). Sections « 💡 Conseils » / « ✨ À savoir ».
+- **Calendrier de la semaine** : un jour trop chargé fait glisser sa liste jusqu'en bas pendant l'écran
+  (pauses haut et bas, aller-retour sur écran figé, figé à la pause).
+- Vérifié au banc Edge sur le vrai site (données du serveur du 02/10 21 h 54) : 65 cellules riches sans
+  débordement (1920 et 1366) ; jours qui glissent de 49 à 66 px à 8 s en 1366 ; Fuego : burndown +
+  burnup, 3 barres du jour, ▲+2, 5 tuiles — la carte tient en 1920 × 1080, 1366 × 768 et 1280 × 720
+  (elle débordait de 244 px avant le passage des tuiles sous les graphiques) ; détail au Dashboard
+  (z 150), Échap, clic équipe ; non-régression 3.188 (compte à rebours, pager, détail TV, zoom) ;
+  0 erreur JS.
+
+## [3.188.0] - 2026-10-03
+
+### Mode TV — semaine en calendrier, compte à rebours, détail de la météo, zoom sprint
+
+- **🗞️ La semaine en bref = calendrier** ([tv-week.js](static/js/views/tv-week.js), extrait de
+  tv-screens.js) : semaine courante du lundi au dimanche (week-end resserré, aujourd'hui encadré,
+  fériés en en-tête, nombre d'évènements par jour) ; évènements rangés dans leur journée, couleur par
+  nature (MEP, incident cliquable, opération — en prod en rouge —, mouvement, fait, jalon du train).
+  Au-dessus : **bandeaux de sprint** (« ▶ Sprint 31.3 », « Sprint 31.2 🏁 ») sur les jours couverts,
+  et dans la journée « 🏁 Fin 31.2 · 9 équipes » / « ▶ Début 31.3 ».
+- **Compte à rebours** : le point de l'écran courant (`tv-dots`) se remplit jusqu'au passage à
+  l'écran suivant ; idem pour le point de la page courante du pager. Fond atténué + remplissage plein,
+  figé pendant la pause (survol), absent sur un écran figé.
+- **🌤️ Météo : clic sur une cellule → détail** ([tv-meteo-detail.js](static/js/views/tv-meteo-detail.js)) :
+  où on en est (Sprint / PI : barres « réalisé » vs « temps écoulé » et l'écart en points ; Santé /
+  SLA / Mood : jauge 0–100 avec les seuils), ce qui coince (tickets ouverts par état — bloqués
+  d'abord —, anomalies de santé avec responsables, tickets hors délai, répartition des votes ; clés
+  cliquables), et 💡 que faire. Pastilles des 5 domaines pour basculer ; ✕, fond ou Échap ferment ;
+  la rotation attend. Cellules de la matrice : `data-meteo-team` / `data-meteo-dom`, anomalies avec
+  leurs `ids` (meteo_matrix.js, sans effet ailleurs).
+- **Sprint en cours : clic sur une carte → grand format de l'équipe** (conseils et faits complets),
+  « ← Toutes les équipes (13) » pour revenir.
+- **Échap** : la TV écoute le clavier en capture — Échap sur une popin ticket ouverte depuis le
+  détail fermait aussi le détail, et un second Échap quittait la TV.
+- Vérifié au banc Edge sur le vrai site (vraies données) : semaine du 28/09 au 4/10, bandeaux 31.2 /
+  31.3, « Fin 31.2 · 9 équipes » le vendredi, rien ne déborde ; compte à rebours 50 s qui avance puis
+  se fige au survol ; pager 10 s ; cellule ⛈️ Sprint d'Ami → 73 % vs 100 %, 27 points de retard,
+  4 en cours + 3 pas commencés, conseil ; bascule Santé (4 anomalies, 14 tickets) ; popin ticket puis
+  Échap → détail conservé ; zoom Océane et retour ; 0 erreur JS.
+
+## [3.187.0] - 2026-10-03
+
+### Mode TV — « Sprint en cours » refait ; bandeau « données obsolètes » réparé ; écrans figés au chargement
+
+- **Sprint en cours** ([tv-sprint.js](static/js/views/tv-sprint.js), extrait de tv-screens.js) :
+  - graphique **à axes gradués** (reste à faire en ordonnée 0 → engagé, jours ouvrés « L 21 … L 5 »
+    en abscisse, jour courant en couleur), aire et points à la couleur de l'équipe, rythme idéal en
+    tirets, repère « aujourd'hui », valeur du reste, **projection au rythme actuel** jusqu'à la fin
+    (« ≈ 19,4 restants » ou « fini à temps ») ;
+  - chiffres clés : réalisé / engagé, **rythme actuel vs rythme requis** (pts/jour), en cours /
+    bloqués / en revue (grand format) ;
+  - **💡 conseils** tirés des données, les plus urgents d'abord : débloquer (tickets cliquables),
+    rythme intenable → revoir le périmètre (pts à sortir), finir avant de commencer (revue/test
+    engorgés), tickets pas commencés en fin de sprint, **engagement N× la vélocité moyenne des 3
+    derniers sprints**, périmètre élargi en cours de sprint, tickets non estimés ;
+  - **✨ faits marquants** : objectif du sprint, dernier terminé (« il y a 3 j »), plus gros reste,
+    reports, vélocité moyenne vs engagé ;
+  - une équipe = grand format (graphique + panneau) ; plusieurs = cartes compactes (graphique et
+    panneau côte à côte), **les plus en retard d'abord**, 6 par page en 1920 × 1080 (13 équipes → 3
+    pages au lieu de 7). Police des axes adaptée à la taille réelle du graphique (~21 px en 1080p).
+- **Bandeau « données obsolètes » réparé** (app.js) : il lisait `lastSync`, que la synchro n'écrit
+  plus — jamais affiché, même avec une base vieille de 2 jours. Il prend désormais `sprintInfo.updatedAt`
+  (réécrit à chaque import, quel que soit le poste qui synchronise), est réévalué à chaque
+  rechargement et toutes les 15 min, et parle français : « Dernière synchro JIRA il y a 2 jours
+  (mer. 30 sept., 15:39) — les données peuvent être obsolètes ».
+- **Écrans figés et réglages par l'URL au chargement** : le démarrage réécrivait l'adresse en `#tv`
+  et perdait `#tv/all/sprint` (rotation libre au lieu de l'écran demandé) et `~tv=…`. pushHash /
+  applyHash connaissent maintenant la vue TV (store `tvScreen`, `tvUrlSettings`) ; l'écran figé est
+  oublié à la sortie de la TV.
+- Vérifié sur le **vrai site** au banc Edge (index.html + app.js, `/api/all` = extrait du serveur) :
+  bandeau affiché ; `#tv/all/sprint`, `#tv/Fuego/sprint`, `~tv=page:7` respectés ; Fuego : axes
+  0 → 37 pts, projection ≈ 19,4, 2 conseils (3 bloqués, rythme 21 vs 1,6 pts/j), 4 faits ; 1920 ×
+  1080 / 1366 × 768 : aucune carte ni étiquette qui déborde ou se chevauche ; 0 erreur JS.
+
+## [3.186.0] - 2026-10-02
+
+### Mode TV — écran vivant, 3 nouveaux écrans, bandeau cliquable par équipe
+
+- **Rechargement après synchro** ([tv-live.js](static/js/views/tv-live.js)) : l'écran mural ne
+  rechargeait JAMAIS ses données (ouvert lundi = données de lundi vendredi). Toutes les 5 min il lit
+  `GET /api/sync-stamp` (nouveau, [planning.py](app/routers/planning.py) : heure du dernier import,
+  quelques octets) et ne recharge `/api/all` (~15 Mo) que si elle a changé ; une fois par heure quoi
+  qu'il arrive (absences, faits, agendas). `window.__squadBoard.reloadData` exposé (app.js).
+- **Écran allumé** : Screen Wake Lock tant que la TV est affichée, redemandé au retour de l'onglet.
+- **🎉 Tickets terminés salués** : bandeau 6 s par ticket passé à « terminé » entre deux chargements
+  (équipe, responsable ; cliquable → popin), 6 au plus puis « + N autres » ; seulement les résolus
+  depuis moins de 3 jours (une synchro complète peut ramener de vieux tickets).
+- **👥 Qui est là** : présents / total par équipe (barre verte / orange / rouge), absents du jour,
+  absents en plus au prochain jour ouvré (« lundi » le vendredi) ; ce qui tombe ces deux jours :
+  férié, MEP, opérations (prod en rouge), jalons du train.
+- **🏃 Sprint en cours** : un burndown **réel** par équipe (reste à faire d'après les dates de
+  résolution, en SVG — le graphique du Dashboard interpole une droite), J-n, réalisé / engagé,
+  écart à l'idéal (en avance / dans les clous / à surveiller / en retard). Tickets comptés si
+  l'équipe n'estime pas en points.
+- **🗞️ La semaine en bref** : les 7 derniers jours vus par la frise — chiffres clés (tuiles de la
+  frise) et faits datés (MEP, incidents cliquables, opérations en prod, arrivées / départs, faits,
+  jalons), paginés.
+- **Bandeau rouge cliquable** : le compte → l'écran d'alerte ; une puce par équipe (« Lion 6 ·
+  Initiale 5 · Fuego 3 ») → l'alerte de **cette seule équipe**, avec « ← Toutes les équipes (15) ».
+  Les titres d'équipe de l'alerte filtrent aussi.
+- **Météo du train** : la matrice (13 équipes, plus haute que l'écran) défile seule ; le défilement
+  s'arrête à chaque changement d'écran.
+- Nouveaux modules : [tv-screens.js](static/js/views/tv-screens.js) (écrans + briques partagées
+  avec tv.js), [tv-live.js](static/js/views/tv-live.js), [tv-screens.css](static/css/views/tv-screens.css).
+- Vérifié au banc Edge, vraies données (`/api/all`) : 8 écrans par tour (toutes équipes et Fuego),
+  aucune liste qui déborde ; bandeau → Initiale 5 cartes, retour 15, titre Lion 6 ; félicitation
+  affichée et ouverte au clic ; rechargement déclenché à 5 min (horloge simulée) ; Wake Lock
+  disponible ; météo défilée 206 px à 9 s, écran suivant reparti à 0 ; 0 erreur JS.
+  `/api/sync-stamp` vérifié sur le serveur.
+
+## [3.185.1] - 2026-10-02
+
+### Mode TV — bandeau d'alerte qui ne se masquait jamais
+
+- `.tv-strip { display: flex }` l'emportait sur l'attribut `hidden` : bande rouge vide de 17 px sur
+  l'écran d'alerte au premier tour, puis bandeau affiché en permanence — alerte comprise, avec un
+  contenu périmé — dès sa première apparition. Règle `.tv-strip[hidden] { display: none }`.
+- Vérifié au banc Edge sur un tour complet : masqué sur l'alerte (0 px), affiché sur les 4 autres écrans.
+
+## [3.185.0] - 2026-10-02
+
+### Mode TV — le soir : plus de tickets terminés, données datées, réglages par l'URL
+
+- **Mode nuit (19 h → 8 h) = fin de journée + sprint review** : il réduisait la rotation à la fin de
+  journée seule, vide le soir sans ticket terminé du jour (2 points : alerte + fin de journée, aucun
+  ticket livré visible). Désormais 3 points, écrans tamisés de 60 s.
+- **« Derniers terminés »** : sans ticket terminé aujourd'hui, Aujourd'hui / Fin de journée montre ceux
+  du jour le plus récent des 7 derniers (« derniers terminés : mercredi 30 septembre »), paginés et
+  cliquables ; le chiffre clé reste celui du jour.
+- **Badge « ⚠ Données du mer. 30 sept., 15:39 »** dans l'en-tête quand la dernière synchro JIRA date de
+  plus de 2 h : l'écran mural ne synchronise jamais lui-même et le bandeau « obsolète » du site y est
+  masqué. Source : `sprintInfo.updatedAt`, réécrit à chaque import (le `lastSync` du site n'est plus
+  alimenté par la synchro).
+- **Jour local** pour « aujourd'hui » (le jour UTC se trompait entre minuit et 2 h).
+- **Réglages par l'URL** : `#tv/all~tv=page:8,ecran:30,nuit:non` (ecran:auto = durée propre à chaque
+  écran) — enregistrés sur l'écran, pour configurer un mur à distance ; marqueur retiré du routage
+  (app.js), comme `~frise=`.
+- **Plans d'action** : une page plus haute que l'écran défile pendant son temps d'affichage.
+- Vérifié au banc Edge à 21 h 50 (vrai mode nuit), Fuego, vraie base : 3 points, fin de journée →
+  2 tickets du 30/09, review → 23 tickets (les « + 15 autres » d'avant), badge affiché ; URL → réglages
+  enregistrés ; page de plans défilée de 542 px en 1024 × 600 ; 0 erreur JS.
+
+## [3.184.0] - 2026-10-02
+
+### Mode TV — réglages ⚙, Plans d'action en rotation, durée par défaut corrigée
+
+- **Bug : chaque écran filait en 5 s** quand aucune durée n'était réglée (`Math.max(5, NaN || 0)` = 5,
+  jamais `null`) : les durées propres aux écrans (30 s météo, 25 s plans / review, 20 s aujourd'hui)
+  n'étaient jamais appliquées. Mesuré après correction : Météo 30 s.
+- **Panneau ⚙ dans l'en-tête TV** ([tv-settings.js](static/js/views/tv-settings.js)) : durée d'un écran
+  (« Selon l'écran » ou 10 s → 1 min), **durée d'une page** (6 → 20 s, 10 s par défaut), mode nuit
+  on/off. Réglages propres à l'écran (localStorage `sb-tv-seconds`, `sb-tv-page-seconds`,
+  `sb-tv-night`), appliqués tout de suite. Échap ferme d'abord le panneau, clic dehors aussi ; les
+  flèches d'un menu ne changent pas d'écran.
+- **Plans d'action : toutes les équipes en 🌧️ / ⛈️** (avant : les 3 pires, les suivantes jamais
+  montrées), par pages de 3 côte à côte qui tournent ; pager « 1 / 5 · 13 équipes à surveiller ».
+- Vérifié au banc Edge : rotation libre alerte 50 s → météo 30 s ; plans 13 équipes → 5 pages ;
+  réglages enregistrés et relus, Échap / clic dehors ferment le panneau sans quitter la TV ; 0 erreur JS.
+
+## [3.183.0] - 2026-10-02
+
+### Mode TV — listes complètes paginées, tickets cliquables ; règle « PI révolu » partagée
+
+- **Règle partagée** ([business_rules.js](static/js/business_rules.js), `isPastPi`) : les anomalies
+  « Bloqués » et « Blockers > 48 h » ignorent les tickets d'un PI révolu (reliquats de backlog) dès
+  que l'appelant donne `ctx.curPi`. Santé (PI regardé), la modale d'alerte, la Météo des équipes et la
+  TV comptent désormais pareil : 15 blockers au lieu de 19 sur la base du jour. La météo et le score de
+  santé de Fuego / Caméléon peuvent s'améliorer d'autant.
+- **Fini « + 15 autres »** dans Sprint review, et la liste « Aujourd'hui » (tronquée à 8 sans le dire) :
+  tous les tickets, **découpés en pages à la hauteur de l'écran** qui tournent toutes les 10 s ; pager
+  « 2 / 3 · 23 tickets » avec points cliquables. L'écran dure le temps de voir toutes les pages ;
+  écran figé = pages en boucle ; survol = page figée.
+- **Tickets cliquables → popin du ticket** (clic ou Entrée) : listes paginées, cartes de l'alerte, clés
+  des reliquats. La rotation attend la fermeture de la popin, et Échap ferme la popin sans quitter la TV.
+- **Listes sur 2 colonnes, sans débordement** : titres sur une ligne (hauteur de ticket constante),
+  deux colonnes dès ~1280 px de large (11 tickets tiennent sur une page en 1280 × 720). Les pages
+  sont **redécoupées quand la taille change** (plein écran F, fenêtre redimensionnée, palier de zoom
+  TV) : calculées une seule fois, 2 tickets sortaient de l'écran en passant de 1920 × 1080 à 1366 × 768.
+- **Encart « Hors alerte » lisible** : fond de carte et clés contrastées au lieu du gris atténué posé
+  sur le dégradé rouge (contraste 9,9:1 en sombre, 7,6:1 en clair).
+- Vérifié au banc Edge, vraies données (`/api/all` du serveur) : review 11 tickets en 1280 × 720 →
+  pages de 7 + 4 sans débordement, page 2 à 10 s ; Aujourd'hui 40 tickets → 3 pages ; popin au clic et à
+  l'Entrée ; règle 19 → 15 ; 0 erreur JS.
+
+## [3.182.0] - 2026-10-02
+
+### Mode TV — alerte « Blockers sans mouvement » : bonnes données, liste complète qui défile
+
+- **Reliquats d'anciens PI écartés** : 4 des 19 tickets bloqués venaient de sprints révolus
+  (Fuego 26.5 / 27.2, Caméléon 26.5 / 27.1), restés au backlog avec leur drapeau ; le plus vieux
+  imposait « 312 j » en tête d'écran. Ils sortent de l'alerte, du bandeau et du chiffre « Bloqués »
+  d'Aujourd'hui, et sont cités en pied de liste (« Hors alerte : … »).
+- **Durées justes** : « bloqué depuis » s'affichait d'après `updatedAt`, la dernière activité JIRA
+  (commentaire, report de sprint…), pas le début du blocage. La carte dit désormais **« sans mouvement
+  depuis »** pour `updatedAt`, et « bloqué depuis » seulement quand le changelog le date (pose du
+  drapeau, entrée dans le statut bloquant).
+- **Raison du blocage** sur chaque carte : « 🚩 Signalé · En cours de revue » (drapeau JIRA, statut
+  quelconque) ou le statut bloquant (« Retour au demandeur », « En attente »).
+- **Fini le « + 15 autres »** : tous les blockers, **groupés par équipe** (pastille + compteur, bordure
+  à la couleur de l'équipe), en grille ; la liste **défile seule** (pause 3 s en haut et en bas),
+  l'en-tête reste fixe. L'écran dure le temps de tout lire (20 s + 2,5 s par ticket au-delà de 3,
+  90 s max) ; survol = pause du défilement ; écran figé (`#tv/all/alerte`) = défilement en boucle ;
+  mouvement réduit = saut de page.
+- Vérifié au banc Edge (1920 × 1080) avec les 19 vrais tickets bloqués de la base : 15 en alerte
+  (Lion 6, Helica 1, Initiale 5, Fuego 3), 4 hors alerte, défilement 0 → 71 px à 9 s, arrêt au survol,
+  bandeau et « Bloqués 15 dont 15 > 48 h » cohérents, 0 erreur JS.
+
 ## [3.181.0] - 2026-09-30
 
 ### Frise — personnes cliquables, exports à jour

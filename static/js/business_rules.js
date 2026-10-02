@@ -15,10 +15,20 @@
  *                    signal d'agrégat calculé par l'appelant — un ticket seul n'est jamais une anomalie WIP)
  */
 
+import { extractPiNum } from './utils.js';
+
 // Détection ticket ActionRetro — exportée pour rester l'unique source de vérité (cf. note
 // ci-dessus) : utilisée ici par la règle `noPoints` ET par health.js pour regrouper ces
 // tickets à part dans le détail des sprints (ils n'ont normalement pas de Story Points).
 export const isActionRetro = t => (t.labels || []).some(l => /^ActionRetro$/i.test(l));
+
+// Ticket d'un PI révolu (sprint « 26.5 » quand on regarde le PI 31) : reliquat resté au backlog
+// avec son drapeau, pas un blocage d'aujourd'hui. `ctx.curPi` = PI regardé ; absent → pas d'exclusion.
+// Exportée : la TV cite ces reliquats à part, avec la même règle.
+export const isPastPi = (t, curPi) => {
+    const n = extractPiNum(t.sprintName || t.sprint || '');
+    return !!(curPi && n && n < curPi);
+};
 
 export const ANOMALY_RULES = [
     {
@@ -29,7 +39,7 @@ export const ANOMALY_RULES = [
         title: 'Tickets bloqués',
         intro: 'Identifie le blocker et débloquer rapidement pour limiter l\'impact sprint.',
         editableFields: ['leader', 'points'],
-        match: t => t.status === 'blocked',
+        match: (t, ctx) => t.status === 'blocked' && !isPastPi(t, ctx?.curPi),
     },
     {
         key: 'oldBlockers',
@@ -39,7 +49,7 @@ export const ANOMALY_RULES = [
         title: 'Blockers sans mouvement > 48h',
         intro: 'Ces blockers stagnent depuis plus de 48h — sollicite l\'équipe pour les résoudre.',
         editableFields: ['leader', 'points'],
-        match: t => t.status === 'blocked' && t.updatedAt &&
+        match: (t, ctx) => t.status === 'blocked' && !isPastPi(t, ctx?.curPi) && t.updatedAt &&
             (Date.now() - new Date(t.updatedAt).getTime()) > 48 * 3600 * 1000,
     },
     {

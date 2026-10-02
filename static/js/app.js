@@ -118,6 +118,12 @@ function pushHash() {
         else if (pick || layoutPart) hash += '/all';
         if (pick) hash += '/' + encodeURIComponent(pick);
         if (layoutPart) hash += '/' + layoutPart;
+    } else if (view === 'tv') {
+        // Mode TV : tv[/<équipe>[/<écran figé>]] — sans ce cas, le démarrage réécrivait l'adresse en
+        // « #tv » et perdait l'écran figé de « #tv/all/sprint » avant que la TV ne le lise.
+        const screen = store.get('tvScreen');
+        if (group || (team && team !== 'all') || screen) hash += '/' + teamPart;
+        if (screen) hash += '/' + encodeURIComponent(screen);
     } else if (view === 'support') {
         // Support : team[/timeline|table] — vue timeline dans le hash (item 4)
         if (group) hash += '/' + teamPart;
@@ -140,6 +146,10 @@ function applyHash() {
     // la carte le relit elle-même. Sa valeur n'a ni « / » ni « ~ » : un « /ticket/ID » ou un « ~cal »
     // ajouté après par une modale reste intact.
     raw = raw.replace(/(?:~|%7E)frise=[^~/]*?(?=~|%7E|\/|$)/i, '');
+    // Même principe pour ~tv=<réglages> (mode TV, tv-settings.js) : relu par la TV, ne route rien.
+    const tvSet = raw.match(/(?:~|%7E)tv=([^~/]*)/i);
+    if (tvSet) store.set('tvUrlSettings', tvSet[1]);
+    raw = raw.replace(/(?:~|%7E)tv=[^~/]*?(?=~|%7E|\/|$)/i, '');
 
     // Détecte et retire le suffixe ~cal (modal calendrier), l'ouvre après routing
     const openCal = raw.endsWith('~cal');
@@ -270,6 +280,7 @@ function applyHash() {
                         store.set('piOffset', isNaN(off) ? 0 : off);
                     }
                     else if (view === 'reports') store.set('reportsSection', decodeURIComponent(parts[2]));
+                    else if (view === 'tv') store.set('tvScreen', decodeURIComponent(parts[2]));
                     else if (view === 'sprint') {
                         // parts[2..3] = sprintPick et/ou layout (swimlanes|list).
                         // Les modes sont des mots réservés → on les distingue d'un nom de sprint.
@@ -284,6 +295,7 @@ function applyHash() {
                 }
                 // Si pas de parts[2] sur sprint → reset le sprint pick (au cas où on était sur un autre sprint)
                 if (view === 'sprint' && !parts[2]) store.set('sprintPick', null);
+                if (view === 'tv' && !parts[2]) store.set('tvScreen', null);   // #tv/<équipe> : rotation libre
                 // Si pas de parts[2] sur reports/roadmap → applique un onglet par défaut (item 2)
                 if (view === 'reports'  && !parts[2]) store.set('reportsSection', 'metriques');
                 if (view === 'roadmap'  && !parts[2]) store.set('roadmapTab', 'current');
@@ -396,12 +408,17 @@ async function renderView() {
 }
 
 function checkSyncStale() {
-    const lastSync = store.get('lastSync');
+    // Heure de la dernière synchro JIRA : `sprintInfo.updatedAt`, réécrit à chaque import (data.py),
+    // donc vrai quel que soit le poste qui a synchronisé. `lastSync` (localStorage) n'est plus écrit
+    // par la synchro : seul, il laissait ce bandeau muet (base vieille de 2 jours, aucun signal).
+    const stamps = [store.get('sprintInfo')?.updatedAt, store.get('lastSync')]
+        .filter(Boolean).map(v => new Date(v).getTime()).filter(n => !isNaN(n));
+    const lastSync = stamps.length ? Math.max(...stamps) : null;
     const topbar = document.querySelector('.topbar');
     let banner = document.getElementById('stale-banner');
     if (!lastSync || !topbar) { banner?.remove(); return; }
 
-    const age = Date.now() - new Date(lastSync).getTime();
+    const age = Date.now() - lastSync;
     const hours = Math.floor(age / 3600000);
     if (hours >= 2) {
         if (!banner) {
@@ -410,7 +427,9 @@ function checkSyncStale() {
             banner.className = 'stale-banner';
             topbar.insertAdjacentElement('afterend', banner);
         }
-        banner.innerHTML = `<span>Derniere synchro il y a ${hours}h - les donnees peuvent etre obsoletes</span>
+        const ago = hours >= 48 ? `${Math.floor(hours / 24)} jours` : `${hours} h`;
+        const when = new Date(lastSync).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        banner.innerHTML = `<span>Dernière synchro JIRA il y a ${ago} (${when}) — les données peuvent être obsolètes</span>
             <div class="stale-banner-actions"><button class="btn btn-secondary btn-sm" onclick="document.getElementById('btn-sync')?.click()">Synchroniser</button><button class="btn-icon" onclick="this.closest('.stale-banner').remove()"><svg class="icon icon-sm"><use href="#i-x"/></svg></button></div>`;
     } else {
         banner?.remove();
@@ -421,6 +440,11 @@ function checkSyncStale() {
 window.__squadBoard = window.__squadBoard || {};
 window.__squadBoard.rerenderView = renderView;
 window.__squadBoard.store = store;
+// Bandeau « données obsolètes » : réévalué à chaque rechargement des données et toutes les 15 min
+// (une page laissée ouverte vieillit sans changer de vue).
+store.on('sprintInfo', () => checkSyncStale());
+setInterval(() => checkSyncStale(), 15 * 60 * 1000);
+window.__squadBoard.reloadData = () => loadAllData();   // mode TV : recharge après une synchro faite ailleurs
 window.__squadBoard.pushHash = pushHash;
 window.__squadBoard.applyHash = applyHash;
 window.__squadBoard.handleJiraImport = (mode) => handleJiraImport(mode); // action Ctrl+K "Sync complète"

@@ -41,6 +41,19 @@ def get_sprint(session: Session = Depends(get_session)):
     return _sprint_dict(s)
 
 
+@router.get("/api/sync-stamp")
+def get_sync_stamp(session: Session = Depends(get_session)):
+    """Horodatage du dernier import JIRA — quelques octets, interrogés toutes les 5 min par le
+    mode TV : il ne recharge `/api/all` (~15 Mo) que si cette valeur a changé.
+
+    La config sprint est réécrite à chaque import (`import_all`, data.py) : son `updated_at` date
+    donc la dernière synchro. (Une édition manuelle du sprint la touche aussi : recharge sans
+    conséquence.)
+    """
+    s = session.get(SprintConfig, "sprint-1")
+    return {"updatedAt": s.updated_at if s else None}
+
+
 @router.put("/api/sprint")
 async def update_sprint(request: Request, session: Session = Depends(get_session)):
     body = await request.json()

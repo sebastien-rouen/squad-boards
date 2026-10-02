@@ -1,0 +1,62 @@
+/* Frise 2 — « Fil du temps » : récit vertical, mois par mois. */
+
+.tls { padding: var(--sp-3) var(--sp-5) var(--sp-5); display: grid; gap: var(--sp-4); max-width: 880px; }
+.tls-month { display: grid; gap: 6px; }
+.tls-mhead {
+    position: sticky; top: 0; z-index: 3; display: flex; align-items: baseline; gap: var(--sp-3); margin: 0 0 4px;
+    padding: var(--sp-2) 0; background: var(--surface); font-size: var(--fs-base); color: var(--text); text-transform: capitalize;
+    border-bottom: 1px solid var(--border);
+}
+.tls-mhead small { font-size: var(--fs-xs); color: var(--text-muted); text-transform: none; font-weight: var(--fw-normal); }
+
+/* Entrée : date · rail · carte */
+.tls-entry { display: grid; grid-template-columns: 44px 18px minmax(0, 1fr); align-items: start; }
+.tls-date { display: grid; justify-items: end; padding: 8px 6px 0 0; line-height: 1.1; }
+.tls-date b { font-size: var(--fs-lg); color: var(--text); font-variant-numeric: tabular-nums; }
+.tls-date span { font-size: 10.5px; color: var(--text-muted); }
+.tls-dot { position: relative; align-self: stretch; }
+.tls-dot::before { content: ''; position: absolute; left: 8px; top: 0; bottom: -6px; width: 2px; background: var(--border); }
+.tls-dot::after { content: ''; position: absolute; left: 3px; top: 14px; width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 3px var(--surface); }
+.tls-card {
+    display: grid; gap: 4px; text-align: left; padding: 10px 12px; border-radius: var(--r-md); cursor: pointer;
+    background: color-mix(in srgb, var(--c) 7%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 25%, var(--border));
+    border-left: 3px solid var(--c); transition: box-shadow var(--tr-fast);
+}
+.tls-card:hover { box-shadow: var(--shadow-md); }
+.tls-card:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.tls-card.is-manual { border-style: dashed; border-left-style: solid; }
+.tls-title { font-size: var(--fs-sm); color: var(--text); }
+.tls-sub { font-size: var(--fs-xs); color: var(--text-muted); }
+.tls-list { margin: 2px 0 0; padding-left: 1.1em; font-size: var(--fs-xs); color: var(--text-secondary); display: grid; gap: 2px; }
+.tls-more { list-style: none; margin-left: -1.1em; color: var(--text-muted); }
+.tls-note { margin: 2px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+
+/* Histogramme de la période creuse (une barre par semaine) */
+.tls-spark { display: flex; align-items: flex-end; gap: 3px; height: 30px; margin-top: 4px; }
+.tls-spark i { width: 14px; height: calc(var(--p) * 0.5px + 3px); border-radius: 3px 3px 0 0; background: var(--c-presence); }
+
+/* Personnes : vert = arrivée, rouge = départ, bleu = mobilité ; pointillé = date « au PI » */
+.tls-people { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.tls-people-lbl { font-size: 11px; font-weight: var(--fw-semibold); margin-right: 2px; }
+.tls-people-lbl.is-in { color: var(--c-in); } .tls-people-lbl.is-out { color: var(--c-out); } .tls-people-lbl.is-move { color: var(--c-move); }
+.tls-person {
+    display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border-radius: var(--r-full);
+    font-size: 12px; font-weight: var(--fw-medium); color: var(--text);
+    background: color-mix(in srgb, var(--m) var(--tl-tint), var(--surface)); border: 1px solid color-mix(in srgb, var(--m) 55%, transparent);
+}
+.tls-person small { font-weight: var(--fw-normal); color: var(--text-muted); }
+.tls-person.is-in { --m: var(--c-in); } .tls-person.is-out { --m: var(--c-out); } .tls-person.is-move { --m: var(--c-move); }
+.tls-person.is-approx { border-style: dashed; }
+/* Entrée et sortie à moins de 45 jours : à vérifier (données contradictoires) */
+.tls-person.is-conflict { box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-out) 45%, transparent); }
+
+/* Séparateur de PI */
+.tls-divider { display: flex; align-items: center; gap: var(--sp-3); margin: 6px 0; font-size: var(--fs-xs); color: var(--c); font-weight: var(--fw-semibold); }
+.tls-divider::before, .tls-divider::after { content: ''; flex: 1; height: 1px; background: color-mix(in srgb, var(--c) 40%, transparent); }
+
+@media (max-width: 640px) {
+    .tls { padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+    .tls-entry { grid-template-columns: 36px 16px minmax(0, 1fr); }
+    .tls-card { padding: 12px; min-height: 44px; }
+    .tls-person { height: 30px; }
+}

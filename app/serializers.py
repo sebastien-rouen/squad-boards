@@ -171,7 +171,7 @@ def _event_dict(e: Event) -> dict:
         "id": e.id, "type": e.type, "title": e.title,
         "description": e.description,
         "startDate": e.start_date, "endDate": e.end_date,
-        "teams": e.teams or [],
+        "teams": e.teams or [], "author": e.author or "",
         "createdAt": e.created_at, "updatedAt": e.updated_at,
     }
 

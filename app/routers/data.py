@@ -437,6 +437,7 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
                 start_date=d.get("startDate", ""),
                 end_date=d.get("endDate", ""),
                 teams=d.get("teams", []),
+                author=d.get("author", ""),
             )
             session.merge(e)
         counts["events"] = len(items)

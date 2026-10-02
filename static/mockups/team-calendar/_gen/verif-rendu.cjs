@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('z:/drafts/stream/tests/e2e/node_modules/playwright-core');
 const ROOT = 'Z:/drafts/squad-boards/static/mockups/team-calendar';
-const URL0 = 'http://127.0.0.1:8765/mockups/team-calendar';
+// Port du serveur local (PORT=8766 si 8765 est pris par une autre session)
+const URL0 = `http://127.0.0.1:${process.env.PORT || 8765}/mockups/team-calendar`;
 
 // Classes posées par le JS du site ou purement sémantiques : pas de style attendu
 const IGNORE = new Set(['gallery', 'tcf-compact', 'is-me', 'is-common', 'is-week', 'is-selected', 'is-dim', 'tc-dir-week', 'tc-dir-lanes', 'tc-dir-mosaic',
@@ -41,7 +42,7 @@ const IGNORE = new Set(['gallery', 'tcf-compact', 'is-me', 'is-common', 'is-week
     else console.log(`✅ ${frames.length} rendus : toutes les classes ont un style dans les feuilles du cadre`);
 
     // 2. Variables orphelines (sans valeur de repli) dans nos feuilles
-    const sheets = ['../../css/tokens.css', '../../css/base.css', '../../css/views/team.css', '_shared/tc.css', '_shared/frame.css', '_shared/gallery.css', '_shared/detection.css', 'a-semaine/style.css', 'b-couloirs/style.css', 'c-mosaique/style.css', 'd-synthese/style.css']
+    const sheets = ['../../css/tokens.css', '../../css/base-shell.css', '../../css/base-components.css', '../../css/base-overlays.css', '../../css/base-utilities.css', '../../css/base-palette.css', '../../css/base-misc.css', '../../css/views/team.css', '_shared/tc.css', '_shared/frame.css', '_shared/gallery.css', '_shared/detection.css', 'a-semaine/style.css', 'b-couloirs/style.css', 'c-mosaique/style.css', 'd-synthese/style.css']
         .map(s => fs.readFileSync(path.join(ROOT, s), 'utf8'));
     const defs = new Set(sheets.join('\n').match(/--[\w-]+(?=\s*:)/g));
     const ours = ['_shared/tc.css', '_shared/frame.css', '_shared/gallery.css', '_shared/detection.css', 'a-semaine/style.css', 'b-couloirs/style.css', 'c-mosaique/style.css', 'd-synthese/style.css'];

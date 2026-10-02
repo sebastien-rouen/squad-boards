@@ -1,3 +1,404 @@
+## [3.181.0] - 2026-09-30
+
+### Frise — personnes cliquables, exports à jour
+
+- **Personne → fiche membre** : dans la bulle des mouvements (et d'un mouvement seul, ligne « 👤 »),
+  chaque personne est un bouton qui ouvre sa fiche Atlas (`openMemberCard`, chargé à la demande) ;
+  la bulle reste ouverte derrière.
+- **Exports alignés sur la frise** ([team_timeline_export.js](static/js/components/team_timeline_export.js)) :
+  - portée affichée (en-tête Markdown / Slack et titre de l'image) : « Initiale · 🚂 tout le train pour :
+    Production, Livraisons » ;
+  - « En bref » complété : MEP suivies d'un incident (48 h), opérations (dont production), support
+    (tickets, on/offboarding, tâches de suivi), tâches qui traînent ;
+  - Production : équipe de chaque incident en portée train, « 🚀 après la MEP du 09/09 (J-1) » ;
+    Livraisons : « 🚨 incident dans les 48 h : GDEM-4703 (jour J) » ;
+  - Arrivées & départs **groupés par équipe** dès qu'il y en a plusieurs (vue Train, couloir basculé) ;
+  - **clés de ticket = liens JIRA** (`store.jiraUrl`) — Markdown `[clé](url)`, Slack `<url|clé>`.
+- Vérifié au banc Edge : fiche membre ouverte depuis une puce, exports Markdown / Slack en portée
+  équipe (4 MEP suivies d'un incident) et en portée train (liens, groupes, portée), 0 erreur JS.
+
+## [3.180.0] - 2026-09-30
+
+### Frise — bulles redessinées, mouvements groupés par équipe
+
+- **« 22 mouvements » groupés par équipe** : un bloc par équipe (pastille de sa couleur, compteurs
+  ▲ ▼ ⇄ en pastilles pleines), personnes en puces colorées (vert arrivée, rouge départ, bleu mobilité
+  « → Océane », pointillé = constaté au changement de PI). Équipes les plus concernées en tête,
+  « Hors équipes suivies » toujours en dernier.
+- **Lignes de bulle refaites** ([team_timeline_detail.js](static/js/components/team_timeline_detail.js),
+  extrait de team_timeline.js) : pastille de tête teintée à la couleur du couloir (date, heure, icône),
+  texte pleine largeur, étiquettes dessous (clé de ticket, statut, équipe, 🔁) — elles écrasaient le
+  texte en colonne ; sous-titres de section ; survol ; variantes production (rouge), faite
+  (atténuée), planifiée (contour) ; alertes en tête en encart teinté. Bulle 340 → 380 px.
+- **URL brutes raccourcies** en lien « 🔗 github.com » (tâches du ticket de suivi, incidents, notes).
+- Vérifié au banc Edge (mouvements Train, incidents, opérations, support, 1v1) : 1280 et 390 px, 0
+  débordement, 0 erreur JS.
+
+## [3.179.0] - 2026-09-30
+
+### Frise — tickets cliquables, portée choisie couloir par couloir
+
+- **Clés de ticket cliquables** dans les fiches (incidents de production, tickets Support, ticket de
+  suivi) : ouvrent la popin du ticket, la même que sur le board (`window.__squadBoard.openTicketModal`),
+  la fiche restant ouverte derrière.
+- **Portée par couloir** (vue Équipe) : un clic sur le libellé 🚨 Production, 🚀 Livraisons,
+  🏖️ Présence, 👥 Arrivées & départs, 💬 1v1 ou 🛎️ Support fait passer CE couloir sur tout le train
+  (pastille 👥 → 🚂, couloir légèrement teinté), l'équipe restant sur le reste — ex. une équipe OPS
+  qui suit la Production du train. Fuego : 1 → 22 incidents. Au clavier aussi ; mémorisé et dans
+  l'URL (`lt=production,livraison`) ; « ↺ Réinitialiser » remet tout sur l'équipe. Chiffres clés,
+  récit et export suivent (`collectView`, [team_timeline_model.js](static/js/components/team_timeline_model.js)).
+- **⚙️ Opérations** : pastille 🚂 fixe — l'agenda « ERPC - Opérations » est commun, déjà identique
+  pour chaque équipe et pour le train (aucune bascule nécessaire, expliqué au survol).
+- Lien MEP → incident (48 h) désactivé quand Production ou Livraisons est vue à l'échelle du train
+  (équipes différentes). Incidents en portée train : l'équipe est affichée dans la fiche.
+
+## [3.178.1] - 2026-09-30
+
+### Frise — couloir ⚙️ Opérations réparti semaine par semaine
+
+- **Corrigé** : les opérations de 5 semaines consécutives (10/09 → 14/10) étaient fusionnées en UN
+  seul repère « ⚙ 24 » : le regroupement « en chaîne » (3.172.0) avalait toute suite de semaines
+  voisines. Désormais **un repère par semaine, jamais fusionné** ; le nombre est écrit DANS le
+  repère (plus de compteur qui déborde) ; deux semaines trop proches à l'échelle passent sur une
+  **2ᵉ rangée** au lieu de fusionner ; une seule rangée utile = repères centrés. Rouge = au moins une
+  opération en production. Mesuré : 7 repères pour 25 opérations (PI, Tout), 0 chevauchement à 390,
+  1280 et 1600 px.
+
+## [3.178.0] - 2026-09-30
+
+### Faits marquants — MEP suivie d'un incident, modification des faits, clavier ; Rapports — le train semaine par semaine ; découpe de fichiers trop longs
+
+- **MEP suivie d'un incident de production dans les 48 h** (vue Équipe) : point rouge sous le ◆ de la
+  MEP, alerte en tête de sa fiche (« 🚨 1 incident de production dans les 48 h — 10/09 (jour J) … »),
+  et rappel dans la fiche de l'incident (« 🚀 Après une MEP : MEP du 09/09 (J-1), 10/09 (jour J) »).
+  Un incident suivant plusieurs MEP d'un même groupe est rattaché à la plus proche. Initiale : 3 MEP
+  concernées sur la période.
+- **Modifier un fait marquant** : « ✏️ Modifier » dans sa fiche (Supprimer passe en discret) ouvre le
+  formulaire prérempli (type, titre, dates, portée, détail, auteur) → `PUT /api/events/{id}`.
+- **Clavier dans la frise** : un seul arrêt Tab par couloir (« roving tabindex », ARIA APG), ← → entre
+  les repères dans l'ordre du temps, Début / Fin, Entrée = fiche (Livraisons : 1 arrêt au lieu de 22).
+- **Rapports → 🚂 Le train, semaine par semaine** ([train_matrix.js](static/js/components/train_matrix.js),
+  [train-matrix.css](static/css/views/train-matrix.css)) : matrice équipes × semaines (PI courant, PI
+  précédent, 6 mois) — fond = présence, chiffre = charge Support, ● incident prod, ◆ MEP, ▲▼ arrivée /
+  départ, contour rouge = tâche qui traîne ; semaine en cours marquée ; clic équipe = sa frise, clic
+  cellule = sa frise zoomée sur la semaine (lien `~frise=`).
+- **Découpe du modèle de la frise** : `team_timeline_model.js` 565 → 435 lignes + `team_timeline_base.js`
+  (dates, formats, noms) + `team_timeline_support.js` (charge Support) ; API ré-exportée, aucun autre
+  module modifié. Preuve : snapshot de toutes les sorties (5 portées × 3 périodes) identique à l'octet.
+- **`base.css` (3 618 lignes) découpé en 6 feuilles consécutives** (`base-shell`, `-components`,
+  `-overlays`, `-utilities`, `-palette`, `-misc`, toutes < 710 lignes) liées dans `index.html` à sa
+  place ; `base.css` devient un agrégateur `@import` pour les maquettes et pages de test. Preuves :
+  concaténation identique à l'octet ; styles calculés identiques (464 à 592 éléments × 620
+  propriétés, clair / sombre / 390 px) ; galeries team-timeline et team-calendar vertes.
+- **`sync.js` 1 711 → 1 116 lignes** : `sync-parse.js` (conversion d'un ticket, ADF → HTML, sprint /
+  PI / équipe, pagination) et `sync-report.js` (échecs partiels, équipes retirées, progression),
+  déplacés tels quels ; API publique ré-exportée (app.js, topbar, Paramètres, tests inchangés).
+  Preuve : anciennes vs nouvelles fonctions sur 4 tickets JIRA d'exemple (ADF, wiki, sprint Cloud /
+  Server, changelog, liens) → sorties identiques. ⚠️ Reste > 800 : `_doImport` fait à lui seul 972
+  lignes — le découper exige une synchro JIRA réelle pour valider (risque de perte de données).
+- Vérificateurs de maquettes : port configurable (`PORT=8766 node _gen/verif-rendu.cjs`).
+
+## [3.177.1] - 2026-09-30
+
+### Faits marquants — un clic sur un chiffre clé isole son couloir
+
+- Les tuiles (sauf « Rien à signaler ») sont des boutons : un clic n'affiche plus que leur couloir
+  (Arrivée / Départ / Mobilité → Arrivées & départs, MEP → Livraisons, Support et Tâche qui traîne →
+  Support, 1v1, Pic de congés → Présence, Incidents → Production) ; re-clic = retour EXACT aux
+  catégories d'avant ; tuile active cerclée de sa couleur. Au clavier aussi ; l'URL et les filtres
+  mémorisés suivent. L'export PNG garde des tuiles statiques.
+
+## [3.177.0] - 2026-09-30
+
+### Faits marquants — chiffres clés et période redessinés
+
+- **Chiffres clés en tuiles** ([team_timeline_export.js](static/js/components/team_timeline_export.js) `kpisHtml`,
+  [team-timeline.css](static/css/views/team-timeline.css)) : grille régulière (une seule rangée en
+  grand écran, 2 colonnes sur mobile) ; chaque tuile = pastille d'icône teintée à la couleur de sa
+  catégorie + libellé court sur la même ligne, grand chiffre, détail en dessous (« 10 tickets (8
+  on/off) · 15 tâches »). Fond en léger dégradé de la couleur, sobre en thème sombre.
+- **Indicateurs à zéro regroupés** en une tuile discrète en pointillés « ✓ Rien à signaler : arrivées
+  · départs · incidents prod » — ils ne prennent plus la place des vraies informations. Libellés
+  courts (« Tâche qui traîne · 3 semaines ou plus » au lieu d'une phrase), « 23 % » ne se coupe plus.
+- **Période** : présélections en **sélecteur segmenté** (même famille que Couloirs / Récit, choix
+  actif en relief) et **un seul champ de plage** « 07/09/2026 → 30/11/2026 · 12 sem. » (liseré accent
+  quand la plage est libre, halo au focus) ; libellés Du / Au passés en `aria-label`.
+- Même rendu dans l'export PNG (vérifié : dégradés et pastilles convertis correctement).
+- Vérifié au banc Edge : 1280 clair / sombre et 390 px, avant / après, 0 défilement, 0 erreur JS.
+
+## [3.176.0] - 2026-09-30
+
+### Faits marquants — filtres par équipe, lien et réinitialisation
+
+- **Filtres mémorisés PAR ÉQUIPE** ([team_timeline_prefs.js](static/js/components/team_timeline_prefs.js),
+  localStorage `sb-team-tl-prefs-by-team`) : Fuego peut rester en récit sur le PI courant sans les
+  Opérations, Gabbiano en couloirs sur l'été. Une équipe jamais réglée reprend l'ancienne préférence
+  commune (3.175.0), sinon les défauts.
+- **🔗 Copier le lien** : icône seule, sans cadre, dans l'en-tête ; copie l'URL avec ses filtres
+  (`~frise=`), « ✓ » 1,5 s en retour.
+- **↺ Réinitialiser les filtres** : simple lien discret à droite de la période, affiché **seulement
+  quand un filtre s'écarte des défauts** (6 mois, portée équipe, toutes catégories et sources) ; garde
+  la vue couloirs / récit.
+- **Hiérarchie des actions** : ＋ Fait marquant (plein) > ⤓ Exporter (contour) > 🔗 (icône nue) >
+  ↺ (lien). Sur mobile, les trois actions passent en icônes (libellés dans `aria-label`) et tiennent
+  sur la ligne de la portée — plus de bouton isolé sur sa ligne ; « 👥 Fuego » ne se coupe plus.
+- Vérifié au banc Edge : filtres indépendants Fuego / Gabbiano, retour sur Fuego restauré, lien copié
+  avec filtres, réinitialisation, en-tête à 1280 et 390 px (0 défilement), 0 erreur JS.
+
+## [3.175.0] - 2026-09-30
+
+### Faits marquants — tâches qui traînent, filtres mémorisés et dans l'URL
+
+- **Chiffre clé « 🔁 N tâches de support traînent depuis 3 semaines ou plus »** (séries distinctes sur
+  la période ; Fuego, PI 31 : « Reboot des vm », 4 semaines) et **point rouge** devant le compte des
+  barres Support concernées, compte en rouge. Seuil commun `STALE_WEEKS` = 3 (le rouge de la fiche).
+- **Filtres mémorisés dans le navigateur** ([team_timeline_prefs.js](static/js/components/team_timeline_prefs.js)) :
+  vue, portée, période (présélection ou dates), catégories et sources d'agenda — retrouvés au retour
+  sur la page Équipe, quelle que soit l'équipe. Remplace l'ancienne clé `sb-team-tl-view` (reprise).
+- **Filtres dans l'URL** : `#team/Fuego~frise=v=story&p=pi&xc=presence&xsrc=ops` — seules les valeurs
+  ≠ défaut ; listes écrites sous la forme la plus courte (affichées `c` / masquées `xc`). Un lien
+  partagé rouvre la frise à l'identique (prioritaire sur les préférences, même sur la page déjà
+  ouverte). Mise à jour sans rechargement (`replaceState`), jamais sous une modale de ticket.
+- Routeur ([app.js](static/js/app.js)) : `~frise=` (ou `%7Efrise=`) retiré avant le routage ; sa
+  valeur n'a ni « / » ni « ~ », donc `/ticket/ID`, `~cal`, `~bloc=` ajoutés après restent intacts
+  (7 combinaisons testées).
+- Vérifié au banc Edge : changement de filtres → URL + navigateur, retour sans lien → restauré, lien
+  dans un navigateur vierge → appliqué, modale de ticket → hash préservé ; non-régression mobile,
+  couloirs, sources, export Slack ; 0 erreur JS.
+
+## [3.174.0] - 2026-09-30
+
+### Faits marquants — tâches de support reportées plusieurs semaines de suite
+
+- **Fiche d'une semaine de Support** : chaque tâche du ticket de suivi présente la semaine précédente
+  porte « **🔁 3 semaines · depuis le 07/09** » (orange à 2 semaines, rouge à partir de 3), les plus
+  anciennes en tête ; l'en-tête des tâches annonce « 🔁 N reportées ».
+- **Même tâche malgré un texte retouché** ([team_timeline_model.js](static/js/components/team_timeline_model.js),
+  `sameTask`) : « Reboot des vm pour le reste (tooling, data, etc) » puis « … (Attendre la prod après
+  les livraisons…) » restent la même tâche — mêmes 4 premiers mots significatifs, ou ≥ 60 % de mots
+  en commun. Série = semaines consécutives dans le même ticket de suivi.
+- Aussi dans le survol de la barre (« dont N reportée(s) »), le récit (reportées en tête) et l'export
+  Markdown / Slack (« 🔁 3 semaines (depuis le 07/09) »).
+- Vérifié ensuite au banc Edge sur le VRAI GCOM-4785 resynchronisé (4 sous-titres, 15 tâches) :
+  « Reboot des vm… » reconnu malgré son texte retouché → 🔁 4 semaines · depuis le 07/09.
+
+## [3.173.2] - 2026-09-30
+
+### Synchro JIRA — les sous-titres du ticket de suivi Support ne disparaissent plus
+
+- **Cause** ([utils/wiki.js](static/js/utils/wiki.js)) : les tickets du sprint actif arrivent par l'API
+  Agile, en **wiki markup**. Un sous-titre en gras s'y écrit `*🟦 Itération 31.2.2*` : la ligne
+  commençant par `*`, elle était prise pour une puce, puis **jetée** (pas d'espace après l'étoile).
+  Seul « 31.1.1 » survivait, précédé d'une espace dans GCOM-4785. Désormais une puce = marqueur
+  **suivi d'une espace** ; une ligne en gras redevient un paragraphe. Profite aussi aux commentaires
+  et à toutes les descriptions wiki.
+- `{expand:titre}…{expand}` (bloc repliable en wiki markup) : titre conservé.
+- **Relecture ADF ciblée** ([sync.js](static/js/sync.js)) : les tickets de suivi Support
+  (« Paillettes support… », 1 par PI) sont relus en API v3 (ADF, titres des blocs repliables inclus)
+  avant l'enregistrement ; repli silencieux sur le wiki markup en cas d'échec.
+- Frise : une sous-puce wiki (`** détail`, liste imbriquée directement dans la liste) n'est plus
+  comptée comme une tâche.
+- Vérifié au banc Edge : wiki markup avec sous-titres en gras, `{expand}` (avec et sans `title=`),
+  sous-puces → 31.1.1 / 31.1.2 / 31.2.1 / 31.2.2 rangés au 07/09, 14/09, 21/09, 28/09 ; cas ADF
+  inchangé. Non testé contre JIRA lui-même (inaccessible depuis le poste) : **relancer une « Sync
+  complète »**.
+
+## [3.173.1] - 2026-09-30
+
+### Faits marquants — ticket de suivi Support : puces par sous-titre, bonne semaine
+
+- **« 31.1.2 » = PI 31 · itération 1 · semaine 2** (itérations Scrum de 2 semaines), affiché tel quel
+  dans la fiche. Début de l'itération = sprint JIRA de l'équipe, sinon début du PI + 2 semaines par
+  itération.
+- **Calage sur le lundi le plus proche** : les itérations du PI 30 de Fuego démarrent le **vendredi**
+  (12/06) — le lundi de la semaine de début (08/06) décalait toutes les tâches d'une semaine.
+  Désormais 30.1.1 → 15/06, 30.6.2 → 31/08, 31.3.2 → 12/10.
+- **Tâches = puces de premier niveau sous le sous-titre** : une sous-puce détaille sa tâche (elle
+  n'est plus comptée à part ni collée à son texte) ; un mot en gras DANS une puce (« préparer
+  l'itération 31.2 ») n'est plus pris pour un sous-titre ; un sous-titre en texte simple est reconnu.
+- Rappel : GCOM-4785 n'est pas encore resynchronisé (1 seul sous-titre en base) — relancer une
+  « Sync complète » pour que 31.1.2, 31.2.1… apparaissent.
+
+## [3.173.0] - 2026-09-30
+
+### Faits marquants — charge Support, conflits avec les opérations en production
+
+- **Couloir 🛎️ Support** : histogramme par semaine de la charge support de l'équipe — plein = demandes
+  (tickets JIRA de type Support), clair = check-lists on/offboarding (de la vraie charge pour l'équipe
+  qui les traite : 8 des 10 tickets Support de Fuego au PI 31), hachuré = **tâches du ticket de suivi
+  du PI** (« Paillettes support - PI31 », GCOM-4785), rangées par semaine d'après les titres
+  « 🟦 Itération 31.1.2 » (itération 31.1, semaine 2, calée sur le début réel du sprint JIRA) et
+  dédoublonnées (JIRA recopie les tâches reportées). Fiche de la semaine, chiffre clé, récit, export.
+- **Synchro JIRA** ([sync.js](static/js/sync.js)) : les blocs repliables (`expand` / `nestedExpand`)
+  gardent leur **titre** (c'est un attribut ADF, perdu jusqu'ici) — d'où les titres de semaines
+  manquants dans GCOM-4785. ⚠️ **Relancer une « Sync complète »** pour les récupérer : d'ici là, toutes
+  les tâches du ticket de suivi tombent dans sa première semaine (31.1.1).
+- **Opération en production le même jour qu'une MEP ou un incident** : repère cerclé ⚠ et ligne
+  d'alerte en tête de fiche (ex. 05/10 : MEP + « [Gen2] Intervention »).
+- Opérations : « production » = « [PROD_…] » ou « ⚠️ » **sans** étiquette hors prod — « ⚠️[ERPC_RECETTE]
+  Exercice de PRA » n'est plus compté en production (⚠️ = important dans cet agenda, pas prod).
+- Vérifié au banc Edge (Fuego, clair et sombre) : description actuelle ET format après resynchro
+  (semaines 31.1.1 / 31.1.2 / 31.2.1 bien réparties), fiches, conflits, 0 erreur JS.
+
+## [3.172.0] - 2026-09-30
+
+### Faits marquants — agenda « ERPC - Opérations », sources d'agenda, export Slack
+
+- **Couloir ⚙️ Opérations** : l'agenda « ERPC - Opérations » (migrations PostgreSQL 16→17, interventions
+  Gen2, audits SSI, exercice de PRA, TNR Keycloak) — 25 opérations sur le PI 31. Repère **rouge** si
+  au moins une touche la production (« ⚠️ » ou « [PROD_…] » dans le titre). Un repère par semaine,
+  fusionnées en chaîne quand elles se touchent à l'échelle affichée (0 chevauchement mesuré à 390,
+  1280 et 1600 px). Fiche : heure, titre, étiquette « ⚠️ production ». Aussi dans le récit, l'export
+  PNG et le Markdown.
+- **Filtre « 📅 Sources d'agenda »** sous les catégories : une puce par portée, nommée d'après ses
+  agendas réels (👥 Gabbiano · 🧩 GDEM · 🚂 GLOBAL · ⚙️ Opérations ; survol = liste complète). Il
+  s'applique à tout ce qui vient des agendas : MEP (équipe + groupe), jalons (train), 1v1 (équipe),
+  opérations. Toutes actives par défaut ; l'export respecte le filtre.
+- **💬 Copier pour Slack** (4ᵉ format d'export) : le même contenu que le Markdown, converti en mrkdwn
+  Slack (titres en gras, mois en italique, tableaux en puces « a : b », `•` / `◦`) — même style que
+  « Copier pour Slack » de la fiche d'identité.
+- Vérifié au banc Edge (Gabbiano 1280, Fuego 390) : sources et couloirs cohérents (Fuego sans
+  « Équipe » → 0 MEP, 0 1v1), fiche, récit, Slack sans `#`, `|` ni `**`, PNG relu, 0 erreur JS,
+  0 défilement horizontal.
+
+## [3.171.0] - 2026-09-30
+
+### Faits marquants — export PNG / Markdown, jours fériés, années
+
+- **⤓ Exporter** ([team_timeline_export.js](static/js/components/team_timeline_export.js)) : modale
+  existante `exportChoiceModal` (catégories à inclure, avec leurs comptes) + format **🖼️ Image PNG**
+  (la vue courante, couloirs ou récit, en mise en page d'export 1200 px ×2, titre, chiffres clés,
+  légende, pied daté) · **📝 Markdown (.md)** · **📋 Markdown copié**. Le Markdown est **groupé par
+  catégorie puis par mois** : en bref (tableau), rythme, présence (périodes + tableau hebdomadaire
+  🟩🟧🟥, absents, fériés), production, livraisons, arrivées & départs (tableau), 1v1 (planifiés
+  signalés), faits saisis (auteur, note).
+- **PNG via html2canvas** (CDN, à la demande, comme Atlas), avec deux corrections mesurées :
+  couleurs `color(srgb …)` (forme calculée de `color-mix()`) converties en rgba dans le clone ; et
+  **texte dessiné 5 à 8 px trop bas** : html2canvas mesure ses polices avec une `<img>` en ligne
+  dans le document D'ORIGINE, faussée par `img, svg { display: block }` de base.css → règle
+  corrective limitée à cette image-témoin, le temps de l'export. Filet de barre en bordure (une
+  ombre intérieure remplissait la part verte).
+- **Jours fériés ≠ congés** : [utils/holidays.js](static/js/utils/holidays.js), extrait de
+  [cal_banner.js](static/js/components/cal_banner.js) (source unique). L'import RH enregistre les
+  fériés comme des absences : ils sortent des jours ouvrés du calcul. Train, semaine du 4 mai :
+  29/72 en congé au lieu de 70/72 ; Gabbiano : 42 % au lieu de 50 %. Repère 🎌 sur la bande de
+  présence, « 🎌 n » sous les barres du récit, légende « jour férié (non compté) ».
+- **Années** : sur l'axe (1er mois et chaque janvier : « mai 2026 … janvier 2027 »), la mini-carte, le
+  sous-titre (« du 3 avr. 2026 au 29 janv. 2027 »), les survols et tout l'export.
+- Axe sur deux étages : « aujourd'hui » recouvrait « Octobre ». Numéro de sprint masqué quand sa
+  part visible est trop étroite (« 28.5 » recouvrait « 29.1 »). Barres du récit alignées en haut.
+- Vérifié au banc Edge : exports PNG (couloirs sombre, récit clair) comparés à la carte en ligne,
+  Markdown relu, bandeau calendrier rechargé (fériés OK), 0 erreur JS, 0 défilement horizontal
+  (1280 et 390 px).
+
+## [3.170.2] - 2026-09-30
+
+### Faits marquants — semaine et effectif sous les barres de congés
+
+- Sous chaque barre du récit : **le premier jour et la date de la semaine** (« lun. 03/08 »), pour
+  distinguer les barres d'une même période, puis **absents / effectif** (« 3/5 ») = personnes en
+  congé au moins un jour de la semaine sur le roster du PI. Vue Train : totaux de toutes les équipes.
+  Détail complet au survol.
+- Modèle ([team_timeline_model.js](static/js/components/team_timeline_model.js)) : chaque semaine de
+  présence porte `away` et `size`.
+- Vérifié au banc Edge (Gabbiano 1280 / 390, Initiale en sombre, vue Train) : aucun libellé plus
+  large que sa barre, 0 erreur JS, 0 défilement horizontal.
+
+## [3.170.1] - 2026-09-30
+
+### Faits marquants — congés du récit en barres scindées
+
+- Dans le récit, chaque semaine d'une période de congés est **une barre scindée en deux** : rouge =
+  en congés (haut), vert = disponibles (bas), proportionnelles, avec le **% de congés en petit
+  label rouge** au-dessus ([team_timeline_story.js](static/js/components/team_timeline_story.js),
+  [team-timeline.css](static/css/views/team-timeline.css)). Remplace les barres de hauteur variable.
+- Vérifié au banc Edge (Gabbiano 1280 et 390, Initiale en sombre) : 50 % → 20 px / 20 px sur 40,
+  aucun label coupé, 0 erreur JS, 0 défilement horizontal.
+
+## [3.170.0] - 2026-09-30
+
+### Faits marquants — auteur des faits et bascule « 📖 Récit »
+
+- **Auteur d'un fait marquant** : colonne `event.author` (migration idempotente
+  [migrations.py](app/migrations.py), appliquée à la base live au rechargement), renvoyée par
+  `/api/events` et `/api/all`, conservée à l'export / import. Pas de compte utilisateur : champ
+  « Ajouté par » pré-rempli avec le nom du planning poker de ce navigateur, modifiable et mémorisé.
+  Fiche : « ✍️ Ajouté par … le … » ; « Auteur inconnu » pour les faits plus anciens.
+- **Bascule 📊 Couloirs / 📖 Récit** ([team_timeline_story.js](static/js/components/team_timeline_story.js)) :
+  la frise 2 de la maquette, récit vertical mois par mois (bilan du mois, séparateurs de PI, cartes
+  cliquables au clavier). En plus de la maquette : 💬 1v1 regroupés par semaine (planifiés en
+  pointillé), histogramme des congés en vert / orange / rouge, auteur des faits. **Récit par défaut
+  sur mobile**, choix mémorisé dans le navigateur.
+- Vérifié au banc Edge (Gabbiano 1280, Fuego 390) : bascule, mémorisation, fiche au clavier,
+  `POST /api/events` avec `author`, 0 erreur JS, 0 défilement horizontal. Journal serveur : 4
+  rechargements propres après les modifications Python.
+
+## [3.169.1] - 2026-09-30
+
+### Faits marquants — les « O3 » comptés comme des 1v1
+
+- **« O3 » reconnu n'importe où dans le titre** (« O3 - Elsa/Tanisha », « [O3] … »), dans la frise
+  ET dans le détecteur d'agenda ([cal-classify.js](static/js/utils/cal-classify.js), nature « Synchro & 1:1 »).
+- **1v1 planifiés** : la fenêtre de la frise s'étend jusqu'au dernier évènement d'agenda déjà planifié
+  (6 mois max) — 12 des 13 O3 de Gabbiano sont à venir (15/10 → 27/01) et restaient hors frise.
+  Pastille **creuse** = planifié, pleine = passé ; étiquette « planifié » dans la fiche ; chiffre clé
+  « 13 1v1 · 3 collaborateurs · dont 12 planifiés ».
+- **Collaborateurs bien comptés** : le manager est en 1er chez Fuego (« Mohamed/Omar ») mais en 2nd
+  chez Gabbiano (« David/Tanisha ») — il est désormais reconnu (≥ 2 partenaires sur tout l'historique)
+  au lieu de prendre le 2ᵉ nom : Gabbiano passait pour « 1 personne » (Tanisha).
+- « Tout » commence au premier PI doté d'un roster (d'anciens sprints JIRA le faisaient partir de
+  2024 : 125 semaines vides) — désormais 3 avr. → 29 janv.
+- Maquette alignée (même règle O3, même comptage). Vérifié au banc Edge : Fuego, Gabbiano (1280 et
+  390 px), 0 erreur JS, 0 défilement horizontal ; galerie verte.
+
+## [3.169.0] - 2026-09-30
+
+### Page Équipe — frise des « Faits marquants » (frise 1 de la maquette, retenue)
+
+- **Nouvelle carte sous l'Agenda** ([team_timeline.js](static/js/components/team_timeline.js),
+  [team_timeline_lanes.js](static/js/components/team_timeline_lanes.js),
+  [team_timeline_model.js](static/js/components/team_timeline_model.js),
+  [team-timeline.css](static/css/views/team-timeline.css)) : frise **de la date A à la date B**
+  (PI courant, PI précédent, Été, 6 mois, Tout, deux dates, mini-carte à faire glisser ou au
+  clavier), portée Équipe / Train, chiffres clés, filtres, fiche au clic.
+- **Couloirs, sans aucune saisie** : 🧭 rythme (PI, sprints JIRA, jalons du train) · 🏖️ présence
+  **vert = 100 % présents, orange = 75 à 99 %, rouge = moins de 75 %**, congés d'été détectés ·
+  🚨 incidents de production · 🚀 MEP · 👥 arrivées ▲ vert, départs ▼ rouge, mobilités ⇄ bleu ·
+  **💬 1v1** (agendas de l'équipe, binômes dans la fiche) · 📌 faits saisis.
+- **« ＋ Fait marquant »** enregistré dans la table `event` existante (types incident / gel / jalon /
+  période / autre, pour l'équipe ou tout le train) ; suppression depuis la fiche, avec confirmation.
+- **Incident de production** = bug/support avec « prod » / « production » / « incident » en mot
+  entier, ou label JIRA `incident-prod`. Le label `désynchro` est **exclu** : chez Initiale, ce sont
+  47 campagnes de comparaison GDD/SPD (64 « incidents » au lieu de 17 sinon).
+- Maquette ([static/mockups/team-timeline/](static/mockups/team-timeline/)) mise en miroir : couleurs
+  de présence, couloir 1v1, même règle d'incident (extrait régénéré : 22 incidents, 75 1v1).
+- Vérifié dans Edge (banc local, vrais modules et vraies feuilles, extrait lecture seule de la base) :
+  Fuego, Initiale (thème sombre), Gabbiano à 390 px — 0 classe sans style, 0 défilement horizontal,
+  0 erreur JS ; présélections, fiche, Échap, vue Train, poignée au clavier, ajout (`POST
+  /api/events`) et suppression (`DELETE`) corrects. Galerie : 28 rendus verts.
+
+## [3.168.0] - 2026-09-29
+
+### Maquette — frise des faits marquants (2 propositions, rien d'implémenté — à valider)
+
+- **[static/mockups/team-timeline/](static/mockups/team-timeline/)** : frise chronologique d'une équipe
+  (ou du train) **de la date A à la date B** — présélections (PI courant, PI précédent, Été, 6 mois,
+  Tout) + deux dates. Deux propositions × 4 écrans, desktop et mobile : **1 · Couloirs du temps**
+  (axe horizontal, une ligne par thème, mini-carte de l'année à faire glisser) et **2 · Fil du
+  temps** (récit vertical mois par mois). Données réelles, 13 équipes, avril → novembre 2026.
+- **Aucune saisie par défaut** : incidents de production (tickets support/bug « PROD », « incident »,
+  label `désynchro` — 23, dont 16 chez Initiale), **été détecté** dans les congés (semaines
+  consécutives ≥ 25 % d'absence), turnover = rosters par PI + check-lists d'onboarding / offboarding
+  (**arrivées en vert, départs en rouge, mobilités en bleu** ; date exacte ou « au PI »), MEP et jalons
+  des agendas ICS. « ＋ Fait marquant » pour le reste (table `event` existante, types déjà adaptés).
+- Constats : mobilités internes distinguées des arrivées (REJA Initiale → Gabbiano, BASSO Lion →
+  Fuego), noms normalisés (HÉDÉ-HAÜY = HEDE-HAUY), données contradictoires signalées « ⚠️ à
+  vérifier », couverture ICS limitée à fin août affichée, marqueurs regroupés selon l'échelle.
+- Avis dans le [README](static/mockups/team-timeline/README.md) : frise 1 par défaut sur la page
+  Équipe, frise 2 en bascule « Lire comme un récit » (et sur mobile) ; 4 points à trancher.
+- Vérifié (Edge, HTTP) : 28 rendus sans classe orpheline, 0 lien cassé, 0 erreur JS ; parcours fiche,
+  mini-carte et ajout d'un fait verts.
+
 ## [3.167.1] - 2026-09-29
 
 ### Agenda de l'équipe — plus de place, et le détecteur dans Paramètres

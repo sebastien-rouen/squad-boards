@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frise des faits marquants — galerie</title>
+<link rel="stylesheet" href="../../css/tokens.css">
+<link rel="stylesheet" href="../team-calendar/_shared/gallery.css">
+</head>
+<body class="gallery">
+<!-- GÉNÉRÉ par _gen/gen-gallery.cjs — ne pas éditer à la main -->
+<header class="gal-head">
+    <a href="../">← Maquettes Squad Board</a>
+    <h1>🕰️ Frise des faits marquants — deux propositions</h1>
+    <p>Sur la page <b>#team/{équipe}</b> (ou pour tout le train) : incidents de production, congés d'été, arrivées (vert), départs (rouge),
+       mobilités (bleu), MEP, jalons du train et faits saisis à la main, <b>de la date A à la date B</b>. Données réelles des 13 équipes, avril → novembre 2026.</p>
+</header>
+<nav class="gal-nav" aria-label="Sections"><a href="#frises" aria-current="page">Frises</a><a href="#sources">Sources</a><a href="#choisir">Choisir</a><span class="gal-spacer"></span><a href="README.md">README</a></nav>
+<main class="gal-main">
+    <div class="ix-callout">💡 <b>Rien n'est saisi à la main par défaut.</b> Incidents = tickets support/bug « PROD », « incident » ou label <code>désynchro</code> ;
+    été = semaines à ≥ 25 % d'absence (congés RH) ; turnover = rosters par PI + check-lists d'onboarding / offboarding (date exacte) ; MEP et jalons = agendas ICS.
+    La saisie (« ＋ Fait marquant ») ne sert qu'à ce que ces sources ne voient pas.</div>
+    <div class="gal-group" id="frises">Frises</div>
+    <div class="ix-grid">
+    <article class="ix-card">
+        <div class="ix-preview"><div class="bureau-fenetre"><iframe class="bureau" data-src="frame.html?dir=lanes&team=Initiale&preset=6m&reset=1" title="Aperçu Couloirs du temps" loading="lazy"></iframe></div></div>
+        <div class="ix-body">
+            <h3>Frise 1 · Couloirs du temps</h3>
+            <p><b>Un axe, une ligne par thème.</b> Frise horizontale A → B : rythme (PI, sprints, jalons), présence (bande de chaleur, congés d'été annotés), production (incidents groupés), livraisons (MEP), équipe (▲ arrivées en vert, ▼ départs en rouge, ⇄ mobilités en bleu), faits saisis. Mini-carte de l'année dessous : on fait glisser la fenêtre.</p>
+            <dl class="ix-traits"><dt>Point fort</dt><dd>Les corrélations sautent aux yeux (incidents pendant l’été, vague d’arrivées au changement de PI)</dd><dt>Limite</dt><dd>Dense ; les textes longs vivent dans la fiche</dd><dt>Moment idéal</dt><dd>Rétro de PI, analyse, comparer des périodes</dd></dl>
+        </div>
+        <div class="ix-links"><a href="a-couloirs/01-principal.html">1·01 Écran principal</a><a href="a-couloirs/02-periode.html">1·02 Choisir la période A → B</a><a href="a-couloirs/03-fiche.html">1·03 Fiche d’un fait et ajout manuel</a><a href="a-couloirs/04-etats.html">1·04 États : chargement, vide, catégories</a></div>
+    </article>
+    <article class="ix-card">
+        <div class="ix-preview"><div class="bureau-fenetre"><iframe class="bureau" data-src="frame.html?dir=story&team=Initiale&preset=6m&reset=1" title="Aperçu Fil du temps" loading="lazy"></iframe></div></div>
+        <div class="ix-body">
+            <h3>Frise 2 · Fil du temps</h3>
+            <p><b>Le journal de l’équipe.</b> Récit vertical mois par mois : une carte par fait, regroupés par semaine, période creuse avec son histogramme, personnes en pastilles vertes / rouges / bleues, mini-bilan par mois. Se lit comme un journal ; naturel sur mobile.</p>
+            <dl class="ix-traits"><dt>Point fort</dt><dd>Se lit sans légende ; parfait pour raconter (onboarding, rapport)</dd><dt>Limite</dt><dd>Les corrélations dans le temps se voient moins</dd><dt>Moment idéal</dt><dd>Onboarding d’un arrivant, rapport, bilan d’été</dd></dl>
+        </div>
+        <div class="ix-links"><a href="b-recit/01-principal.html">2·01 Écran principal</a><a href="b-recit/02-periode.html">2·02 Choisir la période A → B</a><a href="b-recit/03-fiche.html">2·03 Fiche d’un fait et ajout manuel</a><a href="b-recit/04-etats.html">2·04 États : chargement, vide, catégories</a></div>
+    </article>
+    </div>
+    <div class="gal-group" id="sources">Sources (toutes existantes)</div>
+    <table class="ix-table"><thead><tr><th>Catégorie</th><th>Source</th><th>Couverture</th></tr></thead><tbody>
+        <tr><td>🚨 Production</td><td>tickets support/bug « PROD », « incident », label désynchro</td><td>23 incidents (Initiale 16)</td></tr>
+        <tr><td>🏖️ Présence</td><td>table <code>absence</code> (import Congés) × roster du PI</td><td>avril → novembre</td></tr>
+        <tr><td>👥 Arrivées & départs</td><td><code>piMembers</code> (PI 29, 30, 31) + tickets « Check-list onboarding / offboarding »</td><td>39 check-lists, 24 rattachées à une équipe</td></tr>
+        <tr><td>🚀 Livraisons · 🧭 Rythme</td><td>agendas ICS (MEP, I&A, PI Planning, démos) + sprints JIRA</td><td>ICS : fin août → novembre</td></tr>
+        <tr><td>📌 Faits marquants</td><td>table <code>event</code> (vide aujourd'hui) — saisie « ＋ Fait marquant »</td><td>à la main</td></tr>
+    </tbody></table>
+    <div class="gal-group" id="choisir">Choisir</div>
+    <table class="ix-table"><thead><tr><th>Besoin</th><th>Frise 1 · Couloirs</th><th>Frise 2 · Fil du temps</th></tr></thead><tbody>
+        <tr><td>Voir des corrélations (incidents ↔ été ↔ départs)</td><td>🟢</td><td>🟡</td></tr>
+        <tr><td>Raconter une période (onboarding, rapport)</td><td>🟡</td><td>🟢</td></tr>
+        <tr><td>Choisir A → B</td><td>🟢 présélections, dates, mini-carte</td><td>🟢 présélections, dates</td></tr>
+        <tr><td>Tout le train (56 mouvements)</td><td>🟢 comptes regroupés</td><td>🟡 long à lire</td></tr>
+        <tr><td>Mobile</td><td>🟡 piste défilante</td><td>🟢 naturel</td></tr>
+    </tbody></table>
+</main>
+<script src="../team-calendar/_shared/gallery.js"></script>
+</body>
+</html>

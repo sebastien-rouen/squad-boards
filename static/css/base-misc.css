@@ -1,0 +1,551 @@
+/* base-misc.css — morceau 6/6 de l'ancien base.css (découpé en 3.178.0, ordre de cascade INCHANGÉ).
+   Contenu : responsive, cibles tactiles, raccourcis, scrollbar, listes, onglets, formulaires, chips, tickets enfants, accessibilité, infobulles, aide, bandeau filtre, badge de périmètre.
+   Liés dans index.html juste après tokens.css, dans l'ordre ; base.css les @importe pour les maquettes. */
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    .sidebar.open {
+        transform: translateX(0);
+    }
+    .app {
+        margin-left: 0;
+    }
+    .mobile-only { display: flex; }
+    .topbar { padding: 0 var(--sp-4); }
+    /* Recherche conservée sur tablette/mobile ; board/PI repliés (déjà cachés) */
+    .topbar-center { display: flex; flex: 1; justify-content: flex-start; }
+    /* Sur tablette/mobile, l'espace est compté : bouton compact (icône seule) */
+    .topbar-center .search-trigger__label,
+    .topbar-center .search-trigger__kbd { display: none; }
+    .topbar-center .search-trigger { max-width: max-content; flex: 0 0 auto; padding: var(--sp-1) var(--sp-2); }
+    #board-mode-host, #pi-selector-host { display: none; }
+    .content { padding: var(--sp-4); }
+    .btn-label { display: none; }
+    /* Kebab + Favoris/Mes tickets : déjà gérés en base (visibles à toutes les tailles) */
+}
+
+@media (max-width: 640px) {
+    .topbar-right { gap: var(--sp-2); }
+    .select { min-width: 100px; font-size: var(--fs-xs); }
+    .content { padding: var(--sp-3); }
+}
+
+/* ── Cibles tactiles — écrans sans survol (mobile/tablette) : on remonte les
+   principales cibles vers les ~40-44px recommandés, sans toucher au desktop ── */
+@media (hover: none) and (pointer: coarse) {
+    .btn-sm { padding: var(--sp-2) var(--sp-3); min-height: 36px; }
+    .btn { min-height: 40px; }
+    .btn-icon { width: 44px; height: 44px; }
+    .select-sm { height: 36px; }
+    .tab { min-height: 42px; }
+    .card-help-btn { width: 28px; height: 28px; }
+}
+
+/* ── Modale « ? » raccourcis clavier ───────────────────────────────────────── */
+.sc-modal { max-width: 640px; width: min(640px, calc(100vw - 32px)); text-align: left; }
+.sc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-3); }
+.sc-head h2 { font-size: var(--fs-lg); margin: 0; }
+.sc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2) var(--sp-6); }
+@media (max-width: 560px) { .sc-grid { grid-template-columns: 1fr; } }
+.sc-group {
+    margin-top: var(--sp-3);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--primary);
+}
+.sc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: 5px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+}
+.sc-row kbd, .sc-foot kbd {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    background: var(--surface-active);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 1px 6px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.sc-foot { margin-top: var(--sp-4); font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.6; }
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-alt); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Detail List (modal) ──────────────────────────────────────────────────── */
+.detail-grid {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: var(--sp-2) var(--sp-4);
+    font-size: var(--fs-sm);
+}
+.detail-grid dt {
+    color: var(--text-muted);
+    font-weight: var(--fw-medium);
+}
+.detail-grid dd {
+    color: var(--text);
+}
+
+/* ── Tab Bar ───────────────────────────────────────────────────────────────── */
+.tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: var(--sp-4);
+    overflow-x: auto;
+}
+.tab {
+    padding: var(--sp-2) var(--sp-4);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color var(--tr-fast), border-color var(--tr-fast);
+    white-space: nowrap;
+}
+.tab:hover { color: var(--text-secondary); }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* ── Form Elements ─────────────────────────────────────────────────────────── */
+.input {
+    width: 100%;
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    font-size: var(--fs-sm);
+    color: var(--text);
+    transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
+}
+.input:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+.input::placeholder { color: var(--text-muted); }
+.label {
+    display: block;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-1);
+}
+.form-group { margin-bottom: var(--sp-4); }
+
+textarea.input {
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* ── Chip / Tag ────────────────────────────────────────────────────────────── */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    padding: 2px 8px;
+    background: var(--bg-alt);
+    border-radius: var(--r-full);
+    font-size: var(--fs-xs);
+    color: var(--text-secondary);
+}
+/* Sprint chips dans la modal détail ticket — distinguer courant vs historique */
+.chip-sprint {
+    border: 1px solid var(--border);
+    font-weight: var(--fw-medium);
+    line-height: 1.4;
+}
+.chip-sprint--current {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+}
+.chip-sprint--past {
+    color: var(--text-muted);
+    background: var(--bg-alt);
+    border-color: var(--border);
+    font-style: italic;
+}
+.chip-pi {
+    color: var(--text-secondary);
+    background: var(--bg-alt);
+    border: 1px dashed var(--border);
+    font-weight: var(--fw-medium);
+}
+
+/* ── Sidebar "Tickets enfants" de la modal feature ───────────────────────── */
+.modal.has-children-sidebar {
+    overflow: visible;     /* laisse la sidebar déborder à droite */
+    position: relative;
+}
+.mdl-children-side {
+    position: absolute;
+    top: 0;
+    left: calc(100% + 12px);
+    width: 340px;
+    height: 100%;
+    background: var(--surface);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-xl);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 1;
+}
+.mdl-children-side.is-visible { display: flex; }
+
+.mdl-cs-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border);
+    font-weight: var(--fw-semibold);
+    flex-shrink: 0;
+}
+.mdl-cs-hdr-title small { color: var(--text-muted); font-weight: var(--fw-normal); margin-left: 4px; }
+.mdl-cs-body { overflow-y: auto; padding: var(--sp-2); flex: 1; }
+.mdl-cs-sec-label {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: var(--sp-3) var(--sp-2) var(--sp-1);
+    letter-spacing: 0.05em;
+    font-weight: var(--fw-semibold);
+}
+.mdl-cs-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    font-size: var(--fs-sm);
+    min-width: 0;
+}
+.mdl-cs-row:hover { background: var(--surface-hover); }
+.mdl-cs-id {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    flex-shrink: 0;
+}
+.mdl-cs-title { flex: 1; min-width: 0; }
+.mdl-cs-pts {
+    flex-shrink: 0;
+    width: 28px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: var(--fw-semibold);
+    font-variant-numeric: tabular-nums;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 1px 0;
+    color: var(--text-muted);
+}
+.mdl-cs-row:has(.badge-done) .mdl-cs-pts { color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, var(--border)); }
+.mdl-cs-empty {
+    padding: var(--sp-6) var(--sp-4);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+}
+.mdl-cs-empty p { margin: 0 0 var(--sp-2); }
+.mdl-cs-empty code {
+    background: var(--bg-alt);
+    padding: 1px 6px;
+    border-radius: var(--r-sm);
+    font-size: 11px;
+}
+.mdl-cs-row--jira { opacity: 0.88; }
+.mdl-cs-row--jira:hover { opacity: 1; }
+.badge-jira-only {
+    background: color-mix(in srgb, var(--info) 14%, transparent);
+    color: var(--info);
+    border: 1px dashed color-mix(in srgb, var(--info) 50%, transparent);
+}
+
+.mdl-children-toggle {
+    width: auto !important;
+    padding: 0 8px !important;
+    gap: 4px;
+}
+.mdl-children-toggle.is-active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+.mdl-children-toggle-count { font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
+
+/* Responsive : sous 1280px la sidebar bascule en bottom-sheet pour éviter
+   de déborder de l'écran (modal max-width 860px + 340px + gap ≈ 1212px). */
+@media (max-width: 1280px) {
+    .mdl-children-side {
+        position: fixed;
+        top: auto;
+        left: 50%;
+        bottom: 16px;
+        transform: translateX(-50%);
+        height: auto;
+        max-height: 40vh;
+        max-width: min(420px, 95vw);
+        width: 95vw;
+    }
+}
+
+/* ── Accessibilité ──────────────────────────────────────────────────────────── */
+/* Mouvement réduit : neutralise animations/transitions pour les utilisateurs
+   sensibles au mouvement (troubles vestibulaires, prefers-reduced-motion). */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Focus clavier toujours visible. :focus-visible n'apparaît PAS au clic souris /
+   tactile, donc on garde une UI propre tout en couvrant les éléments interactifs
+   (boutons-icônes, cartes cliquables, role=button) sans indicateur dédié.
+   Les champs de formulaire gardent leur propre signal (border-color). */
+:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+}
+
+/* ── Tooltip global léger ([data-tooltip], voir components/tooltip.js) ───────── */
+.app-tooltip {
+    position: fixed;
+    z-index: 10000;                 /* au-dessus des modals */
+    left: -9999px; top: -9999px;    /* hors écran tant que non positionné */
+    max-width: 260px;
+    padding: 5px 9px;
+    background: var(--text);
+    color: var(--surface);
+    font-size: var(--fs-xs);
+    line-height: 1.4;
+    border-radius: var(--r-sm);
+    box-shadow: var(--shadow-md);
+    pointer-events: none;
+    white-space: normal;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+.app-tooltip.visible { opacity: 1; }
+
+/* ── Icône d'aide « ? » + popover explicatif (components/help_popover.js) ────── */
+.card-help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    padding: 0;
+    font-size: 11px;
+    font-weight: var(--fw-bold);
+    line-height: 1;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--border) 55%, transparent);
+    border: none;
+    border-radius: 50%;
+    cursor: help;
+    vertical-align: middle;
+    transition: background 0.12s, color 0.12s;
+}
+.card-help-btn:hover { background: var(--primary); color: #fff; }
+
+.help-popover-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10040;
+    background: rgba(0, 0, 0, 0.4);
+}
+.help-popover {
+    z-index: 10050;
+    max-width: min(520px, calc(100vw - 24px));
+    padding: 0;
+    /* Fond « sexy » : léger dégradé teinté + deux halos radiaux diffus (thémé clair/sombre
+       via color-mix sur les variables), le tout au-dessus de la surface de base. */
+    background:
+        radial-gradient(130% 120% at 0% 0%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 55%),
+        radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--status-review, #8b5cf6) 12%, transparent), transparent 50%),
+        linear-gradient(160deg, color-mix(in srgb, var(--primary) 4%, var(--surface)), var(--surface));
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+    border-radius: var(--r-lg, var(--r-md));
+    box-shadow: 0 12px 32px -8px color-mix(in srgb, var(--primary) 30%, rgba(0, 0, 0, 0.35)),
+                0 2px 8px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    animation: help-pop-in 0.16s ease-out;
+}
+@keyframes help-pop-in {
+    from { opacity: 0; transform: translateY(4px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.help-popover--sheet { animation: help-sheet-in 0.2s ease-out; }
+@keyframes help-sheet-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+/* Fin liseré lumineux en haut, pour le côté « carte premium ». */
+.help-popover::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 70%, transparent), color-mix(in srgb, var(--status-review, #8b5cf6) 70%, transparent), transparent);
+    pointer-events: none;
+}
+.help-popover--sheet {
+    position: fixed;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 520px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+.help-popover-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.help-popover-title { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--text); }
+.help-popover-close {
+    border: none;
+    background: none;
+    font-size: var(--fs-lg);
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 2px;
+}
+.help-popover-close:hover { color: var(--danger); }
+.help-popover-body { padding: var(--sp-3); }
+.help-popover-note {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+.help-popover-note strong { color: var(--text); }
+
+/* ── Schémas SVG des popovers d'aide (help_popover.js) ───────────────────────── */
+.help-diagram {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    padding: var(--sp-2);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    border-radius: var(--r-md);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+/* Textes génériques (taille pensée pour l'échelle réduite du popover) */
+.hd-lbl       { fill: var(--text); font-size: 17px; font-weight: 600; }
+.hd-metric    { fill: var(--text); font-size: 19px; font-weight: 700; }
+.hd-metric-sm { fill: var(--text-secondary); font-size: 16px; font-weight: 600; }
+.hd-sub       { fill: var(--text-muted); font-size: 14px; }
+.hd-strong    { fill: var(--text); font-size: 15px; font-weight: 700; }
+.hd-val       { fill: var(--text); font-size: 14px; font-weight: 700; }
+.hd-red        { fill: #ef4444; }
+.hd-red-stroke { stroke: #ef4444; stroke-width: 1.5; }
+/* Accolades, axes, marqueurs */
+.hd-bracket   { fill: none; stroke: var(--text-muted); stroke-width: 1.5; }
+.hd-axis      { stroke: var(--text-muted); stroke-width: 1.2; }
+.hd-axis-head { fill: var(--text-muted); }
+.hd-marker    { stroke: var(--text-muted); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.hd-avg       { stroke: var(--text-secondary); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.hd-target    { stroke: #eab308; stroke-width: 1.5; stroke-dasharray: 5 4; }
+/* Étapes (schéma lead/cycle) */
+.hd-seg { stroke-width: 1.5; }
+.hd-seg--backlog { fill: color-mix(in srgb, #eab308 22%, var(--surface)); stroke: color-mix(in srgb, #eab308 55%, transparent); }
+.hd-seg--dev     { fill: color-mix(in srgb, var(--success) 22%, var(--surface)); stroke: color-mix(in srgb, var(--success) 55%, transparent); }
+.hd-seg--review  { fill: color-mix(in srgb, var(--status-review, #8b5cf6) 20%, var(--surface)); stroke: color-mix(in srgb, var(--status-review, #8b5cf6) 55%, transparent); }
+.hd-seg--deploy  { fill: color-mix(in srgb, #3b82f6 20%, var(--surface)); stroke: color-mix(in srgb, #3b82f6 55%, transparent); }
+/* Bandes de risque (aging-wip, sla) */
+.hd-band-ok   { fill: color-mix(in srgb, var(--success) 20%, var(--surface)); stroke: color-mix(in srgb, var(--success) 50%, transparent); stroke-width: 1.2; }
+.hd-band-warn { fill: color-mix(in srgb, var(--warning) 22%, var(--surface)); stroke: color-mix(in srgb, var(--warning) 50%, transparent); stroke-width: 1.2; }
+.hd-band-crit { fill: color-mix(in srgb, var(--danger) 20%, var(--surface));  stroke: color-mix(in srgb, var(--danger) 50%, transparent);  stroke-width: 1.2; }
+/* Barres (temps par colonne, vélocité) */
+.hd-bar { stroke-width: 1; }
+.hd-bar--dev    { fill: color-mix(in srgb, var(--status-inprog) 55%, transparent); }
+.hd-bar--test   { fill: color-mix(in srgb, var(--status-test, #06b6d4) 55%, transparent); }
+.hd-bar--review { fill: color-mix(in srgb, var(--status-review, #8b5cf6) 55%, transparent); }
+.hd-bar--qualif { fill: color-mix(in srgb, var(--status-done) 45%, transparent); }
+.hd-bar--prod   { fill: color-mix(in srgb, var(--status-done) 65%, transparent); }
+.hd-bar--velo   { fill: color-mix(in srgb, var(--primary) 55%, transparent); }
+.hd-bar--current { fill: none; stroke: color-mix(in srgb, var(--primary) 55%, transparent); stroke-width: 1.5; stroke-dasharray: 4 3; }
+
+/* ── Bandeau global "filtre actif" (ex. « Mes tickets ») — rend visible un filtre qui masque des tickets ── */
+.global-filter-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 6px var(--sp-5);
+    font-size: var(--fs-sm);
+    color: var(--amber-text);
+    background: var(--warning-bg);
+    border-bottom: 1px solid var(--warning-border);
+}
+.global-filter-banner[hidden] { display: none; }
+.gfb-ico { font-size: 15px; flex: none; }
+.gfb-txt { flex: 1; min-width: 0; }
+.gfb-txt strong { color: var(--text); }
+.gfb-clear {
+    flex: none;
+    border: 1px solid var(--warning-border);
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
+    color: var(--amber-text);
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-xs);
+    padding: 3px 10px;
+    border-radius: var(--r-full);
+    cursor: pointer;
+}
+.gfb-clear:hover { background: color-mix(in srgb, var(--warning) 22%, transparent); }
+
+/* ── Badge « périmètre + couverture de données » (metric_scope.js) ───────────── */
+.metric-scope {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin: var(--sp-2) 0 0;
+    padding: 2px 8px;
+    border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--border) 40%, transparent);
+    font-variant-numeric: tabular-nums;
+}
+.metric-scope strong { color: var(--text); font-weight: var(--fw-semibold); }
+.metric-scope--ok   { }
+.metric-scope--auto { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--amber-text); }
+.metric-scope--auto strong { color: var(--amber-text); }
+.metric-scope--low  { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.metric-scope--low strong { color: var(--danger); }
+.metric-scope-excl { text-decoration: underline dotted; text-underline-offset: 2px; cursor: help; }

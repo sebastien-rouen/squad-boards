@@ -33,6 +33,7 @@ async def create_event(request: Request, session: Session = Depends(get_session)
         start_date=body.get("startDate", ""),
         end_date=body.get("endDate") or body.get("startDate", ""),
         teams=body.get("teams", []),
+        author=str(body.get("author") or "")[:80],
     )
     session.add(e)
     session.commit()

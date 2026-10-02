@@ -16,6 +16,7 @@ class Event(SQLModel, table=True):
     start_date: str = ""
     end_date: str = ""
     teams: list[str] = Field(default=[], sa_column=Column(JSON))
+    author: str = ""             # nom saisi à l'ajout (pas de compte utilisateur)
     created_at: str = Field(default_factory=_now)
     updated_at: str = Field(default_factory=_now)
 

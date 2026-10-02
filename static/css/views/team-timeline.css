@@ -1,0 +1,532 @@
+/* Carte « Faits marquants » (page Équipe) — frise « Couloirs du temps », portée depuis
+   static/mockups/team-timeline/ (_shared/tl.css + a-couloirs/style.css).
+   Palette des catégories ; arrivées en VERT, départs en ROUGE, mobilités en BLEU ;
+   présence : vert (100 %), orange (75-99 %), rouge (< 75 %). */
+
+:root {
+    --c-rythme: #6366f1; --c-production: #dc2626; --c-livraison: #ea580c; --c-presence: #d97706;
+    --c-equipe: #0d9488; --c-fait: #7c3aed;
+    --c-in: #16a34a; --c-out: #dc2626; --c-move: #2563eb; --c-oneonone: #7c3aed; --c-operations: #0e7490;
+    /* Présence : vert à 100 %, orange, rouge (moins de 75 % présents) */
+    --p-ok: #22c55e; --p-mid: #f59e0b; --p-low: #ef4444;
+    --tl-tint: 14%;
+}
+[data-theme="dark"] {
+    --c-rythme: #818cf8; --c-production: #f87171; --c-livraison: #fb923c; --c-presence: #fbbf24;
+    --c-equipe: #2dd4bf; --c-fait: #a78bfa;
+    --c-in: #4ade80; --c-out: #f87171; --c-move: #60a5fa; --c-oneonone: #a78bfa; --c-operations: #22d3ee;
+    --p-ok: #4ade80; --p-mid: #fbbf24; --p-low: #f87171;
+    --tl-tint: 22%;
+}
+[data-c="rythme"] { --c: var(--c-rythme); }       [data-c="production"] { --c: var(--c-production); }
+[data-c="livraison"] { --c: var(--c-livraison); } [data-c="presence"] { --c: var(--c-presence); }
+[data-c="equipe"] { --c: var(--c-equipe); }       [data-c="fait"] { --c: var(--c-fait); }
+[data-c="oneonone"] { --c: var(--c-oneonone); } [data-c="operations"] { --c: var(--c-operations); }
+[data-l="ok"] { --pl: var(--p-ok); } [data-l="mid"] { --pl: var(--p-mid); } [data-l="low"] { --pl: var(--p-low); }
+
+/* ── Carte et en-tête ───────────────────────────────────────────────────────── */
+.tl-card { padding: 0; overflow: visible; --c: var(--c-fait); }
+.tl-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-4); padding: var(--sp-4) var(--sp-5) var(--sp-2); }
+.tl-title { display: flex; flex-direction: column; gap: 2px; margin-right: auto; min-width: 0; }
+.tl-title strong { font-size: var(--fs-lg); color: var(--text); }
+.tl-sub { font-size: var(--fs-sm); color: var(--text-muted); }
+.tl-seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--bg); border-radius: var(--r-md); }
+.tl-seg button { height: 32px; padding: 0 var(--sp-3); border-radius: calc(var(--r-md) - 2px); font-size: var(--fs-sm); color: var(--text-secondary); font-weight: var(--fw-medium); }
+.tl-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.tl-add { height: 36px; }
+
+/* ── Période A → B : sélecteur segmenté + UN champ de plage « 📅 début → fin · durée » ─────────── */
+.tl-range { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-1) var(--sp-5) var(--sp-4); }
+/* Même famille que les sélecteurs Couloirs / Récit de l'en-tête : rail gris, choix actif en relief */
+.tl-presets { display: inline-flex; padding: 3px; gap: 2px; border-radius: var(--r-lg); background: var(--bg); box-shadow: inset 0 0 0 1px var(--border); }
+.tl-preset {
+    height: 32px; padding: 0 14px; border-radius: calc(var(--r-lg) - 3px); white-space: nowrap;
+    color: var(--text-secondary); font-size: var(--fs-sm); font-weight: var(--fw-medium);
+    transition: background var(--tr-fast), color var(--tr-fast), box-shadow var(--tr-fast);
+}
+.tl-preset:hover { color: var(--text); background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.tl-preset[aria-pressed="true"] { background: var(--surface); color: var(--primary); font-weight: var(--fw-semibold); box-shadow: var(--shadow-sm), 0 0 0 1px var(--border); }
+.tl-preset:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.tl-dates {
+    display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 6px 0 8px;
+    border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface);
+    transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
+}
+.tl-dates:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--border-focus) 18%, transparent); }
+/* Plage libre (aucune présélection) : le champ prend l'accent, c'est lui le filtre actif */
+.tl-dates.is-custom { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); }
+.tl-dates input { height: 30px; padding: 0 4px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text); font: inherit; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.tl-dates input:hover { background: var(--bg); }
+.tl-dates input:focus { outline: none; background: var(--bg); }
+.tl-arrow { color: var(--text-muted); }
+.tl-dates-len { padding: 2px 8px; border-radius: var(--r-full); background: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-secondary); white-space: nowrap; }
+
+/* ── Chiffres clés : grille de tuiles, pastille teintée à la couleur de la catégorie ──────────── */
+.tl-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: var(--sp-2); padding: 0 var(--sp-5) var(--sp-4); }
+.tl-kpi {
+    --k: var(--text-secondary);
+    /* Icône + libellé sur la 1re ligne, chiffre et détail sur toute la largeur en dessous */
+    display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ico lbl" "val val" "sub sub";
+    align-content: start; column-gap: 8px; row-gap: 4px; min-width: 0; padding: 10px 12px; border-radius: var(--r-lg);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--k) 7%, var(--surface)), var(--surface) 70%);
+    border: 1px solid color-mix(in srgb, var(--k) 18%, var(--border));
+}
+.tl-kpi-ico {
+    grid-area: ico; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px;
+    background: color-mix(in srgb, var(--k) 16%, transparent); color: var(--k); font-size: 12px; line-height: 1;
+}
+.tl-kpi-txt { display: contents; }
+.tl-kpi-lbl { grid-area: lbl; align-self: center; font-size: 11.5px; font-weight: var(--fw-semibold); color: var(--text-muted); line-height: 1.2; }
+.tl-kpi b { grid-area: val; font-size: 22px; line-height: 1.1; font-weight: 700; color: var(--k); font-variant-numeric: tabular-nums; }
+.tl-kpi b small { font-size: 13px; font-weight: 600; margin-left: 1px; }
+.tl-kpi-sub { grid-area: sub; font-size: 11px; color: var(--text-muted); line-height: 1.3; }
+/* Valeur nulle : présente mais sans crier */
+.tl-kpi[data-zero] { background: var(--surface); border-color: var(--border); }
+.tl-kpi[data-zero] b { color: var(--text-muted); font-weight: 600; }
+.tl-kpi[data-zero] .tl-kpi-ico { filter: grayscale(1); opacity: .55; }
+.tl-kpi[data-kpi="in"] { --k: var(--c-in); }            .tl-kpi[data-kpi="out"] { --k: var(--c-out); }
+.tl-kpi[data-kpi="move"] { --k: var(--c-move); }        .tl-kpi[data-kpi="prod"] { --k: var(--c-production); }
+.tl-kpi[data-kpi="rel"] { --k: var(--c-livraison); }    .tl-kpi[data-kpi="abs"] { --k: var(--c-presence); }
+.tl-kpi[data-kpi="sup"] { --k: var(--c-charge); }       .tl-kpi[data-kpi="stale"] { --k: var(--p-low); }
+.tl-kpi[data-kpi="one"] { --k: var(--c-oneonone); }
+/* Tuile « Rien à signaler » : les indicateurs à zéro, regroupés et en retrait */
+.tl-kpi[data-kpi="none"] { --k: var(--c-in); background: transparent; border-style: dashed; }
+.tl-kpi[data-kpi="none"] .tl-kpi-ico { filter: none; opacity: .8; }
+.tl-kpi[data-kpi="none"] .tl-kpi-sub { color: var(--text-secondary); }
+
+/* Filtres de catégorie */
+.tl-filters { display: flex; gap: var(--sp-2); padding: 0 var(--sp-5) var(--sp-3); overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border); }
+.tl-filters::-webkit-scrollbar { display: none; }
+.tl-chip {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px;
+    border-radius: var(--r-full); border: 1px solid var(--border); background: var(--surface);
+    font-size: var(--fs-xs); color: var(--text-secondary); font-weight: var(--fw-medium);
+}
+.tl-chip::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.tl-chip b { color: var(--text); }
+.tl-chip[aria-pressed="false"] { opacity: .45; }
+.tl-chip[aria-pressed="false"]::before { background: transparent; box-shadow: inset 0 0 0 2px var(--c); }
+.tl-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: var(--sp-2) var(--sp-5) 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.tl-legend span { width: 12px; height: 12px; border-radius: 3px; background: var(--pl); margin-left: 6px; }
+.tl-legend span:first-child { margin-left: 0; }
+.tl-note { margin: var(--sp-2) var(--sp-5) 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--info-bg); border: 1px solid var(--info-border); font-size: var(--fs-xs); color: var(--text-secondary); }
+.tl-body { position: relative; }
+
+/* ── Fiche ──────────────────────────────────────────────────────────────────── */
+.tl-detail { position: absolute; z-index: 40; width: 380px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-xl); overflow: hidden; }
+.tl-detail-band { height: 6px; background: var(--c); }
+.tl-detail-body { padding: var(--sp-4); }
+.tl-detail h4 { margin: 0 0 4px; font-size: var(--fs-base); color: var(--text); padding-right: 24px; }
+.tl-detail ul { margin: var(--sp-3) calc(-1 * var(--sp-2)) 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: var(--fs-sm); color: var(--text-secondary); max-height: 320px; overflow: auto; }
+.tl-muted { color: var(--text-muted); font-size: var(--fs-sm); margin: 0; }
+.tl-warn { color: var(--c-out); }
+.tl-tag { display: inline-block; padding: 0 6px; border-radius: var(--r-sm); background: var(--bg); font-size: 11px; color: var(--text-muted); }
+/* Tâche du suivi support reportée plusieurs semaines d'affilée ; rouge à partir de 3 semaines */
+.tl-carry { display: inline-block; padding: 0 6px; border-radius: var(--r-sm); font-size: 11px; font-weight: var(--fw-semibold); white-space: nowrap;
+    color: var(--p-mid); background: color-mix(in srgb, var(--p-mid) 14%, transparent); }
+.tl-carry[data-lvl="high"] { color: var(--p-low); background: color-mix(in srgb, var(--p-low) 14%, transparent); }
+.tl-close { position: absolute; top: 12px; right: 8px; width: 28px; height: 28px; border-radius: 50%; color: var(--text-muted); }
+.tl-close:hover { background: var(--surface-hover); }
+
+/* ── Formulaire « + Fait marquant » ─────────────────────────────────────────── */
+.tl-form { position: absolute; z-index: 45; top: 8px; right: 16px; width: 380px; display: grid; gap: var(--sp-3); padding: var(--sp-4); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-xl); }
+.tl-form h4 { margin: 0; font-size: var(--fs-base); }
+.tl-form-types { display: flex; flex-wrap: wrap; gap: 6px; }
+.tl-form-types input { position: absolute; opacity: 0; pointer-events: none; }
+.tl-form-types span { display: inline-flex; align-items: center; height: 32px; padding: 0 10px; border-radius: var(--r-full); border: 1px solid var(--border); font-size: var(--fs-xs); cursor: pointer; }
+.tl-form-types input:checked + span { background: var(--primary); border-color: var(--primary); color: #fff; }
+.tl-form-types input:focus-visible + span { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.tl-field { display: grid; gap: 4px; font-size: var(--fs-xs); color: var(--text-muted); }
+.tl-field input, .tl-field select, .tl-field textarea { padding: 8px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-sm); }
+.tl-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.tl-form-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+
+/* ── États ──────────────────────────────────────────────────────────────────── */
+.tl-state { display: grid; justify-items: center; text-align: center; gap: var(--sp-2); padding: var(--sp-10) var(--sp-6); color: var(--text-secondary); }
+.tl-state-ico { font-size: 34px; }
+.tl-state h5 { margin: 0; font-size: var(--fs-base); color: var(--text); }
+.tl-state p { margin: 0; max-width: 460px; font-size: var(--fs-sm); }
+.tl-skel-wrap { display: grid; gap: 14px; padding: var(--sp-5); }
+.tl-skel { height: 34px; border-radius: 6px; background: linear-gradient(90deg, var(--bg) 25%, var(--surface-hover) 50%, var(--bg) 75%); background-size: 200% 100%; animation: tl-sh 1.4s infinite; }
+@keyframes tl-sh { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .tl-skel { animation: none; } }
+
+/* ── Mobile ─────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .tl-head, .tl-range, .tl-kpis, .tl-filters { padding-left: var(--sp-4); padding-right: var(--sp-4); }
+    .tl-preset, .tl-seg button, .tl-add { height: 44px; }
+    .tl-chip { height: 44px; padding: 0 14px; font-size: var(--fs-sm); }
+    .tl-range { gap: var(--sp-2); }
+    .tl-presets { display: flex; overflow-x: auto; width: 100%; scrollbar-width: none; }
+    .tl-preset { flex: 1 0 auto; height: 40px; }
+    .tl-dates { width: 100%; height: 46px; } .tl-dates input { flex: 1; min-width: 0; height: 40px; }
+    .tl-kpis { grid-template-columns: 1fr 1fr; }
+    .tl-detail, .tl-form { position: fixed; left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto; border-radius: var(--r-xl); max-height: 80vh; overflow: auto; }
+}
+.tl-k-in { color: var(--c-in); } .tl-k-out { color: var(--c-out); } .tl-k-move { color: var(--c-move); }
+
+/* ══ Couloirs du temps ══════════════════════════════════════════════════════ */
+
+.tll { padding: var(--sp-3) var(--sp-5) var(--sp-4); }
+.tll-scroll { overflow-x: auto; }
+.tll-grid { min-width: 720px; }
+.tll-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: stretch; border-bottom: 1px solid var(--border); }
+.tll-row--axis { border-bottom: 0; }
+.tll-label {
+    position: sticky; left: 0; z-index: 3; display: flex; align-items: center; padding: 0 var(--sp-2);
+    background: var(--surface); font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-secondary);
+    border-left: 3px solid var(--c, transparent);
+}
+.tll-track { position: relative; min-height: 46px; }
+.tll-lane--tall .tll-track { min-height: calc(30px + 4 * 22px); }
+
+/* Axe des mois + aujourd'hui */
+/* Axe sur deux étages : les mois en haut, « aujourd'hui » dessous (il recouvrait « Octobre » le 30/09) */
+.tll-axis { position: relative; height: 36px; }
+.tll-month { position: absolute; top: 4px; font-size: 11px; color: var(--text-muted); text-transform: capitalize; padding-left: 4px; border-left: 1px solid var(--border); }
+.tll-today { position: absolute; top: 0; bottom: -100vh; width: 0; border-left: 2px solid var(--primary); z-index: 4; pointer-events: none; }
+.tll-today span { position: absolute; top: 20px; left: 4px; font-size: 10px; font-weight: var(--fw-semibold); color: var(--primary); white-space: nowrap; }
+.tll-grid { position: relative; overflow: hidden; }
+
+/* Rythme : PI en bandes, sprints en fines graduations, jalons en drapeaux */
+.tll-pi { position: absolute; top: 4px; height: 18px; background: color-mix(in srgb, var(--c-rythme) 12%, transparent); border-radius: 4px; }
+.tll-pi:nth-child(even) { background: color-mix(in srgb, var(--c-rythme) 20%, transparent); }
+.tll-pi span { position: sticky; left: 0; padding: 0 6px; font-size: 11px; font-weight: var(--fw-semibold); color: var(--c-rythme); line-height: 18px; }
+.tll-sprints { position: absolute; left: 0; right: 0; top: 24px; height: 16px; }
+.tll-sprint { position: absolute; top: 0; height: 16px; border-left: 1px solid color-mix(in srgb, var(--c-rythme) 45%, transparent); }
+.tll-sprint span { font-size: 10px; color: var(--text-muted); padding-left: 3px; white-space: nowrap; }
+.tll-flag { position: absolute; top: 2px; transform: translateX(-50%); font-size: 13px; line-height: 1; z-index: 2; }
+
+/* Présence : bande de chaleur + période creuse annotée */
+.tll-heats { position: absolute; left: 0; right: 0; bottom: 6px; height: 14px; }
+/* Présence : vert (100 %), orange (75-99 %), rouge (< 75 %) — lecture immédiate, sans dégradé à interpréter */
+.tll-heat { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--pl) 70%, transparent); border-right: 1px solid var(--surface); }
+.tll-low {
+    position: absolute; top: 4px; height: 20px; border: 1px solid var(--p-low); border-bottom: 0; border-radius: 6px 6px 0 0;
+    background: color-mix(in srgb, var(--p-low) 10%, transparent); text-align: left; overflow: hidden;
+}
+.tll-low span { display: block; padding: 0 6px; font-size: 11px; font-weight: var(--fw-semibold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 18px; }
+
+/* Production : pastilles dont la taille suit le nombre d'incidents de la semaine */
+.tll-inc {
+    position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+    width: calc(14px + var(--n) * 3px); height: calc(14px + var(--n) * 3px); border-radius: 50%;
+    background: var(--c-production); color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-production) 25%, transparent);
+}
+/* Livraisons : losanges */
+.tll-rel { position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 2; color: var(--c-livraison); font-size: 16px; line-height: 1; }
+
+/* Équipe : ▲ arrivée (vert), ▼ départ (rouge), ⇄ mobilité (bleu) ; pointillé = date « au PI » */
+.tll-move {
+    position: absolute; top: calc(8px + var(--row) * 22px); transform: translateX(-9px); z-index: 2;
+    display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px 0 3px; border-radius: var(--r-full);
+    font-size: 11px; font-weight: var(--fw-medium); color: var(--text); white-space: nowrap;
+    background: color-mix(in srgb, var(--m) var(--tl-tint), var(--surface)); border: 1px solid color-mix(in srgb, var(--m) 55%, transparent);
+}
+.tll-move i { width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 9px; color: #fff; background: var(--m); }
+.tll-move.is-in { --m: var(--c-in); } .tll-move.is-out { --m: var(--c-out); } .tll-move.is-move { --m: var(--c-move); }
+.tll-move.is-approx { border-style: dashed; }
+.tll-move.is-conflict::after { content: '⚠️'; font-size: 10px; }
+.tll-move:hover, .tll-move:focus-visible { z-index: 6; box-shadow: var(--shadow-md); }
+
+/* Faits saisis : barres (période) ou points (jour) */
+.tll-fact {
+    position: absolute; top: 10px; height: 24px; min-width: 22px; z-index: 2; border-radius: 6px; text-align: left; overflow: hidden;
+    background: color-mix(in srgb, var(--c-fait) var(--tl-tint), var(--surface)); border: 1px solid color-mix(in srgb, var(--c-fait) 50%, transparent);
+}
+.tll-fact--incident { background: color-mix(in srgb, var(--c-production) var(--tl-tint), var(--surface)); border-color: var(--c-production); top: 26px; height: 18px; }
+.tll-fact--freeze { background: repeating-linear-gradient(135deg, color-mix(in srgb, #38bdf8 18%, var(--surface)) 0 6px, var(--surface) 6px 12px); border-color: #38bdf8; }
+.tll-fact span { display: block; padding: 0 6px; font-size: 11px; line-height: 22px; white-space: nowrap; color: var(--text); }
+.tll-fact--incident span { line-height: 16px; }
+.tll-empty { position: absolute; top: 50%; left: var(--sp-3); transform: translateY(-50%); font-size: var(--fs-xs); color: var(--text-muted); font-style: italic; }
+.tll button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+
+/* Mini-carte de toute l'année : fenêtre A → B à faire glisser */
+.tll-brush { position: relative; margin: var(--sp-4) 0 0 150px; height: 46px; border-radius: var(--r-md); background: var(--bg); cursor: pointer; touch-action: none; user-select: none; }
+.tll-brush-heat { position: absolute; left: 0; right: 0; top: 6px; height: 12px; }
+.tll-brush-heat i { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--pl) 70%, transparent); }
+.tll-brush-inc { position: absolute; left: 0; right: 0; top: 22px; height: 8px; }
+.tll-brush-inc b { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--c-production); transform: translateX(-50%); }
+.tll-brush-win { position: absolute; top: 0; bottom: 14px; border: 2px solid var(--primary); border-radius: 6px; background: color-mix(in srgb, var(--primary) 12%, transparent); cursor: grab; }
+.tll-handle { position: absolute; top: 50%; width: 12px; height: 26px; margin-top: -13px; border-radius: 4px; background: var(--primary); cursor: ew-resize; }
+.tll-handle[data-h="A"] { left: -7px; } .tll-handle[data-h="B"] { right: -7px; }
+.tll-handle:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.tll-brush-axis { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; }
+.tll-brush-axis span { position: absolute; font-size: 10px; color: var(--text-muted); text-transform: capitalize; }
+
+@media (max-width: 640px) {
+    .tll { padding: var(--sp-3) 0 var(--sp-4) var(--sp-4); }
+    .tll-row { grid-template-columns: 96px minmax(0, 1fr); }
+    .tll-label { font-size: 10.5px; }
+    .tll-brush { margin: var(--sp-3) var(--sp-4) 0 0; height: 56px; }
+    .tll-handle { width: 18px; height: 40px; margin-top: -20px; }
+    .tll-handle[data-h="A"] { left: -10px; } .tll-handle[data-h="B"] { right: -10px; }
+}
+
+/* Marqueurs regroupés : le nombre en exposant */
+.tll-flag small, .tll-rel small { position: absolute; top: -4px; right: -10px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--surface); border: 1px solid currentColor; font-size: 9px; font-weight: 700; line-height: 13px; }
+.tll-flag small { color: var(--c-rythme); }
+
+/* Mouvements regroupés (vue Train) : comptes colorés */
+.tll-mgroup { position: absolute; top: calc(6px + var(--row, 0) * 28px); transform: translateX(-8px); z-index: 2; display: inline-flex; gap: 3px; padding: 3px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-xs); }
+.tll-mgroup b { font-size: 11px; padding: 1px 5px; border-radius: 4px; color: #fff; white-space: nowrap; }
+.tll-mgroup .is-in { background: var(--c-in); } .tll-mgroup .is-out { background: var(--c-out); } .tll-mgroup .is-move { background: var(--c-move); }
+.tll-mgroup:hover, .tll-mgroup:focus-visible { z-index: 6; box-shadow: var(--shadow-md); }
+/* Fait court : le titre DÉPASSE de la barre sur un fond lisible, au lieu d'être coupé */
+.tll-fact { overflow: visible; }
+.tll-fact span { position: relative; width: max-content; max-width: 320px; background: color-mix(in srgb, var(--surface) 85%, transparent); border-radius: 4px; }
+
+/* 1v1 : pastilles violettes, taille selon le nombre regroupé */
+.tll-one {
+    position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 2;
+    width: calc(10px + var(--n) * 2px); height: calc(10px + var(--n) * 2px); border-radius: 50%;
+    background: var(--c-oneonone); color: #fff; font-size: 9px; font-weight: 700; display: grid; place-items: center;
+}
+.tll-one:hover, .tll-one:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-oneonone) 30%, transparent); z-index: 5; }
+
+/* Fiche d'un fait saisi : action de suppression */
+.tl-detail-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-3); }
+.team-timeline-host { margin-bottom: var(--sp-4); }
+/* 1v1 planifié (à venir) : pastille creuse, même couleur */
+.tll-one.is-planned { background: var(--surface); color: var(--c-oneonone); border: 2px dashed var(--c-oneonone); }
+
+/* ══ Fil du temps (bascule « 📖 Récit ») — maquette b-recit/style.css ═══════════ */
+
+.tls { padding: var(--sp-3) var(--sp-5) var(--sp-5); display: grid; gap: var(--sp-4); max-width: 880px; }
+.tls-month { display: grid; gap: 6px; }
+.tls-mhead {
+    position: sticky; top: 0; z-index: 3; display: flex; align-items: baseline; gap: var(--sp-3); margin: 0 0 4px;
+    padding: var(--sp-2) 0; background: var(--surface); font-size: var(--fs-base); color: var(--text); text-transform: capitalize;
+    border-bottom: 1px solid var(--border);
+}
+.tls-mhead small { font-size: var(--fs-xs); color: var(--text-muted); text-transform: none; font-weight: var(--fw-normal); }
+
+/* Entrée : date · rail · carte */
+.tls-entry { display: grid; grid-template-columns: 44px 18px minmax(0, 1fr); align-items: start; }
+.tls-date { display: grid; justify-items: end; padding: 8px 6px 0 0; line-height: 1.1; }
+.tls-date b { font-size: var(--fs-lg); color: var(--text); font-variant-numeric: tabular-nums; }
+.tls-date span { font-size: 10.5px; color: var(--text-muted); }
+.tls-dot { position: relative; align-self: stretch; }
+.tls-dot::before { content: ''; position: absolute; left: 8px; top: 0; bottom: -6px; width: 2px; background: var(--border); }
+.tls-dot::after { content: ''; position: absolute; left: 3px; top: 14px; width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 3px var(--surface); }
+.tls-card {
+    display: grid; gap: 4px; text-align: left; padding: 10px 12px; border-radius: var(--r-md); cursor: pointer;
+    background: color-mix(in srgb, var(--c) 7%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 25%, var(--border));
+    border-left: 3px solid var(--c); transition: box-shadow var(--tr-fast);
+}
+.tls-card:hover { box-shadow: var(--shadow-md); }
+.tls-card:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.tls-card.is-manual { border-style: dashed; border-left-style: solid; }
+.tls-title { font-size: var(--fs-sm); color: var(--text); }
+.tls-sub { font-size: var(--fs-xs); color: var(--text-muted); }
+.tls-list { margin: 2px 0 0; padding-left: 1.1em; font-size: var(--fs-xs); color: var(--text-secondary); display: grid; gap: 2px; }
+.tls-more { list-style: none; margin-left: -1.1em; color: var(--text-muted); }
+.tls-note { margin: 2px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+
+/* Histogramme de la période creuse (une barre par semaine) */
+/* Une barre par semaine, scindée : rouge = congés (haut), vert = disponibles (bas), % de congés au-dessus */
+/* Colonnes alignées EN HAUT : une semaine avec la ligne 🎌 ne décale plus sa barre */
+.tls-spark { display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.tls-bar { display: grid; justify-items: center; gap: 2px; width: 30px; }
+.tls-bar-pct { font-size: 10px; font-weight: var(--fw-semibold); color: var(--p-low); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1; }
+.tls-bar-col { display: flex; flex-direction: column; width: 16px; height: 40px; border-radius: 4px; overflow: hidden; background: var(--p-ok); }
+.tls-bar-off { flex: 0 0 calc(var(--p) * 1%); background: var(--p-low); }
+.tls-bar-on { flex: 1; background: var(--p-ok); }
+/* Filet entre les deux parts (bordure, pas d'ombre intérieure : html2canvas en remplissait toute la part verte) */
+.tls-bar-off + .tls-bar-on { border-top: 1px solid var(--surface); }
+/* Sous la barre : lundi de la semaine (« lun. / 06/07 »), puis absents / effectif */
+.tls-bar-day { font-size: 10px; line-height: 1.15; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tls-bar-who { font-size: 10px; line-height: 1; font-weight: var(--fw-semibold); color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Personnes : vert = arrivée, rouge = départ, bleu = mobilité ; pointillé = date « au PI » */
+.tls-people { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.tls-people-lbl { font-size: 11px; font-weight: var(--fw-semibold); margin-right: 2px; }
+.tls-people-lbl.is-in { color: var(--c-in); } .tls-people-lbl.is-out { color: var(--c-out); } .tls-people-lbl.is-move { color: var(--c-move); }
+.tls-person {
+    display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border-radius: var(--r-full);
+    font-size: 12px; font-weight: var(--fw-medium); color: var(--text);
+    background: color-mix(in srgb, var(--m) var(--tl-tint), var(--surface)); border: 1px solid color-mix(in srgb, var(--m) 55%, transparent);
+}
+.tls-person small { font-weight: var(--fw-normal); color: var(--text-muted); }
+.tls-person.is-in { --m: var(--c-in); } .tls-person.is-out { --m: var(--c-out); } .tls-person.is-move { --m: var(--c-move); }
+.tls-person.is-approx { border-style: dashed; }
+/* Entrée et sortie à moins de 45 jours : à vérifier (données contradictoires) */
+.tls-person.is-conflict { box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-out) 45%, transparent); }
+
+/* Séparateur de PI */
+.tls-divider { display: flex; align-items: center; gap: var(--sp-3); margin: 6px 0; font-size: var(--fs-xs); color: var(--c); font-weight: var(--fw-semibold); }
+.tls-divider::before, .tls-divider::after { content: ''; flex: 1; height: 1px; background: color-mix(in srgb, var(--c) 40%, transparent); }
+
+@media (max-width: 640px) {
+    .tls { padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+    .tls-entry { grid-template-columns: 36px 16px minmax(0, 1fr); }
+    .tls-card { padding: 12px; min-height: 44px; }
+    .tls-person { height: 30px; }
+}
+
+/* 1v1 planifiés (à venir) : carte en pointillé */
+.tls-card.is-planned { border-style: dashed; border-left-style: dashed; background: var(--surface); }
+/* Deux sélecteurs (affichage, portée) : sur mobile ils partagent la ligne */
+@media (max-width: 640px) { .tl-seg { flex: 1 1 auto; } .tl-seg button { flex: 1; } }
+
+/* ══ Jours fériés (non comptés en congés) ═══════════════════════════════════ */
+.tll-hol { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1px; border-radius: 2px; background: var(--text); opacity: .75; }
+.tl-legend-hol { display: inline-block; width: 3px; height: 12px; margin-left: 6px; border-radius: 2px; background: var(--text); opacity: .75; }
+.tls-bar-hol { font-size: 10px; line-height: 1; color: var(--text-secondary); white-space: nowrap; }
+
+/* Année sur le 1er repère et sur janvier (axe et mini-carte) */
+.tll-month b, .tll-brush-axis b { font-weight: var(--fw-semibold); color: var(--text-secondary); }
+
+/* ══ Export ══════════════════════════════════════════════════════════════════ */
+.tl-head .tl-export-btn { height: 36px; }
+/* Rendu PNG : hors écran, largeur fixe, sans défilement ni collant (html2canvas voit tout) */
+.tl-export-host { position: fixed; left: -10000px; top: 0; width: 1200px; pointer-events: none; }
+.tl-export { width: 1200px; margin: 0; padding-bottom: var(--sp-3); }
+.tl-export .tll-scroll { overflow: visible; }
+.tl-export .tll-label, .tl-export .tls-mhead { position: static; }
+.tl-export .tl-legend { margin-bottom: var(--sp-2); }
+.tl-export .tls { max-width: none; }
+.tl-export-foot { padding: var(--sp-2) var(--sp-5) 0; font-size: var(--fs-xs); color: var(--text-muted); text-align: right; }
+
+/* ══ Opérations (agenda « ERPC - Opérations ») ═══════════════════════════════ */
+.tll-ops {
+    /* Un repère par semaine ; 2 rangées quand deux semaines se touchent à l'échelle (--row 0 / 1) */
+    position: absolute; top: calc(30% + var(--row, 0) * 40%); transform: translate(-50%, -50%); z-index: 2;
+    min-width: 18px; height: 18px; padding: 0 3px; display: grid; place-items: center; border-radius: 5px;
+    font-size: 10px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+    color: var(--c-operations); background: color-mix(in srgb, var(--c-operations) var(--tl-tint), var(--surface));
+    border: 1px solid color-mix(in srgb, var(--c-operations) 55%, transparent);
+}
+.tll-ops.is-prod { color: var(--c-out); border-color: var(--c-out); background: color-mix(in srgb, var(--c-out) var(--tl-tint), var(--surface)); }
+.tll-ops:hover, .tll-ops:focus-visible { box-shadow: var(--shadow-md); z-index: 5; }
+.tls-list li.is-prod { color: var(--c-out); }
+
+/* ══ Sources d'agenda (filtre) ═══════════════════════════════════════════════ */
+.tl-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: var(--sp-2) var(--sp-5) var(--sp-3); border-bottom: 1px solid var(--border); }
+.tl-sources-lbl { font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-muted); margin-right: 4px; }
+.tl-src { height: 28px; padding: 0 10px; border-radius: var(--r-md); border: 1px dashed var(--border); background: transparent; font-size: var(--fs-xs); color: var(--text-muted); }
+.tl-src[aria-pressed="true"] { border-style: solid; background: var(--surface); color: var(--text); box-shadow: var(--shadow-xs); }
+@media (max-width: 640px) {
+    .tl-sources { padding-left: var(--sp-4); padding-right: var(--sp-4); }
+    .tl-src { height: 40px; }
+}
+.tl-filters:has(+ .tl-sources) { border-bottom: 0; padding-bottom: var(--sp-2); }
+
+/* Opération EN PRODUCTION le même jour qu'un incident ou une MEP : repère cerclé de rouge */
+.tll-inc.is-clash { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--c-out); }
+.tll-rel.is-clash { text-shadow: 0 0 0 var(--c-out); filter: drop-shadow(0 0 3px var(--c-out)); }
+.tll-rel.is-clash::after { content: '⚠'; position: absolute; top: -12px; left: -8px; font-size: 10px; color: var(--c-out); }
+/* Alerte en tête de bulle (opération prod le même jour, incident après MEP…) */
+.tl-li.tl-clash { background: color-mix(in srgb, var(--c-out) 9%, transparent); border: 1px solid color-mix(in srgb, var(--c-out) 22%, transparent); margin-bottom: 4px; }
+.tl-li.tl-clash:not(.is-warn) { background: color-mix(in srgb, var(--c-livraison) 9%, transparent); border-color: color-mix(in srgb, var(--c-livraison) 25%, transparent); }
+.tl-li.tl-clash .tl-li-lead { background: transparent; }
+
+/* ══ Support (charge) : histogramme par semaine ═════════════════════════════ */
+:root { --c-charge: #be185d; }
+[data-theme="dark"] { --c-charge: #f472b6; }
+[data-c="charge"] { --c: var(--c-charge); }
+.tll-sup { position: absolute; bottom: 4px; top: 4px; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; padding: 0 2px; }
+.tll-sup small { font-size: 9px; font-weight: 700; line-height: 1; color: var(--c-charge); text-align: center; margin-bottom: 1px; }
+/* Hauteur de la barre ∝ au maximum de la période (--h en %) ; au moins 3 px pour rester visible */
+.tll-sup-bar { display: flex; flex-direction: column; height: max(3px, calc(var(--h) * 0.26px)); border-radius: 3px 3px 0 0; overflow: hidden; }
+.tll-sup-tix { background: var(--c-charge); }
+.tll-sup-tasks { background: repeating-linear-gradient(135deg, var(--c-charge) 0 2px, color-mix(in srgb, var(--c-charge) 35%, var(--surface)) 2px 5px); }
+.tll-sup:hover .tll-sup-bar, .tll-sup:focus-visible .tll-sup-bar { box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-charge) 40%, transparent); }
+.tll-sup-brd { background: color-mix(in srgb, var(--c-charge) 45%, var(--surface)); }
+
+/* Tâche du suivi qui traîne (≥ 3 semaines) : point rouge devant le compte de la barre, chiffre clé rouge */
+.tll-sup-dot { display: inline-block; width: 6px; height: 6px; margin-right: 2px; border-radius: 50%; background: var(--p-low); vertical-align: 1px; }
+.tll-sup.is-stale small { color: var(--p-low); }
+
+/* ══ En-tête : hiérarchie des actions ═══════════════════════════════════════
+   primaire (＋ Fait marquant) > secondaire (⤓ Exporter) > icône nue (🔗 copier le lien) ;
+   « ↺ Réinitialiser » = simple lien, seulement quand un filtre est modifié */
+.tl-link-btn { font-size: 15px; }
+.tl-reset {
+    margin-left: auto; height: 32px; padding: 0 4px; font-size: var(--fs-xs); color: var(--text-muted);
+    text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px;
+}
+.tl-reset:hover, .tl-reset:focus-visible { color: var(--text); text-decoration-color: currentColor; }
+@media (max-width: 640px) { .tl-reset { margin-left: 0; height: 44px; } .tl-link-btn { width: 44px; height: 44px; } }
+/* Actions groupées ; sur mobile, icônes seules (libellés dans aria-label) — plus de bouton isolé sur sa ligne */
+.tl-actions { display: flex; align-items: center; gap: var(--sp-2); }
+.tl-seg button { white-space: nowrap; }
+@media (max-width: 640px) {
+    .tl-btn-label { display: none; }
+    .tl-actions { margin-left: auto; gap: 4px; }
+    .tl-actions .btn { min-width: 44px; height: 44px; justify-content: center; font-size: 16px; }
+    .tl-seg[aria-label="Portée"] { flex: 1 1 auto; }
+}
+
+/* Tuile cliquable : isole son couloir (re-clic = tout réafficher) */
+button.tl-kpi { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: transform var(--tr-fast), box-shadow var(--tr-fast), border-color var(--tr-fast); }
+button.tl-kpi:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); border-color: color-mix(in srgb, var(--k) 45%, var(--border)); }
+button.tl-kpi:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+button.tl-kpi[aria-pressed="true"] { border-color: var(--k); box-shadow: 0 0 0 1px var(--k), var(--shadow-sm); }
+@media (prefers-reduced-motion: reduce) { button.tl-kpi, button.tl-kpi:hover { transition: none; transform: none; } }
+
+/* MEP suivie d'un incident de production dans les 48 h : point rouge sous le losange */
+.tll-rel.is-followed::before { content: ''; position: absolute; left: 50%; bottom: -7px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--c-production); box-shadow: 0 0 0 2px var(--surface); }
+
+/* ══ Portée par couloir (vue Équipe) : libellé = bouton, pastille 👥 équipe / 🚂 train ═════════ */
+.tll-label-btn { width: 100%; height: 100%; gap: 6px; text-align: left; font: inherit; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-secondary); cursor: pointer; }
+.tll-label-btn:hover { background: var(--surface-hover); color: var(--text); }
+.tll-label-btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
+.tll-scope { margin-left: auto; padding: 1px 5px; border-radius: var(--r-full); font-size: 10px; line-height: 1.4; background: var(--bg); opacity: .6; transition: opacity var(--tr-fast); }
+.tll-label-btn:hover .tll-scope, .tll-label-btn[aria-pressed="true"] .tll-scope { opacity: 1; }
+.tll-label-btn[aria-pressed="true"] .tll-scope { background: color-mix(in srgb, var(--primary) 16%, transparent); }
+.tll-scope.is-fixed { opacity: .45; cursor: help; }
+/* Couloir basculé sur le train : fond légèrement teinté, pour le distinguer du reste (vue Équipe) */
+.tll-row.is-train .tll-track { background: color-mix(in srgb, var(--primary) 4%, transparent); }
+/* Clé de ticket cliquable dans une fiche */
+.tl-ticket { cursor: pointer; font: inherit; font-size: 11px; color: var(--primary); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--primary) 40%, transparent); text-underline-offset: 2px; }
+.tl-ticket:hover, .tl-ticket:focus-visible { background: color-mix(in srgb, var(--primary) 12%, transparent); text-decoration-color: currentColor; }
+
+/* ══ Lignes de bulle : pastille de tête · texte · étiquettes (team_timeline_detail.js) ══════════ */
+/* Grille : tête | texte, étiquettes SOUS le texte (en colonne à droite, elles écrasaient le texte) */
+.tl-li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 10px; row-gap: 4px; padding: 7px 8px; border-radius: var(--r-md); line-height: 1.35; transition: background var(--tr-fast); }
+.tl-li:hover { background: var(--bg); }
+.tl-li-lead {
+    flex: 0 0 auto; min-width: 44px; display: grid; justify-items: center; padding: 2px 6px; border-radius: 6px;
+    background: color-mix(in srgb, var(--c) 13%, transparent); color: var(--c);
+    font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.3;
+}
+.tl-li-lead small { font-size: 10px; font-weight: 600; opacity: .8; }
+.tl-li-main { grid-column: -2; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
+.tl-li-tags { grid-column: -2; display: flex; flex-wrap: wrap; gap: 4px; }
+.tl-link { color: var(--primary); font-size: 12px; text-decoration: none; white-space: nowrap; }
+.tl-link:hover { text-decoration: underline; }
+.tl-li.is-prod .tl-li-lead, .tl-li.is-warn .tl-li-lead { background: color-mix(in srgb, var(--c-out) 14%, transparent); color: var(--c-out); }
+.tl-li.is-warn .tl-li-main { color: var(--c-out); }
+.tl-li.is-done .tl-li-main { color: var(--text-muted); }
+.tl-li.is-planned .tl-li-lead { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); }
+.tl-li.is-k-in .tl-li-lead { --c: var(--c-in); } .tl-li.is-k-out .tl-li-lead { --c: var(--c-out); } .tl-li.is-k-move .tl-li-lead { --c: var(--c-move); }
+.tl-tag.is-prod { color: var(--c-out); background: color-mix(in srgb, var(--c-out) 12%, transparent); }
+/* Sous-titre de section dans une bulle */
+.tl-li-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 10px 8px 4px; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-muted); }
+.tl-li-head:first-child { padding-top: 2px; }
+.tl-li-head small { flex-basis: 100%; font-size: 10.5px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.tl-li-head .tl-carry { text-transform: none; letter-spacing: 0; }
+
+/* Mouvements groupés par équipe : bloc = pastille d'équipe, compteurs, personnes en puces */
+.tl-group { margin: 0 0 6px; padding: 8px 10px; border-radius: var(--r-md); background: var(--bg); }
+.tl-group-head { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: var(--fs-sm); }
+.tl-team-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--team); box-shadow: 0 0 0 2px color-mix(in srgb, var(--team) 25%, transparent); }
+.tl-group-counts { margin-left: auto; display: inline-flex; gap: 4px; }
+.tl-group-counts b { padding: 0 6px; border-radius: var(--r-full); font-size: 11px; color: #fff; }
+.tl-group-counts .tl-k-in { background: var(--c-in); } .tl-group-counts .tl-k-out { background: var(--c-out); } .tl-group-counts .tl-k-move { background: var(--c-move); }
+.tl-people { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.tl-person {
+    --m: var(--c-in); display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px 3px 4px; border-radius: var(--r-full);
+    font-size: 12px; color: var(--text); background: color-mix(in srgb, var(--m) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--m) 40%, transparent);
+}
+.tl-person i { width: 16px; height: 16px; display: grid; place-items: center; border-radius: 50%; background: var(--m); color: #fff; font-size: 9px; font-style: normal; }
+.tl-person small { font-size: 10.5px; color: var(--text-muted); }
+.tl-person.is-out { --m: var(--c-out); } .tl-person.is-move { --m: var(--c-move); }
+.tl-person.is-approx { border-style: dashed; }
+/* Personne cliquable → fiche membre (Atlas) */
+button.tl-person { font: inherit; font-size: 12px; cursor: pointer; transition: box-shadow var(--tr-fast), transform var(--tr-fast); }
+button.tl-person:hover, button.tl-person:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--m) 35%, transparent); transform: translateY(-1px); outline: none; }
+.tl-member-link { font: inherit; font-weight: var(--fw-semibold); color: var(--primary); cursor: pointer; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--primary) 40%, transparent); text-underline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { button.tl-person, button.tl-person:hover { transition: none; transform: none; } }

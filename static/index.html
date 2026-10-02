@@ -6,7 +6,13 @@
     <title>Squad Board</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
     <link rel="stylesheet" href="/css/tokens.css">
-    <link rel="stylesheet" href="/css/base.css">
+    <!-- Ancien base.css (3 618 lignes) découpé en 6 morceaux CONSÉCUTIFS (3.178.0) : ordre de cascade inchangé -->
+    <link rel="stylesheet" href="/css/base-shell.css">
+    <link rel="stylesheet" href="/css/base-components.css">
+    <link rel="stylesheet" href="/css/base-overlays.css">
+    <link rel="stylesheet" href="/css/base-utilities.css">
+    <link rel="stylesheet" href="/css/base-palette.css">
+    <link rel="stylesheet" href="/css/base-misc.css">
     <link rel="stylesheet" href="/css/topbar-fit.css">
     <!-- views.css éclaté par vue/composant — ORDRE = ordre de cascade (ne pas réordonner) -->
     <link rel="stylesheet" href="/css/views/health.css">
@@ -43,6 +49,8 @@
     <link rel="stylesheet" href="/css/views/chart-zoom.css">
     <link rel="stylesheet" href="/css/views/team.css">
     <link rel="stylesheet" href="/css/views/team-calendar.css">
+    <link rel="stylesheet" href="/css/views/team-timeline.css">
+    <link rel="stylesheet" href="/css/views/train-matrix.css">
     <link rel="stylesheet" href="/css/views/cmd-section.css">
     <!-- En DERNIER : .nav-rail passe la barre en flex-wrap:nowrap, et les feuilles de
          vue posent flex-wrap:wrap sur la meme barre avec la MEME specificite. A specificite

@@ -136,6 +136,11 @@ function applyHash() {
     let raw = location.hash.replace(/^#/, '');
     if (!raw) return;
 
+    // Marqueur ~frise=<filtres> (carte « Faits marquants », team_timeline_prefs.js) : ne route rien,
+    // la carte le relit elle-même. Sa valeur n'a ni « / » ni « ~ » : un « /ticket/ID » ou un « ~cal »
+    // ajouté après par une modale reste intact.
+    raw = raw.replace(/(?:~|%7E)frise=[^~/]*?(?=~|%7E|\/|$)/i, '');
+
     // Détecte et retire le suffixe ~cal (modal calendrier), l'ouvre après routing
     const openCal = raw.endsWith('~cal');
     if (openCal) raw = raw.slice(0, -4); // retire "~cal"

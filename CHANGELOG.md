@@ -1,3 +1,18 @@
+## [3.194.1] - 2026-10-03
+
+### Paramètres → JIRA : rangée « Équipes masquées » qui débordait sur une seule ligne
+
+- Les puces vivaient dans la colonne de droite de la rangée (`.sync-cfg-input-wrap`, `flex-shrink: 0`) :
+  avec plusieurs équipes, elles s'étalaient sur une seule ligne et cassaient la mise en page (le
+  `flex-wrap` inline n'y pouvait rien). Désormais : en-tête en haut (titre + **nombre**, explication,
+  « ↺ Tout restaurer » à droite), puces **sur toute la largeur en dessous**, qui passent à la ligne,
+  **triées par ordre alphabétique** ; libellé long tronqué (…), info-bulle « Restaurer X ».
+- Puce : icône **↺** (restaurer) au lieu de ✕ (qui suggérait une suppression), survol en vert.
+- Styles inline retirés du JS → [settings-excluded-teams.css](static/css/views/settings-excluded-teams.css) ;
+  la rangée n'est plus rendue du tout quand aucune équipe n'est masquée.
+- Vérifié au banc Edge (14 équipes masquées) : 1600 px → 3 lignes dans la largeur du bloc, 390 px →
+  6 lignes, aucun débordement ; clic → équipe restaurée ; 0 erreur JS.
+
 ## [3.194.0] - 2026-10-03
 
 ### Statuts forcés : aussi vers « En cours » et « À faire » (onglets dans Paramètres → JIRA)

@@ -262,23 +262,24 @@ export function jiraSectionHtml() {
                     </div>
 
                     ${(() => {
-                        const ex = getExcludedTeams();
-                        return `
-                    <div class="sync-cfg-row" id="excluded-teams-row" style="${ex.length ? '' : 'display:none'}">
+                        // Équipes masquées : en-tête (titre, nombre, « Tout restaurer ») puis les puces sur
+                        // toute la largeur, qui passent à la ligne — dans la colonne de droite de la rangée,
+                        // elles s'étalaient sur une seule ligne et cassaient la mise en page.
+                        const ex = [...getExcludedTeams()].sort((a, b) => a.localeCompare(b, 'fr'));
+                        return ex.length ? `
+                    <div class="sync-cfg-row sync-cfg-row--stack" id="excluded-teams-row">
                         <div class="sync-cfg-label">
                             <span class="sync-cfg-icon">🚫</span>
-                            <div>
-                                <div class="sync-cfg-name">Équipes / lignes produit masquées</div>
-                                <div class="sync-cfg-desc">Retirées de la sync JIRA : elles ne sont pas recréées. Cliquez une puce pour la restaurer.</div>
+                            <div class="excl-head">
+                                <div class="sync-cfg-name">Équipes / lignes produit masquées <span class="excl-count">${ex.length}</span></div>
+                                <div class="sync-cfg-desc">Retirées de la sync JIRA : elles ne sont pas recréées. Cliquez une équipe pour la restaurer (elle réapparaîtra à la prochaine sync).</div>
                             </div>
+                            <button type="button" class="btn btn-ghost btn-sm excl-clear" id="btn-clear-excluded">↺ Tout restaurer</button>
                         </div>
-                        <div class="sync-cfg-input-wrap" style="flex-wrap:wrap;gap:6px;align-items:center">
-                            <div id="excluded-teams-list" style="display:flex;flex-wrap:wrap;gap:6px">
-                                ${ex.map(n => `<button type="button" class="chip chip-removable excluded-team-chip" data-name="${esc(n)}" title="Restaurer ${esc(n)}">${esc(n)} ✕</button>`).join('')}
-                            </div>
-                            ${ex.length ? `<button type="button" class="btn btn-ghost btn-sm" id="btn-clear-excluded">Tout restaurer</button>` : ''}
-                        </div>
-                    </div>`;
+                        <ul class="excl-list" id="excluded-teams-list" aria-label="Équipes masquées">
+                            ${ex.map(n => `<li><button type="button" class="excl-chip excluded-team-chip" data-name="${esc(n)}" title="Restaurer ${esc(n)}"><span>${esc(n)}</span><span class="excl-chip-x" aria-hidden="true">↺</span></button></li>`).join('')}
+                        </ul>
+                    </div>` : '';
                     })()}
 
                     <div class="sync-cfg-actions">

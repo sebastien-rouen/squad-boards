@@ -1,0 +1,17 @@
+/* VIEW: Paramètres → JIRA — rangée « 🚫 Équipes / lignes produit masquées » (settings-jira.js).
+   En-tête en haut, puces sur toute la largeur en dessous (elles passent à la ligne) : dans la colonne
+   de droite d'une .sync-cfg-row (flex-shrink: 0), elles s'étalaient sur une seule ligne. */
+
+.sync-cfg-row--stack { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
+.sync-cfg-row--stack .sync-cfg-label { align-items: flex-start; }
+.excl-head { flex: 1; min-width: 0; }
+.excl-count { margin-left: var(--sp-1); padding: 0 var(--sp-2); border-radius: var(--r-full); background: var(--bg-alt); color: var(--text-muted); font-size: var(--fs-xs); font-weight: var(--fw-medium); font-variant-numeric: tabular-nums; }
+.excl-clear { flex-shrink: 0; }
+
+.excl-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding-left: calc(16px + var(--sp-2)); }
+.excl-chip { display: inline-flex; align-items: center; gap: var(--sp-2); max-width: 22rem; padding: 3px 4px 3px var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-full); background: var(--surface); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; transition: border-color var(--tr-fast), color var(--tr-fast), background var(--tr-fast); }
+.excl-chip > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.excl-chip-x { display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-full); background: var(--bg-alt); color: var(--text-muted); font-size: 12px; }
+.excl-chip:hover, .excl-chip:focus-visible { border-color: var(--success); color: var(--text); background: color-mix(in srgb, var(--success) 6%, var(--surface)); }
+.excl-chip:hover .excl-chip-x, .excl-chip:focus-visible .excl-chip-x { background: var(--success); color: var(--text-inverse); }
+@media (max-width: 640px) { .excl-list { padding-left: 0; } .sync-cfg-row--stack .sync-cfg-label { flex-wrap: wrap; } }

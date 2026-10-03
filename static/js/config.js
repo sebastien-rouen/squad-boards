@@ -75,6 +75,36 @@ export const STATUS_MAP = {
  * le ticket sort simplement des métriques de flux (`cycleTimeDays > 0` partout). D'où le golden
  * dataset de `tests/status-map.test.mjs`, à compléter dès qu'une équipe introduit un statut.
  */
+/**
+ * Valeurs PAR DÉFAUT des « statuts forcés » — modifiables dans Paramètres → JIRA (en base :
+ * piInfo.statusOverride, qui prime dès qu'elle contient un statut).
+ * Par colonne cible (Terminé, En cours, À faire) : statuts JIRA rangés dans cette colonne pour
+ * TOUTES les équipes sauf `exceptTeams`, quoi qu'en dise la colonne du board JIRA (« Recette » →
+ * Test) ou STATUS_MAP. Fuego garde son propre découpage (recette / validation suivies comme du
+ * travail en cours). Un statut présent dans deux listes reste dans la 1re (done > inprog > todo).
+ * Appliqué par utils/status-override.js : synchro (statut + rejeu du changelog → startedDate,
+ * resolvedDate, cycle time), colonnes du board, et au chargement (sans attendre une synchro).
+ * Libellés comparés sans accents ni casse : « A livrer » = « À livrer ».
+ */
+export const DONE_OVERRIDE = Object.freeze({
+    statuses: [
+        'À livrer pour validation', 'En cours de test Recette', 'En cours de test Préprod',
+        'En cours de Recette', 'À livrer en prod', 'En Prod', 'Terminé', 'Clos sans suite',
+    ],
+    exceptTeams: ['Fuego'],
+});
+export const STATUS_OVERRIDE_DEFAULTS = Object.freeze({
+    done:   DONE_OVERRIDE,
+    inprog: Object.freeze({ statuses: [], exceptTeams: ['Fuego'] }),
+    todo:   Object.freeze({ statuses: [], exceptTeams: ['Fuego'] }),
+});
+/** Colonnes cibles, par priorité (un statut dans deux listes reste dans la 1re), et leur libellé. */
+export const STATUS_OVERRIDE_TARGETS = Object.freeze([
+    { key: 'done',   icon: '✅', label: 'Terminé' },
+    { key: 'inprog', icon: '🔄', label: 'En cours' },
+    { key: 'todo',   icon: '📦', label: 'À faire' },
+]);
+
 export const CYCLE_START_STATUSES = ['inprog', 'review', 'test'];
 export const CYCLE_END_STATUS = 'done';
 

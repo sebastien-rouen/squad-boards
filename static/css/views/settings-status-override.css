@@ -1,0 +1,55 @@
+/* VIEW: Paramètres → JIRA — « 🎯 Statuts forcés dans une colonne » (settings-status-override.js).
+   Onglets par colonne cible (Terminé / En cours / À faire), statuts en liste avec effectif, gain et ✕,
+   raccourcis des statuts rencontrés, équipes exemptées en boutons à bascule, aperçu de l'effet.
+   Couleur par colonne via data-tone. Complète settings.css (.sync-cfg-*). */
+
+.dov-badge { margin-left: var(--sp-2); padding: 1px var(--sp-2); border-radius: var(--r-full); background: var(--bg-alt); color: var(--text-muted); font-size: var(--fs-xs); font-weight: var(--fw-medium); }
+.dov-badge.is-custom { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success-text, var(--success)); }
+
+.dov-body { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--sp-5); padding: var(--sp-4); }
+@media (max-width: 760px) { .dov-body { grid-template-columns: 1fr; } }
+.dov-col { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.dov-col h4 { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
+.dov-col h4 small { padding: 0 var(--sp-2); border-radius: var(--r-full); background: var(--bg-alt); color: var(--text-muted); font-size: var(--fs-xs); }
+.dov-help { font-size: var(--fs-xs); color: var(--text-muted); }
+
+.dov-list { display: flex; flex-direction: column; gap: 4px; }
+.dov-list { --tone: var(--success); }
+.dov-list[data-tone="inprog"] { --tone: var(--info); }
+.dov-list[data-tone="todo"] { --tone: var(--text-muted); }
+.dov-list li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: var(--sp-2); padding: 4px 4px 4px var(--sp-3); border: 1px solid var(--border); border-left: 3px solid var(--tone); border-radius: var(--r-md); background: var(--surface); font-size: var(--fs-sm); }
+.dov-list li small { min-width: 2rem; padding: 0 var(--sp-2); border-radius: var(--r-full); background: var(--bg-alt); color: var(--text-secondary); font-size: var(--fs-xs); text-align: center; font-variant-numeric: tabular-nums; }
+.dov-list li.dov-empty { display: block; border-left-color: var(--border); color: var(--text-muted); font-style: italic; }
+.dov-x { width: 26px; height: 26px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-muted); cursor: pointer; }
+.dov-x:hover, .dov-x:focus-visible { background: var(--danger-bg); color: var(--status-blocked-text); }
+
+.dov-add { display: flex; gap: var(--sp-2); }
+.dov-add .input { flex: 1; min-width: 0; }
+.dov-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dov-suggest small { color: var(--text-muted); font-size: var(--fs-xs); margin-right: var(--sp-1); }
+.dov-chip { border: 1px dashed var(--border-hover); cursor: pointer; }
+.dov-chip:hover, .dov-chip:focus-visible { border-style: solid; border-color: var(--success); color: var(--text); }
+.dov-chip b { color: var(--text-muted); font-weight: var(--fw-medium); }
+
+.dov-teams { display: flex; flex-wrap: wrap; gap: 6px; }
+.dov-team { padding: 3px var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-full); background: var(--surface); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.dov-team:hover { border-color: var(--border-hover); color: var(--text); }
+.dov-team[aria-pressed="true"] { border-color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, var(--surface)); color: var(--text); font-weight: var(--fw-semibold); }
+
+.dov-preview { margin: 0 var(--sp-4) var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: color-mix(in srgb, var(--success) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--success) 30%, transparent); font-size: var(--fs-sm); color: var(--text-secondary); }
+.dov-preview b { color: var(--text); }
+.dov-gain { margin-left: 2px; color: var(--success-text, var(--success)); font-style: normal; font-weight: var(--fw-bold); }
+
+/* Onglets : une colonne cible par onglet */
+.dov-tabs { display: flex; gap: var(--sp-1); padding: var(--sp-3) var(--sp-4) 0; border-bottom: 1px solid var(--border); }
+.dov-tab { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 1px solid transparent; border-bottom: 0; border-radius: var(--r-md) var(--r-md) 0 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: var(--fs-sm); cursor: pointer; margin-bottom: -1px; }
+.dov-tab:hover { color: var(--text); background: var(--surface-hover); }
+.dov-tab[aria-selected="true"] { border-color: var(--border); background: var(--surface); color: var(--text); font-weight: var(--fw-semibold); }
+.dov-tab small { padding: 0 6px; border-radius: var(--r-full); background: var(--bg-alt); color: var(--text-muted); font-size: var(--fs-xs); font-weight: var(--fw-medium); }
+.dov-tab-help { margin: var(--sp-3) var(--sp-4) 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.dov-tab-help b { color: var(--text-secondary); }
+.dov-note { margin: var(--sp-2) var(--sp-4) 0; padding: var(--sp-1) var(--sp-3); border-radius: var(--r-md); background: color-mix(in srgb, var(--info) 10%, var(--surface)); color: var(--text-secondary); font-size: var(--fs-xs); }
+.dov-preview[data-tone="inprog"] { background: color-mix(in srgb, var(--info) 8%, var(--surface)); border-color: color-mix(in srgb, var(--info) 30%, transparent); }
+.dov-preview[data-tone="todo"] { background: var(--bg-alt); border-color: var(--border); }
+.dov-list[data-tone="inprog"] .dov-gain { color: var(--info); }
+.dov-list[data-tone="todo"] .dov-gain { color: var(--text-secondary); }

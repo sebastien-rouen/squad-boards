@@ -6,13 +6,20 @@ class Store {
     constructor(initial = {}) {
         this._state = { ...initial };
         this._listeners = new Map();
+        this._transforms = new Map();
     }
+
+    /** Transformation appliquée à CHAQUE écriture d'une clé, d'où qu'elle vienne. Ex. « Done forcé »
+     *  sur `tickets` (utils/status-override.js) : sept chemins rechargent les tickets depuis l'API. */
+    transform(key, fn) { this._transforms.set(key, fn); }
 
     get(key) {
         return this._state[key];
     }
 
     set(key, value) {
+        const tf = this._transforms.get(key);
+        if (tf) value = tf(value);
         const old = this._state[key];
         this._state[key] = value;
         if (old !== value) this._notify(key, value, old);

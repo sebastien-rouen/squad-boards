@@ -10,7 +10,7 @@
 import { store } from '../state.js';
 import { SYNC_DEFAULTS } from '../config.js';
 import * as api from '../api.js';
-import { esc, toast } from '../utils.js';
+import { esc, toast, emptyStateHtml } from '../utils.js';
 import { getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
 import { statusOverrideHtml, wireStatusOverride } from './settings-status-override.js';
 
@@ -53,6 +53,52 @@ function _piPresets() {
     }).join('');
 }
 
+// ── Onglets de la section (3.195.0) ─────────────────────────────────────────
+// Connexion, synchro, équipes masquées et statuts forcés s'empilaient sur plusieurs écrans. Les
+// quatre panneaux restent TOUS dans le DOM (masqués par `hidden`) : le câblage et l'enregistrement
+// de la synchro lisent leurs champs sans savoir quel onglet est ouvert. Onglet retenu par
+// navigateur (localStorage) : un enregistrement re-rend la page et y revient.
+const _TABS = [
+    { key: 'conn',   icon: '🔗', label: 'Connexion' },
+    { key: 'sync',   icon: '⏱️', label: 'Synchro' },
+    { key: 'teams',  icon: '🚫', label: 'Équipes masquées' },
+    { key: 'status', icon: '🎯', label: 'Statuts forcés' },
+];
+const _TAB_KEY = 'sb-settings-jira-tab';
+function _activeTab() {
+    let k = '';
+    try { k = localStorage.getItem(_TAB_KEY) || ''; } catch { /* stockage indisponible */ }
+    return _TABS.some(t => t.key === k) ? k : 'conn';
+}
+
+/** Panneau sans objet tant que JIRA n'est pas connecté. */
+const _needConnection = what => emptyStateHtml({ icon: '🔌', title: 'JIRA n\'est pas connecté', text: `Configurez d'abord la connexion pour accéder ${what}.`, action: { label: 'Configurer la connexion', attrs: 'data-jira-goto="conn"' } });
+
+/** À partir de ce nombre d'équipes masquées, un champ de recherche filtre les puces. */
+const _EXCL_SEARCH_MIN = 10;
+
+/** Équipes masquées : en-tête (titre, nombre, « Tout restaurer »), recherche, puces sur toute la largeur. */
+function _excludedHtml(ex) {
+    if (!ex.length) return emptyStateHtml({ tone: 'ok', icon: '✅', title: 'Aucune équipe masquée', text: 'Toutes les équipes des boards JIRA sont synchronisées. Une équipe se masque depuis la carte de synchro (« Masquer ») quand elle ne vous concerne pas.' });
+    return `
+                <div class="sync-cfg-block mt-4">
+                    <div class="sync-cfg-row sync-cfg-row--stack" id="excluded-teams-row">
+                        <div class="sync-cfg-label">
+                            <span class="sync-cfg-icon">🚫</span>
+                            <div class="excl-head">
+                                <div class="sync-cfg-name">Équipes / lignes produit masquées <span class="excl-count">${ex.length}</span></div>
+                                <div class="sync-cfg-desc">Retirées de la sync JIRA : elles ne sont pas recréées. Cliquez une équipe pour la restaurer (elle réapparaîtra à la prochaine sync).</div>
+                            </div>
+                            <button type="button" class="btn btn-ghost btn-sm excl-clear" id="btn-clear-excluded">↺ Tout restaurer</button>
+                        </div>
+                        ${ex.length >= _EXCL_SEARCH_MIN ? `<div class="excl-search"><input type="search" id="excl-search" class="input" placeholder="Filtrer les ${ex.length} équipes…" aria-label="Filtrer les équipes masquées" aria-controls="excluded-teams-list"><small id="excl-search-count" aria-live="polite"></small></div>` : ''}
+                        <ul class="excl-list" id="excluded-teams-list" aria-label="Équipes masquées">
+                            ${ex.map(n => `<li><button type="button" class="excl-chip excluded-team-chip" data-name="${esc(n)}" title="Restaurer ${esc(n)}"><span>${esc(n)}</span><span class="excl-chip-x" aria-hidden="true">↺</span></button></li>`).join('')}
+                        </ul>
+                    </div>
+                </div>`;
+}
+
 /** HTML de la section — à interpoler dans le template de renderSettings. */
 export function jiraSectionHtml() {
     const jiraConfigured  = store.get('jiraConfigured');
@@ -60,12 +106,15 @@ export function jiraSectionHtml() {
     const jiraUrl         = store.get('jiraUrl');
     const jiraEnv         = store.get('jiraEnv') || {};
     const jiraCreds       = api.getJiraCreds();
-    const jiraProjectTeams = store.get('jiraProjectTeams') || {};
+    const excluded        = [...getExcludedTeams()].sort((a, b) => a.localeCompare(b, 'fr'));
+    const tab             = _activeTab();
     return `
         <!-- ═══ JIRA Plugin ═══ -->
         <div class="settings-section">
             <div class="settings-section-header" data-stg-toggle><h3>Plugin JIRA (optionnel)</h3><svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg></div>
             <div class="settings-section-body">
+                <div class="jira-tabs" role="tablist" aria-label="Plugin JIRA">${_TABS.map(t => `<button type="button" role="tab" class="jira-tab" id="jira-tab-${t.key}" data-jira-tab="${t.key}" aria-controls="jira-panel-${t.key}" aria-selected="${t.key === tab}" tabindex="${t.key === tab ? 0 : -1}">${t.icon} ${esc(t.label)}${t.key === 'teams' && excluded.length ? ` <small>${excluded.length}</small>` : ''}</button>`).join('')}</div>
+                <div class="jira-panel" id="jira-panel-conn" role="tabpanel" aria-labelledby="jira-tab-conn"${tab === 'conn' ? '' : ' hidden'}>
                 <div class="connection-status ${jiraConfigured ? 'connected' : 'disconnected'}">
                     <span class="status-dot"></span>
                     ${jiraConfigured ? `Connecte a <strong>${esc(jiraUrl || '')}</strong>${project ? ` (projet: ${esc(project)})` : ''}` : 'Non configure'}
@@ -84,7 +133,7 @@ export function jiraSectionHtml() {
                             </div>
                         </div>
                         <div class="sync-cfg-input-wrap">
-                            <input type="url" id="jira-url" class="input sync-cfg-input" style="min-width:260px" placeholder="${esc(jiraEnv.url || 'https://mon-domaine.atlassian.net')}"
+                            <input type="url" id="jira-url" class="input sync-cfg-input sync-cfg-input--wide" placeholder="${esc(jiraEnv.url || 'https://mon-domaine.atlassian.net')}"
                                 value="${esc(jiraCreds.url || '')}">
                         </div>
                     </div>
@@ -98,7 +147,7 @@ export function jiraSectionHtml() {
                             </div>
                         </div>
                         <div class="sync-cfg-input-wrap">
-                            <input type="email" id="jira-user" class="input sync-cfg-input" style="min-width:260px" placeholder="${esc(jiraEnv.user || 'prenom.nom@societe.com')}"
+                            <input type="email" id="jira-user" class="input sync-cfg-input sync-cfg-input--wide" placeholder="${esc(jiraEnv.user || 'prenom.nom@societe.com')}"
                                 value="${esc(jiraCreds.user || '')}">
                         </div>
                     </div>
@@ -112,7 +161,7 @@ export function jiraSectionHtml() {
                             </div>
                         </div>
                         <div class="sync-cfg-input-wrap">
-                            <input type="password" id="jira-token" class="input sync-cfg-input" style="min-width:260px" autocomplete="off"
+                            <input type="password" id="jira-token" class="input sync-cfg-input sync-cfg-input--wide" autocomplete="off"
                                 placeholder="${jiraCreds.token ? '•••••••••• (enregistré — laissez vide pour conserver)' : (jiraEnv.tokenSet ? '•••••••••• (défini dans .env)' : 'Aucun token')}"
                                 value="">
                         </div>
@@ -124,7 +173,9 @@ export function jiraSectionHtml() {
                         ${(jiraCreds.url || jiraCreds.user || jiraCreds.token) ? `<button class="btn btn-ghost btn-sm" id="btn-reset-jira-conn" title="Revenir aux valeurs du .env">Réinitialiser (.env)</button>` : ''}
                     </div>
                 </div>
+                </div>
 
+                <div class="jira-panel" id="jira-panel-sync" role="tabpanel" aria-labelledby="jira-tab-sync"${tab === 'sync' ? '' : ' hidden'}>
                 ${jiraConfigured ? `
                 <div class="sync-cfg-block mt-4">
                     <div class="sync-cfg-title">Configuration de la synchronisation</div>
@@ -261,33 +312,21 @@ export function jiraSectionHtml() {
                         </div>
                     </div>
 
-                    ${(() => {
-                        // Équipes masquées : en-tête (titre, nombre, « Tout restaurer ») puis les puces sur
-                        // toute la largeur, qui passent à la ligne — dans la colonne de droite de la rangée,
-                        // elles s'étalaient sur une seule ligne et cassaient la mise en page.
-                        const ex = [...getExcludedTeams()].sort((a, b) => a.localeCompare(b, 'fr'));
-                        return ex.length ? `
-                    <div class="sync-cfg-row sync-cfg-row--stack" id="excluded-teams-row">
-                        <div class="sync-cfg-label">
-                            <span class="sync-cfg-icon">🚫</span>
-                            <div class="excl-head">
-                                <div class="sync-cfg-name">Équipes / lignes produit masquées <span class="excl-count">${ex.length}</span></div>
-                                <div class="sync-cfg-desc">Retirées de la sync JIRA : elles ne sont pas recréées. Cliquez une équipe pour la restaurer (elle réapparaîtra à la prochaine sync).</div>
-                            </div>
-                            <button type="button" class="btn btn-ghost btn-sm excl-clear" id="btn-clear-excluded">↺ Tout restaurer</button>
-                        </div>
-                        <ul class="excl-list" id="excluded-teams-list" aria-label="Équipes masquées">
-                            ${ex.map(n => `<li><button type="button" class="excl-chip excluded-team-chip" data-name="${esc(n)}" title="Restaurer ${esc(n)}"><span>${esc(n)}</span><span class="excl-chip-x" aria-hidden="true">↺</span></button></li>`).join('')}
-                        </ul>
-                    </div>` : '';
-                    })()}
 
                     <div class="sync-cfg-actions">
                         <button class="btn btn-primary btn-sm" id="btn-save-sync-config">Enregistrer</button>
                     </div>
                 </div>
-                ` : ''}
+                ` : _needConnection('aux réglages de synchronisation')}
+                </div>
+
+                <div class="jira-panel" id="jira-panel-teams" role="tabpanel" aria-labelledby="jira-tab-teams"${tab === 'teams' ? '' : ' hidden'}>
+                ${_excludedHtml(excluded)}
+                </div>
+
+                <div class="jira-panel" id="jira-panel-status" role="tabpanel" aria-labelledby="jira-tab-status"${tab === 'status' ? '' : ' hidden'}>
                 ${statusOverrideHtml()}
+                </div>
             </div>
         </div>
 
@@ -387,6 +426,51 @@ export function wireJiraSection(container, onReload = () => {}) {
             _ticketsInput.value = btn.dataset.sprints;
             _refreshEquiv();
         });
+    });
+
+    // ── Onglets ───────────────────────────────────────────────────────────────
+    const _tabsEl = container.querySelector('.jira-tabs');
+    const _show = key => {
+        try { localStorage.setItem(_TAB_KEY, key); } catch { /* stockage indisponible */ }
+        container.querySelectorAll('[data-jira-tab]').forEach(b => {
+            const on = b.dataset.jiraTab === key;
+            b.setAttribute('aria-selected', String(on));
+            b.tabIndex = on ? 0 : -1;
+        });
+        container.querySelectorAll('.jira-panel').forEach(p => { p.hidden = p.id !== `jira-panel-${key}`; });
+    };
+    _tabsEl?.addEventListener('click', e => {
+        const b = e.target.closest('[data-jira-tab]');
+        if (b) _show(b.dataset.jiraTab);
+    });
+    _tabsEl?.addEventListener('keydown', e => {
+        const keys = _TABS.map(t => t.key), cur = keys.indexOf(e.target.dataset?.jiraTab);
+        if (cur < 0) return;
+        const next = { ArrowRight: cur + 1, ArrowLeft: cur - 1, Home: 0, End: keys.length - 1 }[e.key];
+        if (next === undefined) return;
+        e.preventDefault();
+        const key = keys[(next + keys.length) % keys.length];
+        _show(key);
+        _tabsEl.querySelector(`[data-jira-tab="${key}"]`)?.focus();
+    });
+    container.querySelectorAll('[data-jira-goto]').forEach(b => b.addEventListener('click', () => {
+        _show(b.dataset.jiraGoto);
+        _tabsEl?.querySelector(`[data-jira-tab="${b.dataset.jiraGoto}"]`)?.focus();
+    }));
+
+    // ── Équipes masquées — filtre (sans accents ni casse) ─────────────────────
+    const _fold = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const _exclSearch = container.querySelector('#excl-search');
+    _exclSearch?.addEventListener('input', () => {
+        const q = _fold(_exclSearch.value.trim());
+        let shown = 0;
+        container.querySelectorAll('#excluded-teams-list li').forEach(li => {
+            const hit = !q || _fold(li.textContent).includes(q);
+            li.hidden = !hit;
+            if (hit) shown++;
+        });
+        const out = container.querySelector('#excl-search-count');
+        if (out) out.textContent = q ? `${shown} / ${container.querySelectorAll('#excluded-teams-list li').length}` : '';
     });
 
     // ── Équipes masquées — restauration ───────────────────────────────────────

@@ -426,16 +426,54 @@ export function overview(team) {
  *  (Fuego, manager en 1er) mais « O3 - David/Tanisha » (Gabbiano, manager en 2nd). Manager = nom
  *  vu avec au moins 2 partenaires différents SUR TOUT L'HISTORIQUE (`all`) — sur une période courte,
  *  un seul « O3 - David/Tanisha » comptait 2 collaborateurs ; on compte les autres, sur `ones`. */
-function onePeople(ones, all = ones) {
+function oneManagers(all) {
     const partners = new Map();
     for (const o of all) {
         const names = o.pair.split('/').map(x => norm(x)).filter(Boolean);
         if (names.length !== 2) continue;
         names.forEach((n, i) => (partners.get(n) || partners.set(n, new Set()).get(n)).add(names[1 - i]));
     }
-    const managers = new Set([...partners].filter(([, p]) => p.size >= 2).map(([n]) => n));
+    return new Set([...partners].filter(([, p]) => p.size >= 2).map(([n]) => n));
+}
+function onePeople(ones, all = ones) {
+    const managers = oneManagers(all);
     const seen = new Set(ones.flatMap(o => o.pair.split('/').map(x => norm(x)).filter(Boolean)));
     return [...seen].filter(n => !managers.has(n)).length;
+}
+
+/**
+ * Prénom d'un 1v1 (l'agenda n'écrit que « Mohamed/Omar ») → membre { name, team } quand il n'en
+ * désigne qu'un : d'abord dans l'équipe affichée, sinon dans tout le train. Ambigu ou inconnu → null
+ * (la personne reste affichée, sans lien). `store.members` = recherche seulement, comme l'autocomplete.
+ */
+export function resolveOnePerson(token, team = '*') {
+    const t = norm(token);
+    if (!t) return null;
+    const firstOf = n => norm(String(n).split(',')[1] ?? n);
+    const hits = (store.get('members') || []).filter(m => {
+        const f = firstOf(m.name);
+        return f === t || f.split(/[\s-]+/)[0] === t || samePerson(m.name, token);
+    });
+    const uniq = list => [...new Map(list.map(m => [norm(m.name), m])).values()];
+    const inTeam = team && team !== '*' ? uniq(hits.filter(m => teamNameMatches(m.team, team))) : [];
+    const all = uniq(hits);
+    const pick = inTeam.length === 1 ? inTeam[0] : all.length === 1 ? all[0] : null;
+    return pick ? { name: pick.name, team: pick.team || '' } : null;
+}
+
+/** Collaborateurs vus en 1v1 sur la période (managers exclus), avec leurs dates : [{ who, member, days }]. */
+export function onePeopleList(ones, all = ones, team = '*') {
+    const managers = oneManagers(all);
+    const by = new Map();
+    for (const o of ones) {
+        for (const raw of o.pair.split('/').map(x => x.trim()).filter(Boolean)) {
+            const k = norm(raw);
+            if (managers.has(k)) continue;
+            const e = by.get(k) || by.set(k, { who: raw, member: resolveOnePerson(raw, team), days: [] }).get(k);
+            e.days.push(o.day);
+        }
+    }
+    return [...by.values()].sort((a, b) => a.who.localeCompare(b.who, 'fr'));
 }
 
 /** Résumé chiffré de la période (bandeau de chiffres clés). */

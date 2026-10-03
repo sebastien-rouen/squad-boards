@@ -4,6 +4,7 @@
  */
 
 import { esc, initials, hashColor, daysInCurrentColumn, fmtDate, typeBadge, currentStageGroupKey } from '../utils.js';
+import { overrideReason } from '../utils/status-override.js';
 
 const _DWELL_SOURCE_LABEL = {
     status:  'depuis la dernière transition de statut',
@@ -79,6 +80,12 @@ function _staleBadge(ticket) {
     return `<span class="ticket-stale" title="${esc(title)}" aria-label="${esc(title)}">⏰</span>`;
 }
 
+/** Repère 🎯 : la règle « Statuts forcés » a rangé ce ticket ailleurs que son statut JIRA ne le dirait. */
+function _ruleBadge(ticket) {
+    const why = overrideReason(ticket);
+    return why ? `<span class="ticket-rule" title="${esc(why)}" aria-label="${esc(why)}">🎯</span>` : '';
+}
+
 /**
  * Render a ticket card HTML string.
  */
@@ -104,6 +111,7 @@ export function renderCard(ticket, { ageRefs } = {}) {
             <div class="ticket-card-top">
                 ${typeBadge(ticket.type, { title: false })}
                 <div class="ticket-card-top-right">
+                    ${_ruleBadge(ticket)}
                     ${_dwellChip(ticket, ageRefs)}
                     <span class="ticket-id">${esc(ticket.id)}</span>
                 </div>

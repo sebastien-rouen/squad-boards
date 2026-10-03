@@ -82,6 +82,7 @@ export const updateAppetence     = (id, data) => request(`/api/appetences/${id}`
 export const deleteAppetence     = id   => request(`/api/appetences/${id}`, { method: 'DELETE' });
 export const getMemberSkills     = ()   => request('/api/member-skills');
 export const upsertMemberSkill   = data => request('/api/member-skills', { method: 'PUT', body: JSON.stringify(data) });
+export const getSkillHistory     = (scope = 'member', key = '') => request(`/api/skill-history?${new URLSearchParams({ scope, key })}`);   // 3.198.0
 export const getMemberAppetences = ()   => request('/api/member-appetences');
 export const upsertMemberAppetence = data => request('/api/member-appetences', { method: 'PUT', body: JSON.stringify(data) });
 export const getMobility         = ()   => request('/api/mobility');
@@ -198,6 +199,9 @@ export const rankFeatures    = items => request('/api/features/rank', { method: 
 // ── Import / Export ───────────────────────────────────────────────────────────
 export const getAll          = ()   => request('/api/all');
 export const exportAll       = ()   => request('/api/export');
+// Bundle de configuration curée (sauvegarde .local, 3.198.0) — cf. app/routers/config_bundle.py
+export const exportConfig    = ()   => request('/api/config/export');
+export const importConfig    = data => request('/api/config/import', { method: 'POST', body: JSON.stringify(data || {}) });
 export const importAll       = (data, mode = 'replace') => request('/api/import', {
     method: 'POST',
     body: JSON.stringify({ ...data, mode }),

@@ -142,10 +142,6 @@
 .tl-form-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
 
 /* ── États ──────────────────────────────────────────────────────────────────── */
-.tl-state { display: grid; justify-items: center; text-align: center; gap: var(--sp-2); padding: var(--sp-10) var(--sp-6); color: var(--text-secondary); }
-.tl-state-ico { font-size: 34px; }
-.tl-state h5 { margin: 0; font-size: var(--fs-base); color: var(--text); }
-.tl-state p { margin: 0; max-width: 460px; font-size: var(--fs-sm); }
 .tl-skel-wrap { display: grid; gap: 14px; padding: var(--sp-5); }
 .tl-skel { height: 34px; border-radius: 6px; background: linear-gradient(90deg, var(--bg) 25%, var(--surface-hover) 50%, var(--bg) 75%); background-size: 200% 100%; animation: tl-sh 1.4s infinite; }
 @keyframes tl-sh { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
@@ -530,3 +526,9 @@ button.tl-person { font: inherit; font-size: 12px; cursor: pointer; transition: 
 button.tl-person:hover, button.tl-person:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--m) 35%, transparent); transform: translateY(-1px); outline: none; }
 .tl-member-link { font: inherit; font-weight: var(--fw-semibold); color: var(--primary); cursor: pointer; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--primary) 40%, transparent); text-underline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { button.tl-person, button.tl-person:hover { transition: none; transform: none; } }
+
+/* Récit : personnes cliquables → fiche membre (3.197.0) — les puces deviennent des boutons */
+button.tls-person { font: inherit; font-size: 12px; cursor: pointer; }
+button.tls-person:hover, button.tls-person:focus-visible { border-color: var(--m, var(--primary)); background: color-mix(in srgb, var(--m, var(--primary)) 12%, var(--surface)); }
+.tls-person-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline dotted; text-underline-offset: 2px; cursor: pointer; }
+.tls-person-link:hover, .tls-person-link:focus-visible { color: var(--primary); text-decoration-style: solid; }

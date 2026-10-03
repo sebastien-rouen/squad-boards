@@ -12,6 +12,7 @@
 import { store } from '../state.js';
 import { esc, deriveMembersFromAbsences, initials, hashColor, confirmDanger, toast } from '../utils.js';
 import * as api from '../api.js';
+import { mountSkillHistory } from '../components/atlas_history.js';
 
 // ── Référentiels métier ───────────────────────────────────────────────────────
 export const SKILL_LEVELS = [
@@ -965,6 +966,10 @@ function _openMemberCard(name) {
                                 <b style="color:${lm.color}">${x.lvl}</b></div>`;
                         }).join('') : '<div class="atlas-empty-sm">Aucune compétence évaluée.</div>'}
                     </div>
+                    <div class="atlas-mc-block" id="atlas-mc-history">
+                        <div class="atlas-mc-block-title">📈 Évolution des niveaux</div>
+                        <div class="atlas-hist-body"><div class="atlas-empty-sm">Chargement…</div></div>
+                    </div>
                     ${appForte.length ? `<div class="atlas-mc-block">
                         <div class="atlas-mc-block-title">Appétences fortes</div>
                         <div class="atlas-mc-apps">${appForte.map(a => `<span class="atlas-crew-app-tag" style="--ac:${a.color}">${esc(a.name)}</span>`).join('')}</div>
@@ -989,6 +994,8 @@ function _openMemberCard(name) {
     const close = () => { overlay.classList.remove('visible'); overlay.addEventListener('transitionend', () => overlay.remove(), { once: true }); };
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
     overlay.querySelector('#atlas-mc-close').addEventListener('click', close);
+    // 📈 Historique des niveaux (3.198.0) — chargé à part : la fiche s'ouvre sans l'attendre.
+    mountSkillHistory(overlay.querySelector('#atlas-mc-history'), name, { skills, levelMeta: _levelMeta });
     overlay.querySelector('#atlas-mc-matrix').addEventListener('click', () => { close(); _gotoMatrixForMember(name); });
 
     // Radar Chart.js

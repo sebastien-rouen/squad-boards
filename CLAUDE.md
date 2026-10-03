@@ -459,6 +459,29 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Côté front, `_refreshPooled()` ([cal_banner.js](static/js/components/cal_banner.js)) borne
   la concurrence à 4 et sert `syncCalendars()` ET la modale semaine — ne pas revenir à un
   `Promise.allSettled(list.map(...))` nu. Le toast d'échec NOMME les calendriers fautifs.
+- **Burndown / burnup réels** (3.195.0) : UNIQUEMENT `burnSeries()` ([utils/burn.js](static/js/utils/burn.js),
+  via le barrel) — Board / Rapports / modale de sprint (`charts.js`, axe calendaire) ET TV
+  (`tv-sprint.js`, jours ouvrés, fantôme du sprint précédent). Jamais de droite interpolée
+  (`fait × i / jour courant`) : un ticket compte le jour de sa `resolvedDate`.
+- **Statuts forcés, lisibilité** (3.195.0) : repère 🎯 d'une carte = `overrideReason(t)`, infobulle
+  d'en-tête de colonne = `columnStatusesTip()` ([utils/status-override.js](static/js/utils/status-override.js)).
+- **États vides** (3.197.0) : UNIQUEMENT `emptyStateHtml({ icon, title, text, action, size, tone })`
+  ([utils/empty-state.js](static/js/utils/empty-state.js)) — plus de `tv-clear` / `tl-state` maison.
+- **Sauvegarde de configuration** (3.198.0) : `/api/export` = snapshot complet ; `/api/config/*`
+  ([config_bundle.py](app/routers/config_bundle.py)) = configuration curée (sans tickets / features /
+  epics / sprints). ⚠️ Une nouvelle table de configuration s'ajoute à `CONFIG_DOMAINS` (sinon absente
+  de la restauration). Les secrets du navigateur sont filtrés dans [settings-backup.js](static/js/views/settings-backup.js)
+  (`isSecret`) à l'export ET à la restauration.
+- **Historique des niveaux Atlas** (3.198.0) : table `skill_level_history`, écrite UNIQUEMENT par
+  `PUT /api/member-skills` (une ligne par changement réel), lue par `components/atlas_history.js`.
+- **Dernière synchro** (3.197.0) : `sprintconfig.synced_by` / `sync_kind`, posés par la synchro
+  seulement (import ET `PUT /api/sprint` ne les écrivent que s'ils sont fournis) — bandeau obsolète.
+- **Marqueur `~membre=<nom>`** (3.197.0, `applyHash`) : ouvre la fiche membre après le routage
+  (liens de l'export de la frise). Valeur sans « / » ni « ~ ».
+- **TV, thème et nuit** (3.196.0) : thème de l'écran (⚙, sombre par défaut) posé sur `<html>` le
+  temps de la TV et RESTAURÉ dans `_cleanup` ; la nuit pose `data-theme="dark"` sur `#tv-root` +
+  palette `.tv.is-night` (plus aucun `filter`). Série « zéro blocker » : `sb-tv-blocker-seen`
+  = `{ équipe: ISO }`, PAR équipe.
 
 ## Tests (`npm test`)
 

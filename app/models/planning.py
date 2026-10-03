@@ -18,6 +18,10 @@ class SprintConfig(SQLModel, table=True):
     # Sprints actifs par équipe — {team, name, startDate, endDate, goal, jiraId, jiraBoardId}
     team_sprints: list[dict] = Field(default=[], sa_column=Column(JSON))
     updated_at: str = Field(default_factory=_now)
+    # Dernière synchro JIRA (3.197.0) : qui l'a lancée (nom saisi au poste) et en quel mode
+    # (« rapide » / « complète ») — affichés par le bandeau « données obsolètes ».
+    synced_by: str = ""
+    sync_kind: str = ""
 
 
 class PIConfig(SQLModel, table=True):

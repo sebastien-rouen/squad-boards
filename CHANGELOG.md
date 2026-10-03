@@ -1,3 +1,156 @@
+## [3.198.0] - 2026-10-03
+
+### Sauvegarde de configuration `.local`, aides « ? » du Dashboard, historique des niveaux Atlas
+
+- **💾 Sauvegarde & restauration de la configuration** (Paramètres → Données,
+  [settings-backup.js](static/js/views/settings-backup.js)) — le MVP du BACKLOG (proposition du
+  2026-06-08) : « Sauvegarder » télécharge `squad-config.local.json` = `{_meta, db, local}` ;
+  « Restaurer… » montre un aperçu chiffré par domaine puis fusionne (rien n'est effacé), au choix
+  avec ou sans les préférences du navigateur, et recharge les données.
+  - Serveur : [app/routers/config_bundle.py](app/routers/config_bundle.py) — `GET /api/config/export`
+    et `POST /api/config/import` ; **`CONFIG_DOMAINS` = source unique** des domaines (export ET
+    import) : tout sauf ce que JIRA rapatrie (tickets, features, epics, sprints), plus les **règles
+    d'agenda** (absentes de `/api/export`) et l'historique des niveaux Atlas. L'import réutilise
+    `import_body` (data.py), extrait tel quel d'`import_all` (`/api/import` inchangé).
+  - Navigateur : toutes les clés du site (`sb-`, `pi-cfg-`, `rot-`, `sup-`) **sauf les secrets**
+    (`sb-jira-token`, `sb-slack-webhook`, tout nom contenant token / webhook / password / secret) —
+    filtrés à l'export ET à la restauration ; le bloc `local` n'est jamais envoyé au serveur.
+  - `.gitignore` : `*.local`, `*.local.json` (absences RH, URL d'agenda).
+- **« ? » à schéma généralisés au Dashboard** (`HELP_REGISTRY`, [help_popover.js](static/js/components/help_popover.js)) :
+  🧮 indicateurs du sprint (flow efficiency, débit, cycle / lead time — sur le KPI « Tickets »),
+  🚧 tickets bloqués ou stagnants, 🔮 prévision Monte-Carlo (5 000 tirages, P50 / P85), 😊 tendance
+  Mood & confiance (fiche équipe). Les 9 KPI passent du `title` natif aux **infobulles thémées**
+  (`data-tooltip`, tooltip.js), les 4 KPI primaires en gagnent une.
+- **📈 Historique des niveaux Atlas** : table `skill_level_history` (créée par `create_all`, aucune
+  migration), une ligne à chaque CHANGEMENT de niveau (`PUT /api/member-skills` ; même niveau resaisi
+  = rien), lecture `GET /api/skill-history?scope=&key=`. Fiche membre → bloc « 📈 Évolution des
+  niveaux » ([atlas_history.js](static/js/components/atlas_history.js)) : « Python 1 avant → 2 02/06 →
+  3 15/09 ↗ », niveau retiré en pointillé ; les niveaux saisis avant 3.198.0 n'ont pas de date de départ
+  (« avant », jamais une date inventée). CSS à part (atlas.css dépasse déjà 800 lignes).
+- Vérifié : serveur rechargé sans erreur après chaque écriture Python (syntaxe vérifiée avant, table
+  constatée en base en lecture seule) ; banc Edge (routes simulées) : fichier téléchargé sans secret,
+  aperçu (13 équipes, 1 973 absences…), restauration → `pi-cfg-31` et thème rétablis, jeton intact,
+  fichier étranger refusé ; « ? » ouverts dans l'écran (Dashboard train et fiche Fuego), infobulle KPI ;
+  fiche membre → évolution sur 2 compétences ; `node --test` : 267/267.
+
+## [3.197.0] - 2026-10-03
+
+### Frise cliquable, export des 1v1, bandeau de synchro, états vides communs, page 403
+
+- **Frise → 📖 Récit : personnes cliquables** → fiche membre, comme dans les bulles : arrivées /
+  départs / mobilités (puces devenues boutons) et prénoms des 1v1 (« Mohamed/Omar » : chaque prénom
+  qui désigne un seul membre — d'abord dans l'équipe, sinon dans le train — devient un lien).
+  `resolveOnePerson` / `onePeopleList` ([team_timeline_model.js](static/js/components/team_timeline_model.js)) ;
+  détection du manager partagée avec le compteur « collaborateurs » (`oneManagers`).
+- **Export de la frise : 1v1 « Par personne »** — combien de 1v1 et quand, managers exclus, avec un
+  **lien vers la fiche** (`[Billy (Billy B.)](…#team/Fuego~membre=BOMBARDIERI%2C%20Billy)`) ; converti
+  en lien Slack par `toSlack`. Prénom ambigu ou inconnu (« Abder ») : en gras, sans lien.
+- **Nouveau marqueur d'adresse `~membre=<nom>`** ([app.js](static/js/app.js) → `applyHash`) : ouvre la
+  fiche membre une fois la vue routée (lien partageable), retiré de l'adresse ensuite.
+- **Bandeau « données obsolètes »** : dit **qui** a synchronisé et comment (« par Seb · synchro rapide,
+  14 j ») et propose **⚡ Synchro rapide · 14 j** (bouton JIRA du topbar) à côté de **Synchro complète**
+  (avec sa confirmation). Plus de `onclick` en ligne ; nom échappé.
+  - Base : `sprintconfig.synced_by` / `sync_kind` (**migration live**, base sauvegardée avant dans
+    `data/board.avant-synced-by-2026-10-03.bak.db`, essai sur copie ; syntaxe des .py vérifiée avant
+    écriture, redémarrage constaté dans le journal) ; écrits par l'import (`data.py`) et
+    `PUT /api/sprint` **seulement s'ils sont fournis** (une édition manuelle du sprint ne les efface
+    pas) ; exposés `syncedBy` / `syncKind` dans `/api/sprint` et `/api/all`.
+  - Auteur = nom saisi au poste (poker / frise, `sb-poker-myname`), sinon l'email JIRA saisi dans
+    Paramètres — jamais celui du `.env` (compte partagé).
+- **États vides communs** : `emptyStateHtml({ icon, title, text, action, size, tone })`
+  ([utils/empty-state.js](static/js/utils/empty-state.js), via le barrel ; styles `.es` dans
+  base-overlays.css, sur la classe historique `.empty-state`). Migrés : les 6 écrans vides de la TV
+  (format `tv`), Paramètres → JIRA (pas de connexion → bouton « Configurer la connexion » ; aucune
+  équipe masquée), frise (aucune catégorie → « Tout afficher » ; récit vide). CSS morts retirés
+  (`.tv-clear`, `.tl-state`, `.jira-panel-empty`) ; miroir `static/mockups/team-timeline/` mis à jour
+  (puces du récit en boutons, état vide au même gabarit).
+- **settings.css découpé** (927 → 695 lignes) : Histoire du projet, popin de zoom et import CSV dans
+  [settings-history-import.css](static/css/views/settings-history-import.css), lié JUSTE APRÈS ;
+  coupe à une frontière de premier niveau, preuve `cmp` (concaténation identique à l'original).
+- **Page 403 explicite** : [docs/nginx-403.md](docs/nginx-403.md) — bloc prêt à coller dans Nginx Proxy
+  Manager (onglet Advanced de l'hôte) : page « Accès réservé au réseau local — coupez le VPN », servie
+  en ligne même quand l'Access List refuse. **À appliquer à la main** (infra).
+- Vérifié au banc Edge (vraies données) : récit Fuego → 7 puces + 27 prénoms cliquables, clic → fiche
+  « SYLLA, Mohamed » ; export → « Par personne » avec liens ; lien `~membre=` → fiche ouverte ;
+  bandeau → auteur affiché (balise injectée neutralisée), confirmation de la synchro complète, aucun
+  appel JIRA réel ; états vides (TV Ami, JIRA, frise) ; 0 erreur JS.
+
+## [3.196.0] - 2026-10-03
+
+### Mode TV — zéro blocker, fiches membres, semaine navigable, fantôme du sprint, thème et nuit
+
+- **✅ Écran « Zéro blocker »** ([tv-screens.js](static/js/views/tv-screens.js) → `screenZeroBlocker`) :
+  quand l'alerte disparaît, il ouvre le tour (le jour ; la nuit garde son bilan) — « Aucun blocker de
+  plus de 48 h depuis N jours », le dernier blocage levé (ticket, équipe, durée, date), et les tickets
+  bloqués depuis MOINS de 48 h, à lever avant qu'ils ne vieillissent. Série = le plus récent de : la
+  fin du dernier blocage > 48 h lu dans le changelog (statut bloquant ou drapeau, tous les tickets de
+  l'équipe, PI révolus compris) et la dernière alerte vue par l'écran, **par équipe**
+  (`sb-tv-blocker-seen`, une alerte de Fuego ne remet pas à zéro la série de Lion). Figé par
+  `#tv/all/zero` alors que des blockers existent : l'écran le dit au lieu de célébrer.
+- **👥 Qui est là : personnes cliquables** → fiche membre (Atlas, chargé à la demande), absents
+  d'aujourd'hui et du prochain jour ouvré ; la rotation attend la fermeture, Échap ferme la fiche (et
+  non plus la TV).
+- **🗞️ La semaine : ‹ › et détail d'un jour** — semaine précédente / suivante (« semaine dernière »,
+  « Cette semaine » pour revenir ; l'écran se fige le temps de la lecture, la semaine courante revient
+  au tour suivant) ; clic sur un jour (ou Entrée sur son en-tête) → panneau avec tous ses évènements en
+  entier, équipes nommées pour les débuts / fins de sprint.
+- **🏃 Sprint en cours : fantôme du sprint précédent** — burndown du dernier sprint clos de l'équipe en
+  pointillé clair, ramené en % du périmètre et étiré sur la durée du sprint en cours (infobulle : % fait
+  à la fin) ; légende ajoutée quand un fantôme est tracé. Même calcul (`burnSeries`) que la courbe.
+- **Thème de l'écran** dans ⚙ : Sombre (défaut — un mur en thème clair éblouit), Clair, Comme le site ;
+  aussi par l'adresse (`~tv=theme:clair`). Posé sur `<html>` le temps de la TV (popins comprises), le
+  thème du site est rendu à la sortie.
+- **Mode nuit = vraie palette** : fin du `filter: brightness(.82)` qui ternissait tout (images, couleurs
+  d'équipe) ; la racine passe en jetons sombres, fonds plus profonds et textes adoucis, couleurs
+  d'équipe et de météo intactes.
+- Vérifié au banc Edge (vraies données) : `#tv/all/zero` → « 8 blockers de plus de 48 h en ce moment » ;
+  Ami → « depuis 170 jours · Dernier : GCOM-4211, levé le 16 avril » ; Initiale / Fuego / Helica →
+  alerte en tête ; 16 personnes cliquables, fiche ouverte (rotation en pause) puis fermée par Échap
+  sans quitter la TV ; semaine ‹ → 21 → 27 septembre, retour, détail du jour ; fantôme Fuego (31.1 :
+  8 % fait — 126 pts engagés, 43 reportés), 12 fantômes sur 13 sprints ; thème clair ↔ sombre, site
+  restauré à la sortie ; nuit simulée à 21 h → fond #05080f, aucun filtre ; 0 erreur JS.
+
+## [3.195.0] - 2026-10-03
+
+### BACKLOG « Améliorations visuelles & UX » — lot 1 (🔥 + premiers ⭐)
+
+- **Burndown / burnup du Board = vraie courbe** — [utils/burn.js](static/js/utils/burn.js) (nouveau,
+  via le barrel) est la **source unique** du reste à faire jour par jour : un ticket compte le jour de
+  sa résolution (`resolvedDate`), un ticket créé en cours de sprint élargit le périmètre le jour de sa
+  création. `renderBurndown` / `renderBurnup` ([charts.js](static/js/components/charts.js) — Board,
+  Rapports, modale de sprint) n'interpolent plus une droite (`fait × i / jour courant`) : plateaux et
+  accélérations apparaissent, et le chiffre ne contredit plus la TV (tv-sprint.js consomme le même
+  module). Burnup : périmètre en marches. Terminé sans date de résolution : compté au dernier jour
+  affiché (avant : jamais compté par la TV).
+- **Board : repère 🎯 « rangé par la règle »** — une carte que la règle « Statuts forcés » range
+  ailleurs que son statut JIRA ne le dirait porte 🎯, infobulle « Statut JIRA : À livrer pour
+  validation → ✅ Terminé (règle…) » (`overrideReason`, [utils/status-override.js](static/js/utils/status-override.js)).
+  Une règle redondante (« Terminé » → Terminé) ne marque rien. CSS : [board-rule.css](static/css/views/board-rule.css).
+- **En-têtes de colonne : statuts JIRA regroupés** en infobulle (Sprint : config du board ; Kanban :
+  statuts des tickets présents), ceux amenés par la règle marqués 🎯 (`columnStatusesTip`).
+- **TV « Sprint en cours » en 1366 × 768** — sous 800 px de haut, carte ultra-compacte (graphique +
+  « Réalisé » + un conseil, sans tuiles ni rythme) : **4 sprints par page au lieu de 2** (13 équipes :
+  4 pages au lieu de 7). 1920 × 1080 et grand format inchangés.
+- **Paramètres → Plugin JIRA en onglets** : 🔗 Connexion · ⏱️ Synchro · 🚫 Équipes masquées (compteur)
+  · 🎯 Statuts forcés — collants sous la nav de Paramètres, ← → / Début / Fin au clavier, onglet retenu
+  par navigateur (`sb-settings-jira-tab`). Les quatre panneaux restent dans le DOM : câblage et
+  enregistrement inchangés. Panneau vide explicite (pas de connexion, aucune équipe masquée).
+- **Recherche dans les équipes masquées** dès 10 équipes (sans accents ni casse, compteur « 2 / 14 »).
+- **Statuts forcés : confirmation EN PLACE** au lieu d'un toast de 6 s — « ✅ Règle enregistrée à
+  15:23 — +101 en Terminé… » reste dans le bloc (re-rendus compris) jusqu'à la prochaine modification.
+- **Styles inline retirés de settings-jira.js** (`min-width:260px` → `.sync-cfg-input--wide`).
+- **Matrice météo du Dashboard / de Santé : cellules détaillées** (barres fait / temps écoulé, jauges,
+  libellés « ✅ 10/11 pts faits ») comme à la TV, avec une bascule **▤ Détaillé / ▭ Compact** dans
+  l'en-tête (pure classe CSS, mémorisée par navigateur : `sb-meteo-rich`). TV et aperçu des Paramètres
+  inchangés.
+- **Panneau de détail météo → lien vers la vue** (hors TV) : « 📋 Ouvrir le sprint », « 🎯 Ouvrir les
+  objectifs du PI », « 🩺 Ouvrir la Santé », « 📊 Ouvrir le Dashboard de l'équipe », « 🎭 Voir les votes ».
+- Vérifié au banc Edge (vrai site servi en local, vraies données) : Board Lion → courbe réelle
+  31 → 8 pts avec plateaux, 5 cartes 🎯, colonne Terminé « 🎯 (règle) » ; Fuego exemptée → 0 🎯 ;
+  TV 1366 × 768 → 4 cartes/page sans débordement ; onglets JIRA (1600 px et 390 px, sans débordement),
+  recherche « ze » → 2 / 14, confirmation affichée puis masquée à la modification ; Dashboard →
+  bascule mémorisée, lien Santé → `#health/Ami` ; 0 erreur JS. Tests `jira-section` verts.
+
 ## [3.194.1] - 2026-10-03
 
 ### Paramètres → JIRA : rangée « Équipes masquées » qui débordait sur une seule ligne

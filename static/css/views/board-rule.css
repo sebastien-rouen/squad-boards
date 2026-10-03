@@ -1,0 +1,17 @@
+/**
+ * Board — repères de la règle « Statuts forcés » (3.195.0).
+ * 🎯 sur une carte rangée par la règle (statut JIRA → autre colonne), infobulle d'en-tête de colonne.
+ * Chargée après sprint.css (index.html).
+ */
+
+/* 🎯 Carte rangée par la règle : discret, comme ⏰ — l'explication est dans l'infobulle. */
+.ticket-rule {
+    font-size: 0.65rem;
+    line-height: 1;
+    cursor: help;
+    opacity: 0.85;
+}
+.ticket-rule:hover { opacity: 1; }
+
+/* En-tête de colonne porteur d'une infobulle (statuts JIRA regroupés). */
+.column-header[title] { cursor: help; }

@@ -6,7 +6,8 @@
  * s'impose en tête de cycle tant qu'un **blocker > 48 h** existe dans le périmètre : elle nomme le
  * ticket, l'équipe, le responsable et depuis quand. Sur les autres écrans, un bandeau rouge la
  * rappelle (cliquable : l'alerte, ou les seuls blockers d'une équipe) — elle ne bloque pas la
- * rotation, elle la précède à chaque tour, jusqu'à ce que le ticket bouge.
+ * rotation, elle la précède à chaque tour, jusqu'à ce que le ticket bouge. Sans blocker > 48 h, c'est
+ * l'écran ✅ Zéro blocker qui ouvre le tour (le jour : la nuit garde son bilan).
  *
  * Modules : tv-screens.js (qui est là + briques partagées), tv-sprint.js (sprint en cours), tv-week.js (la semaine),
  * tv-live.js (rechargement après synchro, écran allumé, tickets terminés salués), tv-settings.js (⚙).
@@ -16,13 +17,13 @@
  */
 
 import { store } from '../state.js';
-import { esc, getCurrentPi, sumBy, sprintScope, METEO_GLYPH, METEO_LABEL, worstLevel } from '../utils.js';
+import { esc, getCurrentPi, sumBy, sprintScope, METEO_GLYPH, METEO_LABEL, worstLevel, emptyStateHtml } from '../utils.js';
 import { ANOMALY_BY_KEY, isPastPi } from '../business_rules.js';
 import { meteoMatrixHtml, meteoContext, computeTeamMeteo } from '../components/meteo_matrix.js';
 import { meteoPlanHtml } from '../components/meteo_plan.js';
-import { screenSeconds, pageSeconds, nightEnabled, settingsHtml, wireSettings, applyUrlSettings } from './tv-settings.js';
-import { tkAttrs, pagedHtml, dayKey, screenPresence } from './tv-screens.js';
-import { screenWeek, rollDays } from './tv-week.js';
+import { screenSeconds, pageSeconds, nightEnabled, tvTheme, settingsHtml, wireSettings, applyUrlSettings } from './tv-settings.js';
+import { tkAttrs, pagedHtml, dayKey, screenPresence, screenZeroBlocker, noteBlockersSeen } from './tv-screens.js';
+import { screenWeek, rollDays, weekDayHtml } from './tv-week.js';
 import { meteoDetailHtml } from './tv-meteo-detail.js';
 import { screenSprint, sprintDayHtml } from './tv-sprint.js';
 import { startLive } from './tv-live.js';
@@ -37,6 +38,8 @@ const SCREENS = [
     { id: 'journee',  title: '📅 Aujourd\'hui',        seconds: 20 },
 ];
 const ALERT = { id: 'alerte', title: '⛈️ Alerte', seconds: 20 };
+// Quand l'alerte disparaît, rien ne le disait : cet écran ouvre le tour et compte les jours sans blocker.
+const ZERO = { id: 'zero', title: '✅ Zéro blocker', seconds: 12 };
 // Le soir (19 h → 8 h), rotation réduite et tamisée : le bilan — fin de journée et dernière sprint
 // review —, pour celui qui part en dernier et pour ne pas faire tourner un mur d'écrans dans un open
 // space vide. Réglable (⚙ → Mode nuit). Avant : la fin de journée SEULE, vide passé 19 h sans
@@ -59,7 +62,24 @@ function _cleanup() {
     document.removeEventListener('keydown', _st.onKey, true);
     _st.unsubs.forEach(u => u?.());
     document.body.classList.remove('tv-mode');
+    _restoreTheme();
     _st = null;
+}
+
+// Thème de l'écran (⚙ → Thème, sombre par défaut) : posé sur <html> le temps de la TV — popin ticket et
+// fiche membre comprises —, puis le thème du site est rendu à la sortie.
+let _siteTheme;   // undefined = rien à restaurer
+function _applyTheme() {
+    const html = document.documentElement;
+    if (_siteTheme === undefined) _siteTheme = html.getAttribute('data-theme');
+    const t = tvTheme();
+    if (t === 'site') { if (_siteTheme) html.setAttribute('data-theme', _siteTheme); else html.removeAttribute('data-theme'); }
+    else html.setAttribute('data-theme', t);
+}
+function _restoreTheme() {
+    if (_siteTheme === undefined) return;
+    if (_siteTheme) document.documentElement.setAttribute('data-theme', _siteTheme); else document.documentElement.removeAttribute('data-theme');
+    _siteTheme = undefined;
 }
 
 /** Périmètre : équipes du topbar (toutes, ligne produit, ou une seule). */
@@ -80,7 +100,9 @@ const _hours = iso => Math.floor((Date.now() - new Date(_iso(iso)).getTime()) / 
 const _fmtSince = h => (h >= 48 ? `${Math.floor(h / 24)} j` : `${h} h`);
 const _ticketOpen = () => { const mo = document.getElementById('modal-overlay'); return !!mo && !mo.classList.contains('hidden'); };
 const _detailOpen = () => { const d = document.getElementById('tv-detail'); return !!d && !d.hidden; };
-const _modalOpen = () => _ticketOpen() || _detailOpen();
+// Fiche membre (Atlas) ouverte depuis « Qui est là » : sa propre couche, hors de #tv-root.
+const _memberCard = () => document.getElementById('atlas-membercard-overlay');
+const _modalOpen = () => _ticketOpen() || _detailOpen() || !!_memberCard();
 // Jour LOCAL (AAAA-MM-JJ) : toISOString() donnait le jour UTC — faux entre minuit et 2 h.
 const _dayKey = dayKey;
 const _resolvedDay = t => (t.resolvedDate ? _dayKey(new Date(_iso(t.resolvedDate))) : '');
@@ -226,7 +248,7 @@ function _screenPlans({ teams, teamObjects, ctx }) {
     const order = { storm: 0, rain: 1, cloud: 2, sun: 3, none: 4 };
     const bad = teams.map(t => computeTeamMeteo(t, ctx)).filter(r => r.level === 'storm' || r.level === 'rain')
         .sort((a, b) => order[a.level] - order[b.level]);
-    if (!bad.length) return `<div class="tv-clear"><span aria-hidden="true">☀️</span><h2>Rien à débloquer aujourd'hui</h2><p>Aucune équipe en 🌧️ ou ⛈️ sur ${esc(_scope().label)}.</p></div>`;
+    if (!bad.length) return emptyStateHtml({ size: 'tv', tone: 'ok', icon: '☀️', title: 'Rien à débloquer aujourd\'hui', text: `Aucune équipe en 🌧️ ou ⛈️ sur ${_scope().label}.` });
     // TOUTES les équipes en 🌧️ / ⛈️ (avant : les 3 pires, les suivantes jamais montrées), par pages de 3.
     return `<div class="tv-plans-screen"><div class="tv-paged"><div class="tv-plans" id="tv-paged-list" data-per-page="${PLANS_PER_PAGE}" data-unit="équipes à surveiller" style="--n:${Math.min(PLANS_PER_PAGE, bad.length)}">${bad.map(r => {
         const color = (teamObjects || []).find(o => o.name === r.team)?.color || 'var(--border)';
@@ -241,7 +263,7 @@ function _screenPlans({ teams, teamObjects, ctx }) {
 function _screenReview({ teams, ctx }) {
     const closed = (ctx.sprintInfoAll?.teamSprints || []).filter(s => teams.includes(s.team) && s.state === 'closed' && s.endDate)
         .sort((a, b) => String(b.endDate).localeCompare(String(a.endDate)))[0];
-    if (!closed) return `<div class="tv-clear"><span aria-hidden="true">📈</span><h2>Aucun sprint clos</h2><p>La review arrivera avec le premier sprint terminé de ${esc(_scope().label)}.</p></div>`;
+    if (!closed) return emptyStateHtml({ size: 'tv', icon: '📈', title: 'Aucun sprint clos', text: `La review arrivera avec le premier sprint terminé de ${_scope().label}.` });
     const scope = sprintScope((store.get('tickets') || []).filter(t => t.team === closed.team), closed.name);
     const pts = sumBy(scope.engaged, t => t.points), donePts = sumBy(scope.done, t => t.points);
     const pct = pts ? Math.round((donePts / pts) * 100) : 0;
@@ -334,10 +356,11 @@ export function renderTv(container) {
     applyUrlSettings(urlSet ? `~tv=${urlSet}` : location.hash);
     if (urlSet) store.set('tvUrlSettings', null);
     document.body.classList.add('tv-mode');
+    _applyTheme();
     // Écran figé : #tv/<équipe>/<écran> (store `tvScreen`, posé par app.js) ; l'adresse en secours.
     const locked = store.get('tvScreen') || (location.hash.match(/^#tv\/[^/~]*\/([a-z]+)/) || [])[1] || null;
 
-    _st = { timer: null, clock: null, pager: null, page: 0, raf: 0, idx: 0, paused: false, alertTeam: null, sprintTeam: null, onKey: null, unsubs: [] };
+    _st = { timer: null, clock: null, pager: null, page: 0, raf: 0, idx: 0, paused: false, alertTeam: null, sprintTeam: null, weekOffset: 0, onKey: null, unsubs: [] };
 
     container.innerHTML = `
     <div class="tv" id="tv-root">
@@ -368,15 +391,18 @@ export function renderTv(container) {
         const blockers = _blockers(teams);
         const night = _isNight();
         $('tv-root').classList.toggle('is-night', night);
+        // La nuit a sa palette (sombre, contrastes adoucis — tv.css) quel que soit le thème de l'écran.
+        if (night) $('tv-root').setAttribute('data-theme', 'dark'); else $('tv-root').removeAttribute('data-theme');
         // Un écran figé par le hash (#tv/all/review) est une intention explicite : il l'emporte
         // sur le mode nuit et sur l'alerte. Sinon : la nuit réduit au bilan du jour, et l'alerte
         // passe en tête de tour tant qu'un blocker > 48 h existe.
+        if (blockers.live.length) noteBlockersSeen(blockers.live.map(t => t.team));   // départ de la série « sans blocker »
         if (locked) {
-            const pick = [ALERT, ...SCREENS].find(s => s.id === locked);
+            const pick = [ALERT, ZERO, ...SCREENS].find(s => s.id === locked);
             return { screens: pick ? [pick] : (night ? NIGHT : SCREENS), blockers, teams };
         }
         const base = night ? NIGHT : SCREENS;
-        return { screens: blockers.live.length ? [ALERT, ...base] : base, blockers, teams };
+        return { screens: blockers.live.length ? [ALERT, ...base] : night ? base : [ZERO, ...base], blockers, teams };
     };
 
     const show = (idx) => {
@@ -403,13 +429,15 @@ export function renderTv(container) {
         } else strip.hidden = true;
         if (s.id !== 'alerte') _st.alertTeam = null;   // le filtre d'équipe ne survit pas à l'écran d'alerte
         if (s.id !== 'sprint') _st.sprintTeam = null;  // ni le zoom sur une équipe à « Sprint en cours »
-        $('tv-screen').innerHTML = s.id === 'alerte' ? (live.length ? _screenAlert(blockers, teamObjects, _st.alertTeam) : '<div class="tv-clear"><span aria-hidden="true">✅</span><h2>Aucun blocker de plus de 48 h</h2></div>')
+        if (s.id !== 'semaine') _st.weekOffset = 0;    // ni une autre semaine que la courante
+        $('tv-screen').innerHTML = s.id === 'alerte' ? (live.length ? _screenAlert(blockers, teamObjects, _st.alertTeam) : emptyStateHtml({ size: 'tv', tone: 'ok', icon: '✅', title: 'Aucun blocker de plus de 48 h' }))
             : s.id === 'meteo' ? _screenMeteo(args)
             : s.id === 'sprint' ? screenSprint(args, _st.sprintTeam)
             : s.id === 'plans' ? _screenPlans(args)
             : s.id === 'presence' ? screenPresence(args)
             : s.id === 'review' ? _screenReview(args)
-            : s.id === 'semaine' ? screenWeek(args)
+            : s.id === 'semaine' ? screenWeek(args, _st.weekOffset)
+            : s.id === 'zero' ? screenZeroBlocker({ ...args, liveBlockers: live.length })
             : _screenJournee(args);
         $('tv-screen').scrollTop = 0;
         clearTimeout(_st.timer);
@@ -436,6 +464,18 @@ export function renderTv(container) {
     };
 
     const openTk = id => { pause(true); window.__squadBoard?.openTicketModal?.(id); };
+    /** Fiche membre (Atlas, chargé à la demande) ; la rotation attend sa fermeture (observateur du body). */
+    const openMember = async name => {
+        pause(true);
+        (await import('./atlas.js')).openMemberCard(name);
+        const obs = new MutationObserver(() => {
+            if (_memberCard()) return;
+            obs.disconnect();
+            if (_st?.paused && !_modalOpen() && !$('tv-root').matches(':hover')) pause(false);
+        });
+        obs.observe(document.body, { childList: true });
+        _st.unsubs.push(() => obs.disconnect());
+    };
     /** Détail d'une cellule météo (équipe × domaine) ; la rotation attend sa fermeture. */
     const openPanel = html => {
         if (!html) return;
@@ -455,10 +495,12 @@ export function renderTv(container) {
     _st.onKey = e => {
         if (_ticketOpen()) return;   // Échap / flèches appartiennent à la popin ouverte, pas à la TV
         if (_detailOpen()) { if (e.key === 'Escape') { e.preventDefault(); closeDetail(); } return; }
+        if (_memberCard()) { if (e.key === 'Escape') { e.preventDefault(); _memberCard().querySelector('#atlas-mc-close')?.click(); } return; }
         if (e.key === 'Escape' && settings.isOpen()) { e.preventDefault(); settings.close(); return; }
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;   // flèches d'un menu de réglage
         if (e.key === 'Enter' && e.target.dataset?.ticket) { e.preventDefault(); openTk(e.target.dataset.ticket); return; }
         if (e.key === 'Enter' && e.target.closest?.('[data-burn-day]')) { e.preventDefault(); e.target.closest('[data-burn-day]').dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
+        if (e.key === 'Enter' && e.target.matches?.('header[data-week-day]')) { e.preventDefault(); e.target.click(); return; }
         if (e.key === 'ArrowRight') { e.preventDefault(); show(_st.idx + 1); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); show(_st.idx - 1); }
         else if (e.key === ' ') { e.preventDefault(); pause(!_st.paused); }
@@ -469,7 +511,7 @@ export function renderTv(container) {
     // PUIS, la popin déjà fermée, le panneau de détail derrière — et un 2e Échap quittait la TV.
     document.addEventListener('keydown', _st.onKey, true);
     // Réglages ⚙ : appliqués tout de suite (durées relues à chaque écran, mode nuit au prochain cycle).
-    const settings = wireSettings($('tv-root'), () => show(_st.idx));
+    const settings = wireSettings($('tv-root'), () => { _applyTheme(); show(_st.idx); });
     $('tv-exit').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen?.(); store.set('view', 'dashboard'); });
     $('tv-fs').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
     $('tv-root').addEventListener('mouseenter', () => pause(true));
@@ -486,6 +528,13 @@ export function renderTv(container) {
         if (cell) { openDetail(cell.dataset.meteoTeam, cell.dataset.meteoDom); return; }
         const tkEl = e.target.closest('[data-ticket]');
         if (tkEl) { openTk(tkEl.dataset.ticket); return; }
+        const member = e.target.closest('[data-member]');
+        if (member) { openMember(member.dataset.member); return; }
+        // La semaine : ‹ › changent de semaine (l'écran se fige le temps de la lecture) ; un jour → son détail.
+        const wnav = e.target.closest('[data-week-nav]');
+        if (wnav) { const n = +wnav.dataset.weekNav; _st.weekOffset = n ? _st.weekOffset + n : 0; pause(true); show(_st.idx); return; }
+        const wday = e.target.closest('[data-week-day]');
+        if (wday) { openPanel(weekDayHtml(_scope().teams, wday.dataset.weekDay)); return; }
         const sp = e.target.closest('[data-sprint-team]');
         if (sp) { _st.sprintTeam = sp.dataset.sprintTeam || null; show(_st.idx); return; }
         const team = e.target.closest('[data-alert-team]');

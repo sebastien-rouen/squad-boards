@@ -91,6 +91,9 @@ def run_migrations(engine):
         ("event", "author",                "ALTER TABLE event ADD COLUMN author TEXT DEFAULT ''"),
         # Statuts JIRA comptés comme Terminé sauf équipes exemptées (Paramètres → JIRA, 3.193.0)
         ("piconfig", "done_override",      "ALTER TABLE piconfig ADD COLUMN done_override JSON DEFAULT '{}'"),
+        # Auteur et mode de la dernière synchro JIRA (bandeau « données obsolètes », 3.197.0)
+        ("sprintconfig", "synced_by",      "ALTER TABLE sprintconfig ADD COLUMN synced_by TEXT DEFAULT ''"),
+        ("sprintconfig", "sync_kind",      "ALTER TABLE sprintconfig ADD COLUMN sync_kind TEXT DEFAULT ''"),
     ]
     with engine.connect() as conn:
         insp = sa_inspect(engine)

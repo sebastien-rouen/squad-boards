@@ -697,4 +697,17 @@ tr:hover td { background: var(--surface-hover); }
 .empty-state .icon { width: 48px; height: 48px; margin-bottom: var(--sp-4); opacity: 0.4; }
 .empty-state h3 { font-size: var(--fs-lg); color: var(--text-secondary); margin-bottom: var(--sp-2); }
 .empty-state p { font-size: var(--fs-sm); max-width: 400px; }
+/* État vide commun `emptyStateHtml` (utils/empty-state.js, 3.197.0) : icône, titre, phrase, action */
+.es { gap: var(--sp-2); }
+.es .es-ico { font-size: 2.5rem; line-height: 1; margin-bottom: var(--sp-1); }
+.es .es-title { margin: 0; font-size: var(--fs-lg); color: var(--text); }
+.es .es-text { margin: 0; color: var(--text-secondary); }
+.es .es-action { margin-top: var(--sp-2); }
+.es--card { padding: var(--sp-8) var(--sp-4); }
+.es--tv { padding: var(--sp-12) var(--sp-4); }
+.es--tv .es-ico { font-size: 4rem; }
+.es--tv .es-title { font-size: var(--fs-2xl); }
+.es--tv .es-text { max-width: 40rem; font-size: var(--fs-lg); }
+.es--ok .es-ico { filter: drop-shadow(0 0 12px color-mix(in srgb, var(--success) 45%, transparent)); }
+.es--warn .es-title { color: var(--status-blocked-text, var(--danger)); }
 

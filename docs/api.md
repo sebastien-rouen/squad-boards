@@ -111,10 +111,11 @@ Meme pattern CRUD que tickets : `/api/features`, `/api/epics`
 
 ## Sprint / PI
 
-| Methode | Route |
-|---------|-------|
-| `GET/PUT` | `/api/sprint` |
-| `GET/PUT` | `/api/pi` |
+| Methode | Route | Description |
+|---------|-------|-------------|
+| `GET/PUT` | `/api/sprint` | `syncedBy` / `syncKind` (3.197.0) : posés par la synchro seulement |
+| `GET/PUT` | `/api/pi` | |
+| `GET` | `/api/sync-stamp` | Horodatage de la dernière synchro (mode TV) |
 
 ## Import / Export
 
@@ -122,6 +123,18 @@ Meme pattern CRUD que tickets : `/api/features`, `/api/epics`
 |---------|-------|-------------|
 | `GET` | `/api/export` | Export complet (toutes les tables) |
 | `POST` | `/api/import` | Import (`mode: "replace"` ou `"merge"`) |
+| `GET` | `/api/config/export` | Bundle de configuration curée `{_meta, db}` — sans tickets / features / epics / sprints, avec règles d'agenda et historique Atlas (3.198.0) |
+| `POST` | `/api/config/import` | Restaure un bundle (`mode: "merge"` par défaut, rien n'est effacé) — domaines : `CONFIG_DOMAINS` (app/routers/config_bundle.py) |
+
+> `/api/export` = snapshot complet ; `/api/config/*` = configuration curée, réimportable après un reset
+> (Paramètres → Données → 💾). Le bloc `local` du fichier (préférences du navigateur) ne passe jamais
+> par le serveur.
+
+## Atlas — historique des niveaux
+
+| Methode | Route | Description |
+|---------|-------|-------------|
+| `GET` | `/api/skill-history?scope=member&key=<nom>` | Changements de niveau (du plus ancien au plus récent), écrits par `PUT /api/member-skills` (3.198.0) |
 
 ## Config / JIRA
 

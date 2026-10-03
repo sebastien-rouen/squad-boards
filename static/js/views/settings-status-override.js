@@ -26,6 +26,9 @@ const HELP = {
 let _work = null;   // copie de travail { done, inprog, todo }
 let _tab = 'done';
 let _note = '';     // message éphémère (statut déplacé d'un onglet à l'autre)
+// Confirmation d'enregistrement : reste affichée dans le bloc (re-rendus compris) tant que rien
+// n'a changé — un toast de 6 s passait inaperçu, et rien ne disait ensuite si la règle était à jour.
+let _saved = '';
 
 /** Statuts JIRA rencontrés dans les tickets, avec leur effectif (libellé le plus fréquent par forme normalisée). */
 function knownStatuses() {
@@ -106,6 +109,7 @@ export function statusOverrideHtml() {
                 <button type="button" class="btn btn-primary btn-sm" data-dov-save>Enregistrer</button>
                 <button type="button" class="btn btn-ghost btn-sm" data-dov-reset title="${esc(defaults)}">Rétablir les valeurs par défaut</button>
             </div>
+            <p class="dov-saved" id="dov-saved" role="status"${_saved ? '' : ' hidden'}>${esc(_saved)}</p>
         </div>`;
 }
 
@@ -114,6 +118,8 @@ export function wireStatusOverride(container, onReload = () => {}) {
     const root = container.querySelector('#dov');
     if (!root) return;
     const redraw = () => { root.querySelector('#dov-dyn').innerHTML = bodyHtml(); _note = ''; };
+    // Toute modification de la copie de travail périme la confirmation « enregistré ».
+    const dirty = () => { _saved = ''; root.querySelector('#dov-saved')?.setAttribute('hidden', ''); };
     const add = label => {
         const typed = String(label || '').trim().slice(0, 80);
         // Statut connu (même aux accents / à la casse près) : on garde le libellé JIRA exact.
@@ -126,6 +132,7 @@ export function wireStatusOverride(container, onReload = () => {}) {
             if (i >= 0) { _work[t.key].statuses.splice(i, 1); _note = `« ${v} » retiré de ${t.label} et placé en ${TAB[_tab].label}.`; }
         }
         _work[_tab].statuses.push(v);
+        dirty();
         redraw();
         root.querySelector('#dov-new')?.focus();
     };
@@ -136,7 +143,8 @@ export function wireStatusOverride(container, onReload = () => {}) {
             await window.__squadBoard?.reloadData?.();   // tickets relus : la règle s'applique tout de suite
             _work = overrideRules();
             const moved = STATUS_OVERRIDE_TARGETS.map(t => [t, effect(t.key).gain]).filter(([, n]) => n);
-            toast(`${msg}${moved.length ? ` — ${moved.map(([t, n]) => `+${n} en ${t.label}`).join(', ')}` : ''}. Synchro complète pour recalculer dates et cycle times.`, 'success', 6000);
+            const at = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            _saved = `✅ ${msg} à ${at}${moved.length ? ` — ${moved.map(([t, n]) => `+${n} en ${t.label}`).join(', ')}` : ''}. Lancez une synchro complète pour recalculer dates et cycle times.`;
             onReload();
         } catch (e) {
             toast(`Enregistrement impossible : ${e.message || e}`, 'error');
@@ -146,7 +154,7 @@ export function wireStatusOverride(container, onReload = () => {}) {
         const tab = e.target.closest('[data-dov-tab]');
         if (tab) { _tab = tab.dataset.dovTab; redraw(); root.querySelector(`[data-dov-tab="${_tab}"]`)?.focus(); return; }
         const del = e.target.closest('[data-dov-del]');
-        if (del) { _work[_tab].statuses.splice(+del.dataset.dovDel, 1); redraw(); return; }
+        if (del) { _work[_tab].statuses.splice(+del.dataset.dovDel, 1); dirty(); redraw(); return; }
         const pick = e.target.closest('[data-dov-pick]');
         if (pick) { add(pick.dataset.dovPick); return; }
         if (e.target.closest('[data-dov-add]')) { add(root.querySelector('#dov-new')?.value); return; }
@@ -154,6 +162,7 @@ export function wireStatusOverride(container, onReload = () => {}) {
         if (team) {
             const list = _work[_tab].exceptTeams, t = team.dataset.dovTeam, i = list.findIndex(x => norm(x) === norm(t));
             if (i >= 0) list.splice(i, 1); else list.push(t);
+            dirty();
             redraw();
             return;
         }

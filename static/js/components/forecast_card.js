@@ -14,6 +14,7 @@
  */
 
 import { esc, percentile } from '../utils.js';
+import { helpIconHtml } from './help_popover.js';
 
 const DAY_MS = 86400000;
 const WEEK_MS = 7 * DAY_MS;
@@ -102,7 +103,7 @@ export function forecastCardHtml({ historyTickets = [], remaining = 0, scopeLabe
             : 'Simulation indisponible';
         return `
         <div class="card forecast-card">
-            <div class="card-header"><div><span class="card-title">🔮 Prévision de fin</span>${help}</div></div>
+            <div class="card-header"><div><span class="card-title">🔮 Prévision de fin ${helpIconHtml({ key: 'forecast', label: 'Comprendre la prévision Monte-Carlo' })}</span>${help}</div></div>
             <p class="text-muted text-sm" style="padding:var(--sp-3)">${esc(reason)}</p>
         </div>`;
     }
@@ -141,7 +142,7 @@ export function forecastCardHtml({ historyTickets = [], remaining = 0, scopeLabe
         <div class="card forecast-card">
             <div class="card-header">
                 <div>
-                    <span class="card-title">🔮 Prévision de fin</span>
+                    <span class="card-title">🔮 Prévision de fin ${helpIconHtml({ key: 'forecast', label: 'Comprendre la prévision Monte-Carlo' })}</span>
                     ${help}
                 </div>
                 <span class="forecast-conf forecast-conf--${conf.cls}" title="${nonEmpty} semaine(s) avec au moins un ticket terminé dans les ${weeks} dernières">${conf.txt}</span>

@@ -67,6 +67,9 @@ async def update_sprint(request: Request, session: Session = Depends(get_session
     if "jiraId" in body:       s.jira_id = body.get("jiraId")
     if "jiraBoardId" in body:  s.jira_board_id = body.get("jiraBoardId")
     if "teamSprints" in body:  s.team_sprints = body.get("teamSprints") or []
+    # Posés par la synchro seulement : une édition manuelle du sprint ne les efface pas.
+    if "syncedBy" in body:     s.synced_by = str(body.get("syncedBy") or "")[:80]
+    if "syncKind" in body:     s.sync_kind = str(body.get("syncKind") or "")[:20]
     s.updated_at = _now()
     session.add(s)
     session.commit()

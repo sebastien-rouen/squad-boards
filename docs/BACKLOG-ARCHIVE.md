@@ -87,3 +87,36 @@
 - [x] Créer une page Backlog (filtres, regroupement par sprint/PI).
 
 </details>
+
+## Soldé le 2026-10-03 (3.195.0 → 3.198.0)
+
+> « Réalise le BACKLOG » : la section *🎨 Améliorations visuelles & UX* du 2026-10-03, le MVP
+> *Export / Import de configuration `.local`* (proposé le 2026-06-08) et trois items de « ✅ TODO ».
+
+- [x] **Burndown du Dashboard = vraie courbe** · ✅ 3.195.0 — `utils/burn.js` (`burnSeries`), source unique Board / Rapports / modale / TV.
+- [x] **Cellules météo explicites au Dashboard** · ✅ 3.195.0 — bascule ▤ Détaillé / ▭ Compact (`sb-meteo-rich`).
+- [x] **Panneau de détail météo → lien vers la vue** · ✅ 3.195.0 — Sprint, PI, Santé, Dashboard, votes.
+- [x] **Bandeau « données obsolètes » plus utile** · ✅ 3.197.0 — auteur et mode de la synchro (`sprintconfig.synced_by` / `sync_kind`), ⚡ Synchro rapide + Synchro complète.
+- [x] **Repère 🎯 « rangé par la règle »** · ✅ 3.195.0 — `overrideReason`.
+- [x] **En-tête de colonne : statuts JIRA regroupés** · ✅ 3.195.0 — `columnStatusesTip`.
+- [x] **Identité Météo sur le Board** · ✅ déjà livré en 3.159.0 (météo dans l'en-tête, teinte d'âge des cartes en Scrum et Kanban) — l'item du TODO était périmé.
+- [x] **TV : Sprint en cours en 1366 × 768** · ✅ 3.195.0 — carte ultra-compacte, 4 sprints par page.
+- [x] **TV : écran « 0 blocker »** · ✅ 3.196.0 — série par équipe (`sb-tv-blocker-seen`).
+- [x] **TV : « Qui est là » cliquable** · ✅ 3.196.0 — fiche membre.
+- [x] **TV : La semaine navigable + détail d'un jour** · ✅ 3.196.0.
+- [x] **TV : fantôme du sprint précédent** · ✅ 3.196.0.
+- [x] **TV : mode nuit = vraie palette** · ✅ 3.196.0 — plus de `filter: brightness`.
+- [x] **TV : thème forcé sombre** · ✅ 3.196.0 — ⚙ Thème (sombre par défaut), `~tv=theme:`.
+- [x] **TV : écran « Sprint review »** · ✅ déjà livré (3.161.0, repris par le mode TV de 3.182.0) — l'item du TODO était périmé.
+- [x] **Paramètres → JIRA trop longue** · ✅ 3.195.0 — onglets Connexion · Synchro · Équipes masquées · Statuts forcés.
+- [x] **Recherche dans les équipes masquées** · ✅ 3.195.0 — dès 10 équipes.
+- [x] **Confirmation en place (statuts forcés)** · ✅ 3.195.0.
+- [x] **Styles inline de settings-jira.js + découpage de settings.css** · ✅ 3.195.0 / 3.197.0 — `settings-history-import.css`.
+- [x] **Frise — Récit : personnes cliquables** · ✅ 3.197.0 — puces et prénoms des 1v1.
+- [x] **Frise — Export : personnes de chaque 1v1, avec lien vers leur fiche** · ✅ 3.197.0 — marqueur `~membre=`.
+- [x] **Page 403 explicite** · 🟡 préparée en 3.197.0 ([nginx-403.md](nginx-403.md)) — reste à l'appliquer dans NPM (item ouvert du BACKLOG).
+- [x] **États vides homogènes** · ✅ 3.197.0 — `emptyStateHtml` (TV, Paramètres → JIRA, frise) ; reste au fil de l'eau (item ouvert).
+- [x] **MVP Export / Import de configuration `.local`** · ✅ 3.198.0 — `/api/config/export|import`, `CONFIG_DOMAINS`, Paramètres → Données → 💾, `*.local.json` ignoré par git. Écart au MVP : la config **sprint** n'est pas dans le bundle (la synchro JIRA la réécrit) ; règles d'agenda et historique Atlas en plus.
+- [x] **Généraliser les « ? » + tooltips du Dashboard** · ✅ 3.198.0 — 4 schémas de plus dans `HELP_REGISTRY`, KPI en `data-tooltip`.
+- [x] **Historique des niveaux Atlas** · ✅ 3.198.0 — table `skill_level_history`, bloc « 📈 Évolution » de la fiche membre.
+

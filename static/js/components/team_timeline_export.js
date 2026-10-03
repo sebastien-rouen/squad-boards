@@ -14,7 +14,7 @@
 
 import { esc, toast, copyToClipboard, exportChoiceModal } from '../utils.js';
 import { store } from '../state.js';
-import { CATS, FACT_TYPES, fmt, fmtY, fmtShort, monthName, diff, dayOfWeek, collectView, summary, timelineToday, mepFollowUps } from './team_timeline_model.js';
+import { CATS, FACT_TYPES, fmt, fmtY, fmtShort, monthName, diff, dayOfWeek, collectView, summary, timelineToday, mepFollowUps, onePeopleList, shortName } from './team_timeline_model.js';
 import { lanesHtml } from './team_timeline_lanes.js';
 import { storyHtml } from './team_timeline_story.js';
 
@@ -179,6 +179,8 @@ const PRES_ICON = pct => pct === 0 ? '🟩' : pct <= 25 ? '🟧' : '🟥';
 /** Clé de ticket → lien JIRA si l'adresse est connue (Markdown ; converti pour Slack par toSlack). */
 const key = id => { const u = store.get('jiraUrl'); return u ? `[${id}](${String(u).replace(/\/+$/, '')}/browse/${id})` : `\`${id}\``; };
 const relDay = (n, sign) => n ? `J${sign}${n}` : 'jour J';
+/** Lien vers la fiche d'un membre : l'app l'ouvre sur `~membre=<nom>` (app.js → applyHash). */
+const memberLink = (m, label) => `[${label || shortName(m.name)}](${location.origin}${location.pathname}#${m.team ? `team/${encodeURIComponent(m.team)}` : 'dashboard'}~membre=${encodeURIComponent(m.name)})`;
 /** Portée affichée : équipe, train, ou équipe avec certains couloirs vus à l'échelle du train. */
 export function scopeNote(st, c) {
     if (st.scope === 'train') return 'tout le train';
@@ -284,6 +286,14 @@ export function toMarkdown(st, c, s) {
         L.push(`## 💬 1v1 — ${s.ones}${s.ones ? ` · ${s.onePeople} ${plural(s.onePeople, 'collaborateur')}${s.onesPlanned ? ` · dont ${s.onesPlanned} ${plural(s.onesPlanned, 'planifié')}` : ''}` : ''}`, '');
         if (!c.ones.length) L.push('_Aucun 1v1 dans l’agenda sur la période._', '');
         byMonth(c.ones).forEach(([k, os]) => { L.push(monthTitle(k), ''); os.forEach(o => L.push(`- **${dayLabel(o.day)}** — ${o.pair}${o.day > today ? ' _(planifié)_' : ''}`)); L.push(''); });
+        // Par personne (managers exclus) : combien de 1v1 et quand, avec un lien vers sa fiche quand le
+        // prénom de l'agenda désigne un seul membre.
+        const people = onePeopleList(c.ones, c.onesAll, st.scope === 'train' ? '*' : st.team);
+        if (people.length) {
+            L.push('### Par personne', '');
+            people.forEach(p => L.push(`- ${p.member ? memberLink(p.member, `${p.who} (${shortName(p.member.name)})`) : `**${p.who}**`}${p.member && st.scope === 'train' && p.member.team ? ` · ${p.member.team}` : ''} — ${p.days.length} 1v1 : ${p.days.map(dayLabel).join(', ')}`));
+            L.push('');
+        }
     }
     if (on('fait')) {
         const fx = c.facts.filter(f => f.type !== 'incident');

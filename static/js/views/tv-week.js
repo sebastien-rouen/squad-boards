@@ -7,6 +7,9 @@
  * arrivées / départs / mobilités, faits saisis, jalons du train ; fériés dans l'en-tête du jour.
  * Plusieurs équipes : un bandeau par numéro de sprint (de la 1re ouverture à la dernière clôture),
  * et dans la journée « 🏁 Fin 31.2 · 6 équipes ».
+ *
+ * Navigation (3.196.0) : ‹ › semaine précédente / suivante (l'écran se fige le temps de la lecture,
+ * tv.js) ; clic sur un jour → son détail complet dans le panneau (au lieu du seul défilement).
  */
 
 import { store } from '../state.js';
@@ -41,6 +44,18 @@ function sprintBands(teams, days) {
     return [...by.values()].sort((a, b) => a.start.localeCompare(b.start));
 }
 
+/** Bornes de sprint d'une journée (plusieurs équipes : combien ouvrent / clôturent ; `full` : lesquelles). */
+function boundsOf(bands, d, single, full = false) {
+    const who = list => (single ? '' : full ? ` · ${list.join(', ')}` : ` · ${list.length} équipe${list.length > 1 ? 's' : ''}`);
+    return bands.flatMap(g => [
+        ...(g.ends.get(d) ? [{ ico: '🏁', txt: `Fin ${g.lbl}${who(g.ends.get(d))}`, cls: 'is-sprint' }] : []),
+        ...(g.starts.get(d) ? [{ ico: '▶', txt: `Début ${g.lbl}${who(g.starts.get(d))}`, cls: 'is-sprint' }] : []),
+    ]);
+}
+
+const itemHtml = e => `<li class="${e.cls || ''}"${e.id ? ` ${tkAttrs(e.id)}` : ''}><span aria-hidden="true">${e.ico}</span><span>${e.id ? `<code>${esc(e.id)}</code> ` : ''}${esc(e.txt)}${e.who ? ` <small>${esc(e.who)}</small>` : ''}</span></li>`;
+const weekLabel = off => (off === 0 ? 'cette semaine' : off === -1 ? 'semaine dernière' : off === 1 ? 'semaine prochaine' : off < 0 ? `il y a ${-off} semaines` : `dans ${off} semaines`);
+
 /** Évènements de la semaine par jour : { day → [{ ico, txt, id?, who?, cls? }] }. */
 function eventsByDay(teams, A, B) {
     const single = teams.length === 1, scopeTeam = single ? teams[0] : '*';
@@ -57,8 +72,9 @@ function eventsByDay(teams, A, B) {
     return { byDay: out, c };
 }
 
-export function screenWeek({ teams }) {
-    const today = dayKey(new Date()), A = mondayOf(today), B = plusDays(A, 6);
+/** `offset` : semaines par rapport à la semaine courante (‹ › de l'en-tête). */
+export function screenWeek({ teams }, offset = 0) {
+    const today = dayKey(new Date()), A = plusDays(mondayOf(today), 7 * offset), B = plusDays(A, 6);
     const days = Array.from({ length: 7 }, (_, i) => plusDays(A, i));
     const single = teams.length === 1;
     const { byDay, c } = eventsByDay(teams, A, B);
@@ -75,29 +91,47 @@ export function screenWeek({ teams }) {
         </div>`;
     }).join('');
 
-    // Bornes de sprint dans la journée (plusieurs équipes : combien ouvrent / clôturent ce jour-là).
-    const bounds = d => bands.flatMap(g => [
-        ...(g.ends.get(d) ? [{ ico: '🏁', txt: `Fin ${g.lbl}${single ? '' : ` · ${g.ends.get(d).length} équipe${g.ends.get(d).length > 1 ? 's' : ''}`}`, cls: 'is-sprint' }] : []),
-        ...(g.starts.get(d) ? [{ ico: '▶', txt: `Début ${g.lbl}${single ? '' : ` · ${g.starts.get(d).length} équipe${g.starts.get(d).length > 1 ? 's' : ''}`}`, cls: 'is-sprint' }] : []),
-    ]);
-
-    const item = e => `<li class="${e.cls || ''}"${e.id ? ` ${tkAttrs(e.id)}` : ''}><span aria-hidden="true">${e.ico}</span><span>${e.id ? `<code>${esc(e.id)}</code> ` : ''}${esc(e.txt)}${e.who ? ` <small>${esc(e.who)}</small>` : ''}</span></li>`;
     const dayHtml = d => {
-        const list = [...bounds(d), ...(byDay.get(d) || [])];
+        const list = [...boundsOf(bands, d, single), ...(byDay.get(d) || [])];
         const wd = atNoon(d).getDay(), hol = holidayName(d);
-        return `<section class="tvw-day${d === today ? ' is-today' : ''}${wd % 6 === 0 ? ' is-weekend' : ''}${d > today ? ' is-future' : ''}${hol ? ' is-holiday' : ''}">
-            <header><span>${DOW[wd]}</span><b>${+d.slice(8)}</b>${list.length ? `<small>${list.length}</small>` : ''}${hol ? `<em>🎌 ${esc(hol)}</em>` : ''}</header>
-            <div class="tvw-list"><ul>${list.map(item).join('')}</ul></div>
+        const lbl = atNoon(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+        // Jour cliquable (souris, ou Entrée sur l'en-tête) → son détail complet dans le panneau.
+        return `<section class="tvw-day${d === today ? ' is-today' : ''}${wd % 6 === 0 ? ' is-weekend' : ''}${d > today ? ' is-future' : ''}${hol ? ' is-holiday' : ''}" data-week-day="${d}">
+            <header tabindex="0" role="button" data-week-day="${d}" aria-label="Détail du ${esc(lbl)}${list.length ? ` — ${list.length} évènement${list.length > 1 ? 's' : ''}` : ''}"><span>${DOW[wd]}</span><b>${+d.slice(8)}</b>${list.length ? `<small>${list.length}</small>` : ''}${hol ? `<em>🎌 ${esc(hol)}</em>` : ''}</header>
+            <div class="tvw-list"><ul>${list.map(itemHtml).join('')}</ul></div>
         </section>`;
     };
     const fmt = k => atNoon(k).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+    const nav = `<nav class="tvw-nav" aria-label="Changer de semaine">
+            <button type="button" class="tv-chip-btn" data-week-nav="-1" aria-label="Semaine précédente">‹</button>
+            ${offset ? '<button type="button" class="tv-chip-btn" data-week-nav="0">Cette semaine</button>' : ''}
+            <button type="button" class="tv-chip-btn" data-week-nav="1" aria-label="Semaine suivante">›</button>
+        </nav>`;
     return `<div class="tv-week">
-        <div class="tv-journee-hd"><span aria-hidden="true">🗞️</span><div><h2>Semaine du ${esc(fmt(A))} au ${esc(fmt(B))}</h2><p>${single ? esc(teams[0]) : 'tout le train'} · ${total} évènement${total > 1 ? 's' : ''}${bands.length ? ` · sprint${bands.length > 1 ? 's' : ''} ${bands.map(g => esc(g.lbl)).join(' → ')}` : ''}</p></div></div>
+        <div class="tv-journee-hd"><span aria-hidden="true">🗞️</span><div><h2>Semaine du ${esc(fmt(A))} au ${esc(fmt(B))}${offset ? ` <small class="tvw-rel">· ${esc(weekLabel(offset))}</small>` : ''}</h2><p>${single ? esc(teams[0]) : 'tout le train'} · ${total} évènement${total > 1 ? 's' : ''}${bands.length ? ` · sprint${bands.length > 1 ? 's' : ''} ${bands.map(g => esc(g.lbl)).join(' → ')}` : ''}</p></div>${nav}</div>
         <div class="tl-kpis">${kpisHtml(summary(c))}</div>
         <div class="tvw-cal">
             ${bandHtml ? `<div class="tvw-bands">${bandHtml}</div>` : ''}
             <div class="tvw-days">${days.map(dayHtml).join('')}</div>
         </div>
+    </div>`;
+}
+
+/** Panneau « détail d'un jour » : tous ses évènements, texte entier, équipes nommées. */
+export function weekDayHtml(teams, d) {
+    const A = mondayOf(d), B = plusDays(A, 6);
+    const days = Array.from({ length: 7 }, (_, i) => plusDays(A, i));
+    const single = teams.length === 1;
+    const { byDay } = eventsByDay(teams, A, B);
+    const list = [...boundsOf(sprintBands(teams, days), d, single, true), ...(byDay.get(d) || [])];
+    const lbl = atNoon(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const hol = holidayName(d);
+    return `<div class="tvd-panel tvw-detail" data-l="cloud" role="dialog" aria-modal="true" aria-label="${esc(lbl)}">
+        <header class="tvd-hd"><span aria-hidden="true">🗓️</span><b>${esc(lbl)}</b>
+            <span class="tvd-big">${single ? esc(teams[0]) : 'tout le train'}</span>
+            <button type="button" class="btn-icon tvd-close" data-tvd-close aria-label="Fermer">✕</button></header>
+        ${hol ? `<p class="tvd-tip">🎌 Jour férié · ${esc(hol)}</p>` : ''}
+        ${list.length ? `<ul class="tvw-daylist">${list.map(itemHtml).join('')}</ul>` : '<p class="tv-muted">Rien de prévu ni de marquant ce jour-là.</p>'}
     </div>`;
 }
 

@@ -47,8 +47,21 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
 .tv-dots i.is-alert { background: var(--danger); }
 .tv-btn { font-size: var(--fs-lg); }
 .tv.is-paused .tv-dots i.is-on { background: var(--warning); }
-/* Fin de journée : tamisé, sans rotation */
-.tv.is-night { filter: brightness(.82); }
+/* Fin de journée : VRAIE palette de nuit (3.196.0) — avant, `filter: brightness(.82)` ternissait tout,
+   images et couleurs d'équipe comprises. Ici : jetons sombres (tv.js pose data-theme="dark" sur la
+   racine la nuit, quel que soit le thème de l'écran) puis fonds plus profonds et textes adoucis ; les
+   couleurs d'équipe et de météo restent intactes. */
+.tv.is-night {
+    --bg: #05080f;
+    --bg-alt: #0b1120;
+    --surface: #0c1322;
+    --surface-hover: #142036;
+    --border: #1a2538;
+    --border-hover: #26344d;
+    --text: #cdd6e3;
+    --text-secondary: #94a3b8;
+    --text-muted: #6b7a90;
+}
 .tv.is-night .tv-top { background: var(--bg); }
 
 /* ── Bandeau d'alerte persistant sur les autres écrans ── */
@@ -105,10 +118,6 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
 .tv-plan .meteo-plan-row { grid-template-columns: auto 1fr auto; grid-template-areas: "ico txt n" "ico meta meta"; }
 .tv-plan .meteo-plan-who { grid-area: meta; }
 .tv-plan .meteo-plan-when { grid-area: meta; }
-.tv-clear { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-12) var(--sp-4); text-align: center; }
-.tv-clear span { font-size: 4rem; }
-.tv-clear h2 { font-size: var(--fs-2xl); }
-.tv-clear p { color: var(--text-secondary); }
 
 /* Aujourd'hui */
 .tv-journee { display: flex; flex-direction: column; gap: var(--sp-4); }

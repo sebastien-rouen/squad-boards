@@ -99,9 +99,10 @@
 .tl-form-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
 
 /* ── États ──────────────────────────────────────────────────────────────────── */
-.tl-state { display: grid; justify-items: center; text-align: center; gap: var(--sp-2); padding: var(--sp-10) var(--sp-6); color: var(--text-secondary); }
-.tl-state-ico { font-size: 34px; }
-.tl-state h5 { margin: 0; font-size: var(--fs-base); color: var(--text); }
+/* Miroir de l'état vide commun du site (emptyStateHtml, 3.197.0) : icône 2,5 rem, titre en lg */
+.tl-state { display: grid; justify-items: center; text-align: center; gap: var(--sp-2); padding: var(--sp-8) var(--sp-4); color: var(--text-secondary); }
+.tl-state-ico { font-size: 2.5rem; line-height: 1; }
+.tl-state h5 { margin: 0; font-size: var(--fs-lg); color: var(--text); }
 .tl-state p { margin: 0; max-width: 460px; font-size: var(--fs-sm); }
 .tl-skel-wrap { display: grid; gap: 14px; padding: var(--sp-5); }
 .tl-skel { height: 34px; border-radius: 6px; background: linear-gradient(90deg, var(--bg) 25%, var(--surface-hover) 50%, var(--bg) 75%); background-size: 200% 100%; animation: tl-sh 1.4s infinite; }
@@ -120,3 +121,7 @@
     .tl-detail, .tl-form { position: fixed; left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto; border-radius: var(--r-xl); max-height: 80vh; overflow: auto; }
 }
 .tl-k-in { color: var(--c-in); } .tl-k-out { color: var(--c-out); } .tl-k-move { color: var(--c-move); }
+
+/* Récit : personnes cliquables (miroir 3.197.0) */
+button.tls-person { font: inherit; font-size: 12px; cursor: pointer; }
+button.tls-person:hover, button.tls-person:focus-visible { border-color: var(--m, var(--primary)); background: color-mix(in srgb, var(--m, var(--primary)) 12%, var(--surface)); }

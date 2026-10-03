@@ -53,3 +53,7 @@
 .dov-preview[data-tone="todo"] { background: var(--bg-alt); border-color: var(--border); }
 .dov-list[data-tone="inprog"] .dov-gain { color: var(--info); }
 .dov-list[data-tone="todo"] .dov-gain { color: var(--text-secondary); }
+
+/* Confirmation d'enregistrement EN PLACE (3.195.0) : reste tant que la règle n'a pas été modifiée */
+.dov-saved { margin: 0 var(--sp-4) var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: color-mix(in srgb, var(--success) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--success) 35%, transparent); color: var(--text); font-size: var(--fs-sm); }
+.dov-saved[hidden] { display: none; }

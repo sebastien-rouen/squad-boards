@@ -350,6 +350,96 @@ export function meteoDiagramHtml() {
     </table>${_helpLinks()}`;
 }
 
+
+// ── Schémas ajoutés en 3.198.0 (BACKLOG « généraliser les ? ») — mêmes classes hd-* (base-misc.css) ──
+
+/** Indicateurs de flux du Dashboard : débit, cycle time, flow efficiency (travail vs attente). */
+export function flowKpisDiagramSvg() {
+    return `
+    <svg class="help-diagram" viewBox="0 0 720 170" role="img" aria-label="Schéma flow efficiency : part du travail dans le lead time" width="100%">
+        <text x="360" y="20" text-anchor="middle" class="hd-sub">Un ticket, de sa création à sa livraison (médianes)</text>
+        <rect x="20"  y="45" width="430" height="44" rx="6" class="hd-seg hd-seg--backlog"/>
+        <rect x="450" y="45" width="250" height="44" rx="6" class="hd-seg hd-seg--dev"/>
+        <text x="235" y="72" text-anchor="middle" class="hd-lbl">attente en file · 7 j</text>
+        <text x="575" y="72" text-anchor="middle" class="hd-lbl">travail · 4 j (cycle time)</text>
+        <path d="M20 100 V108 H700 V100" class="hd-bracket"/>
+        <text x="360" y="128" text-anchor="middle" class="hd-metric">Lead time 11 j</text>
+        <text x="360" y="155" text-anchor="middle" class="hd-strong">flow efficiency = cycle ÷ lead = 4 ÷ 11 ≈ 36 %</text>
+    </svg>
+    <ul class="help-popover-note">
+        <li><strong>Tickets / Story points</strong> : terminés sur engagés, périmètre du sprint (reports compris).</li>
+        <li><strong>Débit (7 j)</strong> : tickets terminés ces 7 derniers jours, comparé aux 7 précédents.</li>
+        <li><strong>Cycle time méd.</strong> : du démarrage à la fin ; le <strong>lead time</strong> part de la création.</li>
+        <li><strong>Flow efficiency</strong> : part du temps passée à <em>travailler</em> le ticket — ~15 % est courant, 40 % et plus est bon. Réduire l'attente rapporte plus qu'accélérer.</li>
+        <li><strong>Sans estimation / sans assigné</strong> : tickets actifs à compléter — ils faussent prévisions et capacité.</li>
+    </ul>`;
+}
+
+/** Tickets bloqués ou stagnants : même état depuis plus de N jours, ou bloqué. */
+export function blockedStaleDiagramSvg() {
+    return `
+    <svg class="help-diagram" viewBox="0 0 720 150" role="img" aria-label="Schéma ticket stagnant : aucun mouvement depuis le seuil" width="100%">
+        <line x1="30" y1="70" x2="690" y2="70" class="hd-axis"/>
+        <circle cx="60" cy="70" r="7" class="hd-marker"/><text x="60" y="100" text-anchor="middle" class="hd-sub">En cours</text>
+        <circle cx="200" cy="70" r="7" class="hd-marker"/><text x="200" y="100" text-anchor="middle" class="hd-sub">En revue</text>
+        <rect x="200" y="58" width="330" height="24" rx="4" class="hd-band-warn"/>
+        <text x="365" y="50" text-anchor="middle" class="hd-sub">aucun changement d'état…</text>
+        <line x1="530" y1="40" x2="530" y2="110" class="hd-red-stroke"/>
+        <text x="530" y="128" text-anchor="middle" class="hd-strong hd-red">seuil N jours → stagnant</text>
+        <rect x="560" y="58" width="130" height="24" rx="4" class="hd-band-crit"/>
+        <text x="625" y="50" text-anchor="middle" class="hd-sub">🚧 bloqué &gt; 48 h</text>
+    </svg>
+    <p class="help-popover-note">
+        Un ticket <strong>stagne</strong> quand il n'a pas changé d'état depuis le seuil réglable dans l'en-tête
+        de la carte. Un <strong>bloqué</strong> (statut bloquant ou drapeau JIRA) sans mouvement depuis
+        48 h déclenche l'<strong>alerte</strong> de la TV et de Santé. À traiter en daily : qui débloque, et quand ?
+    </p>`;
+}
+
+/** Prévision de fin (Monte-Carlo) : distribution des dates simulées, P50 / P85. */
+export function forecastDiagramSvg() {
+    const bins = [6, 14, 26, 34, 28, 18, 10, 5, 2];
+    const x0 = 60, bw = 62, base = 130, k = 2.6;
+    return `
+    <svg class="help-diagram" viewBox="0 0 720 175" role="img" aria-label="Schéma Monte-Carlo : distribution des dates de fin simulées" width="100%">
+        <text x="360" y="20" text-anchor="middle" class="hd-sub">5 000 tirages du débit hebdomadaire (12 dernières semaines) → semaine de fin de chaque tirage</text>
+        <line x1="40" y1="${base}" x2="690" y2="${base}" class="hd-axis"/>
+        ${bins.map((h, i) => `<rect x="${x0 + i * bw}" y="${base - h * k}" width="${bw - 8}" height="${h * k}" rx="3" class="hd-bar hd-bar--velo"/>`).join('')}
+        <line x1="${x0 + 3.4 * bw}" y1="35" x2="${x0 + 3.4 * bw}" y2="${base}" class="hd-avg"/>
+        <text x="${x0 + 3.4 * bw}" y="${base + 18}" text-anchor="middle" class="hd-strong">P50 · 1 chance sur 2</text>
+        <line x1="${x0 + 5.6 * bw}" y1="35" x2="${x0 + 5.6 * bw}" y2="${base}" class="hd-target"/>
+        <text x="${x0 + 5.6 * bw}" y="${base + 36}" text-anchor="middle" class="hd-strong">P85 · date à annoncer</text>
+    </svg>
+    <p class="help-popover-note">
+        La prévision rejoue au hasard le <strong>débit réel</strong> des 12 dernières semaines jusqu'à épuiser le reste à
+        faire. On annonce le <strong>P85</strong> (85 % des tirages finissent avant) — le P50 est un pile ou face.
+        Plus le débit est irrégulier, plus l'écart P50 → P85 est grand.
+    </p>`;
+}
+
+/** Tendance Mood & ✊ : une valeur par sprint (moyenne des votes 1 → 5). */
+export function moodTrendDiagramSvg() {
+    const mood = [3.2, 3.6, 3.1, 3.9, 4.2], fist = [3.8, 3.5, 2.9, 3.4, 3.9];
+    const x = i => 110 + i * 125, y = v => 140 - (v - 1) * 28;
+    const line = arr => arr.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(' ');
+    return `
+    <svg class="help-diagram" viewBox="0 0 720 175" role="img" aria-label="Schéma tendance Mood et confiance par sprint" width="100%">
+        <line x1="70" y1="140" x2="690" y2="140" class="hd-axis"/>
+        ${[1, 3, 5].map(v => `<text x="60" y="${y(v) + 4}" text-anchor="end" class="hd-sub">${v}</text>`).join('')}
+        <line x1="70" y1="${y(3)}" x2="690" y2="${y(3)}" class="hd-target"/>
+        <polyline points="${line(mood)}" fill="none" stroke="var(--warning)" stroke-width="3"/>
+        <polyline points="${line(fist)}" fill="none" stroke="var(--primary)" stroke-width="3" stroke-dasharray="6 5"/>
+        ${mood.map((v, i) => `<text x="${x(i)}" y="160" text-anchor="middle" class="hd-sub">S${i + 1}</text>`).join('')}
+        <text x="690" y="${y(4.2) - 8}" text-anchor="end" class="hd-strong">🎭 Mood</text>
+        <text x="690" y="${y(3.9) + 20}" text-anchor="end" class="hd-strong">✊ Confiance</text>
+    </svg>
+    <p class="help-popover-note">
+        Chaque point = la moyenne des votes (1 à 5) d'un sprint, saisis en rétro (🎭 Mood) et au PI Planning /
+        en cours de PI (✊ Fist of Five). On regarde la <strong>pente</strong>, pas un chiffre isolé : deux sprints
+        qui baissent méritent une discussion, même au-dessus de 3.
+    </p>`;
+}
+
 // Registre des schémas — clé = data-help-key posé par helpIconHtml.
 const HELP_REGISTRY = {
     'meteo':      { title: 'Météo des équipes',                 build: meteoDiagramHtml },
@@ -359,4 +449,8 @@ const HELP_REGISTRY = {
     'stage-flow': { title: 'Temps par colonne',                 build: stageFlowDiagramSvg },
     'velocity':   { title: 'Vélocité',                          build: velocityDiagramSvg },
     'sla':        { title: 'SLA Review',                        build: slaDiagramSvg },
+    'flow-kpis':  { title: 'Indicateurs du sprint',             build: flowKpisDiagramSvg },
+    'stuck':      { title: 'Tickets bloqués ou stagnants',      build: blockedStaleDiagramSvg },
+    'forecast':   { title: 'Prévision de fin (Monte-Carlo)',    build: forecastDiagramSvg },
+    'mood-trend': { title: 'Mood & confiance — tendance',       build: moodTrendDiagramSvg },
 };

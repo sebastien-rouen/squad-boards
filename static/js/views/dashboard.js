@@ -634,25 +634,25 @@ export function renderDashboard(container) {
         <!-- KPI de synthèse (pleine largeur, au-dessus des deux flux) -->
         <!-- KPI primaires -->
         <div class="dashboard-metrics">
-            <div class="metric-card mc-primary">
+            <div class="metric-card mc-primary" data-tooltip="Tickets engagés dans le périmètre (${esc(metricScope)}), reports compris — ${done} terminés">
                 <span class="metric-icon">📋</span>
-                <span class="metric-label">Tickets ${metricScope}</span>
+                <span class="metric-label">Tickets ${metricScope} ${helpIconHtml({ key: 'flow-kpis', label: 'Comprendre les indicateurs du sprint' })}</span>
                 <span class="metric-value">${total}</span>
                 <span class="metric-sub">${done} terminés (${completion}%)</span>
             </div>
-            <div class="metric-card ${ptsPct >= 80 ? 'mc-done' : ptsPct >= 50 ? 'mc-warning' : 'mc-danger'}">
+            <div class="metric-card ${ptsPct >= 80 ? 'mc-done' : ptsPct >= 50 ? 'mc-warning' : 'mc-danger'}" data-tooltip="Points terminés sur points engagés — vert dès 80 %, orange dès 50 %">
                 <span class="metric-icon">🎯</span>
                 <span class="metric-label">Story Points</span>
                 <span class="metric-value">${donePts}<span class="metric-value-sub">/${totalPts}</span></span>
                 <span class="metric-sub">${ptsPct}% réalisés · ${metricScope}</span>
             </div>
-            <div class="metric-card mc-inprog">
+            <div class="metric-card mc-inprog" data-tooltip="Tickets réellement entamés (statut En cours) — hors revue, test et bloqués">
                 <span class="metric-icon">🔄</span>
                 <span class="metric-label">En cours</span>
                 <span class="metric-value text-status-inprog">${inprog}</span>
                 <span class="metric-sub">tickets actifs</span>
             </div>
-            <div class="metric-card ${blocked > 0 ? 'mc-danger' : 'mc-done'}">
+            <div class="metric-card ${blocked > 0 ? 'mc-danger' : 'mc-done'}" data-tooltip="Statut bloquant ou drapeau JIRA — sans mouvement depuis 48 h, c'est l'alerte de la TV et de Santé">
                 <span class="metric-icon">${blocked > 0 ? '🚫' : '✅'}</span>
                 <span class="metric-label">Bloqués</span>
                 <span class="metric-value ${blocked > 0 ? 'text-danger' : 'text-status-done'}">${blocked}</span>
@@ -662,31 +662,31 @@ export function renderDashboard(container) {
 
         <!-- Secondary indicators row (flux & hygiène) -->
         <div class="dashboard-metrics dashboard-metrics--secondary">
-            <div class="metric-card mc-info" title="Tickets terminés sur les 7 derniers jours (${esc(_flowScopeLabel)}) — tendance vs semaine précédente (${throughputPrev7})">
+            <div class="metric-card mc-info" data-tooltip="Tickets terminés sur les 7 derniers jours (${esc(_flowScopeLabel)}) — tendance vs semaine précédente (${throughputPrev7})">
                 <span class="metric-icon">🚀</span>
                 <span class="metric-label">Débit (7j)</span>
                 <span class="metric-value">${throughput7}${throughputTrend !== 0 ? `<span class="metric-trend ${throughputTrend > 0 ? 'metric-trend--up' : 'metric-trend--down'}">${throughputTrend > 0 ? '↗' : '↘'} ${throughputTrend > 0 ? '+' : ''}${throughputTrend}</span>` : ''}</span>
                 <span class="metric-sub">tickets terminés / semaine</span>
             </div>
-            <div class="metric-card mc-inprog" title="Temps médian entre la mise en cours et la clôture d'un ticket">
+            <div class="metric-card mc-inprog" data-tooltip="Temps médian entre la mise en cours et la clôture d'un ticket">
                 <span class="metric-icon">⏱️</span>
                 <span class="metric-label">Cycle time méd.</span>
                 <span class="metric-value">${ctMedian}<span class="metric-denom"> j</span></span>
                 <span class="metric-sub">lead time méd. ${ltMedian} j</span>
             </div>
-            <div class="metric-card ${flowEffCls}" title="Flow efficiency = cycle time / lead time — part du temps réellement passée à travailler le ticket plutôt qu'à attendre en file. Repère : ~15% courant, 40%+ bon.">
+            <div class="metric-card ${flowEffCls}" data-tooltip="Flow efficiency = cycle time / lead time — part du temps réellement passée à travailler le ticket plutôt qu'à attendre en file. Repère : ~15% courant, 40%+ bon.">
                 <span class="metric-icon">⚡</span>
                 <span class="metric-label">Flow efficiency</span>
                 <span class="metric-value">${flowEff == null ? '—' : `${flowEff}<span class="metric-denom"> %</span>`}</span>
                 <span class="metric-sub">${flowEff == null ? 'pas assez de tickets terminés' : `travail ${ctMedian} j · attente ${medWait} j (médianes)`}</span>
             </div>
-            <div class="metric-card ${noEstimate > 0 ? 'mc-warning' : 'mc-done'}" title="Tickets actifs sans Story Points (${metricScope})">
+            <div class="metric-card ${noEstimate > 0 ? 'mc-warning' : 'mc-done'}" data-tooltip="Tickets actifs sans Story Points (${metricScope})">
                 <span class="metric-icon">📝</span>
                 <span class="metric-label">Sans estimation</span>
                 <span class="metric-value ${noEstimate > 0 ? 'text-warning' : ''}">${noEstimate}</span>
                 <span class="metric-sub">tickets actifs non estimés</span>
             </div>
-            <div class="metric-card ${noAssignee > 0 ? 'mc-warning' : 'mc-done'}" title="Tickets actifs sans responsable (${metricScope})">
+            <div class="metric-card ${noAssignee > 0 ? 'mc-warning' : 'mc-done'}" data-tooltip="Tickets actifs sans responsable (${metricScope})">
                 <span class="metric-icon">👤</span>
                 <span class="metric-label">Sans assigné</span>
                 <span class="metric-value ${noAssignee > 0 ? 'text-warning' : ''}">${noAssignee}</span>
@@ -752,7 +752,7 @@ export function renderDashboard(container) {
         <!-- Tickets bloqués ou stagnants (même état depuis longtemps) -->
         <div class="card mt-4">
             <div class="card-header">
-                <span class="card-title">Tickets bloqués ou stagnants</span>
+                <span class="card-title">Tickets bloqués ou stagnants ${helpIconHtml({ key: 'stuck', label: 'Comprendre bloqués et stagnants' })}</span>
                 <span class="card-subtitle">bloqués, ou sans mouvement depuis ≥
                     <input type="number" id="stuck-stale-days" class="inline-num-edit" min="1" max="365" step="1"
                         value="${STALE_DAYS}" title="Seuil de stagnation (jours) — modifiable" aria-label="Seuil de stagnation en jours"> j</span>

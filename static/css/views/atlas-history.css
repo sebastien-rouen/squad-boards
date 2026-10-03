@@ -1,0 +1,12 @@
+/* VIEW: Atlas — 📈 évolution des niveaux dans la fiche membre (components/atlas_history.js, 3.198.0).
+   Feuille à part : atlas.css dépasse déjà 800 lignes. */
+.atlas-hist-list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.atlas-hist-row { display: grid; grid-template-columns: minmax(6rem, 9rem) 1fr; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
+.atlas-hist-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.atlas-hist-row.is-up .atlas-hist-name::after { content: ' ↗'; color: var(--success); }
+.atlas-hist-row.is-down .atlas-hist-name::after { content: ' ↘'; color: var(--warning); }
+.atlas-hist-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.atlas-hist-steps small { color: var(--text-muted); font-size: var(--fs-xs); margin-right: 2px; }
+.atlas-hist-lvl { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: var(--r-full); background: color-mix(in srgb, var(--lc) 22%, var(--surface)); border: 2px solid var(--lc); color: var(--text); font-weight: var(--fw-bold); font-size: var(--fs-xs); }
+.atlas-hist-lvl.is-none { border-style: dashed; background: transparent; color: var(--text-muted); }
+.atlas-hist-arrow { color: var(--text-muted); }

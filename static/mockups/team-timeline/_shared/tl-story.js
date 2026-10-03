@@ -8,7 +8,8 @@
     const T = window.TL, esc = T.esc;
     const target = (st, it) => window.TLApp.target(st, it);
     const DOW = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
-    const chip = (m, cls) => `<span class="tls-person ${cls}${m.precise ? '' : ' is-approx'}${m.conflict ? ' is-conflict' : ''}" title="${esc(m.who)}${m.precise ? '' : ' — au changement de PI'}">${esc(T.shortName(m.who))}${m.kind === 'move-in' ? ` <small>← ${esc(m.from)}</small>` : m.kind === 'move-out' ? ` <small>→ ${esc(m.to)}</small>` : ''}${m.conflict ? ' ⚠️' : ''}</span>`;
+    // Miroir 3.197.0 : personnes cliquables (fiche membre sur le site — ici, sans effet)
+    const chip = (m, cls) => `<button type="button" class="tls-person ${cls}${m.precise ? '' : ' is-approx'}${m.conflict ? ' is-conflict' : ''}" data-member="${esc(m.who)}" title="${esc(m.who)}${m.precise ? '' : ' — au changement de PI'} · voir sa fiche">${esc(T.shortName(m.who))}${m.kind === 'move-in' ? ` <small>← ${esc(m.from)}</small>` : m.kind === 'move-out' ? ` <small>→ ${esc(m.to)}</small>` : ''}${m.conflict ? ' ⚠️' : ''}</button>`;
 
     /** Liste datée des entrées du récit (déjà filtrées par catégorie). */
     function entries(st, c) {

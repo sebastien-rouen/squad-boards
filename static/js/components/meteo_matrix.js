@@ -15,7 +15,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, belongedToSprint, isInSprint, belongedToPi, countBlocked, teamCapacity, wipThreshold, countWip, weatherOf, weatherRel, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds } from '../utils.js';
+import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, belongedToSprint, isInSprint, belongedToPi, countBlocked, teamCapacity, rosterCtx, wipThreshold, countWip, weatherOf, weatherRel, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds } from '../utils.js';
 import { ANOMALY_RULES, healthScore } from '../business_rules.js';
 import { slaModel } from './sla_review_card.js';
 import { helpIconHtml } from './help_popover.js';
@@ -77,7 +77,7 @@ export function computeTeamMeteo(team, {
     let anomalies = [];
     if (tt.length) {
         const sprintStartMs = sprint?.startDate ? new Date(String(sprint.startDate).slice(0, 10)).getTime() : 0;
-        const wipMax = wipThreshold(teamCapacity(team, members, absences));
+        const wipMax = wipThreshold(teamCapacity(team, members, absences, undefined, rosterCtx(store.get('piInfo'), store.get('sprintInfo'))));
         const ctx = { sprintStartMs, wipExceededTeams: countWip(tt) > wipMax ? new Set([team]) : new Set(), curPi: piNum };
         const counts = {};
         anomalies = ANOMALY_RULES.map(a => {
@@ -211,7 +211,8 @@ const _groupedRows = (rows, groups, preview, mode) => {
  * @param {Array}   [opts.groups]   lignes produit (`store.groups`) : en-têtes de groupe si ≥ 2 groupes
  * @param {boolean} [opts.rich]     aperçu : cellules riches (TV) — hors aperçu, la bascule Détaillé / Compact décide
  */
-export function meteoMatrixHtml(teams, ctx, teamObjects = [], { preview = false, title = 'Météo des équipes', groups = [], rich = false } = {}) {
+export function meteoMatrixHtml(teams, ctx, teamObjects = [], { preview = false, title = 'Météo des équipes', groups = [], rich = false, key = '' } = {}) {
+    const tid = `meteo-title${key ? `-${key}` : ''}`;   // plusieurs matrices sur un écran (TV) : id unique
     const rows = teams.map((t, i) => computeTeamMeteo(t, { ...ctx, color: _teamColor(t, teamObjects, i) }));
     const worst = worstLevel(rows.map(r => r.level));
     const storms = rows.filter(r => r.level === 'storm').length;
@@ -221,9 +222,9 @@ export function meteoMatrixHtml(teams, ctx, teamObjects = [], { preview = false,
     const isRich = preview ? rich : _richPref();
     const body = relevantGroups.length >= 2 ? _groupedRows(rows, relevantGroups, preview, mode) : rows.map(r => _rowHtml(r, preview, mode)).join('');
     return `
-    <section class="card meteo-card${preview ? ' meteo-card--preview' : ''}" aria-labelledby="meteo-title">
+    <section class="card meteo-card${preview ? ' meteo-card--preview' : ''}" aria-labelledby="${tid}">
         <div class="card-header meteo-header">
-            <span class="card-title" id="meteo-title">${METEO_GLYPH[worst]} ${esc(title)} ${preview ? '' : helpIconHtml({ key: 'meteo', label: 'Comprendre la météo des équipes' })}</span>
+            <span class="card-title" id="${tid}">${METEO_GLYPH[worst]} ${esc(title)} ${preview ? '' : helpIconHtml({ key: 'meteo', label: 'Comprendre la météo des équipes' })}</span>
             <span class="card-subtitle">${esc(sub)}${preview ? '' : ' — cliquer une ligne ouvre l\'équipe'}</span>
             ${preview ? '' : `<button type="button" class="meteo-density" data-meteo-density aria-pressed="${isRich}" title="Cellules détaillées (barres fait / temps, libellés) ou compactes (une ligne)">${isRich ? '▤ Détaillé' : '▭ Compact'}</button>`}
         </div>

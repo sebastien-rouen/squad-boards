@@ -54,8 +54,9 @@ export function eventDescParts(html, location = '') {
 /** Évènement brut du store (description, récurrence…) depuis l'item d'`eventsFor` (`id` = « équipe#index »). */
 const rawOf = ev => (store.get('calendarEvents') || [])[+String(ev.id).split('#').pop()] || {};
 
-/** Panneau de détail d'un évènement d'agenda (item d'`eventsFor`). */
-export function calEventDetailHtml(ev) {
+/** Panneau de détail d'un évènement d'agenda (item d'`eventsFor`). `also` : autres occurrences du
+ *  même évènement regroupées dans une seule pastille (« Aujourd'hui + Demain », « ×2 »). */
+export function calEventDetailHtml(ev, { also = [] } = {}) {
     const raw = rawOf(ev);
     const nat = CAL_NATURES[ev.kind] || CAL_NATURES.other;
     const scope = CAL_SCOPES[ev.scope] || { icon: '📅', label: 'Agenda' };
@@ -82,6 +83,7 @@ export function calEventDetailHtml(ev) {
             ${dur ? `<span class="tvw-evd-chip">⏱️ ${esc(durLabel(dur))}</span>` : ''}
             ${raw.recurring ? '<span class="tvw-evd-chip">🔁 Récurrent</span>' : ''}
         </div>
+        ${also.length ? `<p class="tvw-evd-also">🗓️ Aussi : ${also.map(o => `<span class="tvw-evd-chip">${esc(cap(o.allDay ? longDay(o.day) : `${longDay(o.day)} · ${hm(o.start)}`))}</span>`).join(' ')}</p>` : ''}
         <div class="tvw-evd-meta">
             <span class="tvw-evd-src" data-scope="${esc(ev.scope)}"><span aria-hidden="true">${scope.icon}</span> ${isTeam ? 'Agenda de l\'équipe' : `Agenda commun · ${esc(scope.label)}`}<small>${esc(ev.cal)}</small></span>
             ${ev.person ? `<span class="tvw-evd-chip">👤 ${esc(ev.person)}</span>` : ''}

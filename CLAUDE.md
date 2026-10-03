@@ -482,6 +482,15 @@ python main.py          # http://localhost:3001  — Swagger /docs
   seulement (import ET `PUT /api/sprint` ne les écrivent que s'ils sont fournis) — bandeau obsolète.
 - **Marqueur `~membre=<nom>`** (3.197.0, `applyHash`) : ouvre la fiche membre après le routage
   (liens de l'export de la frise). Valeur sans « / » ni « ~ ».
+- **TV : tout tient à l'écran** (3.199.2) — ⚠️ `.tv` fait `100vh` PUIS `zoom` : le zoom agrandit aussi la
+  hauteur (1 404 px de TV pour 1 080, bas invisible car body en overflow hidden) → `_fitViewport` (tv.js)
+  ramène la hauteur visuelle à la fenêtre, à chaque redimensionnement. Règle de la TV : JAMAIS de
+  défilement ni de texte tronqué (`#tv-root` annule les `line-clamp` / ellipses, tv-week.css) — la place
+  se gagne par la pagination à la hauteur (`_paginate`, météo par ligne produit, alerte par équipe),
+  les colonnes des plans (`_choosePlansPerPage`, lisibilité ≥ 75 %), la densité de La semaine
+  (`rollDays` → `data-dens`), et en dernier recours la réduction d'une carte trop haute (`_fitItems`).
+- **Effectif d'une équipe** (3.199.2) : `teamCapacity(…, at, rosterCtx(piInfo, sprintInfo))` = roster du
+  PI courant ; sans ce 5ᵉ argument, l'historique des congés (partis compris : Fuego 21 au lieu de 14).
 - **TV, thème et nuit** (3.196.0) : thème de l'écran (⚙, sombre par défaut) posé sur `<html>` le
   temps de la TV et RESTAURÉ dans `_cleanup` ; la nuit pose `data-theme="dark"` sur `#tv-root` +
   palette `.tv.is-night` (plus aucun `filter`). Série « zéro blocker » : `sb-tv-blocker-seen`

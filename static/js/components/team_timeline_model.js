@@ -55,8 +55,8 @@ const INCIDENT = /\bprod\b|production|incident/i;
 // PAS `désynchro` : chez Initiale ce sont 47 campagnes de comparaison GDD/SPD en masse, pas des incidents.
 // « prod » en MOT ENTIER : écarte « problème » et « PreProd » (faux positifs mesurés).
 const INCIDENT_LABELS = ['incident-prod'];
-const REL = /\bmepp?\b|me\(p\)p|mise en (pr[ée])?prod|livraison en prod/i;
-const MIL = /pi\s*planning|i\s*&\s*a|inspect|journ[ée]es?\s*innovation|d[ée]monstration d.it[ée]ration/i;
+export const REL = /\bmepp?\b|me\(p\)p|mise en (pr[ée])?prod|livraison en prod/i;
+export const MIL = /pi\s*planning|i\s*&\s*a|inspect|journ[ée]es?\s*innovation|d[ée]monstration d.it[ée]ration/i;
 // « Ptit point entretien » (Helica) est ambigu : exclu plutôt que deviné
 // « O3 » partout dans le titre (« O3 - Elsa/Tanisha », « [O3] … », « Point O3 … »), pas seulement en tête
 const ONE = /\b1v1\b|\bo3\b|one[- ]on[- ]one|\b1:1\b/i;

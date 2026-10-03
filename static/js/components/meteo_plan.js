@@ -16,20 +16,24 @@ import { computeTeamMeteo } from './meteo_matrix.js';
 
 const URGENCY = { danger: 'aujourd\'hui', warning: 'cette semaine', info: 'avant le prochain sprint' };
 const ORDER = { danger: 0, warning: 1, info: 2 };
-const MAX_LEADERS = 2;
+/** Prénom + initiale du nom (« SYLLA, Mohamed » → « Mohamed S. »). */
+const _short = n => { const [last, first] = String(n).split(','); return first ? `${first.trim()} ${last.trim().charAt(0)}.` : String(n); };
 
-const _who = leaders => {
+/** TOUS les responsables (avant 3.199.2 : deux, puis « +1 » — à la TV, on ne voyait pas qui).
+ *  `names` (mode TV) : prénoms lisibles de loin plutôt qu'initiales. */
+const _who = (leaders, names = false) => {
     if (!leaders.length) return '<span class="meteo-plan-who meteo-plan-who--none">non assigné</span>';
-    const shown = leaders.slice(0, MAX_LEADERS).map(n => `<span class="meteo-plan-avatar" title="${esc(n)}">${esc(initials(n))}</span>`).join('');
-    const more = leaders.length > MAX_LEADERS ? `<small>+${leaders.length - MAX_LEADERS}</small>` : '';
-    return `<span class="meteo-plan-who" title="${esc(leaders.join(', '))}">${shown}${more}</span>`;
+    const shown = leaders.map(n => (names
+        ? `<span class="meteo-plan-name" title="${esc(n)}">${esc(_short(n))}</span>`
+        : `<span class="meteo-plan-avatar" title="${esc(n)}">${esc(initials(n))}</span>`)).join('');
+    return `<span class="meteo-plan-who${names ? ' is-names' : ''}" title="${esc(leaders.join(', '))}">${shown}</span>`;
 };
 
 /**
  * Card « Plan d'action » — vide (chaîne vide) quand aucune anomalie : un plan sans rien à
  * faire n'a pas à occuper l'écran.
  */
-export function meteoPlanHtml(team, ctx) {
+export function meteoPlanHtml(team, ctx, { names = false } = {}) {
     const r = computeTeamMeteo(team, ctx);
     const rows = (r.anomalies || []).filter(a => a.n > 0).sort((a, b) => (ORDER[a.sev] - ORDER[b.sev]) || (b.n - a.n));
     if (!rows.length) return '';
@@ -49,7 +53,7 @@ export function meteoPlanHtml(team, ctx) {
                     <span class="meteo-plan-ico" aria-hidden="true">${a.icon}</span>
                     <span class="meteo-plan-txt"><b>${esc(a.title)}</b><span>${esc(a.intro)}</span></span>
                     <span class="meteo-plan-n" title="${a.n} ticket${a.n > 1 ? 's' : ''}">${a.n}</span>
-                    ${_who(a.leaders)}
+                    ${_who(a.leaders, names)}
                     <span class="meteo-plan-when">${URGENCY[a.sev] || ''}</span>
                 </button>
             </li>`).join('')}

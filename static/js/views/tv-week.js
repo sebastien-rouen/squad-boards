@@ -225,16 +225,35 @@ export function weekDayHtml(teams, d) {
     </div>`;
 }
 
-/** Jours trop chargés : la liste glisse jusqu'en bas pendant `ms` (pauses en haut et en bas), en
- *  boucle aller-retour sur un écran figé. Appelé par tv.js après le rendu (il faut la hauteur réelle). */
-export function rollDays(root, ms, loop) {
-    root.querySelectorAll('.tvw-list').forEach(box => {
-        const ul = box.firstElementChild, over = ul.scrollHeight - box.clientHeight;
-        ul.classList.remove('is-rolling', 'is-loop');
-        if (over <= 4) return;
-        ul.style.setProperty('--dy', `${-over - 8}px`);
-        ul.style.setProperty('--d', `${Math.max(6000, ms - 1000)}ms`);
-        ul.classList.add('is-rolling');
-        ul.classList.toggle('is-loop', !!loop);
+/**
+ * Tout doit TENIR à l'écran — une TV ne se fait pas défiler (avant 3.199.2 : les jours chargés
+ * glissaient, et le bas d'une journée n'était jamais lisible d'un coup d'œil). Après le rendu, la
+ * densité monte d'un cran (`data-dens` 0 → 3 : police et marges réduites, une ligne par évènement,
+ * bandeau de chiffres puis légende masqués) jusqu'à ce qu'aucune journée ne déborde ; en dernier
+ * recours, la seule journée encore trop pleine est réduite à sa hauteur (`zoom`) — rien n'est caché.
+ * Refait si l'écran change de taille (plein écran, autre palier de zoom TV).
+ */
+let _fitObs = null;
+export function rollDays(root) {
+    const week = root.querySelector('.tv-week');
+    _fitObs?.disconnect();
+    if (!week) return;
+    const fit = () => {
+        const lists = [...week.querySelectorAll('.tvw-list')];
+        lists.forEach(b => { b.firstElementChild.style.zoom = ''; });
+        const over = () => lists.some(b => b.firstElementChild.scrollHeight > b.clientHeight + 1);
+        for (const lvl of ['0', '1', '2', '3']) { week.dataset.dens = lvl; if (!over()) return; }
+        lists.forEach(b => {
+            const ul = b.firstElementChild, r = b.clientHeight / ul.scrollHeight;
+            if (r < 1) ul.style.zoom = Math.max(0.4, r * 0.98).toFixed(3);
+        });
+    };
+    fit();
+    // Observé sur .tv-week (hauteur de l'écran, indépendante de la densité) : pas de boucle de mesure.
+    let last = `${week.clientWidth}x${week.clientHeight}`;
+    _fitObs = new ResizeObserver(() => {
+        const now = `${week.clientWidth}x${week.clientHeight}`;
+        if (now !== last && week.isConnected) { last = now; fit(); }
     });
+    _fitObs.observe(week);
 }

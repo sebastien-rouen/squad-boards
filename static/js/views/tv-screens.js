@@ -11,10 +11,12 @@
  */
 
 import { store } from '../state.js';
-import { esc, teamCapacity, sumBy, mapStatus, getCurrentPi, emptyStateHtml } from '../utils.js';
+import { esc, teamCapacity, sumBy, mapStatus, getCurrentPi, emptyStateHtml, rosterCtx } from '../utils.js';
 import { isPastPi, ANOMALY_BY_KEY } from '../business_rules.js';
 import { holidayName } from '../utils/holidays.js';
-import { collect, shortName } from '../components/team_timeline_model.js';
+import { shortName, REL, MIL, opsIsProd } from '../components/team_timeline_model.js';
+import { eventsFor, covers } from '../components/team_calendar.js';
+import { calEventDetailHtml } from './tv-week-event.js';
 
 // ── Briques partagées ─────────────────────────────────────────────────────────
 
@@ -44,39 +46,76 @@ const personBtn = n => `<button type="button" class="tv-chip tv-person" data-mem
 export function screenPresence({ teams, teamObjects }) {
     const members = store.get('members') || [], absences = store.get('absences') || [];
     const today = dayKey(new Date()), next = nextWorkday(today);
-    const nextName = plusDays(today, 1) === next ? 'Demain' : dayLabel(next, { weekday: 'long' });
-    const rows = teams.map(tm => ({ tm, now: teamCapacity(tm, members, absences, atNoon(today)), then: teamCapacity(tm, members, absences, atNoon(next)) }))
+    const nextName = plusDays(today, 1) === next ? 'Demain' : dayLabel(next, { weekday: 'long' }).replace(/^./, c => c.toUpperCase());
+    const rc = rosterCtx(store.get('piInfo'), store.get('sprintInfo'));   // roster du PI courant, pas l'historique des congés
+    const rows = teams.map(tm => ({ tm, now: teamCapacity(tm, members, absences, atNoon(today), rc), then: teamCapacity(tm, members, absences, atNoon(next), rc) }))
         .filter(r => r.now.total);
     if (!rows.length) return emptyStateHtml({ size: 'tv', icon: '👥', title: 'Aucun effectif connu', text: 'Importe les congés ou le roster (Paramètres) pour savoir qui est là.' });
     const here = sumBy(rows, r => r.now.available), total = sumBy(rows, r => r.now.total);
 
-    // Ce qui tombe aujourd'hui et au prochain jour ouvré : férié, MEP, opérations, jalons du train.
-    const scopeTeam = teams.length === 1 ? teams[0] : '*';
-    const c = collect(scopeTeam, today, next);
-    const when = d => (d === today ? 'Aujourd\'hui' : nextName);
-    const evts = [
-        ...[today, next].map(d => holidayName(d) && { d, ico: '🎌', txt: `Férié · ${holidayName(d)}` }),
-        ...c.releases.map(r => ({ d: r.day, ico: '🚀', txt: `MEP · ${r.items.map(i => i.title).join(' · ')}` })),
-        ...c.operations.map(o => ({ d: o.day, ico: o.prod ? '⚠️' : '⚙️', txt: `${o.time ? o.time.replace(':', 'h') + ' · ' : ''}${o.title}`, prod: o.prod })),
-        ...c.milestones.map(m => ({ d: m.day, ico: '🚂', txt: m.title })),
-    ].filter(Boolean);
+    // Ce qui tombe aujourd'hui et au prochain jour ouvré : férié, MEP, opérations, jalons du train — lu
+    // dans l'agenda (`eventsFor`, mêmes règles MEP / jalons que la frise) pour être CLIQUABLE, et REGROUPÉ :
+    // un même évènement les deux jours ou plusieurs fois (« [Gen2] Intervention » 09h30 et 15h00) = une pastille.
+    const evts = presenceEvents(teams, today, next, nextName);
 
     const card = r => {
         const pct = Math.round((r.now.available / r.now.total) * 100);
         const lvl = pct === 100 ? 'ok' : pct >= 75 ? 'mid' : 'low';
         const later = r.then.absentNames.filter(n => !r.now.absentNames.includes(n));
+        const absN = r.now.absentNames.length;
         return `<li class="tv-pres" style="--team-color:${colorOf(teamObjects, r.tm)}">
-            <div class="tv-pres-hd"><span class="team-dot" style="background:${colorOf(teamObjects, r.tm)}"></span><b>${esc(r.tm)}</b><span class="tv-pres-n" data-l="${lvl}">${r.now.available}<small> / ${r.now.total}</small></span></div>
-            <div class="tv-pres-bar" data-l="${lvl}"><i style="width:${pct}%"></i></div>
-            <p>${r.now.absentNames.length ? `🌴 ${r.now.absentNames.map(personBtn).join('')}` : '<span class="tv-pres-all">✓ Toute l\'équipe est là</span>'}</p>
+            <div class="tv-pres-hd"><span class="team-dot" style="background:${colorOf(teamObjects, r.tm)}"></span><b>${esc(r.tm)}</b>
+                <span class="tv-pres-n" data-l="${lvl}" title="${esc(`${r.now.available} présent${r.now.available > 1 ? 's' : ''} sur ${r.now.total} aujourd'hui (${pct} %)${absN ? ` · ${absN} absent${absN > 1 ? 's' : ''}` : ''}`)}"><b>${r.now.available}</b><small>présent${r.now.available > 1 ? 's' : ''}<br>sur ${r.now.total}</small></span></div>
+            <div class="tv-pres-bar" data-l="${lvl}" role="img" aria-label="${pct} % de l'équipe présente"><i style="width:${pct}%"></i></div>
+            <p>${absN ? `<span class="tv-pres-abs">🌴 ${absN} absent${absN > 1 ? 's' : ''}</span> ${r.now.absentNames.map(personBtn).join('')}` : '<span class="tv-pres-all">✓ Toute l\'équipe est là</span>'}</p>
             ${later.length ? `<p class="tv-pres-next">${esc(nextName)} : ${later.map(n => personBtn(n)).join('')} absent${later.length > 1 ? 's' : ''} en plus</p>` : ''}
         </li>`;
     };
     return `<div class="tv-presence">
         <div class="tv-journee-hd"><span aria-hidden="true">👥</span><div><h2>${esc(dayLabel(today))}</h2><p>${here} présents sur ${total}${isWeekend(today) ? ' · week-end' : ''}</p></div></div>
-        ${evts.length ? `<ul class="tv-evts">${evts.sort((a, b) => a.d.localeCompare(b.d)).map(e => `<li${e.prod ? ' class="is-prod"' : ''}><small>${esc(when(e.d))}</small><span aria-hidden="true">${e.ico}</span>${esc(e.txt)}</li>`).join('')}</ul>` : ''}
+        ${evts.length ? `<ul class="tv-evts">${evts.map(e => `<li class="${e.prod ? 'is-prod' : ''}${e.i !== undefined ? ' is-click' : ''}"${e.i !== undefined ? ` data-pres-ev="${e.i}" tabindex="0" role="button" aria-label="${esc(`${e.txt} — ${e.when} — voir le détail`)}"` : ''}><small>${esc(e.when)}</small><span aria-hidden="true">${e.ico}</span>${esc(e.txt)}${e.n > 1 ? ` <b class="tv-evts-n">×${e.n}</b>` : ''}</li>`).join('')}</ul>` : ''}
         ${pagedHtml(rows.map(card).join(''), { cls: 'tv-pres-grid', unit: 'équipes' })}
     </div>`;
+}
+
+// ── Évènements du jour et du lendemain (Qui est là) ──────────────────────────
+
+let _presEvents = [];   // groupes affichés : { first, all[] } — résolus au clic (data-pres-ev)
+
+/** Férié, MEP, opérations, jalons du train d'aujourd'hui et du prochain jour ouvré, REGROUPÉS par titre :
+ *  « Aujourd'hui + Demain », « ×2 · 09h30, 15h00 ». */
+function presenceEvents(teams, today, next, nextName) {
+    const single = teams.length === 1;
+    const days = [today, next];
+    const label = d => (d === today ? 'Aujourd\'hui' : nextName);
+    const wanted = e => e.scope === 'ops' || (e.scope === 'train' && MIL.test(e.title)) || ((e.scope === 'team' || e.scope === 'group' || !single) && REL.test(e.title));
+    const groups = new Map();
+    for (const e of eventsFor(single ? teams[0] : '*')) {
+        if (!wanted(e)) continue;
+        const on = days.filter(d => (e.allDay ? covers(e, d) : e.day === d));
+        if (!on.length) continue;
+        const key = e.title.trim().toLowerCase();
+        const g = groups.get(key) || groups.set(key, { first: e, all: [], days: new Set() }).get(key);
+        g.all.push(e); on.forEach(d => g.days.add(d));
+    }
+    _presEvents = [...groups.values()];
+    const evs = _presEvents.map((g, i) => {
+        const e = g.first, prod = e.scope === 'ops' && opsIsProd(e.title);
+        const times = [...new Set(g.all.filter(x => !x.allDay).map(x => x.start.slice(11, 16).replace(':', 'h')))].sort();
+        const ico = prod ? '⚠️' : e.scope === 'ops' ? '⚙️' : REL.test(e.title) ? '🚀' : '🚂';
+        const title = e.title.replace(/^\s*⚠️\s*/u, '');
+        return { i, prod, ico, n: g.all.length, sort: [...g.days].sort()[0] + (times[0] || ''),
+            when: [...g.days].sort().map(label).join(' + '),
+            txt: `${times.length ? `${times.join(', ')} · ` : ''}${REL.test(e.title) && e.scope !== 'ops' ? 'MEP · ' : ''}${title}` };
+    });
+    const hol = days.filter(d => holidayName(d)).map(d => ({ when: label(d), ico: '🎌', txt: `Férié · ${holidayName(d)}`, sort: d }));
+    return [...hol, ...evs].sort((a, b) => a.sort.localeCompare(b.sort));
+}
+
+/** Détail d'un évènement de « Qui est là » (clic sur `data-pres-ev`), avec ses autres occurrences. */
+export function presenceEventHtml(i) {
+    const g = _presEvents[+i];
+    return g ? calEventDetailHtml(g.first, { also: g.all.slice(1) }) : '';
 }
 
 // ── ✅ Zéro blocker ───────────────────────────────────────────────────────────

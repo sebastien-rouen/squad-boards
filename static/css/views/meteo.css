@@ -174,7 +174,7 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
     font-variant-numeric: tabular-nums;
     text-align: center;
 }
-.meteo-plan-who { grid-area: meta; display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--text-secondary); }
+.meteo-plan-who { grid-area: meta; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--text-secondary); }
 .meteo-plan-who--none { color: var(--amber-text); font-style: italic; }
 .meteo-plan-avatar {
     display: inline-grid; place-items: center;

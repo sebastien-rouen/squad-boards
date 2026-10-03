@@ -37,8 +37,11 @@
 .tv-pres, .tv-sprint { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border); border-top: 4px solid var(--team-color, var(--border)); border-radius: var(--r-lg); background: var(--surface); }
 .tv-pres[hidden], .tv-sprint[hidden] { display: none; }
 .tv-pres-hd { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-lg); }
-.tv-pres-n { margin-left: auto; font-size: var(--fs-2xl); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
-.tv-pres-n small { font-size: var(--fs-base); color: var(--text-muted); font-weight: var(--fw-medium); }
+/* Compteur explicite (3.199.2) : « 20 | présents / sur 21 » — le chiffre, puis ce qu'il compte */
+.tv-pres-n { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; cursor: help; }
+.tv-pres-n b { font-size: var(--fs-2xl); font-weight: var(--fw-bold); line-height: 1; }
+.tv-pres-n small { font-size: var(--fs-xs); line-height: 1.15; color: var(--text-muted); font-weight: var(--fw-medium); text-align: left; }
+.tv-pres-abs { margin-right: 4px; font-weight: var(--fw-semibold); color: var(--text-secondary); }
 .tv-pres-n[data-l="low"] { color: var(--status-blocked-text); }
 .tv-pres-n[data-l="mid"] { color: var(--amber-text); }
 .tv-pres-bar { height: 6px; border-radius: var(--r-full); background: var(--bg); overflow: hidden; }

@@ -100,7 +100,7 @@ const tk = t => `<code ${tkAttrs(t.id)}>${esc(t.id)}</code>`;
 function advice(a, max) {
     const out = [];
     const pts = list => fmtNum(sumBy(list, a.val));
-    if (a.blocked.length) out.push(`🚧 <b>Débloquer d'abord</b> : ${a.blocked.length} ticket${a.blocked.length > 1 ? 's' : ''} bloqué${a.blocked.length > 1 ? 's' : ''} (${pts(a.blocked)} ${a.unit}) — ${a.blocked.slice(0, 3).map(tk).join(' ')}`);
+    if (a.blocked.length) out.push(`🚧 <b>Débloquer d'abord</b> : ${a.blocked.length} ticket${a.blocked.length > 1 ? 's' : ''} bloqué${a.blocked.length > 1 ? 's' : ''} (${pts(a.blocked)} ${a.unit}) — ${a.blocked.map(tk).join(' ')}`);
     if (a.left && a.need > Math.max(a.pace, 0.1) * 1.5 && a.remaining > 0) out.push(`✂️ <b>Rythme intenable</b> : ${fmtNum(a.need)} ${a.unit}/jour nécessaires contre ${fmtNum(a.pace)} actuellement — revoir le périmètre avec le PO (~${fmtNum(a.projected)} ${a.unit} à sortir)`);
     if (a.waiting.length >= 3) out.push(`👀 <b>Finir avant de commencer</b> : ${a.waiting.length} tickets attendent une revue ou un test — les faire passer avant d'en ouvrir d'autres`);
     if (a.left <= 2 && a.todo.length >= 2) out.push(`📦 <b>${a.todo.length} tickets pas commencés</b> à ${a.left ? `J-${a.left}` : 'la fin'} : les sortir du sprint plutôt que les démarrer`);
@@ -115,14 +115,14 @@ function advice(a, max) {
 function facts(a, today, max) {
     const out = [];
     const tile = (ico, lbl, html, tone = '') => ({ ico, lbl, html, tone });
-    if (a.s.goal) out.push(tile('🎯', 'Objectif du sprint', esc(String(a.s.goal).split('\n').map(x => x.replace(/^[-•*\s]+/, '').trim()).filter(Boolean).slice(0, 2).join(' · '))));
-    if (a.lastDone) out.push(tile('✅', `Dernier terminé · ${relDay(resolvedDay(a.lastDone), today)}`, `${tk(a.lastDone)} ${esc(String(a.lastDone.title || '').slice(0, 80))}`, 'ok'));
+    if (a.s.goal) out.push(tile('🎯', 'Objectif du sprint', esc(String(a.s.goal).split('\n').map(x => x.replace(/^[-•*\s]+/, '').trim()).filter(Boolean).join(' · '))));
+    if (a.lastDone) out.push(tile('✅', `Dernier terminé · ${relDay(resolvedDay(a.lastDone), today)}`, `${tk(a.lastDone)} ${esc(String(a.lastDone.title || ''))}`, 'ok'));
     if (a.biggest && (a.biggest.points || 0) > 0) out.push(tile('🐘', 'Plus gros reste', `${tk(a.biggest)} <b>${a.biggest.points} pts</b>${a.biggest.leader ? ` · ${esc(a.biggest.leader)}` : ''}`));
     if (a.velocity) {
         const pct = Math.min(100, Math.round((a.velocity / Math.max(1, a.total)) * 100));
         out.push(tile('📏', `Vélocité · ${a.pastN} derniers sprints`, `<b>${fmtNum(a.velocity)}</b> ${a.unit} en moyenne pour <b>${fmtNum(a.total)}</b> engagés<span class="tvs-cmp" title="vélocité / engagement"><i style="width:${pct}%"></i></span>`, a.total > a.velocity * 1.5 ? 'warn' : ''));
     }
-    if (a.scope.carried.length) out.push(tile('↪️', `${a.scope.carried.length} reporté${a.scope.carried.length > 1 ? 's' : ''} ailleurs`, a.scope.carried.slice(0, 4).map(tk).join(' '), 'warn'));
+    if (a.scope.carried.length) out.push(tile('↪️', `${a.scope.carried.length} reporté${a.scope.carried.length > 1 ? 's' : ''} ailleurs`, a.scope.carried.map(tk).join(' '), 'warn'));
     return out.slice(0, max);
 }
 const factsHtml = list => `<ul class="tvs-facts">${list.map(f => `<li class="tvs-fact${f.tone ? ` is-${f.tone}` : ''}"><span class="tvs-fact-ico" aria-hidden="true">${f.ico}</span><div><small>${esc(f.lbl)}</small><p>${f.html}</p></div></li>`).join('')}</ul>`;

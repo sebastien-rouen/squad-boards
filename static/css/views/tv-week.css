@@ -1,0 +1,54 @@
+/* VIEW: Mode TV — 🗞️ La semaine en bref : agendas dans les journées + détail d'un évènement (3.199.0).
+   tv-week.js / tv-week-event.js. La couleur vient de la NATURE (`data-k` → `--k`, palette de
+   team-calendar.css) ; la PORTÉE se lit au liseré : plein = agenda de l'équipe, pointillé + icône =
+   agenda commun (groupe, train, opérations). Feuille à part : tv-screens.css porte déjà 9 écrans. */
+
+/* ── Évènements dans la journée ── */
+.tvw-day li.tvw-cal, .tvw-daylist li.tvw-cal { --c: var(--k, var(--border-hover)); cursor: pointer; transition: box-shadow var(--tr-fast), transform var(--tr-fast); }
+.tvw-day li.tvw-cal:hover, .tvw-day li.tvw-cal:focus-visible,
+.tvw-daylist li.tvw-cal:hover, .tvw-daylist li.tvw-cal:focus-visible { box-shadow: 0 0 0 2px var(--c); outline: none; transform: translateX(1px); }
+.tvw-cal.is-team { border-left-width: 4px; background: color-mix(in srgb, var(--c) 13%, var(--surface)); }
+.tvw-cal.is-common { border-left-style: dashed; background: var(--bg); }
+.tvw-cal.is-common > span:last-child { color: var(--text-secondary); }
+.tvw-cal.is-prod { --c: var(--danger); background: var(--danger-bg); }
+.tvw-cal.is-off { --c: var(--n-off, var(--danger)); background: color-mix(in srgb, var(--c) 8%, var(--bg)); font-size: var(--fs-xs); }
+.tvw-cal time { margin-right: 2px; font-variant-numeric: tabular-nums; font-weight: var(--fw-bold); color: var(--text); }
+.tvw-scope { margin-left: 2px; opacity: .8; }
+
+/* ── Évènement de plusieurs jours : bandeau au-dessus des colonnes, comme un sprint ── */
+.tvw-band.is-ev { --c: var(--k, var(--border-hover)); justify-content: flex-start; gap: var(--sp-2); font: inherit; font-size: var(--fs-sm); color: var(--text); cursor: pointer;
+    background: color-mix(in srgb, var(--c) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); border-left: 4px solid var(--c); border-radius: var(--r-sm); }
+.tvw-band.is-ev.is-common { border-left-style: dashed; background: color-mix(in srgb, var(--c) 7%, var(--bg)); }
+.tvw-band.is-ev b { flex: 0 1 auto; text-align: left; font-weight: var(--fw-semibold); }
+.tvw-band.is-ev:hover, .tvw-band.is-ev:focus-visible { box-shadow: 0 0 0 2px var(--c); outline: none; }
+
+/* ── Légende de l'en-tête ── */
+.tvw-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: 4px; font-size: var(--fs-xs); }
+.tvw-lg { padding: 1px var(--sp-2); border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: var(--r-sm); background: var(--surface); color: var(--text-secondary); text-transform: none; }
+.tvw-lg.is-team { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--text); }
+.tvw-lg.is-common { border-left-style: dashed; }
+.tvw-lg-hint { color: var(--text-muted); font-style: italic; }
+
+/* ── Panneau de détail d'un évènement ── */
+.tvw-evd { --k: var(--n-other); --lvl: var(--k); gap: var(--sp-4); width: min(46rem, 100%); }
+.tvw-evd-back { align-self: flex-start; margin: 0 0 calc(-1 * var(--sp-2)); font-size: var(--fs-sm); }
+.tvw-evd-hd { display: flex; align-items: flex-start; gap: var(--sp-4); }
+.tvw-evd-ico { flex-shrink: 0; display: grid; place-items: center; width: 3.4rem; height: 3.4rem; border-radius: var(--r-lg); background: color-mix(in srgb, var(--k) 20%, var(--surface)); border: 2px solid color-mix(in srgb, var(--k) 55%, transparent); font-size: 1.9rem; }
+.tvw-evd-id { flex: 1; min-width: 0; }
+.tvw-evd-kind { display: inline-block; margin-bottom: 2px; padding: 1px var(--sp-2); border-radius: var(--r-full); background: color-mix(in srgb, var(--k) 16%, transparent); color: var(--text); font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: .03em; text-transform: uppercase; }
+.tvw-evd-id h3 { margin: 0; font-size: var(--fs-2xl); line-height: 1.2; overflow-wrap: anywhere; }
+.tvw-evd-when, .tvw-evd-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.tvw-evd-when > span:first-child { font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
+.tvw-evd-chip { padding: 2px var(--sp-2); border-radius: var(--r-full); border: 1px solid var(--border); background: var(--bg); color: var(--text-secondary); font-size: var(--fs-sm); }
+.tvw-evd-src { display: inline-flex; align-items: center; gap: var(--sp-2); padding: 4px var(--sp-3); border-radius: var(--r-md); border: 1px solid var(--border); border-left: 4px solid var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); font-weight: var(--fw-semibold); }
+.tvw-evd-src[data-scope]:not([data-scope="team"]) { border-left-style: dashed; background: var(--bg); }
+.tvw-evd-src small { color: var(--text-muted); font-weight: var(--fw-medium); }
+.tvw-evd-loc { color: var(--text-secondary); }
+.tvw-evd-links { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.tvw-evd-links .btn { text-decoration: none; }
+.tvw-evd-desc { max-height: 32vh; overflow: auto; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--bg); border: 1px solid var(--border); line-height: 1.55; overflow-wrap: anywhere; }
+.tvw-evd-desc p { margin: 0 0 var(--sp-2); }
+.tvw-evd-desc p:last-child { margin-bottom: 0; }
+.tvw-evd-empty { font-style: italic; }
+.tvw-evd-foot { font-size: var(--fs-xs); }
+@media (max-width: 640px) { .tvw-evd-id h3 { font-size: var(--fs-xl); } .tvw-evd-ico { width: 2.8rem; height: 2.8rem; font-size: 1.5rem; } }

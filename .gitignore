@@ -6,6 +6,9 @@ data/*.json
 data/*.db
 data/*.db-journal
 data/*.db-wal
+# Sauvegardes de configuration (Paramètres → Données) : absences RH, URL d'agenda
+*.local
+*.local.json
 data/uploads/
 !data/.gitkeep
 

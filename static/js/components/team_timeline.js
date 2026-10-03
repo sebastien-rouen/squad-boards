@@ -10,7 +10,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, toast, confirmDanger, copyToClipboard } from '../utils.js';
+import { esc, toast, confirmDanger, copyToClipboard, emptyStateHtml } from '../utils.js';
 import { teamColor } from './team_calendar.js';
 import { CATS, FACT_TYPES, fmt, fmtY, diff, presets, collectView, summary, timelineWindow, timelineToday, calendarSources, ALL_SOURCES } from './team_timeline_model.js';
 import { lanesHtml, wireLanes } from './team_timeline_lanes.js';
@@ -39,8 +39,7 @@ function render(el, st) {
     const [W0, W1] = timelineWindow();
     const preset = presets().find(p => p.A === st.A && p.B === st.B);
     const body = st.cats.size ? (st.view === 'story' ? storyHtml(st, c, target) : lanesHtml(st, c, target))
-        : `<div class="tl-state"><div class="tl-state-ico">🌤️</div><h5>Aucune catégorie affichée</h5>
-            <p>Réactivez au moins une catégorie pour voir la frise.</p><button class="btn btn-secondary btn-sm" data-act="reset">Tout afficher</button></div>`;
+        : emptyStateHtml({ icon: '🌤️', title: 'Aucune catégorie affichée', text: 'Réactivez au moins une catégorie pour voir la frise.', action: { label: 'Tout afficher', attrs: 'data-act="reset"' } });
     el.innerHTML = `
     <section class="card tl-card" style="--team:${teamColor(st.team)}" aria-label="Frise des faits marquants">
         <header class="tl-head">

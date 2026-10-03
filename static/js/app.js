@@ -151,6 +151,9 @@ function applyHash() {
     const tvSet = raw.match(/(?:~|%7E)tv=([^~/]*)/i);
     if (tvSet) store.set('tvUrlSettings', tvSet[1]);
     raw = raw.replace(/(?:~|%7E)tv=[^~/]*?(?=~|%7E|\/|$)/i, '');
+    // ~membre=<nom> (liens de l'export de la frise, 3.197.0) : fiche membre ouverte une fois la vue routée.
+    const memberMk = raw.match(/(?:~|%7E)membre=([^~/]*)/i);
+    raw = raw.replace(/(?:~|%7E)membre=[^~/]*?(?=~|%7E|\/|$)/i, '');
 
     // Détecte et retire le suffixe ~cal (modal calendrier), l'ouvre après routing
     const openCal = raw.endsWith('~cal');
@@ -343,6 +346,12 @@ function applyHash() {
         });
     }
 
+    if (memberMk) {
+        let who = memberMk[1];
+        try { who = decodeURIComponent(who); } catch { /* nom déjà décodé */ }
+        requestAnimationFrame(() => import('./views/atlas.js').then(m => m.openMemberCard(who)));
+    }
+
     // Lien direct vers un bloc de page — la vue vient d'être routée, on ne fait que révéler.
     if (blocSlug) {
         const _blocView = store.get('view');
@@ -427,11 +436,30 @@ function checkSyncStale() {
             banner.id = 'stale-banner';
             banner.className = 'stale-banner';
             topbar.insertAdjacentElement('afterend', banner);
+            // Câblé une fois : rapide = le bouton JIRA du topbar (sa durée), complète = Ctrl+K « Sync complète ».
+            banner.addEventListener('click', e => {
+                const b = e.target.closest('[data-stale-sync], [data-stale-close]');
+                if (!b) return;
+                if (b.dataset.staleClose !== undefined) banner.remove();
+                else if (b.dataset.staleSync === 'full') handleJiraImport('full');
+                else document.getElementById('btn-sync')?.click();
+            });
         }
         const ago = hours >= 48 ? `${Math.floor(hours / 24)} jours` : `${hours} h`;
         const when = new Date(lastSync).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-        banner.innerHTML = `<span>Dernière synchro JIRA il y a ${ago} (${when}) — les données peuvent être obsolètes</span>
-            <div class="stale-banner-actions"><button class="btn btn-secondary btn-sm" onclick="document.getElementById('btn-sync')?.click()">Synchroniser</button><button class="btn-icon" onclick="this.closest('.stale-banner').remove()"><svg class="icon icon-sm"><use href="#i-x"/></svg></button></div>`;
+        // Qui a synchronisé, et comment (3.197.0) — posés par la synchro (sync.js → syncedBy / syncKind).
+        const sp = store.get('sprintInfo') || {};
+        const qk = /^rapide-(\d+)$/.exec(sp.syncKind || '');
+        const how = qk ? `synchro rapide, ${qk[1]} j` : sp.syncKind === 'complete' ? 'synchro complète' : '';
+        const by = [sp.syncedBy ? `par ${esc(sp.syncedBy)}` : '', how].filter(Boolean).join(' · ');
+        let qd = 14;
+        try { const n = parseInt(localStorage.getItem('sb-sync-quickDays') || '', 10); if (n >= 1 && n <= 365) qd = n; } catch { /* défaut */ }
+        banner.innerHTML = `<span>Dernière synchro JIRA il y a ${ago} (${when}${by ? ` · ${by}` : ''}) — les données peuvent être obsolètes</span>
+            <div class="stale-banner-actions">
+                <button type="button" class="btn btn-primary btn-sm" data-stale-sync="quick" title="Tickets modifiés ces ${qd} derniers jours — quelques secondes">⚡ Synchro rapide · ${qd} j</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-stale-sync="full" title="Tout réimporter (sprints clos archivés gardés) — plusieurs minutes">Synchro complète</button>
+                <button type="button" class="btn-icon" data-stale-close aria-label="Masquer le bandeau"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+            </div>`;
     } else {
         banner?.remove();
     }

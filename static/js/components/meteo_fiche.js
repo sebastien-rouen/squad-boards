@@ -11,6 +11,7 @@
 
 import { esc, initials, extractPiNum, teamNameMatches, effectiveRosterForPi, teamEtp } from '../utils.js';
 import { sparkline } from './sparkline.js';
+import { helpIconHtml } from './help_popover.js';
 
 const MAX_SPRINTS = 8;
 const _lbl = name => (String(name || '').match(/(\d+\.\d+)/) || [])[1] || '';
@@ -56,7 +57,7 @@ export function meteoTrendHtml(team, ctx) {
     return `
     <section class="card meteo-trend" aria-labelledby="meteo-trend-title">
         <div class="card-header">
-            <span class="card-title" id="meteo-trend-title">😊 Mood &amp; confiance — tendance</span>
+            <span class="card-title" id="meteo-trend-title">😊 Mood &amp; confiance — tendance ${helpIconHtml({ key: 'mood-trend', label: 'Comprendre la tendance Mood & confiance' })}</span>
             <span class="card-subtitle">${moods.length} sprint${moods.length > 1 ? 's' : ''} votés${delta != null ? ` · ${delta >= 0 ? '↗ +' : '↘ '}${delta}` : ''}</span>
         </div>
         ${body}

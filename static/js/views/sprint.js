@@ -11,6 +11,7 @@ import { computeTeamMeteo, meteoContext } from '../components/meteo_matrix.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
 import { STATUS_ORDER, STATUS_LABELS, WIP_LIMITS } from '../config.js';
 import { renderCard, bindCardClicks } from '../components/card.js';
+import { columnStatusesTip } from '../utils/status-override.js';
 import { renderBoardChartsSection, mountBoardCharts } from '../components/board_charts.js';
 import { getSprintTicketsAsync } from '../components/sprint_tickets_modal.js';
 
@@ -690,6 +691,13 @@ function _colLabel(status) {
     return col ? col.label : STATUS_LABELS[status] || status;
 }
 
+/** Infobulle d'en-tête : statuts JIRA de la colonne (config du board, sinon ceux des tickets présents). */
+function _colTip(col, items) {
+    const statuses = col.jiraStatuses?.length ? col.jiraStatuses : (items || []).map(t => t.jiraStatus);
+    const tip = columnStatusesTip(col.label, statuses, store.get('team'));
+    return tip ? ` title="${esc(tip)}"` : '';
+}
+
 /** Normalise un label pour comparaison : lowercase + suppression des accents. */
 function _normLabel(s) {
     return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
@@ -752,9 +760,9 @@ function renderColumnView(el, tickets) {
         const wip = WIP_LIMITS[col.key];
         const exceeded = wip > 0 && items.length > wip;
         if (empty) {
-            return `<div class="board-column board-column--empty"><div class="column-header col-${col.key}"><span class="col-label-text">${esc(col.label)}</span><span class="column-count">0</span></div><div class="column-cards"></div></div>`;
+            return `<div class="board-column board-column--empty"><div class="column-header col-${col.key}"${_colTip(col, items)}><span class="col-label-text">${esc(col.label)}</span><span class="column-count">0</span></div><div class="column-cards"></div></div>`;
         }
-        return `<div class="board-column"><div class="column-header col-${col.key}"><span>${esc(col.label)}</span><span class="column-count${exceeded ? ' wip-exceeded' : ''}">${items.length}${wip ? '/' + wip : ''}${colPts ? ' · ' + colPts + 'pts' : ''}</span></div><div class="column-cards">${items.map(t => renderCard(t, { ageRefs })).join('')}</div></div>`;
+        return `<div class="board-column"><div class="column-header col-${col.key}"${_colTip(col, items)}><span>${esc(col.label)}</span><span class="column-count${exceeded ? ' wip-exceeded' : ''}">${items.length}${wip ? '/' + wip : ''}${colPts ? ' · ' + colPts + 'pts' : ''}</span></div><div class="column-cards">${items.map(t => renderCard(t, { ageRefs })).join('')}</div></div>`;
     }).join('')}</div>`;
 }
 
@@ -806,7 +814,7 @@ function renderSwimlaneView(el, tickets) {
         const seenSw = new Set();
         return `<div class="swimlane"><div class="swimlane-header" data-lane="${esc(name)}"><span class="inline-flex-center"><span class="assignee-avatar" style="background:${hashColor(name)};color:white;width:20px;height:20px;font-size:8px">${esc(initials(name))}</span>${esc(name)} <span class="text-xs text-muted">(${items.length} tickets, ${pts} pts, ${d} done)</span></span><svg class="icon icon-sm"><use href="#i-chevron-down"/></svg></div><div class="swimlane-body"><div class="board" class="board-compact">${activeCols.map(col => {
             const si = _ticketsForCol(col, items, activeCols).filter(t => { if (seenSw.has(t.id)) return false; seenSw.add(t.id); return true; });
-            return si.length ? `<div class="board-column" class="board-column-narrow"><div class="column-header col-${col.key}"><span>${esc(col.label)}</span><span class="column-count">${si.length}</span></div><div class="column-cards">${si.map(t => renderCard(t, { ageRefs })).join('')}</div></div>` : '';
+            return si.length ? `<div class="board-column" class="board-column-narrow"><div class="column-header col-${col.key}"${_colTip(col, si)}><span>${esc(col.label)}</span><span class="column-count">${si.length}</span></div><div class="column-cards">${si.map(t => renderCard(t, { ageRefs })).join('')}</div></div>` : '';
         }).join('')}</div></div></div>`;
     }).join('')}</div>`;
 

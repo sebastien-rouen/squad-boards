@@ -203,7 +203,12 @@ def _jira_dates(d, existing=None):
 
 @router.post("/api/import")
 async def import_all(request: Request, session: Session = Depends(get_session)):
-    body = await request.json()
+    return import_body(await request.json(), session)
+
+
+def import_body(body: dict, session: Session) -> dict:
+    """Import par domaine (clés de /api/export) — partagé par /api/import et le bundle de
+    configuration (/api/config/import, config_bundle.py). `mode` : replace (défaut) | merge."""
     mode = body.get("mode", "replace")
     counts = {}
 
@@ -345,6 +350,8 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
         if sd.get("jiraId") is not None:       s.jira_id = sd.get("jiraId")
         if sd.get("jiraBoardId") is not None:  s.jira_board_id = sd.get("jiraBoardId")
         if sd.get("teamSprints") is not None:  s.team_sprints = sd.get("teamSprints") or []
+        if sd.get("syncedBy") is not None:     s.synced_by = str(sd.get("syncedBy") or "")[:80]
+        if sd.get("syncKind") is not None:     s.sync_kind = str(sd.get("syncKind") or "")[:20]
         s.updated_at = _now()
         session.add(s)
 

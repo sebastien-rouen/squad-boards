@@ -10,7 +10,7 @@
  */
 
 import { store } from '../state.js';
-import { STATUS_OVERRIDE_DEFAULTS, STATUS_OVERRIDE_TARGETS } from '../config.js';
+import { STATUS_OVERRIDE_DEFAULTS, STATUS_OVERRIDE_TARGETS, STATUS_MAP } from '../config.js';
 
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const TARGETS = STATUS_OVERRIDE_TARGETS.map(t => t.key);   // priorité : done > inprog > todo
@@ -82,6 +82,36 @@ export function forceColumns(team, cols, rules) {
 
 /** Statut du ticket AVANT la règle (`_preOverride`, posé quand la règle l'a changé). */
 export const rawStatus = t => t._preOverride ?? t.status;
+
+const TARGET_LABEL = Object.fromEntries(STATUS_OVERRIDE_TARGETS.map(t => [t.key, `${t.icon} ${t.label}`]));
+
+/**
+ * Pourquoi ce ticket est-il dans cette colonne ? Texte d'infobulle quand la RÈGLE l'y a rangé alors que
+ * son statut JIRA l'aurait mis ailleurs (« À livrer pour validation » en Terminé), sinon ''. Une règle
+ * redondante (« Terminé » → Terminé) ne dit rien : le repère ne doit signaler que ce qui surprend.
+ * Le statut naturel est `_preOverride` (règle appliquée dans le store) ou, pour un ticket converti à la
+ * synchro, le mapping STATUS_MAP du libellé JIRA.
+ */
+export function overrideReason(t, rules) {
+    if (!t?.jiraStatus) return '';
+    const k = forcedStatus(t.team, t.jiraStatus, rules);
+    if (!k) return '';
+    const natural = t._preOverride ?? STATUS_MAP[String(t.jiraStatus).toLowerCase().trim()] ?? 'todo';
+    if (natural === k) return '';
+    return `Statut JIRA : ${t.jiraStatus} → ${TARGET_LABEL[k] || k} (règle « Statuts forcés », Paramètres → Plugin JIRA)`;
+}
+
+/**
+ * Infobulle d'un en-tête de colonne : les statuts JIRA qu'elle regroupe, ceux amenés par la règle
+ * marqués 🎯. `statuses` = libellés JIRA (config du board ou statuts des tickets présents).
+ */
+export function columnStatusesTip(label, statuses, team, rules) {
+    const list = [...new Set((statuses || []).filter(Boolean))];
+    if (!list.length) return '';
+    const forced = st => team && team !== 'all' && forcedStatus(team, st, rules);
+    const lines = list.map(st => `• ${st}${forced(st) ? ' 🎯 (règle)' : ''}`);
+    return `« ${label} » regroupe les statuts JIRA :\n${lines.join('\n')}`;
+}
 
 /**
  * Tickets : statut remplacé par la colonne forcée. Un ticket signalé (drapeau JIRA) envoyé en En cours

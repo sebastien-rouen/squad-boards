@@ -1074,8 +1074,13 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
     // Le sprint global (sprintInfo) reste pour la rétrocompat ; teamSprints[] permet le filtrage par équipe.
     // IMPORTANT : on persiste teamSprints même sans sprintInfo (cas où aucun board n'a de sprint actif
     // mais a des closed/future — on veut quand même afficher la barre dans la modal calendrier).
+    // Qui synchronise et comment (bandeau « données obsolètes », 3.197.0) : le nom saisi au poste
+    // (poker / frise), sinon l'email JIRA saisi dans Paramètres — jamais celui du .env (compte partagé).
+    let syncedBy = '';
+    try { syncedBy = (localStorage.getItem('sb-poker-myname') || '').trim(); } catch { /* stockage indisponible */ }
+    if (!syncedBy) syncedBy = (api.getJiraCreds().user || '').trim();
     const sprintPayload = (sprintInfo || teamSprintsOut.length)
-        ? { ...(sprintInfo || {}), teamSprints: teamSprintsOut }
+        ? { ...(sprintInfo || {}), teamSprints: teamSprintsOut, syncedBy, syncKind: quickMode ? `rapide-${sinceDays}` : 'complete' }
         : null;
     const withVelocity = teamSprintsOut.filter(s => s.velocity > 0).length;
     console.log(`[Squad-Board] Sprints persistés : ${teamSprintsOut.length} entrées (${[...new Set(teamSprintsOut.map(s => s.team))].length} équipes) | ${withVelocity} avec vélocité | ${quickMode ? 'merge quick (historique préservé)' : 'full'} | sprintInfo global : ${sprintInfo ? sprintInfo.name : 'aucun'}`);

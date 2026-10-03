@@ -142,13 +142,27 @@ const _viz = v => !v ? '' : v.type === 'rel'
     ? `<span class="meteo-mini" aria-hidden="true"><i style="width:${Math.min(100, v.p)}%"></i></span><span class="meteo-mini is-time" aria-hidden="true"><i style="width:${Math.min(100, v.time)}%"></i></span>`
     : `<span class="meteo-mini is-gauge" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, Math.round(v.score)))}%"></i></span>`;
 
+// Densité des cellules hors aperçu (Dashboard, Santé) : « détaillé » (barres + libellés, comme la TV)
+// par défaut, « compact » (ligne grise abrégée) au choix — par navigateur. Les deux rendus sont dans
+// la cellule : basculer n'est qu'une classe sur la table (`is-rich`), sans re-rendu.
+const RICH_KEY = 'sb-meteo-rich';
+function _richPref() {
+    try { return localStorage.getItem(RICH_KEY) !== '0'; } catch { return true; }
+}
+
 // data-meteo-* : clic → détail de la cellule (équipe × domaine), au mode TV et au Dashboard.
-const _cell = (dom, team, rich) => `<td class="meteo-cell meteo-cell--${dom.level}" title="${esc(dom.title)}" data-meteo-team="${esc(team)}" data-meteo-dom="${esc(dom.key)}">
+// `mode` : 'rich' (TV), 'plain' (aperçu des Paramètres) ou 'both' (bascule Détaillé / Compact).
+const _cell = (dom, team, mode) => {
+    const richHtml = dom.meta ? `${_viz(dom.viz)}<span class="meteo-meta">${dom.meta.map(([i, t]) => `<span><span aria-hidden="true">${i}</span> ${esc(t)}</span>`).join('')}</span>` : '';
+    const plainHtml = `<small class="meteo-sub">${esc(dom.sub)}</small>`;
+    const body = mode === 'rich' ? (richHtml || plainHtml) : mode === 'both' ? `${richHtml}${plainHtml}` : plainHtml;
+    return `<td class="meteo-cell meteo-cell--${dom.level}${mode !== 'plain' && !richHtml ? ' has-no-rich' : ''}" title="${esc(dom.title)}" data-meteo-team="${esc(team)}" data-meteo-dom="${esc(dom.key)}">
     <span class="meteo-glyph" aria-hidden="true">${METEO_GLYPH[dom.level]}</span>
     <strong class="meteo-val">${esc(dom.value)}</strong>
-    ${rich && dom.meta ? `${_viz(dom.viz)}<span class="meteo-meta">${dom.meta.map(([i, t]) => `<span><span aria-hidden="true">${i}</span> ${esc(t)}</span>`).join('')}</span>` : `<small class="meteo-sub">${esc(dom.sub)}</small>`}
+    ${body}
     <span class="meteo-sr">${esc(METEO_LABEL[dom.level])}</span>
 </td>`;
+};
 
 /** Légende de l'échelle — toujours visible, jamais dans une infobulle. */
 export function meteoScaleHtml(thresholds = null) {
@@ -162,23 +176,23 @@ export function meteoScaleHtml(thresholds = null) {
  * @param {string[]} teams  équipes du périmètre affiché
  */
 /** Ligne de la matrice pour une équipe. */
-const _rowHtml = (r, preview, rich) => `
+const _rowHtml = (r, preview, mode) => `
                 <tr class="meteo-row" ${preview ? '' : `data-team="${esc(r.team)}" tabindex="0" role="button" aria-label="Ouvrir l'équipe ${esc(r.team)} — ${esc(METEO_LABEL[r.level])}"`} style="--team-color:${r.color}">
                     <th scope="row"><span class="meteo-team"><span class="team-dot" style="background:${r.color}"></span>${esc(r.team)}${r.blocked ? `<span class="team-card-stat team-card-stat--blocked" title="${r.blocked} bloqué${r.blocked > 1 ? 's' : ''}">⚠ ${r.blocked}</span>` : ''}</span></th>
-                    ${r.domains.map(dm => _cell(dm, r.team, rich)).join('')}
+                    ${r.domains.map(dm => _cell(dm, r.team, mode)).join('')}
                 </tr>`;
 
 /**
  * Lignes groupées par ligne produit : un en-tête par groupe portant le PIRE niveau de ses
  * équipes (jamais une moyenne — elle cacherait un orage), puis « Autres équipes ».
  */
-const _groupedRows = (rows, groups, preview, rich) => {
+const _groupedRows = (rows, groups, preview, mode) => {
     const byName = new Map(rows.map(r => [r.team, r]));
     const placed = new Set();
     const block = (label, color, list) => {
         if (!list.length) return '';
         const worst = worstLevel(list.map(r => r.level));
-        return `<tr class="meteo-grp-row" style="--grp-color:${color || 'var(--border)'}"><th scope="rowgroup" colspan="${1 + DOMAINS.length}"><span aria-hidden="true">${METEO_GLYPH[worst]}</span> ${esc(label)}<small>${list.length} équipe${list.length > 1 ? 's' : ''} · ${esc(METEO_LABEL[worst].toLowerCase())}</small></th></tr>${list.map(r => _rowHtml(r, preview, rich)).join('')}`;
+        return `<tr class="meteo-grp-row" style="--grp-color:${color || 'var(--border)'}"><th scope="rowgroup" colspan="${1 + DOMAINS.length}"><span aria-hidden="true">${METEO_GLYPH[worst]}</span> ${esc(label)}<small>${list.length} équipe${list.length > 1 ? 's' : ''} · ${esc(METEO_LABEL[worst].toLowerCase())}</small></th></tr>${list.map(r => _rowHtml(r, preview, mode)).join('')}`;
     };
     let html = '';
     for (const g of groups) {
@@ -195,7 +209,7 @@ const _groupedRows = (rows, groups, preview, rich) => {
  * @param {boolean} [opts.preview]  aperçu (Paramètres, TV) : lignes non cliquables, sans « ? »
  * @param {string}  [opts.title]    titre de la card
  * @param {Array}   [opts.groups]   lignes produit (`store.groups`) : en-têtes de groupe si ≥ 2 groupes
- * @param {boolean} [opts.rich]     cellules riches (TV) : barres / jauge + libellés explicites
+ * @param {boolean} [opts.rich]     aperçu : cellules riches (TV) — hors aperçu, la bascule Détaillé / Compact décide
  */
 export function meteoMatrixHtml(teams, ctx, teamObjects = [], { preview = false, title = 'Météo des équipes', groups = [], rich = false } = {}) {
     const rows = teams.map((t, i) => computeTeamMeteo(t, { ...ctx, color: _teamColor(t, teamObjects, i) }));
@@ -203,16 +217,19 @@ export function meteoMatrixHtml(teams, ctx, teamObjects = [], { preview = false,
     const storms = rows.filter(r => r.level === 'storm').length;
     const sub = storms ? `${storms} équipe${storms > 1 ? 's' : ''} en ⛈️` : `${rows.length} équipes · ${METEO_LABEL[worst].toLowerCase()}`;
     const relevantGroups = (groups || []).filter(g => (g.teams || []).some(t => teams.includes(t)));
-    const body = relevantGroups.length >= 2 ? _groupedRows(rows, relevantGroups, preview, rich) : rows.map(r => _rowHtml(r, preview, rich)).join('');
+    const mode = preview ? (rich ? 'rich' : 'plain') : 'both';
+    const isRich = preview ? rich : _richPref();
+    const body = relevantGroups.length >= 2 ? _groupedRows(rows, relevantGroups, preview, mode) : rows.map(r => _rowHtml(r, preview, mode)).join('');
     return `
     <section class="card meteo-card${preview ? ' meteo-card--preview' : ''}" aria-labelledby="meteo-title">
         <div class="card-header meteo-header">
             <span class="card-title" id="meteo-title">${METEO_GLYPH[worst]} ${esc(title)} ${preview ? '' : helpIconHtml({ key: 'meteo', label: 'Comprendre la météo des équipes' })}</span>
             <span class="card-subtitle">${esc(sub)}${preview ? '' : ' — cliquer une ligne ouvre l\'équipe'}</span>
+            ${preview ? '' : `<button type="button" class="meteo-density" data-meteo-density aria-pressed="${isRich}" title="Cellules détaillées (barres fait / temps, libellés) ou compactes (une ligne)">${isRich ? '▤ Détaillé' : '▭ Compact'}</button>`}
         </div>
         ${meteoScaleHtml(ctx.thresholds || null)}
         <div class="meteo-wrap">
-            <table class="meteo-matrix${rich ? ' is-rich' : ''}">
+            <table class="meteo-matrix${isRich ? ' is-rich' : ''}">
                 <caption class="meteo-sr">Météo par équipe et par domaine</caption>
                 <thead><tr><th scope="col">Équipe</th>${DOMAINS.map(dm => `<th scope="col" title="${esc(dm.hint)}"><span aria-hidden="true">${dm.icon}</span> ${dm.label}</th>`).join('')}</tr></thead>
                 <tbody>${body}</tbody>
@@ -252,6 +269,17 @@ export function bindMeteoMatrix(container) {
             open(row);
         });
         row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(row); } });
+    });
+    // Détaillé ↔ Compact : une classe sur la table, mémorisée par navigateur.
+    container.querySelectorAll('[data-meteo-density]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const table = btn.closest('.meteo-card')?.querySelector('.meteo-matrix');
+            const on = !table?.classList.contains('is-rich');
+            table?.classList.toggle('is-rich', on);
+            btn.setAttribute('aria-pressed', String(on));
+            btn.textContent = on ? '▤ Détaillé' : '▭ Compact';
+            try { localStorage.setItem(RICH_KEY, on ? '1' : '0'); } catch { /* stockage indisponible */ }
+        });
     });
     container.querySelectorAll('.meteo-pill[data-scroll]').forEach(btn => {
         btn.addEventListener('click', () => container.querySelector(btn.dataset.scroll)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));

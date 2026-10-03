@@ -19,6 +19,7 @@ import {
 } from './settings-io.js';
 import { _parsePivotAbsencesCsv, _memberAbsenceInfo, _isTransverseTeam, diagnosePivotCsv, convertCommasToSemicolons } from './settings-absences-csv.js';
 import { jiraSectionHtml, wireJiraSection } from './settings-jira.js';
+import { backupCardHtml, wireBackup } from './settings-backup.js';
 import { calDetectHtml, wireCalDetect } from './settings-cal-detect.js';
 import { meteoSectionHtml, wireMeteoSection } from './settings-meteo.js';
 import { piCongesDiff, knownPiNumbers } from '../utils/pi-weeks.js';
@@ -1091,6 +1092,8 @@ export function renderSettings(container) {
                     <button class="btn btn-danger" id="btn-clear">🗑️ Tout supprimer</button>
                 </div>
 
+                ${backupCardHtml()}
+
                 <hr class="mt-4 mb-4" style="border-color:var(--border)">
 
                 <div class="data-demo-card">
@@ -1143,6 +1146,7 @@ export function renderSettings(container) {
 
     // ── Plugin JIRA (connexion, sync, équipes masquées, groupes) ─────────────
     wireJiraSection(container, () => reloadAndRender(container));
+    wireBackup(container, () => reloadAndRender(container));   // 💾 Sauvegarde & restauration (Données)
     wireCalDetect(container);
 
     // ── Seuils météo (échelle du Dashboard, aperçu vivant) ───────────────────

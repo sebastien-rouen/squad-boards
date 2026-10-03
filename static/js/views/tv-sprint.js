@@ -11,17 +11,19 @@
  *     les deux plus urgents ; ✨ faits marquants du sprint (dernier terminé, plus gros reste…).
  *
  * Une seule équipe : grand graphique + panneau. Plusieurs : une carte compacte par équipe, paginée.
+ *
+ * 👻 Fantôme (3.196.0) : le burndown du sprint CLOS précédent de l'équipe, en pointillé clair, ramené
+ * en % de son périmètre et étiré sur la durée du sprint en cours — on voit d'un coup d'œil si l'équipe
+ * fait mieux (courbe sous le fantôme) ou moins bien.
  */
 
 import { store } from '../state.js';
-import { esc, sprintScope, sumBy } from '../utils.js';
+import { esc, sprintScope, sumBy, burnSeries, resolvedDay, createdDay, emptyStateHtml } from '../utils.js';
 import { tkAttrs, pagedHtml, dayKey } from './tv-screens.js';
 
 const atNoon = k => new Date(`${k}T12:00:00`);
 const plusDays = (k, n) => { const d = atNoon(k); d.setDate(d.getDate() + n); return dayKey(d); };
 const isWeekend = k => [0, 6].includes(atNoon(k).getDay());
-const resolvedDay = t => (t.resolvedDate ? dayKey(new Date(String(t.resolvedDate).replace(/([+-]\d{2})(\d{2})$/, '$1:$2'))) : '');
-const createdDay = t => (t.createdAt ? dayKey(new Date(t.createdAt)) : '');
 const colorOf = (teamObjects, tm) => (teamObjects || []).find(o => o.name === tm)?.color || 'var(--primary)';
 const WD = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 const fmtNum = n => (Math.round(n * 10) / 10).toLocaleString('fr-FR');
@@ -30,27 +32,45 @@ const relDay = (k, today) => {
     return d === 0 ? 'aujourd\'hui' : d === 1 ? 'hier' : `il y a ${d} j`;
 };
 
+/** Jours ouvrés d'un sprint (AAAA-MM-JJ). */
+function workdays(s) {
+    const start = dayKey(new Date(s.startDate)), end = dayKey(new Date(s.endDate)), days = [];
+    for (let d = start; d <= end; d = plusDays(d, 1)) if (!isWeekend(d)) days.push(d);
+    return days;
+}
+
+/**
+ * 👻 Burndown du sprint clos précédent de l'équipe : [{ f, r }] — f = avancement dans le sprint
+ * (0 → 1), r = part du périmètre restant (1 → 0). null sans sprint clos estimable.
+ */
+function ghostOf(s, teamTickets, usePts) {
+    const prev = (store.get('sprintInfo')?.teamSprints || [])
+        .filter(x => x.team === s.team && x.state === 'closed' && x.startDate && x.endDate && String(x.endDate) <= String(s.startDate))
+        .sort((a, b) => String(b.endDate).localeCompare(String(a.endDate)))[0];
+    if (!prev) return null;
+    const days = workdays(prev);
+    if (days.length < 2) return null;
+    const scope = sprintScope(teamTickets, prev.name);
+    const val = t => (usePts ? (t.points || 0) : 1);
+    const g = burnSeries({ engaged: scope.engaged, done: scope.done, days, today: days.at(-1), val });
+    if (!g.total) return null;
+    return { name: prev.name, pts: g.real.map((v, i) => ({ f: i / (days.length - 1), r: v / g.total })), endPct: Math.round((g.done / g.total) * 100) };
+}
+
 /** Tout ce que l'écran affiche d'un sprint, calculé une fois. */
 function analyse(s, today) {
-    const scope = sprintScope((store.get('tickets') || []).filter(t => t.team === s.team), s.name);
+    const teamTickets = (store.get('tickets') || []).filter(t => t.team === s.team);
+    const scope = sprintScope(teamTickets, s.name);
     const start = dayKey(new Date(s.startDate)), end = dayKey(new Date(s.endDate));
     const days = [];
     for (let d = start; d <= end; d = plusDays(d, 1)) if (!isWeekend(d)) days.push(d);
     const usePts = sumBy(scope.engaged, t => t.points) > 0;   // sans points : on compte les tickets
     const val = t => (usePts ? (t.points || 0) : 1);
     const unit = usePts ? 'pts' : 'tickets';
-    const total = sumBy(scope.engaged, val);
-    // Un ticket résolu le week-end compte pour le jour ouvré suivant ; avant le sprint, pour le 1er jour.
-    const slot = k => (k < start ? days[0] : days.find(d => d >= k) ?? days.at(-1));
-    const doneBy = d => sumBy(scope.done.filter(t => resolvedDay(t) && slot(resolvedDay(t)) <= d), val);
-    const shown = days.filter(d => d <= today);
-    const real = shown.map(d => total - doneBy(d));
-    const doneDay = shown.map(d => sumBy(scope.done.filter(t => resolvedDay(t) && slot(resolvedDay(t)) === d), val));
-    // Périmètre au fil des jours (date de création ; créé avant le sprint = présent dès le 1er jour).
-    const scopeAt = shown.map(d => sumBy(scope.engaged.filter(t => !createdDay(t) || slot(createdDay(t)) <= d), val));
-    const addedDay = scopeAt.map((v, i) => (i ? Math.max(0, v - scopeAt[i - 1]) : 0));
+    // Série réelle (source unique utils/burn.js, partagée avec le Board) : un ticket résolu le week-end
+    // compte pour le jour ouvré suivant ; avant le sprint, pour le 1er jour.
+    const { slot, doneSlot, total, real, doneDay, scopeAt, addedDay, remaining, done } = burnSeries({ engaged: scope.engaged, done: scope.done, days, today, val });
     const elapsed = real.length, left = days.filter(d => d > today).length;
-    const remaining = real.at(-1) ?? total, done = total - remaining;
     const ideal = i => (days.length > 1 ? total * (1 - i / (days.length - 1)) : 0);
     const gap = total && elapsed ? Math.round(((ideal(elapsed - 1) - remaining) / total) * 100) : 0;   // > 0 : en avance
     const pace = elapsed ? done / elapsed : 0;                  // par jour ouvré écoulé
@@ -68,8 +88,8 @@ function analyse(s, today) {
     const past = (store.get('sprintInfo')?.teamSprints || []).filter(x => x.team === s.team && x.state === 'closed' && x.estimated > 0)
         .sort((a, b) => String(b.startDate).localeCompare(String(a.startDate))).slice(0, 3);
     const velocity = usePts && past.length ? sumBy(past, x => x.velocity) / past.length : null;   // en points seulement
-    return { s, scope, days, start, end, unit, usePts, val, slot, total, real, doneDay, scopeAt, addedDay, elapsed, left, remaining, done, ideal, gap, pace, need, projected,
-        open, blocked, waiting, todo, added, lastDone, biggest, velocity, pastN: past.length };
+    return { s, scope, days, start, end, unit, usePts, val, slot, doneSlot, total, real, doneDay, scopeAt, addedDay, elapsed, left, remaining, done, ideal, gap, pace, need, projected,
+        open, blocked, waiting, todo, added, lastDone, biggest, velocity, pastN: past.length, ghost: ghostOf(s, teamTickets, usePts) };
 }
 
 const level = a => (a.gap >= 10 ? 'ahead' : a.gap >= -10 ? 'ok' : a.gap >= -25 ? 'warn' : 'late');
@@ -149,11 +169,14 @@ function burndownSvg(a, big) {
             + `${big ? `<text class="tvs-daybar-lbl" x="${x(i).toFixed(1)}" y="${(y(0) - h - 5).toFixed(1)}" text-anchor="middle" font-size="${fs - 2}">+${fmtNum(v)}</text>` : ''}</g>`;
     }).join('');
     const adds = a.addedDay.map((v, i) => (v ? addMark(a, i, x(i), y(a.real[i]) - 12, fs, v) : '')).join('');
+    // 👻 Sprint précédent, ramené au périmètre actuel (en %) et étiré sur la durée de celui-ci.
+    const ghost = a.ghost ? `<polyline class="tvs-ghost" points="${a.ghost.pts.map(p => `${x(p.f * n).toFixed(1)},${y(p.r * a.total).toFixed(1)}`).join(' ')}"><title>Sprint précédent (${esc(a.ghost.name)}) : ${a.ghost.endPct} % du périmètre fait à la fin</title></polyline>` : '';
     const proj = last >= 0 && last < n ? `<line class="tvs-proj" x1="${x(last)}" y1="${y(a.remaining)}" x2="${x(n)}" y2="${y(a.projected)}"/><text class="tvs-proj-lbl" x="${x(n) - 4}" y="${y(a.projected) - 8}" text-anchor="end" font-size="${fs}">${a.projected > 0 ? `≈ ${fmtNum(a.projected)} restants à la fin` : 'fini à temps'}</text>` : '';
     const val = last >= 0 ? `<text class="tvs-val" x="${x(last) + 8}" y="${y(a.remaining) - 8}" font-size="${fs + 3}">${fmtNum(a.remaining)}</text>` : '';
     return `<svg class="tvs-chart" viewBox="0 0 ${f.W} ${f.H}" role="img" aria-label="Burndown : reste ${fmtNum(a.remaining)} ${a.unit} sur ${fmtNum(a.total)}, ${a.left} jours ouvrés restants">
         ${f.svgHead}
         <line class="tvs-ideal" x1="${x(0)}" y1="${y(a.total)}" x2="${x(n)}" y2="${y(0)}"/>
+        ${ghost}
         ${area ? `<polygon class="tvs-area" points="${area}"/><polyline class="tvs-real" points="${pts}"/>${dots}` : ''}
         ${proj}${f.now}${val}${bars}${adds}
     </svg>`;
@@ -230,7 +253,7 @@ function card(a, teamObjects, today, big) {
 export function screenSprint({ teams, teamObjects, ctx }, focus = null) {
     const today = dayKey(new Date());
     const all = (ctx.sprintInfoAll?.teamSprints || []).filter(s => teams.includes(s.team) && s.state === 'active' && s.startDate && s.endDate);
-    if (!all.length) return `<div class="tv-clear"><span aria-hidden="true">🏃</span><h2>Aucun sprint en cours</h2><p>Rien d'actif dans JIRA pour ce périmètre.</p></div>`;
+    if (!all.length) return emptyStateHtml({ size: 'tv', icon: '🏃', title: 'Aucun sprint en cours', text: 'Rien d\'actif dans JIRA pour ce périmètre.' });
     const sprints = focus && all.some(s => s.team === focus) ? all.filter(s => s.team === focus) : all;
     const big = sprints.length === 1;
     const back = sprints.length < all.length ? `<button type="button" class="tv-chip-btn tvs-back" data-sprint-team="">← Toutes les équipes (${all.length})</button>` : '';
@@ -239,7 +262,7 @@ export function screenSprint({ teams, teamObjects, ctx }, focus = null) {
     return `<div class="tv-sprints">
         ${back}
         ${pagedHtml(list.map(a => card(a, teamObjects, today, big)).join(''), { cls: `tv-sprint-grid${big ? ' is-single' : ''}`, unit: 'sprints' })}
-        <p class="tv-muted tv-sprint-legend"><i class="tv-burn-key is-real"></i>réel (tickets résolus) <i class="tv-burn-key is-ideal"></i>rythme idéal <i class="tv-burn-key is-proj"></i>projection au rythme actuel <i class="tv-burn-key is-day"></i>points finis le jour <i class="tv-burn-key is-scope"></i>périmètre · écart = avance (+) ou retard (−) sur l'idéal</p>
+        <p class="tv-muted tv-sprint-legend"><i class="tv-burn-key is-real"></i>réel (tickets résolus) <i class="tv-burn-key is-ideal"></i>rythme idéal <i class="tv-burn-key is-proj"></i>projection au rythme actuel ${list.some(a => a.ghost) ? '<i class="tv-burn-key is-ghost"></i>sprint précédent (en % du périmètre) ' : ''}<i class="tv-burn-key is-day"></i>points finis le jour <i class="tv-burn-key is-scope"></i>périmètre · écart = avance (+) ou retard (−) sur l'idéal</p>
     </div>`;
 }
 
@@ -251,7 +274,7 @@ export function sprintDayHtml(team, day, kind, teamObjects) {
     if (!s) return '';
     const a = analyse(s, dayKey(new Date()));
     const list = kind === 'done'
-        ? a.scope.done.filter(t => resolvedDay(t) && a.slot(resolvedDay(t)) === day)
+        ? a.scope.done.filter(t => a.doneSlot(t) === day)
         : a.scope.engaged.filter(t => createdDay(t) && createdDay(t) > a.start && a.slot(createdDay(t)) === day);
     const color = colorOf(teamObjects, team);
     const sum = sumBy(list, a.val);

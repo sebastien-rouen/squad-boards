@@ -6,12 +6,18 @@
  * `target(item)` (fourni par la coquille team_timeline.js) enregistre une cible cliquable → fiche.
  */
 
-import { esc } from '../utils.js';
-import { FACT_TYPES, fmt, fmtY, fmtShort, monthName, mondayOf, dayOfWeek, shortName, timelineToday } from './team_timeline_model.js';
+import { esc, emptyStateHtml } from '../utils.js';
+import { FACT_TYPES, fmt, fmtY, fmtShort, monthName, mondayOf, dayOfWeek, shortName, timelineToday, resolveOnePerson } from './team_timeline_model.js';
 
 const DOW = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
 const plural = (n, s, p = `${s}s`) => n > 1 ? p : s;
-const chip = (m, cls) => `<span class="tls-person ${cls}${m.precise ? '' : ' is-approx'}${m.conflict ? ' is-conflict' : ''}" title="${esc(m.who)}${m.precise ? '' : ' — au changement de PI'}">${esc(shortName(m.who))}${m.kind === 'move-in' ? ` <small>← ${esc(m.from)}</small>` : m.kind === 'move-out' ? ` <small>→ ${esc(m.to)}</small>` : ''}${m.conflict ? ' ⚠️' : ''}</span>`;
+// Personnes cliquables → fiche membre (data-member, câblé par team_timeline.js comme dans les bulles).
+const chip = (m, cls) => `<button type="button" class="tls-person ${cls}${m.precise ? '' : ' is-approx'}${m.conflict ? ' is-conflict' : ''}" data-member="${esc(m.who)}" title="${esc(m.who)}${m.precise ? '' : ' — au changement de PI'} · voir sa fiche">${esc(shortName(m.who))}${m.kind === 'move-in' ? ` <small>← ${esc(m.from)}</small>` : m.kind === 'move-out' ? ` <small>→ ${esc(m.to)}</small>` : ''}${m.conflict ? ' ⚠️' : ''}</button>`;
+/** « Mohamed/Omar » : chaque prénom résolu en membre devient un lien vers sa fiche. */
+const pairHtml = (pair, team) => pair.split('/').map(x => x.trim()).filter(Boolean).map(p => {
+    const m = resolveOnePerson(p, team);
+    return m ? `<button type="button" class="tls-person-link" data-member="${esc(m.name)}" title="${esc(m.name)} · voir sa fiche">${esc(p)}</button>` : esc(p);
+}).join('/');
 const byKey = (list, key) => { const m = new Map(); list.forEach(x => { const k = key(x); (m.get(k) || m.set(k, []).get(k)).push(x); }); return m; };
 
 /** Entrées datées du récit (déjà filtrées par catégorie). */
@@ -61,7 +67,7 @@ function entries(st, c) {
         byKey(c.ones, o => mondayOf(o.day)).forEach((os, w) => {
             const planned = os.every(o => o.day > today);
             E.push({ day: os[0].day, cat: 'oneonone', planned, title: `💬 ${os.length} 1v1${planned ? ` ${plural(os.length, 'planifié')}` : ''}`, sub: `Semaine du ${fmt(w)}`,
-                extra: `<p class="tls-note">${os.map(o => esc(o.pair)).join(' · ')}</p>`,
+                extra: `<p class="tls-note">${os.map(o => pairHtml(o.pair, st.scope === 'train' ? '*' : st.team)).join(' · ')}</p>`,
                 item: { kind: 'ones', cat: 'oneonone', items: os, title: `${os.length} 1v1`, when: `Semaine du ${fmt(w)}` } });
         });
     }
@@ -85,7 +91,7 @@ function entries(st, c) {
 
 export function storyHtml(st, c, target) {
     const E = entries(st, c);
-    if (!E.length) return '<div class="tl-state"><div class="tl-state-ico">🌤️</div><h5>Rien de marquant sur cette période</h5><p>Élargissez la période ou réactivez des catégories.</p></div>';
+    if (!E.length) return emptyStateHtml({ icon: '🌤️', title: 'Rien de marquant sur cette période', text: 'Élargissez la période ou réactivez des catégories.' });
     return `<div class="tls">${[...byKey(E, e => e.day.slice(0, 7))].map(([m, es]) => {
         const n = cat => es.filter(e => e.cat === cat && !e.divider).length;
         const bilan = [n('equipe') && `${n('equipe')} 👥`, n('production') && `${n('production')} 🚨`, n('livraison') && `${n('livraison')} 🚀`,

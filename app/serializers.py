@@ -94,6 +94,11 @@ def _member_skill_dict(ms: MemberSkill) -> dict:
             "skillId": ms.skill_id, "level": ms.level, "updatedAt": ms.updated_at}
 
 
+def _skill_history_dict(h) -> dict:
+    return {"id": h.id, "scope": h.scope, "scopeKey": h.scope_key, "team": h.team,
+            "skillId": h.skill_id, "prevLevel": h.prev_level, "level": h.level, "changedAt": h.changed_at}
+
+
 def _member_appetence_dict(ma: MemberAppetence) -> dict:
     return {"id": ma.id, "scope": ma.scope, "scopeKey": ma.scope_key, "team": ma.team,
             "appetenceId": ma.appetence_id, "value": ma.value, "updatedAt": ma.updated_at}
@@ -115,6 +120,7 @@ def _sprint_dict(s: SprintConfig) -> dict | None:
         "goal": s.goal, "updatedAt": s.updated_at,
         "jiraId": s.jira_id, "jiraBoardId": s.jira_board_id,
         "teamSprints": s.team_sprints or [],
+        "syncedBy": s.synced_by or "", "syncKind": s.sync_kind or "",
     }
 
 

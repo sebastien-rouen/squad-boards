@@ -9,11 +9,11 @@ from sqlmodel import Session, select
 from app.common import _gen_id, _now
 from app.db import get_session
 from app.models import (
-    Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility,
+    Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, SkillLevelHistory,
 )
 from app.serializers import (
     _skill_dict, _appetence_dict, _member_skill_dict, _member_appetence_dict,
-    _mobility_dict,
+    _mobility_dict, _skill_history_dict,
 )
 
 router = APIRouter(tags=["atlas"])
@@ -129,9 +129,16 @@ async def upsert_member_skill(request: Request, session: Session = Depends(get_s
     row = session.exec(select(MemberSkill).where(
         MemberSkill.scope == scope, MemberSkill.scope_key == scope_key,
         MemberSkill.skill_id == skill_id)).first()
+    # Historique (3.198.0) : une ligne par CHANGEMENT réel de niveau (même niveau resaisi = rien).
+    prev = row.level if row else 0
+    if max(level, 0) != prev:
+        session.add(SkillLevelHistory(scope=scope, scope_key=scope_key,
+                                      team=body.get("team", row.team if row else ""),
+                                      skill_id=skill_id, prev_level=prev, level=max(level, 0)))
     if level <= 0:
         if row:
-            session.delete(row); session.commit()
+            session.delete(row)
+        session.commit()
         return {"ok": True, "deleted": True}
     if row:
         row.level = level; row.team = body.get("team", row.team); row.updated_at = _now()
@@ -140,6 +147,18 @@ async def upsert_member_skill(request: Request, session: Session = Depends(get_s
                           skill_id=skill_id, level=level)
     session.add(row); session.commit(); session.refresh(row)
     return _member_skill_dict(row)
+
+
+@router.get("/api/skill-history")
+def list_skill_history(scope: str = "", key: str = "", session: Session = Depends(get_session)):
+    """Changements de niveau, du plus ancien au plus récent ; filtrables par scope et scope_key."""
+    q = select(SkillLevelHistory)
+    if scope:
+        q = q.where(SkillLevelHistory.scope == scope)
+    if key:
+        q = q.where(SkillLevelHistory.scope_key == key)
+    rows = session.exec(q).all()
+    return [_skill_history_dict(h) for h in sorted(rows, key=lambda h: h.changed_at or "")]
 
 
 # ── Member appetences (upsert par clé logique) ───────────────────────────────

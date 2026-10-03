@@ -42,6 +42,23 @@ class MemberSkill(SQLModel, table=True):
     updated_at: str = Field(default_factory=_now)
 
 
+class SkillLevelHistory(SQLModel, table=True):
+    """Historique des niveaux (3.198.0) — une ligne par CHANGEMENT de niveau d'une compétence, pour un
+    membre ou une équipe (`level` = 0 : niveau retiré). Écrit par PUT /api/member-skills, jamais
+    réécrit : c'est ce qui permet de tracer l'évolution d'une compétence dans le temps. Pas de ligne
+    « de départ » pour les niveaux saisis avant la création de la table (date inconnue)."""
+    __tablename__ = "skill_level_history"
+    __table_args__ = _TA
+    id: str = Field(default_factory=_gen_id, primary_key=True)
+    scope: str = "member"
+    scope_key: str = Field(default="", index=True)
+    team: str = ""
+    skill_id: str = Field(default="", index=True)
+    prev_level: int = 0
+    level: int = 0
+    changed_at: str = Field(default_factory=_now)
+
+
 class MemberAppetence(SQLModel, table=True):
     """Appétence — pour un membre OU une équipe. Valeur faible/neutre/forte."""
     __tablename__ = "member_appetence"

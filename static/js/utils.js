@@ -13,6 +13,8 @@ export * from './utils/sprint-scope.js';
 export * from './utils/capacity-base.js';
 export * from './utils/meteo.js';
 export * from './utils/cal-classify.js';   // détecteur d'agenda (nature + portée), 3.167.0
+export * from './utils/burn.js';           // burndown / burnup réels d'un sprint, 3.195.0
+export * from './utils/empty-state.js';    // état vide commun (icône, titre, phrase, action), 3.197.0
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
 import { extractSprintLabel, sprintNamesOf, activeSprintFromTickets } from './utils/sprint-scope.js';   // usages internes à ce fichier

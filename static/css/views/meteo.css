@@ -382,3 +382,15 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 .meteo-thr-msg.is-error { color: var(--status-blocked-text); }
 #meteo-thr-preview { margin-top: var(--sp-4); }
 #meteo-thr-preview .meteo-card { margin-bottom: 0; }
+
+/* ── Densité de la matrice hors TV (3.195.0) : « ▤ Détaillé » (barres fait / temps + libellés, comme
+   la TV) ou « ▭ Compact » (ligne grise abrégée). Les deux rendus sont dans la cellule ; la classe
+   `is-rich` de la table choisit. Une cellule sans version détaillée garde sa ligne (has-no-rich). */
+.meteo-matrix.is-rich .meteo-cell:not(.has-no-rich) .meteo-sub { display: none; }
+.meteo-matrix:not(.is-rich) .meteo-meta, .meteo-matrix:not(.is-rich) .meteo-mini { display: none; }
+.meteo-density { margin-left: auto; padding: 2px var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-full); background: var(--surface); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; white-space: nowrap; }
+.meteo-density:hover { border-color: var(--border-hover); color: var(--text); }
+.meteo-density:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Panneau de détail d'une cellule hors TV : bouton vers la vue qui détaille le domaine (3.195.0) */
+.tvd-go { align-self: flex-start; text-decoration: none; }

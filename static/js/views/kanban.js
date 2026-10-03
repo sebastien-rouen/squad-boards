@@ -6,10 +6,17 @@ import { store } from '../state.js';
 import { esc, filterByTeam, filterByMine, sumBy, groupBy, sortTickets, countWip, countBlocked, throughputSince, typeBadge } from '../utils.js';
 import { STATUS_ORDER, STATUS_LABELS, TYPE_LABELS, WIP_LIMITS } from '../config.js';
 import { renderCard, bindCardClicks } from '../components/card.js';
+import { columnStatusesTip } from '../utils/status-override.js';
 import { renderBoardChartsSection, mountBoardCharts } from '../components/board_charts.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
 
 let _chartsCollapsed = localStorage.getItem('sb-kanban-charts-collapsed') === 'true';
+
+/** Infobulle d'en-tête : statuts JIRA des tickets de la colonne (ceux amenés par la règle marqués 🎯). */
+function _colTip(status, items) {
+    const tip = columnStatusesTip(STATUS_LABELS[status], items.map(t => t.jiraStatus), store.get('team'));
+    return tip ? ` title="${esc(tip)}"` : '';
+}
 
 export function renderKanban(container) {
     const team = store.get('team');
@@ -114,7 +121,7 @@ export function renderKanban(container) {
                 const exceeded = wip > 0 && items.length > wip;
                 return `
                     <div class="board-column">
-                        <div class="column-header col-${status}">
+                        <div class="column-header col-${status}"${_colTip(status, items)}>
                             <span>${esc(STATUS_LABELS[status])}</span>
                             <span class="column-count${exceeded ? ' wip-exceeded' : ''}">
                                 ${items.length}${wip ? '/' + wip : ''}

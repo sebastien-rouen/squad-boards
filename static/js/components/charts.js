@@ -6,6 +6,7 @@
 
 import { openSprintTicketsModal } from './sprint_tickets_modal.js';
 import { openSprintCompareModal } from './sprint_compare_modal.js';
+import { burnSeries, burnDayKey } from '../utils.js';
 
 const _charts = new Map();
 
@@ -257,6 +258,20 @@ function currentDay(startDate, days) {
     return Math.max(0, Math.min(days - 1, elapsed));
 }
 
+/**
+ * Séries RÉELLES (utils/burn.js, même calcul que la TV) sur l'axe calendaire du graphique, en points et
+ * en tickets. `null` au-delà d'aujourd'hui (Chart.js coupe la ligne). Sprint clos : jusqu'au dernier jour.
+ */
+function _burnOnAxis(tickets, dayInfo) {
+    const days = dayInfo.map(d => burnDayKey(d.date));
+    const today = burnDayKey(new Date());
+    const done = tickets.filter(t => t.status === 'done');
+    const pts = burnSeries({ engaged: tickets, done, days, today });
+    const cnt = burnSeries({ engaged: tickets, done, days, today, val: () => 1 });
+    const pad = arr => days.map((_, i) => (i < arr.length ? arr[i] : null));
+    return { pts, cnt, pad };
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // 1. Burndown
 // ══════════════════════════════════════════════════════════════════════════════
@@ -267,18 +282,17 @@ export function renderBurndown(canvasId, tickets, sprint, events = []) {
     const days = sprint?.durationDays || 14;
     const startDate = sprint?.startDate || new Date().toISOString();
     const dayInfo = sprintDays(startDate, days);
-    const cd = currentDay(startDate, days);
     const todayIndex = _todayIdx(startDate, days);
     const eventMarkers = _eventMarkers(events, startDate, days);
 
-    const ptsTotal = tickets.reduce((s, t) => s + (t.points || 0), 0) || 1;
-    const ptsDone = tickets.filter(t => t.status === 'done').reduce((s, t) => s + (t.points || 0), 0);
-    const tTotal = tickets.length;
-    const tDone = tickets.filter(t => t.status === 'done').length;
+    // Reste à faire RÉEL jour par jour (dates de résolution) — plus de droite interpolée.
+    const { pts, cnt, pad } = _burnOnAxis(tickets, dayInfo);
+    const ptsTotal = pts.total || 1;
+    const ptsDone = Math.round(pts.done * 10) / 10, tTotal = cnt.total, tDone = cnt.done;
 
-    const ideal = dayInfo.map((_, i) => Math.round(ptsTotal * (1 - i / (days - 1))));
-    const real = dayInfo.map((_, i) => i > cd ? null : Math.round(ptsTotal - (ptsDone * i / Math.max(1, cd))));
-    const ticketLine = dayInfo.map((_, i) => i > cd ? null : Math.round(tTotal - (tDone * i / Math.max(1, cd))));
+    const ideal = dayInfo.map((_, i) => Math.round(ptsTotal * (1 - i / Math.max(1, days - 1))));
+    const real = pad(pts.real.map(v => Math.round(v * 10) / 10));
+    const ticketLine = pad(cnt.real);
 
     _charts.set(canvasId, new Chart(c, {
         type: 'line',
@@ -313,15 +327,17 @@ export function renderBurnup(canvasId, tickets, sprint, events = [], opts = {}) 
     const days = sprint?.durationDays || 14;
     const startDate = sprint?.startDate || new Date().toISOString();
     const dayInfo = sprintDays(startDate, days);
-    const cd = currentDay(startDate, days);
     const todayIndex = _todayIdx(startDate, days);
     const eventMarkers = _eventMarkers(events, startDate, days);
 
-    const scope = tickets.reduce((s, t) => s + (t.points || 0), 0) || 1;
-    const done = tickets.filter(t => t.status === 'done').reduce((s, t) => s + (t.points || 0), 0);
+    // Fait cumulé RÉEL (dates de résolution) et périmètre en marches (dates de création), tenu
+    // ensuite jusqu'à la fin du sprint — même calcul que le burnup de la TV.
+    const { pts, pad } = _burnOnAxis(tickets, dayInfo);
+    const scope = pts.total || 1;
+    const done = Math.round(pts.done * 10) / 10;
 
-    const scopeLine = dayInfo.map(() => scope);
-    const doneLine = dayInfo.map((_, i) => i > cd ? null : Math.round(done * i / Math.max(1, cd)));
+    const scopeLine = dayInfo.map((_, i) => (i < pts.scopeAt.length ? pts.scopeAt[i] : scope));
+    const doneLine = pad(pts.real.map(v => Math.round((pts.total - v) * 10) / 10));
 
     // Override des couleurs pour fond sombre (modal Demo) — texte clair, grilles très faibles.
     const _base = baseOpts();

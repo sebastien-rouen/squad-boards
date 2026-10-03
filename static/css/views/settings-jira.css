@@ -45,3 +45,25 @@
     .sync-cfg-input-wrap--stack { align-items: stretch; }
     .sync-cfg-equiv { text-align: left; max-width: none; }
 }
+
+/* Champs de connexion (URL, email, token) : plus larges que les champs numériques — ex-style inline. */
+.sync-cfg-input--wide { min-width: 260px; }
+@media (max-width: 640px) { .sync-cfg-input--wide { min-width: 0; width: 100%; } }
+
+/* ── Onglets de la section (3.195.0) : Connexion · Synchro · Équipes masquées · Statuts forcés ──
+   Même dessin que les onglets « Statuts forcés » (.dov-tab). Collants sous la nav de Paramètres
+   (--stg-tabs-h, publiée sur #content) : sur un long panneau, on change d'onglet sans remonter. */
+.jira-tabs { position: sticky; top: var(--stg-tabs-h, 0px); z-index: 2; display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-3); padding-top: var(--sp-2); border-bottom: 1px solid var(--border); background: var(--surface); }
+.jira-tab { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 1px solid transparent; border-bottom: 0; border-radius: var(--r-md) var(--r-md) 0 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: var(--fs-sm); cursor: pointer; margin-bottom: -1px; }
+.jira-tab:hover { color: var(--text); background: var(--surface-hover); }
+.jira-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.jira-tab[aria-selected="true"] { border-color: var(--border); background: var(--bg); color: var(--text); font-weight: var(--fw-semibold); }
+.jira-tab small { padding: 0 6px; border-radius: var(--r-full); background: var(--bg-alt); color: var(--text-muted); font-size: var(--fs-xs); font-weight: var(--fw-medium); }
+.jira-panel[hidden] { display: none; }
+
+/* Équipes masquées : filtre au-delà de 10 équipes */
+.excl-search { display: flex; align-items: center; gap: var(--sp-2); padding-left: calc(16px + var(--sp-2)); }
+.excl-search .input { flex: 1; max-width: 320px; }
+.excl-search small { color: var(--text-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.excl-list li[hidden] { display: none; }
+@media (max-width: 640px) { .jira-tab { padding: var(--sp-2); font-size: var(--fs-xs); } .excl-search { padding-left: 0; } }

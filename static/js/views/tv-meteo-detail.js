@@ -121,8 +121,17 @@ function detailMood(team, ctx) {
     };
 }
 
-/** Panneau de détail (équipe × domaine). */
-export function meteoDetailHtml(team, domKey, ctx, teamObjects) {
+/** Vue qui détaille chaque domaine, pour une équipe (hors TV : le panneau y mène). */
+const VIEW_OF = {
+    sprint: (tm) => ['📋', 'Ouvrir le sprint', `#sprint/${encodeURIComponent(tm)}`],
+    pi:     (tm) => ['🎯', 'Ouvrir les objectifs du PI', `#pi/${encodeURIComponent(tm)}/objectives`],
+    health: (tm) => ['🩺', 'Ouvrir la Santé', `#health/${encodeURIComponent(tm)}`],
+    sla:    (tm) => ['📊', "Ouvrir le Dashboard de l'équipe", `#dashboard/${encodeURIComponent(tm)}`],
+    mood:   (tm) => ['🎭', 'Voir les votes (Santé)', `#health/${encodeURIComponent(tm)}`],
+};
+
+/** Panneau de détail (équipe × domaine). `links` (hors TV) : bouton vers la vue du domaine. */
+export function meteoDetailHtml(team, domKey, ctx, teamObjects, { links = false } = {}) {
     const color = (teamObjects || []).find(o => o.name === team)?.color || 'var(--primary)';
     const r = computeTeamMeteo(team, { ...ctx, color });
     const dom = r.domains.find(d => d.key === domKey);
@@ -142,6 +151,7 @@ export function meteoDetailHtml(team, domKey, ctx, teamObjects) {
         <div class="tvd-value"><strong>${esc(dom.value)}</strong><span>${d.head || esc(dom.sub)}</span></div>
         ${d.body}
         <p class="tvd-tip">💡 ${d.tip}</p>
+        ${links && VIEW_OF[domKey] ? (([ico, lbl, href]) => `<a class="btn btn-primary btn-sm tvd-go" href="${esc(href)}" data-tvd-go><span aria-hidden="true">${ico}</span> ${esc(lbl)} →</a>`)(VIEW_OF[domKey](team)) : ''}
     </div>`;
 }
 
@@ -156,11 +166,14 @@ export function openMeteoDetail(team, dom) {
     host.className = 'tv-detail is-standalone';
     const render = (tm, d) => {
         const ctx = meteoContext(getCurrentPi({ sprintInfo: store.get('sprintInfo'), piInfo: store.get('piInfo') }));
-        host.innerHTML = meteoDetailHtml(tm, d, ctx, store.get('teamObjects') || []);
+        host.innerHTML = meteoDetailHtml(tm, d, ctx, store.get('teamObjects') || [], { links: true });
         host.querySelector('.tvd-close')?.focus();
     };
     host.addEventListener('click', e => {
         if (e.target === host || e.target.closest('[data-tvd-close]')) { closeMeteoDetail(); return; }
+        // Lien vers la vue : le hash navigue ; le panneau se ferme SANS rendre le focus à la cellule
+        // (elle disparaît avec la vue courante).
+        if (e.target.closest('[data-tvd-go]')) { if (_open) _open.back = null; closeMeteoDetail(); return; }
         const d = e.target.closest('[data-meteo-dom]');
         if (d) { render(d.dataset.meteoTeam, d.dataset.meteoDom); return; }
         const t = e.target.closest('[data-ticket]');

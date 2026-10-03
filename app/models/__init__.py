@@ -8,7 +8,7 @@ from app.models.planning import SprintConfig, PIConfig, TeamGroup
 from app.models.people import Absence, SupportRotation
 from app.models.agile import Event, MoodVote, RetroItem, Risk, PokerVote
 from app.models.atlas import (
-    Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility,
+    Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, SkillLevelHistory,
 )
 from app.models.calendar import TeamCalendar, CalendarRule
 from app.models.team_identity import TeamIdentity, WorkshopTemplate, TeamWorkshop, Attachment
@@ -18,7 +18,7 @@ __all__ = [
     "SprintConfig", "PIConfig", "TeamGroup",
     "Absence", "SupportRotation",
     "Event", "MoodVote", "RetroItem", "Risk", "PokerVote",
-    "Skill", "Appetence", "MemberSkill", "MemberAppetence", "MemberMobility",
+    "Skill", "Appetence", "MemberSkill", "MemberAppetence", "MemberMobility", "SkillLevelHistory",
     "TeamCalendar", "CalendarRule",
     "TeamIdentity", "WorkshopTemplate", "TeamWorkshop", "Attachment",
 ]

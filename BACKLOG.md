@@ -1,6 +1,6 @@
 # BACKLOG — Squad Board
 
-> Dernière mise à jour : 2026-08-29
+> Dernière mise à jour : 2026-10-03
 >
 > Ce fichier ne contient que **ce qui reste à faire**. Les items soldés sont
 > dans [`docs/BACKLOG-ARCHIVE.md`](docs/BACKLOG-ARCHIVE.md) ; leur récit complet
@@ -18,6 +18,53 @@
 - [ ] **Identité Météo sur Board / Backlog** (`static/mockups/refonte/mockup-3/08-board.html`) — cosmétique : météo du sprint dans le titre du Board, vieillissement qui colore la carte entière en Kanban. **À décider après usage** de la matrice et de la fiche ; ne pas lancer sans demande.
 - [ ] **TV : écran « Sprint review »** dans la rotation (le rapport du dernier sprint clos, lecture seule) — la maquette `12-tv-rotation.html` le prévoit, `views/tv.js` a la place (`SCREENS`). Petit, mais attendre un retour sur la rotation actuelle (3 écrans + alerte) avant d'en ajouter un quatrième.
 - [ ] **Tolérance de démarrage réglable** (`METEO_START_TOLERANCE`, 15 %) et bandes relatives (`METEO_REL_BAND`) dans Paramètres → Météo — seulement si une équipe se plaint d'un 🌧️ en J2 ; aujourd'hui constantes de `utils/meteo.js`.
+
+---
+
+## 🎨 Améliorations visuelles & UX (proposées le 2026-10-03)
+
+> Repérées pendant les sessions TV / frise / statuts forcés (3.182 → 3.194). Priorité : 🔥 forte · ⭐ moyenne · 💡 confort.
+> Chaque item dit **le problème constaté** puis **la piste** — à valider avant de coder (aucun n'est lancé).
+
+### 📊 Dashboard & Santé
+
+- [ ] 🔥 **Burndown du Dashboard = vraie courbe** — `renderBurndown` (components/charts.js) trace un « réel » **interpolé en ligne droite** (`ptsDone * i / cd`) : il ne montre ni plateau ni accélération, et contredit le burndown réel de la TV (tv-sprint.js, d'après les dates de résolution). Piste : réutiliser le calcul de `analyse()` de tv-sprint.js (barres « +N » du jour comprises) pour une seule vérité.
+- [ ] ⭐ **Cellules météo explicites aussi au Dashboard** — la TV a des cellules « riches » (barres fait / temps écoulé, jauges, libellés « ✅ 10/11 pts faits », option `rich` de `meteoMatrixHtml`) ; le Dashboard garde la ligne grise abrégée (`10/11 pts · 100 % du temps`), peu lisible. Piste : `rich: true` au Dashboard, éventuellement repliable.
+- [ ] ⭐ **Panneau de détail météo → lien vers la vue** — le détail d'une cellule (tv-meteo-detail.js) dit ce qui coince mais n'emmène nulle part. Piste : bouton « Ouvrir dans Santé / Sprint / PI » selon le domaine (hors TV).
+- [ ] 💡 **Bandeau « données obsolètes » plus utile** — réparé en 3.187.0 ; il pourrait dire *qui* a synchronisé en dernier et proposer « Synchro rapide » à côté de « Synchroniser ».
+
+### 🗂️ Board (Sprint / Kanban)
+
+- [ ] 🔥 **Repère « 🎯 rangé par la règle »** sur les cartes dont le statut est forcé (Paramètres → Statuts forcés) : aujourd'hui un ticket « À livrer pour validation » apparaît en Done sans explication. Piste : petite pastille + infobulle « Statut JIRA : À livrer pour validation → Terminé (règle) » (`t._preOverride` existe déjà).
+- [ ] ⭐ **En-tête de colonne : statuts JIRA qu'elle regroupe** — infobulle listant les statuts (board + forcés), pour comprendre pourquoi un ticket est là.
+- [ ] 💡 **Identité Météo sur le Board** — voir l'item TODO ci-dessus (à décider après usage).
+
+### 📺 Mode TV
+
+- [ ] 🔥 **Sprint en cours sur écran 1366 × 768** — en vue « tout le train », 2 cartes seulement par page (7 pages pour 13 équipes, ~70 s). Piste : carte ultra-compacte sous 800 px de haut (graphique + 1 chiffre + 1 conseil, sans tuiles), 4 par page.
+- [ ] ⭐ **Écran « 0 blocker »** — quand l'alerte disparaît, rien ne le célèbre. Piste : un tour avec « ✅ Aucun blocker depuis N jours » (la série est calculable depuis l'historique).
+- [ ] ⭐ **« Qui est là » : absents cliquables** → fiche membre (comme les personnes de la frise, `openMemberCard`).
+- [ ] ⭐ **La semaine : navigation et détail d'un jour** — ← → semaine précédente / suivante (écran figé), clic sur un jour → liste complète dans le panneau (au lieu du défilement automatique seul).
+- [ ] ⭐ **Sprint en cours : fantôme du sprint précédent** — superposer en pointillé clair le burndown du sprint clos précédent : on voit tout de suite si l'équipe fait mieux ou moins bien.
+- [ ] 💡 **Mode nuit = vraie palette sombre** — aujourd'hui `filter: brightness(.82)` sur tout l'écran (images et couleurs d'équipe ternies) ; une palette dédiée serait plus lisible.
+- [ ] 💡 **Thème forcé sombre sur la TV** — un écran mural en thème clair éblouit ; proposer le thème dans ⚙ (réglage par écran, comme les durées).
+
+### ⚙️ Paramètres
+
+- [ ] 🔥 **Section Plugin JIRA trop longue** — connexion, profondeur de synchro, équipes masquées, statuts forcés, champs… s'empilent sur plusieurs écrans. Piste : sous-navigation collante (ancres) ou onglets « Connexion · Synchro · Statuts · Équipes ».
+- [ ] ⭐ **Recherche dans les équipes masquées** (et dans les suggestions de statuts) dès qu'il y a plus de ~20 éléments.
+- [ ] ⭐ **Confirmation en place plutôt qu'un toast de 6 s** après « Enregistrer » (statuts forcés) : un message dans le bloc, qui reste tant qu'on n'a rien changé.
+- [ ] 💡 **Styles écrits dans le JS** encore présents dans settings-jira.js (`style="…"` sur plusieurs rangées) → classes CSS (règle du projet) ; profiter du découpage de `settings.css` (927 lignes, > 800).
+
+### 🧭 Frise « Faits marquants »
+
+- [ ] ⭐ **Récit : personnes cliquables** vers leur fiche membre (comme dans les bulles de la frise, 3.181.0).
+- [ ] 💡 **Export : liste des personnes de chaque 1v1**, avec lien vers leur fiche.
+
+### 🌐 Accès & erreurs
+
+- [ ] ⭐ **Page 403 explicite** — derrière un VPN (ex. VPN Firefox), le proxy renvoie un 403 nu (« access forbidden by rule ») : on croit le site cassé. Piste : page d'erreur personnalisée dans Nginx Proxy Manager (« Accès réservé au réseau local — coupez le VPN ou passez par l'accès distant »).
+- [ ] 💡 **États vides homogènes** — plusieurs écrans ont leur propre « rien à afficher » (TV, Paramètres, fiches) ; un composant commun (icône, phrase, action) unifierait le ton.
 
 <details>
 <summary>✅ Items TODO terminés</summary>

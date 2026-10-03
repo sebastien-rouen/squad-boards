@@ -1,3 +1,36 @@
+## [3.199.2] - 2026-10-03
+
+### Mode TV — le bas de l'écran visible, rien de coupé ni de défilé, effectif juste
+
+- **Le bas de la TV était hors de l'écran** : la racine fait `100vh` puis `zoom: 1.3`, et le zoom
+  agrandit aussi la hauteur — **1 404 px de TV pour un écran de 1 080** (body en `overflow: hidden`) :
+  fin des journées de « La semaine », pied de page, dernière rangée des listes paginées invisibles.
+  `_fitViewport` (tv.js) ramène la hauteur visuelle à la fenêtre, recalculée au redimensionnement.
+- **Effectif juste : Fuego « 13 présents sur 14 »** au lieu de « 20 / 21 ». `teamCapacity` comptait
+  tout l'historique des congés (partis compris) ; elle prend désormais le **roster du PI courant**
+  (`rosterCtx`, snapshot `piMembers`) — aussi pour les seuils WIP de la météo, de Santé, des alertes et
+  du panneau latéral, tous surévalués jusqu'ici.
+- **Compteur explicite** dans « Qui est là » : « **13** présents sur 14 », « 🌴 1 absent » devant les
+  noms, infobulle avec le pourcentage.
+- **Évènements du jour (Qui est là) regroupés et cliquables** : lus dans l'agenda, un même évènement
+  les deux jours ou plusieurs fois = une pastille (« Aujourd'hui + Lundi », « ×2 · 09h30, 15h00 ») ;
+  clic → panneau de détail, avec « Aussi : … » pour les autres occurrences.
+- **Plus aucun défilement à la TV** : « La semaine » ajuste sa densité (`data-dens` 0 → 3) jusqu'à ce
+  que chaque journée tienne, puis réduit la seule journée encore trop pleine ; la **météo du train** est
+  paginée **par ligne produit** (13 équipes demandaient 3 fois la hauteur de l'écran) ; l'**alerte** par
+  équipe ; les **plans d'action** choisissent leur nombre de colonnes (3, 2 ou 1) pour rester lisibles
+  (≥ 75 %) — 3 colonnes étroites forçaient une réduction à 27 % en 1366 × 768. Une carte encore trop
+  haute est réduite pour tenir entière (`_fitItems`). Code de défilement retiré (`_autoScroll`).
+- **Aucun texte tronqué** : « Sprint en cours » (tuiles « À savoir », conseils, chiffres, en-tête — plus
+  de tuile masquée sous 820 px, plus de `slice` sur l'objectif, le dernier terminé, les bloqués ou les
+  reportés), titres de tickets des listes, alertes, détails ; `#tv-root` annule les `line-clamp` et
+  ellipses de la TV. Seule exception voulue : le bandeau d'évènement de plusieurs jours (une ligne).
+- **Plans d'action : TOUS les responsables**, par leur prénom à la TV (plus d'initiales ni de « +1 ») ;
+  ailleurs, tous les avatars, qui passent à la ligne.
+- Audit au banc Edge, 9 écrans × train / Fuego × 1920 × 1080 et 1366 × 768 : 0 défilement, 0 élément
+  hors écran, 0 texte tronqué, réduction minimale 60 % ; plans 2 colonnes (1920) / 1 colonne (1366) ;
+  0 erreur JS ; `node --test` 267/267.
+
 ## [3.199.1] - 2026-10-03
 
 ### Mode TV — bandeau d'évènement compact, « 12 j » plus petit, libellés des graphiques sans chevauchement

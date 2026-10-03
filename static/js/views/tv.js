@@ -22,7 +22,7 @@ import { ANOMALY_BY_KEY, isPastPi } from '../business_rules.js';
 import { meteoMatrixHtml, meteoContext, computeTeamMeteo } from '../components/meteo_matrix.js';
 import { meteoPlanHtml } from '../components/meteo_plan.js';
 import { screenSeconds, pageSeconds, nightEnabled, tvTheme, settingsHtml, wireSettings, applyUrlSettings } from './tv-settings.js';
-import { tkAttrs, pagedHtml, dayKey, screenPresence, screenZeroBlocker, noteBlockersSeen } from './tv-screens.js';
+import { tkAttrs, pagedHtml, dayKey, screenPresence, screenZeroBlocker, noteBlockersSeen, presenceEventHtml } from './tv-screens.js';
 import { screenWeek, rollDays, weekDayHtml, weekCalEventHtml, weekOffHtml } from './tv-week.js';
 import { meteoDetailHtml } from './tv-meteo-detail.js';
 import { screenSprint, sprintDayHtml } from './tv-sprint.js';
@@ -52,7 +52,6 @@ const _isNight = () => { const h = new Date().getHours(); return nightEnabled() 
 const PLANS_PER_PAGE = 3;   // Plans d'action : 3 équipes côte à côte par page, les suivantes en rotation
 // L'alerte liste TOUS les blockers et défile seule : 20 s pour 3 tickets, puis 2,5 s par ticket en plus (90 s max).
 const _alertSeconds = n => Math.min(90, 20 + Math.max(0, n - 3) * 2.5);
-const SCROLL_HOLD = 3000;   // pause en haut et en bas de la liste avant / après le défilement
 
 let _st = null;   // état de la session TV en cours (timers, écouteurs) — un seul à la fois
 
@@ -80,6 +79,19 @@ function _restoreTheme() {
     if (_siteTheme === undefined) return;
     if (_siteTheme) document.documentElement.setAttribute('data-theme', _siteTheme); else document.documentElement.removeAttribute('data-theme');
     _siteTheme = undefined;
+}
+
+/**
+ * La racine fait `100vh` PUIS `zoom: var(--tv-zoom)` : le zoom standard agrandit aussi cette hauteur —
+ * mesuré : 1 404 px de TV pour un écran de 1 080 (body en overflow: hidden). Le bas sortait de l'écran :
+ * fin des journées de « La semaine », pied, dernière rangée des listes paginées (3.199.2). On ramène la
+ * hauteur VISUELLE à celle de la fenêtre ; sans zoom effectif (ancien moteur), rien ne change.
+ */
+function _fitViewport(root) {
+    if (!root) return;
+    root.style.height = '';
+    const visual = root.getBoundingClientRect().height;
+    if (visual > innerHeight + 1) root.style.height = `${(root.offsetHeight * innerHeight / visual).toFixed(2)}px`;
 }
 
 /** Périmètre : équipes du topbar (toutes, ligne produit, ou une seule). */
@@ -152,27 +164,14 @@ function _blockedSince(t) {
     return best ? new Date(best).toISOString() : null;
 }
 
-/** Défile `el` en `ms` : pause en haut, descente régulière, pause en bas. `loop` (écran figé) :
- *  recommence en haut. S'arrête à la pause (survol) — `show()` le relance à la reprise. */
-function _autoScroll(el, ms, loop, hold = SCROLL_HOLD) {
-    cancelAnimationFrame(_st.raf);
-    if (!el) return;
-    el.scrollTop = 0;
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const run = Math.max(3000, ms - 2 * hold - 1000);
-    let t0 = null;
-    const step = now => {
-        if (!_st || _st.paused || !el.isConnected) return;
-        t0 ??= now;
-        const max = el.scrollHeight - el.clientHeight;
-        if (max <= 4) return;
-        const p = Math.min(1, Math.max(0, (now - t0 - hold) / run));
-        // Mouvement réduit : saut d'une page à la fois plutôt qu'un glissement continu.
-        el.scrollTop = reduce ? Math.min(max, Math.floor(p * Math.ceil(max / el.clientHeight)) * el.clientHeight) : max * p;
-        if (p >= 1 && loop && now - t0 > hold * 2 + run) { t0 = null; el.scrollTop = 0; }
-        if (p < 1 || loop) _st.raf = requestAnimationFrame(step);
-    };
-    _st.raf = requestAnimationFrame(step);
+/**
+ * TV : rien n'est coupé, rien ne défile si on peut l'éviter (3.199.2). Une carte plus haute que sa
+ * zone (grand format d'un sprint, plan d'action chargé) est RÉDUITE pour tenir entière.
+ */
+function _fitItems(list, items) {
+    items.forEach(li => { li.style.zoom = ''; });
+    const H = list.clientHeight;
+    items.forEach(li => { const h = li.offsetHeight; if (H && h > H + 1) li.style.zoom = ((H - 2) / h).toFixed(3); });
 }
 
 /** Découpe la liste `#tv-paged-list` en pages qui tiennent dans sa hauteur (ou par paquets de
@@ -193,15 +192,14 @@ function _paginate(root, loop) {
         const turns = loop || _st.page + 1 < pages.length;
         const fill = turns ? `<b style="animation-duration:${pageSeconds() * 1000}ms"></b>` : '';
         pager.innerHTML = `<span>${_st.page + 1} / ${pages.length}</span>${pages.map((_, k) => `<button type="button" class="${k === _st.page ? 'is-on' : ''}" data-page="${k}" aria-label="Page ${k + 1}">${k === _st.page ? fill : ''}</button>`).join('')}<small>${items.length} ${esc(list.dataset.unit || 'tickets')}</small>`;
-        // Pages fixes (Plans d'action) : une page plus haute que l'écran défile pendant son temps
-        // d'affichage (pauses courtes) — les pages découpées à la hauteur, elles, tiennent toujours.
-        if (list.dataset.perPage) _autoScroll(list, pageSeconds() * 1000, false, 1500);
+        // Une carte plus haute que l'écran (plan chargé, grand format) est réduite, plus défilée.
+        _fitItems(list, pages[_st.page]);
     };
     // Mesure : tout est affiché, on coupe dès qu'un ticket dépasse la hauteur visible (sur 2
     // colonnes, les deux tickets d'une rangée ont le même offsetTop : la coupe tombe entre deux
     // rangées). Le pager prend sa place AVANT la mesure — affiché après, il raccourcissait la liste.
     const measure = () => {
-        items.forEach(li => { li.hidden = false; });
+        items.forEach(li => { li.hidden = false; li.style.zoom = ''; });
         pager.innerHTML = '<span>1 / 1</span>';
         pager.hidden = false;
         pages = [];
@@ -213,7 +211,7 @@ function _paginate(root, loop) {
             if (top === null || bottom - top > list.clientHeight) { pages.push([]); top = li.offsetTop; }
             pages.at(-1).push(li);
         }
-        if (pages.length <= 1) { pager.hidden = true; return; }
+        if (pages.length <= 1) { pager.hidden = true; _fitItems(list, items); return; }
         go(Math.min(_st.page, pages.length - 1));
     };
     _st.page = 0;
@@ -239,9 +237,38 @@ function _paginate(root, loop) {
 
 /* ── Écrans ─────────────────────────────────────────────────────────── */
 
+/** Météo du train : 13 équipes en cellules riches demandaient 3 fois la hauteur de l'écran (défilement,
+ *  le bas jamais lu d'un coup d'œil). Une matrice PAR LIGNE PRODUIT (+ « Autres équipes »), paginées à
+ *  la hauteur comme les autres listes — chaque page se lit entière (3.199.2). */
 function _screenMeteo({ teams, teamObjects, ctx }) {
     const groups = store.get('group') ? [] : (store.get('groups') || []);
-    return `<div class="tv-meteo">${meteoMatrixHtml(teams, ctx, teamObjects, { preview: true, title: 'Météo du train', groups, rich: true })}</div>`;
+    const placed = new Set(), blocks = [];
+    for (const g of groups) {
+        const list = teams.filter(t => (g.teams || []).includes(t) && !placed.has(t));
+        if (!list.length) continue;
+        list.forEach(t => placed.add(t));
+        blocks.push({ title: `Météo · ${g.name}`, teams: list });
+    }
+    const rest = teams.filter(t => !placed.has(t));
+    if (rest.length) blocks.push({ title: blocks.length ? 'Météo · Autres équipes' : 'Météo du train', teams: rest });
+    return `<div class="tv-meteo">${pagedHtml(blocks.map((bk, i) => `<li class="tv-meteo-page">${meteoMatrixHtml(bk.teams, ctx, teamObjects, { preview: true, title: bk.title, rich: true, key: `tv${i}` })}</li>`).join(''), { cls: 'tv-meteo-pages', unit: blocks.length > 1 ? 'lignes produit' : 'équipes' })}</div>`;
+}
+
+/** Plans d'action : le plus de colonnes possible tant que chaque plan reste lisible (réduction ≥ 75 %) ;
+ *  trois plans étroits se repliaient sur tant de lignes qu'il fallait les réduire à 27 % (1366 × 768). */
+function _choosePlansPerPage(root) {
+    const list = root.querySelector('.tv-plans#tv-paged-list');
+    if (!list) return;
+    const items = [...list.children];
+    const total = items.length;
+    for (const n of [PLANS_PER_PAGE, 2, 1]) {
+        const k = Math.min(n, total);
+        list.style.setProperty('--n', k);
+        list.dataset.perPage = k;
+        items.forEach(li => { li.hidden = false; li.style.zoom = ''; });
+        const worst = Math.min(...items.map(li => list.clientHeight / Math.max(1, li.offsetHeight)));
+        if (worst >= 0.75 || k === 1) return;
+    }
 }
 
 function _screenPlans({ teams, teamObjects, ctx }) {
@@ -254,7 +281,7 @@ function _screenPlans({ teams, teamObjects, ctx }) {
         const color = (teamObjects || []).find(o => o.name === r.team)?.color || 'var(--border)';
         return `<section class="tv-plan" style="--team-color:${color}">
             <h2><span class="team-dot" style="background:${color}"></span>${esc(r.team)} <span class="tv-plan-lvl">${METEO_GLYPH[r.level]} ${esc(METEO_LABEL[r.level])}</span></h2>
-            ${meteoPlanHtml(r.team, ctx) || '<p class="tv-muted">Aucune anomalie — la météo vient du sprint ou du PI, pas des tickets.</p>'}
+            ${meteoPlanHtml(r.team, ctx, { names: true }) || '<p class="tv-muted">Aucune anomalie — la météo vient du sprint ou du PI, pas des tickets.</p>'}
         </section>`;
     }).join('')}</div><div class="tv-pager" id="tv-pager" hidden></div></div></div>`;
 }
@@ -314,7 +341,7 @@ function _screenJournee({ teams, ctx }) {
     </div>`;
 }
 
-/** Alerte : TOUS les blockers, groupés par équipe (équipe du plus ancien d'abord) ; la liste défile seule.
+/** Alerte : TOUS les blockers, groupés par équipe (équipe du plus ancien d'abord), paginés par équipe.
  *  `focus` = une équipe choisie (clic sur sa puce du bandeau ou son titre) : ses seuls blockers. */
 function _screenAlert({ live: all, past: allPast }, teamObjects, focus = null) {
     const live = focus ? all.filter(t => t.team === focus) : all;
@@ -336,13 +363,13 @@ function _screenAlert({ live: all, past: allPast }, teamObjects, focus = null) {
     };
     return `<div class="tv-alert">
         <div class="tv-alert-hd"><span aria-hidden="true">⛈️</span><div><small>Alerte · ${focus ? `${esc(focus)} · ${n} blocker${n > 1 ? 's' : ''}` : n > 1 ? `${n} blockers · ${byTeam.size} équipe${byTeam.size > 1 ? 's' : ''}` : esc(live[0].team)}${focus ? ` <button type="button" class="tv-chip-btn" data-alert-team="">← Toutes les équipes (${all.length})</button>` : ''}</small><h2>Blocker${n > 1 ? 's' : ''} sans mouvement depuis plus de 48 h</h2><p>La rotation reprend après cet écran ; l'alerte revient à chaque tour tant que le ticket ne bouge pas.</p></div><span class="tv-alert-since">${_fmtSince(_hours(live[0].updatedAt))}${n > 1 ? '<small>le plus ancien</small>' : ''}</span></div>
-        <div class="tv-alert-list" id="tv-alert-list">
+        <div class="tv-paged tv-alert-paged"><div class="tv-alert-list" id="tv-paged-list" data-unit="équipes">
             ${[...byTeam].map(([tm, list]) => `<section class="tv-alert-team" style="--team-color:${color(tm)}">
                 <h3>${focus ? `<span class="team-dot" style="background:${color(tm)}"></span>${esc(tm)}` : `<button type="button" class="tv-team-btn" data-alert-team="${esc(tm)}" title="Voir seulement ${esc(tm)}"><span class="team-dot" style="background:${color(tm)}"></span>${esc(tm)}</button>`} <span class="tv-alert-count">${list.length}</span></h3>
                 <div class="tv-alert-grid">${list.map(card).join('')}</div>
             </section>`).join('')}
+        </div><div class="tv-pager" id="tv-pager" hidden></div></div>
             ${past.length ? `<p class="tv-muted tv-alert-past">Hors alerte : ${past.length} blocker${past.length > 1 ? 's' : ''} d'un PI révolu, resté${past.length > 1 ? 's' : ''} au backlog — ${past.map(t => `<code ${_tk(t.id)}>${esc(t.id)}</code> ${esc(t.team)} (${esc(t.sprintName || '')})`).join(' · ')}</p>` : ''}
-        </div>
     </div>`;
 }
 
@@ -382,6 +409,11 @@ export function renderTv(container) {
     </div>`;
 
     const $ = id => container.querySelector('#' + id);
+    // Hauteur visuelle = la fenêtre (avant le 1er écran : la pagination mesure cette hauteur).
+    _fitViewport($('tv-root'));
+    const onResize = () => _fitViewport($('tv-root'));
+    window.addEventListener('resize', onResize);
+    _st.unsubs.push(() => window.removeEventListener('resize', onResize));
     const tick = () => { $('tv-clock').textContent = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
     tick(); _st.clock = setInterval(tick, 30000);
 
@@ -446,17 +478,13 @@ export function renderTv(container) {
         cancelAnimationFrame(_st.raf);
         // Durée : l'alerte le temps de défiler toute la liste, les listes paginées le temps de voir
         // toutes leurs pages — jamais moins que la durée réglée.
+        if (s.id === 'plans') _choosePlansPerPage($('tv-screen'));
         const pages = _paginate($('tv-screen'), !!locked);
         const seconds = screenSeconds();
-        const ms = (s.id === 'alerte' ? Math.max(seconds || 0, _alertSeconds(live.length))
-            : Math.max(seconds || s.seconds, pages > 1 ? pages * pageSeconds() : 0)) * 1000;
-        // Défilement : la liste de l'alerte ; ou les Plans d'action tenant sur une seule page (sur
-        // plusieurs pages, chaque page défile d'elle-même, cf. _paginate).
-        if (s.id === 'alerte') _autoScroll($('tv-alert-list'), ms, !!locked);
-        else if (s.id === 'plans' && pages <= 1) _autoScroll($('tv-paged-list'), ms, !!locked);
-        else if (s.id === 'meteo') _autoScroll($('tv-screen'), ms, !!locked);   // matrice de 13 équipes plus haute que l'écran
-        if (s.id === 'semaine') rollDays($('tv-screen'), ms, !!locked);         // jours trop chargés du calendrier
-        else if (pages <= 1) cancelAnimationFrame(_st.raf);
+        // Durée : le temps de voir toutes les pages — jamais moins que la durée réglée ; l'alerte au moins
+        // le temps de lire tous ses blockers. Plus aucun défilement : pages, densité ou réduction (3.199.2).
+        const ms = Math.max(seconds || s.seconds, s.id === 'alerte' ? _alertSeconds(live.length) : 0, pages > 1 ? pages * pageSeconds() : 0) * 1000;
+        if (s.id === 'semaine') rollDays($('tv-screen'));                        // densité : tout tient à l'écran
         if (!locked && !_st.paused) _st.timer = setTimeout(() => show(_st.idx + 1), ms);
         // Compte à rebours : le point de l'écran courant se remplit en `ms` (figé à la pause, absent
         // sur un écran figé — il ne tourne pas).
@@ -500,7 +528,7 @@ export function renderTv(container) {
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;   // flèches d'un menu de réglage
         if (e.key === 'Enter' && e.target.dataset?.ticket) { e.preventDefault(); openTk(e.target.dataset.ticket); return; }
         if (e.key === 'Enter' && e.target.closest?.('[data-burn-day]')) { e.preventDefault(); e.target.closest('[data-burn-day]').dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
-        if (e.key === 'Enter' && e.target.matches?.('header[data-week-day], [data-cal-ev], [data-cal-off]')) { e.preventDefault(); e.target.click(); return; }
+        if (e.key === 'Enter' && e.target.matches?.('header[data-week-day], [data-cal-ev], [data-cal-off], [data-pres-ev]')) { e.preventDefault(); e.target.click(); return; }
         if (e.key === 'ArrowRight') { e.preventDefault(); show(_st.idx + 1); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); show(_st.idx - 1); }
         else if (e.key === ' ') { e.preventDefault(); pause(!_st.paused); }
@@ -539,6 +567,8 @@ export function renderTv(container) {
             const back = e.target.closest('#tv-detail') ? $('tv-detail').querySelector('.tvw-detail')?.dataset.day : null;
             openPanel(weekCalEventHtml(calEv.dataset.calEv, back)); return;
         }
+        const presEv = e.target.closest('[data-pres-ev]');
+        if (presEv) { openPanel(presenceEventHtml(presEv.dataset.presEv)); return; }
         const calOff = e.target.closest('[data-cal-off]');
         if (calOff) { openPanel(weekOffHtml(calOff.dataset.calOff)); return; }
         const wday = e.target.closest('[data-week-day]');

@@ -1248,11 +1248,13 @@ export function teamNameMatches(memberTeam, target) {
  * @returns {{ total:number, available:number, absent:number,
  *             availableNames:string[], absentNames:string[] }}
  */
-export function teamCapacity(team, members, absences, at = new Date()) {
+export function teamCapacity(team, members, absences, at = new Date(), { piInfo = null, piNum = null } = {}) {
     const teamKey = extractTeam(team);
-    const roster = deriveMembersFromAbsences(absences, members)
-        .filter(m => extractTeam(m.team) === teamKey)
-        .map(m => m.name);
+    // Effectif = ROSTER DU PI (snapshot `piMembers`) quand il est fourni : l'historique des congés garde
+    // les personnes parties (Fuego : 21 noms dans les congés, 14 au PI 31 — « 20 présents sur 21 » à la
+    // TV, seuils WIP surévalués). Sans contexte de PI : l'historique, comme avant (3.199.2).
+    const base = piInfo && piNum ? effectiveRosterForPi(piInfo, piNum, absences, members) : deriveMembersFromAbsences(absences, members);
+    const roster = [...new Set(base.filter(m => extractTeam(m.team) === teamKey).map(m => m.name))];
     const day = at.toISOString().slice(0, 10); // YYYY-MM-DD
     const absentToday = new Set(
         (absences || [])
@@ -1279,6 +1281,9 @@ export function teamCapacity(team, members, absences, at = new Date()) {
  * Retourne le seuil entier au-delà duquel le WIP est jugé « élevé ».
  */
 export const WIP_PER_MEMBER = 2;
+
+/** Contexte « PI courant » pour `teamCapacity` (roster du PI plutôt que l'historique des congés). */
+export const rosterCtx = (piInfo, sprintInfo) => ({ piInfo, piNum: getCurrentPi({ sprintInfo, piInfo }) });
 export function wipThreshold(capacity) {
     const avail = Math.max(0, capacity?.available || 0);
     return Math.max(3, Math.ceil(avail * WIP_PER_MEMBER));

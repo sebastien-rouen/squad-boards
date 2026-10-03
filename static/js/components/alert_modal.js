@@ -10,7 +10,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, sumBy, toast, deriveMembersFromAbsences, getStatusLabel, statusBadge, teamCapacity, wipThreshold, countWip, trapFocus, getCurrentPi } from '../utils.js';
+import { esc, sumBy, toast, deriveMembersFromAbsences, getStatusLabel, statusBadge, teamCapacity, rosterCtx, wipThreshold, countWip, trapFocus, getCurrentPi } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { ANOMALY_BY_KEY } from '../business_rules.js';
@@ -44,7 +44,7 @@ export function openAlertModal(actionable, opts = {}) {
     const wipExceededTeams = new Set();
     const wipDetails = [];   // pour la légende de la modale (anomalie WIP uniquement)
     for (const tm of teamsInScope) {
-        const cap   = teamCapacity(tm, members, absences);
+        const cap   = teamCapacity(tm, members, absences, undefined, rosterCtx(store.get('piInfo'), store.get('sprintInfo')));
         const max   = wipThreshold(cap);
         const count = countWip(scopeTickets.filter(t => t.team === tm));
         const exceeded = count > max;

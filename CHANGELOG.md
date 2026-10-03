@@ -1,3 +1,90 @@
+## [3.194.0] - 2026-10-03
+
+### Statuts forcés : aussi vers « En cours » et « À faire » (onglets dans Paramètres → JIRA)
+
+- **Trois colonnes cibles** au lieu d'une : ✅ **Terminé** (règle de 3.192/3.193), 🔄 **En cours**
+  (wip), 📦 **À faire** (todo). Chacune a ses statuts JIRA et ses équipes exemptées (Fuego par défaut) ;
+  un statut ne vit que dans une colonne (priorité Terminé > En cours > À faire, appliquée aussi par le
+  serveur). Défauts ([config.js](static/js/config.js) → `STATUS_OVERRIDE_DEFAULTS`) : la liste
+  Terminé actuelle, rien en En cours ni en À faire.
+- **Paramètres → Plugin JIRA → « 🎯 Statuts forcés dans une colonne »**
+  ([settings-status-override.js](static/js/views/settings-status-override.js), remplace
+  settings-done-override.js) : un onglet par colonne (compteur, ← → au clavier), rappel de ce que la
+  colonne implique (WIP, cycle time…), liste avec effectif et gain, ajout par saisie (libellé JIRA exact
+  repris quel que soit l'accent / la casse) ou par suggestion, équipes exemptées, aperçu de l'effet ; un
+  statut ajouté dans un onglet quitte les autres (message). Un seul « Enregistrer » pour les trois.
+- **Règle généralisée** ([utils/status-override.js](static/js/utils/status-override.js)) :
+  `forcedStatus()` → colonne forcée ; à la synchro, statut ET rejeu du changelog (un statut forcé en
+  En cours démarre le cycle time, en À faire il ne le démarre pas) ; colonnes du board déplacées vers
+  la colonne cible ; dans le store, statut d'origine gardé (`_preOverride`) pour rejouer la règle. Un
+  ticket signalé (drapeau JIRA) forcé en En cours / À faire reste Bloqué, comme à la synchro.
+- **API** : `statusOverride` ({done|inprog|todo: {statuses, exceptTeams}}) dans `/api/pi` et
+  `/api/all`, route `PUT /api/pi/status-override` (remplace /done-override) ; l'ancienne forme
+  {statuses, exceptTeams} est lue comme « Terminé ». Même colonne en base (`done_override`, vide à ce
+  jour : aucune donnée à convertir).
+- ⚠️ **Incident** : une ligne d'import insérée au milieu d'un import multi-lignes d'app/routers/data.py
+  a provoqué une SyntaxError au rechargement automatique — **API indisponible ~2 min (01:58 → 02:00)**,
+  corrigé aussitôt. Syntaxe des .py désormais vérifiée avant écriture.
+- Vérifié au banc Edge sur le vrai site (route simulée) : onglets, +15 en En cours puis déplacé en À
+  faire, Lion exemptée, PUT à trois colonnes, tickets « En cours de revue » → À faire (signalés :
+  Bloqué), conversion à la synchro (Initiale → À faire, Lion / Fuego exemptées → revue), retour aux
+  défauts ; mobile 390 px ; non-régression (101 tickets en Terminé, TV 7 blockers) ; validation serveur
+  testée sans écrire en base ; 0 erreur JS.
+
+## [3.193.0] - 2026-10-03
+
+### Paramètres → JIRA : « ✅ Statuts comptés comme Terminé » modifiable (règle partagée en base)
+
+- **Nouveau bloc** dans Paramètres → Plugin JIRA ([settings-done-override.js](static/js/views/settings-done-override.js),
+  [settings-done-override.css](static/css/views/settings-done-override.css)) : liste des statuts (effectif
+  et gain « +101 » par statut, ✕ pour retirer), ajout par saisie (suggestions des statuts JIRA
+  rencontrés) ou en un clic (« + En cours de revue 15 »), équipes exemptées en boutons à bascule
+  (🛡️ Fuego), **aperçu de l'effet** recalculé à chaque changement (« +101 tickets passent en Terminé
+  grâce à cette règle · 11 équipes »), « Enregistrer » et « Rétablir les valeurs par défaut ». Badge
+  « Valeurs par défaut » / « Réglage enregistré ».
+- **Partagée, en base** : `piconfig.done_override` (migration live, base sauvegardée avant dans
+  `data/board.avant-done-override-2026-10-03.bak.db`, essai à blanc sur copie), route dédiée
+  `PUT /api/pi/done-override` (libellés nettoyés : 80 caractères, sans doublon, 60 au plus ; liste vide
+  → valeurs par défaut), exposée dans `/api/pi` et `/api/all` (`doneOverride`), préservée par
+  PUT /api/pi et par la restauration d'une sauvegarde. Elle vaut pour le poste qui synchronise, l'écran
+  TV et chaque navigateur ; config.js → `DONE_OVERRIDE` reste la valeur par défaut.
+- **La règle s'applique dans le store** (`store.transform('tickets', …)`, state.js) : les sept chemins
+  qui rechargent les tickets (chargement, Paramètres, board, modales, actions en lot…) passent par elle.
+  **Défaut corrigé** : le rechargement de la page Paramètres remettait les tickets sans la règle (les 101
+  tickets redevenaient « À faire » après tout enregistrement dans Paramètres).
+- **Règle rejouable** : le statut d'origine d'un ticket forcé est gardé (`_preDone`) ; changer la règle
+  (statut retiré, équipe exemptée) rend aussitôt leur statut aux tickets concernés, sans recharger.
+- Vérifié au banc Edge sur le vrai site (route d'enregistrement simulée) : +101 au départ ; ajout
+  « En cours de revue » + Lion exemptée + « Clos sans suite » retiré → +88 ; enregistrement → badge,
+  tickets de Lion revenus à Bloqué / À faire ; rétablissement → +101, Lion en Terminé ; mobile 390 px sans
+  débordement ; non-régression 3.192 / TV ; 0 erreur JS. Validation serveur testée sans écrire en base.
+
+## [3.192.0] - 2026-10-03
+
+### Statuts « livrés » rangés en Done pour toutes les équipes sauf Fuego
+
+- **Règle « Done forcé »** ([config.js](static/js/config.js) → `DONE_OVERRIDE`) : « À livrer pour
+  validation », « En cours de test Recette », « En cours de test Préprod », « En cours de Recette »,
+  « À livrer en prod », « En Prod », « Terminé », « Clos sans suite » comptent comme **Terminé** (colonne
+  Done) pour toutes les équipes **sauf Fuego**, quoi qu'en dise la colonne du board JIRA (« Recette » →
+  Test) ou STATUS_MAP. Libellés comparés sans accents ni casse (« A livrer » = « À livrer ») ; Fuego
+  reconnu aussi sous « GCOM - Fuego » (Team[Team] brut).
+- **Source unique** [utils/status-override.js](static/js/utils/status-override.js), appliquée :
+  - à la **synchro** (sync-parse.js) : statut du ticket ET rejeu du changelog → date de fin et cycle
+    time au passage dans ces statuts (l'équipe définitive est calculée avant le statut) ;
+  - aux **colonnes du board** (sync.js) : statuts déplacés dans la colonne Done, colonne vidée retirée ;
+  - au **chargement** (app.js) : tickets et colonnes déjà en base, sans attendre une synchro complète.
+- Effet sur la base actuelle : **101 tickets « À livrer pour validation » passent de À faire (ou
+  Bloqué) à Terminé** sur 11 équipes (Lion 28, Initiale 12, Caméléon 10, Juke 10…), 0 chez Fuego ; les
+  autres statuts de la liste étaient déjà en Done. Les 4 tickets signalés de Lion dans ce statut sortent
+  de l'alerte « blockers » de la TV (11 → 7).
+- ⚠️ Dates de fin et cycle time de ces tickets : recalculés à la prochaine **synchro complète** (une
+  synchro rapide ne retraite que les tickets modifiés récemment) ; d'ici là, le statut est corrigé
+  à l'affichage seulement.
+- Vérifié au banc Edge (vraies données) : 101 tickets corrigés, Fuego intact ; conversion d'un ticket
+  (Lion / Initiale / Bellier → done, fin au 05/09, cycle 3 j ; Fuego et « GCOM - Fuego » inchangés) ;
+  colonnes Lion vs Fuego ; vrai site : 28 tickets Lion en done, alerte TV 7 blockers ; 0 erreur JS.
+
 ## [3.191.0] - 2026-10-03
 
 ### Mode TV — points du burnup datés et cliquables

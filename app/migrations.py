@@ -89,6 +89,8 @@ def run_migrations(engine):
         ("workshoptemplate", "icon",       "ALTER TABLE workshoptemplate ADD COLUMN icon TEXT DEFAULT '📋'"),
         # Auteur d'un fait marquant (frise de la page Équipe, 3.170.0) — nom saisi, pas de compte
         ("event", "author",                "ALTER TABLE event ADD COLUMN author TEXT DEFAULT ''"),
+        # Statuts JIRA comptés comme Terminé sauf équipes exemptées (Paramètres → JIRA, 3.193.0)
+        ("piconfig", "done_override",      "ALTER TABLE piconfig ADD COLUMN done_override JSON DEFAULT '{}'"),
     ]
     with engine.connect() as conn:
         insp = sa_inspect(engine)

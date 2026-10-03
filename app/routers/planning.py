@@ -106,6 +106,8 @@ async def update_pi(request: Request, session: Session = Depends(get_session)):
         p.pi_baselines   = body.get("piBaselines") or {}
     if "supportWeekModes" in body:
         p.support_week_modes = body.get("supportWeekModes") or {}
+    if "statusOverride" in body:
+        p.done_override = _clean_status_override(body.get("statusOverride"))
     # Historisation auto : à chaque save des objectifs du PI courant, on snapshot dans
     # pi_objectives[number] pour que les PI passés restent consultables (dashboard / sélecteur).
     # Le snapshot ne s'écrase qu'à la clé du PI courant — les autres PI sont préservés.
@@ -165,6 +167,63 @@ async def set_support_week_mode(request: Request, session: Session = Depends(get
     session.commit()
     session.refresh(p)
     return {"ok": True, "supportWeekModes": p.support_week_modes}
+
+
+# Colonnes cibles, par PRIORITÉ : un statut présent dans deux listes reste dans la première.
+_OVERRIDE_TARGETS = ("done", "inprog", "todo")
+
+
+def _clean_labels(values, cap=60) -> list:
+    """Libellés nettoyés : texte, 1 à 80 caractères, sans doublon (casse ignorée), `cap` au plus."""
+    seen, out = set(), []
+    for v in values or []:
+        v = str(v).strip()[:80]
+        if v and v.lower() not in seen:
+            seen.add(v.lower())
+            out.append(v)
+    return out[:cap]
+
+
+def _clean_status_override(raw) -> dict:
+    """Valide la règle des statuts forcés : {done|inprog|todo: {statuses, exceptTeams}}.
+
+    Ancienne forme {statuses, exceptTeams} (Terminé seul, 3.193.0) lue comme « done ». Un statut ne
+    vit que dans une colonne (priorité done > inprog > todo). Aucun statut nulle part → {} (valeurs par
+    défaut du front).
+    """
+    if not isinstance(raw, dict):
+        return {}
+    if "statuses" in raw:
+        raw = {"done": raw}
+    out, taken = {}, set()
+    for cat in _OVERRIDE_TARGETS:
+        part = raw.get(cat)
+        if not isinstance(part, dict):
+            continue
+        statuses = [s for s in _clean_labels(part.get("statuses")) if s.lower() not in taken]
+        taken.update(s.lower() for s in statuses)
+        out[cat] = {"statuses": statuses, "exceptTeams": _clean_labels(part.get("exceptTeams"))}
+    return out if any(v["statuses"] for v in out.values()) else {}
+
+
+@router.put("/api/pi/status-override")
+async def set_status_override(request: Request, session: Session = Depends(get_session)):
+    """Statuts JIRA forcés dans une colonne (Paramètres → JIRA) :
+    {done|inprog|todo: {statuses: [...], exceptTeams: [...]}}.
+
+    Route dédiée plutôt que PUT /api/pi complet, comme les modes de semaine du support : ne touche
+    rien d'autre de la config PI. Corps {} → retour aux valeurs par défaut.
+    """
+    body = await request.json()
+    p = session.get(PIConfig, "pi-1")
+    if not p:
+        p = PIConfig(id="pi-1")
+    p.done_override = _clean_status_override(body)
+    p.updated_at = _now()
+    session.add(p)
+    session.commit()
+    session.refresh(p)
+    return {"ok": True, "statusOverride": p.done_override or {}}
 
 
 @router.put("/api/pi/baseline/{pi_number}")

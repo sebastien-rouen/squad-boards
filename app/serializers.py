@@ -133,6 +133,7 @@ def _pi_dict(p: PIConfig) -> dict | None:
         "piObjectives": p.pi_objectives or {},
         "piBaselines": p.pi_baselines or {},
         "supportWeekModes": p.support_week_modes or {},
+        "statusOverride": p.done_override or {},
         "updatedAt": p.updated_at,
     }
 

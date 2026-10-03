@@ -9,6 +9,7 @@ import { extractTeam, extractSprintLabel, toast } from './utils.js';
 import { SYNC_CONFIG, SYNC_DEFAULTS, syncSetting } from './config.js';
 import { getExcludedTeams, hideProgress, makeIncidents, setProgress, showProgress } from './sync-report.js';
 import { _mapColToInternal, transformIssue, parseADF, _extractTeamName, _paginateJql, _normalizeTeamName } from './sync-parse.js';
+import { forceColumns } from './utils/status-override.js';
 // API publique inchangée (app.js, topbar, Paramètres, tests) : ré-exports
 export { makeIncidents, getExcludedTeams, addExcludedTeam, removeExcludedTeam, clearExcludedTeams, dismissSyncReport } from './sync-report.js';
 
@@ -453,7 +454,8 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
                     boardStatusMap[st] = target.key;
                 }
             }
-            if (colArray.length) boardColumns[teamName] = colArray;
+            // Statuts forcés (Paramètres → JIRA) : ils passent dans leur colonne cible (Done, En cours, À faire).
+            if (colArray.length) boardColumns[teamName] = forceColumns(teamName, colArray);
         }
 
         // velocityById already populated by _fetchBoardMeta (pre-fetched in parallel above)

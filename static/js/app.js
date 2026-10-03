@@ -35,6 +35,7 @@ import { initChartZoom } from './components/chart_zoom.js';
 import { initDiagramZoom } from './components/diagram_zoom.js';
 import { updateInfoPanel } from './components/infopanel.js';
 import { renderCalBanner } from './components/cal_banner.js';
+import { applyStatusOverride, forceAllColumns } from './utils/status-override.js';
 
 // ── Vues en lazy loading — chaque module n'est téléchargé/parsé qu'à la première
 // visite de la vue (settings ≈ 300 KB, pi ≈ 176 KB, atlas ≈ 148 KB ne pèsent plus
@@ -456,7 +457,9 @@ window.__squadBoard.openCurrentSprintDemo = (...a) =>
 // ── Load all data from backend ────────────────────────────────────────────────
 async function loadAllData() {
     const d = await api.getAll();
-    const tickets = d.tickets || [];
+    // Statuts forcés (Paramètres → JIRA) appliqués dès le chargement : la base n'est corrigée qu'à la
+    // prochaine synchro complète (une rapide ne retraite que les tickets modifiés).
+    const tickets = applyStatusOverride(d.tickets || [], d.pi?.statusOverride);   // règle en base, pas encore dans le store
     const teams = d.teams || [];
     store.set('tickets', tickets);
     store.set('features', d.features || []);
@@ -486,7 +489,7 @@ async function loadAllData() {
     // Board column labels (persisted from last sync)
     try {
         const saved = localStorage.getItem('sb-boardColumns');
-        if (saved) store.set('boardColumns', JSON.parse(saved));
+        if (saved) store.set('boardColumns', forceAllColumns(JSON.parse(saved)));
     } catch { /* ignore */ }
     // JIRA project→teams mapping (persisted from last sync, used for group suggestions)
     try {

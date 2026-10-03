@@ -97,6 +97,8 @@ export const deleteTeam      = id   => request(`/api/teams/${id}`, { method: 'DE
 // ── Sprint ────────────────────────────────────────────────────────────────────
 export const getSprint       = ()   => request('/api/sprint');
 export const getSyncStamp    = ()   => request('/api/sync-stamp');   // heure du dernier import JIRA (mode TV)
+// Statuts forcés (Paramètres → JIRA) : {done|inprog|todo: {statuses, exceptTeams}} ; {} = valeurs par défaut
+export const setStatusOverride = data => request('/api/pi/status-override', { method: 'PUT', body: JSON.stringify(data || {}) });
 export const updateSprint    = data => request('/api/sprint', { method: 'PUT', body: JSON.stringify(data) });
 
 // ── PI ────────────────────────────────────────────────────────────────────────

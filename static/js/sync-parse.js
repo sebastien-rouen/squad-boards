@@ -7,6 +7,7 @@
 import * as api from './api.js';
 import { mapStatus, mapType, extractTeam, parseWikiMarkup } from './utils.js';
 import { CYCLE_START_STATUSES, CYCLE_END_STATUS } from './config.js';
+import { forcedStatus } from './utils/status-override.js';
 
 // ── Map JIRA column name → internal status key ───────────────────────────────
 export function _mapColToInternal(colName) {
@@ -26,8 +27,6 @@ export function transformIssue(issue, teamName, sprint, storyPointsField, boardS
     const f = issue.fields || {};
     const type = mapType(f.issuetype?.name);
     const jiraStatusName = f.status?.name || '';
-    const status = (boardStatusMap && boardStatusMap[jiraStatusName.toLowerCase().trim()])
-        || mapStatus(jiraStatusName);
     // Préserve le label JIRA brut pour affichage UI (ex: "En cours de développement" au lieu de "En cours")
     const jiraStatus = jiraStatusName;
     const points = f[storyPointsField] || f.story_points || 0;
@@ -38,6 +37,21 @@ export function transformIssue(issue, teamName, sprint, storyPointsField, boardS
 
     // Team: explicit arg > Team[Team] custom field > extracted from sprint name
     const _teamFromField = teamFieldId ? _extractTeamName(f[teamFieldId]) : null;
+    // Team mapping : Team[Team] (vérité SAFe — équipe agile responsable) > board name >
+    // extractTeam(sprint name) > 'Autre'.
+    // Cas typique : features planifiées sur un board cross-team (ex: "PI Board Features ERPC")
+    // → Team[Team]="GCOM - Fuego" doit l'emporter sur le nom du board.
+    // Filtre : skip extractTeam si sprint name est juste un tag PI ("PI#29" ≠ équipe).
+    const team = _teamFromField
+        || teamName
+        || (/^PI\s*#?\s*\d+\s*$/i.test(_sprintName || '') ? null : extractTeam(_sprintName))
+        || 'Autre';
+
+    // Statut interne : « statuts forcés » d'abord (Paramètres → JIRA, défauts config.js → « À livrer pour
+    // validation »… en Terminé pour toutes les équipes sauf Fuego), puis la colonne du board JIRA, puis
+    // STATUS_MAP. L'équipe définitive est connue ici : l'exception porte sur elle, pas sur le board.
+    const status = forcedStatus(team, jiraStatusName)
+        || (boardStatusMap && boardStatusMap[jiraStatusName.toLowerCase().trim()]) || mapStatus(jiraStatusName);
 
     const comments = (f.comment?.comments || []).slice(-5).map(c => ({
         id: c.id || Math.random().toString(36).slice(2, 10),
@@ -76,7 +90,7 @@ export function transformIssue(issue, teamName, sprint, storyPointsField, boardS
             for (const item of (history.items || [])) {
                 if (item.field !== 'status') continue;
                 const toStatus = (item.toString || '').toLowerCase().trim();
-                const mapped = (boardStatusMap && boardStatusMap[toStatus]) || mapStatus(toStatus);
+                const mapped = forcedStatus(team, toStatus) || (boardStatusMap && boardStatusMap[toStatus]) || mapStatus(toStatus);
                 if (!startedDate && CYCLE_START_STATUSES.includes(mapped)) {
                     startedDate = history.created;
                 }
@@ -145,15 +159,7 @@ export function transformIssue(issue, teamName, sprint, storyPointsField, boardS
         status: flagged && status !== 'done' ? 'blocked' : status,
         jiraStatus,  // label JIRA brut, ex: "En cours de développement" (persisté en base pour affichage)
         _jiraStatus: jiraStatusName.toLowerCase().trim(),
-        // Team mapping : Team[Team] (vérité SAFe — équipe agile responsable) > board name >
-        // extractTeam(sprint name) > 'Autre'.
-        // Cas typique : features planifiées sur un board cross-team (ex: "PI Board Features ERPC")
-        // → Team[Team]="GCOM - Fuego" doit l'emporter sur le nom du board.
-        // Filtre : skip extractTeam si sprint name est juste un tag PI ("PI#29" ≠ équipe).
-        team: _teamFromField
-            || teamName
-            || (/^PI\s*#?\s*\d+\s*$/i.test(_sprintName || '') ? null : extractTeam(_sprintName))
-            || 'Autre',
+        team,   // cf. plus haut : Team[Team] > board > sprint > 'Autre'
         leader: f.assignee?.displayName || null,
         reporter: f.reporter?.displayName || null,
         contributors: [],

@@ -12,6 +12,7 @@ import { SYNC_DEFAULTS } from '../config.js';
 import * as api from '../api.js';
 import { esc, toast } from '../utils.js';
 import { getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
+import { statusOverrideHtml, wireStatusOverride } from './settings-status-override.js';
 
 /** Valeur effective d'un réglage de sync (saisie utilisateur, sinon défaut). */
 function _readCapValue(lsKey, fallback) {
@@ -285,6 +286,7 @@ export function jiraSectionHtml() {
                     </div>
                 </div>
                 ` : ''}
+                ${statusOverrideHtml()}
             </div>
         </div>
 
@@ -298,6 +300,7 @@ export function jiraSectionHtml() {
  */
 export function wireJiraSection(container, onReload = () => {}) {
     const reloadAndRender = () => onReload();
+    wireStatusOverride(container, reloadAndRender);   // 🎯 Statuts forcés dans une colonne (règle partagée)
 
     // ── JIRA sync config ──────────────────────────────────────────────────────
     // `min` : 0 est une valeur LÉGITIME pour l'historique des tickets (désactive la passe),

@@ -38,6 +38,12 @@ class PIConfig(SQLModel, table=True):
     # Snapshot des membres par PI au moment de l'import CSV (gère le turnover PI à PI).
     # Forme : { "29": [{name, team, role, entity}, …], "30": […] }
     pi_members: dict = Field(default={}, sa_column=Column(JSON))
+    # Statuts JIRA forcés dans une colonne (Paramètres → JIRA), API « statusOverride » :
+    # {done|inprog|todo: {statuses: [...], exceptTeams: [...]}} — pour toutes les équipes sauf les
+    # exemptées. {} = valeurs par défaut du front (config.js → STATUS_OVERRIDE_DEFAULTS). Colonne
+    # nommée done_override (1re version : Terminé seul, forme {statuses, exceptTeams} encore acceptée).
+    # En base et pas en localStorage : même règle pour le poste qui synchronise, la TV et chaque navigateur.
+    done_override: dict = Field(default={}, sa_column=Column(JSON))
     # Snapshot des objectifs par PI (historisation — `objectives` ne contient que le PI courant).
     # Forme : { "29": [{text, team, status, bv, committed}, …], "30": […] }
     # Permet d'afficher les objectifs d'un PI passé/futur sur le dashboard via le sélecteur PI.

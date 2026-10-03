@@ -29,6 +29,7 @@ from app.serializers import (
     _retro_dict, _mood_dict, _cal_dict, _team_identity_dict, _workshop_template_dict,
     _team_workshop_dict,
 )
+from app.routers.planning import _clean_status_override
 
 router = APIRouter(tags=["data"])
 
@@ -365,6 +366,8 @@ async def import_all(request: Request, session: Session = Depends(get_session)):
         p.pi_objectives    = pd.get("piObjectives", p.pi_objectives or {})
         p.pi_baselines     = pd.get("piBaselines", p.pi_baselines or {})
         p.support_week_modes = pd.get("supportWeekModes", p.support_week_modes or {})
+        if "statusOverride" in pd or "doneOverride" in pd:   # restauration d'une sauvegarde ; la synchro ne l'envoie pas
+            p.done_override = _clean_status_override(pd.get("statusOverride", pd.get("doneOverride")))
         # Historise les objectifs importés sous la clé du PI courant si pas déjà couverts.
         if p.number and str(p.number) not in (p.pi_objectives or {}):
             snap = dict(p.pi_objectives or {})

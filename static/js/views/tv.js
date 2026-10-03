@@ -23,7 +23,7 @@ import { meteoMatrixHtml, meteoContext, computeTeamMeteo } from '../components/m
 import { meteoPlanHtml } from '../components/meteo_plan.js';
 import { screenSeconds, pageSeconds, nightEnabled, tvTheme, settingsHtml, wireSettings, applyUrlSettings } from './tv-settings.js';
 import { tkAttrs, pagedHtml, dayKey, screenPresence, screenZeroBlocker, noteBlockersSeen } from './tv-screens.js';
-import { screenWeek, rollDays, weekDayHtml } from './tv-week.js';
+import { screenWeek, rollDays, weekDayHtml, weekCalEventHtml, weekOffHtml } from './tv-week.js';
 import { meteoDetailHtml } from './tv-meteo-detail.js';
 import { screenSprint, sprintDayHtml } from './tv-sprint.js';
 import { startLive } from './tv-live.js';
@@ -500,7 +500,7 @@ export function renderTv(container) {
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;   // flèches d'un menu de réglage
         if (e.key === 'Enter' && e.target.dataset?.ticket) { e.preventDefault(); openTk(e.target.dataset.ticket); return; }
         if (e.key === 'Enter' && e.target.closest?.('[data-burn-day]')) { e.preventDefault(); e.target.closest('[data-burn-day]').dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
-        if (e.key === 'Enter' && e.target.matches?.('header[data-week-day]')) { e.preventDefault(); e.target.click(); return; }
+        if (e.key === 'Enter' && e.target.matches?.('header[data-week-day], [data-cal-ev], [data-cal-off]')) { e.preventDefault(); e.target.click(); return; }
         if (e.key === 'ArrowRight') { e.preventDefault(); show(_st.idx + 1); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); show(_st.idx - 1); }
         else if (e.key === ' ') { e.preventDefault(); pause(!_st.paused); }
@@ -533,6 +533,14 @@ export function renderTv(container) {
         // La semaine : ‹ › changent de semaine (l'écran se fige le temps de la lecture) ; un jour → son détail.
         const wnav = e.target.closest('[data-week-nav]');
         if (wnav) { const n = +wnav.dataset.weekNav; _st.weekOffset = n ? _st.weekOffset + n : 0; pause(true); show(_st.idx); return; }
+        // Évènement d'agenda → son détail (depuis le détail d'un jour : avec retour vers ce jour) ; absences du jour.
+        const calEv = e.target.closest('[data-cal-ev]');
+        if (calEv) {
+            const back = e.target.closest('#tv-detail') ? $('tv-detail').querySelector('.tvw-detail')?.dataset.day : null;
+            openPanel(weekCalEventHtml(calEv.dataset.calEv, back)); return;
+        }
+        const calOff = e.target.closest('[data-cal-off]');
+        if (calOff) { openPanel(weekOffHtml(calOff.dataset.calOff)); return; }
         const wday = e.target.closest('[data-week-day]');
         if (wday) { openPanel(weekDayHtml(_scope().teams, wday.dataset.weekDay)); return; }
         const sp = e.target.closest('[data-sprint-team]');

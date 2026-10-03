@@ -1,3 +1,40 @@
+## [3.199.0] - 2026-10-03
+
+### Agendas : 5 natures de plus, et l'agenda de l'équipe dans « 🗞️ La semaine en bref »
+
+- **Natures d'agenda : 14 → 19** ([utils/cal-classify.js](static/js/utils/cal-classify.js)) — 🗂️ Organisation,
+  🧭 Cadrage & conception, 🏛️ Métier & parties prenantes, 👋 RH & onboarding, 🎉 Convivialité ; proposées
+  dans « Classer comme… » (Paramètres → Calendriers → Détecteur) pour les titres non reconnus comme
+  « (🪄✨) ». Détection prudente, mesurée sur les 3 585 évènements réels avant d'écrire : « Point Métier
+  Infra / GDC / GDEM… » ×78 → Métier, « [Kickoff] … », « Atelier cadrage », « Finalisation maquette » →
+  Cadrage, « Présentation ORGA OPS » → Organisation, « [Onboarding Michel] » → RH ; deux faux positifs
+  écartés au passage (`ux` envoyait « Synchro PO/PM/UX » en Cadrage ; `entretien` / `welcome` trop larges).
+  Déclarées aussi au serveur (`NATURES` de calendar_rules.py — sinon le classement serait refusé), dans la
+  palette (clair et sombre), la surbrillance de légende, l'ordre `RANK`, et le miroir
+  `static/mockups/team-calendar/` (classify.js, tc.css, README).
+- **🗞️ La semaine en bref : les agendas** ([tv-week.js](static/js/views/tv-week.js)) — une équipe :
+  **son agenda** (👥, liseré plein et fond teinté de la couleur de la nature), celui de son groupe (🧩)
+  et les agendas **communs** du train (🚂) et des opérations (⚙️), en liseré pointillé avec leur icône ;
+  heure en tête, journée entière d'abord ; légende dans l'en-tête. Tout le train : les agendas communs
+  seuls (« choisis une équipe pour voir son agenda »). Source unique `eventsFor` (carte « Agenda de
+  l'équipe ») ; MEP, opérations et jalons en viennent désormais (plus de doublon avec la frise).
+  Absences d'agenda regroupées en une ligne par jour (« 2 absents · Zakaria, Sohayb », cliquable),
+  « Détails masqués » écartés, évènements de **plusieurs jours** en **bandeaux** au-dessus des colonnes
+  (comme les sprints) au lieu d'une ligne répétée chaque jour.
+- **Détail d'un évènement au clic** ([tv-week-event.js](static/js/views/tv-week-event.js)) : grande
+  pastille de nature à sa couleur, titre complet, « Lundi 28 septembre · 09h30 → 10h30 », durée,
+  🔁 récurrent, agenda source (👥 de l'équipe / 🚂 commun · nom de l'agenda), personne, 📍 lieu,
+  **boutons** vers la visio (📹 Meet / Teams / Zoom, visio.numerique.gouv.fr), 📄 documents, 📘 Confluence,
+  🎫 JIRA, puis la description. Depuis le détail d'un jour : « ← Toute la journée ». Clavier : Entrée ouvre.
+  ⚠️ La description Google (HTML) est lue par `DOMParser`, réduite à du texte puis échappée : seuls les
+  liens http(s) en sont extraits — rien n'est injecté tel quel.
+- Vérifié au banc Edge (vraies données) : Fuego → lundi 11 évènements d'équipe / 6 communs / 1 ligne
+  d'absences, « Audit SSI » (21/09 → 09/10) en un seul bandeau ; train → agendas communs seuls ; détail
+  « Weekly Fuego » (1 h, récurrent, liens Confluence + visio, 0 balise injectée) ; démo d'itération
+  (2 h 15, agenda GLOBAL) ; retour vers le jour ; 1366 × 768 : panneau dans l'écran ; sélecteur de
+  classement à 18 natures ; carte Agenda de Fuego → Cadrage / Organisation colorés ; 0 erreur JS ;
+  `node --test` 267/267. Serveur redémarré proprement après l'ajout des natures (journal).
+
 ## [3.198.0] - 2026-10-03
 
 ### Sauvegarde de configuration `.local`, aides « ? » du Dashboard, historique des niveaux Atlas

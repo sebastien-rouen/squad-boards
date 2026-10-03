@@ -299,7 +299,7 @@ const oneOnOnes = (M, team) => calendar(M, team).filter(e => e.scope === 'team' 
  *  ⚠️ signale une opération importante, pas la prod (« ⚠️[ERPC_RECETTE] Exercice de PRA »). */
 const OPS_PROD_TAG = /\[\s*prod/i;
 const OPS_NON_PROD = /\[[^\]]*(recette|qual|preprod|pre-prod|dev|test|int[eé]g)/i;
-const opsIsProd = t => OPS_PROD_TAG.test(t) || (/⚠️/u.test(t) && !OPS_NON_PROD.test(t));
+export const opsIsProd = t => OPS_PROD_TAG.test(t) || (/⚠️/u.test(t) && !OPS_NON_PROD.test(t));
 const operations = (M, team) => calendar(M, team).filter(e => e.scope === 'ops')
     .map(e => ({ day: e.day, title: e.title.replace(/^\s*⚠️\s*/u, ''), time: e.allDay ? '' : e.start.slice(11, 16), prod: opsIsProd(e.title), cal: e.cal }))
     .sort((a, b) => a.day.localeCompare(b.day) || a.time.localeCompare(b.time));

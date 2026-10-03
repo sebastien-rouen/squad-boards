@@ -49,6 +49,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
   n°1 — la grille utilisait 2,5). Semaines d'une équipe = `buildPiWeeks` AVEC son mode, jamais
   les semaines du mode par défaut réutilisées pour toutes les équipes.
 - **Évènements d'agenda (ICS)** (3.167.0) : nature et portée UNIQUEMENT via `utils/cal-classify.js`
+  — ⚠️ une nature AJOUTÉE (3.199.0 : 19) se déclare à 5 endroits : `CAL_NATURES` + `RULES`, `NATURES`
+  du serveur (calendar_rules.py, sinon 400), palette `--n-*` clair ET sombre + `[data-k]` + `data-hl`
+  (team-calendar.css), `RANK` (team_calendar_views.js), et le miroir `static/mockups/team-calendar/`.
+  La TV « La semaine » lit l'agenda par `eventsFor` (même source que la carte). Pour le reste :
   (`calNatureWithRules` = règle positionnée > détecteur ; `calScope` depuis le champ CSV
   `team_calendar.team`) — le bandeau calendrier et la carte « Agenda de l'équipe » partagent ce
   détecteur, n'en écrire aucun autre. Règles à la main : table `calendar_rule`, clé `calNorm(titre)`

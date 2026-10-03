@@ -12,6 +12,7 @@
     --n-retro: #d97706;  --n-train: #0d9488;    --n-community: #16a34a; --n-sync: #475569;
     --n-release: #ea580c; --n-support: #ca8a04; --n-off: #dc2626;       --n-busy: #94a3b8;
     --n-focus: #0891b2;  --n-other: #71717a;
+    /* 3.199.0 */ --n-orga: #64748b; --n-cadrage: #6d28d9; --n-metier: #0f766e; --n-rh: #be185d; --n-social: #e11d48;
     --tc-hour: 52px;            /* hauteur d'une heure — 44 px ne laissait qu'une ligne de titre à 45 min */
     --tc-tint: 14%;             /* teinte de fond d'un bloc */
     --tc-now: #ef4444;
@@ -21,6 +22,7 @@
     --n-retro: #fbbf24;  --n-train: #2dd4bf;    --n-community: #4ade80; --n-sync: #94a3b8;
     --n-release: #fb923c; --n-support: #facc15; --n-off: #f87171;       --n-busy: #64748b;
     --n-focus: #22d3ee;  --n-other: #a1a1aa;
+    --n-orga: #cbd5e1; --n-cadrage: #c4b5fd; --n-metier: #5eead4; --n-rh: #f9a8d4; --n-social: #fb7185;
     --tc-tint: 22%;
 }
 [data-k="daily"]     { --k: var(--n-daily); }     [data-k="planning"] { --k: var(--n-planning); }
@@ -30,6 +32,9 @@
 [data-k="release"]   { --k: var(--n-release); }   [data-k="support"]  { --k: var(--n-support); }
 [data-k="off"]       { --k: var(--n-off); }       [data-k="busy"]     { --k: var(--n-busy); }
 [data-k="focus"]     { --k: var(--n-focus); }     [data-k="other"]    { --k: var(--n-other); }
+[data-k="orga"]      { --k: var(--n-orga); }      [data-k="cadrage"]  { --k: var(--n-cadrage); }
+[data-k="metier"]    { --k: var(--n-metier); }    [data-k="rh"]       { --k: var(--n-rh); }
+[data-k="social"]    { --k: var(--n-social); }
 
 /* ── Carte ───────────────────────────────────────────────────────────────────── */
 .tc-card { --k: var(--n-other); --team: var(--primary); padding: 0; overflow: visible; }
@@ -401,7 +406,10 @@
 .tcl[data-hl="community"] .tc-ev[data-k="community"], .tcl[data-hl="sync"] .tc-ev[data-k="sync"],
 .tcl[data-hl="release"] .tc-ev[data-k="release"], .tcl[data-hl="support"] .tc-ev[data-k="support"],
 .tcl[data-hl="off"] .tc-ev[data-k="off"], .tcl[data-hl="busy"] .tc-ev[data-k="busy"],
-.tcl[data-hl="focus"] .tc-ev[data-k="focus"], .tcl[data-hl="other"] .tc-ev[data-k="other"] {
+.tcl[data-hl="focus"] .tc-ev[data-k="focus"], .tcl[data-hl="other"] .tc-ev[data-k="other"],
+.tcl[data-hl="orga"] .tc-ev[data-k="orga"], .tcl[data-hl="cadrage"] .tc-ev[data-k="cadrage"],
+.tcl[data-hl="metier"] .tc-ev[data-k="metier"], .tcl[data-hl="rh"] .tc-ev[data-k="rh"],
+.tcl[data-hl="social"] .tc-ev[data-k="social"] {
     opacity: 1; box-shadow: 0 0 0 2px var(--k);
 }
 

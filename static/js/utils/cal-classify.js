@@ -28,6 +28,12 @@ export const CAL_NATURES = {
     off:       { label: 'Absence',                emoji: '🏖️' },
     busy:      { label: 'Détails masqués',        emoji: '🔒' },
     focus:     { label: 'Temps protégé',          emoji: '🎧' },
+    // 3.199.0 — natures de plus, pour ranger à la main ce que le détecteur laissait en « Autre »
+    orga:      { label: 'Organisation',           emoji: '🗂️' },
+    cadrage:   { label: 'Cadrage & conception',   emoji: '🧭' },
+    metier:    { label: 'Métier & parties prenantes', emoji: '🏛️' },
+    rh:        { label: 'RH & onboarding',        emoji: '👋' },
+    social:    { label: 'Convivialité',           emoji: '🎉' },
     other:     { label: 'Autre',                  emoji: '📌' },
 };
 
@@ -47,9 +53,14 @@ const RULES = [
     // « Busy » : agenda partagé en « disponibilités seulement » (Lion) — titre masqué par Google
     ['busy',      /^(busy|occupe|indisponible|prive)$/],
     ['support',   /^support\b|passation support|point support|monitoring prod|astreinte/],
+    // Convivialité et RH AVANT les réunions : « Déjeuner d'équipe », « Point onboarding de Léa »
+    ['social',    /after[- ]?work|\bpot\b|\bapero|dejeuner|petit[- ]?dej|team[- ]?building|anniversaire|galette|\bseminaire|soiree/],
+    ['rh',        /onboarding|offboarding|\baccueil\b|entretiens? (annuel|individuel|professionnel|d.?embauche|de recrutement)|recrutement|\bcandidat/],
     // Train avant « planning » : « ERPC - PI Planning - Plénière » n'est PAS un sprint planning
     ['train',     /pi\s*planning|pleniere|art\s*sync|coach\s*sync|po\s*sync|scrum\s*of\s*scrums|inspect|\badapt\b|i\s*&\s*a|journees?\s*innovation|system\s*demo/],
     ['community', /\bcopa?\b|communaute|guilde|chapter|la tech des|tech\s*talk|meetup|brown\s*bag|\bclub\b|formation|training|aprem tech|techme/],
+    // Après le train (« PI Planning ») et la communauté (« Guilde design ») : un cadrage d'équipe
+    ['cadrage',   /cadrage|conception|architecture|\bspecs?\b|specification|kick[- ]?off|\blancement\b|\bmaquettes?\b/],
     // 1:1 (« [1v1] Mohamed/Kévin », « O3 - Elsa/Tanisha ») et synchro de rôles (« Weekly … PO/TL/SMs »)
     ['sync',      /\b1v1\b|\bo3\b|one[- ]on[- ]one|weekly.*\b(po|tl|sms?)\b/],
     // « Review des découpages et chiffrages » est un affinage, pas une démo
@@ -64,7 +75,10 @@ const RULES = [
     ['daily',     /\bdaily\b|stand[- ]?up|\bweekly\b|meteo du jour/],
     // « [Infra] - Créneau de ME(P)P » : les parenthèses deviennent des espaces à la normalisation
     ['release',   /\bmepp?\b|\bme p p\b|mise en (pre)?prod|livraison|release|preprod|montees? de versions?|renovate|\bmr\b|merge|deploiement|gitlab|\brepos?\b|\bdump\b|\bgel\b|freeze|latest is not a version|intervention|\btnr\b|\bqual_/],
-    ['sync',      /synchro|\bsync\b|\bpoint\b|atelier|comite|\brevue\b|reunion|alignement|humeur|\borga\b|finalisation/],
+    // Métier et organisation AVANT le filet « réunion » : « Point MOA », « Orga des congés »
+    ['metier',    /\bmoa\b|\bmoe\b|metiers?\b|utilisateurs|\bclients?\b|parties prenantes|stakeholders?|\bdsi\b|\bcopil\b/],
+    ['orga',      /\borga(nisation)?\b|logistique|administratif|\badmin\b|conges|demenagement|flex[- ]?office|\bbureaux?\b|budget|staffing/],
+    ['sync',      /synchro|\bsync\b|\bpoint\b|atelier|comite|\brevue\b|reunion|alignement|humeur|finalisation/],
 ];
 
 /** Titre normalisé : minuscules, sans accents ni emoji. Clé des règles `calendar_rule`. */

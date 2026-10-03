@@ -176,7 +176,9 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
 .tv-alert-hd small { display: block; font-size: var(--fs-sm); font-weight: var(--fw-bold); letter-spacing: .12em; text-transform: uppercase; color: var(--status-blocked-text); }
 .tv-alert-hd h2 { font-size: 2.4rem; line-height: 1.1; }
 .tv-alert-hd p { color: var(--text-secondary); font-size: var(--fs-base); }
-.tv-alert-since { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; font-size: 3.5rem; line-height: 1; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; color: var(--status-blocked-text); }
+/* « 12 j » : 4,25 rem (68 px). Sélecteur à 2 classes : `.tv-alert-hd > span` (5 rem, pour l'emoji ⛈️)
+   l'emportait sur `.tv-alert-since` seul — le chiffre s'affichait en 80 px quoi qu'on y mette. */
+.tv-alert-hd > .tv-alert-since { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; font-size: 4.25rem; line-height: 1; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; color: var(--status-blocked-text); }
 .tv-alert-since small { font-size: var(--fs-sm); font-weight: var(--fw-medium); letter-spacing: .04em; color: var(--text-secondary); margin-top: var(--sp-1); }
 /* La liste complète défile seule (tv.js → _autoScroll) ; l'en-tête reste en place. */
 .tv-alert-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-5); padding-right: var(--sp-2); scrollbar-width: thin; }

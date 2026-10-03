@@ -1,3 +1,22 @@
+## [3.199.1] - 2026-10-03
+
+### Mode TV — bandeau d'évènement compact, « 12 j » plus petit, libellés des graphiques sans chevauchement
+
+- **Bandeau d'un évènement de plusieurs jours** (La semaine) : une ligne, **24 px au lieu de 174**,
+  police réduite, titre tronqué (« … ») avec le titre complet en infobulle. Cause : la classe des
+  évènements (`tvw-cal`) était déjà celle du CONTENEUR du calendrier (`flex: 1`, en colonne) — le
+  bandeau s'étirait en colonne. Classe renommée **`tvw-ev`** (tv-week.js, tv-week.css).
+- **Alerte : « 12 j » (`tv-alert-since`) en 4,25 rem (68 px) au lieu de 80 px.** La règle à 3,5 rem
+  n'avait jamais servi : `.tv-alert-hd > span` (5 rem, prévue pour l'emoji ⛈️) l'emportait par
+  spécificité — sélecteur passé à `.tv-alert-hd > .tv-alert-since`.
+- **Burndown / burnup : plus aucun chevauchement de libellés** ([tv-sprint.js](static/js/views/tv-sprint.js),
+  `labelPlacer`) — « aujourd'hui », « périmètre 37 », « ≈ 19,4 restants à la fin », la valeur du jour,
+  « N faits » essaient chacun quelques positions (au-dessus, au-dessous, de l'autre côté de la ligne)
+  et prennent la première libre ; titre d'axe, barres « +N » et repères ▲ sont réservés d'office.
+- Mesuré au banc Edge sur tous les sprints actifs (vue train paginée + grand format de chaque équipe,
+  1920 × 1080 et 1366 × 768) : **17 chevauchements → 0** ; bandeau 24 px ; « 12 j » 68 px ; La semaine
+  (styles équipe / commun, clics bandeau et évènement) inchangée ; 0 erreur JS.
+
 ## [3.199.0] - 2026-10-03
 
 ### Agendas : 5 natures de plus, et l'agenda de l'équipe dans « 🗞️ La semaine en bref »

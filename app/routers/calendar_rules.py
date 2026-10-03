@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/calendar-rules", tags=["calendar-rules"])
 NATURES = {
     "daily", "planning", "affinage", "demo", "retro", "train", "community", "sync",
     "release", "support", "off", "busy", "focus", "other",
+    "orga", "cadrage", "metier", "rh", "social",   # 3.199.0
 }
 
 

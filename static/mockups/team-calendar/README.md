@@ -49,6 +49,11 @@ couleur, pas la même étiquette**. C'est ce qui rend la comparaison lisible.
 **Couverture : 97,3 %** des 3 580 évènements réels (tous agendas, toute l'année). Le reste n'est
 pas devinable (« (🪄✨) » ×21, « Bastions ! »). Pièges rencontrés en mesurant, tous corrigés :
 
+> **3.199.0 — 19 natures** (+ 🗂️ Organisation, 🧭 Cadrage & conception, 🏛️ Métier & parties
+> prenantes, 👋 RH & onboarding, 🎉 Convivialité), surtout pour le rangement à la main. Mesuré sur
+> 3 585 évènements : 97,1 % rangés ; reclassés depuis « Synchro » : « Point Métier … » ×78 → Métier,
+> « [Kickoff] … », « Atelier cadrage » → Cadrage. `ux` écarté (« Synchro PO/PM/UX » restait une synchro).
+
 - « **Raffinage** de tickets » (Gabbiano) et « **Démonstration** d'itération » — le détecteur actuel
   du bandeau calendrier (`_detectScrumType`) ne reconnaît ni l'un ni l'autre ;
 - « **Review** des découpages et chiffrages » est un affinage, pas une démo ;

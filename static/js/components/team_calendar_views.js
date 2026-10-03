@@ -103,7 +103,7 @@ function weekPhone(st, p, lanes, byLane) {
 
 // ══ Itération : couloirs ═══════════════════════════════════════════════════════════
 // Priorité quand une case est plafonnée : les jalons d'abord
-const RANK = { planning: 0, demo: 1, retro: 2, train: 3, affinage: 4, support: 5, community: 6, daily: 7, release: 8, sync: 9, focus: 10, other: 11, busy: 12, off: 13 };
+const RANK = { planning: 0, demo: 1, retro: 2, train: 3, cadrage: 4, affinage: 5, metier: 6, support: 7, community: 8, rh: 9, daily: 10, release: 11, orga: 12, sync: 13, social: 14, focus: 15, other: 16, busy: 17, off: 18 };
 
 const pill = e => `<button class="tc-ev tcl-pill${e.corrected ? ' is-corrected' : ''}" data-id="${esc(e.id)}" data-k="${e.kind}" title="${esc(tipOf(e))}">
     <span class="tcl-name">${esc(short(e))}</span><span class="tcl-time">${hhmm(e.startMin)}</span></button>`;

@@ -67,11 +67,11 @@ function boundsOf(bands, d, single, full = false) {
  *  agenda commun l'icône de sa portée. Cliquable → détail (`data-cal-ev` = index dans `_weekCal`). */
 const calItemHtml = e => {
     const sc = CAL_SCOPES[e.scope] || { icon: '📅', label: '' };
-    return `<li class="tvw-cal ${e.scope === 'team' ? 'is-team' : 'is-common'}${e.prod ? ' is-prod' : ''}" data-k="${esc(e.kind)}" data-scope="${esc(e.scope)}" data-cal-ev="${e.cal}" tabindex="0" role="button" aria-label="${esc(`${e.title} — ${sc.label} — voir le détail`)}">`
+    return `<li class="tvw-ev ${e.scope === 'team' ? 'is-team' : 'is-common'}${e.prod ? ' is-prod' : ''}" data-k="${esc(e.kind)}" data-scope="${esc(e.scope)}" data-cal-ev="${e.cal}" tabindex="0" role="button" aria-label="${esc(`${e.title} — ${sc.label} — voir le détail`)}">`
         + `<span aria-hidden="true">${e.ico}</span><span>${e.time ? `<time>${esc(e.time)}</time> ` : ''}${esc(e.txt)}${e.scope !== 'team' ? ` <small class="tvw-scope" title="${esc(`Agenda commun · ${sc.label} · ${e.calName}`)}">${sc.icon}</small>` : ''}</span></li>`;
 };
 const itemHtml = e => (e.cal !== undefined ? calItemHtml(e)
-    : e.offDay ? `<li class="tvw-cal is-off" data-k="off" data-cal-off="${e.offDay}" tabindex="0" role="button" aria-label="${esc(e.txt)} — voir le détail"><span aria-hidden="true">🏖️</span><span>${esc(e.txt)}</span></li>`
+    : e.offDay ? `<li class="tvw-ev is-off" data-k="off" data-cal-off="${e.offDay}" tabindex="0" role="button" aria-label="${esc(e.txt)} — voir le détail"><span aria-hidden="true">🏖️</span><span>${esc(e.txt)}</span></li>`
     : `<li class="${e.cls || ''}"${e.id ? ` ${tkAttrs(e.id)}` : ''}><span aria-hidden="true">${e.ico}</span><span>${e.id ? `<code>${esc(e.id)}</code> ` : ''}${esc(e.txt)}${e.who ? ` <small>${esc(e.who)}</small>` : ''}</span></li>`);
 
 let _weekCal = [];          // items d'agenda de la dernière semaine rendue — résolus au clic
@@ -180,7 +180,7 @@ export function screenWeek({ teams }, offset = 0) {
         const from = e.day < A ? A : e.day, to = last > B ? B : last;
         if (to < A || from > B) return '';
         const sc = CAL_SCOPES[e.scope] || { icon: '📅', label: '' };
-        return `<button type="button" class="tvw-band is-ev tvw-cal ${e.scope === 'team' ? 'is-team' : 'is-common'}" data-k="${esc(e.kind)}" data-cal-ev="${i}" style="grid-column:${col(from)} / ${col(to) + 1}" title="${esc(`${e.title} — ${sc.label} · ${e.cal}`)}">`
+        return `<button type="button" class="tvw-band is-ev tvw-ev ${e.scope === 'team' ? 'is-team' : 'is-common'}" data-k="${esc(e.kind)}" data-cal-ev="${i}" style="grid-column:${col(from)} / ${col(to) + 1}" title="${esc(`${e.title} — ${sc.label} · ${e.cal}`)}">`
             + `${e.day < A ? '<span class="tvw-band-cont" aria-hidden="true">…</span>' : ''}<span aria-hidden="true">${(CAL_NATURES[e.kind] || CAL_NATURES.other).emoji}</span><b>${esc(calShortTitle(e.title, single ? teams[0] : ''))}</b>${e.scope !== 'team' ? `<small class="tvw-scope">${sc.icon}</small>` : ''}${last > B ? '<span class="tvw-band-cont" aria-hidden="true">…</span>' : ''}</button>`;
     }).join('');
     const fmt = k => atNoon(k).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });

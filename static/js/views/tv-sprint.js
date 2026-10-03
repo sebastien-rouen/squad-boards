@@ -143,8 +143,43 @@ function frame(a, big, max, title, H) {
         <text class="tvs-ax tvs-ax-title" x="${L}" y="${T - 6}" font-size="${fs - 1}">${esc(title)}</text>
         ${a.days.map((d, i) => (i % step && i !== n ? '' : `<text class="tvs-ax${d === today ? ' is-today' : ''}" x="${x(i)}" y="${H - B + fs + 6}" text-anchor="middle" font-size="${fs}">${WD[atNoon(d).getDay()]} ${+d.slice(8)}</text>`)).join('')}`;
     const last = a.real.length - 1;
-    const now = last >= 0 && last < n ? `<line class="tvs-now" x1="${x(last)}" x2="${x(last)}" y1="${T}" y2="${H - B}"/><text class="tvs-now-lbl" x="${x(last)}" y="${T - 6}" text-anchor="middle" font-size="${fs - 1}">aujourd'hui</text>` : '';
-    return { W, H, L, R, T, B, n, x, y, fs, svgHead, now, last };
+    const live = last >= 0 && last < n;
+    const now = live ? `<line class="tvs-now" x1="${x(last)}" x2="${x(last)}" y1="${T}" y2="${H - B}"/>` : '';
+    // Libellés posés sans chevauchement : le titre d'axe est réservé d'office, « aujourd'hui » passe
+    // en premier (haut, puis à droite / à gauche de la ligne, puis dans le graphique).
+    const lp = labelPlacer(W, H);
+    lp.block({ x: L, y: T - 6, anchor: 'start', fs: fs - 1, text: title });
+    const nowCands = live ? [[x(last), T - 6, 'middle'], [x(last) + 4, T - 6, 'start'], [x(last) - 4, T - 6, 'end'], [x(last) + 4, T + fs, 'start'], [x(last) - 4, T + fs, 'end']] : [];
+    return { W, H, L, R, T, B, n, x, y, fs, svgHead, now, last, live, lp, nowCands };
+}
+
+/**
+ * Placement de libellés SANS chevauchement (« aujourd'hui », « périmètre 37 », « ≈ 19,4 restants à la
+ * fin », valeur du jour…) : chaque libellé essaie ses positions candidates dans l'ordre et prend la
+ * première qui reste dans le cadre et ne touche aucun libellé déjà posé ; sinon la première. Largeur
+ * ESTIMÉE (≈ 0,56 em par caractère) : un SVG rendu en chaîne ne se mesure pas avant d'être affiché.
+ */
+function labelPlacer(W, H) {
+    const placed = [];
+    const box = c => {
+        const w = [...c.text].length * c.fs * 0.56;
+        const x0 = c.anchor === 'end' ? c.x - w : c.anchor === 'middle' ? c.x - w / 2 : c.x;
+        return { x0, x1: x0 + w, y0: c.y - c.fs * 0.85, y1: c.y + c.fs * 0.25 };
+    };
+    const free = b => b.x0 >= 0 && b.x1 <= W && b.y0 >= 0 && b.y1 <= H
+        && !placed.some(p => b.x0 < p.x1 && p.x0 < b.x1 && b.y0 < p.y1 && p.y0 < b.y1);
+    return {
+        /** Réserve une zone (titre d'axe, repères ▲, barres « +N ») sans rien rendre. */
+        block: c => placed.push(box(c)),
+        /** `cands` = [[x, y, anchor], …] ; renvoie le <text> rendu à la première position libre. */
+        text: (cands, { cls, fs, text }) => {
+            if (!cands.length) return '';
+            const all = cands.map(([x, y, anchor]) => ({ x, y, anchor, fs, text }));
+            const c = all.find(k => free(box(k))) || all[0];
+            placed.push(box(c));
+            return `<text class="${cls}" x="${c.x.toFixed(1)}" y="${c.y.toFixed(1)}" text-anchor="${c.anchor}" font-size="${fs}">${esc(text)}</text>`;
+        },
+    };
 }
 
 /** Attributs d'un repère cliquable (barre du jour, ▲) → liste des tickets de ce jour (tv.js). */
@@ -171,14 +206,23 @@ function burndownSvg(a, big) {
     const adds = a.addedDay.map((v, i) => (v ? addMark(a, i, x(i), y(a.real[i]) - 12, fs, v) : '')).join('');
     // 👻 Sprint précédent, ramené au périmètre actuel (en %) et étiré sur la durée de celui-ci.
     const ghost = a.ghost ? `<polyline class="tvs-ghost" points="${a.ghost.pts.map(p => `${x(p.f * n).toFixed(1)},${y(p.r * a.total).toFixed(1)}`).join(' ')}"><title>Sprint précédent (${esc(a.ghost.name)}) : ${a.ghost.endPct} % du périmètre fait à la fin</title></polyline>` : '';
-    const proj = last >= 0 && last < n ? `<line class="tvs-proj" x1="${x(last)}" y1="${y(a.remaining)}" x2="${x(n)}" y2="${y(a.projected)}"/><text class="tvs-proj-lbl" x="${x(n) - 4}" y="${y(a.projected) - 8}" text-anchor="end" font-size="${fs}">${a.projected > 0 ? `≈ ${fmtNum(a.projected)} restants à la fin` : 'fini à temps'}</text>` : '';
-    const val = last >= 0 ? `<text class="tvs-val" x="${x(last) + 8}" y="${y(a.remaining) - 8}" font-size="${fs + 3}">${fmtNum(a.remaining)}</text>` : '';
+    // Libellés : les repères (barres « +N », ▲) sont réservés, puis « aujourd'hui », la valeur du jour, la projection.
+    const { lp } = f;
+    a.doneDay.forEach((v, i) => { if (v && big) lp.block({ x: x(i), y: y(0) - (v / dMax) * bH - 5, anchor: 'middle', fs: fs - 2, text: `+${fmtNum(v)}` }); });
+    a.addedDay.forEach((v, i) => { if (v) lp.block({ x: x(i), y: y(a.real[i]) - 12, anchor: 'middle', fs: fs - 1, text: `▲+${fmtNum(v)}` }); });
+    const nowLbl = lp.text(f.nowCands, { cls: 'tvs-now-lbl', fs: fs - 1, text: 'aujourd\'hui' });
+    const xl = x(last), yr = y(a.remaining);
+    const val = last >= 0 ? lp.text([[xl + 8, yr - 8, 'start'], [xl + 8, yr + fs + 10, 'start'], [xl - 8, yr - 8, 'end'], [xl - 8, yr + fs + 10, 'end']], { cls: 'tvs-val', fs: fs + 3, text: fmtNum(a.remaining) }) : '';
+    const yp = y(a.projected);
+    const proj = f.live ? `<line class="tvs-proj" x1="${xl}" y1="${yr}" x2="${x(n)}" y2="${yp}"/>`
+        + lp.text([[x(n) - 4, yp - 8, 'end'], [x(n) - 4, yp + fs + 6, 'end'], [x(n) - 4, yp - fs - 14, 'end'], [x(n) - 4, f.T + fs + 4, 'end']],
+            { cls: 'tvs-proj-lbl', fs, text: a.projected > 0 ? `≈ ${fmtNum(a.projected)} restants à la fin` : 'fini à temps' }) : '';
     return `<svg class="tvs-chart" viewBox="0 0 ${f.W} ${f.H}" role="img" aria-label="Burndown : reste ${fmtNum(a.remaining)} ${a.unit} sur ${fmtNum(a.total)}, ${a.left} jours ouvrés restants">
         ${f.svgHead}
         <line class="tvs-ideal" x1="${x(0)}" y1="${y(a.total)}" x2="${x(n)}" y2="${y(0)}"/>
         ${ghost}
         ${area ? `<polygon class="tvs-area" points="${area}"/><polyline class="tvs-real" points="${pts}"/>${dots}` : ''}
-        ${proj}${f.now}${val}${bars}${adds}
+        ${proj}${f.now}${nowLbl}${val}${bars}${adds}
     </svg>`;
 }
 
@@ -205,15 +249,21 @@ function burnupSvg(a, big) {
     const scopeEnd = last >= 0 && last < n ? `<line class="tvs-scope is-future" x1="${x(last)}" y1="${y(a.total)}" x2="${x(n)}" y2="${y(a.total)}"/>` : '';
     const projDone = Math.min(top, a.done + a.pace * a.left);
     const proj = last >= 0 && last < n ? `<line class="tvs-proj" x1="${x(last)}" y1="${y(a.done)}" x2="${x(n)}" y2="${y(projDone)}"/>` : '';
+    const { lp } = f;
+    a.addedDay.forEach((v, i) => { if (v) lp.block({ x: x(i), y: y(a.scopeAt[i]) - 10, anchor: 'middle', fs: fs - 1, text: `▲+${fmtNum(v)}` }); });
+    const nowLbl = lp.text(f.nowCands, { cls: 'tvs-now-lbl', fs: fs - 1, text: 'aujourd\'hui' });
+    const ys = y(a.total), yd = y(a.done), xl = x(last);
+    const scopeLbl = lp.text([[x(n) - 4, ys - 8, 'end'], [x(n) - 4, ys + fs + 6, 'end'], [x(n) - 4, ys + 2 * fs + 12, 'end']], { cls: 'tvs-scope-lbl', fs, text: `périmètre ${fmtNum(a.total)}` });
+    const doneLbl = last >= 0 ? lp.text([[xl + 8, yd + fs + 10, 'start'], [xl + 8, yd - 8, 'start'], [xl - 8, yd + fs + 10, 'end'], [xl - 8, yd - 8, 'end']], { cls: 'tvs-val', fs: fs + 3, text: `${fmtNum(a.done)} faits` }) : '';
     return `<svg class="tvs-chart" viewBox="0 0 ${f.W} ${f.H}" role="img" aria-label="Burnup : ${fmtNum(a.done)} ${a.unit} faits sur un périmètre de ${fmtNum(a.total)}">
         ${f.svgHead}
         <line class="tvs-ideal" x1="${x(0)}" y1="${y(0)}" x2="${x(n)}" y2="${y(a.total)}"/>
         ${scope ? `<polyline class="tvs-scope" points="${scope}"/>` : ''}${scopeEnd}
-        <text class="tvs-scope-lbl" x="${x(n) - 4}" y="${y(a.total) - 8}" text-anchor="end" font-size="${fs}">périmètre ${fmtNum(a.total)}</text>
+        ${scopeLbl}
         ${a.addedDay.map((v, i) => (v ? addMark(a, i, x(i), y(a.scopeAt[i]) - 10, fs, v) : '')).join('')}
         ${area ? `<polygon class="tvs-area" points="${area}"/><polyline class="tvs-real" points="${pts}"/>${done.map((v, i) => (a.doneDay[i] ? '' : `<circle class="tvs-dot" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${big ? 4.5 : 3.5}"/>`)).join('')}` : ''}
-        ${proj}${f.now}
-        ${last >= 0 ? `<text class="tvs-val" x="${x(last) + 8}" y="${y(a.done) + (fs + 10)}" font-size="${fs + 3}">${fmtNum(a.done)} faits</text>` : ''}
+        ${proj}${f.now}${nowLbl}
+        ${doneLbl}
         ${done.map((v, i) => (a.doneDay[i] ? upDot(a, i, x(i), y(v), v, fs, big) : '')).join('')}
     </svg>`;
 }

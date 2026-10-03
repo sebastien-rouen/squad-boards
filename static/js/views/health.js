@@ -12,7 +12,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, rosterCtx, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -273,7 +273,7 @@ export function renderHealth(container) {
         const sprintStartMs = teamSprint?.startDate
             ? new Date(String(teamSprint.startDate).slice(0, 10)).getTime() : 0;
         // Capacité du jour (membres présents, congés déduits) → seuil de WIP "élevé"
-        const wipCapacity = teamCapacity(tm, members, absences);
+        const wipCapacity = teamCapacity(tm, members, absences, undefined, rosterCtx(store.get('piInfo'), store.get('sprintInfo')));
         const wipMax       = wipThreshold(wipCapacity);
         const wipCount     = countWip(piTickets.filter(t => t.team === tm));
         const wipExceededTeams = wipCount > wipMax ? new Set([tm]) : new Set();

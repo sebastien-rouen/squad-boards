@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam, isBufferItem, getCurrentPi, typeBadge, teamCapacity, wipThreshold, extractSprintLabel, effectiveRosterForPi, teamNameMatches, currentSupportRows, supportPartialDaysLabel } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, getSprintForTeam, isBufferItem, getCurrentPi, typeBadge, teamCapacity, rosterCtx, wipThreshold, extractSprintLabel, effectiveRosterForPi, teamNameMatches, currentSupportRows, supportPartialDaysLabel } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
 import { loadReminders, REMINDER_DEFS } from '../reminders.js';
 import { openAlertModal } from './alert_modal.js';
@@ -705,7 +705,7 @@ export function getSprintAlerts(tickets, sprintInfo) {
     // WIP "élevé" = au-delà de la capacité de l'équipe (membres présents, congés déduits).
     // Même logique que la modale d'action et la vue Health (pas un simple ratio).
     const _wipTeam = store.get('team');
-    const _cap = (_wipTeam && _wipTeam !== 'all') ? teamCapacity(_wipTeam, store.get('members') || [], store.get('absences') || []) : null;
+    const _cap = (_wipTeam && _wipTeam !== 'all') ? teamCapacity(_wipTeam, store.get('members') || [], store.get('absences') || [], undefined, rosterCtx(store.get('piInfo'), store.get('sprintInfo'))) : null;
     const _wipMax = _cap ? wipThreshold(_cap) : 0;
     if (_cap && inprog > _wipMax)
         alerts.push({ type: 'warning', actionable: 'wip', text: `WIP élevé : ${inprog} en cours pour ${_cap.available} présent${_cap.available > 1 ? 's' : ''} (seuil ${_wipMax})` });

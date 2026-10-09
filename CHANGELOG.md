@@ -1,3 +1,20 @@
+## [3.207.0] - 2026-10-09
+
+### Export des faits marquants — « Une image par équipe » toujours proposée en vue Train, copie en série
+
+- **« 📦 Une image par équipe »** : visible en vue **Train** dès le format 🖼️ Image PNG (couloirs ou
+  récit), sans avoir à déplier un couloir (3.206.0 la cachait derrière le dépliage : introuvable).
+  Chaque image est désormais la **frise propre de l'équipe** (portée Équipe : ses chiffres, ses
+  couloirs, son titre « Faits marquants — Fuego »), fichier `faits-marquants-fuego-….png`. Cocher la
+  case fait apparaître les puces : **toutes les équipes du train**, aucune = toutes.
+- **« 📋 Copier l'image » garde la modale ouverte** (`previewActions[].run`) : le bouton passe par
+  « ⏳ Copie… » puis « ✅ Copiée » ; changer de puce et copier la suivante.
+- **`.btn-xs` défini** ([base-components.css](static/css/base-components.css)) : utilisé par 33 boutons
+  (barres d'outils, copier, ‹ › de PI…) sans exister, ils tombaient à la taille normale.
+- Vérifié au banc Edge sur le vrai site : Train sans dépliage → case visible, 13 images annoncées ;
+  Fuego + Lion → aperçu « Faits marquants — Fuego », 2 PNG `fuego` / `lion` ; copie → ⏳ → ✅, modale
+  ouverte, image 2400×1656 ; vue Équipe → case absente ; « Tout sélectionner » 20 px de haut ; 0 erreur JS.
+
 ## [3.206.0] - 2026-10-09
 
 ### Export des faits marquants — « Copier l'image » sur l'aperçu, une image par équipe

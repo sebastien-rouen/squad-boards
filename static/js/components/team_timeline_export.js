@@ -65,11 +65,22 @@ export const legendHtml = () => `<p class="tl-legend" aria-label="Légende de la
 
 // ── Modale ─────────────────────────────────────────────────────────────────────
 export async function openTimelineExport(st) {
-    const team = st.scope === 'train' ? '*' : st.team;
     const c = collectView(st), s = summary(c);
     const counts = { rythme: c.pis.length + c.milestones.length, production: s.incidents, livraison: s.releases, operations: s.ops, charge: s.supTickets + s.supTasks,
         presence: c.presence.filter(w => w.pct).length, equipe: c.moves.length, oneonone: s.ones, fait: c.facts.length };
     const chipDef = teamChips(st, c);
+    const fileName = est => {
+        const teams = est.moveTeams?.size && (est.movesOpen || est.onesOpen) ? `-${[...est.moveTeams].map(t => slug(t || 'hors-equipes')).join('-')}` : '';
+        return `faits-marquants-${slug(est.scope === 'train' ? 'train' : est.team)}${teams}-${st.A}_${st.B}`;
+    };
+    /** Une image : la vue courante (`team` absent) ou celle d'une équipe du train (portée Équipe, SES données). */
+    const image = ({ keys, toggles, chips }, team) => {
+        if (team === undefined) return { est: exportState(st, keys, toggles, chips), c, s };
+        const v = { ...st, scope: 'team', team, laneTrain: new Set(), moveTeams: new Set() }, cv = collectView(v);
+        return { est: exportState(v, keys, toggles, null), c: cv, s: summary(cv) };
+    };
+    /** Image montrée dans l'aperçu (et copiée) : la 1re en « une image par équipe ». */
+    const first = pick => { const each = perTeamList(chipDef, pick); return { each, img: image(pick, each?.[0]) }; };
     const picked = await exportChoiceModal('Exporter les faits marquants', Object.entries(CATS).map(([k, v]) => ({ key: k, label: v.label, icon: v.emoji, count: counts[k] })), {
         message: `${st.scope === 'train' ? 'Tout le train' : st.team} · du ${fmtY(st.A)} au ${fmtY(st.B)}. Choisis les catégories et le format.`,
         confirmLabel: 'Exporter', initialSelected: [...st.cats],
@@ -77,45 +88,42 @@ export async function openTimelineExport(st) {
             { key: 'md', label: '📝 Markdown (.md)' }, { key: 'md-copy', label: '📋 Markdown copié' }, { key: 'slack', label: '💬 Copier pour Slack' }],
         // Image : couloirs dépliés ou non, indépendamment de l'écran (partent de son état) ; aperçu réduit
         // de ce qui sera pris, recalculé à chaque changement (catégories, format, dépliage).
-        toggles: st.view === 'story' ? [] : [
-            c.moves.length ? { key: 'movesOpen', label: `👥 Déplier arrivées / départs (${c.moves.length})`, on: !!st.movesOpen, formats: IMG } : null,
-            c.ones.length ? { key: 'onesOpen', label: `💬 Déplier 1v1 (${c.ones.length})`, on: !!st.onesOpen, formats: IMG } : null,
-            chipDef ? { key: 'perTeam', label: '📦 Une image par équipe', on: false, formats: IMG, visible: chipDef.visible } : null,
+        toggles: [
+            st.view !== 'story' && c.moves.length ? { key: 'movesOpen', label: `👥 Déplier arrivées / départs (${c.moves.length})`, on: !!st.movesOpen, formats: IMG } : null,
+            st.view !== 'story' && c.ones.length ? { key: 'onesOpen', label: `💬 Déplier 1v1 (${c.ones.length})`, on: !!st.onesOpen, formats: IMG } : null,
+            // Vue Train : une image par équipe (sa propre frise, ses chiffres), équipes choisies par les puces
+            chipDef?.perTeam ? { key: 'perTeam', label: '📦 Une image par équipe', on: false, formats: IMG } : null,
         ].filter(Boolean),
-        // Équipes des couloirs dépliés (comme le filtre de l'écran, sans le toucher)
         chips: chipDef,
-        // L'aperçu montre l'image qui sera prise — la 1re seulement en « une image par équipe »
-        preview: ({ keys, format, toggles, chips }) => {
-            if (!IMG.includes(format) || !keys.length) return null;
-            const each = perTeamList(chipDef, toggles, chips);
-            const html = exportCardHtml(exportState(st, keys, toggles, each ? [each[0]] : chips), c, s);
-            return each ? { html, note: `${each.length} ${plural(each.length, 'image')}, une par équipe — 1re : ${each[0] || 'Hors équipes suivies'}` } : html;
+        preview: pick => {
+            if (!IMG.includes(pick.format) || !pick.keys.length) return null;
+            const { each, img } = first(pick);
+            const html = exportCardHtml(img.est, img.c, img.s);
+            return each ? { html, note: `${each.length} ${plural(each.length, 'image')}, une par équipe — 1re : ${each[0]}` } : html;
         },
-        // Copie directe de l'image affichée (sans passer par « Exporter »)
-        previewActions: [{ key: 'copy', label: '📋 Copier l’image', title: 'Copier cette image dans le presse-papiers (coller avec Ctrl+V dans Teams, Confluence, Slack…)' }],
+        // Copie de l'image affichée, modale laissée ouverte : changer de puce puis copier la suivante
+        previewActions: [{ key: 'copy', label: '📋 Copier l’image', busyLabel: '⏳ Copie…', doneLabel: '✅ Copiée',
+            title: 'Copier cette image dans le presse-papiers (coller avec Ctrl+V dans Teams, Confluence, Slack…)',
+            run: async pick => {
+                const { img } = first(pick);
+                try { await exportPng(img.est, img.c, img.s, fileName(img.est), true); } catch (e) { toast(`Copie impossible : ${e.message || e}`, 'error'); throw e; }
+            } }],
     });
     if (!picked) return;
     if (!picked.keys.length) { toast('Choisis au moins une catégorie', 'warning'); return; }
-    const each = picked.format === 'png' ? perTeamList(chipDef, picked.toggles, picked.chips) : null;
-    const fileName = est => {
-        const teams = est.moveTeams?.size && (est.movesOpen || est.onesOpen) ? `-${[...est.moveTeams].map(t => slug(t || 'hors-equipes')).join('-')}` : '';
-        return `faits-marquants-${slug(st.scope === 'train' ? 'train' : st.team)}${teams}-${st.A}_${st.B}`;
-    };
-    const est = exportState(st, picked.keys, picked.toggles, each ? [each[0]] : picked.chips);
-    const name = fileName(est);
+    const { each, img } = first(picked);
     try {
-        if (picked.action === 'copy') await exportPng(est, c, s, name, true);
-        else if (each) {
+        if (each) {
             // Une image par équipe, l'une après l'autre (le navigateur peut demander d'autoriser
             // les téléchargements multiples la 1re fois)
-            for (const t of each) { const e = exportState(st, picked.keys, picked.toggles, [t]); await exportPng(e, c, s, fileName(e), false, true); }
+            for (const t of each) { const im = image(picked, t); await exportPng(im.est, im.c, im.s, fileName(im.est), false, true); }
             toast(`${each.length} ${plural(each.length, 'image exportée', 'images exportées')}`, 'success');
-        } else if (picked.format === 'png') await exportPng(est, c, s, name);
+        } else if (picked.format === 'png') await exportPng(img.est, c, s, fileName(img.est));
         else {
-            const md = toMarkdown(est, c, s);
+            const md = toMarkdown(img.est, c, s);
             if (picked.format === 'md-copy') await copyToClipboard(md, 'Markdown copié');
             else if (picked.format === 'slack') await copyToClipboard(toSlack(md), 'Copié pour Slack');
-            else { download(new Blob([md], { type: 'text/markdown;charset=utf-8' }), `${name}.md`); toast('Markdown exporté', 'success'); }
+            else { download(new Blob([md], { type: 'text/markdown;charset=utf-8' }), `${fileName(img.est)}.md`); toast('Markdown exporté', 'success'); }
         }
     } catch (e) {
         toast(`Export impossible : ${e.message || e}`, 'error');
@@ -123,26 +131,32 @@ export async function openTimelineExport(st) {
 }
 
 const IMG = ['png'];
-/** « Une image par équipe » cochée et puces visibles : les équipes choisies (aucune = toutes), sinon null. */
-const perTeamList = (chipDef, toggles, chips) => (chipDef && toggles?.perTeam && chips
-    ? (chips.length ? chipDef.items.map(i => i.key).filter(k => chips.includes(k)) : chipDef.items.map(i => i.key)) : null);
+/** « Une image par équipe » cochée (vue Train, image) : les équipes choisies par les puces (aucune = toutes). */
+function perTeamList(def, pick) {
+    if (!def?.perTeam || !IMG.includes(pick.format) || !pick.toggles?.perTeam) return null;
+    const all = def.items.map(i => i.key).filter(Boolean);              // « Hors équipes suivies » n'a pas de frise
+    const list = pick.chips?.length ? all.filter(k => pick.chips.includes(k)) : all;
+    return list.length ? list : null;
+}
 /** État de la carte exportée : catégories, dépliage et équipes choisis dans la modale (l'écran ne bouge pas). */
 const exportState = (st, keys, toggles, chips) => ({ ...st, ...(toggles || {}), ...(chips ? { moveTeams: new Set(chips) } : {}),
     cats: new Set(keys), selectedItem: null, adding: false, _items: [] });
 
-/** Puces d'équipes de la modale : équipes des arrivées / départs ET des 1v1 (les plus concernées d'abord),
- *  présélection = filtre de l'écran ; visibles pour l'image, dès qu'un couloir est déplié et s'il y a plusieurs équipes. */
+/** Puces d'équipes de la modale. Vue Train : TOUTES les équipes (une image par équipe, filtre des couloirs
+ *  dépliés) ; couloir basculé sur le train : équipes des arrivées / départs et 1v1. Les plus concernées
+ *  d'abord, présélection = filtre de l'écran ; visibles pour l'image, couloir déplié ou « une image par équipe ». */
 function teamChips(st, c) {
-    if (st.view === 'story') return null;
-    const count = new Map();
+    const train = st.scope === 'train', count = new Map();
     [...c.moves, ...c.ones].forEach(x => count.set(x.team || '', (count.get(x.team || '') || 0) + 1));
-    if (count.size < 2) return null;
+    if (train) (store.get('teams') || []).forEach(t => count.has(t) || count.set(t, 0));
+    if (count.size < 2 || (!train && st.view === 'story')) return null;
+    const unfolded = toggles => st.view !== 'story' && !!(toggles.movesOpen || toggles.onesOpen);
     return {
-        label: 'Équipes des couloirs dépliés',
+        label: 'Équipes', perTeam: train,
         items: [...count].sort((a, b) => !a[0] - !b[0] || b[1] - a[1] || a[0].localeCompare(b[0], 'fr'))
-            .map(([t, n]) => ({ key: t, label: t || 'Hors équipes suivies', count: n, color: t ? teamColor(t) : '' })),
+            .map(([t, n]) => ({ key: t, label: t || 'Hors équipes suivies', count: n || null, color: t ? teamColor(t) : '' })),
         selected: [...(st.moveTeams || [])],
-        visible: ({ format, toggles }) => IMG.includes(format) && !!(toggles.movesOpen || toggles.onesOpen),
+        visible: ({ format, toggles }) => IMG.includes(format) && (unfolded(toggles) || (train && !!toggles.perTeam)),
     };
 }
 

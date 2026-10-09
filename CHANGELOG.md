@@ -1,3 +1,19 @@
+## [3.206.0] - 2026-10-09
+
+### Export des faits marquants — « Copier l'image » sur l'aperçu, une image par équipe
+
+- **« 📋 Copier l'image »** posé en haut à droite de l'aperçu (format 🖼️ Image PNG) : copie en un clic
+  l'image affichée, sans passer par « Exporter ». Remplace le format « 📋 Image copiée » de 3.205.0.
+  `exportChoiceModal` → option générique `previewActions` (résout la modale avec `action`).
+- **« 📦 Une image par équipe »** (interrupteur visible avec les puces d'équipes) : un PNG par équipe
+  choisie (aucune = toutes), à la suite, toast « N images exportées ». L'aperçu montre la 1re
+  (« 2 images, une par équipe — 1re : Fuego »). Interrupteurs : option `visible` conditionnelle.
+- **Équipes filtrées dans le sous-titre de l'image** (« … · 👥 Fuego, Lion ») : l'image dit qu'elle
+  ne montre qu'une partie du train.
+- Vérifié au banc Edge sur le vrai site : bouton 109×27 à 9 px du coin, absent en Markdown ; Fuego +
+  Lion → 2 PNG `faits-marquants-train-fuego-…` / `-lion-…` ; copie → image/png 2400×1656 dans le
+  presse-papiers, modale fermée ; 0 erreur JS.
+
 ## [3.205.0] - 2026-10-09
 
 ### Export des faits marquants — chiffres clés sur une ligne, image par équipe, image copiée

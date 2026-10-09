@@ -116,15 +116,18 @@ export function choiceModal(title, message, buttons = []) {
  *   initialSelected?:string[], initialFormat?:string,
  *   toggles?:Array<{key,label,on,formats?:string[]}>  — interrupteurs (visibles pour `formats` seulement),
  *   preview?:({keys,format,toggles})=>string|null    — aperçu HTML réduit, sous la grille, recalculé à chaque
- *                                                      changement ; null → aucun aperçu (bloc masqué)
+ *                                                      changement ; null → aucun aperçu (bloc masqué) ; {html, note}
+ *                                                      → note préfixée à l'échelle ; toggles[i].visible?:({format,toggles})=>boolean
+ *   previewActions?:Array<{key,label,title?}>        — boutons posés en haut à droite de l'aperçu : résolvent la
+ *                                                      modale comme « Exporter », avec `action: key` (ex. copier l'image)
  *   chips?:{label,items:Array<{key,label,count?,color?}>,selected?:string[],visible?:({format,toggles})=>boolean}
  *                                                    — puces à sélection multiple (aucune = toutes), ex. équipes }
- * @returns {Promise<{keys:string[],format:string,toggles:object,chips:string[]|null}|null>} sélection, format,
+ * @returns {Promise<{keys:string[],format:string,toggles:object,chips:string[]|null,action?:string}|null>} sélection, format,
  *   interrupteurs, puces (null si non proposées ou masquées) ; `null` si annulé.
  */
 export function exportChoiceModal(title, items, opts = {}) {
     const { message = '', confirmLabel = 'Exporter', formats = null, initialSelected = null, initialFormat = null,
-        toggles = [], preview = null, chips = null } = opts;
+        toggles = [], preview = null, chips = null, previewActions = [] } = opts;
     const chipSel = new Set(chips?.selected || []);
     const tog = Object.fromEntries(toggles.map(t => [t.key, !!t.on]));
     return new Promise(resolve => {
@@ -164,7 +167,9 @@ export function exportChoiceModal(title, items, opts = {}) {
                         <button type="button" class="btn btn-ghost btn-xs" id="export-choice-toggle-all">${toggleAllLabel()}</button>
                     </div>
                     <div class="export-choice-grid">${gridHtml}</div>
-                    ${preview ? '<div class="export-preview" aria-label="Aperçu" hidden><div class="export-preview-frame"></div><p class="export-preview-note"></p></div>' : ''}`;
+                    ${preview ? `<div class="export-preview" aria-label="Aperçu" hidden>
+                        ${previewActions.length ? `<div class="export-preview-actions">${previewActions.map(a => `<button type="button" class="btn btn-secondary btn-sm" data-preview-act="${esc(a.key)}"${a.title ? ` title="${esc(a.title)}"` : ''}>${esc(a.label)}</button>`).join('')}</div>` : ''}
+                        <div class="export-preview-frame"></div><p class="export-preview-note"></p></div>` : ''}`;
         ov.innerHTML = `
             <div class="confirm-modal confirm-modal--export" role="dialog" aria-modal="true" aria-label="${esc(title)}">
                 <div class="confirm-body">
@@ -193,13 +198,17 @@ export function exportChoiceModal(title, items, opts = {}) {
         const chipsShown = () => !!chips && (!chips.visible || chips.visible({ format, toggles: { ...tog } }));
         const pickedChips = () => (chipsShown() ? [...chipSel] : null);
         const syncToggles = () => {
-            ov.querySelectorAll('.export-choice-toggle').forEach(l => { l.hidden = !!l.dataset.for && !l.dataset.for.split(' ').includes(format); });
+            ov.querySelectorAll('.export-choice-toggle').forEach(l => {
+                const t = toggles.find(x => x.key === l.querySelector('input').dataset.toggle);
+                l.hidden = (!!l.dataset.for && !l.dataset.for.split(' ').includes(format)) || (!!t?.visible && !t.visible({ format, toggles: { ...tog } }));
+            });
             if (chipsBox) chipsBox.hidden = !chipsShown();
         };
         const renderPreview = () => {
             if (!preview) return;
             const box = ov.querySelector('.export-preview'), frame = box.querySelector('.export-preview-frame'), note = box.querySelector('.export-preview-note');
-            const html = preview({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() });
+            const out = preview({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() });
+            const html = typeof out === 'string' ? out : out?.html, extra = typeof out === 'object' && out?.note ? `${out.note} · ` : '';
             // Rien à montrer (autre format, aucune catégorie) : ni aperçu ni note, modale à sa taille normale
             box.hidden = !html;
             ov.querySelector('.confirm-modal').classList.toggle('is-previewing', !!html);
@@ -213,7 +222,7 @@ export function exportChoiceModal(title, items, opts = {}) {
             card.style.transform = `scale(${k})`;
             card.style.marginLeft = `${Math.max(0, (frame.clientWidth - card.offsetWidth * k) / 2)}px`;
             frame.style.height = `${Math.ceil(card.offsetHeight * k)}px`;
-            note.textContent = `Aperçu à ${Math.round(k * 100)} % de l'image`;
+            note.textContent = `${extra}Aperçu à ${Math.round(k * 100)} % de l'image`;
         };
         syncToggles();
         requestAnimationFrame(renderPreview);
@@ -261,6 +270,8 @@ export function exportChoiceModal(title, items, opts = {}) {
             if (e.target === ov) return cleanup(null);
             const act = e.target.closest('[data-act]')?.dataset.act;
             if (act === 'ok') cleanup({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() });
+            const pact = e.target.closest('[data-preview-act]')?.dataset.previewAct;
+            if (pact) cleanup({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips(), action: pact });
             if (act === 'cancel') cleanup(null);
         });
     });

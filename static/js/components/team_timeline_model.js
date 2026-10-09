@@ -64,12 +64,26 @@ const ONE_PREFIX = /^\s*(\[\s*(1v1|o3)\s*\]|1v1|o3)\s*[-–:]?\s*/i;
 // Les 1v1 sont planifiés des mois à l'avance (O3 de Gabbiano jusqu'en janvier) : fenêtre étendue
 const FUTURE_DAYS = 183;
 
-// ── Mémo : un modèle par état du store ─────────────────────────────────────────
+// ── Profondeur de la frise : jusqu'où remontent « Tout » et le champ « Du » ──────
+// Préférence d'affichage, propre au navigateur. « roster » (défaut) : premier PI dont le roster est
+// importé — avant, le couloir Présence est vide. Autrefois plafonné à un an glissant, ce qui cachait
+// le début du 1er PI rosterisé (PI 26 : 4 sept. 2025, coupé au 9 oct.) et en perdait une semaine
+// chaque semaine.
+const DEPTH_KEY = 'sb-team-tl-depth';
+export const TIMELINE_DEPTHS = ['roster', '1y', '2y', 'all'];
+export function timelineDepth() {
+    try { const v = localStorage.getItem(DEPTH_KEY); return TIMELINE_DEPTHS.includes(v) ? v : 'roster'; } catch { return 'roster'; }
+}
+export function setTimelineDepth(v) {
+    try { if (v === 'roster' || !TIMELINE_DEPTHS.includes(v)) localStorage.removeItem(DEPTH_KEY); else localStorage.setItem(DEPTH_KEY, v); } catch { /* stockage indisponible */ }
+}
+
+// ── Mémo : un modèle par état du store (et par profondeur) ─────────────────────
 const SOURCES = ['tickets', 'absences', 'piInfo', 'sprintInfo', 'events', 'calendarEvents', 'calendarRules', 'teams'];
 let _memo = { key: null, model: null };
 
 function model() {
-    const key = SOURCES.map(k => store.get(k));
+    const key = [...SOURCES.map(k => store.get(k)), timelineDepth()];
     if (_memo.key && key.every((v, i) => v === _memo.key[i])) return _memo.model;
     _memo = { key, model: build() };
     return _memo.model;
@@ -114,14 +128,20 @@ function build() {
     }
 
     const today = todayIsoLocal();
-    // Début : premier PI dont on a le roster (les vieux sprints JIRA — PI 20… — faisaient partir
-    // « Tout » de 2024 : 125 semaines de couloirs vides) ; au plus un an en arrière
+    // Début selon la profondeur choisie : premier PI rosterisé (défaut — les vieux sprints JIRA, PI 20…,
+    // faisaient partir « Tout » de 2024 : 125 semaines de couloirs vides), 1 ou 2 ans glissants, ou
+    // tout l'historique (premier PI connu). `firstRoster` / `firstKnown` servent aussi aux libellés.
     const rostered = pis.filter(p => M_hasRoster(rosters, p.n));
-    const W0 = [rostered[0]?.start || addDays(today, -182), addDays(today, -365)].sort()[1];
+    const firstRoster = rostered[0] || null, firstKnown = pis[0] || null;
+    const depth = timelineDepth();
+    const W0 = depth === '1y' ? addDays(today, -365)
+        : depth === '2y' ? addDays(today, -730)
+        : depth === 'all' ? (firstKnown?.start || addDays(today, -365))
+        : (firstRoster?.start || addDays(today, -182));
     // Fin : dernier PI, ou dernier évènement d'agenda déjà planifié (plafonné à 6 mois)
     const lastIcs = (store.get('calendarEvents') || []).map(e => localDay(e.start)).filter(Boolean).sort().pop() || today;
     const W1 = [pis[pis.length - 1]?.end || today, today, [lastIcs, addDays(today, FUTURE_DAYS)].sort()[0]].sort()[2];
-    return { teams, pis, sprints, rosters, today, window: [W0, W1], cache: new Map(), canon };
+    return { teams, pis, sprints, rosters, today, window: [W0, W1], depth, firstRoster, firstKnown, cache: new Map(), canon };
 }
 
 const M_hasRoster = (rosters, n) => Object.keys(rosters[String(n)] || {}).length > 0;
@@ -333,6 +353,8 @@ function facts(team) {
 
 // ── API du module ──────────────────────────────────────────────────────────────
 export const timelineWindow = () => model().window;
+/** Repères de la profondeur (libellés du sélecteur) : premier PI rosterisé et premier PI connu. */
+export const timelineDepthInfo = () => { const M = model(); return { depth: M.depth, firstRoster: M.firstRoster, firstKnown: M.firstKnown, today: M.today }; };
 export const timelineToday = () => model().today;
 
 /** Présélections de période : PI courant, PI précédent, Été, 6 mois, Tout. */

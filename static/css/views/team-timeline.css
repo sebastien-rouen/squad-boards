@@ -532,3 +532,8 @@ button.tls-person { font: inherit; font-size: 12px; cursor: pointer; }
 button.tls-person:hover, button.tls-person:focus-visible { border-color: var(--m, var(--primary)); background: color-mix(in srgb, var(--m, var(--primary)) 12%, var(--surface)); }
 .tls-person-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline dotted; text-underline-offset: 2px; cursor: pointer; }
 .tls-person-link:hover, .tls-person-link:focus-visible { color: var(--primary); text-decoration-style: solid; }
+
+/* Profondeur de la frise (⏳) : discret, à droite des dates — un réglage rare, pas un filtre */
+.tl-depth { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text-muted); font-size: var(--fs-xs); }
+.tl-depth select { max-width: 17rem; padding: 2px var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; text-overflow: ellipsis; }
+.tl-depth select:hover, .tl-depth select:focus-visible { border-color: var(--border-hover); color: var(--text); }

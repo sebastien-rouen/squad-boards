@@ -312,7 +312,7 @@ const milestones = M => calendar(M, '*').filter(e => e.scope === 'train' && MIL.
     .filter((m, i, all) => all.findIndex(x => x.day === m.day && x.title.replace(/Adapt|Inspect/, '') === m.title.replace(/Adapt|Inspect/, '')) === i)
     .sort((a, b) => a.day.localeCompare(b.day));
 const oneOnOnes = (M, team) => calendar(M, team).filter(e => e.scope === 'team' && ONE.test(e.title))
-    .map(e => ({ day: e.day, title: e.title, pair: e.title.replace(ONE_PREFIX, '').trim() }))
+    .map(e => ({ day: e.day, title: e.title, pair: e.title.replace(ONE_PREFIX, '').trim(), team: e.team || '' }))   // équipe de l'agenda d'origine (filtre / liseré de la vue Train)
     .sort((a, b) => a.day.localeCompare(b.day));
 /** Opérations d'infrastructure (agenda « ERPC - Opérations » : migrations, interventions, audits, PRA).
  *  En production = « [PROD_…] », ou « ⚠️ » SANS étiquette d'environnement hors prod : dans cet agenda

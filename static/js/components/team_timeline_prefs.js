@@ -55,7 +55,7 @@ export function toParams(st) {
     if (lt.length) q.set('lt', lt.join(','));
     if (st.movesOpen) q.set('mv', '1');
     if (st.onesOpen) q.set('o1', '1');
-    if (st.movesOpen && st.moveTeams?.size) q.set('mt', [...st.moveTeams].join(','));
+    if ((st.movesOpen || st.onesOpen) && st.moveTeams?.size) q.set('mt', [...st.moveTeams].join(','));
     // Profondeur (réglage du navigateur) : dans le lien pour qu'un collègue voie la MÊME période —
     // « Tout » et les bornes dépendent de la fenêtre. Absente = défaut (depuis le 1er roster).
     const pf = timelineDepth();

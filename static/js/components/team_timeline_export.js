@@ -72,10 +72,18 @@ export async function openTimelineExport(st) {
         message: `${st.scope === 'train' ? 'Tout le train' : st.team} · du ${fmtY(st.A)} au ${fmtY(st.B)}. Choisis les catégories et le format.`,
         confirmLabel: 'Exporter', initialSelected: [...st.cats],
         formats: [{ key: 'png', label: `🖼️ Image PNG (${st.view === 'story' ? 'récit' : 'couloirs'})` }, { key: 'md', label: '📝 Markdown (.md)' }, { key: 'md-copy', label: '📋 Markdown copié' }, { key: 'slack', label: '💬 Copier pour Slack' }],
+        // Image : couloirs dépliés ou non, indépendamment de l'écran (partent de son état) ; aperçu réduit
+        // de ce qui sera pris, recalculé à chaque changement (catégories, format, dépliage).
+        toggles: st.view === 'story' ? [] : [
+            c.moves.length ? { key: 'movesOpen', label: `👥 Déplier arrivées / départs (${c.moves.length})`, on: !!st.movesOpen, formats: ['png'] } : null,
+            c.ones.length ? { key: 'onesOpen', label: `💬 Déplier 1v1 (${c.ones.length})`, on: !!st.onesOpen, formats: ['png'] } : null,
+        ].filter(Boolean),
+        preview: ({ keys, format, toggles }) => (format === 'png' && keys.length
+            ? exportCardHtml({ ...st, ...toggles, cats: new Set(keys), selectedItem: null, adding: false, _items: [] }, c, s) : null),
     });
     if (!picked) return;
     if (!picked.keys.length) { toast('Choisis au moins une catégorie', 'warning'); return; }
-    const est = { ...st, cats: new Set(picked.keys), selectedItem: null, adding: false, _items: [] };
+    const est = { ...st, ...(picked.toggles || {}), cats: new Set(picked.keys), selectedItem: null, adding: false, _items: [] };
     const name = `faits-marquants-${slug(st.scope === 'train' ? 'train' : st.team)}-${st.A}_${st.B}`;
     try {
         if (picked.format === 'png') await exportPng(est, c, s, name);
@@ -127,13 +135,10 @@ function fixColors(root, win) {
     }
 }
 
-async function exportPng(st, c, s, name) {
-    await loadH2C();
-    const today = timelineToday();
-    const host = document.createElement('div');
-    host.className = 'tl-export-host';
+/** La carte exportée en image — aussi l'APERÇU réduit de la modale d'export (même rendu, à l'échelle). */
+export function exportCardHtml(st, c, s) {
     const noTarget = () => '';                                  // image : aucune cible cliquable
-    host.innerHTML = `<section class="card tl-card tl-export">
+    return `<section class="card tl-card tl-export">
         <header class="tl-head"><div class="tl-title">
             <strong>🕰️ Faits marquants — ${esc(scopeNote(st, c))}</strong>
             <span class="tl-sub">Du ${fmtY(st.A)} au ${fmtY(st.B)} · ${Math.round(diff(st.A, st.B) / 7)} semaines · ${[...st.cats].map(k => CATS[k].emoji).join(' ')}</span>
@@ -141,8 +146,15 @@ async function exportPng(st, c, s, name) {
         <div class="tl-kpis">${kpisHtml(s)}</div>
         ${st.cats.has('presence') ? legendHtml() : ''}
         <div class="tl-body">${st.view === 'story' ? storyHtml(st, c, noTarget) : lanesHtml(st, c, noTarget, { brush: false })}</div>
-        <footer class="tl-export-foot">Squad Board · généré le ${fmtY(today)}</footer>
+        <footer class="tl-export-foot">Squad Board · généré le ${fmtY(timelineToday())}</footer>
     </section>`;
+}
+
+async function exportPng(st, c, s, name) {
+    await loadH2C();
+    const host = document.createElement('div');
+    host.className = 'tl-export-host';
+    host.innerHTML = exportCardHtml(st, c, s);
     document.body.appendChild(host);
     const metrics = document.createElement('style');
     metrics.textContent = METRICS_FIX;
@@ -153,7 +165,10 @@ async function exportPng(st, c, s, name) {
         const canvas = await window.html2canvas(card, {
             backgroundColor: bg, scale: 2, useCORS: true, logging: false,
             onclone: doc => {
-                fixColors(doc.querySelector('.tl-export'), doc.defaultView);
+                // La carte EXPORTÉE (dans l'hôte hors écran) : l'aperçu de la modale est aussi un `.tl-export`,
+                // encore présent pendant la fermeture — le 1er trouvé recevait les couleurs converties, et
+                // html2canvas échouait sur « unsupported color function "color" ».
+                fixColors(doc.querySelector('.tl-export-host .tl-export'), doc.defaultView);
             },
         });
         const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));

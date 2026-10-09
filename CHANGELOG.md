@@ -1,3 +1,23 @@
+## [3.200.0] - 2026-10-09
+
+### Frise « Faits marquants » — plus de plafond d'un an, profondeur réglable
+
+- **Le début de la frise n'est plus plafonné à un an glissant** ([team_timeline_model.js](static/js/components/team_timeline_model.js)) :
+  la fenêtre partait du 1er PI dont le roster est importé, *mais jamais plus d'un an en arrière*. Le
+  PI 26 (1er rosterisé, 5 sept. 2025) était coupé au 9 oct. 2025, et la frise perdait une semaine
+  chaque semaine (« Gabbiano · du 9 oct. 2025 au 8 févr. 2027 », ~70 semaines). Elle part désormais du
+  1er PI rosterisé : 74 semaines aujourd'hui, et elle s'allonge au lieu de glisser.
+- **Profondeur réglable** (⏳ dans la barre de période, réglage du navigateur `sb-team-tl-depth`) :
+  « Depuis le 1er roster (PI 26, 5 sept. 2025) » (défaut), « 1 an glissant » (l'ancien comportement),
+  « 2 ans glissants », « Tout l'historique (PI 21, 6 sept. 2024) ». Règle « Tout » et le minimum du
+  champ « Du ». Au changement : une période « Tout » suit la nouvelle fenêtre, une autre n'est ramenée
+  que si son début en sort. Avant le 1er roster, le couloir Présence reste vide (dit dans l'infobulle).
+- Ce n'était **pas** la configuration de la synchro : la base garde des sprints depuis juin 2024 et
+  des tickets depuis 2020 ; la frise ne les affichait simplement pas.
+- Vérifié au banc Edge sur le vrai site (Gabbiano) : défaut 74 sem., 1 an 69, 2 ans 121, tout 126 ;
+  période perso du 4 nov. 2024 ramenée au 5 sept. 2025 au retour au défaut ; préférence mémorisée ;
+  aucun débordement (1600 px et 390 px) ; 0 erreur JS.
+
 ## [3.199.2] - 2026-10-03
 
 ### Mode TV — le bas de l'écran visible, rien de coupé ni de défilé, effectif juste

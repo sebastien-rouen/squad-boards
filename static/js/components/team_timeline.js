@@ -12,7 +12,7 @@ import { store } from '../state.js';
 import * as api from '../api.js';
 import { esc, toast, confirmDanger, copyToClipboard, emptyStateHtml } from '../utils.js';
 import { teamColor } from './team_calendar.js';
-import { CATS, FACT_TYPES, fmt, fmtY, diff, presets, collectView, summary, timelineWindow, timelineToday, calendarSources, ALL_SOURCES } from './team_timeline_model.js';
+import { CATS, FACT_TYPES, fmt, fmtY, diff, presets, collectView, summary, timelineWindow, timelineToday, calendarSources, ALL_SOURCES, TIMELINE_DEPTHS, timelineDepthInfo, setTimelineDepth } from './team_timeline_model.js';
 import { lanesHtml, wireLanes } from './team_timeline_lanes.js';
 import { storyHtml } from './team_timeline_story.js';
 import { detailHtml } from './team_timeline_detail.js';
@@ -25,6 +25,21 @@ let _listening = false;
 // Filtres mémorisés + reflétés dans l'URL (~frise=) : team_timeline_prefs.js
 const initialView = () => window.matchMedia?.('(max-width: 640px)').matches ? 'story' : 'lanes';
 
+
+/** Sélecteur de profondeur : jusqu'où remontent « Tout » et le champ « Du » (réglage du navigateur). */
+function depthHtml() {
+    const { depth, firstRoster: fr, firstKnown: fk } = timelineDepthInfo();
+    const LBL = {
+        roster: `Depuis le 1er roster${fr ? ` (PI ${fr.n}, ${fmtY(fr.start)})` : ''}`,
+        '1y': '1 an glissant',
+        '2y': '2 ans glissants',
+        all: `Tout l'historique${fk ? ` (PI ${fk.n}, ${fmtY(fk.start)})` : ''}`,
+    };
+    return `<label class="tl-depth" title="Profondeur : jusqu'où remontent « Tout » et le champ « Du » (réglage de ce navigateur). Avant le 1er roster, le couloir Présence est vide.">
+        <span aria-hidden="true">⏳</span>
+        <select data-depth aria-label="Profondeur de la frise">${TIMELINE_DEPTHS.map(k => `<option value="${k}"${k === depth ? ' selected' : ''}>${esc(LBL[k])}</option>`).join('')}</select>
+    </label>`;
+}
 
 function render(el, st) {
     const team = st.scope === 'train' ? '*' : st.team;
@@ -70,6 +85,7 @@ function render(el, st) {
                 <input type="date" data-date="B" aria-label="Au" value="${st.B}" min="${st.A}" max="${W1}">
                 <span class="tl-dates-len">${Math.round(diff(st.A, st.B) / 7)} sem.</span>
             </div>
+            ${depthHtml()}
             ${isFiltered(st) ? '<button type="button" class="tl-reset" data-act="reset-filters" title="Période 6 mois, toutes les catégories et sources, portée équipe">↺ Réinitialiser les filtres</button>' : ''}
         </div>
         <div class="tl-kpis" aria-label="Résumé de la période">
@@ -187,6 +203,15 @@ function wire(el, st) {
     }));
     el.querySelectorAll('[data-scope]').forEach(b => b.addEventListener('click', () => { st.scope = b.dataset.scope; st.selectedItem = null; again(); }));
     el.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { const p = presets().find(x => x.key === b.dataset.preset); st.A = p.A; st.B = p.B; again(); }));
+    // Profondeur : « Tout » suit la nouvelle fenêtre ; une autre période n'est ramenée que si son début en sort.
+    el.querySelector('[data-depth]')?.addEventListener('change', e => {
+        const tout = presets().find(p => p.key === 'tout');
+        const wasTout = tout && st.A === tout.A && st.B === tout.B;
+        setTimelineDepth(e.target.value);
+        const [W0, W1] = timelineWindow();
+        if (wasTout) { st.A = W0; st.B = W1; } else if (st.A < W0) st.A = W0;
+        again();
+    });
     el.querySelectorAll('[data-date]').forEach(i => i.addEventListener('change', () => {
         if (!i.value) return;
         st[i.dataset.date] = i.value;

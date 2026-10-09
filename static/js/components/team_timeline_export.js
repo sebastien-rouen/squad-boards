@@ -82,9 +82,43 @@ export async function openTimelineExport(st) {
     };
     /** Image montrée dans l'aperçu (et copiée) : la 1re en « une image par équipe ». */
     const first = pick => { const each = perTeamList(chipDef, pick); return { each, img: image(pick, each?.[0]) }; };
-    const picked = await exportChoiceModal('Exporter les faits marquants', Object.entries(CATS).map(([k, v]) => ({ key: k, label: v.label, icon: v.emoji, count: counts[k] })), {
+    /** Export, modale ouverte : le bouton « Exporter » montre l'avancement (⏳ 4/13…). */
+    const run = async (picked, progress) => {
+        if (!picked.keys.length) { toast('Choisis au moins une catégorie', 'warning'); return false; }
+        const { each, img } = first(picked);
+        try {
+            if (each) {
+                // Une image par équipe, rendues l'une après l'autre puis réunies dans UN .zip (une rafale de
+                // téléchargements = une autorisation du navigateur et N fenêtres) ; une seule équipe → le PNG.
+                // Le zip emporte aussi le Markdown de la vue (le train) : images et texte dans le même paquet.
+                const files = [];
+                for (const [i, t] of each.entries()) {
+                    progress(each.length > 1 ? `⏳ ${i + 1}/${each.length} · ${t}` : '⏳ Génération…');
+                    const im = image(picked, t);
+                    files.push({ name: `${fileName(im.est)}.png`, blob: await renderPng(im.est, im.c, im.s) });
+                }
+                if (files.length === 1) { download(files[0].blob, files[0].name); toast('Image exportée', 'success'); return; }
+                progress('⏳ Archive…');
+                const view = image(picked).est;                         // la vue elle-même (le train), pas la 1re équipe
+                files.push({ name: `${fileName(view)}.md`, blob: new Blob([toMarkdown(view, c, s)], { type: 'text/markdown;charset=utf-8' }) });
+                download(await zipStore(files), `faits-marquants-par-equipe-${st.A}_${st.B}.zip`);
+                toast(`${each.length} images + Markdown du train exportés dans un .zip`, 'success');
+            } else if (picked.format === 'png') {
+                progress('⏳ Génération…');
+                await exportPng(img.est, c, s, fileName(img.est));
+            } else {
+                const md = toMarkdown(img.est, c, s);
+                if (picked.format === 'md-copy') await copyToClipboard(md, 'Markdown copié');
+                else if (picked.format === 'slack') await copyToClipboard(toSlack(md), 'Copié pour Slack');
+                else { download(new Blob([md], { type: 'text/markdown;charset=utf-8' }), `${fileName(img.est)}.md`); toast('Markdown exporté', 'success'); }
+            }
+        } catch (e) {
+            toast(`Export impossible : ${e.message || e}`, 'error');
+        }
+    };
+    await exportChoiceModal('Exporter les faits marquants', Object.entries(CATS).map(([k, v]) => ({ key: k, label: v.label, icon: v.emoji, count: counts[k] })), {
         message: `${st.scope === 'train' ? 'Tout le train' : st.team} · du ${fmtY(st.A)} au ${fmtY(st.B)}. Choisis les catégories et le format.`,
-        confirmLabel: 'Exporter', initialSelected: [...st.cats],
+        confirmLabel: 'Exporter', initialSelected: [...st.cats], onConfirm: run,
         formats: [{ key: 'png', label: `🖼️ Image PNG (${st.view === 'story' ? 'récit' : 'couloirs'})` },
             { key: 'md', label: '📝 Markdown (.md)' }, { key: 'md-copy', label: '📋 Markdown copié' }, { key: 'slack', label: '💬 Copier pour Slack' }],
         // Image : couloirs dépliés ou non, indépendamment de l'écran (partent de son état) ; aperçu réduit
@@ -110,29 +144,6 @@ export async function openTimelineExport(st) {
                 try { await exportPng(img.est, img.c, img.s, fileName(img.est), true); } catch (e) { toast(`Copie impossible : ${e.message || e}`, 'error'); throw e; }
             } }],
     });
-    if (!picked) return;
-    if (!picked.keys.length) { toast('Choisis au moins une catégorie', 'warning'); return; }
-    const { each, img } = first(picked);
-    try {
-        if (each) {
-            // Une image par équipe, rendues l'une après l'autre puis réunies dans UN .zip (une rafale de
-            // téléchargements = une autorisation du navigateur et N fenêtres) ; une seule équipe → le PNG
-            if (each.length > 1) toast(`Génération de ${each.length} images…`, 'info');
-            const files = [];
-            for (const t of each) { const im = image(picked, t); files.push({ name: `${fileName(im.est)}.png`, blob: await renderPng(im.est, im.c, im.s) }); }
-            if (files.length === 1) download(files[0].blob, files[0].name);
-            else download(await zipStore(files), `faits-marquants-par-equipe-${st.A}_${st.B}.zip`);
-            toast(files.length > 1 ? `${files.length} images exportées dans un .zip` : 'Image exportée', 'success');
-        } else if (picked.format === 'png') await exportPng(img.est, c, s, fileName(img.est));
-        else {
-            const md = toMarkdown(img.est, c, s);
-            if (picked.format === 'md-copy') await copyToClipboard(md, 'Markdown copié');
-            else if (picked.format === 'slack') await copyToClipboard(toSlack(md), 'Copié pour Slack');
-            else { download(new Blob([md], { type: 'text/markdown;charset=utf-8' }), `${fileName(img.est)}.md`); toast('Markdown exporté', 'success'); }
-        }
-    } catch (e) {
-        toast(`Export impossible : ${e.message || e}`, 'error');
-    }
 }
 
 const IMG = ['png'];

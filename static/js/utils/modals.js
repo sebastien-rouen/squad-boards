@@ -125,12 +125,15 @@ export function choiceModal(title, message, buttons = []) {
  *   chips?:{label,items:Array<{key,label,count?,color?}>,selected?:string[],visible?:({format,toggles})=>boolean,
  *           itemVisible?:(item,{format,toggles})=>boolean}  — puce masquée = désélectionnée
  *                                                    — puces à sélection multiple (aucune = toutes), ex. équipes }
+ *   onConfirm?:async (pick, progress)=>boolean|void   — travail fait MODALE OUVERTE au clic sur le bouton de
+ *                                                      confirmation (désactivé, libellé = `progress(texte)`) ; `false`
+ *                                                      → la modale reste ouverte, sinon elle se ferme ensuite
  * @returns {Promise<{keys:string[],format:string,toggles:object,chips:string[]|null,action?:string}|null>} sélection, format,
  *   interrupteurs, puces (null si non proposées ou masquées) ; `null` si annulé.
  */
 export function exportChoiceModal(title, items, opts = {}) {
     const { message = '', confirmLabel = 'Exporter', formats = null, initialSelected = null, initialFormat = null,
-        toggles = [], preview = null, chips = null, previewActions = [] } = opts;
+        toggles = [], preview = null, chips = null, previewActions = [], onConfirm = null } = opts;
     const chipSel = new Set(chips?.selected || []);
     const tog = Object.fromEntries(toggles.map(t => [t.key, !!t.on]));
     return new Promise(resolve => {
@@ -193,9 +196,26 @@ export function exportChoiceModal(title, items, opts = {}) {
             document.removeEventListener('keydown', onKey);
             resolve(val);
         };
-        const onKey = e => { if (e.key === 'Escape') cleanup(null); };
+        let busy = false;                                       // onConfirm en cours : ni Échap ni clic dehors
+        const onKey = e => { if (e.key === 'Escape' && !busy) cleanup(null); };
         document.addEventListener('keydown', onKey);
         const toggleAllBtn = ov.querySelector('#export-choice-toggle-all');
+        const confirm = async pick => {
+            if (!onConfirm) return cleanup(pick);
+            const okBtn = ov.querySelector('[data-act="ok"]'), buttons = ov.querySelectorAll('.confirm-actions .btn');
+            busy = true;
+            buttons.forEach(b => { b.disabled = true; });
+            okBtn.setAttribute('aria-busy', 'true');
+            const progress = txt => { okBtn.textContent = txt; };
+            let done;
+            try { done = await onConfirm(pick, progress); } finally {
+                busy = false;
+                buttons.forEach(b => { b.disabled = false; });
+                okBtn.removeAttribute('aria-busy');
+                okBtn.textContent = confirmLabel;
+            }
+            if (done !== false) cleanup(pick);
+        };
         // Interrupteurs visibles seulement pour leurs formats ; aperçu réduit à la largeur du cadre
         const chipsBox = ov.querySelector('.export-choice-chips');
         const chipsShown = () => !!chips && (!chips.visible || chips.visible({ format, toggles: { ...tog } }));
@@ -291,9 +311,10 @@ export function exportChoiceModal(title, items, opts = {}) {
             renderPreview();
         });
         ov.addEventListener('click', e => {
+            if (busy) return;
             if (e.target === ov) return cleanup(null);
             const act = e.target.closest('[data-act]')?.dataset.act;
-            if (act === 'ok') cleanup({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() });
+            if (act === 'ok') return confirm({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() });
             const pbtn = e.target.closest('[data-preview-act]');
             const pa = pbtn && previewActions.find(a => a.key === pbtn.dataset.previewAct);
             if (!pa) return;

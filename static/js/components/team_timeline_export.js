@@ -16,6 +16,7 @@ import { esc, toast, copyToClipboard, exportChoiceModal } from '../utils.js';
 import { store } from '../state.js';
 import { CATS, FACT_TYPES, fmt, fmtY, fmtShort, monthName, diff, dayOfWeek, collectView, summary, timelineToday, mepFollowUps, onePeopleList, shortName } from './team_timeline_model.js';
 import { lanesHtml } from './team_timeline_lanes.js';
+import { teamColor } from './team_calendar.js';
 import { storyHtml } from './team_timeline_story.js';
 
 const H2C = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
@@ -71,22 +72,26 @@ export async function openTimelineExport(st) {
     const picked = await exportChoiceModal('Exporter les faits marquants', Object.entries(CATS).map(([k, v]) => ({ key: k, label: v.label, icon: v.emoji, count: counts[k] })), {
         message: `${st.scope === 'train' ? 'Tout le train' : st.team} · du ${fmtY(st.A)} au ${fmtY(st.B)}. Choisis les catégories et le format.`,
         confirmLabel: 'Exporter', initialSelected: [...st.cats],
-        formats: [{ key: 'png', label: `🖼️ Image PNG (${st.view === 'story' ? 'récit' : 'couloirs'})` }, { key: 'md', label: '📝 Markdown (.md)' }, { key: 'md-copy', label: '📋 Markdown copié' }, { key: 'slack', label: '💬 Copier pour Slack' }],
+        formats: [{ key: 'png', label: `🖼️ Image PNG (${st.view === 'story' ? 'récit' : 'couloirs'})` }, { key: 'png-copy', label: '📋 Image copiée' },
+            { key: 'md', label: '📝 Markdown (.md)' }, { key: 'md-copy', label: '📋 Markdown copié' }, { key: 'slack', label: '💬 Copier pour Slack' }],
         // Image : couloirs dépliés ou non, indépendamment de l'écran (partent de son état) ; aperçu réduit
         // de ce qui sera pris, recalculé à chaque changement (catégories, format, dépliage).
         toggles: st.view === 'story' ? [] : [
-            c.moves.length ? { key: 'movesOpen', label: `👥 Déplier arrivées / départs (${c.moves.length})`, on: !!st.movesOpen, formats: ['png'] } : null,
-            c.ones.length ? { key: 'onesOpen', label: `💬 Déplier 1v1 (${c.ones.length})`, on: !!st.onesOpen, formats: ['png'] } : null,
+            c.moves.length ? { key: 'movesOpen', label: `👥 Déplier arrivées / départs (${c.moves.length})`, on: !!st.movesOpen, formats: IMG } : null,
+            c.ones.length ? { key: 'onesOpen', label: `💬 Déplier 1v1 (${c.ones.length})`, on: !!st.onesOpen, formats: IMG } : null,
         ].filter(Boolean),
-        preview: ({ keys, format, toggles }) => (format === 'png' && keys.length
-            ? exportCardHtml({ ...st, ...toggles, cats: new Set(keys), selectedItem: null, adding: false, _items: [] }, c, s) : null),
+        // Équipes des couloirs dépliés (comme le filtre de l'écran, sans le toucher) : une image par équipe
+        chips: teamChips(st, c),
+        preview: ({ keys, format, toggles, chips }) => (IMG.includes(format) && keys.length
+            ? exportCardHtml(exportState(st, keys, toggles, chips), c, s) : null),
     });
     if (!picked) return;
     if (!picked.keys.length) { toast('Choisis au moins une catégorie', 'warning'); return; }
-    const est = { ...st, ...(picked.toggles || {}), cats: new Set(picked.keys), selectedItem: null, adding: false, _items: [] };
-    const name = `faits-marquants-${slug(st.scope === 'train' ? 'train' : st.team)}-${st.A}_${st.B}`;
+    const est = exportState(st, picked.keys, picked.toggles, picked.chips);
+    const teams = est.moveTeams?.size && (est.movesOpen || est.onesOpen) ? `-${[...est.moveTeams].map(t => slug(t || 'hors-equipes')).join('-')}` : '';
+    const name = `faits-marquants-${slug(st.scope === 'train' ? 'train' : st.team)}${teams}-${st.A}_${st.B}`;
     try {
-        if (picked.format === 'png') await exportPng(est, c, s, name);
+        if (IMG.includes(picked.format)) await exportPng(est, c, s, name, picked.format === 'png-copy');
         else {
             const md = toMarkdown(est, c, s);
             if (picked.format === 'md-copy') await copyToClipboard(md, 'Markdown copié');
@@ -96,6 +101,27 @@ export async function openTimelineExport(st) {
     } catch (e) {
         toast(`Export impossible : ${e.message || e}`, 'error');
     }
+}
+
+const IMG = ['png', 'png-copy'];
+/** État de la carte exportée : catégories, dépliage et équipes choisis dans la modale (l'écran ne bouge pas). */
+const exportState = (st, keys, toggles, chips) => ({ ...st, ...(toggles || {}), ...(chips ? { moveTeams: new Set(chips) } : {}),
+    cats: new Set(keys), selectedItem: null, adding: false, _items: [] });
+
+/** Puces d'équipes de la modale : équipes des arrivées / départs ET des 1v1 (les plus concernées d'abord),
+ *  présélection = filtre de l'écran ; visibles pour l'image, dès qu'un couloir est déplié et s'il y a plusieurs équipes. */
+function teamChips(st, c) {
+    if (st.view === 'story') return null;
+    const count = new Map();
+    [...c.moves, ...c.ones].forEach(x => count.set(x.team || '', (count.get(x.team || '') || 0) + 1));
+    if (count.size < 2) return null;
+    return {
+        label: 'Équipes des couloirs dépliés',
+        items: [...count].sort((a, b) => !a[0] - !b[0] || b[1] - a[1] || a[0].localeCompare(b[0], 'fr'))
+            .map(([t, n]) => ({ key: t, label: t || 'Hors équipes suivies', count: n, color: t ? teamColor(t) : '' })),
+        selected: [...(st.moveTeams || [])],
+        visible: ({ format, toggles }) => IMG.includes(format) && !!(toggles.movesOpen || toggles.onesOpen),
+    };
 }
 
 function download(blob, filename) {
@@ -150,7 +176,18 @@ export function exportCardHtml(st, c, s) {
     </section>`;
 }
 
-async function exportPng(st, c, s, name) {
+/** Image dans le presse-papiers (Teams, Confluence, Slack…) ; refus du navigateur → téléchargement. */
+async function copyImage(blob, filename) {
+    try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        toast('Image copiée — colle-la avec Ctrl+V', 'success');
+    } catch {
+        download(blob, filename);
+        toast('Copie de l’image refusée par le navigateur : image téléchargée', 'warning');
+    }
+}
+
+async function exportPng(st, c, s, name, copy = false) {
     await loadH2C();
     const host = document.createElement('div');
     host.className = 'tl-export-host';
@@ -172,8 +209,8 @@ async function exportPng(st, c, s, name) {
             },
         });
         const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
-        download(blob, `${name}.png`);
-        toast('Image exportée', 'success');
+        if (copy) await copyImage(blob, `${name}.png`);
+        else { download(blob, `${name}.png`); toast('Image exportée', 'success'); }
     } finally {
         host.remove();
         metrics.remove();

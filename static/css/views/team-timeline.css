@@ -383,6 +383,11 @@
 .tl-export .tll-label, .tl-export .tls-mhead { position: static; }
 .tl-export .tl-legend { margin-bottom: var(--sp-2); }
 .tl-export .tls { max-width: none; }
+/* Chiffres clés de l'image sur UNE ligne : tuiles côte à côte, largeur selon leur contenu (le détail
+   du Support est plus long que « +3 »), détail replié sur deux lignes au besoin */
+.tl-export .tl-kpis { display: flex; flex-wrap: nowrap; gap: var(--sp-2); }
+.tl-export .tl-kpi { flex: 1 1 auto; min-width: 0; padding: 8px 10px; }
+.tl-export .tl-kpi b { font-size: 20px; }
 .tl-export-foot { padding: var(--sp-2) var(--sp-5) 0; font-size: var(--fs-xs); color: var(--text-muted); text-align: right; }
 
 /* ══ Opérations (agenda « ERPC - Opérations ») ═══════════════════════════════ */

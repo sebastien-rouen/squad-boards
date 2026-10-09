@@ -1,3 +1,22 @@
+## [3.205.0] - 2026-10-09
+
+### Export des faits marquants — chiffres clés sur une ligne, image par équipe, image copiée
+
+- **Chiffres clés de l'image sur UNE ligne** (`.tl-export .tl-kpis` en flex sans retour, tuiles à la
+  largeur de leur contenu) : la carte à l'écran garde sa grille. Train « Tout » : 9 tuiles de 93 à
+  180 px, une ligne.
+- **Puces d'équipes dans la modale** (`exportChoiceModal` → option générique `chips`) : « Toutes » puis
+  une puce par équipe des arrivées / départs ET des 1v1 (couleur de l'équipe, nombre), présélection =
+  filtre de l'écran, visibles pour l'image dès qu'un couloir est déplié et s'il y a plusieurs équipes.
+  Elles filtrent l'image sans toucher l'écran ; nom de fichier suffixé
+  (`faits-marquants-train-fuego-….png`).
+- **Format « 📋 Image copiée »** : même image, posée dans le presse-papiers (coller dans Teams,
+  Confluence, Slack) ; refus du navigateur → image téléchargée + avertissement. Aperçu, dépliage et
+  puces valent pour les deux formats image.
+- Vérifié au banc Edge sur le vrai site : Train déplié 61 noms + 21 1v1 → Fuego 6 + 20, écran
+  inchangé ; puces masquées en Markdown et sur une seule équipe ; presse-papiers image/png 2400×2496 ;
+  PNG Fuego 2400×1692 ; 0 erreur JS.
+
 ## [3.204.0] - 2026-10-09
 
 ### Frise — 1v1 filtrés par équipe, aperçu de l'export PNG avec dépliement

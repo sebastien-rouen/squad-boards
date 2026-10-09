@@ -1,3 +1,18 @@
+## [3.209.0] - 2026-10-09
+
+### Export des faits marquants — avancement sur « Exporter », Markdown du train dans le zip
+
+- **Avancement sur le bouton** : la modale reste ouverte pendant la génération, « Exporter » affiche
+  « ⏳ 4/13 · Bellier » puis « ⏳ Archive… » (« ⏳ Génération… » pour une image seule) ; Exporter et
+  Annuler désactivés, Échap et clic hors de la modale ignorés, fermeture à la fin. Aucune catégorie
+  choisie → avertissement, la modale reste ouverte.
+  `exportChoiceModal` → option générique `onConfirm(pick, progress)` (`false` = rester ouverte).
+- **Zip « une image par équipe »** : contient aussi `faits-marquants-train-<A>_<B>.md` (le Markdown de
+  la vue Train, mêmes catégories) — images et texte dans le même paquet.
+- Vérifié au banc Edge sur le vrai site : 13 libellés « ⏳ 1/13 · Fuego » → « ⏳ 13/13 · Juke »,
+  boutons désactivés, Échap + clic dehors sans effet pendant la génération ; zip valide de 14 fichiers
+  (13 PNG + .md de 690 lignes) ; Markdown seul : modale fermée, fichier .md ; 0 erreur JS.
+
 ## [3.208.0] - 2026-10-09
 
 ### Export des faits marquants — une image par équipe réunie dans UN .zip

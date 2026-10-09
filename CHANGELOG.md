@@ -1,3 +1,17 @@
+## [3.211.0] - 2026-10-09
+
+### Export des faits marquants — derniers choix repris ; 🐛 « Annuler » de la modale réparé
+
+- **Derniers choix mémorisés** (ce navigateur, `sb-team-tl-export`) à chaque export ou copie :
+  catégories, format, dépliage, « une image par équipe », équipes. Le **filtre de l'écran l'emporte** :
+  catégories filtrées à l'écran, couloirs dépliés ou puces d'équipes cochées à l'écran.
+- 🐛 **« Annuler » sans effet** dans la modale d'export depuis 3.206.0 : la gestion des boutons de
+  l'aperçu (`previewActions`) s'était glissée avant celle d'« Annuler » et en sortait. Échap et le
+  clic hors de la modale fermaient toujours.
+- Vérifié au banc Edge sur le vrai site : choix (sans Présence, une image par équipe, Fuego + Lion)
+  repris après une copie, puis après un export Markdown et un rechargement (format md) ; écran filtré
+  sur 1v1 → 1 catégorie ; « Annuler » ferme la modale ; 0 erreur JS.
+
 ## [3.210.0] - 2026-10-09
 
 ### Export des faits marquants — « ⏹ Arrêter » pendant la génération, un Markdown par équipe dans le zip

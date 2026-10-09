@@ -330,13 +330,13 @@ export function exportChoiceModal(title, items, opts = {}) {
             if (e.target === ov) return cleanup(null);
             const act = e.target.closest('[data-act]')?.dataset.act;
             if (act === 'ok') return confirm({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() });
+            if (act === 'cancel') return cleanup(null);
             const pbtn = e.target.closest('[data-preview-act]');
             const pa = pbtn && previewActions.find(a => a.key === pbtn.dataset.previewAct);
             if (!pa) return;
             const pick = { keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() };
             if (!pa.run) return cleanup({ ...pick, action: pa.key });
             runAction(pbtn, pa, pick);
-            if (act === 'cancel') cleanup(null);
         });
     });
 }

@@ -734,3 +734,7 @@ tr:hover td { background: var(--surface-hover); }
 .export-choice-chip b { color: var(--text-muted); font-weight: var(--fw-medium); font-variant-numeric: tabular-nums; }
 .export-choice-chip:hover { border-color: var(--border-hover); color: var(--text); }
 .export-choice-chip[aria-pressed="true"] { border-color: var(--chip); background: color-mix(in srgb, var(--chip) 12%, var(--surface)); color: var(--text); font-weight: var(--fw-semibold); }
+/* Actions posées sur l'aperçu (exportChoiceModal → previewActions), en haut à droite : « 📋 Copier l'image » */
+.export-preview { position: relative; }
+.export-preview-actions { position: absolute; top: var(--sp-2); right: var(--sp-2); z-index: 1; display: flex; gap: var(--sp-1); }
+.export-preview-actions .btn { box-shadow: var(--shadow-md); }

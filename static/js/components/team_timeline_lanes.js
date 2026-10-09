@@ -127,15 +127,19 @@ function movesUnfolded(st, moves, A, B, target) {
     }, { dayNote: ms => (ms.some(m => !m.precise) ? ' · PI' : ''), unit: 'mouvement' });
 }
 
-/** 1v1 dépliés : chaque binôme posé à sa date (« Mohamed/Omar »), planifiés en italique et en creux. */
+/** 1v1 dépliés : chaque binôme posé à sa date (« Mohamed/Omar »), planifiés en italique et en creux ;
+ *  vue Train : liseré à la couleur de l'équipe de l'agenda, même filtre d'équipes que les mouvements. */
 function onesUnfolded(st, ones, A, B, target) {
     const today = timelineToday();
-    const sorted = [...ones].sort((a, b) => a.day.localeCompare(b.day) || a.pair.localeCompare(b.pair, 'fr'));
+    const keep = st.moveTeams?.size ? ones.filter(o => st.moveTeams.has(o.team || '')) : ones;
+    if (!keep.length) return lane(st, 'oneonone', empty('Aucun 1v1 pour les équipes choisies'));
+    const showTeam = st.scope === 'train' || st.laneTrain?.has('oneonone');
+    const sorted = [...keep].sort((a, b) => a.day.localeCompare(b.day) || a.pair.localeCompare(b.pair, 'fr'));
     return stacksLane(st, 'oneonone', sorted, A, B, o => {
         const planned = o.day > today;
-        return `<button class="tll-mname is-one${planned ? ' is-planned' : ''}"
+        return `<button class="tll-mname is-one${planned ? ' is-planned' : ''}"${showTeam && o.team ? ` style="--tm:${teamColor(o.team)}"` : ''}
             ${target({ kind: 'ones', cat: 'oneonone', items: [o], title: `1v1${planned ? ' planifié' : ''} — ${o.pair}`, when: fmt(o.day) })}
-            title="${esc(`${o.title} — ${fmt(o.day)}${planned ? ' (planifié)' : ''}`)}"><i>●</i><span>${esc(o.pair)}</span></button>`;
+            title="${esc(`${o.title}${showTeam && o.team ? ` · ${o.team}` : ''} — ${fmt(o.day)}${planned ? ' (planifié)' : ''}`)}"><i>●</i><span>${esc(o.pair)}</span></button>`;
     }, { unit: '1v1' });
 }
 

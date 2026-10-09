@@ -1,3 +1,27 @@
+## [3.204.0] - 2026-10-09
+
+### Frise — 1v1 filtrés par équipe, aperçu de l'export PNG avec dépliement
+
+- **Filtre d'équipes étendu aux 1v1** : les puces « Toutes / Fuego / Lion… » réunissent désormais les
+  équipes des arrivées / départs ET des 1v1 dépliés, et filtrent les deux couloirs. En vue Train (ou
+  couloir 1v1 basculé sur le train), chaque binôme porte le **liseré de couleur de son équipe**
+  ([team_timeline_model.js](static/js/components/team_timeline_model.js) garde `team` sur les 1v1).
+- **Modale « Exporter les faits marquants »** ([modals.js](static/js/utils/modals.js) →
+  `exportChoiceModal`, options `toggles` et `preview`) :
+  - interrupteurs **« Déplier 👥 Arrivées / départs (N) · 💬 1v1 (N) »**, propres au PNG : ils
+    déplient l'IMAGE sans toucher l'écran ;
+  - **aperçu réduit** de l'image, affiché **uniquement pour 🖼️ Image PNG**, sous la grille des
+    catégories (« Aperçu à N % de l'image », 45 % de la hauteur d'écran au plus, centré), recalculé à
+    chaque catégorie / format / interrupteur ; la modale s'élargit (1080 px) et son corps défile pour
+    garder « Exporter » visible.
+- `exportCardHtml` extrait de [team_timeline_export.js](static/js/components/team_timeline_export.js) :
+  même balisage pour le PNG et l'aperçu.
+- 🐛 L'aperçu étant lui aussi un `.tl-export`, la conversion des couleurs `color(srgb)` d'html2canvas
+  visait la mauvaise carte → « Export impossible ». `onclone` cible `.tl-export-host .tl-export`.
+- Vérifié au banc Edge sur le vrai site : 1v1 Train 6 mois 21 → Fuego 20 ; aperçu sous la grille,
+  bouton visible, masqué en Markdown (modale 560 px) ; PNG Train déplié 2400×3418 téléchargé, PNG
+  Gabbiano téléchargé, toast « Image exportée » ; 0 erreur JS.
+
 ## [3.203.0] - 2026-10-09
 
 ### Frise — 1v1 dépliés dans leur couloir, filtre d'équipes des arrivées / départs

@@ -113,11 +113,16 @@ export function choiceModal(title, message, buttons = []) {
  * @param {string} title
  * @param {Array<{key:string,label:string,icon?:string,count?:number}>} items
  * @param {object} [opts] { message?, confirmLabel?, formats?:Array<{key:string,label:string}>,
- *   initialSelected?:string[], initialFormat?:string }
- * @returns {Promise<{keys:string[],format:string}|null>} sélection + format choisi, ou `null` si annulé.
+ *   initialSelected?:string[], initialFormat?:string,
+ *   toggles?:Array<{key,label,on,formats?:string[]}>  — interrupteurs (visibles pour `formats` seulement),
+ *   preview?:({keys,format,toggles})=>string|null    — aperçu HTML réduit, sous la grille, recalculé à chaque
+ *                                                      changement ; null → aucun aperçu (bloc masqué) }
+ * @returns {Promise<{keys:string[],format:string,toggles:object}|null>} sélection, format, interrupteurs ; `null` si annulé.
  */
 export function exportChoiceModal(title, items, opts = {}) {
-    const { message = '', confirmLabel = 'Exporter', formats = null, initialSelected = null, initialFormat = null } = opts;
+    const { message = '', confirmLabel = 'Exporter', formats = null, initialSelected = null, initialFormat = null,
+        toggles = [], preview = null } = opts;
+    const tog = Object.fromEntries(toggles.map(t => [t.key, !!t.on]));
     return new Promise(resolve => {
         const validKeys = new Set(items.map(i => i.key));
         const initial = initialSelected?.filter(k => validKeys.has(k));
@@ -140,16 +145,22 @@ export function exportChoiceModal(title, items, opts = {}) {
                    </div>
                </div>`
             : '';
+        const togglesHtml = toggles.length ? `<div class="export-choice-toggles">${toggles.map(t => `<label class="export-choice-toggle" data-for="${esc((t.formats || []).join(' '))}"><input type="checkbox" data-toggle="${esc(t.key)}"${t.on ? ' checked' : ''}> ${esc(t.label)}</label>`).join('')}</div>` : '';
+        // Aperçu SOUS la grille, affiché seulement quand `preview` rend quelque chose (ex. format PNG)
+        const choices = `
+                    ${formatsHtml}
+                    ${togglesHtml}
+                    <div class="export-choice-toolbar">
+                        <button type="button" class="btn btn-ghost btn-xs" id="export-choice-toggle-all">${toggleAllLabel()}</button>
+                    </div>
+                    <div class="export-choice-grid">${gridHtml}</div>
+                    ${preview ? '<div class="export-preview" aria-label="Aperçu" hidden><div class="export-preview-frame"></div><p class="export-preview-note"></p></div>' : ''}`;
         ov.innerHTML = `
             <div class="confirm-modal confirm-modal--export" role="dialog" aria-modal="true" aria-label="${esc(title)}">
                 <div class="confirm-body">
                     <div class="confirm-title">${esc(title)}</div>
                     ${message ? `<div class="confirm-message">${esc(message)}</div>` : ''}
-                    ${formatsHtml}
-                    <div class="export-choice-toolbar">
-                        <button type="button" class="btn btn-ghost btn-xs" id="export-choice-toggle-all">${toggleAllLabel()}</button>
-                    </div>
-                    <div class="export-choice-grid">${gridHtml}</div>
+                    ${choices}
                 </div>
                 <div class="confirm-actions">
                     <button class="btn btn-ghost btn-sm" data-act="cancel">Annuler</button>
@@ -167,6 +178,33 @@ export function exportChoiceModal(title, items, opts = {}) {
         const onKey = e => { if (e.key === 'Escape') cleanup(null); };
         document.addEventListener('keydown', onKey);
         const toggleAllBtn = ov.querySelector('#export-choice-toggle-all');
+        // Interrupteurs visibles seulement pour leurs formats ; aperçu réduit à la largeur du cadre
+        const syncToggles = () => ov.querySelectorAll('.export-choice-toggle').forEach(l => { l.hidden = !!l.dataset.for && !l.dataset.for.split(' ').includes(format); });
+        const renderPreview = () => {
+            if (!preview) return;
+            const box = ov.querySelector('.export-preview'), frame = box.querySelector('.export-preview-frame'), note = box.querySelector('.export-preview-note');
+            const html = preview({ keys: [...selected], format, toggles: { ...tog } });
+            // Rien à montrer (autre format, aucune catégorie) : ni aperçu ni note, modale à sa taille normale
+            box.hidden = !html;
+            ov.querySelector('.confirm-modal').classList.toggle('is-previewing', !!html);
+            frame.innerHTML = html || '';
+            const card = frame.firstElementChild;
+            if (!card) return;
+            // Réduit pour tenir d'un coup d'œil : largeur du cadre ET 45 % de la hauteur d'écran (un aperçu
+            // déplié de 1 455 px obligeait à défiler pour voir ce qui serait pris), centré.
+            const k = Math.min(1, frame.clientWidth / card.offsetWidth, (innerHeight * 0.45) / card.offsetHeight);
+            card.style.transformOrigin = 'top left';
+            card.style.transform = `scale(${k})`;
+            card.style.marginLeft = `${Math.max(0, (frame.clientWidth - card.offsetWidth * k) / 2)}px`;
+            frame.style.height = `${Math.ceil(card.offsetHeight * k)}px`;
+            note.textContent = `Aperçu à ${Math.round(k * 100)} % de l'image`;
+        };
+        syncToggles();
+        requestAnimationFrame(renderPreview);
+        ov.querySelector('.export-choice-toggles')?.addEventListener('change', e => {
+            const k = e.target.dataset.toggle;
+            if (k) { tog[k] = e.target.checked; renderPreview(); }
+        });
         ov.querySelector('.export-choice-grid').addEventListener('click', e => {
             const btn = e.target.closest('.export-choice-btn');
             if (!btn) return;
@@ -174,6 +212,7 @@ export function exportChoiceModal(title, items, opts = {}) {
             if (selected.has(key)) selected.delete(key); else selected.add(key);
             btn.classList.toggle('export-choice-btn--on', selected.has(key));
             toggleAllBtn.textContent = toggleAllLabel();
+            renderPreview();
         });
         toggleAllBtn?.addEventListener('click', () => {
             const selectAll = selected.size !== items.length;
@@ -182,6 +221,7 @@ export function exportChoiceModal(title, items, opts = {}) {
             ov.querySelectorAll('.export-choice-btn').forEach(btn =>
                 btn.classList.toggle('export-choice-btn--on', selected.has(btn.dataset.key)));
             toggleAllBtn.textContent = toggleAllLabel();
+            renderPreview();
         });
         ov.querySelector('.export-choice-formats')?.addEventListener('click', e => {
             const btn = e.target.closest('[data-format]');
@@ -189,11 +229,13 @@ export function exportChoiceModal(title, items, opts = {}) {
             format = btn.dataset.format;
             ov.querySelectorAll('.export-choice-formats .board-mode-btn').forEach(b =>
                 b.classList.toggle('active', b.dataset.format === format));
+            syncToggles();
+            renderPreview();
         });
         ov.addEventListener('click', e => {
             if (e.target === ov) return cleanup(null);
             const act = e.target.closest('[data-act]')?.dataset.act;
-            if (act === 'ok') cleanup({ keys: [...selected], format });
+            if (act === 'ok') cleanup({ keys: [...selected], format, toggles: { ...tog } });
             if (act === 'cancel') cleanup(null);
         });
     });

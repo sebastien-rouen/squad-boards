@@ -35,11 +35,13 @@ function unfoldHtml(st, c) {
         c.ones.length && st.cats.has('oneonone') ? btn('ones', st.onesOpen, '💬', '1v1', c.ones.length, 'chaque binôme posé à sa date dans le couloir 1v1') : '',
     ].filter(Boolean);
     if (!parts.length) return '';
-    // Filtre d'équipes des arrivées / départs dépliés (vue Train ou couloir basculé : plusieurs équipes)
-    const teams = [...c.moves.reduce((m, x) => m.set(x.team || '', (m.get(x.team || '') || 0) + 1), new Map())]
+    // Filtre d'équipes des couloirs dépliés (arrivées / départs, 1v1) quand ils touchent plusieurs équipes
+    // (vue Train ou couloir basculé) : compte = mouvements + 1v1 dépliés de l'équipe.
+    const open = [...(st.movesOpen && st.cats.has('equipe') ? c.moves : []), ...(st.onesOpen && st.cats.has('oneonone') ? c.ones : [])];
+    const teams = [...open.reduce((m, x) => m.set(x.team || '', (m.get(x.team || '') || 0) + 1), new Map())]
         .sort((a, b) => !a[0] - !b[0] || b[1] - a[1] || a[0].localeCompare(b[0], 'fr'));
-    const filter = st.movesOpen && st.cats.has('equipe') && teams.length > 1
-        ? `<div class="tl-mteams" role="group" aria-label="Équipes des arrivées / départs dépliés">
+    const filter = teams.length > 1
+        ? `<div class="tl-mteams" role="group" aria-label="Équipes des couloirs dépliés">
             <button type="button" class="tl-mteam" data-mteam-all aria-pressed="${!st.moveTeams?.size}">Toutes</button>
             ${teams.map(([t, n]) => `<button type="button" class="tl-mteam" data-mteam="${esc(t)}" aria-pressed="${!!st.moveTeams?.has(t)}" style="--tm:${t ? teamColor(t) : 'var(--border-hover)'}"><i></i>${esc(t || 'Hors équipes suivies')} <b>${n}</b></button>`).join('')}
         </div>` : '';

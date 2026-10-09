@@ -10,7 +10,7 @@
 
 ---
 
-## ✅ TODO
+## 🔥 Todo (prêt à coder)
 
 - [ ] Dans card meteo-roster dans "Prochaine absence" : mettre des bar pour l'itération (vert: présent, orange: demi journée, rouge: absent), afin de voir visuellement un alignement des bar entre membres :)
 - [~] **#13 — Confidence vote → tendance (début vs fin de PI)** — **partiel depuis 3.154.0** : la fiche équipe (Dashboard filtré) trace la tendance Mood & ✊ **sprint par sprint** sans nouvelle table ([meteo_fiche.js](static/js/components/meteo_fiche.js)). Reste la version *par objectif* avec phase `start|end` (stockage `type=confidence` + champ phase) — utile seulement si la tendance par sprint ne suffit pas à l'usage.

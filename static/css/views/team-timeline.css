@@ -537,3 +537,14 @@ button.tls-person:hover, button.tls-person:focus-visible { border-color: var(--m
 .tl-depth { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text-muted); font-size: var(--fs-xs); }
 .tl-depth select { max-width: 17rem; padding: 2px var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; text-overflow: ellipsis; }
 .tl-depth select:hover, .tl-depth select:focus-visible { border-color: var(--border-hover); color: var(--text); }
+
+/* 👥 Arrivées / départs dépliés (bouton de la barre de période) : noms en clair sous la frise */
+.tl-moves-toggle { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 2px var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-full); background: var(--surface); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.tl-moves-toggle b { padding: 0 6px; border-radius: var(--r-full); background: var(--bg-alt); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.tl-moves-toggle:hover { border-color: var(--border-hover); color: var(--text); }
+.tl-moves-toggle[aria-pressed="true"] { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); color: var(--text); font-weight: var(--fw-semibold); }
+.tl-moves-panel { margin-top: var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.tl-moves-panel > header { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.tl-moves-panel > header > span:first-of-type { color: var(--text-muted); font-size: var(--fs-sm); }
+.tl-moves-panel .tl-detail-list { max-height: none; }
+.tl-moves-empty { color: var(--text-muted); font-size: var(--fs-sm); }

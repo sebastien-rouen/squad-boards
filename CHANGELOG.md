@@ -1,3 +1,22 @@
+## [3.201.0] - 2026-10-09
+
+### Frise — arrivées / départs dépliés, profondeur dans le lien, liens 🔗 réparés
+
+- **👥 Arrivées / départs dépliés** (bouton de la barre de période, avec le nombre de mouvements) : les
+  noms en clair **sous la frise**, groupés par équipe (pastille, compteurs ▲ ▼ ⇄), triés par date,
+  personnes cliquables (fiche membre). Les noms ne vivaient que dans les bulles : une capture d'écran
+  ne montrait que « ▲ 4 · ▼ 6 ». Le panneau est repris dans l'**export PNG** quand il est déplié
+  ([team_timeline_detail.js](static/js/components/team_timeline_detail.js) → `movesPanelHtml`).
+- **Profondeur et panneau dans le lien 🔗** ([team_timeline_prefs.js](static/js/components/team_timeline_prefs.js)) :
+  `pf=2y` / `pf=all` (absent = depuis le 1er roster) appliqué AVANT les présélections — « Tout » et les
+  bornes en dépendent —, `mv=1` pour le panneau déplié. Un collègue voit la même période.
+- **Défaut corrigé — liens 🔗 de la frise** : ouvert dans un nouvel onglet, un lien perdait tous ses
+  filtres (le démarrage réécrit l'adresse avant que la carte ne lise `~frise=`, même cause que les
+  écrans figés de la TV en 3.187.0). app.js retient la valeur (`store.friseUrl`), consommée une fois.
+- Vérifié au banc Edge sur le vrai site (Gabbiano) : bouton « 11 », panneau Gabbiano ▲ 4 ▼ 6 ⇄ 1,
+  11 personnes, clic → fiche membre ; adresse `…&mv=1&pf=2y` ; ce lien collé dans un navigateur vierge
+  → 2 ans, 121 semaines, panneau ouvert ; non-régression profondeur ; 0 erreur JS.
+
 ## [3.200.0] - 2026-10-09
 
 ### Frise « Faits marquants » — plus de plafond d'un an, profondeur réglable

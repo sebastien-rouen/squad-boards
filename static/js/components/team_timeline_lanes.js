@@ -7,6 +7,7 @@
  */
 
 import { esc } from '../utils.js';
+import { teamColor } from './team_calendar.js';
 import { CATS, FACT_TYPES, addDays, diff, fmt, fmtY, fmtShort, monthName, mondayOf, shortName, presenceLevel, overview, timelineWindow, timelineToday, prodOpsByDay, STALE_WEEKS, mepFollowUps, LANE_TRAIN_FIELDS } from './team_timeline_model.js';
 
 const pct = (A, B, d) => Math.max(0, Math.min(100, diff(A, d) / Math.max(1, diff(A, B)) * 100));
@@ -45,14 +46,15 @@ function cluster(list, A, B, gap = 2.2) {
 }
 const when = g => g.day === g.lastDay ? fmt(g.day) : `${fmt(g.day)} → ${fmt(g.lastDay)}`;
 
-/** Étale des marqueurs proches sur plusieurs rangées (sinon les prénoms se chevauchent). */
-function rows(items, A, B, gap = 7) {
+/** Étale des marqueurs proches sur plusieurs rangées (sinon les prénoms se chevauchent) ; au-delà de
+ *  `maxRow`, les derniers se superposent sur la dernière rangée (couloir replié). */
+function rows(items, A, B, gap = 7, maxRow = 3) {
     const last = [];
     return items.map(it => {
         const x = pct(A, B, it.day);
         let r = last.findIndex(v => x - v >= gap);
         if (r < 0) { r = last.length; last.push(x); } else last[r] = x;
-        return { ...it, x, row: Math.min(r, 3) };
+        return { ...it, x, row: Math.min(r, maxRow) };
     });
 }
 
@@ -69,9 +71,52 @@ function laneLabel(st, cat) {
     if (cat === 'operations') return `<div class="tll-label">${txt}<span class="tll-scope is-fixed" title="Agenda commun « ERPC - Opérations » : le même pour toutes les équipes et pour le train">🚂</span></div>`;
     return `<div class="tll-label">${txt}</div>`;
 }
-const lane = (st, cat, inner, extra = '') => `<div class="tll-row ${extra}${st.laneTrain?.has(cat) && st.scope === 'team' ? ' is-train' : ''}" data-c="${cat}">
+const lane = (st, cat, inner, extra = '', style = '') => `<div class="tll-row ${extra}${st.laneTrain?.has(cat) && st.scope === 'team' ? ' is-train' : ''}" data-c="${cat}"${style ? ` style="${style}"` : ''}>
     ${laneLabel(st, cat)}<div class="tll-track" role="group" aria-label="${esc(`${CATS[cat].label} — flèches gauche et droite pour parcourir`)}">${inner}</div></div>`;
 const icsEmpty = (c, B, none) => empty(c.icsFrom && B < c.icsFrom ? `Agendas ICS disponibles à partir du ${fmt(c.icsFrom)}` : none);
+
+/**
+ * Couloir Équipe déplié : les mouvements regroupés en PILES de largeur fixe (STACK_W % de la piste),
+ * une pile réunissant les dates trop proches pour tenir côte à côte, avec un intertitre par date
+ * (lisible sur une capture). Les piles ne se chevauchent jamais : une seule bande, hauteur = plus
+ * grande pile. (Un nom par rangée : 45 rangées et 25 chevauchements en vue Train ; des piles par date
+ * empilées : 1 850 à 3 500 px.) Nom coupé « … », complet au survol ; vue Train : liseré à la couleur
+ * de l'équipe. Chaque nom ouvre la même bulle qu'un repère replié (fiche membre comprise).
+ */
+const STACK_W = 11;                // % de la piste (9 % coupait 35 noms sur 171 en vue Train)
+/** Nom court d'une pile : « NOM, Prénom » → « Prénom N. » (shortName), et aussi « Prénom NOM » → « Prénom N. ». */
+const stackName = n => {
+    const s = shortName(n);
+    if (s !== String(n)) return s;
+    const w = String(n).trim().split(/\s+/);
+    return w.length >= 2 && /^[A-ZÀ-Ý-]{2,}$/.test(w.at(-1)) ? `${w.slice(0, -1).join(' ')} ${w.at(-1)[0]}.` : s;
+};
+const LINE = 18, DAY_H = 15;       // px
+function movesUnfolded(st, moves, A, B, target) {
+    const ORDER = { in: 0, 'move-in': 1, 'move-out': 2, out: 3 };
+    const sorted = [...moves].sort((a, b) => a.day.localeCompare(b.day) || ORDER[a.kind] - ORDER[b.kind] || a.who.localeCompare(b.who, 'fr'));
+    const showTeam = st.scope === 'train' || st.laneTrain?.has('equipe');
+    let maxH = 0;
+    // Bord droit : les dernières piles, ramenées dans la piste, se recouvraient — on les décale de droite
+    // à gauche pour qu'elles se suivent (même écart qu'entre deux piles ordinaires).
+    const groups = cluster(sorted, A, B, STACK_W + 0.6);
+    let limit = 100 - STACK_W;
+    for (let i = groups.length - 1; i >= 0; i--) { groups[i].left = Math.max(0, Math.min(groups[i].x0, limit)); limit = groups[i].left - STACK_W - 0.6; }
+    const html = groups.map(g => {
+        const { left } = g;
+        const days = [...g.items.reduce((m, x) => { (m.get(x.day) || m.set(x.day, []).get(x.day)).push(x); return m; }, new Map())];
+        maxH = Math.max(maxH, days.reduce((h, [, ms]) => h + DAY_H + ms.length * LINE, 0));
+        const body = days.map(([day, ms]) => `<small class="tll-mstack-day">${fmtShort(day)}${ms.some(m => !m.precise) ? ' · PI' : ''}</small>${ms.map(m => {
+            const k = MOVE[m.kind];
+            const sub = m.kind === 'move-in' ? ` ← ${m.from}` : m.kind === 'move-out' ? ` → ${m.to}` : '';
+            return `<button class="tll-mname ${k.cls}${m.precise ? '' : ' is-approx'}"${showTeam && m.team ? ` style="--tm:${teamColor(m.team)}"` : ''}
+                ${target({ kind: 'move', cat: 'equipe', move: m, title: `${k.label} — ${m.who}`, when: m.precise ? fmt(m.day) : `Début du PI ${m.pi} (${fmt(m.day)})` })}
+                title="${esc(`${k.label} : ${m.who}${sub}${showTeam && m.team ? ` · ${m.team}` : ''} — ${m.precise ? fmt(m.day) : `au changement de PI (${fmt(m.day)})`}`)}"><i>${k.sym}</i><span>${esc(stackName(m.who))}${esc(sub)}</span></button>`;
+        }).join('')}`).join('');
+        return `<div class="tll-mstack" style="left:${left}%;width:${STACK_W}%" aria-label="${esc(`${when(g)} : ${g.items.length} mouvement${g.items.length > 1 ? 's' : ''}`)}">${body}</div>`;
+    }).join('');
+    return lane(st, 'equipe', html, 'tll-lane--tall is-unfolded', `--lane-h:${maxH + 16}px`);
+}
 
 function fact(target, f, A, B) {
     const t = FACT_TYPES[f.type] || FACT_TYPES.other;
@@ -142,7 +187,14 @@ function lanes(st, c, target) {
             }).join('');
         out.push(lane(st, 'operations', ops || icsEmpty(c, B, st.sources?.has('ops') === false ? 'Source « Opérations » masquée (Sources d’agenda)' : 'Aucune opération planifiée sur la période')));
     }
-    if (on('equipe') && c.moves.length > 14) {
+    // Couloir Équipe DÉPLIÉ (bouton « 👥 Déplier arrivées / départs » de la barre de période) : tous les
+    // noms dans la frise — une capture d'écran ou l'export PNG montre enfin QUI arrive ou part, pas
+    // « ▲ 4 · ▼ 6 ». Une PILE par date (au changement de PI, des dizaines de personnes le même jour :
+    // un nom par rangée donnait 45 rangées et 25 chevauchements), piles réparties en bandes.
+    const unfold = !!st.movesOpen;
+    if (on('equipe') && unfold && c.moves.length) {
+        out.push(movesUnfolded(st, c.moves, A, B, target));
+    } else if (on('equipe') && c.moves.length > 14) {
         // Beaucoup de mouvements (vue Train) : comptes regroupés — 56 prénoms se chevauchaient 289 fois
         const mk = rows(cluster(c.moves, A, B, 3.2), A, B, 11).map(g => {
             const n = k => g.items.filter(m => k.includes(m.kind)).length;

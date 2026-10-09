@@ -1,3 +1,26 @@
+## [3.202.0] - 2026-10-09
+
+### Frise — arrivées / départs dépliés DANS le couloir Équipe (remplace le panneau de 3.201.0)
+
+- **« 👥 Déplier arrivées / départs »** déplie désormais le **couloir Équipe lui-même** (le panneau
+  séparé sous la frise de 3.201.0 est retiré) : tous les noms posés à leur date, même au-delà de 14
+  mouvements (où le couloir replié n'affiche que « ▲ 4 · ▼ 6 »), couloir agrandi d'autant ; l'export
+  PNG suit (il redessine les mêmes couloirs). Lien : toujours `mv=1`.
+- **Mise en page en piles** ([team_timeline_lanes.js](static/js/components/team_timeline_lanes.js) →
+  `movesUnfolded`) : une pile de largeur fixe (11 % de la piste) réunit les dates trop proches pour
+  tenir côte à côte, avec un **intertitre par date** (« 14/11 · PI »), une seule bande, hauteur = plus
+  grande pile ; piles du bord droit décalées pour ne pas se recouvrir. Les essais précédents, mesurés
+  en vue Train « Tout » (171 mouvements) : un nom par rangée → 45 rangées, 25 chevauchements ; une
+  pile par date en bandes → 1 850 px ; empilée au plus bas → 3 500 px. Retenu : 958 px, 0 chevauchement.
+- Noms courts dans les piles : « NOM, Prénom » et aussi « Prénom NOM » → « Prénom N. » (35 noms coupés
+  sur 171 → 13 à 1600 px) ; complet au survol. Vue Train : **liseré à la couleur de l'équipe** de chaque
+  personne. Chaque nom ouvre la même bulle qu'un repère replié (fiche membre comprise).
+- Bouton masqué quand la catégorie « Équipe » est masquée ; libellé « Déplier » / « Replier ».
+- Vérifié au banc Edge sur le vrai site : Gabbiano 4 piles, 133 px, 0 nom coupé ; Train 6 mois 61 noms,
+  457 px ; Train « Tout » 171 noms, 958 px ; **0 chevauchement** à 1600, 1366 et 390 px ; clic sur un
+  nom → bulle ; 0 erreur JS. Sur mobile (390 px) beaucoup de noms restent coupés : la frise s'y
+  ouvre de toute façon en Récit.
+
 ## [3.201.0] - 2026-10-09
 
 ### Frise — arrivées / départs dépliés, profondeur dans le lien, liens 🔗 réparés

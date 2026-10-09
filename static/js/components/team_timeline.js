@@ -15,7 +15,7 @@ import { teamColor } from './team_calendar.js';
 import { CATS, FACT_TYPES, fmt, fmtY, diff, presets, collectView, summary, timelineWindow, timelineToday, calendarSources, ALL_SOURCES, TIMELINE_DEPTHS, timelineDepthInfo, setTimelineDepth } from './team_timeline_model.js';
 import { lanesHtml, wireLanes } from './team_timeline_lanes.js';
 import { storyHtml } from './team_timeline_story.js';
-import { detailHtml, movesPanelHtml } from './team_timeline_detail.js';
+import { detailHtml } from './team_timeline_detail.js';
 import { restorePrefs, savePrefs, syncFromUrl, isFiltered, resetFilters } from './team_timeline_prefs.js';
 import { kpisHtml, legendHtml, openTimelineExport } from './team_timeline_export.js';
 
@@ -86,7 +86,7 @@ function render(el, st) {
                 <span class="tl-dates-len">${Math.round(diff(st.A, st.B) / 7)} sem.</span>
             </div>
             ${depthHtml()}
-            ${c.moves.length ? `<button type="button" class="tl-moves-toggle" data-moves-toggle aria-pressed="${!!st.movesOpen}" title="${st.movesOpen ? 'Replier' : 'Déplier'} les arrivées et départs : les noms en clair sous la frise (lisibles sur une capture et l'export PNG)">👥 Arrivées / départs <b>${c.moves.length}</b></button>` : ''}
+            ${c.moves.length && st.cats.has('equipe') ? `<button type="button" class="tl-moves-toggle" data-moves-toggle aria-pressed="${!!st.movesOpen}" title="${st.movesOpen ? 'Replier le couloir Équipe' : 'Déplier le couloir Équipe : un nom par arrivée / départ, sur autant de rangées que nécessaire (lisible sur une capture et l\'export PNG)'}">👥 ${st.movesOpen ? 'Replier' : 'Déplier'} arrivées / départs <b>${c.moves.length}</b></button>` : ''}
             ${isFiltered(st) ? '<button type="button" class="tl-reset" data-act="reset-filters" title="Période 6 mois, toutes les catégories et sources, portée équipe">↺ Réinitialiser les filtres</button>' : ''}
         </div>
         <div class="tl-kpis" aria-label="Résumé de la période">
@@ -99,7 +99,6 @@ function render(el, st) {
         ${c.icsFrom && st.A < c.icsFrom && ['livraison', 'rythme', 'oneonone', 'operations'].some(k => st.cats.has(k)) ? `<p class="tl-note">ℹ️ MEP, jalons, 1v1 et opérations viennent des agendas ICS, disponibles à partir du ${fmtY(c.icsFrom)} : leur absence avant cette date ne veut pas dire « aucune MEP ».</p>` : ''}
         ${st.cats.has('presence') ? legendHtml() : ''}
         <div class="tl-body">${body}${detailHtml(st)}${st.adding ? formHtml(st) : ''}</div>
-        ${st.movesOpen ? movesPanelHtml(c.moves) : ''}
     </section>`;
     wireLanes(el, st, () => render(el, st));
     wire(el, st);

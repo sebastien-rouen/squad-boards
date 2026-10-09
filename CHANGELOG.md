@@ -1,3 +1,20 @@
+## [3.208.0] - 2026-10-09
+
+### Export des faits marquants — une image par équipe réunie dans UN .zip
+
+- **« 📦 Une image par équipe » → un seul fichier** `faits-marquants-par-equipe-<A>_<B>.zip` (un PNG
+  par équipe dedans) au lieu d'une rafale de téléchargements et de fenêtres d'autorisation ; une seule
+  équipe choisie → son PNG directement. Toast « Génération de N images… » puis « N images exportées
+  dans un .zip ».
+- **[utils/zip.js](static/js/utils/zip.js)** (`zipStore`) : archive .zip sans compression (les PNG le
+  sont déjà), CRC32, noms UTF-8, aucune dépendance.
+- `renderPng` extrait d'`exportPng` (rendu → Blob, réutilisé par le zip, le PNG et la copie).
+- **Puce « Hors équipes suivies » masquée** (et désélectionnée) quand « une image par équipe » est
+  cochée : elle n'a pas de frise. Modale : option `chips.itemVisible`.
+- Vérifié au banc Edge sur le vrai site : Train, 13 équipes → 1 téléchargement en 6,3 s, archive
+  valide (CRC contrôlés par Python, extraite par `Expand-Archive` Windows), 13 PNG 2400 px ; puce
+  masquée puis réaffichée en décochant ; 0 erreur JS.
+
 ## [3.207.0] - 2026-10-09
 
 ### Export des faits marquants — « Une image par équipe » toujours proposée en vue Train, copie en série

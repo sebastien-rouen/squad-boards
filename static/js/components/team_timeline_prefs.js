@@ -16,7 +16,8 @@
  * retire sans toucher un « /ticket/ID » ou un « ~cal » ajouté ensuite par une modale.
  */
 
-import { CATS, presets, ALL_SOURCES, LANE_TRAIN_FIELDS } from './team_timeline_model.js';
+import { store } from '../state.js';
+import { CATS, presets, ALL_SOURCES, LANE_TRAIN_FIELDS, TIMELINE_DEPTHS, timelineDepth, setTimelineDepth } from './team_timeline_model.js';
 
 const KEY = 'sb-team-tl-prefs-by-team';            // { "Fuego": "v=story&p=pi…", … }
 const OLD_KEY = 'sb-team-tl-prefs';                 // 3.175.0 : une seule préférence pour toutes les équipes
@@ -52,12 +53,19 @@ export function toParams(st) {
     setList(q, 'src', allSrc(), st.sources);
     const lt = Object.keys(LANE_TRAIN_FIELDS).filter(k => st.laneTrain?.has(k));
     if (lt.length) q.set('lt', lt.join(','));
+    if (st.movesOpen) q.set('mv', '1');
+    // Profondeur (réglage du navigateur) : dans le lien pour qu'un collègue voie la MÊME période —
+    // « Tout » et les bornes dépendent de la fenêtre. Absente = défaut (depuis le 1er roster).
+    const pf = timelineDepth();
+    if (pf !== 'roster') q.set('pf', pf);
     return q.toString();
 }
 
 /** Paramètres → champs de l'état (ce qui est absent ou invalide garde la valeur de `st`). */
 function apply(st, qs) {
     const q = new URLSearchParams(qs);
+    // Profondeur AVANT les présélections : « Tout » et les bornes dépendent de la fenêtre qu'elle fixe.
+    if (TIMELINE_DEPTHS.includes(q.get('pf'))) setTimelineDepth(q.get('pf'));
     if (['lanes', 'story'].includes(q.get('v'))) st.view = q.get('v');
     st.scope = q.get('s') === 'train' ? 'train' : 'team';
     const pr = presets().find(x => x.key === (q.get('p') || DEFAULT_PRESET));
@@ -67,10 +75,17 @@ function apply(st, qs) {
     st.cats = getList(q, 'c', allCats(), st.cats);
     st.sources = getList(q, 'src', allSrc(), st.sources);
     st.laneTrain = new Set(list(q, 'lt', Object.keys(LANE_TRAIN_FIELDS)));
+    st.movesOpen = q.get('mv') === '1';
     return st;
 }
 
-const fromUrl = () => (location.hash.match(MARK) || [])[1] ?? null;
+/** Filtres du lien : d'abord ceux retenus par le routage (app.js → `friseUrl`, consommés une fois —
+ *  l'adresse a pu être réécrite au démarrage), sinon ceux de l'adresse actuelle. */
+const fromUrl = () => {
+    const kept = store.get('friseUrl');
+    if (kept != null) { store.set('friseUrl', null); return kept; }
+    return (location.hash.match(MARK) || [])[1] ?? null;
+};
 const readMap = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { return {}; } };
 /** Filtres mémorisés pour CETTE équipe ; à défaut, l'ancienne préférence commune (reprise une fois). */
 function fromStorage(team) {

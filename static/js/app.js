@@ -145,7 +145,11 @@ function applyHash() {
 
     // Marqueur ~frise=<filtres> (carte « Faits marquants », team_timeline_prefs.js) : ne route rien,
     // la carte le relit elle-même. Sa valeur n'a ni « / » ni « ~ » : un « /ticket/ID » ou un « ~cal »
-    // ajouté après par une modale reste intact.
+    // ajouté après par une modale reste intact. RETENU dans le store (`friseUrl`) : le démarrage
+    // réécrit l'adresse (pushHash) avant que la carte ne la lise — un lien 🔗 ouvert dans un nouvel
+    // onglet perdait ses filtres (même cause que les écrans figés de la TV).
+    const friseSet = raw.match(/(?:~|%7E)frise=([^~/]*?)(?=~|%7E|\/|$)/i);
+    if (friseSet) store.set('friseUrl', friseSet[1]);
     raw = raw.replace(/(?:~|%7E)frise=[^~/]*?(?=~|%7E|\/|$)/i, '');
     // Même principe pour ~tv=<réglages> (mode TV, tv-settings.js) : relu par la TV, ne route rien.
     const tvSet = raw.match(/(?:~|%7E)tv=([^~/]*)/i);

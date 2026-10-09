@@ -105,3 +105,17 @@ export function detailHtml(st) {
         <div class="tl-detail-body"><h4>${esc(it.title)}</h4><p class="tl-muted">${esc(it.when)}</p><ul>${alerts}${rows}</ul>${actions}</div>
     </div>`;
 }
+
+/**
+ * « 👥 Arrivées & départs » déplié sous la frise (bouton de la barre de période) : les mouvements de la
+ * période en CLAIR, groupés par équipe — les noms ne vivaient que dans les bulles, absents d'une
+ * capture d'écran ou de l'export PNG. Personnes cliquables (fiche membre), comme dans la bulle.
+ */
+export function movesPanelHtml(moves) {
+    if (!moves?.length) return '<section class="tl-moves-panel"><p class="tl-moves-empty">Aucune arrivée ni départ sur la période.</p></section>';
+    const sorted = [...moves].sort((a, b) => a.day.localeCompare(b.day));
+    return `<section class="tl-moves-panel" aria-label="Arrivées et départs de la période">
+        <header><b>👥 Arrivées & départs</b><span>${sorted.length} mouvement${sorted.length > 1 ? 's' : ''}</span><span class="tl-group-counts">${counts(sorted)}</span></header>
+        <ul class="tl-detail-list">${movesByTeam(sorted)}</ul>
+    </section>`;
+}

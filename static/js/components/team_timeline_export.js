@@ -16,6 +16,7 @@ import { esc, toast, copyToClipboard, exportChoiceModal } from '../utils.js';
 import { store } from '../state.js';
 import { CATS, FACT_TYPES, fmt, fmtY, fmtShort, monthName, diff, dayOfWeek, collectView, summary, timelineToday, mepFollowUps, onePeopleList, shortName } from './team_timeline_model.js';
 import { lanesHtml } from './team_timeline_lanes.js';
+import { movesPanelHtml } from './team_timeline_detail.js';
 import { storyHtml } from './team_timeline_story.js';
 
 const H2C = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
@@ -141,6 +142,7 @@ async function exportPng(st, c, s, name) {
         <div class="tl-kpis">${kpisHtml(s)}</div>
         ${st.cats.has('presence') ? legendHtml() : ''}
         <div class="tl-body">${st.view === 'story' ? storyHtml(st, c, noTarget) : lanesHtml(st, c, noTarget, { brush: false })}</div>
+        ${st.movesOpen ? movesPanelHtml(c.moves) : ''}
         <footer class="tl-export-foot">Squad Board · généré le ${fmtY(today)}</footer>
     </section>`;
     document.body.appendChild(host);

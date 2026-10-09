@@ -1,3 +1,17 @@
+## [3.210.0] - 2026-10-09
+
+### Export des faits marquants — « ⏹ Arrêter » pendant la génération, un Markdown par équipe dans le zip
+
+- **« ⏹ Arrêter »** : pendant la génération, « Annuler » devient « ⏹ Arrêter » (puis « Arrêt… ») ;
+  l'export s'interrompt entre deux équipes, rien n'est téléchargé, toast « Export arrêté (3/13 images
+  générées, rien téléchargé) », la modale reste ouverte avec les mêmes choix pour relancer. Choix de
+  la modale figés (`inert`) pendant le travail. `exportChoiceModal` → option `stopLabel` +
+  `AbortSignal` passé à `onConfirm(pick, progress, signal)`.
+- **Zip « une image par équipe »** : un Markdown par équipe à côté de son PNG
+  (`faits-marquants-fuego-….png` + `.md`, portée Équipe), plus celui du train.
+- Vérifié au banc Edge sur le vrai site : arrêt à 3/13 → 0 téléchargement, modale rouverte à l'état
+  normal ; relance → zip valide de 27 fichiers (13 PNG, 13 MD d'équipe, MD du train) ; 0 erreur JS.
+
 ## [3.209.0] - 2026-10-09
 
 ### Export des faits marquants — avancement sur « Exporter », Markdown du train dans le zip

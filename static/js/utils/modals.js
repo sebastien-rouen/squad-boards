@@ -116,12 +116,16 @@ export function choiceModal(title, message, buttons = []) {
  *   initialSelected?:string[], initialFormat?:string,
  *   toggles?:Array<{key,label,on,formats?:string[]}>  — interrupteurs (visibles pour `formats` seulement),
  *   preview?:({keys,format,toggles})=>string|null    — aperçu HTML réduit, sous la grille, recalculé à chaque
- *                                                      changement ; null → aucun aperçu (bloc masqué) }
- * @returns {Promise<{keys:string[],format:string,toggles:object}|null>} sélection, format, interrupteurs ; `null` si annulé.
+ *                                                      changement ; null → aucun aperçu (bloc masqué)
+ *   chips?:{label,items:Array<{key,label,count?,color?}>,selected?:string[],visible?:({format,toggles})=>boolean}
+ *                                                    — puces à sélection multiple (aucune = toutes), ex. équipes }
+ * @returns {Promise<{keys:string[],format:string,toggles:object,chips:string[]|null}|null>} sélection, format,
+ *   interrupteurs, puces (null si non proposées ou masquées) ; `null` si annulé.
  */
 export function exportChoiceModal(title, items, opts = {}) {
     const { message = '', confirmLabel = 'Exporter', formats = null, initialSelected = null, initialFormat = null,
-        toggles = [], preview = null } = opts;
+        toggles = [], preview = null, chips = null } = opts;
+    const chipSel = new Set(chips?.selected || []);
     const tog = Object.fromEntries(toggles.map(t => [t.key, !!t.on]));
     return new Promise(resolve => {
         const validKeys = new Set(items.map(i => i.key));
@@ -146,10 +150,16 @@ export function exportChoiceModal(title, items, opts = {}) {
                </div>`
             : '';
         const togglesHtml = toggles.length ? `<div class="export-choice-toggles">${toggles.map(t => `<label class="export-choice-toggle" data-for="${esc((t.formats || []).join(' '))}"><input type="checkbox" data-toggle="${esc(t.key)}"${t.on ? ' checked' : ''}> ${esc(t.label)}</label>`).join('')}</div>` : '';
+        const chipsHtml = chips ? `<div class="export-choice-chips" role="group" aria-label="${esc(chips.label)}">
+                <span class="export-choice-formats-lbl">${esc(chips.label)}</span>
+                <button type="button" class="export-choice-chip" data-chip-all aria-pressed="${!chipSel.size}">Toutes</button>
+                ${chips.items.map(i => `<button type="button" class="export-choice-chip" data-chip="${esc(i.key)}" aria-pressed="${chipSel.has(i.key)}"${i.color ? ` style="--chip:${esc(i.color)}"` : ''}><i></i>${esc(i.label)}${i.count != null ? ` <b>${i.count}</b>` : ''}</button>`).join('')}
+            </div>` : '';
         // Aperçu SOUS la grille, affiché seulement quand `preview` rend quelque chose (ex. format PNG)
         const choices = `
                     ${formatsHtml}
                     ${togglesHtml}
+                    ${chipsHtml}
                     <div class="export-choice-toolbar">
                         <button type="button" class="btn btn-ghost btn-xs" id="export-choice-toggle-all">${toggleAllLabel()}</button>
                     </div>
@@ -179,11 +189,17 @@ export function exportChoiceModal(title, items, opts = {}) {
         document.addEventListener('keydown', onKey);
         const toggleAllBtn = ov.querySelector('#export-choice-toggle-all');
         // Interrupteurs visibles seulement pour leurs formats ; aperçu réduit à la largeur du cadre
-        const syncToggles = () => ov.querySelectorAll('.export-choice-toggle').forEach(l => { l.hidden = !!l.dataset.for && !l.dataset.for.split(' ').includes(format); });
+        const chipsBox = ov.querySelector('.export-choice-chips');
+        const chipsShown = () => !!chips && (!chips.visible || chips.visible({ format, toggles: { ...tog } }));
+        const pickedChips = () => (chipsShown() ? [...chipSel] : null);
+        const syncToggles = () => {
+            ov.querySelectorAll('.export-choice-toggle').forEach(l => { l.hidden = !!l.dataset.for && !l.dataset.for.split(' ').includes(format); });
+            if (chipsBox) chipsBox.hidden = !chipsShown();
+        };
         const renderPreview = () => {
             if (!preview) return;
             const box = ov.querySelector('.export-preview'), frame = box.querySelector('.export-preview-frame'), note = box.querySelector('.export-preview-note');
-            const html = preview({ keys: [...selected], format, toggles: { ...tog } });
+            const html = preview({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() });
             // Rien à montrer (autre format, aucune catégorie) : ni aperçu ni note, modale à sa taille normale
             box.hidden = !html;
             ov.querySelector('.confirm-modal').classList.toggle('is-previewing', !!html);
@@ -203,7 +219,16 @@ export function exportChoiceModal(title, items, opts = {}) {
         requestAnimationFrame(renderPreview);
         ov.querySelector('.export-choice-toggles')?.addEventListener('change', e => {
             const k = e.target.dataset.toggle;
-            if (k) { tog[k] = e.target.checked; renderPreview(); }
+            if (k) { tog[k] = e.target.checked; syncToggles(); renderPreview(); }
+        });
+        chipsBox?.addEventListener('click', e => {
+            const b = e.target.closest('[data-chip], [data-chip-all]');
+            if (!b) return;
+            if (b.hasAttribute('data-chip-all')) chipSel.clear();
+            else if (chipSel.has(b.dataset.chip)) chipSel.delete(b.dataset.chip); else chipSel.add(b.dataset.chip);
+            chipsBox.querySelectorAll('[data-chip]').forEach(x => x.setAttribute('aria-pressed', chipSel.has(x.dataset.chip)));
+            chipsBox.querySelector('[data-chip-all]').setAttribute('aria-pressed', !chipSel.size);
+            renderPreview();
         });
         ov.querySelector('.export-choice-grid').addEventListener('click', e => {
             const btn = e.target.closest('.export-choice-btn');
@@ -235,7 +260,7 @@ export function exportChoiceModal(title, items, opts = {}) {
         ov.addEventListener('click', e => {
             if (e.target === ov) return cleanup(null);
             const act = e.target.closest('[data-act]')?.dataset.act;
-            if (act === 'ok') cleanup({ keys: [...selected], format, toggles: { ...tog } });
+            if (act === 'ok') cleanup({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() });
             if (act === 'cancel') cleanup(null);
         });
     });

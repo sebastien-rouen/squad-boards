@@ -82,9 +82,16 @@ export async function openTimelineExport(st) {
     };
     /** Image montrée dans l'aperçu (et copiée) : la 1re en « une image par équipe ». */
     const first = pick => { const each = perTeamList(chipDef, pick); return { each, img: image(pick, each?.[0]) }; };
+    // Derniers choix (ce navigateur) : format, dépliage, « une image par équipe », équipes ; les catégories
+    // aussi, sauf si l'écran en filtre (le filtre de l'écran l'emporte, comme le dépliage ou les puces de l'écran)
+    const last = loadLast();
+    const remember = pick => saveLast({ ...pick, chips: pick.chips ?? last?.chips ?? [] });
+    if (chipDef && !st.moveTeams?.size && last?.chips?.length) chipDef.selected = last.chips.filter(k => chipDef.items.some(i => i.key === k));
+    const screenFiltered = st.cats.size < Object.keys(CATS).length;
     /** Export, modale ouverte : le bouton « Exporter » montre l'avancement (⏳ 4/13…). */
     const run = async (picked, progress, signal) => {
         if (!picked.keys.length) { toast('Choisis au moins une catégorie', 'warning'); return false; }
+        remember(picked);
         const { each, img } = first(picked);
         try {
             if (each) {
@@ -122,16 +129,17 @@ export async function openTimelineExport(st) {
     };
     await exportChoiceModal('Exporter les faits marquants', Object.entries(CATS).map(([k, v]) => ({ key: k, label: v.label, icon: v.emoji, count: counts[k] })), {
         message: `${st.scope === 'train' ? 'Tout le train' : st.team} · du ${fmtY(st.A)} au ${fmtY(st.B)}. Choisis les catégories et le format.`,
-        confirmLabel: 'Exporter', initialSelected: [...st.cats], onConfirm: run, stopLabel: '⏹ Arrêter',
+        confirmLabel: 'Exporter', onConfirm: run, stopLabel: '⏹ Arrêter',
+        initialSelected: !screenFiltered && last?.keys?.length ? last.keys : [...st.cats], initialFormat: last?.format,
         formats: [{ key: 'png', label: `🖼️ Image PNG (${st.view === 'story' ? 'récit' : 'couloirs'})` },
             { key: 'md', label: '📝 Markdown (.md)' }, { key: 'md-copy', label: '📋 Markdown copié' }, { key: 'slack', label: '💬 Copier pour Slack' }],
         // Image : couloirs dépliés ou non, indépendamment de l'écran (partent de son état) ; aperçu réduit
         // de ce qui sera pris, recalculé à chaque changement (catégories, format, dépliage).
         toggles: [
-            st.view !== 'story' && c.moves.length ? { key: 'movesOpen', label: `👥 Déplier arrivées / départs (${c.moves.length})`, on: !!st.movesOpen, formats: IMG } : null,
-            st.view !== 'story' && c.ones.length ? { key: 'onesOpen', label: `💬 Déplier 1v1 (${c.ones.length})`, on: !!st.onesOpen, formats: IMG } : null,
+            st.view !== 'story' && c.moves.length ? { key: 'movesOpen', label: `👥 Déplier arrivées / départs (${c.moves.length})`, on: !!(st.movesOpen || last?.toggles?.movesOpen), formats: IMG } : null,
+            st.view !== 'story' && c.ones.length ? { key: 'onesOpen', label: `💬 Déplier 1v1 (${c.ones.length})`, on: !!(st.onesOpen || last?.toggles?.onesOpen), formats: IMG } : null,
             // Vue Train : une image par équipe (sa propre frise, ses chiffres), équipes choisies par les puces
-            chipDef?.perTeam ? { key: 'perTeam', label: '📦 Une image par équipe', on: false, formats: IMG } : null,
+            chipDef?.perTeam ? { key: 'perTeam', label: '📦 Une image par équipe', on: !!last?.toggles?.perTeam, formats: IMG } : null,
         ].filter(Boolean),
         chips: chipDef,
         preview: pick => {
@@ -144,6 +152,7 @@ export async function openTimelineExport(st) {
         previewActions: [{ key: 'copy', label: '📋 Copier l’image', busyLabel: '⏳ Copie…', doneLabel: '✅ Copiée',
             title: 'Copier cette image dans le presse-papiers (coller avec Ctrl+V dans Teams, Confluence, Slack…)',
             run: async pick => {
+                remember(pick);
                 const { img } = first(pick);
                 try { await exportPng(img.est, img.c, img.s, fileName(img.est), true); } catch (e) { toast(`Copie impossible : ${e.message || e}`, 'error'); throw e; }
             } }],
@@ -151,6 +160,13 @@ export async function openTimelineExport(st) {
 }
 
 const IMG = ['png'];
+const LAST_KEY = 'sb-team-tl-export';
+function loadLast() {
+    try { return JSON.parse(localStorage.getItem(LAST_KEY)) || null; } catch { return null; }
+}
+function saveLast({ keys, format, toggles, chips }) {
+    try { localStorage.setItem(LAST_KEY, JSON.stringify({ keys, format, toggles, chips })); } catch { /* stockage indisponible */ }
+}
 const mdBlob = md => new Blob([md], { type: 'text/markdown;charset=utf-8' });
 /** « Une image par équipe » cochée (vue Train, image) : les équipes choisies par les puces (aucune = toutes). */
 function perTeamList(def, pick) {

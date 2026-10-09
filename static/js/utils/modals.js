@@ -122,7 +122,8 @@ export function choiceModal(title, message, buttons = []) {
  *                                                      avec `run(pick)` (async) la modale RESTE ouverte (ex. copier l'image,
  *                                                      puis changer de puce et copier la suivante) ; sans `run`, ils la
  *                                                      résolvent comme « Exporter », avec `action: key`
- *   chips?:{label,items:Array<{key,label,count?,color?}>,selected?:string[],visible?:({format,toggles})=>boolean}
+ *   chips?:{label,items:Array<{key,label,count?,color?}>,selected?:string[],visible?:({format,toggles})=>boolean,
+ *           itemVisible?:(item,{format,toggles})=>boolean}  — puce masquée = désélectionnée
  *                                                    — puces à sélection multiple (aucune = toutes), ex. équipes }
  * @returns {Promise<{keys:string[],format:string,toggles:object,chips:string[]|null,action?:string}|null>} sélection, format,
  *   interrupteurs, puces (null si non proposées ou masquées) ; `null` si annulé.
@@ -205,6 +206,12 @@ export function exportChoiceModal(title, items, opts = {}) {
                 l.hidden = (!!l.dataset.for && !l.dataset.for.split(' ').includes(format)) || (!!t?.visible && !t.visible({ format, toggles: { ...tog } }));
             });
             if (chipsBox) chipsBox.hidden = !chipsShown();
+            if (chipsBox && chips.itemVisible) chipsBox.querySelectorAll('[data-chip]').forEach(b => {
+                const item = chips.items.find(i => i.key === b.dataset.chip);
+                b.hidden = !chips.itemVisible(item, { format, toggles: { ...tog } });
+                if (b.hidden && chipSel.delete(item.key)) b.setAttribute('aria-pressed', 'false');
+            });
+            chipsBox?.querySelector('[data-chip-all]')?.setAttribute('aria-pressed', !chipSel.size);
         };
         const renderPreview = () => {
             if (!preview) return;

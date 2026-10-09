@@ -17,6 +17,7 @@ import { store } from '../state.js';
 import { CATS, FACT_TYPES, fmt, fmtY, fmtShort, monthName, diff, dayOfWeek, collectView, summary, timelineToday, mepFollowUps, onePeopleList, shortName } from './team_timeline_model.js';
 import { lanesHtml } from './team_timeline_lanes.js';
 import { teamColor } from './team_calendar.js';
+import { zipStore } from '../utils/zip.js';
 import { storyHtml } from './team_timeline_story.js';
 
 const H2C = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
@@ -114,10 +115,14 @@ export async function openTimelineExport(st) {
     const { each, img } = first(picked);
     try {
         if (each) {
-            // Une image par équipe, l'une après l'autre (le navigateur peut demander d'autoriser
-            // les téléchargements multiples la 1re fois)
-            for (const t of each) { const im = image(picked, t); await exportPng(im.est, im.c, im.s, fileName(im.est), false, true); }
-            toast(`${each.length} ${plural(each.length, 'image exportée', 'images exportées')}`, 'success');
+            // Une image par équipe, rendues l'une après l'autre puis réunies dans UN .zip (une rafale de
+            // téléchargements = une autorisation du navigateur et N fenêtres) ; une seule équipe → le PNG
+            if (each.length > 1) toast(`Génération de ${each.length} images…`, 'info');
+            const files = [];
+            for (const t of each) { const im = image(picked, t); files.push({ name: `${fileName(im.est)}.png`, blob: await renderPng(im.est, im.c, im.s) }); }
+            if (files.length === 1) download(files[0].blob, files[0].name);
+            else download(await zipStore(files), `faits-marquants-par-equipe-${st.A}_${st.B}.zip`);
+            toast(files.length > 1 ? `${files.length} images exportées dans un .zip` : 'Image exportée', 'success');
         } else if (picked.format === 'png') await exportPng(img.est, c, s, fileName(img.est));
         else {
             const md = toMarkdown(img.est, c, s);
@@ -157,6 +162,7 @@ function teamChips(st, c) {
             .map(([t, n]) => ({ key: t, label: t || 'Hors équipes suivies', count: n || null, color: t ? teamColor(t) : '' })),
         selected: [...(st.moveTeams || [])],
         visible: ({ format, toggles }) => IMG.includes(format) && (unfolded(toggles) || (train && !!toggles.perTeam)),
+        itemVisible: (item, { toggles }) => !(train && toggles.perTeam && !item.key),
     };
 }
 
@@ -227,7 +233,14 @@ async function copyImage(blob, filename) {
     }
 }
 
-async function exportPng(st, c, s, name, copy = false, quiet = false) {
+async function exportPng(st, c, s, name, copy = false) {
+    const blob = await renderPng(st, c, s);
+    if (copy) await copyImage(blob, `${name}.png`);
+    else { download(blob, `${name}.png`); toast('Image exportée', 'success'); }
+}
+
+/** La carte exportée rendue en PNG (Blob), hors écran. */
+async function renderPng(st, c, s) {
     await loadH2C();
     const host = document.createElement('div');
     host.className = 'tl-export-host';
@@ -248,9 +261,7 @@ async function exportPng(st, c, s, name, copy = false, quiet = false) {
                 fixColors(doc.querySelector('.tl-export-host .tl-export'), doc.defaultView);
             },
         });
-        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
-        if (copy) await copyImage(blob, `${name}.png`);
-        else { download(blob, `${name}.png`); if (!quiet) toast('Image exportée', 'success'); }
+        return await new Promise(r => canvas.toBlob(r, 'image/png'));
     } finally {
         host.remove();
         metrics.remove();

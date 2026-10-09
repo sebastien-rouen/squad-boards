@@ -554,3 +554,18 @@ button.tls-person:hover, button.tls-person:focus-visible { border-color: var(--m
 .tll-mname.is-in { --m: var(--c-in); } .tll-mname.is-out { --m: var(--c-out); } .tll-mname.is-move { --m: var(--c-move); }
 .tll-mname.is-approx span { font-style: italic; }
 .tll-mname:hover, .tll-mname:focus-visible { background: color-mix(in srgb, var(--m) 14%, var(--surface)); outline: none; }
+
+/* « Déplier : » arrivées / départs, 1v1 (groupe discret de la barre de période) */
+.tl-unfold { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1); }
+.tl-unfold > small { color: var(--text-muted); font-size: var(--fs-xs); margin-right: 2px; }
+/* 1v1 dépliés : binôme posé à sa date ; planifié = italique, pastille creuse */
+.tll-mname.is-one { --m: var(--c-oneonone); }
+.tll-mname.is-one.is-planned span { font-style: italic; color: var(--text-secondary); }
+.tll-mname.is-one.is-planned i { background: transparent; border: 1.5px solid var(--m); color: transparent; }
+/* Filtre d'équipes des arrivées / départs dépliés */
+.tl-mteams { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex-basis: 100%; }
+.tl-mteam { --tm: var(--border-hover); display: inline-flex; align-items: center; gap: 4px; padding: 1px var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-full); background: var(--surface); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.tl-mteam i { width: 8px; height: 8px; border-radius: 50%; background: var(--tm); }
+.tl-mteam b { color: var(--text-muted); font-weight: var(--fw-medium); font-variant-numeric: tabular-nums; }
+.tl-mteam:hover { border-color: var(--border-hover); color: var(--text); }
+.tl-mteam[aria-pressed="true"] { border-color: var(--tm); background: color-mix(in srgb, var(--tm) 12%, var(--surface)); color: var(--text); font-weight: var(--fw-semibold); }

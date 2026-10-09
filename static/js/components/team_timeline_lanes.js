@@ -92,30 +92,51 @@ const stackName = n => {
     return w.length >= 2 && /^[A-ZÀ-Ý-]{2,}$/.test(w.at(-1)) ? `${w.slice(0, -1).join(' ')} ${w.at(-1)[0]}.` : s;
 };
 const LINE = 18, DAY_H = 15;       // px
-function movesUnfolded(st, moves, A, B, target) {
-    const ORDER = { in: 0, 'move-in': 1, 'move-out': 2, out: 3 };
-    const sorted = [...moves].sort((a, b) => a.day.localeCompare(b.day) || ORDER[a.kind] - ORDER[b.kind] || a.who.localeCompare(b.who, 'fr'));
-    const showTeam = st.scope === 'train' || st.laneTrain?.has('equipe');
+
+/** Couloir déplié en piles (arrivées / départs, 1v1) : `items` triés par date, `row(item)` = un nom,
+ *  `dayNote(items du jour)` = complément de l'intertitre, `unit` = libellé du compte (aria). */
+function stacksLane(st, cat, items, A, B, row, { dayNote = () => '', unit = 'élément' } = {}) {
     let maxH = 0;
     // Bord droit : les dernières piles, ramenées dans la piste, se recouvraient — on les décale de droite
     // à gauche pour qu'elles se suivent (même écart qu'entre deux piles ordinaires).
-    const groups = cluster(sorted, A, B, STACK_W + 0.6);
+    const groups = cluster(items, A, B, STACK_W + 0.6);
     let limit = 100 - STACK_W;
     for (let i = groups.length - 1; i >= 0; i--) { groups[i].left = Math.max(0, Math.min(groups[i].x0, limit)); limit = groups[i].left - STACK_W - 0.6; }
     const html = groups.map(g => {
-        const { left } = g;
         const days = [...g.items.reduce((m, x) => { (m.get(x.day) || m.set(x.day, []).get(x.day)).push(x); return m; }, new Map())];
-        maxH = Math.max(maxH, days.reduce((h, [, ms]) => h + DAY_H + ms.length * LINE, 0));
-        const body = days.map(([day, ms]) => `<small class="tll-mstack-day">${fmtShort(day)}${ms.some(m => !m.precise) ? ' · PI' : ''}</small>${ms.map(m => {
-            const k = MOVE[m.kind];
-            const sub = m.kind === 'move-in' ? ` ← ${m.from}` : m.kind === 'move-out' ? ` → ${m.to}` : '';
-            return `<button class="tll-mname ${k.cls}${m.precise ? '' : ' is-approx'}"${showTeam && m.team ? ` style="--tm:${teamColor(m.team)}"` : ''}
-                ${target({ kind: 'move', cat: 'equipe', move: m, title: `${k.label} — ${m.who}`, when: m.precise ? fmt(m.day) : `Début du PI ${m.pi} (${fmt(m.day)})` })}
-                title="${esc(`${k.label} : ${m.who}${sub}${showTeam && m.team ? ` · ${m.team}` : ''} — ${m.precise ? fmt(m.day) : `au changement de PI (${fmt(m.day)})`}`)}"><i>${k.sym}</i><span>${esc(stackName(m.who))}${esc(sub)}</span></button>`;
-        }).join('')}`).join('');
-        return `<div class="tll-mstack" style="left:${left}%;width:${STACK_W}%" aria-label="${esc(`${when(g)} : ${g.items.length} mouvement${g.items.length > 1 ? 's' : ''}`)}">${body}</div>`;
+        maxH = Math.max(maxH, days.reduce((h, [, list]) => h + DAY_H + list.length * LINE, 0));
+        const body = days.map(([day, list]) => `<small class="tll-mstack-day">${fmtShort(day)}${dayNote(list)}</small>${list.map(row).join('')}`).join('');
+        return `<div class="tll-mstack" style="left:${g.left}%;width:${STACK_W}%" aria-label="${esc(`${when(g)} : ${g.items.length} ${unit}${g.items.length > 1 ? 's' : ''}`)}">${body}</div>`;
     }).join('');
-    return lane(st, 'equipe', html, 'tll-lane--tall is-unfolded', `--lane-h:${maxH + 16}px`);
+    return lane(st, cat, html, 'tll-lane--tall is-unfolded', `--lane-h:${maxH + 16}px`);
+}
+
+/** Arrivées / départs dépliés ; vue Train : liseré à la couleur de l'équipe, filtre d'équipes (st.moveTeams). */
+function movesUnfolded(st, moves, A, B, target) {
+    const ORDER = { in: 0, 'move-in': 1, 'move-out': 2, out: 3 };
+    const keep = st.moveTeams?.size ? moves.filter(m => st.moveTeams.has(m.team || '')) : moves;
+    const sorted = [...keep].sort((a, b) => a.day.localeCompare(b.day) || ORDER[a.kind] - ORDER[b.kind] || a.who.localeCompare(b.who, 'fr'));
+    if (!sorted.length) return lane(st, 'equipe', empty('Aucun mouvement pour les équipes choisies'), 'tll-lane--tall');
+    const showTeam = st.scope === 'train' || st.laneTrain?.has('equipe');
+    return stacksLane(st, 'equipe', sorted, A, B, m => {
+        const k = MOVE[m.kind];
+        const sub = m.kind === 'move-in' ? ` ← ${m.from}` : m.kind === 'move-out' ? ` → ${m.to}` : '';
+        return `<button class="tll-mname ${k.cls}${m.precise ? '' : ' is-approx'}"${showTeam && m.team ? ` style="--tm:${teamColor(m.team)}"` : ''}
+            ${target({ kind: 'move', cat: 'equipe', move: m, title: `${k.label} — ${m.who}`, when: m.precise ? fmt(m.day) : `Début du PI ${m.pi} (${fmt(m.day)})` })}
+            title="${esc(`${k.label} : ${m.who}${sub}${showTeam && m.team ? ` · ${m.team}` : ''} — ${m.precise ? fmt(m.day) : `au changement de PI (${fmt(m.day)})`}`)}"><i>${k.sym}</i><span>${esc(stackName(m.who))}${esc(sub)}</span></button>`;
+    }, { dayNote: ms => (ms.some(m => !m.precise) ? ' · PI' : ''), unit: 'mouvement' });
+}
+
+/** 1v1 dépliés : chaque binôme posé à sa date (« Mohamed/Omar »), planifiés en italique et en creux. */
+function onesUnfolded(st, ones, A, B, target) {
+    const today = timelineToday();
+    const sorted = [...ones].sort((a, b) => a.day.localeCompare(b.day) || a.pair.localeCompare(b.pair, 'fr'));
+    return stacksLane(st, 'oneonone', sorted, A, B, o => {
+        const planned = o.day > today;
+        return `<button class="tll-mname is-one${planned ? ' is-planned' : ''}"
+            ${target({ kind: 'ones', cat: 'oneonone', items: [o], title: `1v1${planned ? ' planifié' : ''} — ${o.pair}`, when: fmt(o.day) })}
+            title="${esc(`${o.title} — ${fmt(o.day)}${planned ? ' (planifié)' : ''}`)}"><i>●</i><span>${esc(o.pair)}</span></button>`;
+    }, { unit: '1v1' });
 }
 
 function fact(target, f, A, B) {
@@ -213,7 +234,9 @@ function lanes(st, c, target) {
         }).join('');
         out.push(lane(st, 'equipe', mk || empty('Aucune arrivée ni départ sur la période'), 'tll-lane--tall'));
     }
-    if (on('oneonone')) {
+    if (on('oneonone') && st.onesOpen && c.ones.length) {
+        out.push(onesUnfolded(st, c.ones, A, B, target));   // bouton « 💬 1v1 » de la barre de période
+    } else if (on('oneonone')) {
         // 1v1 regroupés selon l'échelle (Fuego : une vingtaine par mois) ; la fiche liste les binômes
         // Passés (pleins) et planifiés (creux) regroupés séparément : un groupe ne mélange jamais les deux
         const today = timelineToday();

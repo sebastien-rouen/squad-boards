@@ -118,8 +118,10 @@ export function choiceModal(title, message, buttons = []) {
  *   preview?:({keys,format,toggles})=>string|null    — aperçu HTML réduit, sous la grille, recalculé à chaque
  *                                                      changement ; null → aucun aperçu (bloc masqué) ; {html, note}
  *                                                      → note préfixée à l'échelle ; toggles[i].visible?:({format,toggles})=>boolean
- *   previewActions?:Array<{key,label,title?}>        — boutons posés en haut à droite de l'aperçu : résolvent la
- *                                                      modale comme « Exporter », avec `action: key` (ex. copier l'image)
+ *   previewActions?:Array<{key,label,title?,run?,busyLabel?,doneLabel?}> — boutons en haut à droite de l'aperçu ;
+ *                                                      avec `run(pick)` (async) la modale RESTE ouverte (ex. copier l'image,
+ *                                                      puis changer de puce et copier la suivante) ; sans `run`, ils la
+ *                                                      résolvent comme « Exporter », avec `action: key`
  *   chips?:{label,items:Array<{key,label,count?,color?}>,selected?:string[],visible?:({format,toggles})=>boolean}
  *                                                    — puces à sélection multiple (aucune = toutes), ex. équipes }
  * @returns {Promise<{keys:string[],format:string,toggles:object,chips:string[]|null,action?:string}|null>} sélection, format,
@@ -224,6 +226,21 @@ export function exportChoiceModal(title, items, opts = {}) {
             frame.style.height = `${Math.ceil(card.offsetHeight * k)}px`;
             note.textContent = `${extra}Aperçu à ${Math.round(k * 100)} % de l'image`;
         };
+        // Action d'aperçu avec `run` : la modale reste ouverte, le bouton dit où il en est (⏳ puis ✅)
+        const runAction = async (btn, a, pick) => {
+            if (btn.disabled) return;
+            btn.disabled = true;
+            btn.textContent = a.busyLabel || a.label;
+            try {
+                await a.run(pick);
+                btn.textContent = a.doneLabel || a.label;
+            } catch {
+                btn.textContent = a.label;
+            } finally {
+                btn.disabled = false;
+                setTimeout(() => { if (!btn.disabled) btn.textContent = a.label; }, 1800);
+            }
+        };
         syncToggles();
         requestAnimationFrame(renderPreview);
         ov.querySelector('.export-choice-toggles')?.addEventListener('change', e => {
@@ -270,8 +287,12 @@ export function exportChoiceModal(title, items, opts = {}) {
             if (e.target === ov) return cleanup(null);
             const act = e.target.closest('[data-act]')?.dataset.act;
             if (act === 'ok') cleanup({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() });
-            const pact = e.target.closest('[data-preview-act]')?.dataset.previewAct;
-            if (pact) cleanup({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips(), action: pact });
+            const pbtn = e.target.closest('[data-preview-act]');
+            const pa = pbtn && previewActions.find(a => a.key === pbtn.dataset.previewAct);
+            if (!pa) return;
+            const pick = { keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() };
+            if (!pa.run) return cleanup({ ...pick, action: pa.key });
+            runAction(pbtn, pa, pick);
             if (act === 'cancel') cleanup(null);
         });
     });

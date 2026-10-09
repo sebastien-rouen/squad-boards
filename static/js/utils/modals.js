@@ -125,15 +125,17 @@ export function choiceModal(title, message, buttons = []) {
  *   chips?:{label,items:Array<{key,label,count?,color?}>,selected?:string[],visible?:({format,toggles})=>boolean,
  *           itemVisible?:(item,{format,toggles})=>boolean}  — puce masquée = désélectionnée
  *                                                    — puces à sélection multiple (aucune = toutes), ex. équipes }
- *   onConfirm?:async (pick, progress)=>boolean|void   — travail fait MODALE OUVERTE au clic sur le bouton de
- *                                                      confirmation (désactivé, libellé = `progress(texte)`) ; `false`
+ *   onConfirm?:async (pick, progress, signal)=>boolean|void — travail fait MODALE OUVERTE au clic sur le bouton
+ *                                                      de confirmation (désactivé, libellé = `progress(texte)`) ; `false`
  *                                                      → la modale reste ouverte, sinon elle se ferme ensuite
+ *   stopLabel?:string                                — pendant onConfirm, « Annuler » devient ce bouton et déclenche
+ *                                                      `signal` (AbortSignal) : au travail de s'arrêter proprement
  * @returns {Promise<{keys:string[],format:string,toggles:object,chips:string[]|null,action?:string}|null>} sélection, format,
  *   interrupteurs, puces (null si non proposées ou masquées) ; `null` si annulé.
  */
 export function exportChoiceModal(title, items, opts = {}) {
     const { message = '', confirmLabel = 'Exporter', formats = null, initialSelected = null, initialFormat = null,
-        toggles = [], preview = null, chips = null, previewActions = [], onConfirm = null } = opts;
+        toggles = [], preview = null, chips = null, previewActions = [], onConfirm = null, stopLabel = '' } = opts;
     const chipSel = new Set(chips?.selected || []);
     const tog = Object.fromEntries(toggles.map(t => [t.key, !!t.on]));
     return new Promise(resolve => {
@@ -196,23 +198,29 @@ export function exportChoiceModal(title, items, opts = {}) {
             document.removeEventListener('keydown', onKey);
             resolve(val);
         };
-        let busy = false;                                       // onConfirm en cours : ni Échap ni clic dehors
+        let busy = null;                                        // onConfirm en cours (AbortController) : ni Échap ni clic dehors
         const onKey = e => { if (e.key === 'Escape' && !busy) cleanup(null); };
         document.addEventListener('keydown', onKey);
         const toggleAllBtn = ov.querySelector('#export-choice-toggle-all');
         const confirm = async pick => {
             if (!onConfirm) return cleanup(pick);
-            const okBtn = ov.querySelector('[data-act="ok"]'), buttons = ov.querySelectorAll('.confirm-actions .btn');
-            busy = true;
-            buttons.forEach(b => { b.disabled = true; });
+            const okBtn = ov.querySelector('[data-act="ok"]'), cancelBtn = ov.querySelector('[data-act="cancel"]');
+            const body = ov.querySelector('.confirm-body');
+            busy = new AbortController();
+            okBtn.disabled = true;
             okBtn.setAttribute('aria-busy', 'true');
+            body.inert = true;                                  // choix figés pendant le travail
+            if (stopLabel) cancelBtn.textContent = stopLabel; else cancelBtn.disabled = true;
             const progress = txt => { okBtn.textContent = txt; };
             let done;
-            try { done = await onConfirm(pick, progress); } finally {
-                busy = false;
-                buttons.forEach(b => { b.disabled = false; });
+            try { done = await onConfirm(pick, progress, busy.signal); } finally {
+                busy = null;
+                okBtn.disabled = false;
+                cancelBtn.disabled = false;
+                cancelBtn.textContent = 'Annuler';
                 okBtn.removeAttribute('aria-busy');
                 okBtn.textContent = confirmLabel;
+                body.inert = false;
             }
             if (done !== false) cleanup(pick);
         };
@@ -311,7 +319,14 @@ export function exportChoiceModal(title, items, opts = {}) {
             renderPreview();
         });
         ov.addEventListener('click', e => {
-            if (busy) return;
+            if (busy) {
+                // Seul « Arrêter » (stopLabel) répond pendant le travail
+                if (stopLabel && e.target.closest('[data-act="cancel"]') && !busy.signal.aborted) {
+                    busy.abort();
+                    Object.assign(e.target.closest('[data-act="cancel"]'), { disabled: true, textContent: 'Arrêt…' });
+                }
+                return;
+            }
             if (e.target === ov) return cleanup(null);
             const act = e.target.closest('[data-act]')?.dataset.act;
             if (act === 'ok') return confirm({ keys: [...selected], format, toggles: { ...tog }, chips: pickedChips() });

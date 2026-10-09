@@ -1,3 +1,22 @@
+## [3.203.0] - 2026-10-09
+
+### Frise — 1v1 dépliés dans leur couloir, filtre d'équipes des arrivées / départs
+
+- **« Déplier : 👥 Arrivées / départs · 💬 1v1 »** — groupe discret de la barre de période. Le nouveau
+  bouton 💬 déplie le **couloir 1v1** : chaque binôme (« David/Tanisha ») posé à sa date, dans les mêmes
+  piles que les arrivées / départs (intertitre par date, une seule bande, aucun chevauchement) ; 1v1
+  **planifiés** en italique, pastille creuse ; clic → la bulle du 1v1. Lien : `o1=1`.
+- **Piles génériques** ([team_timeline_lanes.js](static/js/components/team_timeline_lanes.js) →
+  `stacksLane`) partagées par `movesUnfolded` et `onesUnfolded`.
+- **Filtre d'équipes** des arrivées / départs dépliés (vue Train ou couloir basculé sur le train) :
+  « Toutes » puis une puce par équipe (pastille de couleur, nombre de mouvements, les plus concernées
+  d'abord), sélection multiple — pour réduire les 61 / 171 noms à une ou deux équipes avant une capture.
+  Lien : `mt=Fuego,Lion`.
+- Vérifié au banc Edge sur le vrai site : Gabbiano 13 1v1 (12 planifiés), 214 px, 0 chevauchement,
+  clic → bulle ; Train 6 mois : 61 noms → Fuego + Lion 7 noms (154 px), « Toutes » → 61 ; lien collé
+  dans un navigateur vierge → filtre et deux couloirs dépliés restitués ; mobile 390 px sans
+  débordement ; 0 erreur JS.
+
 ## [3.202.0] - 2026-10-09
 
 ### Frise — arrivées / départs dépliés DANS le couloir Équipe (remplace le panneau de 3.201.0)

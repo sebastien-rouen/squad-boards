@@ -26,6 +26,26 @@ let _listening = false;
 const initialView = () => window.matchMedia?.('(max-width: 640px)').matches ? 'story' : 'lanes';
 
 
+/** « Déplier : » arrivées / départs et 1v1 — les noms posés dans leur couloir (lisibles sur une capture
+ *  et l'export PNG) ; arrivées / départs dépliés sur plusieurs équipes : filtre d'équipes. */
+function unfoldHtml(st, c) {
+    const btn = (key, open, emoji, label, n, tip) => `<button type="button" class="tl-moves-toggle" data-unfold="${key}" aria-pressed="${!!open}" title="${esc(open ? `Replier : ${tip}` : `Déplier : ${tip}`)}">${emoji} ${esc(label)} <b>${n}</b></button>`;
+    const parts = [
+        c.moves.length && st.cats.has('equipe') ? btn('moves', st.movesOpen, '👥', 'Arrivées / départs', c.moves.length, 'un nom par arrivée / départ dans le couloir Équipe') : '',
+        c.ones.length && st.cats.has('oneonone') ? btn('ones', st.onesOpen, '💬', '1v1', c.ones.length, 'chaque binôme posé à sa date dans le couloir 1v1') : '',
+    ].filter(Boolean);
+    if (!parts.length) return '';
+    // Filtre d'équipes des arrivées / départs dépliés (vue Train ou couloir basculé : plusieurs équipes)
+    const teams = [...c.moves.reduce((m, x) => m.set(x.team || '', (m.get(x.team || '') || 0) + 1), new Map())]
+        .sort((a, b) => !a[0] - !b[0] || b[1] - a[1] || a[0].localeCompare(b[0], 'fr'));
+    const filter = st.movesOpen && st.cats.has('equipe') && teams.length > 1
+        ? `<div class="tl-mteams" role="group" aria-label="Équipes des arrivées / départs dépliés">
+            <button type="button" class="tl-mteam" data-mteam-all aria-pressed="${!st.moveTeams?.size}">Toutes</button>
+            ${teams.map(([t, n]) => `<button type="button" class="tl-mteam" data-mteam="${esc(t)}" aria-pressed="${!!st.moveTeams?.has(t)}" style="--tm:${t ? teamColor(t) : 'var(--border-hover)'}"><i></i>${esc(t || 'Hors équipes suivies')} <b>${n}</b></button>`).join('')}
+        </div>` : '';
+    return `<div class="tl-unfold" role="group" aria-label="Déplier dans la frise"><small>Déplier :</small>${parts.join('')}</div>${filter}`;
+}
+
 /** Sélecteur de profondeur : jusqu'où remontent « Tout » et le champ « Du » (réglage du navigateur). */
 function depthHtml() {
     const { depth, firstRoster: fr, firstKnown: fk } = timelineDepthInfo();
@@ -86,7 +106,7 @@ function render(el, st) {
                 <span class="tl-dates-len">${Math.round(diff(st.A, st.B) / 7)} sem.</span>
             </div>
             ${depthHtml()}
-            ${c.moves.length && st.cats.has('equipe') ? `<button type="button" class="tl-moves-toggle" data-moves-toggle aria-pressed="${!!st.movesOpen}" title="${st.movesOpen ? 'Replier le couloir Équipe' : 'Déplier le couloir Équipe : un nom par arrivée / départ, sur autant de rangées que nécessaire (lisible sur une capture et l\'export PNG)'}">👥 ${st.movesOpen ? 'Replier' : 'Déplier'} arrivées / départs <b>${c.moves.length}</b></button>` : ''}
+            ${unfoldHtml(st, c)}
             ${isFiltered(st) ? '<button type="button" class="tl-reset" data-act="reset-filters" title="Période 6 mois, toutes les catégories et sources, portée équipe">↺ Réinitialiser les filtres</button>' : ''}
         </div>
         <div class="tl-kpis" aria-label="Résumé de la période">
@@ -204,7 +224,19 @@ function wire(el, st) {
     }));
     el.querySelectorAll('[data-scope]').forEach(b => b.addEventListener('click', () => { st.scope = b.dataset.scope; st.selectedItem = null; again(); }));
     el.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { const p = presets().find(x => x.key === b.dataset.preset); st.A = p.A; st.B = p.B; again(); }));
-    el.querySelector('[data-moves-toggle]')?.addEventListener('click', () => { st.movesOpen = !st.movesOpen; again(); });
+    el.querySelectorAll('[data-unfold]').forEach(b => b.addEventListener('click', () => {
+        const k = b.dataset.unfold === 'ones' ? 'onesOpen' : 'movesOpen';
+        st[k] = !st[k];
+        again();
+    }));
+    // Filtre d'équipes des arrivées / départs dépliés : « Toutes » vide la sélection
+    el.querySelector('[data-mteam-all]')?.addEventListener('click', () => { st.moveTeams = new Set(); again(); });
+    el.querySelectorAll('[data-mteam]').forEach(b => b.addEventListener('click', () => {
+        const t = b.dataset.mteam;                       // '' = hors équipes suivies
+        st.moveTeams = new Set(st.moveTeams || []);
+        if (st.moveTeams.has(t)) st.moveTeams.delete(t); else st.moveTeams.add(t);
+        again();
+    }));
     // Profondeur : « Tout » suit la nouvelle fenêtre ; une autre période n'est ramenée que si son début en sort.
     el.querySelector('[data-depth]')?.addEventListener('change', e => {
         const tout = presets().find(p => p.key === 'tout');

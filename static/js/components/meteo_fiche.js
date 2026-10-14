@@ -9,7 +9,9 @@
  * La tendance répond au #13 du BACKLOG sans nouvelle table : les votes existent par sprint.
  */
 
-import { esc, initials, extractPiNum, teamNameMatches, effectiveRosterForPi, teamEtp } from '../utils.js';
+import { esc, initials, extractPiNum, teamNameMatches, effectiveRosterForPi, teamEtp, getSprintForTeam, supportAbsenceDayLevel, todayIsoLocal } from '../utils.js';
+// holidays.js n'est pas dans le barrel : import direct, comme cal_banner.js (SOURCE UNIQUE des fériés).
+import { holidayName } from '../utils/holidays.js';
 import { sparkline } from './sparkline.js';
 import { helpIconHtml } from './help_popover.js';
 
@@ -76,24 +78,64 @@ function _nextAbsence(name, absences, todayIso) {
     return { label: s === e ? fmt(s) : `${fmt(s)} → ${fmt(e)}`, now, days: next.days };
 }
 
+const _isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const _dayFmt = iso => new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
+const ITER_LEVEL = { in: 'présent', half: 'demi-journée', out: 'absent', off: 'férié' };
+
+/** Jours OUVRÉS de l'itération en cours de l'équipe (sprint JIRA via `getSprintForTeam`). */
+function _iteration(team, sprintInfoAll) {
+    const sp = getSprintForTeam(team, sprintInfoAll);
+    const s = String(sp?.startDate || '').slice(0, 10), e = String(sp?.endDate || '').slice(0, 10);
+    if (!s || !e || e < s) return null;
+    const days = [];
+    // Midi local + setDate : ni décalage UTC, ni jour sauté au changement d'heure.
+    for (const d = new Date(`${s}T12:00:00`); _isoLocal(d) <= e; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() !== 0 && d.getDay() !== 6) days.push(_isoLocal(d));
+    }
+    return days.length ? { label: _lbl(sp.name), days } : null;
+}
+
+/**
+ * Bande de présence d'un membre sur l'itération : une case par jour ouvré, de LARGEUR FIXE pour
+ * que les bandes s'alignent d'une ligne à l'autre (on lit les trous communs d'un coup d'œil).
+ * Niveau du jour = `supportAbsenceDayLevel` (même lecture que la grille de rotation) ; férié gris.
+ */
+function _iterStripHtml(name, it, absences, todayIso) {
+    const count = { in: 0, half: 0, out: 0, off: 0 };
+    const cells = it.days.map(iso => {
+        const hol = holidayName(iso);
+        const lvl = hol ? 'off' : ({ full: 'out', half: 'half' })[supportAbsenceDayLevel(name, iso, absences)] || 'in';
+        count[lvl]++;
+        return `<i class="meteo-iter-d is-${lvl}${iso === todayIso ? ' is-today' : ''}" title="${esc(`${_dayFmt(iso)} — ${hol || ITER_LEVEL[lvl]}`)}"></i>`;
+    }).join('');
+    const summary = Object.entries(count).filter(([, n]) => n).map(([k, n]) => `${n} ${ITER_LEVEL[k]}`).join(', ');
+    return `<span class="meteo-iter" role="img" aria-label="${esc(`Itération ${it.label} : ${summary}`)}">${cells}</span>`;
+}
+
 export function meteoRosterHtml(team, ctx) {
-    const { piInfo, piNum, absences = [], members = [] } = ctx;
+    const { piInfo, piNum, absences = [], members = [], sprintInfoAll } = ctx;
     const roster = effectiveRosterForPi(piInfo, piNum, absences, members).filter(m => teamNameMatches(m.team, team));
     if (!roster.length) {
         return `<section class="card meteo-roster"><div class="card-header"><span class="card-title">👥 L'équipe</span></div>
             <p class="meteo-fiche-empty">Aucun membre connu pour ${esc(team)} — le roster vient du <b>CSV des absences</b> (Paramètres → Absences) ou du snapshot du PI.</p></section>`;
     }
     const cap = teamEtp(roster, piInfo?.roleCapacity || {});
-    const todayIso = new Date().toISOString().slice(0, 10);
+    // Jour LOCAL : `toISOString()` donnait la veille entre minuit et 2 h (heure d'été).
+    const todayIso = todayIsoLocal();
+    const it = _iteration(team, sprintInfoAll);
     const rows = cap.members.map(m => {
         const abs = _nextAbsence(m.name, absences, todayIso);
         return `<tr>
             <td><span class="meteo-plan-avatar" aria-hidden="true">${esc(initials(m.name))}</span> ${esc(m.name)}</td>
             <td>${m.role ? esc(m.role) : '<span class="meteo-roster-unknown" title="Rôle inconnu : compté à 100 %">rôle ?</span>'}</td>
             <td><span class="meteo-roster-bar" title="${m.pct} % de capacité dev"><i style="width:${m.pct}%"></i></span> <b>${m.pct} %</b></td>
-            <td class="${abs ? (abs.now ? 'is-now' : 'is-next') : ''}">${abs ? `${abs.now ? '🌴 absent' : abs.label}${abs.days ? ` <small>(${abs.days} j)</small>` : ''}` : '—'}</td>
+            <td class="meteo-roster-abs ${abs ? (abs.now ? 'is-now' : 'is-next') : ''}">${it ? _iterStripHtml(m.name, it, absences, todayIso) : ''}<span>${abs ? `${abs.now ? '🌴 absent' : abs.label}${abs.days ? ` <small>(${abs.days} j)</small>` : ''}` : '—'}</span></td>
         </tr>`;
     }).join('');
+    const legend = it ? `<p class="meteo-iter-legend">Itération ${esc(it.label)} :
+        <span><i class="meteo-iter-d is-in"></i> présent</span><span><i class="meteo-iter-d is-half"></i> ½ journée</span>
+        <span><i class="meteo-iter-d is-out"></i> absent</span><span><i class="meteo-iter-d is-off"></i> férié</span>
+        <span><i class="meteo-iter-d is-in is-today"></i> aujourd'hui</span></p>` : '';
     return `
     <section class="card meteo-roster" aria-labelledby="meteo-roster-title">
         <div class="card-header">
@@ -103,10 +145,11 @@ export function meteoRosterHtml(team, ctx) {
         <div class="meteo-wrap">
             <table class="meteo-roster-table">
                 <caption class="meteo-sr">Membres de l'équipe, capacité par rôle et prochaine absence</caption>
-                <thead><tr><th scope="col">Membre</th><th scope="col">Rôle</th><th scope="col">Capacité</th><th scope="col">Prochaine absence</th></tr></thead>
+                <thead><tr><th scope="col">Membre</th><th scope="col">Rôle</th><th scope="col">Capacité</th><th scope="col">Prochaine absence${it ? `<small class="meteo-iter-th">itération ${esc(it.label)}</small>` : ''}</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>
         </div>
+        ${legend}
     </section>`;
 }
 

@@ -13,6 +13,8 @@ import { addDays, mondayOf, localDay, norm, per } from './team_timeline_base.js'
 // Fuego tient UN ticket de suivi par PI (« Paillettes support - PI31 », GCOM-4785) : sa description
 // liste les tâches sous des titres « 🟦 Itération 31.1.1 » (itération 31.1, semaine 1).
 const TRACKER = /paillettes|suivi.*support|support\s*-\s*(pi|it[ée])/i;
+/** Ticket de SUIVI du support (pas une demande) — relu par la section Support du rapport. */
+export const isSupportTracker = t => TRACKER.test(t?.title || '');
 const WEEK_HEAD = /it[ée]ration\s+(\d+)\.(\d+)(?:\.(\d+))?/i;
 const DONE = /✅|☑/u;
 /** Une tâche du suivi « traîne » à partir de 3 semaines d'affilée (rouge dans la fiche, point sur la barre). */

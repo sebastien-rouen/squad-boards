@@ -462,6 +462,16 @@ python main.py          # http://localhost:3001  — Swagger /docs
   où il ne l'a pas été. Les helpers Slack/Confluence `B`/`E`/`SB`/`CS` vivent dans
   [reports-fmt.js](static/js/views/reports-fmt.js) — les importer depuis `reports.js` créerait
   un cycle et mettrait ces `const` fléchées en TDZ.
+- **Sections Flow / Support / Roadmap / Burnup du rapport** (3.212.0) : `reports-flow.js`,
+  `reports-support.js`, `reports-roadmap.js`, sur la période UNIQUE de `reports-scope.js`
+  (`ctx.period` = sprint de l'équipe sur le PI courant, sinon le PI ; `ctx.piWindow`). ⚠️ Ne jamais
+  compter `ctx.tickets` / `teamTickets` sans période : c'est TOUT l'historique chargé (≈ 1 an).
+  ⚠️ `t.epic` porte l'id de la FEATURE parente (0 ticket ne pointe un epic du store) — d'où la fin
+  de l'Epic Burndown, remplacé par le Burnup du PI (`#…/epicburn` redirigé vers `piburnup`).
+  ⚠️ Fin d'un PI = dernier sprint de l'ÉQUIPE, sinon date MÉDIANE de ce sprint dans le train
+  (`piBounds`) : une équipe crée ses derniers sprints JIRA en cours de PI (Lion au PI 31 → « 91 %
+  écoulé » à mi-PI). La météo (`meteo_matrix.js`, domaine PI) a encore l'ancienne règle.
+  Sommaire : scroll-spy sur une ligne de lecture SOUS `.report-controls`, verrou jusqu'à `scrollend`.
 - **Météo des équipes** (3.152.0, [meteo_matrix.js](static/js/components/meteo_matrix.js)) :
   l'ÉCHELLE vit dans [utils/meteo.js](static/js/utils/meteo.js) (pur, via le barrel) — cinq
   niveaux ☀️ ⛅ 🌧️ ⛈️ ⚪, `weatherOf(score)` pour l'absolu, `weatherRel(pct, timePct)` pour

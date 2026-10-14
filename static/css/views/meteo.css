@@ -220,6 +220,26 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 .meteo-roster-table td.is-now { color: var(--amber-text); font-weight: var(--fw-semibold); }
 .meteo-roster-table td.is-next { color: var(--text-secondary); }
 
+/* Bande de présence de l'itération (meteo_fiche.js) : cases de LARGEUR FIXE, posées AVANT le texte
+   de la prochaine absence — les bandes s'alignent d'un membre à l'autre. */
+/* La cellule peut passer à la ligne (texte SOUS la bande) : la carte n'occupe qu'une demi-colonne
+   et la bande ajoutée faisait défiler le tableau. La bande reste en tête : alignement conservé. */
+.meteo-roster-table td.meteo-roster-abs { white-space: normal; min-width: 108px; }
+.meteo-iter-th { display: block; font-weight: var(--fw-normal); text-transform: none; letter-spacing: 0; }
+/* Élément de grille = `min-width: auto` : la carte prenait la largeur de son tableau (677 px dans une
+   colonne de 366 px sur mobile) au lieu de le laisser défiler dans `.meteo-wrap`. */
+.meteo-fiche > * { min-width: 0; }
+.meteo-roster-abs > span { vertical-align: middle; white-space: nowrap; }
+.meteo-iter { display: inline-flex; gap: 2px; margin-right: var(--sp-2); vertical-align: middle; }
+.meteo-iter-d { display: inline-block; width: 8px; height: 14px; border-radius: 2px; background: var(--success); }
+.meteo-iter-d.is-half { background: var(--warning); }
+.meteo-iter-d.is-out { background: var(--danger); }
+.meteo-iter-d.is-off { background: var(--border); }
+.meteo-iter-d.is-today { box-shadow: 0 0 0 1.5px var(--surface), 0 0 0 3px var(--text); }
+.meteo-iter-legend { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); margin: 0; padding: var(--sp-2) var(--sp-4) var(--sp-3); font-size: var(--fs-xs); color: var(--text-muted); }
+.meteo-iter-legend span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.meteo-iter-legend .meteo-iter-d { height: 10px; }
+
 /* En-tête de ligne produit : le pire niveau du groupe, liseré à la couleur du groupe */
 .meteo-grp-row th {
     padding: var(--sp-3) var(--sp-2) var(--sp-1);

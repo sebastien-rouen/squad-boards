@@ -1,14 +1,20 @@
 /**
- * Reports view - 7 sections, rich Slack/Confluence visual preview.
+ * Reports view - sections exportables (Texte / Slack / Confluence) + sections interactives.
+ * Sections Flow, Support, Roadmap et Burnup du PI : reports-flow.js, reports-support.js,
+ * reports-roadmap.js, sur la période calculée par reports-scope.js.
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, currentSupportRows } from '../utils.js';
+import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 import { renderPIVelocityChart, renderStatusChart, renderTypeChart, renderBurndown, renderBurnup, renderCycleTime, renderWIPAge } from '../components/charts.js';
 import { FIST_SCALE, slackToEmoji, buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, moodThemeIndex, SONDAGE_THEME_COUNT, SONDAGE_INTRO } from '../components/sondage.js';
 import * as api from '../api.js';
 import { PI_GENERATOR } from './reports-pi.js';
+import { FLOW_GENERATOR } from './reports-flow.js';
+import { SUPPORT_GENERATOR } from './reports-support.js';
+import { ROADMAP_GENERATOR, piBurnupHtml, mountPiBurnup } from './reports-roadmap.js';
+import { reportWindows } from './reports-scope.js';
 import { B, E, SB, CS } from './reports-fmt.js';
 import { meteoSummary } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
@@ -110,7 +116,10 @@ export function renderReports(container) {
     })();
     const ctx = { tickets: displayTickets, teamTickets: tickets, features, sprintInfo, teams, team, piInfo,
                   absences, support, statusCounts, total, done, totalPts, donePts,
-                  displayPiNum, isCurrentPi: _isCurrentPi, meteo: _meteo };
+                  displayPiNum, isCurrentPi: _isCurrentPi, meteo: _meteo,
+                  // Période (sprint affiché, sinon PI) et bornes du PI des sections Flow, Support,
+                  // Roadmap et Burnup — un seul calcul, cf reports-scope.js.
+                  ...reportWindows({ team, sprintInfo, piInfo, displayPiNum, isCurrentPi: _isCurrentPi }) };
     const dLeft = _dLeft(sprintInfo?.endDate);
 
     const sections = [
@@ -118,7 +127,7 @@ export function renderReports(container) {
         { id: 'kanban',   title: 'Kanban / Flow',         icon: '🗂️' },
         { id: 'support',  title: 'Support',               icon: '🛡️' },
         { id: 'roadmap',  title: 'Roadmap / PI',          icon: '🗺️' },
-        { id: 'epicburn', title: 'Epic Burndown',         icon: '📉', noExport: true },
+        { id: 'piburnup', title: 'Burnup du PI',          icon: '📈', noExport: true },
         { id: 'sondage',  title: 'Mood Meter / ROTI',     icon: '😊', noExport: true },
         { id: 'pifist',   title: 'Vote de confiance PI',  icon: '✊', noExport: true, dLeft },
         { id: 'calendar', title: 'Calendrier',            icon: '📅', noExport: true },
@@ -288,8 +297,8 @@ export function renderReports(container) {
                     </div>
                 </div>
                 <div class="report-section-body" data-body="${s.id}">
-                    ${s.id === 'epicburn'
-                        ? renderEpicBurndown(ctx)
+                    ${s.id === 'piburnup'
+                        ? piBurnupHtml(ctx)
                         : s.id === 'calendar'
                             ? `<div id="cal-report-section"></div>`
                             : s.id === 'sondage'
@@ -327,6 +336,7 @@ export function renderReports(container) {
 
     // ── Timeline / sommaire latéral : clic → scroll, surbrillance auto au défilement ──
     const tlItems = [...container.querySelectorAll('.reports-timeline-item')];
+    let _tlLockUntil = 0;   // scroll-spy suspendu jusqu'à cet instant (après un clic du sommaire)
     // Fait défiler jusqu'à une section en compensant la barre de contrôles sticky.
     const _scrollToSection = (id, smooth = true) => {
         const target = container.querySelector(`#report-sec-${id}`);
@@ -354,6 +364,14 @@ export function renderReports(container) {
                         target.classList.add('is-open');
                     }
                 }
+                // La section cliquée est l'active, même si elle ne peut pas monter jusqu'en haut
+                // (dernières sections) : le scroll-spy se tait le temps du défilement animé.
+                // Verrou levé à la FIN du défilement (`scrollend`), pas après un délai fixe : la section
+                // Sprint peut faire 26 000 px et l'animation dure alors bien plus d'une seconde.
+                tlItems.forEach(i => i.classList.toggle('is-active', i === item));
+                _tlLockUntil = Date.now() + 3000;   // repli si `scrollend` n'arrive pas (Safari, pas de défilement)
+                const scroller = container.classList?.contains('content') ? container : window;
+                scroller.addEventListener('scrollend', () => { _tlLockUntil = 0; }, { once: true });
                 _scrollToSection(item.dataset.tl, true);
                 // Met à jour le hash pour pouvoir revenir directement sur cette section
                 // (ex: #reports/Fuego/sondage) — écouté par app.js (store.on('reportsSection')).
@@ -363,17 +381,23 @@ export function renderReports(container) {
         // Surbrillance de l'item courant selon la section visible
         const _setActive = id => tlItems.forEach(i => i.classList.toggle('is-active', i.dataset.tl === id));
         if ('IntersectionObserver' in window) {
+            const root = container.classList?.contains('content') ? container : null;
             const io = new IntersectionObserver(() => {
-                // L'item actif = section la plus haute encore dans la zone de lecture
-                let bestId = null, bestTop = Infinity;
+                if (Date.now() < _tlLockUntil) return;   // défilement lancé par un clic du sommaire
+                // L'item actif = DERNIÈRE section dont le haut a passé la ligne de lecture, posée
+                // SOUS la barre de contrôles collante. ⚠️ Mesurer depuis le haut du scrollport
+                // (l'ancienne règle) gardait la section précédente : son bas reste caché sous la
+                // barre après le clic, d'où une surbrillance d'un cran en arrière.
+                const controls = container.querySelector('.report-controls');
+                const box = root ? root.getBoundingClientRect() : { top: 0, height: window.innerHeight };
+                const line = box.top + (controls?.offsetHeight || 0) + Math.max(24, (box.height || 0) * 0.25);
+                let bestId = null, bestTop = -Infinity;
                 container.querySelectorAll('.report-section').forEach(sec => {
                     const top = sec.getBoundingClientRect().top;
-                    if (top < window.innerHeight * 0.4 && top > -sec.offsetHeight && top < bestTop) {
-                        bestTop = top; bestId = sec.id.replace('report-sec-', '');
-                    }
+                    if (top <= line && top > bestTop) { bestTop = top; bestId = sec.id.replace('report-sec-', ''); }
                 });
-                if (bestId) _setActive(bestId);
-            }, { root: container.classList?.contains('content') ? container : null, threshold: [0, 0.25, 0.5, 1] });
+                _setActive(bestId || tlItems[0]?.dataset.tl);
+            }, { root, threshold: [0, 0.25, 0.5, 1] });
             container.querySelectorAll('.report-section').forEach(sec => io.observe(sec));
             _setActive(tlItems[0]?.dataset.tl);
         }
@@ -454,12 +478,14 @@ export function renderReports(container) {
         _renderSondage(container);
         _renderPiFist(container, dLeft);
         _renderCalReport(container, team);
+        mountPiBurnup(ctx);
 
         // Repositionne sur la section lue avant un re-render (ex. changement de format),
         // une fois les sous-rendus (sondage/pifist/calendrier) posés → pas de saut de scroll.
         // Sinon, navigation directe via hash (#reports/<team>/<section>, ex. lien partagé ou
         // timeline) : on déplie/scroll vers la section ciblée.
-        const _targetId = _restoreSectionId || store.get('reportsSection');
+        // « epicburn » (≤ 3.211) est devenu « piburnup » : les liens partagés restent valides.
+        const _targetId = ({ epicburn: 'piburnup' })[_restoreSectionId || store.get('reportsSection')] || _restoreSectionId || store.get('reportsSection');
         if (_targetId) {
             const wasHash = !_restoreSectionId;
             _restoreSectionId = null;
@@ -1090,52 +1116,6 @@ function _renderPiFist(outerContainer, dLeft) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Epic Burndown - non exportable, rendu HTML direct
-// ══════════════════════════════════════════════════════════════════════════════
-function renderEpicBurndown({ tickets, team }) {
-    const allEpics = store.get('epics') || [];
-    const epics = allEpics.filter(e => team === 'all' || !team || e.team === team);
-    if (!epics.length) return '<div class="empty-state"><p>Aucun epic</p></div>';
-
-    const rows = epics.map(epic => {
-        const epicTickets = tickets.filter(t => t.epic === epic.id);
-        const total  = epicTickets.length;
-        const done   = epicTickets.filter(t => t.status === 'done').length;
-        const pts    = sumBy(epicTickets, t => t.points);
-        const donePts = sumBy(epicTickets.filter(t => t.status === 'done'), t => t.points);
-        const pctDone = pct(done, total);
-        const pctPts  = pct(donePts, pts);
-        const color   = pctDone >= 80 ? 'var(--success)' : pctDone >= 50 ? 'var(--warning)' : 'var(--danger)';
-        return { epic, total, done, pts, donePts, pctDone, pctPts, color };
-    }).filter(r => r.total > 0).sort((a, b) => b.total - a.total);
-
-    if (!rows.length) return '<div class="empty-state"><p>Aucun ticket associe aux epics</p></div>';
-
-    return `
-    <div class="epic-burn-list">
-        ${rows.map(r => `
-        <div class="epic-burn-row">
-            <div class="epic-burn-meta">
-                <span class="epic-burn-title" title="${esc(r.epic.title)}">${esc(r.epic.title)}</span>
-                <div class="epic-burn-badges">
-                    ${r.epic.team ? `<span class="epic-burn-team">${esc(r.epic.team)}</span>` : ''}
-                    <span class="epic-burn-pct" style="color:${r.color}">${r.pctDone}%</span>
-                </div>
-            </div>
-            <div class="epic-burn-bar-wrap">
-                <div class="epic-burn-bar-track">
-                    <div class="epic-burn-bar-fill" style="width:${r.pctDone}%;background:${r.color}"></div>
-                </div>
-            </div>
-            <div class="epic-burn-stat-row">
-                <span class="epic-burn-stat-chip">🎫 ${r.done}/${r.total} tickets</span>
-                <span class="epic-burn-stat-chip">💎 ${r.donePts}/${r.pts} pts</span>
-            </div>
-        </div>`).join('')}
-    </div>`;
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
 function renderSection(id, fmt, ctx) {
     const gen = GENERATORS[id];
     if (!gen) return '';
@@ -1385,79 +1365,11 @@ const GENERATORS = {
             </div>`;
         },
     },
-    kanban: {
-        text: ctx => {
-            const { tickets } = ctx;
-            const wip = tickets.filter(t => ['inprog', 'review', 'test'].includes(t.status)).length;
-            return `=== Flow ===\nWIP: ${wip}\nBloques: ${tickets.filter(t => t.status === 'blocked').length}\nDone: ${tickets.filter(t => t.status === 'done').length}\nRatio done: ${pct(tickets.filter(t => t.status === 'done').length, tickets.length)}%`;
-        },
-        slack: ctx => {
-            const { tickets } = ctx;
-            const wip = tickets.filter(t => ['inprog', 'review', 'test'].includes(t.status)).length;
-            const blocked = tickets.filter(t => t.status === 'blocked').length;
-            const d = tickets.filter(t => t.status === 'done').length;
-            return `<div class="s-header">${E('🗂️')} Metriques Flow</div><hr class="s-divider">${E('📈')} ${B('WIP')}: ${SB(wip, 'blue')}\n${E('🚫')} ${B('Bloques')}: ${blocked > 0 ? SB(blocked, 'red') : SB('0', 'green')}\n${E('✅')} ${B('Done')}: ${SB(d, 'green')}\n${E('📊')} ${B('Ratio')}: ${pct(d, tickets.length)}%`;
-        },
-        confluence: ctx => {
-            const { tickets } = ctx;
-            const wip = tickets.filter(t => ['inprog', 'review', 'test'].includes(t.status)).length;
-            const blocked = tickets.filter(t => t.status === 'blocked').length;
-            const d = tickets.filter(t => t.status === 'done').length;
-            return `<h2>Metriques Flow</h2><table><tr><th>KPI</th><th>Valeur</th></tr><tr><td>WIP</td><td>${CS(wip, 'blue')}</td></tr><tr><td>Bloques</td><td>${blocked > 0 ? CS(blocked, 'red') : CS('0', 'green')}</td></tr><tr><td>Done</td><td>${CS(d, 'green')}</td></tr><tr><td>Ratio done</td><td>${pct(d, tickets.length)}%</td></tr></table>`;
-        },
-    },
-    support: {
-        text: ctx => {
-            const { tickets, support } = ctx;
-            const cur = currentSupportRows(support);   // même rotation que la grille Paramètres
-            let r = '=== Support ===\n';
-            if (cur.length) { r += 'Rotation:\n'; for (const s of cur) r += `  ${s.team}: ${(s.members||[]).join(', ')}\n`; }
-            const sup = tickets.filter(t => t.type === 'support');
-            r += `Tickets support: ${sup.length}\n`;
-            return r;
-        },
-        slack: ctx => {
-            const { tickets, support } = ctx;
-            const cur = currentSupportRows(support);   // même rotation que la grille Paramètres
-            let r = `<div class="s-header">${E('🛡️')} Support</div><hr class="s-divider">`;
-            if (cur.length) { for (const s of cur) r += `${B(s.team)}: ${(s.members||[]).join(', ')}\n`; r += '\n'; }
-            const sup = tickets.filter(t => t.type === 'support');
-            r += `${E('🎫')} Tickets: ${SB(sup.length, sup.length > 0 ? 'yellow' : 'green')}`;
-            return r;
-        },
-        confluence: ctx => {
-            const { tickets, support } = ctx;
-            const cur = currentSupportRows(support);   // même rotation que la grille Paramètres
-            let r = `<h2>Support</h2>`;
-            if (cur.length) { r += `<h3>Rotation</h3><table><tr><th>Equipe</th><th>Membres</th></tr>${cur.map(s => `<tr><td>${esc(s.team)}</td><td>${(s.members||[]).join(', ')}</td></tr>`).join('')}</table>`; }
-            const sup = tickets.filter(t => t.type === 'support');
-            r += `<p>Tickets support: ${CS(sup.length, sup.length > 0 ? 'yellow' : 'green')}</p>`;
-            return r;
-        },
-    },
-    roadmap: {
-        text: ctx => {
-            const { features, tickets, piInfo, donePts, totalPts } = ctx;
-            let r = `=== Roadmap ===\nPoints: ${donePts}/${totalPts} (${pct(donePts, totalPts)}%)\nFeatures: ${features.filter(f => f.status === 'done').length}/${features.length}\n`;
-            if (piInfo?.name) r += `PI: ${piInfo.name}\n`;
-            return r;
-        },
-        slack: ctx => {
-            const { features, piInfo, donePts, totalPts } = ctx;
-            const ptsPct = pct(donePts, totalPts);
-            let r = `<div class="s-header">${E('🗺️')} Roadmap</div><hr class="s-divider">`;
-            r += `${E('🎯')} ${B('Points')}: ${donePts}/${totalPts} ${ptsPct >= 80 ? SB(ptsPct + '%', 'green') : SB(ptsPct + '%', 'yellow')}\n`;
-            r += `${E('📦')} ${B('Features')}: ${features.filter(f => f.status === 'done').length}/${features.length}\n`;
-            if (features.length) { r += '\n'; for (const f of features) r += `${f.status === 'done' ? E('✅') : E('⏳')} ${esc(f.title)} <span class="s-muted">(${esc(f.team || '?')})</span>\n`; }
-            return r;
-        },
-        confluence: ctx => {
-            const { features, piInfo, donePts, totalPts } = ctx;
-            let r = `<h2>Roadmap${piInfo?.name ? ' - ' + esc(piInfo.name) : ''}</h2>`;
-            r += `<table><tr><th>Feature</th><th>Equipe</th><th>Statut</th></tr>${features.map(f => `<tr><td>${esc(f.title)}</td><td>${esc(f.team || '-')}</td><td>${CS(STATUS_LABELS[f.status] || f.status, f.status === 'done' ? 'green' : f.status === 'inprog' ? 'blue' : 'gray')}</td></tr>`).join('')}</table>`;
-            return r;
-        },
-    },
+    // Flow, Support, Roadmap : sur la période du rapport (ctx.period / ctx.piWindow), chacun dans
+    // son module (3.212.0) — avant, ils comptaient tout l'historique chargé.
+    kanban: FLOW_GENERATOR,
+    support: SUPPORT_GENERATOR,
+    roadmap: ROADMAP_GENERATOR,
     teams: {
         text: ctx => { let r = '=== Equipes ===\n'; r += teamBreakdown(ctx.tickets, ctx.teams, 'text'); return r; },
         slack: ctx => `<div class="s-header">${E('👥')} Equipes</div><hr class="s-divider">\n${teamBreakdown(ctx.tickets, ctx.teams, 'slack')}`,

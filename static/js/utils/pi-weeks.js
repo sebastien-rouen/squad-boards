@@ -232,3 +232,35 @@ export function knownPiNumbers(sprintInfo) {
     }
     return [...nums].sort((a, b) => a - b);
 }
+
+/**
+ * Sprints PROJETÉS d'un PI qui n'en a encore aucun dans JIRA (PI à venir) — pour la Base
+ * capacité, qui a besoin de fenêtres datées pour soustraire les congés. Même cadence que les
+ * semaines de rotation : début = `piStartDate` (saisie > JIRA > CSV), à défaut chaîné depuis le
+ * PI daté le plus proche avec le nombre de sprints de CHAQUE PI intermédiaire (`_chainedStart`).
+ * Noms « <PI>.<i> » : la respiration (dernier index) reste détectable par `isBreathSprint`.
+ * @returns {Array<{name, startDate, endDate, state: 'future', projected: true}>} [] si aucun repère
+ */
+export function projectedPiSprints(sprintInfo, piInfo, piNum) {
+    if (!piNum) return [];
+    const dur = piInfo?.sprintDuration || 14;
+    const fallbackCnt = piInfo?.sprintsPerPI || 5;
+    let start = piStartDate(sprintInfo, piNum);
+    if (!start) {
+        // PI daté le plus proche EN DESSOUS de la cible (au plus 6 PI en arrière).
+        for (let k = piNum - 1; k >= piNum - 6 && k > 0; k--) {
+            const raw = piStartDate(sprintInfo, k);
+            if (raw) { start = _chainedStart(sprintInfo, k, String(raw).slice(0, 10), piNum, dur, fallbackCnt); break; }
+        }
+    }
+    if (!start) return [];
+    start = String(start).slice(0, 10);
+    const count = detectSprintsPerPI(sprintInfo, piNum, fallbackCnt);
+    return Array.from({ length: count }, (_, i) => ({
+        name: `${piNum}.${i + 1}`,
+        startDate: _addDays(start, i * dur),
+        endDate: _addDays(start, (i + 1) * dur - 1),
+        state: 'future',
+        projected: true,
+    }));
+}

@@ -172,6 +172,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
   jamais un ratio global — sinon le total contredit son propre détail. Colonne visible
   uniquement si `targetPiNum > currentPiNum`. Dans « Charge prévue » : saisie > `estimated > 0`
   > base suggérée (jamais persistée, classe `--suggested`).
+  Carte « 🎯 Capacité prévisionnelle » (Santé, une équipe) : MÊME calcul via `_capBaseFor(tm, PI)`
+  (health.js) — PI sélectionné s'il est à venir, sinon courant + 1 ; jamais `piInfo.number`.
+  PI sans sprint JIRA → `projectedPiSprints` (pi-weeks.js, cadence de la rotation), annoncé
+  « dates projetées ». `computeCapacityNextPI` (utils.js) n'a plus d'appelant.
   ⚠️ Si la fenêtre dépasse `lastKnownAbsenceDate(absences)`, le ratio est un plancher et la
   base un plafond → `capped` (cellule orange + ⚠). Ne jamais présenter le chiffre sans cette
   réserve.
@@ -463,7 +467,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
   source que « nb début / nb actuel » de Health via `sprintScopeDelta`) — échelle INVERSE
   `weatherChurn` + plafonds `sb-meteo-scope` (10/25/40 %). ⚠️ Domaine `inLevel: false` :
   INDICATIF, hors du niveau d'équipe (PI 31 : 10 équipes / 13 en 🌧️/⛈️) — le passer à vrai
-  est une décision métier, pas un correctif. Dashboard filtré = **fiche équipe** : plan d'action
+  est une décision métier, pas un correctif.
+  Tendance vs PI − 1 : `churnTrend` (↘ = MIEUX, écart < 3 pts = stable), case + détail. Dashboard filtré = **fiche équipe** : plan d'action
   ([meteo_plan.js](static/js/components/meteo_plan.js), ouvre `openAlertModal`), tendance des
   votes + roster ([meteo_fiche.js](static/js/components/meteo_fiche.js)). Seuils réglables dans
   Paramètres → Météo ([settings-meteo.js](static/js/views/settings-meteo.js), pattern

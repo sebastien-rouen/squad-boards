@@ -16,7 +16,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, belongedToSprint, isInSprint, belongedToPi, countBlocked, teamCapacity, rosterCtx, wipThreshold, countWip, weatherOf, weatherRel, weatherChurn, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds, meteoScopeThresholds, scopeStability } from '../utils.js';
+import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, belongedToSprint, isInSprint, belongedToPi, countBlocked, teamCapacity, rosterCtx, wipThreshold, countWip, weatherOf, weatherRel, weatherChurn, churnTrend, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds, meteoScopeThresholds, scopeStability } from '../utils.js';
 import { ANOMALY_RULES, healthScore } from '../business_rules.js';
 import { slaModel } from './sla_review_card.js';
 import { helpIconHtml } from './help_popover.js';
@@ -123,10 +123,18 @@ export function computeTeamMeteo(team, {
     const stab = piNum ? scopeStability(tt, piSprints) : null;
     if (stab?.plan) {
         const sth = scopeThresholds || meteoScopeThresholds();
-        d.scope = { level: weatherChurn(stab.churnPct, sth), value: `${stab.churnPct} %`,
-            sub: `+${stab.added} −${stab.removed} sur ${stab.plan} engagés · ${stab.sprints} sprint${stab.sprints > 1 ? 's' : ''}`,
+        // Tendance : même mesure sur le PI PRÉCÉDENT — juger une équipe sur sa progression,
+        // pas sur un PI isolé. Absente si le PI précédent n'a rien de mesurable.
+        const prevPi = piNum - 1;
+        const prev = scopeStability(tt, (sprintInfoAll?.teamSprints || []).filter(s => s.team === team && extractPiNum(s.name) === prevPi));
+        const trend = prev.plan ? churnTrend(stab.churnPct, prev.churnPct) : null;
+        const trendTxt = trend ? `PI ${prevPi} : ${prev.churnPct} % ${trend.arrow}` : '';
+        d.scope = { level: weatherChurn(stab.churnPct, sth), value: `${stab.churnPct} %${trend ? ` ${trend.arrow}` : ''}`,
+            sub: `+${stab.added} −${stab.removed} sur ${stab.plan} engagés${trendTxt ? ` · ${trendTxt}` : ''}`,
             viz: { type: 'gauge', score: Math.max(0, 100 - stab.churnPct) },
-            meta: [['📐', `${stab.plan} engagés au lancement`], ['🔀', `+${stab.added} ajoutés · −${stab.removed} retirés`]] };
+            prev: prev.plan ? { pi: prevPi, churnPct: prev.churnPct, trend } : null,
+            meta: [['📐', `${stab.plan} engagés au lancement`], ['🔀', `+${stab.added} ajoutés · −${stab.removed} retirés`],
+                ...(trend ? [[trend.better ? '📉' : trend.better === false ? '📈' : '➡️', `PI ${prevPi} : ${prev.churnPct} % → ${stab.churnPct} % (${trend.label})`]] : [])] };
     } else {
         d.scope = { level: 'none', value: '—', sub: stab?.sprints ? 'aucun ticket engagé au lancement' : 'aucun sprint démarré dans ce PI' };
     }

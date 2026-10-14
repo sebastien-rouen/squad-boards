@@ -12,7 +12,8 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, rosterCtx, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, plannedAtSprintStart, inSprintNow, sprintScopeDelta, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { projectedPiSprints } from '../utils/pi-weeks.js';
+import { esc, filterByTeam, sumBy, rosterCtx, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, plannedAtSprintStart, inSprintNow, sprintScopeDelta, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -185,7 +186,6 @@ export function renderHealth(container) {
     for (const m of members) if (m.name && m.role) _roleAnywhere.set(m.name, m.role);
     const _rosterPi = effectiveRosterForPi(piInfo, targetPiNum, absences, members)
         .map(m => m.role ? m : { ...m, role: _roleAnywhere.get(m.name) || '' });
-    const _membersOfTeam = tm => _rosterPi.filter(m => teamNameMatches(m.team, tm));
     // Même pondération par rôle pour le PI et pour chaque sprint : sans elle, les congés
     // d'un Product Owner (0 %) rogneraient une capacité à laquelle il ne contribue pas.
     const _pctOfFor = cap => {
@@ -193,6 +193,34 @@ export function renderHealth(container) {
         // Hors roster du PI → 0 : voir utils/capacity-base.js, même règle des deux côtés.
         return name => (byName.has(name) ? byName.get(name) : 0);
     };
+    // 🎯 Base capacité d'une équipe pour UN PI — SOURCE UNIQUE de la colonne de la matrice
+    // ET de la carte « Capacité prévisionnelle » (avant, la carte faisait son propre calcul :
+    // têtes au lieu d'ETP, partis compris, respiration comptée, et toujours « PI courant + 1 »
+    // via `piInfo.number` quel que soit le PI sélectionné).
+    // Sprints JIRA du PI s'ils existent, sinon PROJETÉS (cadence de pi-weeks.js) : un PI à
+    // venir n'a souvent encore aucun sprint créé, et la base resterait vide.
+    // Roster = celui du PI demandé (≠ `_rosterPi` quand la carte vise PI+1 depuis le PI courant).
+    const _capBaseFor = (tm, piNum) => {
+        if (!piNum) return null;
+        const known = (sprintInfo?.teamSprints || []).filter(s => s.team === tm && extractPiNum(s.name || '') === piNum)
+            .sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
+        const sprints = known.length ? known : projectedPiSprints(sprintInfo, piInfo, piNum);
+        if (!sprints.length) return null;
+        const roster = piNum === targetPiNum ? _rosterPi
+            : effectiveRosterForPi(piInfo, piNum, absences, members).map(m => m.role ? m : { ...m, role: _roleAnywhere.get(m.name) || '' });
+        const cap = piCapacityBase({
+            teamSprints: sprintInfo?.teamSprints || [],
+            piSprints: sprints, team: tm, absences, targetPiNum: piNum, lastAbsenceDate: _lastAbsence,
+            teamMembers: roster.filter(m => teamNameMatches(m.team, tm)),
+            rolePctMap: _rolePctMap,
+            sprintsPerPI: piInfo?.sprintsPerPI || 0,
+        });
+        if (!cap) return null;
+        const plan = sprints.filter(sp => !isBreathSprint(sp.name, cap.breathIdx));
+        return { ...cap, piNum, projected: !known.length,
+            windowStart: plan[0]?.startDate || null, windowEnd: plan.at(-1)?.endDate || null };
+    };
+
     // La colonne ✊ Confiance porte sur le PI entier, pas sur le sprint mesuré à côté :
     // son sous-titre nomme donc toujours le PI, y compris à l'offset 0.
     const _piColLabel = targetPiNum ? `PI#${targetPiNum}` : '';
@@ -314,22 +342,29 @@ export function renderHealth(container) {
     // Helpers pour series par anomalie
     const seriesFor = (key) => history.map(s => s.byKey?.[key] ?? 0);
 
-    // Capacité prévisionnelle du PI suivant (si une équipe est sélectionnée)
+    // Capacité prévisionnelle (si une équipe est sélectionnée) — PI SÉLECTIONNÉ s'il est à
+    // venir, sinon le PI qui suit le PI courant (un PI passé ou en cours se MESURE, il ne se
+    // projette pas). Même calcul que la colonne 🎯 Base capacité : `_capBaseFor`.
     const capacityCard = teamsScope.length === 1 ? (() => {
         const team = teamsScope[0];
-        const cap = computeCapacityNextPI(team, sprintInfo, piInfo, absences, allTickets);
+        const capPi = _showCapacity ? targetPiNum : (currentPiNum ? currentPiNum + 1 : 0);
+        const cap = _capBaseFor(team, capPi);
         if (!cap) return '';
-        const _fmtD = iso => { const d = new Date(iso); return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); };
-        const ratioColor = cap.ratio >= 30 ? 'var(--warning)' : cap.ratio >= 15 ? 'var(--info)' : 'var(--success)';
-        const piLabel = cap.piNumber ? `PI#${cap.piNumber}` : 'prochain PI';
+        const _fmtDm = iso => iso ? new Date(String(iso).slice(0, 10) + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '?';
+        const ratioPct = Math.round(cap.ratio * 100);
+        const ratioColor = ratioPct >= 30 ? 'var(--warning)' : ratioPct >= 15 ? 'var(--info)' : 'var(--success)';
+        const tip = _capacityTip(cap, team, capPi, _lastAbsence)
+            + (cap.projected ? `\n\n📅 Aucun sprint du PI#${capPi} dans JIRA : dates PROJETÉES depuis la cadence (Paramètres → Sprint & PI).` : '')
+            + (_showCapacity ? '' : `\n\nPI sélectionné : PI#${targetPiNum || currentPiNum} (mesuré) — la projection vise le PI suivant. Sélectionner un PI à venir pour le projeter.`);
         return `
-            <div class="capacity-mini" title="Vélocité moyenne sprint (3 derniers) × ${cap.sprintsPerPI} sprints × (1 − % absences) — brute (sans absences) : ${cap.grossCapacity} pts">
-                <div class="capacity-mini-lbl">🎯 Capacité prévisionnelle <strong>${esc(piLabel)}</strong></div>
-                <div class="capacity-mini-val">${cap.netCapacity}<small>pts</small></div>
-                <div class="capacity-mini-sub">${esc(team)} · ${_fmtD(cap.windowStart)} → ${_fmtD(cap.windowEnd)}</div>
+            <div class="capacity-mini" title="${esc(tip)}">
+                <div class="capacity-mini-lbl">🎯 Capacité prévisionnelle <strong>PI#${capPi}</strong>${cap.capped ? ' <span title="Congés connus jusqu\'au ' + esc(_fmtD(_lastAbsence)) + ' seulement : base optimiste">⚠</span>' : ''}</div>
+                <div class="capacity-mini-val">${cap.points}<small>pts</small></div>
+                <div class="capacity-mini-sub">${esc(team)} · ${_fmtDm(cap.windowStart)} → ${_fmtDm(cap.windowEnd)}${cap.projected ? ' · <em>dates projetées</em>' : ''}</div>
                 <div class="capacity-mini-row">
-                    <span>⚡ ${cap.avgVelocityPerSprint} pts/sp</span>
-                    <span style="color:${ratioColor}">🏖 −${cap.ratio}%</span>
+                    <span>⚡ ${cap.avg.toFixed(1)} pts/sp × ${cap.sprintsCount}</span>
+                    <span>👥 ${cap.etp.toFixed(1)} ETP</span>
+                    <span style="color:${ratioColor}">🏖 −${ratioPct}%</span>
                 </div>
             </div>`;
     })() : '';
@@ -496,13 +531,7 @@ export function renderHealth(container) {
             // chiffre, et deux calculs finiraient toujours par diverger.
             ...(() => {
                 if (!_showCapacity) return { capBase: null, capBySprint: {} };
-                const capBase = piCapacityBase({
-                    teamSprints: sprintInfo.teamSprints || [],
-                    piSprints, team: tm, absences, targetPiNum, lastAbsenceDate: _lastAbsence,
-                    teamMembers: _membersOfTeam(tm),
-                    rolePctMap: _rolePctMap,
-                    sprintsPerPI: piInfo?.sprintsPerPI || 0,
-                });
+                const capBase = _capBaseFor(tm, targetPiNum);
                 const capBySprint = {};
                 if (capBase) {
                     for (const sp of piSprints) {

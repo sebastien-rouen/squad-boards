@@ -21,6 +21,8 @@ import { ANOMALY_RULES, healthScore } from '../business_rules.js';
 import { slaModel } from './sla_review_card.js';
 import { helpIconHtml } from './help_popover.js';
 import { TEAM_COLORS } from '../config.js';
+// pi-weeks.js n'est pas dans le barrel utils.js : import direct, comme health.js.
+import { piBounds } from '../utils/pi-weeks.js';
 
 // Les domaines vivent dans utils/meteo.js (partagés avec l'aide « ? ») ; on ne garde ici
 // que ce qu'il faut pour rendre une cellule.
@@ -63,9 +65,10 @@ export function computeTeamMeteo(team, {
         const scopePts = sumBy(scope, t => t.points);
         const donePts = sumBy(scope.filter(t => t.status === 'done' && extractPiNum(t.sprintName || '') === piNum), t => t.points);
         const p = scopePts ? pctOf(donePts, scopePts) : null;
-        const start = piSprints.map(s => s.startDate).filter(Boolean).sort()[0];
-        const end = piSprints.map(s => s.endDate).filter(Boolean).sort().at(-1);
-        const time = elapsedPct(start, end);
+        // Bornes = `piBounds` (source unique) : la fin du dernier sprint CONNU arrêtait le PI de Lion
+        // au 18/10 (31.4 et 31.5 pas encore créés dans JIRA) → « 91 % du PI » à mi-PI, météo 🌧️.
+        const b = piBounds({ team, sprintInfo: sprintInfoAll, piInfo: store.get('piInfo'), piNum });
+        const time = b ? elapsedPct(b.startIso, b.endIso) : null;
         d.pi = { level: weatherRel(p, time), value: p == null ? '—' : `${p} %`, sub: scopePts ? `${donePts}/${scopePts} pts · ${time ?? '?'} % du PI` : 'périmètre vide',
             viz: p != null && time != null ? { type: 'rel', p, time } : null,
             meta: scopePts ? [['✅', `${donePts}/${scopePts} pts faits`], ['⏱️', `${time ?? '?'} % du PI écoulé`]] : [['∅', 'périmètre vide']] };

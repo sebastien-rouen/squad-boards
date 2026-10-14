@@ -17,7 +17,7 @@
 
 import { getSprintForTeam, extractPiNum, extractSprintLabel } from '../utils.js';
 // pi-weeks.js n'est pas dans le barrel utils.js : import direct, comme health.js.
-import { projectedPiSprints, detectSprintsPerPI } from '../utils/pi-weeks.js';
+import { piBounds } from '../utils/pi-weeks.js';
 
 const DAY_MS = 86_400_000;
 
@@ -49,36 +49,10 @@ export const num = v => String(v).replace('.', ',');
 /** Le timestamp tombe-t-il dans la fenêtre mesurée (bornée à aujourd'hui) ? */
 export const inWindow = (ms, w) => Number.isFinite(ms) && w && ms >= w.start && ms <= w.measuredEnd;
 
-/** Médiane basse d'une liste de dates ISO (le tri de chaînes suffit). */
-const medianIso = list => { const a = list.slice().sort(); return a[Math.floor((a.length - 1) / 2)]; };
-
-/**
- * Bornes du PI affiché. `null` si aucun sprint, réel ni projeté.
- * Début = 1er sprint de l'équipe, fin = DERNIER sprint du PI de l'équipe (index = nombre de
- * sprints du PI, `detectSprintsPerPI`). ⚠️ Une équipe ne crée souvent ses derniers sprints JIRA
- * qu'en cours de PI (Lion au PI 31 : 31.1 → 31.3 seulement) : prendre la fin du dernier sprint
- * CONNU arrêtait son PI au 18/10 au lieu du 12/11 (« 91 % du temps écoulé » à mi-PI). Il manque →
- * date MÉDIANE de ce sprint dans le train, qui ignore un calendrier atypique (Gabbiano : 30/11).
- * Même médiane pour « Toutes équipes ». Aucun sprint réel → dates projetées.
- */
-function piBounds({ team, sprintInfo, piInfo, piNum }) {
-    if (!piNum) return null;
-    const idx = s => parseInt(extractSprintLabel(s.name).split('.')[1], 10) || 0;
-    const ofPi = (sprintInfo?.teamSprints || []).filter(s => extractPiNum(s.name) === piNum && s.startDate && s.endDate);
-    const own = team && team !== 'all' ? ofPi.filter(s => s.team === team) : [];
-    const count = detectSprintsPerPI(sprintInfo, piNum, piInfo?.sprintsPerPI || 5);
-    const pick = (i, field) => {
-        const mine = own.filter(s => idx(s) === i).map(s => s[field]).sort();
-        if (mine.length) return field === 'startDate' ? mine[0] : mine.at(-1);
-        const train = ofPi.filter(s => idx(s) === i).map(s => s[field]);
-        return train.length ? medianIso(train) : null;
-    };
-    const start = pick(1, 'startDate') || own.map(s => s.startDate).sort()[0];
-    const end = pick(count, 'endDate') || own.map(s => s.endDate).sort().at(-1);
-    if (start && end && end > start) return { start: dayMs(start), end: dayMs(end, true), projected: false };
-    const proj = projectedPiSprints(sprintInfo, piInfo, piNum);
-    if (!proj.length) return null;
-    return { start: dayMs(proj[0].startDate), end: dayMs(proj.at(-1).endDate, true), projected: true };
+/** Bornes du PI affiché, en ms — la règle vit dans `piBounds` (utils/pi-weeks.js, source unique). */
+function piWindowMs({ team, sprintInfo, piInfo, piNum }) {
+    const b = piBounds({ team, sprintInfo, piInfo, piNum });
+    return b ? { start: dayMs(b.startIso), end: dayMs(b.endIso, true), projected: b.projected } : null;
 }
 
 /** Complète une fenêtre : fin mesurée bornée à maintenant, durée, temps écoulé, statut. */
@@ -125,7 +99,7 @@ export function reportSprint({ team, sprintInfo, displayPiNum, isCurrentPi }) {
  *   fenêtre = { kind: 'sprint'|'pi', label, start, end, measuredEnd, days, elapsed, future, over, projected? }
  */
 export function reportWindows({ team, sprintInfo, piInfo, displayPiNum, isCurrentPi }, now = Date.now()) {
-    const pi = piBounds({ team, sprintInfo, piInfo, piNum: displayPiNum });
+    const pi = piWindowMs({ team, sprintInfo, piInfo, piNum: displayPiNum });
     const piWindow = pi ? finish({ kind: 'pi', label: `PI ${displayPiNum}`, ...pi }, now) : null;
 
     let period = null;

@@ -468,9 +468,11 @@ python main.py          # http://localhost:3001  — Swagger /docs
   compter `ctx.tickets` / `teamTickets` sans période : c'est TOUT l'historique chargé (≈ 1 an).
   ⚠️ `t.epic` porte l'id de la FEATURE parente (0 ticket ne pointe un epic du store) — d'où la fin
   de l'Epic Burndown, remplacé par le Burnup du PI (`#…/epicburn` redirigé vers `piburnup`).
-  ⚠️ Fin d'un PI = dernier sprint de l'ÉQUIPE, sinon date MÉDIANE de ce sprint dans le train
-  (`piBounds`) : une équipe crée ses derniers sprints JIRA en cours de PI (Lion au PI 31 → « 91 %
-  écoulé » à mi-PI). La météo (`meteo_matrix.js`, domaine PI) a encore l'ancienne règle.
+  ⚠️ Bornes d'un PI = UNIQUEMENT `piBounds` ([utils/pi-weeks.js](static/js/utils/pi-weeks.js), 3.214.0) :
+  dernier sprint de l'ÉQUIPE, sinon date MÉDIANE de ce sprint dans le train — une équipe crée ses
+  derniers sprints JIRA en cours de PI (Initiale au PI 31 : « 97 % écoulé » à mi-PI). Rapport, matrice
+  météo, détail TV et prévisions la partagent : jamais `sprints.map(s => s.endDate).sort().at(-1)`.
+  Vélocité PI du rapport = `sprintScope` par clé « NN.N » (mêmes chiffres que la section PI Planning).
   Sommaire : scroll-spy sur une ligne de lecture SOUS `.report-controls`, verrou jusqu'à `scrollend`.
   Métriques sprint / Sprint / Équipes (3.213.0) : `ctx.tickets` = périmètre `sprintScope` du sprint
   AFFICHÉ (`reportSprint`, `ctx.sprint`) — un reporté terminé ailleurs y est ramené « en cours ».

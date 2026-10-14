@@ -16,6 +16,7 @@
 import { esc, pct as pctOf, sumBy, extractPiNum, belongedToPi, piCapacityBase, lastKnownAbsenceDate, deriveMembersFromAbsences, teamNameMatches, weatherOf, weatherRel, elapsedPct, METEO_GLYPH, METEO_LABEL } from '../utils.js';
 import { helpIconHtml } from './help_popover.js';
 import { meteoScaleHtml } from './meteo_matrix.js';
+import { piBounds } from '../utils/pi-weeks.js';
 
 const LOAD_LEVELS = [[100, 'sun'], [115, 'cloud'], [130, 'rain']];
 const loadLevel = ratio => (LOAD_LEVELS.find(([max]) => ratio <= max) || [null, 'storm'])[1];
@@ -47,9 +48,9 @@ export function computePiForecast(n, current, { teams, tickets = [], features = 
         const scope = scoped.filter(t => belongedToPi(t, n));
         r.committed = sumBy(scope, t => t.points);
         r.delivered = sumBy(scope.filter(t => t.status === 'done' && extractPiNum(t.sprintName || '') === n), t => t.points);
-        const start = sprints.map(s => s.startDate).filter(Boolean).sort()[0];
-        const end = sprints.map(s => s.endDate).filter(Boolean).sort().at(-1);
-        const time = elapsedPct(start, end);
+        // Bornes = `piBounds` (source unique) ; plusieurs équipes → médianes du train.
+        const b = piBounds({ team: teams.length === 1 ? teams[0] : 'all', sprintInfo: sprintInfoAll, piInfo, piNum: n });
+        const time = b ? elapsedPct(b.startIso, b.endIso) : null;
         if (!r.committed) { r.sub = 'périmètre vide'; return r; }
         const p = pctOf(r.delivered, r.committed);
         Object.assign(r, { level: weatherRel(p, time), value: `${p} %`, sub: `${r.delivered}/${r.committed} pts · ${time ?? '?'} % du PI` });

@@ -22,6 +22,7 @@
 
 import { buildSupportPiWeeks, makePiWeeks, snapToWeekMode, SUPPORT_WEEK_MODE_DEFAULT } from './support.js';
 import { loadPiCfg, listPiCfgNumbers } from './pi-config.js';
+import { extractSprintLabel } from './sprint-scope.js';
 
 const _fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 const _addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _fmt(d); };
@@ -263,4 +264,38 @@ export function projectedPiSprints(sprintInfo, piInfo, piNum) {
         state: 'future',
         projected: true,
     }));
+}
+
+/** Médiane basse d'une liste de dates ISO (le tri de chaînes suffit). */
+const _medianIso = list => { const a = list.slice().sort(); return a[Math.floor((a.length - 1) / 2)]; };
+
+/**
+ * Bornes d'un PI pour une équipe — SOURCE UNIQUE (3.214.0) : rapport (reports-scope.js), météo
+ * (matrice, détail TV, prévisions).
+ * Début = 1er sprint du PI de l'équipe, fin = son DERNIER sprint (index = `detectSprintsPerPI`).
+ * ⚠️ Une équipe ne crée souvent ses derniers sprints JIRA qu'en cours de PI (Lion au PI 31 :
+ * 31.1 → 31.3 seulement) : la fin du dernier sprint CONNU arrêtait son PI au 18/10 au lieu du 12/11
+ * (« 91 % écoulé » à mi-PI → météo PI injustement 🌧️). Sprint manquant → date MÉDIANE de ce sprint
+ * dans le train, insensible à un calendrier atypique (Gabbiano : 30/11). `team` = 'all' (ou un
+ * groupe, faute de mieux) → médianes du train. Aucun sprint réel → dates projetées.
+ * @returns {{ startIso: string, endIso: string, projected: boolean }|null}
+ */
+export function piBounds({ team = 'all', sprintInfo, piInfo = null, piNum }) {
+    if (!piNum) return null;
+    const idx = s => parseInt(extractSprintLabel(s.name).split('.')[1], 10) || 0;
+    const ofPi = (sprintInfo?.teamSprints || []).filter(s => piNumFromSprintName(s.name) === piNum && s.startDate && s.endDate);
+    const own = team && team !== 'all' ? ofPi.filter(s => s.team === team) : [];
+    const count = detectSprintsPerPI(sprintInfo, piNum, piInfo?.sprintsPerPI || 5);
+    const pick = (i, field) => {
+        const mine = own.filter(s => idx(s) === i).map(s => s[field]).sort();
+        if (mine.length) return field === 'startDate' ? mine[0] : mine.at(-1);
+        const train = ofPi.filter(s => idx(s) === i).map(s => s[field]);
+        return train.length ? _medianIso(train) : null;
+    };
+    const start = pick(1, 'startDate') || own.map(s => s.startDate).sort()[0];
+    const end = pick(count, 'endDate') || own.map(s => s.endDate).sort().at(-1);
+    if (start && end && end > start) return { startIso: String(start).slice(0, 10), endIso: String(end).slice(0, 10), projected: false };
+    const proj = projectedPiSprints(sprintInfo, piInfo, piNum);
+    if (!proj.length) return null;
+    return { startIso: proj[0].startDate, endIso: proj.at(-1).endDate, projected: true };
 }

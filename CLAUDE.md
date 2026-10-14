@@ -468,7 +468,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `weatherChurn` + plafonds `sb-meteo-scope` (10/25/40 %). ⚠️ Domaine `inLevel: false` :
   INDICATIF, hors du niveau d'équipe (PI 31 : 10 équipes / 13 en 🌧️/⛈️) — le passer à vrai
   est une décision métier, pas un correctif.
-  Tendance vs PI − 1 : `churnTrend` (↘ = MIEUX, écart < 3 pts = stable), case + détail. Dashboard filtré = **fiche équipe** : plan d'action
+  Tendance vs PI − 1 : `churnTrend` (↘ = MIEUX, écart < 3 pts = stable), case + détail.
+  Détail : histogramme 4 PI (`churnHistoryHtml`, tv-meteo-detail.js) — échelle bornée à
+  2,5 × plafond « attention » (barre ▲ au-delà), libellé du plafond dans la marge droite. Dashboard filtré = **fiche équipe** : plan d'action
   ([meteo_plan.js](static/js/components/meteo_plan.js), ouvre `openAlertModal`), tendance des
   votes + roster ([meteo_fiche.js](static/js/components/meteo_fiche.js)). Seuils réglables dans
   Paramètres → Météo ([settings-meteo.js](static/js/views/settings-meteo.js), pattern

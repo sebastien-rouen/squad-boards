@@ -345,3 +345,31 @@
 .tvw-daylist li.is-move { --c: var(--info); }
 .tvw-daylist li.is-fact { --c: var(--warning); }
 .tvw-daylist li.is-train { --c: var(--purple-text); }
+
+/* ── 📐 Périmètre : taux de mouvement sur les derniers PI (détail de la case) ──────────────
+   Une barre par PI, teinte = niveau météo (--wc, doublée du pictogramme), valeur en texte
+   neutre au-dessus, plafond « beau » en pointillé discret. Barres arrondies côté données
+   seulement, ancrées sur la ligne de base. */
+.tvd-churn { margin: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.tvd-churn-plot {
+    position: relative; height: 6.5rem; margin-top: 1.4rem;
+    padding-right: 4rem;   /* marge du libellé du plafond : jamais sur une barre */
+    display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 2px;
+    border-bottom: 1px solid var(--border-hover);
+}
+.tvd-churn-col { position: relative; height: 100%; cursor: default; }
+.tvd-churn-col i {
+    position: absolute; bottom: 0; left: 30%; right: 30%; min-height: 2px;
+    border-radius: 4px 4px 0 0; background: var(--wc, var(--border-hover));
+}
+.tvd-churn-col b {
+    position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap;
+    font-size: var(--fs-xs); font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; color: var(--text);
+}
+.tvd-churn-col.is-empty b { color: var(--text-muted); font-weight: var(--fw-normal); }
+.tvd-churn-col:hover i { filter: brightness(1.08); }
+.tvd-churn-ref { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--text-muted); opacity: .6; pointer-events: none; z-index: 1; }
+.tvd-churn-ref small { position: absolute; right: 0; bottom: 2px; font-size: 10px; line-height: 1; white-space: nowrap; color: var(--text-muted); }
+.tvd-churn-x { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 2px; padding-right: 4rem; text-align: center; font-size: var(--fs-xs); color: var(--text-secondary); }
+.tvd-churn-x small { display: block; font-size: 10px; color: var(--text-muted); }
+.tvd-churn-x .is-cur { color: var(--text); font-weight: var(--fw-semibold); }

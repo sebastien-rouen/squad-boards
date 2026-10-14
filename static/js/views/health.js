@@ -342,23 +342,32 @@ export function renderHealth(container) {
     // Helpers pour series par anomalie
     const seriesFor = (key) => history.map(s => s.byKey?.[key] ?? 0);
 
-    // Capacité prévisionnelle (si une équipe est sélectionnée) — PI SÉLECTIONNÉ s'il est à
-    // venir, sinon le PI qui suit le PI courant (un PI passé ou en cours se MESURE, il ne se
-    // projette pas). Même calcul que la colonne 🎯 Base capacité : `_capBaseFor`.
+    // Capacité prévisionnelle (si une équipe est sélectionnée) — TOUJOURS le PI SÉLECTIONNÉ
+    // (repli : courant + 1). Même calcul que la colonne 🎯 Base capacité : `_capBaseFor`, qui
+    // ne regarde que les 2 PI AVANT le PI visé — donc sur un PI en cours ou passé, c'est ce
+    // qu'on pouvait prévoir à son PI Planning, mis en regard du réalisé (vélocité des sprints
+    // clos, respiration exclue, même mesure que la moyenne de référence).
     const capacityCard = teamsScope.length === 1 ? (() => {
         const team = teamsScope[0];
-        const capPi = _showCapacity ? targetPiNum : (currentPiNum ? currentPiNum + 1 : 0);
+        const capPi = targetPiNum || (currentPiNum ? currentPiNum + 1 : 0);
         const cap = _capBaseFor(team, capPi);
         if (!cap) return '';
+        const when = capPi > currentPiNum ? 'future' : capPi === currentPiNum ? 'current' : 'past';
         const _fmtDm = iso => iso ? new Date(String(iso).slice(0, 10) + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '?';
         const ratioPct = Math.round(cap.ratio * 100);
         const ratioColor = ratioPct >= 30 ? 'var(--warning)' : ratioPct >= 15 ? 'var(--info)' : 'var(--success)';
+        // Réalisé du PI visé (en cours / passé) : sprints CLOS de l'équipe, hors respiration.
+        const closed = when === 'future' ? [] : (sprintInfo?.teamSprints || []).filter(sp => sp.team === team
+            && extractPiNum(sp.name || '') === capPi && sp.state === 'closed' && !isBreathSprint(sp.name, cap.breathIdx));
+        const done = closed.reduce((sum, sp) => sum + (sp.velocity || 0), 0);
+        const lbl = when === 'future' ? 'Capacité prévisionnelle' : 'Capacité prévue';
+        const tag = when === 'current' ? ' <small>(en cours)</small>' : when === 'past' ? ' <small>(clos)</small>' : '';
         const tip = _capacityTip(cap, team, capPi, _lastAbsence)
             + (cap.projected ? `\n\n📅 Aucun sprint du PI#${capPi} dans JIRA : dates PROJETÉES depuis la cadence (Paramètres → Sprint & PI).` : '')
-            + (_showCapacity ? '' : `\n\nPI sélectionné : PI#${targetPiNum || currentPiNum} (mesuré) — la projection vise le PI suivant. Sélectionner un PI à venir pour le projeter.`);
+            + (when !== 'future' ? `\n\nPI#${capPi} ${when === 'current' ? 'en cours' : 'clos'} : base calculée comme au PI Planning (vélocité des 2 PI précédents), comparée au réalisé des ${closed.length} sprint${closed.length > 1 ? 's' : ''} clos.` : '');
         return `
             <div class="capacity-mini" title="${esc(tip)}">
-                <div class="capacity-mini-lbl">🎯 Capacité prévisionnelle <strong>PI#${capPi}</strong>${cap.capped ? ' <span title="Congés connus jusqu\'au ' + esc(_fmtD(_lastAbsence)) + ' seulement : base optimiste">⚠</span>' : ''}</div>
+                <div class="capacity-mini-lbl">🎯 ${lbl} <strong>PI#${capPi}</strong>${tag}${cap.capped ? ' <span title="Congés connus jusqu\'au ' + esc(_fmtD(_lastAbsence)) + ' seulement : base optimiste">⚠</span>' : ''}</div>
                 <div class="capacity-mini-val">${cap.points}<small>pts</small></div>
                 <div class="capacity-mini-sub">${esc(team)} · ${_fmtDm(cap.windowStart)} → ${_fmtDm(cap.windowEnd)}${cap.projected ? ' · <em>dates projetées</em>' : ''}</div>
                 <div class="capacity-mini-row">
@@ -366,6 +375,7 @@ export function renderHealth(container) {
                     <span>👥 ${cap.etp.toFixed(1)} ETP</span>
                     <span style="color:${ratioColor}">🏖 −${ratioPct}%</span>
                 </div>
+                ${when !== 'future' ? `<div class="capacity-mini-row capacity-mini-done"><span>✅ Réalisé ${done} pts${cap.points ? ` · ${Math.round(done / cap.points * 100)} %` : ''}</span><span>${closed.length}/${cap.sprintsCount} sprints clos</span></div>` : ''}
             </div>`;
     })() : '';
 

@@ -12,7 +12,7 @@
 
 import { store } from '../state.js';
 import { esc, getCurrentPi, sumBy, getSprintForTeam, belongedToSprint, isInSprint, belongedToPi, extractPiNum, elapsedPct, meteoThresholds,
-    meteoScopeThresholds, scopeStability, churnTrend, METEO_GLYPH, METEO_LABEL, METEO_REL_BAND } from '../utils.js';
+    meteoScopeThresholds, scopeStability, churnTrend, weatherChurn, METEO_GLYPH, METEO_LABEL, METEO_REL_BAND } from '../utils.js';
 import { computeTeamMeteo, meteoContext } from '../components/meteo_matrix.js';
 import { slaModel } from '../components/sla_review_card.js';
 import { tkAttrs } from './tv-screens.js';
@@ -122,6 +122,44 @@ function detailMood(team, ctx) {
 }
 
 /**
+ * Mini-histogramme du taux de mouvement sur les `n` derniers PI (le courant à droite) : un seul
+ * PI de comparaison peut tromper (Océane : 0 % au PI 30 sur UN sprint mesuré). Une barre par
+ * PI, teinte du niveau météo DOUBLÉE de son pictogramme (jamais la couleur seule), valeur en
+ * texte neutre, plafond « beau » en pointillé. Échelle bornée à 2,5 × le plafond « attention »
+ * pour qu'un PI hors norme (383 %) n'écrase pas les autres — sa barre est alors marquée ▲.
+ */
+function churnHistoryHtml(team, ctx, tt, th, n = 4) {
+    const all = ctx.sprintInfoAll?.teamSprints || [];
+    const pis = Array.from({ length: n }, (_, i) => ctx.piNum - (n - 1) + i).filter(p => p > 0);
+    const pts = pis.map(pi => ({ pi, st: scopeStability(tt, all.filter(s => s.team === team && extractPiNum(s.name) === pi)) }));
+    const vals = pts.filter(p => p.st.plan).map(p => p.st.churnPct);
+    if (vals.length < 2) return '';   // une seule mesure : la ligne de comparaison suffit
+    const scale = Math.max(th.rain, Math.min(Math.max(...vals), th.rain * 2.5));
+    const pos = v => Math.min(100, (v / scale) * 100);
+    const cols = pts.map(({ pi, st }) => {
+        const cur = pi === ctx.piNum;
+        if (!st.plan) {
+            return `<div class="tvd-churn-col is-empty" title="${esc(`PI ${pi} : aucun sprint mesurable`)}"><b style="bottom:0">—</b></div>`;
+        }
+        const lvl = weatherChurn(st.churnPct, th);
+        const tip = `PI ${pi}${cur ? ' (en cours)' : ''} : ${st.churnPct} % de mouvement — ${METEO_LABEL[lvl]}
+`
+            + `+${st.added} ajoutés · −${st.removed} retirés sur ${st.plan} engagés au lancement · ${plural(st.sprints, 'sprint')} mesuré${st.sprints > 1 ? 's' : ''}`;
+        const h = pos(st.churnPct);
+        return `<div class="tvd-churn-col meteo-cell--${lvl}${cur ? ' is-cur' : ''}${st.churnPct > scale ? ' is-clipped' : ''}" role="img" aria-label="${esc(tip)}" title="${esc(tip)}">`
+            + `<i style="height:${h}%"></i><b style="bottom:calc(${h}% + 2px)"><span aria-hidden="true">${METEO_GLYPH[lvl]}</span> ${st.churnPct} %${st.churnPct > scale ? ' ▲' : ''}</b></div>`;
+    }).join('');
+    const xs = pts.map(({ pi, st }) => `<span${pi === ctx.piNum ? ' class="is-cur"' : ''}>PI ${pi}<small>${pi === ctx.piNum ? 'en cours' : st.plan ? plural(st.sprints, 'sprint') : '—'}</small></span>`).join('');
+    return `<figure class="tvd-churn" style="--n:${pts.length}" aria-label="Taux de mouvement du périmètre, PI ${pis[0]} à ${ctx.piNum}">
+        <div class="tvd-churn-plot">
+            <span class="tvd-churn-ref" style="bottom:${pos(th.sun)}%"><small>☀️ ≤ ${th.sun} %</small></span>
+            ${cols}
+        </div>
+        <div class="tvd-churn-x">${xs}</div>
+    </figure>`;
+}
+
+/**
  * 📐 Périmètre — une ligne par sprint démarré : début → actuel, ajouts (vert) et retraits
  * (rouge) nommés. Même calcul que la case (scopeStability).
  */
@@ -151,7 +189,7 @@ function detailScope(team, ctx, tt) {
         : `<p class="tvd-verdict">Pas de mesure sur le PI ${prevPi} pour comparer.</p>`;
     return {
         head: `${st.churnPct} % de mouvement · ${st.stablePct} % des engagés restés · +${st.added} −${st.removed} sur ${st.plan} · ☀️ ≤ ${th.sun} %, ⛅ ≤ ${th.cloud} %, 🌧️ ≤ ${th.rain} %`,
-        body: `${trendHtml}<ul class="tvd-list">${rows}</ul>`,
+        body: `${trendHtml}${churnHistoryHtml(team, ctx, tt, th)}<ul class="tvd-list">${rows}</ul>`,
         tip: trend?.better === false ? `${tip} La tendance se dégrade depuis le PI ${prevPi}.` : tip,
     };
 }

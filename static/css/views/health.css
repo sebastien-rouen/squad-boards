@@ -79,6 +79,20 @@
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: var(--sp-3);
 }
+/* Desktop : les 7 cartes sur UNE ligne (avec la sidebar, 7 × 170 px wrappait). Colonnes
+   égales qui se partagent la largeur, carte compactée, libellés autorisés à passer sur deux
+   lignes (jamais tronqués), sparkline qui rétrécit avec la carte. Le wrap reste en dessous. */
+@media (min-width: 1024px) {
+    .health-cards { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; gap: var(--sp-2); }
+    .health-cards .health-card { padding: var(--sp-2) var(--sp-3); min-width: 0; }
+    /* La puce de tendance passe SOUS le libellé quand la place manque : jamais de mot coupé. */
+    .health-cards .health-card-hdr { flex-wrap: wrap; row-gap: 2px; font-size: 10.5px; letter-spacing: 0.02em; line-height: 1.25; }
+    .health-cards .health-card-label { min-width: 0; overflow-wrap: break-word; hyphens: manual; }
+    .health-cards .health-card-val { font-size: 24px; }
+    .health-cards .health-card-mid { min-width: 0; }
+    .health-cards .health-card-spark { min-width: 0; flex: 0 1 70px; }
+    .health-cards .health-card-spark svg { width: 100%; height: auto; display: block; }
+}
 
 /* Sélecteur d'équipe au-dessus du graphe de vélocité (périmètre multi-équipes) */
 .health-velo-host { display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -245,6 +259,11 @@
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     padding: var(--sp-3);
+    /* 14–15 colonnes : la matrice ne doit JAMAIS élargir la page. Elle est bornée à sa carte
+       et défile en x en dernier recours, colonne « Équipe » figée (voir .health-team). */
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
 }
 .health-matrix-title {
     font-size: 12px;
@@ -274,7 +293,7 @@
 }
 .health-team-col { text-align: left !important; padding-left: 12px !important; }
 .health-anomaly-col {
-    min-width: 70px;
+    min-width: 54px;
     line-height: 1.1;
     cursor: help;
 }
@@ -284,14 +303,14 @@
     font-size: 9px;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    max-width: 70px;
+    max-width: 62px;
     margin: 0 auto;
 }
 .health-row-total-col { width: 50px; text-align: center !important; }
 
 /* Colonnes Vélocité / Buffer réalisés */
 .health-metric-col {
-    min-width: 60px;
+    min-width: 52px;
     text-align: center !important;
     font-size: 11px;
     font-weight: var(--fw-semibold);
@@ -812,10 +831,14 @@
 .health-cell.has-val:hover { transform: scale(1.15); font-weight: 800; }
 .health-cell-zero { color: var(--text-muted); opacity: 0.4; }
 .health-team {
-    padding: 7px 12px !important;
+    padding: 7px 10px !important;
     text-align: left !important;
-    min-width: 180px;
+    min-width: 130px;
+    /* Figée au défilement horizontal de la matrice : on garde le nom de l'équipe en vue. */
+    position: sticky; left: 0; z-index: 1;
+    background: var(--surface);
 }
+.health-matrix thead .health-team-col { position: sticky; left: 0; z-index: 2; }
 .health-team-swatch {
     display: inline-flex;
     align-items: center;
@@ -873,3 +896,13 @@
     background: color-mix(in srgb, var(--danger) 12%, transparent);
     border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
+
+/* Matrice compacte : 14–15 colonnes doivent tenir dans ~1 000 px (desktop avec sidebar).
+   Ce sont les EN-TÊTES qui dictent la largeur (majuscules espacées) : on les resserre ; les
+   chiffres, eux, gardent leur taille. Le défilement de .health-matrix-wrap reste le filet. */
+.health-matrix thead th { padding: 6px 3px; letter-spacing: 0.01em; font-size: 9.5px; }
+.health-matrix tbody td { padding-left: 3px; padding-right: 3px; }
+.health-matrix .health-anomaly-label { font-size: 8.5px; letter-spacing: 0; max-width: 56px; }
+.health-matrix .health-anomaly-col { min-width: 48px; }
+.health-matrix .health-metric-col { min-width: 48px; font-size: 9.5px; }
+.health-matrix .health-team { min-width: 120px; }

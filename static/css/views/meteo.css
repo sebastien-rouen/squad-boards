@@ -394,3 +394,8 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 
 /* Panneau de détail d'une cellule hors TV : bouton vers la vue qui détaille le domaine (3.195.0) */
 .tvd-go { align-self: flex-start; text-decoration: none; }
+
+/* 📐 Périmètre : domaine INDICATIF (hors du niveau de l'équipe) — en-tête marqué, colonne
+   légèrement atténuée pour ne pas se lire comme les domaines qui décident de la couleur. */
+.meteo-th-ind { display: block; font-size: 10px; font-weight: var(--fw-normal); color: var(--text-muted); text-transform: none; letter-spacing: 0; }
+.meteo-cell[data-meteo-dom="scope"] { opacity: .85; }

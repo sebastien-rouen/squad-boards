@@ -459,7 +459,11 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `sprint-scope.js`, PI = `belongedToPi`, santé = `healthScore()` de
   [business_rules.js](static/js/business_rules.js) (**source unique**, normalisée par tickets
   actifs, utilisée aussi par `health.js`), SLA = `slaModel` de `sla_review_card.js`, mood =
-  `store.moodVotes` du sprint actif. Dashboard filtré = **fiche équipe** : plan d'action
+  `store.moodVotes` du sprint actif, 📐 périmètre = `scopeStability()` (sprint-scope.js, même
+  source que « nb début / nb actuel » de Health via `sprintScopeDelta`) — échelle INVERSE
+  `weatherChurn` + plafonds `sb-meteo-scope` (10/25/40 %). ⚠️ Domaine `inLevel: false` :
+  INDICATIF, hors du niveau d'équipe (PI 31 : 10 équipes / 13 en 🌧️/⛈️) — le passer à vrai
+  est une décision métier, pas un correctif. Dashboard filtré = **fiche équipe** : plan d'action
   ([meteo_plan.js](static/js/components/meteo_plan.js), ouvre `openAlertModal`), tendance des
   votes + roster ([meteo_fiche.js](static/js/components/meteo_fiche.js)). Seuils réglables dans
   Paramètres → Météo ([settings-meteo.js](static/js/views/settings-meteo.js), pattern

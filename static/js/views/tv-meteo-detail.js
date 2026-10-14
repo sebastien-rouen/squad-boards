@@ -12,7 +12,7 @@
 
 import { store } from '../state.js';
 import { esc, getCurrentPi, sumBy, getSprintForTeam, belongedToSprint, isInSprint, belongedToPi, extractPiNum, elapsedPct, meteoThresholds,
-    METEO_GLYPH, METEO_LABEL, METEO_REL_BAND } from '../utils.js';
+    meteoScopeThresholds, scopeStability, METEO_GLYPH, METEO_LABEL, METEO_REL_BAND } from '../utils.js';
 import { computeTeamMeteo, meteoContext } from '../components/meteo_matrix.js';
 import { slaModel } from '../components/sla_review_card.js';
 import { tkAttrs } from './tv-screens.js';
@@ -121,6 +121,34 @@ function detailMood(team, ctx) {
     };
 }
 
+/**
+ * 📐 Périmètre — une ligne par sprint démarré : début → actuel, ajouts (vert) et retraits
+ * (rouge) nommés. Même calcul que la case (scopeStability).
+ */
+function detailScope(team, ctx, tt) {
+    const sprints = (ctx.sprintInfoAll?.teamSprints || []).filter(s => s.team === team && extractPiNum(s.name) === ctx.piNum)
+        .sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
+    const st = scopeStability(tt, sprints);
+    if (!st.plan) return { body: '<p class="tv-muted">Aucun sprint démarré avec des tickets engagés dans ce PI.</p>', tip: 'La stabilité se mesure dès le lancement du premier sprint.' };
+    const th = meteoScopeThresholds();
+    const rows = st.bySprint.map(b => {
+        const key = (String(b.sprint.name).match(/(\d+\.\d+)/) || [])[1] || b.sprint.name;
+        const n = b.cur.length - b.plan.length;
+        return `<li${b.removed.length ? ' class="is-bad"' : ''}><span aria-hidden="true">${b.sprint.state === 'active' ? '🟢' : '✅'}</span><b>${esc(key)}</b>`
+            + `<span>${b.plan.length} → ${b.cur.length}${n ? ` (${n > 0 ? '+' : ''}${n})` : ''}</span>`
+            + `<span class="tvd-ids">${b.added.length ? `➕ ${ids(b.added, 4)}` : ''}${b.removed.length ? ` ➖ ${ids(b.removed, 4)}` : ''}</span></li>`;
+    }).join('');
+    const tip = st.churnPct <= th.sun ? 'Périmètre tenu : le planning de sprint est fiable.'
+        : st.added >= st.removed
+            ? `${plural(st.added, 'ticket')} ajouté${st.added > 1 ? 's' : ''} en cours de sprint : garder de la marge (Buffer) pour l'imprévu, ou faire arbitrer chaque ajout par le PO contre un retrait.`
+            : `${plural(st.removed, 'ticket')} retiré${st.removed > 1 ? 's' : ''} en cours de sprint : l'engagement était trop ambitieux ou mal découpé — en parler au prochain planning.`;
+    return {
+        head: `${st.churnPct} % de mouvement · ${st.stablePct} % des engagés restés · +${st.added} −${st.removed} sur ${st.plan} · ☀️ ≤ ${th.sun} %, ⛅ ≤ ${th.cloud} %, 🌧️ ≤ ${th.rain} %`,
+        body: `<ul class="tvd-list">${rows}</ul>`,
+        tip,
+    };
+}
+
 /** Vue qui détaille chaque domaine, pour une équipe (hors TV : le panneau y mène). */
 const VIEW_OF = {
     sprint: (tm) => ['📋', 'Ouvrir le sprint', `#sprint/${encodeURIComponent(tm)}`],
@@ -128,6 +156,7 @@ const VIEW_OF = {
     health: (tm) => ['🩺', 'Ouvrir la Santé', `#health/${encodeURIComponent(tm)}`],
     sla:    (tm) => ['📊', "Ouvrir le Dashboard de l'équipe", `#dashboard/${encodeURIComponent(tm)}`],
     mood:   (tm) => ['🎭', 'Voir les votes (Santé)', `#health/${encodeURIComponent(tm)}`],
+    scope:  (tm) => ['📐', 'Voir nb début / nb actuel (Santé)', `#health/${encodeURIComponent(tm)}`],
 };
 
 /** Panneau de détail (équipe × domaine). `links` (hors TV) : bouton vers la vue du domaine. */
@@ -138,7 +167,8 @@ export function meteoDetailHtml(team, domKey, ctx, teamObjects, { links = false 
     if (!dom) return '';
     const tt = (ctx.tickets || store.get('tickets') || []).filter(t => t.team === team);
     const d = domKey === 'sprint' ? detailSprint(team, ctx, tt) : domKey === 'pi' ? detailPi(team, ctx, tt)
-        : domKey === 'health' ? detailHealth(r) : domKey === 'sla' ? detailSla(tt) : detailMood(team, ctx);
+        : domKey === 'health' ? detailHealth(r) : domKey === 'sla' ? detailSla(tt)
+        : domKey === 'scope' ? detailScope(team, ctx, tt) : detailMood(team, ctx);
     // Les autres domaines de l'équipe, en pastilles : un clic bascule le panneau sur l'un d'eux.
     const others = r.domains.map(x => `<button type="button" class="tvd-dom meteo-cell--${x.level}${x.key === domKey ? ' is-on' : ''}" data-meteo-team="${esc(team)}" data-meteo-dom="${esc(x.key)}" aria-pressed="${x.key === domKey}">${METEO_GLYPH[x.level]} ${x.icon} ${esc(x.label)}</button>`).join('');
     return `<div class="tvd-panel" data-l="${dom.level}" style="--team-color:${color}" role="dialog" aria-modal="true" aria-label="Météo ${esc(team)} — ${esc(dom.label)}">

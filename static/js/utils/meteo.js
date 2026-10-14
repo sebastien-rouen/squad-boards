@@ -1,10 +1,12 @@
 /**
  * Météo des équipes — l'ÉCHELLE, et rien d'autre.
  *
- * Cinq niveaux (☀️ ⛅ 🌧️ ⛈️ ⚪) et deux façons d'y arriver :
+ * Cinq niveaux (☀️ ⛅ 🌧️ ⛈️ ⚪) et trois façons d'y arriver :
  *   - `weatherOf(score)`         — un score ABSOLU 0–100 (santé, SLA, mood × 20) ;
  *   - `weatherRel(pct, timePct)` — un avancement RELATIF au temps écoulé (sprint, PI) :
- *                                  c'est l'écart en points qui décide, pas le pourcentage.
+ *                                  c'est l'écart en points qui décide, pas le pourcentage ;
+ *   - `weatherChurn(pct)`        — un taux de MOUVEMENT (périmètre) : plus c'est bas, mieux
+ *                                  c'est — seuils propres (`sb-meteo-scope`), eux aussi globaux.
  *
  * Les seuils sont GLOBAUX : une équipe ne se choisit pas une météo plus clémente, sinon
  * deux ⛅ ne veulent plus dire la même chose et la matrice cesse d'être lisible en cinq
@@ -15,6 +17,13 @@
  */
 
 export const METEO_DEFAULT_THRESHOLDS = Object.freeze({ sun: 80, cloud: 60, rain: 40 });
+
+/**
+ * 📐 Périmètre — plafonds de mouvement (% d'ajouts + retraits rapportés à l'engagement au
+ * lancement) : ≤ sun ☀️ · ≤ cloud ⛅ · ≤ rain 🌧️ · au-delà ⛈️. Échelle INVERSE des scores
+ * (un taux bas est bon), d'où des seuils à part plutôt qu'un « 100 − x » illisible.
+ */
+export const METEO_SCOPE_DEFAULT_THRESHOLDS = Object.freeze({ sun: 10, cloud: 25, rain: 40 });
 
 /** Écart d'avancement (points de %) toléré autour du temps écoulé avant de changer de niveau. */
 export const METEO_REL_BAND = 10;
@@ -42,6 +51,11 @@ export const METEO_DOMAINS = Object.freeze([
       formula: 'tickets terminés sous le seuil ÷ tickets terminés', source: 'card SLA Review (seuil = P85 du PI précédent, ou manuel)' },
     { key: 'mood', icon: '😊', label: 'Mood', kind: 'abs', hint: 'moyenne des votes Mood du sprint (1 → 5)',
       formula: 'moyenne des votes du sprint × 20', source: 'votes Mood / ROTI du sprint actif (Santé → Sprints du PI)' },
+    // `inLevel: false` — INDICATIF : affiché, mais hors du niveau global de l'équipe (le pire
+    // des domaines). Mesuré sur le PI 31 : 10 équipes sur 13 en 🌧️/⛈️ (sprints remplis APRÈS
+    // leur démarrage dans JIRA) — l'inclure aurait mis le Dashboard et la TV à l'orage.
+    { key: 'scope', icon: '📐', label: 'Périmètre', kind: 'churn', inLevel: false, hint: 'tickets ajoutés + retirés en cours de sprint, rapportés à l\'engagement au lancement (sprints démarrés du PI)',
+      formula: '(ajouts + retraits en cours de sprint) ÷ tickets engagés au lancement', source: 'scopeStability (sprint-scope.js) — mêmes chiffres que « nb début / nb actuel » de Santé ; un report à la clôture n\'est pas un retrait' },
 ]);
 
 export const METEO_GLYPH = Object.freeze({ sun: '☀️', cloud: '⛅', rain: '🌧️', storm: '⛈️', none: '⚪' });
@@ -62,6 +76,29 @@ export function meteoThresholds(storage = (typeof localStorage !== 'undefined' ?
     } catch {
         return METEO_DEFAULT_THRESHOLDS;
     }
+}
+
+/** Plafonds du domaine 📐 Périmètre : surcharge `sb-meteo-scope` (validée) sinon défauts. */
+export function meteoScopeThresholds(storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
+    try {
+        const raw = storage?.getItem('sb-meteo-scope');
+        if (!raw) return METEO_SCOPE_DEFAULT_THRESHOLDS;
+        const t = JSON.parse(raw);
+        const ok = ['sun', 'cloud', 'rain'].every(k => Number.isFinite(t?.[k]))
+            && t.sun >= 0 && t.sun < t.cloud && t.cloud < t.rain && t.rain <= 200;
+        return ok ? { sun: t.sun, cloud: t.cloud, rain: t.rain } : METEO_SCOPE_DEFAULT_THRESHOLDS;
+    } catch {
+        return METEO_SCOPE_DEFAULT_THRESHOLDS;
+    }
+}
+
+/** Taux de mouvement (%) → niveau : plus c'est bas, mieux c'est. `null` = pas de donnée. */
+export function weatherChurn(pct, thresholds = meteoScopeThresholds()) {
+    if (pct == null || !Number.isFinite(pct)) return 'none';
+    if (pct <= thresholds.sun) return 'sun';
+    if (pct <= thresholds.cloud) return 'cloud';
+    if (pct <= thresholds.rain) return 'rain';
+    return 'storm';
 }
 
 /** Score absolu (0–100) → niveau. `null`/`undefined`/NaN = pas de donnée. */

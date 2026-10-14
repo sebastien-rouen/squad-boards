@@ -176,6 +176,14 @@ python main.py          # http://localhost:3001  — Swagger /docs
   (health.js) — PI sélectionné s'il est à venir, sinon courant + 1 ; jamais `piInfo.number`.
   PI sans sprint JIRA → `projectedPiSprints` (pi-weeks.js, cadence de la rotation), annoncé
   « dates projetées ». `computeCapacityNextPI` (utils.js) n'a plus d'appelant.
+  Carte = TOUJOURS le PI sélectionné ; PI en cours/passé → + « Réalisé » ; ligne « Fiabilité de
+  la base » = réalisé ÷ base des 3 PI clos précédents (✓ ≤ 10 %, ~ ≤ 25 %, ✗ au-delà).
+  ⚠️ Vélocité réalisée d'un sprint = UNIQUEMENT `sprintRealizedVelocity(tickets, sprint)`
+  (capacity-base.js) — Santé (base, fiabilité) ET page PI (Capacité, cumul via
+  `_withRealizedVelocity`). Ordre : Done locaux restés dans le sprint > JIRA si > 0 > 0 si des
+  tickets y sont passés > `null` = aucune mesure, ÉCARTÉ des moyennes (`avgVelocityOverLastPis`
+  saute un `velocityOf` null). JAMAIS `s.velocity` seul : le champ JIRA vaut 0 sur la plupart
+  des sprints passés et tirait la Base capacité vers 0.
   ⚠️ Si la fenêtre dépasse `lastKnownAbsenceDate(absences)`, le ratio est un plancher et la
   base un plafond → `capped` (cellule orange + ⚠). Ne jamais présenter le chiffre sans cette
   réserve.

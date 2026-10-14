@@ -906,3 +906,16 @@
 .health-matrix .health-anomaly-col { min-width: 48px; }
 .health-matrix .health-metric-col { min-width: 48px; font-size: 9.5px; }
 .health-matrix .health-team { min-width: 120px; }
+
+/* Carte 🎯 Capacité — fiabilité de la base : réalisé ÷ prévu des PI clos précédents.
+   Couleur d'état DOUBLÉE du signe ✓ ~ ✗ et du pourcentage (jamais la couleur seule). */
+.capacity-mini-hist { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed color-mix(in srgb, var(--primary) 25%, var(--border)); font-size: 10.5px; color: var(--text-muted); cursor: help; }
+.capacity-mini-hist-lbl { text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.capacity-mini-hist-it b { font-variant-numeric: tabular-nums; }
+.capacity-mini-hist-it.is-good b { color: var(--success); }
+.capacity-mini-hist-it.is-warn b { color: var(--warning); }
+.capacity-mini-hist-it.is-bad  b { color: var(--danger); }
+.capacity-mini-hist-hd { display: flex; justify-content: space-between; gap: 8px; }
+.capacity-mini-hist-its { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.capacity-mini-hist-it { white-space: nowrap; }
+.capacity-mini-hist-mean { font-weight: 600; color: var(--text-secondary); white-space: nowrap; }

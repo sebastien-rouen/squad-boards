@@ -1,3 +1,14 @@
+## [3.212.1] - 2026-10-14
+
+### Rapports — Roadmap : lien JIRA de chaque feature dans la copie et le format Slack
+
+- Bouton « Copier » (format Texte) et format Slack : chaque feature finit par son URL
+  `<jiraUrl>/browse/<clé>`. URL NUE, pas `<url|texte>` : le composeur Slack affiche ce dernier en
+  littéral au collage (cf 3.6.31) ; Slack, Teams et Confluence rendent l'URL nue cliquable. Dans
+  l'aperçu Slack, elle est un lien `.s-link`.
+- Sans `jiraUrl` configurée : aucun lien, rien ne change. `/` final de l'URL toléré.
+- Vérifié (Fuego, PI 31) : 20/20 features avec lien en texte comme en Slack, aucun « // ».
+
 ## [3.212.0] - 2026-10-14
 
 ### Rapports — Kanban / Flow, Support et Roadmap refaits sur une vraie période ; Epic Burndown → Burnup du PI

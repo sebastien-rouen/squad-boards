@@ -16,6 +16,8 @@
  *
  * ── RÈGLE À NE JAMAIS INVERSER ────────────────────────────────────────────────
  *   ENGAGEMENT (périmètre prévu, « combien on s'était engagé ») → `belongedToSprint()`
+ *              — et, pour l'engagement AU LANCEMENT (colonnes « prévu » de Health),
+ *              `plannedAtSprintStart()`, qui écarte les ajouts en cours de sprint
  *   RÉALISÉ    (vélocité, points faits, « combien on a livré ») → `isInSprint()` EN PLUS
  *              du statut `done`.
  * Compter comme réalisé un ticket reporté puis terminé plus tard créditerait un sprint de
@@ -87,6 +89,66 @@ export function belongedToSprint(t, sprintName, spk = extractSprintLabel(sprintN
     const h = _scopeOf(t);
     return h.names.has(sprintName) || (!!spk && h.keys.has(spk));
 }
+
+// Date JIRA → ms. Le changelog écrit « 2026-10-05T09:36:16.463+0200 » quand les sprints
+// portent « 2026-10-05T08:05:16.000Z » : comparer les CHAÎNES classerait 09:36+02 (07:36 Z)
+// APRÈS 08:05 Z. On normalise le décalage sans deux-points avant de parser.
+export const jiraDateMs = d => {
+    if (!d) return NaN;
+    return Date.parse(String(d).replace(/([+-]\d{2})(\d{2})$/, '$1:$2'));
+};
+
+/**
+ * Le ticket était-il dans ce sprint À L'INSTANT `at` ? On rejoue l'historique du champ
+ * Sprint : le `to` du dernier changement antérieur, à défaut le `from` du premier
+ * postérieur, à défaut (aucun historique) le sprint actuel. Un ticket créé APRÈS `at`
+ * n'y était pas — même si son premier changement part de ce sprint (créé directement
+ * dedans en cours de sprint, puis reporté à la clôture : GDEM-4761 sur la 31.1).
+ * ⚠️ Le `to` JIRA est CUMULATIF pour les sprints clos (« 31.1 → 31.1, 31.2 » au report) :
+ * un sprint clos reste dans la liste, donc « maintenant » = périmètre à la clôture.
+ */
+export function inSprintAt(t, sprintName, at, spk = extractSprintLabel(sprintName)) {
+    const atMs = typeof at === 'number' ? at : jiraDateMs(at);
+    if (!Number.isFinite(atMs)) return false;
+    const created = jiraDateMs(t.createdAt || t.created_at);
+    if (Number.isFinite(created) && created > atMs) return false;
+    const changes = (t.recentChanges || t.recent_changes || [])
+        .filter(ch => String(ch.field || '').toLowerCase() === 'sprint')
+        .map(ch => ({ ch, ms: jiraDateMs(ch.date) }))
+        .filter(x => Number.isFinite(x.ms))
+        .sort((a, b) => a.ms - b.ms);
+    let list;
+    if (!changes.length) list = t.sprintName || t.sprint_name || '';
+    else {
+        const before = changes.filter(x => x.ms <= atMs).pop();
+        list = before ? before.ch.to : changes[0].ch.from;
+    }
+    return String(list || '').split(',').some(part => {
+        const n = part.trim();
+        return !!n && (n === sprintName || (!!spk && extractSprintLabel(n) === spk));
+    });
+}
+
+/**
+ * Le ticket était-il dans ce sprint À SON LANCEMENT ? — l'engagement au sens strict.
+ * `belongedToSprint()` répond « y est-il passé un jour », donc compte aussi les tickets
+ * AJOUTÉS en cours de sprint (et ceux retirés avant le démarrage).
+ * Même règle que le rapport de sprint JIRA (« ajouté après le démarrage » = hors engagement).
+ * Sans date de lancement (sprint à venir) : le périmètre courant, faute de mieux.
+ */
+export function plannedAtSprintStart(t, sprintName, sprintStart, spk = extractSprintLabel(sprintName)) {
+    if (!belongedToSprint(t, sprintName, spk)) return false;
+    if (!Number.isFinite(jiraDateMs(sprintStart))) return true;
+    return inSprintAt(t, sprintName, sprintStart, spk);
+}
+
+/**
+ * Périmètre ACTUEL du sprint (« nb actuel » de Health) : en cours = ce qu'il contient ;
+ * clos = ce qu'il contenait À LA CLÔTURE, reports compris (grâce au `to` cumulatif) —
+ * sinon un sprint clos ne montrerait que ses réussites et des « retraits » fantômes.
+ */
+export const inSprintNow = (t, sprintName, spk = extractSprintLabel(sprintName)) =>
+    belongedToSprint(t, sprintName, spk) && inSprintAt(t, sprintName, Date.now(), spk);
 
 /**
  * Sprint vers lequel le ticket a été REPORTÉ, '' s'il y est resté.

@@ -126,3 +126,64 @@ describe('sprintScope — engagement vs réalisé', () => {
         assert.equal(s.carried.length, 0);
     });
 });
+
+describe('plannedAtSprintStart — engagement au lancement', () => {
+    // Lancement en « Z », changelog en « +0200 » : comme en prod.
+    const START = '2026-10-05T08:05:16.000Z';
+    const ch = (date, from, to) => ({ field: 'Sprint', date, from, to });
+    const t = (id, sprintName, changes, createdAt = '2026-09-01T10:00:00.000Z') =>
+        ({ id, sprintName, status: 'todo', createdAt, recentChanges: changes });
+
+    test('reporté à la clôture du précédent, AVANT le lancement (09:36+02 = 07:36 Z) → planifié', () => {
+        const x = t('A', SP2, [ch('2026-09-07T16:37:47.806+0200', '', SP1),
+            ch('2026-10-05T09:36:16.463+0200', SP1, `${SP1}, ${SP2}`)]);
+        assert.equal(sc.plannedAtSprintStart(x, SP2, START), true);
+    });
+    test('ajouté après le lancement → hors engagement', () => {
+        const x = t('B', SP2, [ch('2026-10-08T12:01:31.025+0200', '', SP2)]);
+        assert.equal(sc.belongedToSprint(x, SP2), true);
+        assert.equal(sc.plannedAtSprintStart(x, SP2, START), false);
+    });
+    test('retiré du sprint avant le lancement → hors engagement', () => {
+        const x = t('C', SP1, [ch('2026-09-07T16:40:10.174+0200', '', SP2),
+            ch('2026-09-24T14:33:26.183+0200', SP2, SP1)]);
+        assert.equal(sc.plannedAtSprintStart(x, SP2, START), false);
+    });
+    test('retiré après le lancement → reste engagé (engagement non tenu)', () => {
+        const x = t('D', '', [ch('2026-09-07T16:40:10.000+0200', '', SP2),
+            ch('2026-10-07T10:00:00.000+0200', SP2, '')]);
+        assert.equal(sc.plannedAtSprintStart(x, SP2, START), true);
+    });
+    test('sans historique : créé avant le lancement → planifié, après → non', () => {
+        assert.equal(sc.plannedAtSprintStart(t('E', SP2, []), SP2, START), true);
+        assert.equal(sc.plannedAtSprintStart(t('F', SP2, [], '2026-10-06T09:00:00.000Z'), SP2, START), false);
+    });
+    test('créé APRÈS le lancement directement dans le sprint, puis reporté → hors engagement', () => {
+        // Aucun changement « entrée dans le sprint » : le 1er changement est le report à la
+        // clôture, dont le `from` contient le sprint — piège de GDEM-4761.
+        const x = t('H', SP1, [ch('2026-10-19T09:40:57.054+0200', SP2, `${SP2}, ${SP1}`)],
+            '2026-10-08T07:51:03.000Z');
+        assert.equal(sc.plannedAtSprintStart(x, SP2, START), false);
+    });
+    test('sprint sans date de lancement → périmètre courant', () => {
+        const x = t('G', SP2, [ch('2026-10-08T12:01:31.025+0200', '', SP2)]);
+        assert.equal(sc.plannedAtSprintStart(x, SP2, null), true);
+    });
+});
+
+describe('inSprintNow — périmètre actuel, ou à la clôture pour un sprint clos', () => {
+    const ch = (date, from, to) => ({ field: 'Sprint', date, from, to });
+    test('reporté à la clôture : toujours compté (le `to` JIRA garde le sprint clos)', () => {
+        const x = { id: 'A', sprintName: SP2, createdAt: '2026-01-01T00:00:00Z', recentChanges: [
+            ch('2026-01-05T09:00:00.000+0200', '', SP1),
+            ch('2026-01-19T09:40:56.000+0200', SP1, `${SP1}, ${SP2}`)] };
+        assert.equal(sc.isInSprint(x, SP1), false);
+        assert.equal(sc.inSprintNow(x, SP1), true);
+    });
+    test('retiré en cours de sprint : plus compté', () => {
+        const x = { id: 'B', sprintName: '', createdAt: '2026-01-01T00:00:00Z', recentChanges: [
+            ch('2026-01-05T09:00:00.000+0200', '', SP1),
+            ch('2026-01-10T09:00:00.000+0200', SP1, '')] };
+        assert.equal(sc.inSprintNow(x, SP1), false);
+    });
+});

@@ -101,6 +101,21 @@ export function weatherChurn(pct, thresholds = meteoScopeThresholds()) {
     return 'storm';
 }
 
+/**
+ * Tendance d'un taux de mouvement d'un PI à l'autre. Plus bas = mieux, donc ↘ est une
+ * AMÉLIORATION. Sous `tolerance` points d'écart : stable (→) — un ticket de plus ou de moins
+ * sur un petit périmètre ne fait pas une tendance.
+ * @returns {null|{ delta, arrow, label, better: boolean|null }}
+ */
+export function churnTrend(cur, prev, tolerance = 3) {
+    if (!Number.isFinite(cur) || !Number.isFinite(prev)) return null;
+    const delta = cur - prev;
+    if (Math.abs(delta) < tolerance) return { delta, arrow: '→', label: 'stable', better: null };
+    return delta < 0
+        ? { delta, arrow: '↘', label: 'en baisse — mieux', better: true }
+        : { delta, arrow: '↗', label: 'en hausse — moins bien', better: false };
+}
+
 /** Score absolu (0–100) → niveau. `null`/`undefined`/NaN = pas de donnée. */
 export function weatherOf(score, thresholds = meteoThresholds()) {
     if (score == null || !Number.isFinite(score)) return 'none';

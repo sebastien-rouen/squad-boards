@@ -38,6 +38,22 @@ describe('weatherChurn — plus bas = mieux', () => {
     });
 });
 
+describe('churnTrend — plus bas = mieux', () => {
+    test('baisse = amélioration (↘), hausse = dégradation (↗)', () => {
+        assert.equal(mt.churnTrend(45, 61).arrow, '↘');
+        assert.equal(mt.churnTrend(45, 61).better, true);
+        assert.equal(mt.churnTrend(29, 11).arrow, '↗');
+        assert.equal(mt.churnTrend(29, 11).better, false);
+    });
+    test('écart < 3 points = stable', () => {
+        assert.equal(mt.churnTrend(12, 10).arrow, '→');
+        assert.equal(mt.churnTrend(12, 10).better, null);
+    });
+    test('PI précédent non mesuré → pas de tendance', () => {
+        assert.equal(mt.churnTrend(40, null), null);
+    });
+});
+
 describe('scopeStability', () => {
     const SP1 = 'Equipe O - Ité 30.1', SP2 = 'Equipe O - Ité 30.2', SP3 = 'Equipe O - Ité 30.3';
     const ch = (date, from, to) => ({ field: 'Sprint', date, from, to });

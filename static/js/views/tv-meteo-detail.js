@@ -12,7 +12,7 @@
 
 import { store } from '../state.js';
 import { esc, getCurrentPi, sumBy, getSprintForTeam, belongedToSprint, isInSprint, belongedToPi, extractPiNum, elapsedPct, meteoThresholds,
-    meteoScopeThresholds, scopeStability, METEO_GLYPH, METEO_LABEL, METEO_REL_BAND } from '../utils.js';
+    meteoScopeThresholds, scopeStability, churnTrend, METEO_GLYPH, METEO_LABEL, METEO_REL_BAND } from '../utils.js';
 import { computeTeamMeteo, meteoContext } from '../components/meteo_matrix.js';
 import { slaModel } from '../components/sla_review_card.js';
 import { tkAttrs } from './tv-screens.js';
@@ -142,10 +142,17 @@ function detailScope(team, ctx, tt) {
         : st.added >= st.removed
             ? `${plural(st.added, 'ticket')} ajouté${st.added > 1 ? 's' : ''} en cours de sprint : garder de la marge (Buffer) pour l'imprévu, ou faire arbitrer chaque ajout par le PO contre un retrait.`
             : `${plural(st.removed, 'ticket')} retiré${st.removed > 1 ? 's' : ''} en cours de sprint : l'engagement était trop ambitieux ou mal découpé — en parler au prochain planning.`;
+    // Tendance vs PI précédent — même calcul que la case (churnTrend, plus bas = mieux).
+    const prevPi = ctx.piNum - 1;
+    const prev = scopeStability(tt, (ctx.sprintInfoAll?.teamSprints || []).filter(s => s.team === team && extractPiNum(s.name) === prevPi));
+    const trend = prev.plan ? churnTrend(st.churnPct, prev.churnPct) : null;
+    const trendHtml = trend
+        ? `<p class="tvd-verdict">${trend.arrow} PI ${prevPi} : ${prev.churnPct} % (+${prev.added} −${prev.removed} sur ${prev.plan}, ${plural(prev.sprints, 'sprint')}) → PI ${ctx.piNum} : ${st.churnPct} % (${plural(st.sprints, 'sprint')}) — ${esc(trend.label)}${trend.better == null ? '' : ` (${trend.delta > 0 ? '+' : ''}${trend.delta} pts)`}</p>`
+        : `<p class="tvd-verdict">Pas de mesure sur le PI ${prevPi} pour comparer.</p>`;
     return {
         head: `${st.churnPct} % de mouvement · ${st.stablePct} % des engagés restés · +${st.added} −${st.removed} sur ${st.plan} · ☀️ ≤ ${th.sun} %, ⛅ ≤ ${th.cloud} %, 🌧️ ≤ ${th.rain} %`,
-        body: `<ul class="tvd-list">${rows}</ul>`,
-        tip,
+        body: `${trendHtml}<ul class="tvd-list">${rows}</ul>`,
+        tip: trend?.better === false ? `${tip} La tendance se dégrade depuis le PI ${prevPi}.` : tip,
     };
 }
 

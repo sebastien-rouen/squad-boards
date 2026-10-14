@@ -16,7 +16,7 @@
 - [ ] **Tolérance de démarrage réglable** (`METEO_START_TOLERANCE`, 15 %) et bandes relatives (`METEO_REL_BAND`) dans Paramètres → Météo — seulement si une équipe se plaint d'un 🌧️ en J2 ; aujourd'hui constantes de `utils/meteo.js`.
 - [ ] **Page 403 explicite — à appliquer** : le bloc est prêt dans [docs/nginx-403.md](docs/nginx-403.md) (Nginx Proxy Manager → hôte → *Advanced*). Geste d'infra, hors du site (préparé en 3.197.0).
 - [ ] **Vérifier sur le serveur** ce qui a été ajouté le 2026-10-03 — le banc local simule l'API : `curl -s https://squad-boards-drafts.bastou.dev/api/config/export | head -c 300`, une vraie sauvegarde / restauration (Paramètres → Données → 💾), un changement de niveau Atlas puis `GET /api/skill-history`, et le bandeau « données obsolètes » après une synchro (auteur affiché).
-- [ ] **Dette : fichiers de plus de 800 lignes** — settings.js (3 687), atlas.js (2 711), charts.js (1 398), reports.js (1 399), atlas.css (1 243), sprint.css (1 189), app.js (915). Découper par blocs consécutifs, preuve `cmp` (méthode de settings.css en 3.197.0), un fichier par session.
+- [ ] **Dette : fichiers de plus de 800 lignes** — settings.js (3 687), atlas.js (2 711), charts.js (1 398), reports.js (1 398), atlas.css (1 243), sprint.css (1 189), app.js (915). Découper par blocs consécutifs, preuve `cmp` (méthode de settings.css en 3.197.0), un fichier par session.
 - [ ] 💡 **États vides restants** → `emptyStateHtml` (Rapports : Sprint et PI Planning — Flow, Support, Roadmap, Burnup faits en 3.212.0 ; PI, Roadmap, Support, Atlas `atlas-empty-sm`…), au fil des retouches de ces vues.
 
 ---

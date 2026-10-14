@@ -5,7 +5,8 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, sprintScope, carriedOverTo } from '../utils.js';
+import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, sprintScope, carriedOverTo, extractSprintLabel } from '../utils.js';
+import { detectSprintsPerPI } from '../utils/pi-weeks.js';
 import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 import { renderPIVelocityChart, renderStatusChart, renderTypeChart, renderBurndown, renderBurnup, renderCycleTime, renderWIPAge } from '../components/charts.js';
 import { FIST_SCALE, slackToEmoji, buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, moodThemeIndex, SONDAGE_THEME_COUNT, SONDAGE_INTRO } from '../components/sondage.js';
@@ -65,27 +66,25 @@ export function renderReports(container) {
     for (const t of displayTickets) statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
 
     const _piNum      = String(displayPiNum || piInfo?.number || '');
-    const _sprintsCnt = piInfo?.sprintsPerPI || 5;
+    // Nombre de sprints du PI : `detectSprintsPerPI` (saisie > JIRA de CE PI > repli) — le PI 30
+    // en comptait 6, `sprintsPerPI` (5) faisait disparaître le 30.6 du graphique.
+    const _sprintsCnt = displayPiNum ? detectSprintsPerPI(sprintInfo, displayPiNum, piInfo?.sprintsPerPI || 5) : (piInfo?.sprintsPerPI || 5);
     const _piLabels   = _piNum ? Array.from({ length: _sprintsCnt }, (_, i) => `${_piNum}.${i + 1}`) : [];
-    const _curPiSprint = _parseSprintName(sprintInfo?.name || '').piSprint;
-    const allTickets   = store.get('tickets') || [];
-    const _tPiSprint   = t => {
-        const fromName = _parseSprintName(t.sprintName || '').piSprint;
-        if (fromName) return fromName;
-        return t.piSprint && /^\d+\.\d+$/.test(String(t.piSprint)) ? String(t.piSprint) : null;
-    };
+    const _curPiSprint = _isCurrentPi ? extractSprintLabel(_sprint?.name) : '';
     const _isBuffer    = isBufferItem;
     const _storedVel   = piInfo?.sprintVelocities || [];
     const _teamKey     = team === 'all' ? 'all' : team;
 
     const piVelocityData = _piLabels.map(lbl => {
         const isCurrent = lbl === _curPiSprint;
-        const liveBase  = team === 'all'
-            ? allTickets.filter(t => _tPiSprint(t) === lbl)
-            : allTickets.filter(t => _tPiSprint(t) === lbl && t.team === team);
-        const liveEst  = sumBy(liveBase, t => t.points);
-        const liveBuf  = sumBy(liveBase.filter(_isBuffer), t => t.points);
-        const liveReal = sumBy(liveBase.filter(t => t.status === 'done'), t => t.points);
+        // Règle engagement / réalisé (`sprintScope`, 3.214.0), la même que le « Détail par sprint » de
+        // la section PI Planning : estimé = engagés reports compris, réalisé = terminés DANS le
+        // sprint. Avant : nom de sprint ACTUEL du ticket (un reporté quittait son sprint, un ticket
+        // fini ailleurs y était crédité) et, sur « Toutes équipes », le groupe était ignoré.
+        const { engaged, done: credited } = sprintScope(tickets, lbl);
+        const liveEst  = sumBy(engaged, t => t.points);
+        const liveBuf  = sumBy(engaged.filter(_isBuffer), t => t.points);
+        const liveReal = sumBy(credited, t => t.points);
 
         if (isCurrent) {
             return { label: lbl, estimated: liveEst, buffer: liveBuf, realized: liveReal, isCurrent: true, isLive: true };

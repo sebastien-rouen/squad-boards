@@ -16,6 +16,7 @@ import { esc, getCurrentPi, sumBy, getSprintForTeam, belongedToSprint, isInSprin
 import { computeTeamMeteo, meteoContext } from '../components/meteo_matrix.js';
 import { slaModel } from '../components/sla_review_card.js';
 import { tkAttrs } from './tv-screens.js';
+import { piBounds } from '../utils/pi-weeks.js';
 
 const tk = id => `<code ${tkAttrs(id)}>${esc(id)}</code>`;
 const ids = (list, max = 6) => list.slice(0, max).map(t => tk(t.id || t)).join(' ') + (list.length > max ? ` <small>+${list.length - max}</small>` : '');
@@ -74,7 +75,9 @@ function detailPi(team, ctx, tt) {
     const all = sumBy(scope, t => t.points), dp = sumBy(scope.filter(t => t.status === 'done' && extractPiNum(t.sprintName || '') === piNum), t => t.points);
     const sprints = (ctx.sprintInfoAll?.teamSprints || []).filter(s => s.team === team && extractPiNum(s.name) === piNum);
     if (!sprints.length || !all) return { body: '<p class="tv-muted">Pas de périmètre PI mesurable (aucun point estimé dans ce PI).</p>', tip: 'Estimer les tickets du PI pour suivre sa trajectoire.' };
-    const time = elapsedPct(sprints.map(s => s.startDate).filter(Boolean).sort()[0], sprints.map(s => s.endDate).filter(Boolean).sort().at(-1));
+    // Bornes = `piBounds`, la même que la case de la matrice (sinon la TV contredirait la cellule).
+    const b = piBounds({ team, sprintInfo: ctx.sprintInfoAll, piInfo: store.get('piInfo'), piNum });
+    const time = b ? elapsedPct(b.startIso, b.endIso) : null;
     const p = Math.round((dp / all) * 100);
     const left = sprints.filter(s => s.state !== 'closed').length;
     const open = scope.filter(t => t.status !== 'done').sort((a, b) => (b.points || 0) - (a.points || 0));

@@ -1,3 +1,20 @@
+## [3.214.0] - 2026-10-14
+
+### Météo PI juste pour les équipes sans leurs derniers sprints JIRA ; Vélocité PI du rapport sur la règle engagement / réalisé
+
+- **Bornes d'un PI = `piBounds`** ([utils/pi-weeks.js](static/js/utils/pi-weeks.js)), source unique du
+  rapport, de la matrice météo, du détail TV et des prévisions. Fin = dernier sprint du PI de l'équipe,
+  à défaut date médiane de ce sprint dans le train. La météo prenait la fin du dernier sprint CONNU :
+  Initiale « 97 % du PI écoulé » (réel 58 %), Dezir 98 % (59 %), Lion 93 % (59 %) — à mi-PI, des
+  équipes injustement en 🌧️ / ⛈️. Fuego et Gabbiano, sprints complets, inchangés (55 %, 45 %).
+- **Graphique « Vélocité PI »** (Métriques sprint) : estimé = engagés reports compris, réalisé = terminés
+  DANS le sprint (`sprintScope`) — la même règle que le « Détail par sprint » de la section PI Planning,
+  et désormais les mêmes chiffres (vérifié sprint par sprint : Fuego PI 31 et 30, Lion, train). Avant :
+  nom de sprint actuel du ticket, groupe ignoré sur « Toutes équipes », et `sprintsPerPI` fixe (5) qui
+  faisait disparaître le 30.6 → `detectSprintsPerPI`. Saisies manuelles des sprints passés : prioritaires.
+- Vérifié : sonde Node sur la vraie base (5 équipes, matrice = prévision), banc Edge (0 erreur JS),
+  `node --test` 290/290.
+
 ## [3.213.0] - 2026-10-14
 
 ### Rapports — Métriques sprint, Sprint et Équipes sur le sprint AFFICHÉ (fin de l'historique complet)

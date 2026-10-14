@@ -12,7 +12,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, rosterCtx, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, plannedAtSprintStart, inSprintNow, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, rosterCtx, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, plannedAtSprintStart, inSprintNow, sprintScopeDelta, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -438,16 +438,19 @@ export function renderHealth(container) {
             // reporté porte le sprint d'ARRIVÉE — souvent d'un autre PI — et le filtre PI le
             // ferait disparaître du sprint où il avait pourtant été engagé. Le sprint étant
             // ici nommé explicitement, ce filtre est de toute façon redondant.
-            const spTk = allTickets.filter(t => t.team === tm && belongedToSprint(t, sp.name, spk));
+            // Engagé / au lancement / actuel : sprintScopeDelta (sprint-scope.js), source unique
+            // partagée avec le domaine 📐 Périmètre de la Météo.
+            const _delta = sprintScopeDelta(allTickets.filter(t => t.team === tm), sp, spk);
+            const spTk = _delta.engaged;
             // Vélocité RÉALISÉE : uniquement les tickets restés dans le sprint. Compter les
             // reportés terminés ailleurs gonflerait la vélocité d'un sprint avec du travail
             // fait après sa clôture — le contraire de ce qu'elle mesure.
             const spDone = spTk.filter(t => t.status === 'done' && isInSprint(t, sp.name, spk));
             // ENGAGÉ AU LANCEMENT : présents dans le sprint à son démarrage — un ticket ajouté
             // en cours de sprint n'était pas planifié et ne gonfle ni le « prévu » ni sa liste.
-            const spPlan   = spTk.filter(t => plannedAtSprintStart(t, sp.name, sp.startDate, spk));
+            const spPlan   = _delta.plan;
             const spBufAll = spPlan.filter(t => isBufferItem(t));
-            const spCur    = spTk.filter(t => inSprintNow(t, sp.name, spk));
+            const spCur    = _delta.cur;
             sprintTickets[sp.name] = {
                 done:    spDone,
                 bufDone: spDone.filter(t => isBufferItem(t)),

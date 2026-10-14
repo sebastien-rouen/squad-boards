@@ -151,6 +151,49 @@ export const inSprintNow = (t, sprintName, spk = extractSprintLabel(sprintName))
     belongedToSprint(t, sprintName, spk) && inSprintAt(t, sprintName, Date.now(), spk);
 
 /**
+ * Écart de périmètre d'UN sprint entre son lancement et maintenant (ou sa clôture).
+ * Source unique des colonnes « nb début » / « nb actuel » de Health ET du domaine
+ * 📐 Périmètre de la Météo — deux calculs diviseraient les chiffres à l'écran.
+ * @param {object[]} tickets  tickets d'UNE équipe (le matching par clé NN.N l'exige)
+ * @param {{name: string, startDate?: string}} sprint
+ * @returns {{engaged, plan, cur, added, removed}} listes de tickets
+ *   `engaged` = passés un jour par le sprint · `plan` = présents au lancement ·
+ *   `cur` = présents maintenant / à la clôture · `added` = cur hors plan · `removed` = plan hors cur
+ */
+export function sprintScopeDelta(tickets, sprint, spk = extractSprintLabel(sprint?.name)) {
+    const name = sprint?.name || '';
+    const engaged = (tickets || []).filter(t => belongedToSprint(t, name, spk));
+    const plan = engaged.filter(t => plannedAtSprintStart(t, name, sprint?.startDate, spk));
+    const cur = engaged.filter(t => inSprintNow(t, name, spk));
+    const planIds = new Set(plan.map(t => t.id)), curIds = new Set(cur.map(t => t.id));
+    return {
+        engaged, plan, cur,
+        added: cur.filter(t => !planIds.has(t.id)),
+        removed: plan.filter(t => !curIds.has(t.id)),
+    };
+}
+
+/**
+ * Stabilité du périmètre sur plusieurs sprints (un PI) — sprints DÉMARRÉS seulement
+ * (actif ou clos, avec une date de lancement) : un sprint à venir n'a pas d'engagement.
+ * `churnPct` = (ajouts + retraits) ÷ engagés au lancement ; `stablePct` = engagés restés.
+ * Un report à la clôture n'est PAS un retrait (le ticket est resté jusqu'au bout).
+ * @returns {{plan, added, removed, sprints, churnPct: number|null, stablePct: number|null, bySprint}}
+ */
+export function scopeStability(tickets, sprints) {
+    const bySprint = [];
+    let plan = 0, added = 0, removed = 0;
+    for (const sp of sprints || []) {
+        if (!(sp?.state === 'active' || sp?.state === 'closed') || !sp.startDate) continue;
+        const d = sprintScopeDelta(tickets, sp);
+        bySprint.push({ sprint: sp, ...d });
+        plan += d.plan.length; added += d.added.length; removed += d.removed.length;
+    }
+    const pctOf = v => plan ? Math.round(v / plan * 100) : null;
+    return { plan, added, removed, sprints: bySprint.length, churnPct: pctOf(added + removed), stablePct: pctOf(plan - removed), bySprint };
+}
+
+/**
  * Sprint vers lequel le ticket a été REPORTÉ, '' s'il y est resté.
  * Un report est un engagement non tenu dans le sprint d'origine — même si le ticket a été
  * terminé plus tard ailleurs : son statut actuel ne dit rien de ce qui s'est passé DANS ce

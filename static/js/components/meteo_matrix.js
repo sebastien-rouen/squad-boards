@@ -8,6 +8,7 @@
  *   🛡️ Santé   — score 0–100                                  (business_rules.js : healthScore, même formule que health.js)
  *   🎧 SLA     — % de tickets terminés sous le seuil            (sla_review_card.js : slaModel)
  *   😊 Mood    — moyenne des votes du sprint × 20              (store.moodVotes)
+ *   📐 Périmètre — (ajouts + retraits) ÷ engagés au lancement   (sprint-scope.js : scopeStability)
  *
  * L'échelle (seuils, relatif/absolu, tolérance de démarrage) vit dans utils/meteo.js.
  * Le niveau d'une équipe est le PIRE de ses domaines ; ⚪ « pas de donnée » n'est jamais
@@ -15,7 +16,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, belongedToSprint, isInSprint, belongedToPi, countBlocked, teamCapacity, rosterCtx, wipThreshold, countWip, weatherOf, weatherRel, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds } from '../utils.js';
+import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, belongedToSprint, isInSprint, belongedToPi, countBlocked, teamCapacity, rosterCtx, wipThreshold, countWip, weatherOf, weatherRel, weatherChurn, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds, meteoScopeThresholds, scopeStability } from '../utils.js';
 import { ANOMALY_RULES, healthScore } from '../business_rules.js';
 import { slaModel } from './sla_review_card.js';
 import { helpIconHtml } from './help_popover.js';
@@ -23,7 +24,7 @@ import { TEAM_COLORS } from '../config.js';
 
 // Les domaines vivent dans utils/meteo.js (partagés avec l'aide « ? ») ; on ne garde ici
 // que ce qu'il faut pour rendre une cellule.
-const DOMAINS = METEO_DOMAINS.map(({ key, icon, label, hint }) => ({ key, icon, label, hint }));
+const DOMAINS = METEO_DOMAINS.map(({ key, icon, label, hint, inLevel }) => ({ key, icon, label, hint, inLevel: inLevel !== false }));
 
 const _sprintLabel = name => (String(name || '').match(/(\d+\.\d+)/) || [])[1] || '';
 
@@ -32,7 +33,7 @@ const _sprintLabel = name => (String(name || '').match(/(\d+\.\d+)/) || [])[1] |
  * @returns {{ team, color, level, blocked, domains: Array<{key, icon, label, level, value, sub, title}> }}
  */
 export function computeTeamMeteo(team, {
-    tickets, sprintInfoAll, piNum, members = [], absences = [], moodVotes = [], color = null, thresholds = null,
+    tickets, sprintInfoAll, piNum, members = [], absences = [], moodVotes = [], color = null, thresholds = null, scopeThresholds = null,
 } = {}) {
     // `thresholds` : surcharge ponctuelle (aperçu des Paramètres), sinon les seuils effectifs.
     const th = thresholds || meteoThresholds();
@@ -117,8 +118,22 @@ export function computeTeamMeteo(team, {
         d.mood = { level: 'none', value: '—', sub: 'aucun vote' };
     }
 
-    const domains = DOMAINS.map(dom => ({ ...dom, ...d[dom.key], title: `${dom.icon} ${dom.label} — ${METEO_LABEL[d[dom.key].level]} · ${dom.hint}` }));
-    return { team, color, level: worstLevel(domains.map(x => x.level)), blocked: countBlocked(active), domains, anomalies };
+    // 📐 Périmètre — stabilité des sprints DÉMARRÉS du PI : ajouts + retraits en cours de
+    // sprint, rapportés à l'engagement au lancement. Même source que « nb début / nb actuel ».
+    const stab = piNum ? scopeStability(tt, piSprints) : null;
+    if (stab?.plan) {
+        const sth = scopeThresholds || meteoScopeThresholds();
+        d.scope = { level: weatherChurn(stab.churnPct, sth), value: `${stab.churnPct} %`,
+            sub: `+${stab.added} −${stab.removed} sur ${stab.plan} engagés · ${stab.sprints} sprint${stab.sprints > 1 ? 's' : ''}`,
+            viz: { type: 'gauge', score: Math.max(0, 100 - stab.churnPct) },
+            meta: [['📐', `${stab.plan} engagés au lancement`], ['🔀', `+${stab.added} ajoutés · −${stab.removed} retirés`]] };
+    } else {
+        d.scope = { level: 'none', value: '—', sub: stab?.sprints ? 'aucun ticket engagé au lancement' : 'aucun sprint démarré dans ce PI' };
+    }
+
+    const domains = DOMAINS.map(dom => ({ ...dom, ...d[dom.key], title: `${dom.icon} ${dom.label} — ${METEO_LABEL[d[dom.key].level]} · ${dom.hint}${dom.inLevel ? '' : '\n(indicatif : ne compte pas dans le niveau de l\'équipe)'}` }));
+    // Niveau de l'équipe = le pire des domaines QUI COMPTENT (`inLevel`) — 📐 Périmètre est indicatif.
+    return { team, color, level: worstLevel(domains.filter(x => x.inLevel).map(x => x.level)), blocked: countBlocked(active), domains, anomalies };
 }
 
 /** Contexte commun à toutes les équipes, lu une seule fois dans le store. */
@@ -232,7 +247,7 @@ export function meteoMatrixHtml(teams, ctx, teamObjects = [], { preview = false,
         <div class="meteo-wrap">
             <table class="meteo-matrix${isRich ? ' is-rich' : ''}">
                 <caption class="meteo-sr">Météo par équipe et par domaine</caption>
-                <thead><tr><th scope="col">Équipe</th>${DOMAINS.map(dm => `<th scope="col" title="${esc(dm.hint)}"><span aria-hidden="true">${dm.icon}</span> ${dm.label}</th>`).join('')}</tr></thead>
+                <thead><tr><th scope="col">Équipe</th>${DOMAINS.map(dm => `<th scope="col"${dm.inLevel ? '' : ' class="meteo-th--ind"'} title="${esc(dm.hint + (dm.inLevel ? '' : ' — indicatif : hors du niveau de l\'équipe'))}"><span aria-hidden="true">${dm.icon}</span> ${dm.label}${dm.inLevel ? '' : '<small class="meteo-th-ind">indicatif</small>'}</th>`).join('')}</tr></thead>
                 <tbody>${body}</tbody>
             </table>
         </div>

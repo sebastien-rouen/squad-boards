@@ -16,6 +16,8 @@ import { FLOW_GENERATOR } from './reports-flow.js';
 import { SUPPORT_GENERATOR } from './reports-support.js';
 import { ROADMAP_GENERATOR, piBurnupHtml, mountPiBurnup } from './reports-roadmap.js';
 import { reportWindows, reportSprint } from './reports-scope.js';
+import { TEAMS_GENERATOR } from './reports-teams.js';
+import { makeFullGenerator } from './reports-full.js';
 import { B, E, SB, CS } from './reports-fmt.js';
 import { meteoSummary } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
@@ -1139,8 +1141,11 @@ function renderSection(id, fmt, ctx) {
 // B / E / SB / CS viennent de reports-fmt.js : reports-pi.js les partage sans
 // importer ce fichier (un cycle mettrait ces const fléchées en TDZ).
 
-function teamBreakdown(tickets, teams, fmt) {
+function teamBreakdown(tickets, allTeams, fmt) {
     const byTeam = groupBy(tickets, t => t.team);
+    // Seulement les équipes qui ont des tickets sur ce sprint : la liste complète en comptait 30,
+    // dont des boards fantômes à « 0/0 » (3.215.0).
+    const teams = allTeams.filter(t => (byTeam.get(t) || []).length);
     if (fmt === 'slack') {
         return teams.map(t => {
             const tt = byTeam.get(t) || [];
@@ -1157,22 +1162,40 @@ function teamBreakdown(tickets, teams, fmt) {
     }
     return teams.map(t => {
         const tt = byTeam.get(t) || []; const d = tt.filter(x => x.status === 'done').length;
-        return `  ${t}: ${d}/${tt.length} tickets, ${sumBy(tt, x => x.points)} pts`;
+        return `- ${t} : ${d}/${tt.length} tickets, ${sumBy(tt, x => x.points)} pts`;
     }).join('\n');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 const GENERATORS = {
     sprint: {
+        // Copie « Texte » au style des autres sections (3.215.0) : puces « - » que Confluence convertit
+        // en liste, emoji APRÈS le tiret (cf reports-pi.js) ; tickets par groupe comme l'aperçu Slack.
         text: ctx => {
             const { tickets, sprint: sprintInfo, teams, team, done, total, donePts, totalPts } = ctx;   // sprint AFFICHÉ (de l'équipe)
-            const blocked = tickets.filter(t => t.status === 'blocked').length;
-            let r = `=== Sprint: ${sprintInfo?.name || 'N/A'} ===\nEquipe: ${team === 'all' ? 'Toutes' : team}\n`;
-            r += `Tickets: ${done}/${total} (${pct(done, total)}%)\nPoints: ${donePts}/${totalPts} (${pct(donePts, totalPts)}%)\n`;
-            if (blocked) r += `Bloques: ${blocked}\n`;
-            if (sprintInfo?.goal) r += `\nObjectif: ${sprintInfo.goal}\n`;
-            if (ctx.meteo) r += `Meteo: ${ctx.meteo.text}\n`;
-            if (teams.length > 1 && team === 'all') r += `\nPar equipe:\n${teamBreakdown(tickets, teams, 'text')}`;
+            const sp = _parseSprintName(sprintInfo?.name || '');
+            const dates = sprintInfo?.startDate && sprintInfo?.endDate ? ` — ${_fmtShortDate(sprintInfo.startDate)} → ${_fmtShortDate(sprintInfo.endDate)}` : '';
+            let r = `📋 ${sp.piSprint ? `Sprint ${sp.piSprint}` : 'Sprint'} — ${team === 'all' ? 'Toutes équipes' : team}${dates}\n\n`;
+            if (sprintInfo?.goal) r += `🎯 Objectif : ${String(sprintInfo.goal).trim()}\n\n`;
+            if (ctx.meteo) r += `- 🌤️ Météo : ${ctx.meteo.text}\n`;
+            r += `- ✅ Tickets : ${done}/${total} (${pct(done, total)} %)\n- 💎 Points : ${donePts}/${totalPts} (${pct(donePts, totalPts)} %)\n`;
+            const blocked = tickets.filter(t => t.status === 'blocked');
+            if (blocked.length) r += `- 🚫 Bloqués : ${blocked.length} — ${blocked.map(t => t.title).join(', ')}\n`;
+            const ICON = { done: '✅', inprog: '🔄', review: '👀', test: '🧪', blocked: '🚫', todo: '⬜' };
+            const groups = [
+                ['📝', 'User Stories', tickets.filter(t => !isBufferItem(t) && t.type !== 'bug' && t.type !== 'support')],
+                ['🔄', 'Buffer', tickets.filter(isBufferItem)],
+                ['🐛', 'Bugs', tickets.filter(t => t.type === 'bug' && !isBufferItem(t))],
+                ['🛡️', 'Support', tickets.filter(t => t.type === 'support' && !isBufferItem(t))],
+            ];
+            for (const [icon, label, items] of groups) {
+                if (!items.length) continue;
+                const d = items.filter(t => t.status === 'done');
+                const p = sumBy(items, t => t.points);
+                r += `\n${icon} ${label} — ${d.length}/${items.length} terminé${d.length > 1 ? 's' : ''}${p ? `, ${sumBy(d, t => t.points)}/${p} pts` : ''}\n`;
+                r += items.map(t => `- ${ICON[t.status] || '⬜'} ${t.title || t.id}${t.points ? ` — ${t.points} pts` : ''}${t._carriedTo ? ` (reporté en ${extractSprintLabel(t._carriedTo) || t._carriedTo})` : ''}\n`).join('');
+            }
+            if (teams.length > 1 && team === 'all') r += `\nPar équipe\n${teamBreakdown(tickets, teams, 'text')}`;
             return r;
         },
         slack: ctx => {
@@ -1382,17 +1405,12 @@ const GENERATORS = {
     kanban: FLOW_GENERATOR,
     support: SUPPORT_GENERATOR,
     roadmap: ROADMAP_GENERATOR,
-    teams: {
-        text: ctx => { let r = '=== Equipes ===\n'; r += teamBreakdown(ctx.tickets, ctx.teams, 'text'); return r; },
-        slack: ctx => `<div class="s-header">${E('👥')} Equipes</div><hr class="s-divider">\n${teamBreakdown(ctx.tickets, ctx.teams, 'slack')}`,
-        confluence: ctx => `<h2>Equipes</h2>${teamBreakdown(ctx.tickets, ctx.teams, 'confluence')}`,
-    },
+    // Équipe(s) sur le sprint affiché : effectif, présence, responsables (reports-teams.js, 3.215.0).
+    teams: TEAMS_GENERATOR,
     // Section PI Planning — objectifs + detail par sprint, dynamiques sur l'equipe
     // ET le PI selectionnes. Vit dans son propre module (reports-pi.js).
     pi: PI_GENERATOR,
-    full: {
-        text: ctx => ['sprint', 'kanban', 'support', 'roadmap', 'teams', 'pi'].map(id => GENERATORS[id].text(ctx)).join('\n\n'),
-        slack: ctx => ['sprint', 'kanban', 'support', 'roadmap', 'teams', 'pi'].map(id => GENERATORS[id].slack(ctx)).join('\n\n'),
-        confluence: ctx => ['sprint', 'kanban', 'support', 'roadmap', 'teams', 'pi'].map(id => GENERATORS[id].confluence(ctx)).join(''),
-    },
 };
+// Rapport complet : en-tête + En bref + sections (reports-full.js). Posé APRÈS le littéral : lui
+// passer GENERATORS dans son propre initialiseur le lirait en TDZ.
+GENERATORS.full = makeFullGenerator(GENERATORS);

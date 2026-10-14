@@ -1,3 +1,27 @@
+## [3.215.0] - 2026-10-14
+
+### Rapports — section Équipe(s) refaite ; Rapport complet avec en-tête et « En bref »
+
+- **👥 Équipe(s)** ([reports-teams.js](static/js/views/reports-teams.js)), sur le sprint affiché. Avant :
+  une ligne par équipe connue quel que soit le filtre — #reports/Fuego/teams = 29 lignes « 0/0 » + Fuego.
+  - **Une équipe** : effectif du PI (`effectiveRosterForPi`) et ETP (`teamEtp`) ; présence de chacun
+    sur le sprint (bande de la carte roster météo, `presenceStripHtml`) et capacité en j·ETP (Fuego,
+    31.3 : 88 %, 106/120 j·ETP) ; responsables des tickets, et la part SANS responsable (Fuego : 28/33,
+    encadré d'alerte au-delà de 50 %). Roster RH et responsables JIRA restent deux listes : leurs
+    noms ne s'écrivent pas pareil (« GAZELOT, Fabien » / « Fabien Gazelot »).
+  - **Toutes équipes / groupe** : une ligne par équipe (avancement, points, bloqués, ETP, présence),
+    sans les équipes vides — 13 lignes au lieu de 30.
+- **📄 Rapport complet** ([reports-full.js](static/js/views/reports-full.js)) : en-tête (équipe, sprint
+  et dates, PI, date) + **🧭 En bref** — une ligne par section tirée de SES calculs (sprint, météo,
+  flow, support, roadmap, PI, objectifs, équipe) — puis les sections, séparées. La vue Texte montre
+  l'en-tête et l'En bref ; Copier emporte le document entier, en Texte, Slack ou Confluence.
+- Copie « Texte » de la section **Sprint** au style des autres sections (puces, tickets par groupe,
+  reporté nommé) ; « Par équipe » sans les équipes vides.
+- `meteo_fiche.js` exporte `sprintWorkDays` / `presenceLevel` / `presenceStripHtml` (carte roster
+  inchangée : vérifiée au banc).
+- Vérifié : banc Edge (Fuego et train, 1 440 et 390 px, trois formats) : 0 erreur JS, aucun
+  `undefined` / `NaN`, pas de défilement de page ; `node --test` 290/290.
+
 ## [3.214.0] - 2026-10-14
 
 ### Météo PI juste pour les équipes sans leurs derniers sprints JIRA ; Vélocité PI du rapport sur la règle engagement / réalisé

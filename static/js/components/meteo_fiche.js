@@ -82,9 +82,12 @@ const _isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2
 const _dayFmt = iso => new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
 const ITER_LEVEL = { in: 'présent', half: 'demi-journée', out: 'absent', off: 'férié' };
 
-/** Jours OUVRÉS de l'itération en cours de l'équipe (sprint JIRA via `getSprintForTeam`). */
-function _iteration(team, sprintInfoAll) {
-    const sp = getSprintForTeam(team, sprintInfoAll);
+/**
+ * Jours OUVRÉS d'un sprint (`{ name, startDate, endDate }`) — partagé avec la section Équipes du
+ * rapport (reports-teams.js), qui passe le sprint AFFICHÉ.
+ * @returns {{ label: string, days: string[] }|null}
+ */
+export function sprintWorkDays(sp) {
     const s = String(sp?.startDate || '').slice(0, 10), e = String(sp?.endDate || '').slice(0, 10);
     if (!s || !e || e < s) return null;
     const days = [];
@@ -92,21 +95,24 @@ function _iteration(team, sprintInfoAll) {
     for (const d = new Date(`${s}T12:00:00`); _isoLocal(d) <= e; d.setDate(d.getDate() + 1)) {
         if (d.getDay() !== 0 && d.getDay() !== 6) days.push(_isoLocal(d));
     }
-    return days.length ? { label: _lbl(sp.name), days } : null;
+    return days.length ? { label: _lbl(sp.name) || String(sp.name || ''), days } : null;
 }
+
+/** Niveau d'un jour pour un membre : 'in' | 'half' | 'out' | 'off' (férié). Source des bandes ET des comptes. */
+export const presenceLevel = (name, iso, absences) => (holidayName(iso) ? 'off'
+    : ({ full: 'out', half: 'half' })[supportAbsenceDayLevel(name, iso, absences)] || 'in');
 
 /**
  * Bande de présence d'un membre sur l'itération : une case par jour ouvré, de LARGEUR FIXE pour
  * que les bandes s'alignent d'une ligne à l'autre (on lit les trous communs d'un coup d'œil).
  * Niveau du jour = `supportAbsenceDayLevel` (même lecture que la grille de rotation) ; férié gris.
  */
-function _iterStripHtml(name, it, absences, todayIso) {
+export function presenceStripHtml(name, it, absences, todayIso = todayIsoLocal()) {
     const count = { in: 0, half: 0, out: 0, off: 0 };
     const cells = it.days.map(iso => {
-        const hol = holidayName(iso);
-        const lvl = hol ? 'off' : ({ full: 'out', half: 'half' })[supportAbsenceDayLevel(name, iso, absences)] || 'in';
+        const lvl = presenceLevel(name, iso, absences);
         count[lvl]++;
-        return `<i class="meteo-iter-d is-${lvl}${iso === todayIso ? ' is-today' : ''}" title="${esc(`${_dayFmt(iso)} — ${hol || ITER_LEVEL[lvl]}`)}"></i>`;
+        return `<i class="meteo-iter-d is-${lvl}${iso === todayIso ? ' is-today' : ''}" title="${esc(`${_dayFmt(iso)} — ${holidayName(iso) || ITER_LEVEL[lvl]}`)}"></i>`;
     }).join('');
     const summary = Object.entries(count).filter(([, n]) => n).map(([k, n]) => `${n} ${ITER_LEVEL[k]}`).join(', ');
     return `<span class="meteo-iter" role="img" aria-label="${esc(`Itération ${it.label} : ${summary}`)}">${cells}</span>`;
@@ -122,14 +128,14 @@ export function meteoRosterHtml(team, ctx) {
     const cap = teamEtp(roster, piInfo?.roleCapacity || {});
     // Jour LOCAL : `toISOString()` donnait la veille entre minuit et 2 h (heure d'été).
     const todayIso = todayIsoLocal();
-    const it = _iteration(team, sprintInfoAll);
+    const it = sprintWorkDays(getSprintForTeam(team, sprintInfoAll));
     const rows = cap.members.map(m => {
         const abs = _nextAbsence(m.name, absences, todayIso);
         return `<tr>
             <td><span class="meteo-plan-avatar" aria-hidden="true">${esc(initials(m.name))}</span> ${esc(m.name)}</td>
             <td>${m.role ? esc(m.role) : '<span class="meteo-roster-unknown" title="Rôle inconnu : compté à 100 %">rôle ?</span>'}</td>
             <td><span class="meteo-roster-bar" title="${m.pct} % de capacité dev"><i style="width:${m.pct}%"></i></span> <b>${m.pct} %</b></td>
-            <td class="meteo-roster-abs ${abs ? (abs.now ? 'is-now' : 'is-next') : ''}">${it ? _iterStripHtml(m.name, it, absences, todayIso) : ''}<span>${abs ? `${abs.now ? '🌴 absent' : abs.label}${abs.days ? ` <small>(${abs.days} j)</small>` : ''}` : '—'}</span></td>
+            <td class="meteo-roster-abs ${abs ? (abs.now ? 'is-now' : 'is-next') : ''}">${it ? presenceStripHtml(m.name, it, absences, todayIso) : ''}<span>${abs ? `${abs.now ? '🌴 absent' : abs.label}${abs.days ? ` <small>(${abs.days} j)</small>` : ''}` : '—'}</span></td>
         </tr>`;
     }).join('');
     const legend = it ? `<p class="meteo-iter-legend">Itération ${esc(it.label)} :

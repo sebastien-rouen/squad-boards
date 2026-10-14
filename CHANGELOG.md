@@ -1,3 +1,49 @@
+## [3.212.0] - 2026-10-14
+
+### Rapports — Kanban / Flow, Support et Roadmap refaits sur une vraie période ; Epic Burndown → Burnup du PI
+
+- **Le constat (vraie base, Fuego, PI 31)** : ces sections comptaient TOUT l'historique chargé (≈ 1 an).
+  Flow : « Done 534 · ratio 77 % » ; Support : « 133 tickets » ; Roadmap : « Features 84/169 » (9 au PI 31).
+  L'**Epic Burndown était vide pour les 30 équipes** : `t.epic` porte l'id de la FEATURE parente,
+  aucun ticket ne pointe un epic du store (0 sur 4 845).
+- **Période commune** (`reports-scope.js`) : le sprint de l'équipe sur le PI courant, le PI entier sinon.
+  Fin du PI = dernier sprint de l'équipe, à défaut la date MÉDIANE de ce sprint dans le train — Lion
+  n'a créé que 31.1 → 31.3 : son PI s'arrêtait au 18/10 (« 91 % écoulé ») au lieu du 12/11.
+- **🗂️ Kanban / Flow** (`reports-flow.js`) : livrés sur la période + écart à la période précédente,
+  débit/semaine, cycle time P50/P85, conformité SLA (cible = P85 du PI PRÉCÉDENT le PI affiché, sinon
+  un PI passé se mesurait contre lui-même), WIP par colonne contre la limite de l'équipe, tickets au-delà
+  du P85 de leur colonne, bloqués nommés. Reliquats d'anciens PI écartés (`isPastPi`).
+- **🛡️ Support** (`reports-support.js`) : astreinte de la semaine ET suivante, réduite au filtre équipe
+  (avant : toutes les équipes), absences ≥ 3 j et jours partiels ; entrés / résolus / délai médian sur la
+  période, stock ouvert du plus ancien au plus récent. Le ticket de suivi « Paillettes support » est
+  montré à part (`isSupportTracker`, exporté de team_timeline_support.js).
+- **🗺️ Roadmap / PI** (`reports-roadmap.js`) : features du PI affiché (règle de roadmap.js), avancement
+  par leurs tickets, météo `weatherRel` pour les features démarrées, ⏳ pour les autres ; groupes En cours /
+  Pas démarrées / Livrées / Buffer, repliés au-delà de 8 lignes (« Toutes équipes » : 7 741 → 4 223 px).
+- **📈 Burnup du PI** (remplace l'Epic Burndown) : périmètre `belongedToPi`, réalisé = terminé dans un
+  sprint du PI, `renderBurnup` / `burnSeries` ; périmètre initial, ajouté, réalisé en points ET en tickets
+  (68 tickets sur 116 sans estimation chez Fuego), projection au rythme actuel. Ancien lien `…/epicburn`
+  redirigé ; palette Ctrl+K mise à jour.
+- 🐛 **Sommaire des Rapports : surbrillance d'un cran en arrière** après un clic (« Kanban / Flow » →
+  « Sprint » allumé). Le scroll-spy mesurait depuis le haut du scrollport : la fin de la section
+  précédente, cachée sous la barre de contrôles collante, restait « visible ». Ligne de lecture posée
+  SOUS la barre (+ 25 % de la hauteur), et section cliquée gardée jusqu'à `scrollend` — la section
+  Sprint peut faire 26 000 px, l'animation durait plus que tout délai fixe. Banc Edge : 12/12 entrées
+  justes en 1 440 × 900 et 1 280 × 720, y compris « Rapport complet » (qui ne peut pas monter en haut).
+- **👥 Roster météo (fiche équipe du Dashboard) : présence de l'itération en barres** (item BACKLOG) —
+  une case par jour ouvré du sprint de l'équipe, AVANT la prochaine absence : vert présent, orange
+  ½ journée, rouge absent, gris férié, jour courant cerclé ; largeur fixe → les bandes s'alignent d'un
+  membre à l'autre. `supportAbsenceDayLevel` (lecture de la grille de rotation) + `holidayName`.
+  Au passage : jour courant en heure LOCALE (`todayIsoLocal`, `toISOString()` donnait la veille avant
+  2 h) et `.meteo-fiche > * { min-width: 0 }` — sur mobile la carte prenait la largeur de son tableau
+  (677 px dans 366 px) au lieu de le faire défiler. Banc Edge (Fuego, Lion ; 1 440 et 390 px) :
+  10 cases par membre, une seule abscisse de bande, 0 erreur JS.
+- Nombres à la française, états vides par `emptyStateHtml`, styles dans `reports-flow.css` (portée par
+  classe : Sprint et PI Planning inchangés) ; règles `.epic-burn-*` retirées. `reports.js` : 1 474 → 1 386 l.
+- Vérifié : sonde Node sur la vraie base (Fuego, Lion, Gabbiano, Initiale, train ; PI 30 / 31 / 32 ;
+  4 formats sans `undefined`/`NaN`) ; banc Edge sur le vrai site, 1 440 et 390 px : 0 débordement,
+  0 texte tronqué, graphique dessiné, 0 erreur JS ; `node --test` 290/290.
+
 ## [3.211.0] - 2026-10-09
 
 ### Export des faits marquants — derniers choix repris ; 🐛 « Annuler » de la modale réparé

@@ -120,3 +120,4 @@
 - [x] **Généraliser les « ? » + tooltips du Dashboard** · ✅ 3.198.0 — 4 schémas de plus dans `HELP_REGISTRY`, KPI en `data-tooltip`.
 - [x] **Historique des niveaux Atlas** · ✅ 3.198.0 — table `skill_level_history`, bloc « 📈 Évolution » de la fiche membre.
 
+- [x] **Roster météo : présence de l'itération en barres** · ✅ 3.212.0 — une case par jour ouvré (vert présent, orange ½ journée, rouge absent, gris férié), largeur fixe pour aligner les membres ; `supportAbsenceDayLevel` + `holidayName`.

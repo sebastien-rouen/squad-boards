@@ -1,4 +1,5 @@
-/* VIEW: Reports — Epic Burndown + Export PDF — extrait de views.css (ordre cascade préservé) */
+/* VIEW: Reports — Mood Meter, sondage, export PDF — extrait de views.css (ordre cascade préservé).
+   Les règles .epic-burn-* sont parties avec l'Epic Burndown (3.212.0, remplacé par le Burnup du PI). */
 /* ══════════════════════════════════════════════════════════════════════════════
    VIEW: Reports - Epic Burndown + Export PDF
    ══════════════════════════════════════════════════════════════════════════════ */
@@ -90,36 +91,6 @@
 .mood-vote-btn:active { transform: scale(0.95); }
 .mood-vote-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .mood-actions { margin-left: auto; display: flex; gap: var(--sp-1); }
-
-.epic-burn-list { display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-3); }
-.epic-burn-row {
-    display: flex; flex-direction: column; gap: var(--sp-1);
-    padding: var(--sp-2) var(--sp-3);
-    border: 1px solid var(--border); border-radius: var(--r-md);
-    background: var(--surface);
-}
-.epic-burn-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
-.epic-burn-title {
-    font-size: var(--fs-sm); font-weight: var(--fw-semibold);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    flex: 1; min-width: 0;
-}
-.epic-burn-badges { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
-.epic-burn-team {
-    font-size: 10px; color: var(--text-muted);
-    background: var(--surface-alt); border: 1px solid var(--border);
-    border-radius: 9999px; padding: 1px 7px; white-space: nowrap;
-}
-.epic-burn-pct { font-size: var(--fs-sm); font-weight: var(--fw-bold); }
-.epic-burn-bar-wrap { display: flex; align-items: center; gap: var(--sp-3); }
-.epic-burn-bar-track { flex: 1; height: 8px; background: var(--border); border-radius: 6px; overflow: hidden; }
-.epic-burn-bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-.epic-burn-stat-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-.epic-burn-stat-chip {
-    font-size: 10px; color: var(--text-muted);
-    background: var(--surface-alt); border: 1px solid var(--border);
-    border-radius: var(--r-sm); padding: 1px 6px;
-}
 
 /* ── Message Slack Sondage ───────────────────────────────────────────────────── */
 .sondage-msg {

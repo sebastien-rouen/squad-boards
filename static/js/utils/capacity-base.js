@@ -18,7 +18,7 @@
  * présenter un chiffre trop optimiste sans réserve.
  */
 
-import { extractSprintLabel } from './sprint-scope.js';
+import { extractSprintLabel, belongedToSprint, isInSprint } from './sprint-scope.js';
 
 /**
  * % de contribution d'un rôle à la capacité de livraison, depuis `piInfo.roleCapacity`
@@ -147,16 +147,60 @@ export function absenceDaysInWindow(absences, team, start, end, pctOf = null) {
     return days;
 }
 
+// Index équipe → tickets, et cache des vélocités, par tableau de tickets (le store en rend un
+// nouveau à chaque rechargement : les caches se périment d'eux-mêmes).
+const _ticketsByTeam = new WeakMap();
+const _veloCache = new WeakMap();
+
+/**
+ * Vélocité RÉALISÉE d'un sprint — SOURCE UNIQUE (Santé : tableau des sprints, Base capacité,
+ * fiabilité ; page PI : Capacité, cumul de vélocité).
+ *   1. Tickets terminés ET restés dans le sprint connus en base (isInSprint : un reporté fini
+ *      ailleurs ne compte pas ici) → somme de leurs points.
+ *   2. Sinon, vélocité JIRA (rapport greenhopper) si > 0 — même ordre que la colonne
+ *      « réalisée » du tableau des sprints de Santé (`spT.done.length ? Σ : s.velocity`).
+ *   3. Sinon, des tickets sont passés par le sprint mais aucun n'y a été fini → 0, un VRAI zéro.
+ *   4. Sinon `null` : AUCUNE mesure (sprint plus ancien que la profondeur d'import des tickets,
+ *      champ JIRA vide) — à écarter d'une moyenne, jamais à compter zéro.
+ * ⚠️ Le champ JIRA `velocity` vaut 0 sur la plupart des sprints passés : le lire seul tirait
+ * la Base capacité vers 0 (Fuego PI 30 : base 30 pts pour 84 réalisés).
+ * Clé NN.N acceptée (nom JIRA ≠ nom porté par les tickets), d'où le filtre par équipe d'abord.
+ */
+export function sprintRealizedVelocity(tickets, sprint) {
+    if (!sprint?.name) return null;
+    const list = tickets || [];
+    let cache = _veloCache.get(list);
+    if (!cache) { cache = new Map(); _veloCache.set(list, cache); }
+    const key = `${sprint.team}\u0000${sprint.name}`;
+    if (cache.has(key)) return cache.get(key);
+    let byTeam = _ticketsByTeam.get(list);
+    if (!byTeam) {
+        byTeam = new Map();
+        for (const t of list) { if (!byTeam.has(t.team)) byTeam.set(t.team, []); byTeam.get(t.team).push(t); }
+        _ticketsByTeam.set(list, byTeam);
+    }
+    const spk = extractSprintLabel(sprint.name);
+    const mine = (byTeam.get(sprint.team) || []).filter(t => belongedToSprint(t, sprint.name, spk));
+    const done = mine.filter(t => t.status === 'done' && isInSprint(t, sprint.name, spk));
+    const v = done.length ? done.reduce((a, t) => a + (t.points || 0), 0)
+        : (sprint.velocity || 0) > 0 ? sprint.velocity
+        : mine.length ? 0 : null;
+    cache.set(key, v);
+    return v;
+}
+
 /**
  * Vélocité moyenne par sprint sur les sprints CLOS des `nbPi` derniers PI précédant
  * `targetPiNum`. Les PI sont pris dans l'ordre décroissant parmi ceux qui ont réellement des
  * sprints clos : un PI sans mesure est sauté plutôt que compté zéro, ce qui écraserait la
- * moyenne. `velocityOf(sprint)` permet à l'appelant d'imposer sa propre mesure du réalisé.
+ * moyenne. `velocityOf(sprint)` permet à l'appelant d'imposer sa propre mesure du réalisé ;
+ * s'il rend `null` (aucune mesure, cf. sprintRealizedVelocity), le sprint est ÉCARTÉ — et un PI
+ * dont aucun sprint n'est mesuré ne fait pas partie des `nbPi` retenus.
  */
 export function avgVelocityOverLastPis(teamSprints, team, targetPiNum, nbPi = 2, velocityOf = s => s.velocity || 0, sprintsPerPI = 0) {
     const mine = (teamSprints || []).filter(s => s.name && (!team || s.team === team) && _piNumOf(s.name) != null);
     const closed = mine.filter(s =>
-        s.state === 'closed' && (!targetPiNum || _piNumOf(s.name) < targetPiNum));
+        s.state === 'closed' && (!targetPiNum || _piNumOf(s.name) < targetPiNum) && velocityOf(s) != null);
     if (!closed.length) return { avg: 0, sprintsUsed: 0, pis: [], total: 0, breathExcluded: 0 };
 
     const pis = [...new Set(closed.map(s => _piNumOf(s.name)))].sort((a, b) => b - a).slice(0, nbPi);

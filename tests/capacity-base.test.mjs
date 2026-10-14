@@ -372,3 +372,34 @@ describe('lastKnownAbsenceDate', () => {
         assert.equal(cb.lastKnownAbsenceDate([]), '');
     });
 });
+
+describe('sprintRealizedVelocity — source unique Santé / page PI', () => {
+    const SP = { team: 'Equipe O', name: 'Equipe O - Ité 30.1', state: 'closed', velocity: 0 };
+    const tk = (id, status, points, sprintName = SP.name, team = 'Equipe O') => ({ id, team, status, points, sprintName, recentChanges: [] });
+
+    test('Done locaux restés dans le sprint, même si JIRA dit 0 (champ souvent vide)', () => {
+        const tickets = [tk('A', 'done', 3), tk('B', 'done', 5), tk('C', 'todo', 8)];
+        assert.equal(cb.sprintRealizedVelocity(tickets, SP), 8);
+    });
+    test('aucun Done local → vélocité JIRA (même ordre que le tableau des sprints)', () => {
+        assert.equal(cb.sprintRealizedVelocity([tk('C', 'todo', 8)], { ...SP, velocity: 12 }), 12);
+    });
+    test('tickets passés par le sprint, aucun fini, JIRA vide → vrai zéro', () => {
+        assert.equal(cb.sprintRealizedVelocity([tk('C', 'todo', 8)], SP), 0);
+    });
+    test('aucun ticket connu et JIRA vide → null (aucune mesure, à écarter)', () => {
+        assert.equal(cb.sprintRealizedVelocity([tk('Z', 'done', 5, 'Autre - Ité 29.1')], SP), null);
+    });
+    test('les tickets d\'une autre équipe au même NN.N ne comptent pas', () => {
+        assert.equal(cb.sprintRealizedVelocity([tk('X', 'done', 5, 'Equipe P - Ité 30.1', 'Equipe P')], SP), null);
+    });
+    test('avgVelocityOverLastPis écarte les sprints sans mesure au lieu de compter zéro', () => {
+        const sprints = [
+            { team: 'Equipe O', name: 'Equipe O - Ité 29.1', state: 'closed' },
+            { team: 'Equipe O', name: 'Equipe O - Ité 29.2', state: 'closed' },
+        ];
+        const v = cb.avgVelocityOverLastPis(sprints, 'Equipe O', 30, 2, s => (s.name.endsWith('.1') ? 10 : null));
+        assert.equal(v.sprintsUsed, 1);
+        assert.equal(v.avg, 10);
+    });
+});

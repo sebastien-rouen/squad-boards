@@ -4,7 +4,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, getSupportWeekMode, supportWeekHead, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel, isSupportAbsent } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, getSupportWeekMode, supportWeekHead, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, sprintRealizedVelocity, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel, isSupportAbsent } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildPiWeeks } from '../utils/pi-weeks.js';
 import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAGE_INTRO } from '../components/sondage.js';
@@ -152,15 +152,8 @@ export function renderPI(container) {
 
     // Capacité nette estimée par équipe sur le PI entier (pour la ligne séparatrice dans Features)
     const sprintInfo2  = store.get('sprintInfo');
-    // Enrichit les teamSprints : si velocity = 0, fallback sur tickets done
-    const allTeamSprints = (sprintInfo2?.teamSprints || []).map(s => {
-        if ((s.velocity || 0) > 0) return s;
-        const fromTickets = sumBy(
-            tickets.filter(t => t.status === 'done' && t.team === s.team && (t.sprintName || t.sprint_name) === s.name),
-            t => t.points || 0
-        );
-        return fromTickets > 0 ? { ...s, velocity: fromTickets, _velFromTickets: true } : s;
-    });
+    // Vélocité réalisée de chaque sprint : `sprintRealizedVelocity`, même mesure que Santé.
+    const allTeamSprints = (sprintInfo2?.teamSprints || []).map(s => _withRealizedVelocity(s, tickets));
     const rolePctMap   = _capGetRolePct();
     const excludedRolesForCap = _capGetExcludedRoles();
     const historyMode2 = _capGetHistoryMode();
@@ -190,14 +183,7 @@ export function renderPI(container) {
         const _absTeamNames = new Set(absences.map(a => a.team));
         const _absAlias     = tn => _absTeamNames.has(tn) ? tn : (_absTeamNames.has('Team ' + tn) ? 'Team ' + tn : tn);
         const _sprintInfo2  = store.get('sprintInfo');
-        const _allTeamSpr   = (_sprintInfo2?.teamSprints || []).map(s => {
-            if ((s.velocity || 0) > 0) return s;
-            const fromT = sumBy(
-                (store.get('tickets') || []).filter(t => t.status === 'done' && t.team === s.team && (t.sprintName || t.sprint_name) === s.name),
-                t => t.points || 0
-            );
-            return fromT > 0 ? { ...s, velocity: fromT, _velFromTickets: true } : s;
-        });
+        const _allTeamSpr   = (_sprintInfo2?.teamSprints || []).map(s => _withRealizedVelocity(s, store.get('tickets') || []));
         const _wins = _capSprintWindows({ ...piInfo, number: piNum, sprintsPerPI: _spCnt, sprintDuration: _spDur, startDate: _piStart }, _allTeamSpr);
         const result = {};
         teams.forEach(teamName => {
@@ -1344,6 +1330,17 @@ function _capSprintIdx(name) {
 // voyait son 5e sprint exclu au lieu du 6e. `breathIdxByPi` retient, PI par PI,
 // max(sprintsPerPI, plus grand index réellement observé).
 
+// Sprint enrichi de sa vélocité RÉALISÉE (sprintRealizedVelocity, source unique partagée avec
+// Santé) : Done locaux restés dans le sprint, repli JIRA, `_velMeasured: false` si aucune
+// mesure — un tel sprint est écarté des moyennes au lieu de compter zéro. Avant (3.199),
+// chaque endroit préférait la vélocité JIRA puis les tickets par nom EXACT : les moyennes
+// différaient de celles de Santé pour la même équipe.
+function _withRealizedVelocity(s, tickets) {
+    const v = sprintRealizedVelocity(tickets, s);
+    const jira = s.velocity || 0;
+    return { ...s, velocity: v ?? 0, _velMeasured: v != null, _velFromTickets: v != null && v !== jira };
+}
+
 // Calcule la vélocité moyenne historique par équipe
 // mode='pi' → moyenne sur les X PI précédents (tous sprints confondus)
 // mode='sprint' → moyenne sur les X derniers sprints
@@ -1355,7 +1352,7 @@ function _capAvgVelocity(teamSprints, teamName, curPiNum, mode, count) {
     const mine = teamSprints.filter(s => s.team === teamName && s.name);
     const breathByPi = breathIdxByPi(mine, sprintsPerPI);
     const closed = mine.filter(s =>
-        s.state === 'closed' && (s.velocity || 0) > 0
+        s.state === 'closed' && (s._velMeasured ?? (s.velocity || 0) > 0)
         && !isBreathSprint(s.name, breathByPi.get(_capPiFromSprint(s.name)))
     );
     if (!closed.length) return 0;
@@ -1527,18 +1524,8 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapB
     const effectiveMembers = deriveMembersFromAbsences(absences, allMembers);
     const rolePctMap    = _capGetRolePct();
 
-    // Enrichit les teamSprints : si velocity = 0, fallback sur les tickets done du sprint
-    const allTeamSprints = (sprintInfo?.teamSprints || []).map(s => {
-        if ((s.velocity || 0) > 0) return s;
-        const fromTickets = sumBy(
-            tickets.filter(t =>
-                t.status === 'done' && t.team === s.team &&
-                (t.sprintName || t.sprint_name) === s.name
-            ),
-            t => t.points || 0
-        );
-        return fromTickets > 0 ? { ...s, velocity: fromTickets, _velFromTickets: true } : s;
-    });
+    // Vélocité réalisée de chaque sprint : `sprintRealizedVelocity`, même mesure que Santé.
+    const allTeamSprints = (sprintInfo?.teamSprints || []).map(s => _withRealizedVelocity(s, tickets));
 
     const excludedRoles = _capGetExcludedRoles();
     const historyMode   = _capGetHistoryMode();
@@ -2538,21 +2525,11 @@ function renderBurnup(el, { piInfo, teams, teamObjects }) {
         .sort((a, b) => _sprintOrder(a) - _sprintOrder(b));
     const teamsInPi = [...new Set(piSprints.map(s => s.team))];
 
-    // 3. Pour chaque (sprint, équipe) : récupère vélocité (priorité JIRA, fallback tickets)
+    // 3. Pour chaque (sprint, équipe) : vélocité réalisée (sprintRealizedVelocity)
     const velMatrix = {}; // { team: { sprintName: velocity } }
     for (const s of piSprints) {
         if (!velMatrix[s.team]) velMatrix[s.team] = {};
-        let v = s.velocity || 0;
-        if (v === 0) {
-            // Fallback : somme des points done des tickets dans ce sprint pour cette équipe
-            v = sumBy(
-                tickets.filter(t =>
-                    t.status === 'done' && t.team === s.team &&
-                    (t.sprintName || t.sprint_name) === s.name
-                ),
-                t => t.points
-            );
-        }
+        const v = sprintRealizedVelocity(tickets, s) ?? 0;   // même mesure que Santé
         velMatrix[s.team][s.name] = v;
     }
 

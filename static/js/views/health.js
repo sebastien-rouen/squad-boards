@@ -13,7 +13,7 @@
 
 import { store } from '../state.js';
 import { projectedPiSprints } from '../utils/pi-weeks.js';
-import { esc, filterByTeam, sumBy, rosterCtx, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, plannedAtSprintStart, inSprintNow, sprintScopeDelta, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, rosterCtx, piCapacityBase, sprintRealizedVelocity, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, plannedAtSprintStart, inSprintNow, sprintScopeDelta, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -200,6 +200,9 @@ export function renderHealth(container) {
     // Sprints JIRA du PI s'ils existent, sinon PROJETÉS (cadence de pi-weeks.js) : un PI à
     // venir n'a souvent encore aucun sprint créé, et la base resterait vide.
     // Roster = celui du PI demandé (≠ `_rosterPi` quand la carte vise PI+1 depuis le PI courant).
+    // Vélocité RÉALISÉE d'un sprint : `sprintRealizedVelocity` (capacity-base.js), source
+    // unique partagée avec la page PI — `null` = aucune mesure, écarté des moyennes.
+    const _sprintVelo = (tm, sp) => sprintRealizedVelocity(allTickets, sp.team ? sp : { ...sp, team: tm });
     const _capBaseFor = (tm, piNum) => {
         if (!piNum) return null;
         const known = (sprintInfo?.teamSprints || []).filter(s => s.team === tm && extractPiNum(s.name || '') === piNum)
@@ -214,6 +217,7 @@ export function renderHealth(container) {
             teamMembers: roster.filter(m => teamNameMatches(m.team, tm)),
             rolePctMap: _rolePctMap,
             sprintsPerPI: piInfo?.sprintsPerPI || 0,
+            velocityOf: sp => _sprintVelo(tm, sp),
         });
         if (!cap) return null;
         const plan = sprints.filter(sp => !isBreathSprint(sp.name, cap.breathIdx));
@@ -356,10 +360,37 @@ export function renderHealth(container) {
         const _fmtDm = iso => iso ? new Date(String(iso).slice(0, 10) + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '?';
         const ratioPct = Math.round(cap.ratio * 100);
         const ratioColor = ratioPct >= 30 ? 'var(--warning)' : ratioPct >= 15 ? 'var(--info)' : 'var(--success)';
-        // Réalisé du PI visé (en cours / passé) : sprints CLOS de l'équipe, hors respiration.
-        const closed = when === 'future' ? [] : (sprintInfo?.teamSprints || []).filter(sp => sp.team === team
-            && extractPiNum(sp.name || '') === capPi && sp.state === 'closed' && !isBreathSprint(sp.name, cap.breathIdx));
-        const done = closed.reduce((sum, sp) => sum + (sp.velocity || 0), 0);
+        // Réalisé d'un PI : sprints CLOS de l'équipe, hors respiration — même mesure (_sprintVelo)
+        // que la moyenne de référence de la base, sinon prévu et réalisé ne se compareraient pas.
+        const _realized = (pi, breathIdx) => {
+            const closed = (sprintInfo?.teamSprints || []).filter(sp => sp.team === team
+                && extractPiNum(sp.name || '') === pi && sp.state === 'closed' && !isBreathSprint(sp.name, breathIdx));
+            const measured = closed.filter(sp => _sprintVelo(team, sp) != null);
+            return { closed: measured, done: measured.reduce((sum, sp) => sum + _sprintVelo(team, sp), 0) };
+        };
+        const { closed, done } = when === 'future' ? { closed: [], done: 0 } : _realized(capPi, cap.breathIdx);
+        // Fiabilité de la base : prévu vs réalisé sur les 3 PI CLOS précédant le PI visé (et
+        // antérieurs au PI courant). Même calcul de base que la carte, rejoué PI par PI.
+        // Écart ≤ 10 % ✓ fiable, ≤ 25 % ~ approximative, au-delà ✗ — couleur DOUBLÉE du signe.
+        const hist = [];
+        for (let pi = capPi - 3; pi < capPi; pi++) {
+            if (pi <= 0 || pi >= currentPiNum) continue;
+            const b = _capBaseFor(team, pi);
+            if (!b?.points) continue;
+            const r = _realized(pi, b.breathIdx);
+            if (!r.closed.length) continue;
+            const pct = Math.round(r.done / b.points * 100);
+            const gap = Math.abs(pct - 100);
+            hist.push({ pi, pct, base: b.points, done: r.done, n: r.closed.length,
+                lvl: gap <= 10 ? 'good' : gap <= 25 ? 'warn' : 'bad', sign: gap <= 10 ? '✓' : gap <= 25 ? '~' : '✗' });
+        }
+        const meanGap = hist.length ? Math.round(hist.reduce((s2, h) => s2 + Math.abs(h.pct - 100), 0) / hist.length) : null;
+        const histHtml = hist.length ? `<div class="capacity-mini-hist" title="${esc(`Fiabilité de la base pour ${team} : réalisé ÷ base prévue, PI clos précédents.\n`
+                + hist.map(h => `PI ${h.pi} : base ${h.base} pts, réalisé ${h.done} pts (${h.n} sprints clos) → ${h.pct} %`).join('\n')
+                + `\nÉcart moyen : ±${meanGap} % — ✓ ≤ 10 %, ~ ≤ 25 %, ✗ au-delà`)}">
+                <div class="capacity-mini-hist-hd"><span class="capacity-mini-hist-lbl">Fiabilité de la base</span><span class="capacity-mini-hist-mean">écart moyen ±${meanGap} %</span></div>
+                <div class="capacity-mini-hist-its">${hist.map(h => `<span class="capacity-mini-hist-it is-${h.lvl}">PI ${h.pi} <b>${h.sign} ${h.pct} %</b></span>`).join('')}</div>
+            </div>` : '';
         const lbl = when === 'future' ? 'Capacité prévisionnelle' : 'Capacité prévue';
         const tag = when === 'current' ? ' <small>(en cours)</small>' : when === 'past' ? ' <small>(clos)</small>' : '';
         const tip = _capacityTip(cap, team, capPi, _lastAbsence)
@@ -375,6 +406,7 @@ export function renderHealth(container) {
                     <span>👥 ${cap.etp.toFixed(1)} ETP</span>
                     <span style="color:${ratioColor}">🏖 −${ratioPct}%</span>
                 </div>
+                ${histHtml}
                 ${when !== 'future' ? `<div class="capacity-mini-row capacity-mini-done"><span>✅ Réalisé ${done} pts${cap.points ? ` · ${Math.round(done / cap.points * 100)} %` : ''}</span><span>${closed.length}/${cap.sprintsCount} sprints clos</span></div>` : ''}
             </div>`;
     })() : '';

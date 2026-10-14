@@ -142,6 +142,21 @@ python main.py          # http://localhost:3001  — Swagger /docs
   cartes du Dashboard, `_ticketsOfSprint`) utilise `belongedToSprint()` ; le **réalisé**
   (`done`, `bufDone`, vélocité, `_sprintStats`) exige `isInSprint()` **en plus** du statut
   `done` — sinon un sprint est crédité de travail fini après sa clôture.
+  Colonnes « prévu » de Health (tickets / vélocité / Buffer engagés **au lancement**, et leur
+  liste) : `plannedAtSprintStart(t, nom, startDate, spk)` — historique Sprint rejoué jusqu'au
+  démarrage, les ajouts en cours de sprint en sont exclus (signalés « +N ajoutés en cours »).
+  Colonne voisine « nb actuel » (métriques `current` / `bufcurrent`) = `inSprintNow` (sprint
+  clos = contenu À LA CLÔTURE, reportés compris — `to` JIRA cumulatif ; PAS `isInSprint`, qui
+  ne garde que les restés). Les deux reposent sur `inSprintAt` (créé après T ⇒ absent). Liste
+  avec chip « ➕ ajouté » pour ce qui n'était pas là au lancement (`plannedIds`), puis les
+  retirés grisés HORS total (`_removedRowsHtml`). La cellule montre le TOTAL + l'écart NET
+  au lancement (`.htl-delta-net` ▲ vert / ▼ rouge / ±0) ; le détail (+/−/↪/~) reste dans
+  l'infobulle — des exposants +N/−N obligeaient à refaire le calcul (choix utilisateur).
+  Même indicateur sur le Total PI (`_netHtml` partagé, `_moves` cumulé par les lignes).
+  Son infobulle porte la STABILITÉ (`_stab`, sprints démarrés) : % d'engagés restés dans leur
+  sprint + % d'ajouts. Un report à la clôture n'est PAS un retrait (engagement non tenu ≠ churn).
+  Bleu = « modifié » (réestimé) partout, chips compris.
+  ⚠️ Dates comparées en ms (`jiraDateMs`) : changelog en `+0200`, sprints en `Z`.
   3ᵉ argument `spk` : `null` = nom exact, **obligatoire** dès que les tickets comparés
   peuvent venir de plusieurs équipes (la clé `NN.N` ne distingue pas les équipes entre elles).
   Partir de `allTickets`, jamais de `piTickets` : un reporté porte le sprint d'arrivée,

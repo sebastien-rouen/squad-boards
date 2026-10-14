@@ -363,8 +363,10 @@
 
 /* ── Modal sprint Vélocité / Buffer ─────────────────────────────────────────── */
 .htl-modal {
-    min-width: min(900px, 95vw);
-    max-width: 960px;
+    /* +2 colonnes « nb actuel » (Vélocité, Buffer) : 960 px faisait passer
+       « Sprint » et « Début » sur deux lignes. */
+    min-width: min(1080px, 95vw);
+    max-width: 1120px;
     transform: translateY(-8px);
     opacity: 0;
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
@@ -415,9 +417,10 @@
 /* Tableau sprints du PI */
 .htl-sprint-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-md); }
 .htl-sprint-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
-/* Pas de scroll horizontal : seuls les colonnes courtes restent insécables ; le nom de
-   sprint peut passer à la ligne plutôt que d'élargir la table. */
-.htl-spr-date, .htl-spr-state, .htl-spr-num, .htl-sprint-table thead th { white-space: nowrap; }
+/* Tout est insécable, nom de sprint et date compris : la modale est dimensionnée pour la
+   table, et sur un écran étroit `.htl-sprint-table-wrap` défile en x plutôt que de
+   casser les lignes. */
+.htl-spr-name, .htl-spr-date, .htl-spr-state, .htl-spr-num, .htl-sprint-table thead th { white-space: nowrap; }
 .htl-sprint-table thead th {
     padding: 6px; text-align: left;
     color: var(--text-muted); font-weight: var(--fw-semibold);
@@ -489,7 +492,7 @@
     font-weight: var(--fw-medium);
 }
 .htl-sprint-row--ref:hover td { background: color-mix(in srgb, #3b82f6 14%, var(--surface)); }
-.htl-spr-name { max-width: 180px; word-break: break-word; }
+.htl-spr-name { word-break: normal; }
 /* 🍃 Sprint de respiration (IP) : rien n'y est planifié et il ne compte pas dans la Base
    capacité — atténué pour qu'on ne le lise pas comme une itération de production vide. */
 .htl-sprint-row--breath td { opacity: .72; }
@@ -785,14 +788,15 @@
 }
 /* Ticket réestimé en cours de sprint (colonne "engagés au lancement") — affiche lancement→actuel */
 .htl-pts-chip--reest {
-    background: color-mix(in srgb, var(--warning) 18%, var(--surface));
-    color: var(--warning);
+    /* Bleu = « modifié », comme l'exposant ~N de « nb actuel ». */
+    background: color-mix(in srgb, var(--info) 18%, var(--surface));
+    color: var(--info);
     min-width: 36px;
 }
 .htl-total-lbl { color: var(--text-muted); text-align: right !important; }
 .htl-total-val { text-align: right; font-weight: var(--fw-bold); }
 /* Total incluant au moins un ticket réestimé pendant le sprint — même teinte que les chips de ligne. */
-.htl-total-val--reest, .htl-tickets-hdr-badge[title] { color: var(--warning); }
+.htl-total-val--reest, .htl-tickets-hdr-badge[title] { color: var(--info); }
 
 .health-matrix tbody td {
     padding: 7px 4px;
@@ -832,3 +836,40 @@
     color: var(--text-secondary);
 }
 
+
+/* Nb ACTUEL d'un sprint, voisin du nb au lancement : en retrait pour que le « début »
+   (l'engagement) reste la référence visuelle. */
+.htl-sprint-table .htl-cur-col { color: var(--text-muted); font-weight: var(--fw-normal); }
+/* Ticket ajouté après le lancement (liste « actuel ») — vert, comme l'exposant +N. */
+.htl-added-chip {
+    color: var(--success);
+    background: color-mix(in srgb, var(--success) 14%, transparent);
+    border-color: color-mix(in srgb, var(--success) 35%, transparent);
+}
+/* Écart NET au lancement dans « nb actuel », à droite du total : ▲ vert, ▼ rouge, ±0 neutre
+   (mouvements qui se compensent). Le détail vit dans l'infobulle. */
+.htl-delta-net {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 3px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: var(--fw-bold);
+    font-variant-numeric: tabular-nums;
+    line-height: 13px;
+    vertical-align: middle;
+    color: #fff;
+}
+.htl-delta-net--up   { background: var(--success); }
+.htl-delta-net--down { background: var(--danger); }
+.htl-delta-net--flat { background: var(--text-muted); }
+
+/* Tickets retirés depuis le lancement, en fin de liste « actuel » : grisés, hors total. */
+.htl-ticket-row--removed td { opacity: .6; }
+.htl-ticket-row--removed:hover td { opacity: .9; }
+.htl-removed-head { color: var(--danger); font-weight: var(--fw-semibold); margin-right: 8px; }
+.htl-removed-chip {
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+}

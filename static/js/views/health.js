@@ -12,7 +12,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, rosterCtx, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, rosterCtx, computeCapacityNextPI, piCapacityBase, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, plannedAtSprintStart, inSprintNow, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -67,10 +67,12 @@ const _stateL = s => ({ active:'🟢 En cours', closed:'✅ Terminé', future:'�
  * la meilleure estimation connue pour ce ticket plutôt qu'un planifié sous-évalué.
  */
 function _pointsAtLaunch(t, sprintStart) {
-    if (!sprintStart) return t.points || 0;
+    const startMs = jiraDateMs(sprintStart);
+    if (!Number.isFinite(startMs)) return t.points || 0;
+    // Dates comparées en ms : le changelog est en « +0200 », les sprints en « Z ».
     const changes = (t.recentChanges || t.recent_changes || [])
-        .filter(c => (c.field || '').toLowerCase() === 'story points' && c.date && c.date >= sprintStart)
-        .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        .filter(c => (c.field || '').toLowerCase() === 'story points' && jiraDateMs(c.date) >= startMs)
+        .sort((a, b) => jiraDateMs(a.date) - jiraDateMs(b.date));
     if (!changes.length) return t.points || 0;
     const launch = parseFloat(changes[0].from);
     return (!isNaN(launch) && launch > 0) ? launch : (t.points || 0);
@@ -396,17 +398,22 @@ export function renderHealth(container) {
         const vPts = done.length    ? done.reduce((s, t) => s + (t.points||0), 0)    : (ref?.velocity     != null ? ref.velocity     : 0);
         const bPts = bufDone.length ? bufDone.reduce((s, t) => s + (t.points||0), 0) : (ref?.bufferPoints != null ? ref.bufferPoints : 0);
 
-        // Périmètre engagé "au lancement du sprint" : tous les tickets du sprint (done ou non).
+        // Périmètre engagé "au lancement du sprint" : les tickets présents dans le sprint À SON
+        // DÉMARRAGE (historique du champ Sprint rejoué jusqu'à `startDate`, done ou non) — les
+        // ajouts en cours de sprint n'en font pas partie (plannedAtSprintStart, sprint-scope.js).
         // Vélocité planifiée = estimation JIRA au démarrage (Greenhopper `estimated`) si dispo,
         // sinon somme des points reconstitués au lancement (_pointsAtLaunch, via l'historique
         // JIRA du champ Story Points) — sinon une réestimation en cours de sprint fausserait
-        // la vélocité planifiée. Le nombre de tickets n'étant pas snapshoté par JIRA au
-        // lancement, on prend le périmètre courant du sprint comme meilleure approximation.
-        const bufPlanned = spTickets.filter(t => isBufferItem(t));
-        const planTk     = spTickets.length;
+        // la vélocité planifiée.
+        const planned    = spName
+            ? spTickets.filter(t => plannedAtSprintStart(t, spName, ref?.startDate, _refKey))
+            : spTickets;
+        const bufPlanned = planned.filter(t => isBufferItem(t));
+        const _refCur    = spName ? spTickets.filter(t => inSprintNow(t, spName, _refKey)) : spTickets;
+        const planTk     = planned.length;
         const planPts    = (ref?.estimated != null && ref.estimated > 0)
             ? ref.estimated
-            : spTickets.reduce((s, t) => s + _pointsAtLaunch(t, ref?.startDate), 0);
+            : planned.reduce((s, t) => s + _pointsAtLaunch(t, ref?.startDate), 0);
         const bufPlanTk  = bufPlanned.length;
         const bufPlanPts = bufPlanned.reduce((s, t) => s + _pointsAtLaunch(t, ref?.startDate), 0);
 
@@ -436,15 +443,25 @@ export function renderHealth(container) {
             // reportés terminés ailleurs gonflerait la vélocité d'un sprint avec du travail
             // fait après sa clôture — le contraire de ce qu'elle mesure.
             const spDone = spTk.filter(t => t.status === 'done' && isInSprint(t, sp.name, spk));
-            const spBufAll = spTk.filter(t => isBufferItem(t));
+            // ENGAGÉ AU LANCEMENT : présents dans le sprint à son démarrage — un ticket ajouté
+            // en cours de sprint n'était pas planifié et ne gonfle ni le « prévu » ni sa liste.
+            const spPlan   = spTk.filter(t => plannedAtSprintStart(t, sp.name, sp.startDate, spk));
+            const spBufAll = spPlan.filter(t => isBufferItem(t));
+            const spCur    = spTk.filter(t => inSprintNow(t, sp.name, spk));
             sprintTickets[sp.name] = {
                 done:    spDone,
                 bufDone: spDone.filter(t => isBufferItem(t)),
-                all:     spTk,
+                all:     spPlan,
                 bufAll:  spBufAll,
+                added:   spTk.length - spPlan.length,
+                // ACTUEL : ce que le sprint contient maintenant ; sprint clos = son contenu À
+                // LA CLÔTURE, reportés compris (inSprintNow). `plannedIds` repère les ajouts.
+                cur:     spCur,
+                bufCur:  spCur.filter(t => isBufferItem(t)),
+                plannedIds: new Set(spPlan.map(t => t.id)),
                 startDate:  sp.startDate,
-                planTk:     spTk.length,
-                planPts:    (sp.estimated != null && sp.estimated > 0) ? sp.estimated : spTk.reduce((s, t) => s + _pointsAtLaunch(t, sp.startDate), 0),
+                planTk:     spPlan.length,
+                planPts:    (sp.estimated != null && sp.estimated > 0) ? sp.estimated : spPlan.reduce((s, t) => s + _pointsAtLaunch(t, sp.startDate), 0),
                 bufPlanTk:  spBufAll.length,
                 bufPlanPts: spBufAll.reduce((s, t) => s + _pointsAtLaunch(t, sp.startDate), 0),
             };
@@ -456,7 +473,9 @@ export function renderHealth(container) {
         const metaObj = {
             ref,
             done, bufDone,
-            all: spTickets, bufAll: bufPlanned,
+            all: planned, bufAll: bufPlanned,
+            cur: _refCur, bufCur: _refCur.filter(t => isBufferItem(t)),
+            plannedIds: new Set(planned.map(t => t.id)),
             spName, spKey,
             vPts, bPts,
             planTk, planPts, bufPlanTk, bufPlanPts,
@@ -833,6 +852,20 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
     };
     const _totOf = key => tot[key]?.n ? String(tot[key].sum) : '<span class="htl-muted">—</span>';
     const _totNum = key => tot[key]?.sum || 0;
+    // Écart NET au lancement (« nb actuel ») : ▲ vert / ▼ rouge, ±0 gris si des mouvements
+    // se compensent, rien sans mouvement. Partagé par les lignes de sprint ET le Total PI.
+    const _netHtml = (net, moved) => (!net && !moved) ? ''
+        : net > 0 ? `<span class="htl-delta-net htl-delta-net--up">▲${net}</span>`
+        : net < 0 ? `<span class="htl-delta-net htl-delta-net--down">▼${-net}</span>`
+        : '<span class="htl-delta-net htl-delta-net--flat">±0</span>';
+    // Mouvements cumulés par métrique (ajouts + retraits), pour le ±0 du Total PI.
+    const _moves = { current: 0, bufcurrent: 0 };
+    // Stabilité du périmètre, sprints démarrés seulement (un sprint à venir n'a pas de
+    // lancement) : `plan` engagés au lancement, `removed` retirés EN COURS de sprint,
+    // `added` ajoutés après le lancement. Les reports à la clôture ne sont PAS une
+    // instabilité du périmètre (le ticket y est resté jusqu'au bout) : c'est un engagement
+    // non tenu, déjà signalé par la colonne « nb début ».
+    const _stab = { current: { plan: 0, removed: 0, added: 0 }, bufcurrent: { plan: 0, removed: 0, added: 0 } };
 
     // Clés de sprint du PI (« 29.3 ») — utilisées telles quelles pour apparier les votes
     // Mood et Confiance, en base comme après un vote enregistré à chaud.
@@ -899,15 +932,57 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         const bufPlanAttr = bufPlanClickable ? ` data-sp-tickets="${esc(s.name)}" data-sp-metric="bufplanned"` : '';
         const planCls = planClickable ? ' htl-cell-clickable' + _active('planned') : '', bufPlanCls = bufPlanClickable ? ' htl-cell-clickable' + _active('bufplanned') : '';
         const planHint = planClickable ? ' — cliquer pour la liste' : '', bufPlanHint = bufPlanClickable ? ' — cliquer pour la liste' : '';
+        // Nb ACTUEL, à côté du nb au lancement : l'écart = ajouts − retraits/reports.
+        const curTk = (spT.cur || []).length, bufCurTk = (spT.bufCur || []).length;
+        // Écart au lancement : ajoutés · retirés · reportés à la clôture · modifiés (Story
+        // Points réestimés, ajouts compris) — comptés pour l'infobulle et l'écart net.
+        const _curCell = (n, m, extra, what) => {
+            const cur  = (m === 'current' ? spT.cur : spT.bufCur) || [];
+            const plan = (m === 'current' ? spT.all : spT.bufAll) || [];
+            const curIds = new Set(cur.map(t => t.id));
+            const added    = spT.plannedIds ? cur.filter(t => !spT.plannedIds.has(t.id)) : [];
+            const removed  = spT.plannedIds ? plan.filter(t => !curIds.has(t.id)) : [];
+            const modified = spT.startDate
+                ? [...cur, ...removed].filter(t => _pointsAtLaunch(t, spT.startDate) !== (t.points || 0)) : [];
+            const _ids = list => list.slice(0, 8).map(t => t.id).join(', ') + (list.length > 8 ? '…' : '');
+            const _pl = (k, sing, plur) => `${k} ${k > 1 ? plur : sing}`;
+            // Sprint clos : JIRA a déplacé les non-finis à la clôture — ils restent comptés
+            // (le sprint les contenait), et sont nommés à part.
+            const carried = s.state === 'closed' ? cur.filter(t => carriedOverTo(t, s.name)) : [];
+            const tip = (s.state === 'closed'
+                    ? `${what} dans le sprint à sa clôture (reportés compris)`
+                    : `${what} actuellement dans le sprint`)
+                + `\nAu lancement : ${plan.length} · maintenant : ${n}`
+                + (carried.length  ? `\n↪ ${_pl(carried.length, 'reporté', 'reportés')} à la clôture : ${_ids(carried)}` : '')
+                + (added.length    ? `\n🟢 ${_pl(added.length, 'ajouté', 'ajoutés')} après le lancement : ${_ids(added)}` : '')
+                + (removed.length  ? `\n🔴 ${_pl(removed.length, 'retiré', 'retirés')} du sprint en cours de route : ${_ids(removed)}` : '')
+                + (modified.length ? `\n🔵 ${_pl(modified.length, 'modifié', 'modifiés')} (Story Points réestimés) : ${_ids(modified)}` : '')
+                + (n ? '\nCliquer pour la liste' : '');
+            // Écart NET au lancement à droite du nombre (▲ vert / ▼ rouge) : le nombre est
+            // déjà le total, l'indicateur dit seulement dans quel sens il a bougé. ±0 si des
+            // mouvements se compensent. Détail (ajouts, retraits, reports, réestimations) :
+            // infobulle uniquement — l'afficher en exposants obligeait à refaire le calcul.
+            const moved = added.length + removed.length;
+            _moves[m] += moved;
+            if (spT.plannedIds && spT.startDate && _isPastOrActive) {
+                _stab[m].plan += plan.length; _stab[m].removed += removed.length; _stab[m].added += added.length;
+            }
+            const netHtml = spT.plannedIds ? _netHtml(n - plan.length, moved) : '';
+            return n
+                ? `<td class="htl-spr-num htl-cur-col${extra} htl-cell-clickable${_active(m)}" data-sp-tickets="${esc(s.name)}" data-sp-metric="${m}" title="${esc(tip)}">${n}${netHtml}</td>`
+                : `<td class="htl-spr-num htl-cur-col${extra}" title="${esc(tip)}">${dash}${netHtml}</td>`;
+        };
         const dash = _isPastOrActive ? '0' : '<span class="htl-muted">—</span>';
 
         // Sur un sprint à venir, `planTk`/`planPts` valent 0 mais la cellule affiche
         // « — » : on aligne le total sur ce qui est RENDU, pas sur la valeur interne.
         _add('charge', chargeVal);
         _add('planTk', _isPastOrActive || planTk ? planTk : '—');
+        _add('curTk', _isPastOrActive || curTk ? curTk : '—');
         _add('planPts', _isPastOrActive || planPts ? planPts : '—');
         _add('vel', vel);
         _add('bufTk', _isPastOrActive || bufPlanTk ? bufPlanTk : '—');
+        _add('bufCurTk', _isPastOrActive || bufCurTk ? bufCurTk : '—');
         _add('bufPts', _isPastOrActive || bufPlanPts ? bufPlanPts : '—');
         _add('buf', buf);
 
@@ -919,13 +994,40 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
             <td class="htl-spr-vote">${fistHtml}</td>
             <td class="htl-spr-num htl-grp-start"><input class="htl-charge-input${chargeSuggested ? ' htl-charge-input--suggested' : ''}" type="number" min="0" value="${esc(chargeVal)}" data-charge-key="${esc(chargeKey)}" title="${esc(chargeTitle)}"></td>
             <td class="htl-spr-num htl-grp-start${planCls}"${planAttr} title="Tickets engagés au lancement${planHint}">${planTk || dash}</td>
+            ${_curCell(curTk, 'current', '', 'Tickets')}
             <td class="htl-spr-num${planCls}"${planAttr} title="Vélocité planifiée au lancement (estimation JIRA)${planHint}">${planPts || dash}</td>
             <td class="htl-spr-num htl-velo-col${veloAttr}"${veloClickable ? ' title="Voir les tickets Done de ce sprint"' : ''}>${vel}</td>
             <td class="htl-spr-num htl-grp-start${bufPlanCls}"${bufPlanAttr} title="Tickets Buffer engagés au lancement${bufPlanHint}">${bufPlanTk || dash}</td>
+            ${_curCell(bufCurTk, 'bufcurrent', ' htl-bufplan-col', 'Tickets Buffer')}
             <td class="htl-spr-num htl-bufplan-col${bufPlanCls}"${bufPlanAttr} title="Vélocité Buffer planifiée au lancement${bufPlanHint}">${bufPlanPts || dash}</td>
             <td class="htl-spr-num htl-buf-col${bufAttr}"${bufClickable ? ' title="Voir les tickets Buffer de ce sprint"' : ''}>${buf}</td>
         </tr>`;
     }).join('');
+
+    // Total PI de « nb actuel » : somme des sprints + écart net à la somme des « nb début ».
+    // Évalués APRÈS la construction des lignes, qui alimentent `tot` et `_moves`.
+    const _totNet = (curKey, planKey, m) => tot[curKey]?.n
+        ? _netHtml(_totNum(curKey) - _totNum(planKey), _moves[m]) : '';
+    const _totTip = (curKey, planKey, m, what) => {
+        if (!tot[curKey]?.n) return `${what} actuellement dans les sprints du PI`;
+        const net = _totNum(curKey) - _totNum(planKey);
+        return `${what} dans les sprints du PI (sprints clos : contenu à la clôture)`
+            + `\nAu lancement : ${_totNum(planKey)} · maintenant : ${_totNum(curKey)}`
+            + ` (${net >= 0 ? '+' : ''}${net})`
+            + (_moves[m] ? `\n${_moves[m]} mouvement${_moves[m] > 1 ? 's' : ''} (ajouts + retraits) sur le PI` : '')
+            + _stabTip(m);
+    };
+    // Taux de stabilité : part des tickets engagés au lancement restés dans leur sprint
+    // jusqu'au bout, + part d'ajouts rapportée à l'engagement. Comparable d'un PI à l'autre.
+    const _stabTip = m => {
+        const st = _stab[m];
+        if (!st.plan) return '';
+        const pct = v => Math.round(v / st.plan * 100);
+        return `\n\n📐 Stabilité : ${pct(st.plan - st.removed)} % des ${st.plan} tickets engagés au lancement`
+            + ` sont restés dans leur sprint${st.removed ? ` (${st.removed} retiré${st.removed > 1 ? 's' : ''} en cours de route)` : ''}`
+            + `\n➕ Ajouts : ${st.added} ticket${st.added > 1 ? 's' : ''}, soit ${pct(st.added)} % de l'engagement`
+            + `\n(sprints démarrés seulement ; un report à la clôture n'est pas un retrait)`;
+    };
 
     // ── Section tickets (re-render au clic sur une cellule Vélo/Buffer) ───────
     // Index id → titre du parent : le parent (t.epic) peut être un epic, une feature
@@ -937,8 +1039,12 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
 
     // Listes de tickets d'un sprint selon la métrique cliquée :
     //   velocity = Done · buffer = Buffer Done · planned = engagés au lancement (tous) · bufplanned = Buffer engagés
-    const _METRIC_FIELD = { velocity: 'done', buffer: 'bufDone', planned: 'all', bufplanned: 'bufAll' };
-    const _METRIC_EMPTY = { velocity: 'Done', buffer: 'Buffer Done', planned: 'engagé', bufplanned: 'Buffer engagé' };
+    //   current / bufcurrent = contenu ACTUEL du sprint (ajouts en cours marqués « ➕ »)
+    const _METRIC_FIELD = { velocity: 'done', buffer: 'bufDone', planned: 'all', bufplanned: 'bufAll', current: 'cur', bufcurrent: 'bufCur' };
+    const _METRIC_EMPTY = { velocity: 'Done', buffer: 'Buffer Done', planned: 'engagé', bufplanned: 'Buffer engagé', current: 'dans le sprint', bufcurrent: 'Buffer dans le sprint' };
+    const _isCurMetric = metric => metric === 'current' || metric === 'bufcurrent';
+    const _plannedIdsFor = sprintName => meta.sprintTickets?.[sprintName]?.plannedIds
+        || (sprintName === meta.spName ? meta.plannedIds : null);
     const _isPlanMetric = metric => metric === 'planned' || metric === 'bufplanned';
     const _ticketsFor = (sprintName, metric) => {
         const field = _METRIC_FIELD[metric] || 'done';
@@ -1006,8 +1112,9 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
             const who = tk.leader || tk.assignee || '';
             const isBuf = isBufferItem(tk);
             const curPts = tk.points || 0;
-            const launchPts = _isPlanMetric(metric) ? _pointsAtLaunch(tk, sprintStart) : curPts;
-            const reestimated = _isPlanMetric(metric) && launchPts !== curPts;
+            const _showLaunch = _isPlanMetric(metric) || _isCurMetric(metric);
+            const launchPts = _showLaunch ? _pointsAtLaunch(tk, sprintStart) : curPts;
+            const reestimated = _showLaunch && launchPts !== curPts;
             const ptsLabel = reestimated ? `${launchPts}→${curPts}` : String(launchPts || '');
             const missed  = _isMissed(tk, metric, ctx.sprintName);
             // Un chip vert sur un engagement non tenu dirait « fait » alors qu'il ne l'a pas
@@ -1017,8 +1124,9 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                 : (isPastOrActive ? '0' : '<span class="htl-muted">—</span>');
             // Sprint d'arrivée d'un report — l'afficher évite la question qui suit
             // immédiatement le constat : « et il est passé où, celui-là ? »
-            const moved   = _isPlanMetric(metric) ? carriedOverTo(tk, ctx.sprintName) : '';
+            const moved   = (_isPlanMetric(metric) || _isCurMetric(metric)) ? carriedOverTo(tk, ctx.sprintName) : '';
             const movedK  = _spKey(moved) || moved;
+            const addedMid = _isCurMetric(metric) && !!ctx.plannedIds && !ctx.plannedIds.has(tk.id);
             const rowTitle = !missed ? 'Voir le détail du ticket'
                 : moved
                     ? `Engagé au lancement puis REPORTÉ vers « ${moved} »${tk.status === 'done' ? ' — terminé depuis, mais pas dans ce sprint' : ''}. Cliquer pour le détail du ticket`
@@ -1033,7 +1141,7 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
             return `<tr class="htl-ticket-row${tk.status === 'done' ? ' htl-ticket-row--done' : ''}${_missCls(tk, metric, ctx)}" data-open-ticket="${esc(tk.id || '')}" title="${esc(rowTitle)}">
                 <td class="htl-id">${esc(tk.id || '—')}</td>
                 <td class="htl-done">${doneCell}</td>
-                <td class="htl-title">${esc(tk.title || '')}${moved ? `<span class="htl-moved-chip" title="${esc(`Reporté vers « ${moved} »`)}">↪ ${esc(movedK)}</span>` : ''}</td>
+                <td class="htl-title">${esc(tk.title || '')}${moved ? `<span class="htl-moved-chip" title="${esc(`Reporté vers « ${moved} »`)}">↪ ${esc(movedK)}</span>` : ''}${addedMid ? '<span class="htl-moved-chip htl-added-chip" title="Ajouté au sprint après son lancement — hors engagement">➕ ajouté</span>' : ''}</td>
                 <td class="htl-buf-flag">${isBuf ? '<span title="Ticket Buffer">🛡️</span>' : ''}</td>
                 <td class="htl-pts">${ptsHtml}</td>
                 <td class="htl-who">${who ? esc(who) : '<span class="htl-muted">—</span>'}</td>
@@ -1068,7 +1176,38 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         buffer:     '🛡 Buffer Done',
         planned:    '📋 Tickets engagés au lancement',
         bufplanned: '🛡 Buffer engagé au lancement',
+        current:    '📌 Tickets actuellement dans le sprint',
+        bufcurrent: '🛡 Buffer actuellement dans le sprint',
     };
+    // Liste « actuel » : les tickets engagés au lancement qui n'y sont plus, en fin de liste,
+    // grisés et HORS total — sinon la pastille rouge −N ne se lirait que dans une infobulle.
+    // Destination = sprint actuel du ticket (report), à défaut le backlog.
+    const _removedRowsHtml = (sprintName, metric, curList, sprintStart) => {
+        if (!_isCurMetric(metric)) return '';
+        const curIds = new Set(curList.map(t => t.id));
+        const removed = _ticketsFor(sprintName, metric === 'current' ? 'planned' : 'bufplanned')
+            .filter(t => !curIds.has(t.id));
+        if (!removed.length) return '';
+        const rows = removed.map(tk => {
+            const dest = tk.sprintName || tk.sprint_name || '';
+            const destLbl = dest ? `↪ ${_spKey(dest) || dest}` : '↪ backlog';
+            const pts = _pointsAtLaunch(tk, sprintStart);
+            const who = tk.leader || tk.assignee || '';
+            return `<tr class="htl-ticket-row htl-ticket-row--removed" data-open-ticket="${esc(tk.id || '')}" title="${esc(`Engagé au lancement puis retiré du sprint${dest ? ` — aujourd'hui dans « ${dest} »` : ' — renvoyé au backlog'}. Cliquer pour le détail du ticket`)}">
+                <td class="htl-id">${esc(tk.id || '—')}</td>
+                <td class="htl-done">${tk.status === 'done' ? '<span class="htl-done-yes" title="Terminé (hors de ce sprint)">✓</span>' : '<span class="htl-done-no">·</span>'}</td>
+                <td class="htl-title">${esc(tk.title || '')}<span class="htl-moved-chip htl-removed-chip">➖ retiré ${esc(destLbl)}</span></td>
+                <td class="htl-buf-flag">${isBufferItem(tk) ? '<span title="Ticket Buffer">🛡️</span>' : ''}</td>
+                <td class="htl-pts">${pts || '<span class="htl-muted">—</span>'}</td>
+                <td class="htl-who">${who ? esc(who) : '<span class="htl-muted">—</span>'}</td>
+            </tr>`;
+        }).join('');
+        return `<tbody class="htl-removed-body">
+            <tr class="htl-grp-row"><td colspan="6" class="htl-grp-cell"><span class="htl-removed-head">➖ Retirés depuis le lancement</span><span class="htl-grp-meta">${removed.length} ticket${removed.length > 1 ? 's' : ''} · hors total</span></td></tr>
+            ${rows}
+        </tbody>`;
+    };
+
     const _ticketsSection = (sprintName, metric) => {
         const list = _ticketsFor(sprintName, metric);
         const sprintStart = _sprintStartFor(sprintName);
@@ -1078,9 +1217,12 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         const isPastOrActive = spState === 'active' || spState === 'closed';
         // Clos = le sprint est passé : ce qui n'est pas fait ne le sera plus dans ce sprint.
         const sprintClosed = spState === 'closed';
-        const ctx = { sprintName, sprintStart, isPastOrActive, sprintClosed };
+        const ctx = { sprintName, sprintStart, isPastOrActive, sprintClosed, plannedIds: _plannedIdsFor(sprintName) };
         const missN = _missCount(list, metric, ctx);
         const movedN = _isPlanMetric(metric) ? list.filter(t => carriedOverTo(t, sprintName)).length : 0;
+        // Ajouts en cours de sprint : exclus de l'engagement, mais signalés pour que l'écart avec
+        // le contenu du sprint dans JIRA ne passe pas pour un oubli.
+        const addedN = metric === 'planned' ? (meta.sprintTickets?.[sprintName]?.added || 0) : 0;
         const tot = list.reduce((s, t) => s + _ptsFor(t, metric, sprintStart), 0);
         // Si au moins un ticket a été réestimé pendant le sprint, le total "au lancement" seul
         // masquerait l'écart — on affiche aussi le total courant, même format que les chips de ligne.
@@ -1093,6 +1235,7 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                 <span class="htl-tickets-hdr-title">${_METRIC_TITLE[metric] || _METRIC_TITLE.velocity}</span>
                 ${sprintName ? `<span class="htl-tickets-hdr-sprint">${esc(sprintName)}</span>` : ''}
                 <span class="htl-tickets-hdr-badge"${totTitle}>${list.length} ticket${list.length !== 1 ? 's' : ''} · ${totLabel} pts</span>
+                ${addedN ? `<span class="htl-tickets-hdr-added htl-muted" title="${esc(`${addedN} ticket${addedN > 1 ? 's' : ''} ajouté${addedN > 1 ? 's' : ''} au sprint APRÈS son lancement : hors engagement, donc absent${addedN > 1 ? 's' : ''} de cette liste (reconstitué depuis l'historique du champ Sprint)`)}">+${addedN} ajouté${addedN > 1 ? 's' : ''} en cours</span>` : ''}
                 ${missN ? `<span class="htl-tickets-hdr-missed" title="${esc(`${missN} ticket${missN > 1 ? 's' : ''} engagé${missN > 1 ? 's' : ''} au lancement ${sprintClosed ? 'et non tenu' + (missN > 1 ? 's' : '') + " à la clôture — l'engagement n'a pas été honoré" : 'et pas encore terminé' + (missN > 1 ? 's' : '') + ' — le sprint est en cours'}${movedN ? `\n\ndont ${movedN} reporté${movedN > 1 ? 's' : ''} vers un autre sprint (JIRA les déplace à la clôture ; ils sont reconstitués depuis l'historique du champ Sprint)` : ''}`)}">✗ ${missN} ${sprintClosed ? `non réalisé${missN > 1 ? 's' : ''}` : 'en cours'}${movedN ? ` <span class="htl-hdr-moved">↪ ${movedN}</span>` : ''}</span>` : ''}
             </div>
             <table class="htl-table">
@@ -1101,6 +1244,7 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                     <th title="Ticket Buffer">🛡️</th><th>Pts</th><th>Responsable</th>
                 </tr></thead>
                 <tbody>${_ticketRowsHtml(list, metric, ctx)}</tbody>
+                ${_removedRowsHtml(sprintName, metric, list, sprintStart)}
                 ${list.length ? `<tfoot><tr>
                     <td colspan="4" class="htl-total-lbl">Total</td>
                     <td class="htl-total-val${totReest ? ' htl-total-val--reest' : ''}"${totTitle}>${totLabel}</td>
@@ -1138,33 +1282,37 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                             <th rowspan="2" title="🎭 Mood — humeur ressentie par l'équipe sur le sprint, moyenne des votes. Cliquer une cellule pour voter">🎭 Mood</th>
                             <th rowspan="2" title="✊ Fist of Five — confiance de l'équipe dans l'atteinte des objectifs du PI, moyenne des votes. Cliquer une cellule pour voter">✊ Confiance</th>
                             <th rowspan="2" class="htl-th-num htl-grp-start" title="Charge prévue — capacité en SP validée par l'équipe au PI Planning (éditable)">Charge prévue ✏️</th>
-                            <th class="htl-grp htl-grp--velo" colspan="3">⚡ Vélocité</th>
-                            <th class="htl-grp htl-grp--buf" colspan="3">🛡 Buffer</th>
+                            <th class="htl-grp htl-grp--velo" colspan="4">⚡ Vélocité</th>
+                            <th class="htl-grp htl-grp--buf" colspan="4">🛡 Buffer</th>
                         </tr>
                         <tr>
-                            <th class="htl-th-num htl-sub htl-grp-start" title="Nombre de tickets engagés au lancement">nb</th>
+                            <th class="htl-th-num htl-sub htl-grp-start" title="Nombre de tickets dans le sprint à son lancement (ajouts en cours exclus)">nb début</th>
+                            <th class="htl-th-num htl-sub htl-cur-col" title="Nombre de tickets actuellement dans le sprint (ajouts compris, reports et retraits exclus)">nb actuel</th>
                             <th class="htl-th-num htl-sub" title="Vélocité planifiée au lancement (estimation JIRA)">planifié</th>
                             <th class="htl-th-num htl-sub htl-velo-col" title="Vélocité réalisée (Done SP)">réalisée</th>
-                            <th class="htl-th-num htl-sub htl-grp-start" title="Nombre de tickets Buffer engagés au lancement">nb</th>
+                            <th class="htl-th-num htl-sub htl-grp-start" title="Nombre de tickets Buffer dans le sprint à son lancement">nb début</th>
+                            <th class="htl-th-num htl-sub htl-cur-col" title="Nombre de tickets Buffer actuellement dans le sprint">nb actuel</th>
                             <th class="htl-th-num htl-sub" title="Vélocité Buffer planifiée">planifié</th>
                             <th class="htl-th-num htl-sub htl-buf-col" title="Points Buffer consommés">réalisée</th>
                         </tr></thead>
-                        <tbody>${sprintRows || '<tr><td colspan="12" class="htl-muted text-center" style="padding:12px">Aucun sprint trouvé pour ce PI</td></tr>'}</tbody>
+                        <tbody>${sprintRows || '<tr><td colspan="14" class="htl-muted text-center" style="padding:12px">Aucun sprint trouvé pour ce PI</td></tr>'}</tbody>
                         ${sprintRows ? `<tfoot><tr class="htl-sprint-total${voteRowCls('mood', teamName, _piKeys)}">
                             <td colspan="3" class="htl-total-lbl">Total PI · ${(meta.piSprints || []).length} sprint${(meta.piSprints || []).length > 1 ? 's' : ''}</td>
                             <td class="htl-spr-vote htl-total-vote" id="htl-tot-mood">${voteTotalHtml('mood', teamName, _piKeys)}</td>
                             <td class="htl-spr-vote htl-total-vote" id="htl-tot-fist">${voteTotalHtml('fist', teamName, _piKeys)}</td>
                             <td class="htl-spr-num htl-grp-start htl-total-val" id="htl-tot-charge" title="Somme des charges prévues saisies">${_totOf('charge')}</td>
                             <td class="htl-spr-num htl-grp-start htl-total-val" title="Total des tickets engagés au lancement">${_totOf('planTk')}</td>
+                            <td class="htl-spr-num htl-cur-col htl-total-val" title="${esc(_totTip('curTk', 'planTk', 'current', 'Tickets'))}">${_totOf('curTk')}${_totNet('curTk', 'planTk', 'current')}</td>
                             <td class="htl-spr-num htl-total-val" title="Total de la vélocité planifiée">${_totOf('planPts')}</td>
                             <td class="htl-spr-num htl-velo-col htl-total-val" title="Total de la vélocité réalisée${_totNum('planPts') ? ` — ${Math.round(_totNum('vel') / _totNum('planPts') * 100)} % du planifié` : ''}">${_totOf('vel')}</td>
                             <td class="htl-spr-num htl-grp-start htl-total-val" title="Total des tickets Buffer engagés">${_totOf('bufTk')}</td>
+                            <td class="htl-spr-num htl-cur-col htl-total-val" title="${esc(_totTip('bufCurTk', 'bufTk', 'bufcurrent', 'Tickets Buffer'))}">${_totOf('bufCurTk')}${_totNet('bufCurTk', 'bufTk', 'bufcurrent')}</td>
                             <td class="htl-spr-num htl-bufplan-col htl-total-val" title="Total du Buffer planifié">${_totOf('bufPts')}</td>
                             <td class="htl-spr-num htl-buf-col htl-total-val" title="Total du Buffer consommé${_totNum('bufPts') ? ` — ${Math.round(_totNum('buf') / _totNum('bufPts') * 100)} % du planifié` : ''}">${_totOf('buf')}</td>
                         </tr></tfoot>` : ''}
                     </table>
                 </div>
-                <div class="htl-section-lbl htl-tickets-hint">Détail des tickets — clique une cellule chiffrée (nb · planifié · réalisée) ci-dessus</div>
+                <div class="htl-section-lbl htl-tickets-hint">Détail des tickets — clique une cellule chiffrée (nb début · nb actuel · planifié · réalisée) ci-dessus</div>
                 <div class="htl-tickets-section" id="htl-tickets-host">${_ticketsSection(activeSprintName, metric)}</div>
             </div>
         </div>`;
@@ -1258,6 +1406,8 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
                 bufDone: done.filter(t => isBufferItem(t)),
                 all: fetched,
                 bufAll: fetched.filter(t => isBufferItem(t)),
+                cur: fetched,
+                bufCur: fetched.filter(t => isBufferItem(t)),
             };
             host.innerHTML = _ticketsSection(sprintName, metric);
         } catch (err) {

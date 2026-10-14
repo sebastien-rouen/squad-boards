@@ -80,7 +80,7 @@ export function buildSupportData(ctx) {
 }
 
 /** « Prénom NOM » lisible depuis « NOM, Prénom » (format de l'import RH). */
-const displayName = n => (String(n).includes(',') ? String(n).split(',').map(s => s.trim()).reverse().join(' ') : String(n));
+export const displayName = n => (String(n).includes(',') ? String(n).split(',').map(s => s.trim()).reverse().join(' ') : String(n));
 const personTxt = p => `${displayName(p.name)}${p.partial ? ` (${p.partial})` : ''}${p.absent ? ` ⚠️ absent ${p.abs} j` : ''}`;
 const statusLbl = t => STATUS_LABELS[t.status] || t.status || '';
 /** Solde de la période : plus de résolus que d'entrés = le stock baisse. */

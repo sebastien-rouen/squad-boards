@@ -473,6 +473,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
   derniers sprints JIRA en cours de PI (Initiale au PI 31 : « 97 % écoulé » à mi-PI). Rapport, matrice
   météo, détail TV et prévisions la partagent : jamais `sprints.map(s => s.endDate).sort().at(-1)`.
   Vélocité PI du rapport = `sprintScope` par clé « NN.N » (mêmes chiffres que la section PI Planning).
+  Équipe(s) = `reports-teams.js` (présence via les helpers exportés de `meteo_fiche.js`) ; Rapport
+  complet = `makeFullGenerator(GENERATORS)` (reports-full.js), posé APRÈS le littéral GENERATORS
+  (TDZ) — son « En bref » relit les `build*Data` des sections, ne JAMAIS y recalculer un chiffre.
   Sommaire : scroll-spy sur une ligne de lecture SOUS `.report-controls`, verrou jusqu'à `scrollend`.
   Métriques sprint / Sprint / Équipes (3.213.0) : `ctx.tickets` = périmètre `sprintScope` du sprint
   AFFICHÉ (`reportSprint`, `ctx.sprint`) — un reporté terminé ailleurs y est ramené « en cours ».

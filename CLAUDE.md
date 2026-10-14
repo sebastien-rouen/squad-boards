@@ -472,6 +472,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
   (`piBounds`) : une équipe crée ses derniers sprints JIRA en cours de PI (Lion au PI 31 → « 91 %
   écoulé » à mi-PI). La météo (`meteo_matrix.js`, domaine PI) a encore l'ancienne règle.
   Sommaire : scroll-spy sur une ligne de lecture SOUS `.report-controls`, verrou jusqu'à `scrollend`.
+  Métriques sprint / Sprint / Équipes (3.213.0) : `ctx.tickets` = périmètre `sprintScope` du sprint
+  AFFICHÉ (`reportSprint`, `ctx.sprint`) — un reporté terminé ailleurs y est ramené « en cours ».
+  ⚠️ La section Sprint lit `ctx.sprint` (sprint DE L'ÉQUIPE), jamais `ctx.sprintInfo` (sprint global =
+  celui d'Ami : son objectif s'affichait chez Fuego).
 - **Météo des équipes** (3.152.0, [meteo_matrix.js](static/js/components/meteo_matrix.js)) :
   l'ÉCHELLE vit dans [utils/meteo.js](static/js/utils/meteo.js) (pur, via le barrel) — cinq
   niveaux ☀️ ⛅ 🌧️ ⛈️ ⚪, `weatherOf(score)` pour l'absolu, `weatherRel(pct, timePct)` pour

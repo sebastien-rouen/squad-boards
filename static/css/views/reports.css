@@ -654,3 +654,17 @@ details[open] .rpt-by-team-toggle::before { transform: rotate(90deg); }
     max-height: 300px;
 }
 
+
+/* ── Section Sprint : groupes de tickets repliables (3.213.0) ───────────── */
+/* Fermés au-delà de 15 tickets (reports.js `_tgHtml`) — le train compte ~360 tickets par sprint. */
+.rpt-tg-fold > summary { cursor: pointer; list-style: none; }
+.rpt-tg-fold > summary::-webkit-details-marker { display: none; }
+.rpt-tg-fold > summary::after { content: '▸'; color: var(--text-muted); transition: transform var(--tr-fast); }
+.rpt-tg-fold[open] > summary::after { transform: rotate(90deg); }
+.rpt-tg-fold:not([open]) > summary { border-bottom: none; }
+.rpt-tg-fold > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* Une métrique (« Story Points [barre] 9 % ») dépassait de 23 px à 390 px : elle passe à la ligne. */
+@media (max-width: 640px) {
+    .rpt-metric { flex-wrap: wrap; }
+}

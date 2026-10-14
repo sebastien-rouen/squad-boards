@@ -90,6 +90,36 @@ function finish(w, now) {
 }
 
 /**
+ * Sprint AFFICHÉ par les sections Métriques sprint, Sprint et Équipes (3.213.0).
+ *   • PI courant → sprint de l'équipe (`getSprintForTeam` : nom, dates et OBJECTIF de l'équipe —
+ *     avant, Fuego affichait l'objectif du sprint global, celui d'Ami) ;
+ *   • PI passé   → DERNIER sprint du PI (ce qui a été livré à la fin) ;
+ *   • PI à venir → PREMIER sprint du PI (souvent vide : rien d'engagé, et c'est la vérité).
+ * Sprints du PI : ceux de l'équipe, à défaut ceux du train (une ligne par index).
+ * @returns {{name, startDate, endDate, goal}|null}
+ */
+export function reportSprint({ team, sprintInfo, displayPiNum, isCurrentPi }) {
+    if (isCurrentPi) {
+        const sp = getSprintForTeam(team, sprintInfo);
+        if (!sp) return null;
+        // Toutes équipes / groupe : le sprint « global » est celui d'UNE équipe (Ami) — son nom et
+        // son objectif ne parlent pas pour le train. Clé « NN.N » seule, sans objectif.
+        return team && team !== 'all' ? sp : { ...sp, name: extractSprintLabel(sp.name) || sp.name, goal: '' };
+    }
+    if (!displayPiNum) return null;
+    const idx = s => parseInt(extractSprintLabel(s.name).split('.')[1], 10) || 0;
+    const ofPi = (sprintInfo?.teamSprints || []).filter(s => extractPiNum(s.name) === displayPiNum && idx(s));
+    const own = team && team !== 'all' ? ofPi.filter(s => s.team === team) : [];
+    const list = own.length ? own : ofPi;
+    if (!list.length) return null;
+    const isPast = extractPiNum(sprintInfo?.name) > displayPiNum;
+    const target = isPast ? Math.max(...list.map(idx)) : Math.min(...list.map(idx));
+    const pick = list.filter(s => idx(s) === target).sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)))[0];
+    // Sur le train, le nom d'UNE équipe tromperait : on garde la clé « NN.N », qui les couvre toutes.
+    return own.length ? pick : { ...pick, name: `${displayPiNum}.${target}`, goal: '' };
+}
+
+/**
  * @param {object} o { team, sprintInfo, piInfo, displayPiNum, isCurrentPi }
  * @returns {{ period: object|null, piWindow: object|null }}
  *   fenêtre = { kind: 'sprint'|'pi', label, start, end, measuredEnd, days, elapsed, future, over, projected? }

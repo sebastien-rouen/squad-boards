@@ -1,3 +1,23 @@
+## [3.213.0] - 2026-10-14
+
+### Rapports — Métriques sprint, Sprint et Équipes sur le sprint AFFICHÉ (fin de l'historique complet)
+
+- **Le constat (vraie base)** : sur le PI courant, ces sections prenaient TOUS les tickets chargés.
+  Fuego : « Complétion 534/691 », « Points 538/784 » ; son sprint 31.3 compte 11 faits sur 33 engagés,
+  4/43 pts. La section Sprint faisait 26 000 px ; les burndown / burnup recevaient tout l'historique.
+  Et l'en-tête montrait le nom et l'**objectif du sprint d'Ami** (sprint global) pour toutes les équipes.
+- **Sprint affiché** (`reportSprint`, reports-scope.js) : PI courant → sprint de l'équipe (nom, dates,
+  objectif de l'équipe ; train → clé « 31.3 » sans objectif) ; PI passé → son dernier sprint ; PI à
+  venir → son premier.
+- **Périmètre** = `sprintScope` (règle engagement / réalisé) : engagés reports compris, et un ticket
+  reporté puis terminé AILLEURS n'est pas crédité au sprint (présenté en cours). KPI, compteur d'en-tête,
+  section Sprint, section Équipes, rapport complet, burndown et burnup (axe = dates du sprint affiché).
+- Groupes de tickets de la section Sprint **repliables**, fermés au-delà de 15 tickets (train : 363).
+  Métrique « Story Points [barre] % » qui dépassait de 23 px à 390 px : passe à la ligne sur mobile.
+- Vérifié : banc Edge (Fuego PI 31, train, Fuego PI 30 épinglé → 30.6 « 🍃 Sprint de respiration » ;
+  1 440 et 390 px) : section Sprint 796 px (Fuego) / 1 028 px (train), 0 débordement, 0 erreur JS ;
+  sommaire 12/12 ; `node --test` 290/290.
+
 ## [3.212.1] - 2026-10-14
 
 ### Rapports — Roadmap : lien JIRA de chaque feature dans la copie et le format Slack

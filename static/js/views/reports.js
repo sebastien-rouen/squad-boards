@@ -5,7 +5,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem } from '../utils.js';
+import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, sprintScope, carriedOverTo } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 import { renderPIVelocityChart, renderStatusChart, renderTypeChart, renderBurndown, renderBurnup, renderCycleTime, renderWIPAge } from '../components/charts.js';
 import { FIST_SCALE, slackToEmoji, buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, moodThemeIndex, SONDAGE_THEME_COUNT, SONDAGE_INTRO } from '../components/sondage.js';
@@ -14,7 +14,7 @@ import { PI_GENERATOR } from './reports-pi.js';
 import { FLOW_GENERATOR } from './reports-flow.js';
 import { SUPPORT_GENERATOR } from './reports-support.js';
 import { ROADMAP_GENERATOR, piBurnupHtml, mountPiBurnup } from './reports-roadmap.js';
-import { reportWindows } from './reports-scope.js';
+import { reportWindows, reportSprint } from './reports-scope.js';
 import { B, E, SB, CS } from './reports-fmt.js';
 import { meteoSummary } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
@@ -42,15 +42,20 @@ export function renderReports(container) {
     const displayPiNum = _basePiNum ? Math.max(1, _basePiNum + piOffset) : (piInfo?.number || 0);
     const _isCurrentPi = piOffset === 0;
 
-    // Scope des tickets selon le PI sélectionné
-    const _piNumFilter = t => {
-        const s = String(t.sprintName || t.piSprint || '');
-        const m = s.match(/(\d+)\.\d+/) || s.match(/PI\s*#?\s*(\d+)/i);
-        return m ? parseInt(m[1], 10) : 0;
-    };
-    const displayTickets = (_isCurrentPi || !displayPiNum)
-        ? tickets
-        : tickets.filter(t => _piNumFilter(t) === displayPiNum);
+    // Périmètre = le SPRINT AFFICHÉ (3.213.0, reports-scope.js `reportSprint`). Avant, le PI
+    // courant prenait TOUS les tickets chargés (≈ 1 an) : « Complétion 534/691 » pour Fuego,
+    // dont le sprint 31.3 compte 11 faits sur 33 engagés ; la section Sprint faisait 26 000 px.
+    // Règle engagement / réalisé de sprint-scope.js : `engaged` = passés par le sprint (reports
+    // compris) ; un ticket reporté puis terminé AILLEURS n'est pas réalisé ici → présenté « en
+    // cours » (`_carriedTo` pour qui veut le nommer), sinon tous les `status === 'done'` en aval
+    // le créditeraient au sprint.
+    const _sprint = reportSprint({ team, sprintInfo, displayPiNum, isCurrentPi: _isCurrentPi });
+    const displayTickets = (() => {
+        if (!_sprint?.name) return [];
+        const { engaged, done: credited } = sprintScope(tickets, _sprint.name);
+        const ok = new Set(credited.map(t => t.id));
+        return engaged.map(t => (t.status === 'done' && !ok.has(t.id) ? { ...t, status: 'inprog', _carriedTo: carriedOverTo(t, _sprint.name) } : t));
+    })();
 
     const total = displayTickets.length;
     const done = displayTickets.filter(t => t.status === 'done').length;
@@ -95,12 +100,16 @@ export function renderReports(container) {
 
     const typeCounts  = {};
     for (const t of displayTickets) typeCounts[t.type] = (typeCounts[t.type] || 0) + 1;
-    const sprintCtx   = { startDate: sprintInfo?.startDate || new Date(Date.now() - 8 * 86400000).toISOString(), durationDays: sprintInfo?.durationDays || 14 };
+    // Axe des burndown / burnup = dates du sprint AFFICHÉ (avant : sprint global, celui d'Ami).
+    const _spDays = _sprint?.startDate && _sprint?.endDate
+        ? Math.max(1, Math.round((new Date(String(_sprint.endDate).slice(0, 10)) - new Date(String(_sprint.startDate).slice(0, 10))) / 86_400_000) + 1)
+        : null;
+    const sprintCtx   = { startDate: _sprint?.startDate || new Date(Date.now() - 8 * 86400000).toISOString(), durationDays: _spDays || sprintInfo?.durationDays || 14 };
     const events      = store.get('events') || [];
     const blocked     = displayTickets.filter(t => t.status === 'blocked').length;
     const bufferPts   = sumBy(displayTickets.filter(_isBuffer), t => t.points);
     const bufPct      = pct(bufferPts, totalPts);
-    const daysLeft    = sprintInfo?.endDate ? Math.max(0, Math.round((new Date(sprintInfo.endDate) - Date.now()) / 86_400_000)) : null;
+    const daysLeft    = _isCurrentPi && _sprint?.endDate ? Math.max(0, Math.round((new Date(_sprint.endDate) - Date.now()) / 86_400_000)) : null;
 
     // `teamTickets` = tickets de l'equipe SANS reduction au PI affiche : la section PI en a
     // besoin pour retrouver le perimetre engage d'un sprint (un reporte porte le sprint
@@ -114,7 +123,9 @@ export function renderReports(container) {
         const scope = (team && team !== 'all') ? teams.filter(t => t === team) : (g?.teams?.length ? teams.filter(t => g.teams.includes(t)) : teams);
         return meteoSummary(scope, meteoContext(_basePiNum));
     })();
-    const ctx = { tickets: displayTickets, teamTickets: tickets, features, sprintInfo, teams, team, piInfo,
+    // `sprint` = sprint affiché (nom, dates, objectif DE L'ÉQUIPE) lu par la section Sprint ;
+    // `sprintInfo` reste le sprint global JIRA (PI courant, roster…), à ne pas remplacer.
+    const ctx = { tickets: displayTickets, teamTickets: tickets, features, sprintInfo, sprint: _sprint, teams, team, piInfo,
                   absences, support, statusCounts, total, done, totalPts, donePts,
                   displayPiNum, isCurrentPi: _isCurrentPi, meteo: _meteo,
                   // Période (sprint affiché, sinon PI) et bornes du PI des sections Flow, Support,
@@ -460,8 +471,9 @@ export function renderReports(container) {
         _chartsRendered = true;
         renderStatusChart('chart-rpt-status', statusCounts);
         renderTypeChart('chart-rpt-types', typeCounts);
-        renderBurndown('chart-rpt-burndown', tickets, sprintCtx, events);
-        renderBurnup('chart-rpt-burnup', tickets, sprintCtx, events);
+        // Périmètre du sprint affiché (avant : `tickets`, tout l'historique de l'équipe).
+        renderBurndown('chart-rpt-burndown', displayTickets, sprintCtx, events);
+        renderBurnup('chart-rpt-burnup', displayTickets, sprintCtx, events);
         renderCycleTime('chart-rpt-cycletime', tickets);
         if (piVelocityData.length) renderPIVelocityChart('chart-rpt-velocity', piVelocityData, piInfo?.velocityTarget);
     };
@@ -1154,7 +1166,7 @@ function teamBreakdown(tickets, teams, fmt) {
 const GENERATORS = {
     sprint: {
         text: ctx => {
-            const { tickets, sprintInfo, teams, team, done, total, donePts, totalPts } = ctx;
+            const { tickets, sprint: sprintInfo, teams, team, done, total, donePts, totalPts } = ctx;   // sprint AFFICHÉ (de l'équipe)
             const blocked = tickets.filter(t => t.status === 'blocked').length;
             let r = `=== Sprint: ${sprintInfo?.name || 'N/A'} ===\nEquipe: ${team === 'all' ? 'Toutes' : team}\n`;
             r += `Tickets: ${done}/${total} (${pct(done, total)}%)\nPoints: ${donePts}/${totalPts} (${pct(donePts, totalPts)}%)\n`;
@@ -1165,7 +1177,7 @@ const GENERATORS = {
             return r;
         },
         slack: ctx => {
-            const { tickets, sprintInfo, teams, team, done, total, donePts, totalPts } = ctx;
+            const { tickets, sprint: sprintInfo, teams, team, done, total, donePts, totalPts } = ctx;   // sprint AFFICHÉ (de l'équipe)
             const teamLabel = team === 'all' ? 'Toutes équipes' : (team || '-');
             const ticketPct = pct(done, total);
             const ptsPct    = pct(donePts, totalPts);
@@ -1214,7 +1226,7 @@ const GENERATORS = {
             return r;
         },
         confluence: ctx => {
-            const { tickets, sprintInfo, teams, team, done, total, donePts, totalPts } = ctx;
+            const { tickets, sprint: sprintInfo, teams, team, done, total, donePts, totalPts } = ctx;   // sprint AFFICHÉ (de l'équipe)
             const teamLabel = team === 'all' ? 'Toutes équipes' : (team || '-');
             const ticketPct = pct(done, total);
             const ptsPct    = pct(donePts, totalPts);
@@ -1270,7 +1282,7 @@ const GENERATORS = {
             return r;
         },
         html: ctx => {
-            const { tickets, sprintInfo, teams, team, done, total, donePts, totalPts } = ctx;
+            const { tickets, sprint: sprintInfo, teams, team, done, total, donePts, totalPts } = ctx;   // sprint AFFICHÉ (de l'équipe)
             const parsed     = _parseSprintName(sprintInfo?.name || '');
             const teamLabel  = team === 'all' ? 'Toutes équipes' : (team || '-');
             const ticketPct  = pct(done, total);
@@ -1303,17 +1315,18 @@ const GENERATORS = {
                 const ptsTag = grpPts
                     ? `<span class="rpt-tg-pts"><span class="rpt-tg-pts-done">${grpDonePts}</span>/<span class="rpt-tg-pts-total">${grpPts}</span> pts</span>`
                     : '';
+                // Repliable, fermé au-delà de 15 tickets : sur le train, un sprint en compte ~360.
                 return `
-                <div class="rpt-ticket-group">
-                    <div class="rpt-tg-hdr">
+                <details class="rpt-ticket-group rpt-tg-fold"${items.length <= 15 ? ' open' : ''}>
+                    <summary class="rpt-tg-hdr">
                         <span class="rpt-tg-icon">${icon}</span>
                         <span class="rpt-tg-label">${label}</span>
                         <span class="rpt-tg-count">${items.length} ticket${items.length > 1 ? 's' : ''}</span>
                         <span class="rpt-tg-done-ratio">${grpDone}/${items.length} terminé${grpDone > 1 ? 's' : ''}</span>
                         ${ptsTag}
-                    </div>
+                    </summary>
                     <div class="rpt-tg-items">${rows}</div>
-                </div>`;
+                </details>`;
             }
 
             return `

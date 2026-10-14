@@ -90,6 +90,15 @@ export function buildRoadmapData(ctx) {
 }
 
 const featTxt = r => `${r.f.title}${r.n ? ` — ${r.progress} % (${r.done}/${r.n} tickets${r.pts ? `, ${r.pts} pts` : ''})` : ' — sans ticket rattaché'}`;
+/**
+ * Lien JIRA d'une feature (`jiraUrl` du store), ou '' si l'URL n'est pas configurée. URL NUE :
+ * Slack, Teams et Confluence la rendent cliquable au collage — le format `<url|texte>` s'affiche,
+ * lui, en littéral dans le composeur Slack (cf sprint_tickets_modal.js, 3.6.31).
+ */
+const browseUrl = f => {
+    const base = String(store.get('jiraUrl') || '').replace(/\/$/, '');
+    return base && f?.id ? `${base}/browse/${f.id}` : '';
+};
 const headTxt = d => `PI ${d.piNum}${d.time != null ? ` · ${d.time} % du temps écoulé` : ''}`;
 
 // ── Rendu riche (format « Texte » de la vue) ─────────────────────────────────
@@ -141,7 +150,10 @@ function textReport(ctx) {
     r += `- ⏳ Pas démarrées : ${d.notStarted}\n`;
     for (const g of d.groups) {
         r += `\n${g.icon} ${g.label}\n`;
-        for (const row of g.rows) r += `- ${glyph(row)} ${featTxt(row)}\n`;
+        for (const row of g.rows) {
+            const url = browseUrl(row.f);
+            r += `- ${glyph(row)} ${featTxt(row)}${url ? ` — ${url}` : ''}\n`;
+        }
     }
     return r;
 }
@@ -158,8 +170,11 @@ function slackReport(ctx) {
     for (const g of d.groups) {
         r += `\n${E(g.icon)} ${B(g.label.toUpperCase())}\n`;
         for (const row of g.rows) {
+            const url = browseUrl(row.f);
             r += `${E(glyph(row))} ${esc(row.f.title)}`;
-            r += row.n ? ` <span class="s-muted">${row.progress}% · ${row.done}/${row.n}</span>\n` : ` <span class="s-muted">sans ticket</span>\n`;
+            r += row.n ? ` <span class="s-muted">${row.progress}% · ${row.done}/${row.n}</span>` : ` <span class="s-muted">sans ticket</span>`;
+            // Copie = textContent de l'aperçu : l'URL y reste nue, Slack la rend cliquable au collage.
+            r += url ? ` <a class="s-link" href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>\n` : '\n';
         }
     }
     return r;

@@ -110,6 +110,8 @@
 .report-section { scroll-margin-top: 72px; }
 
 /* Section "Métriques sprint" : <details> stylé comme une vraie section ──────── */
+/* « Copier la section » (chart_copy.js) : collé au chevron, malgré le space-between. */
+.report-section-charts-summary .section-copy-btn { margin-left: auto; margin-right: var(--sp-2); display: inline-flex; align-items: center; gap: 4px; }
 .report-section-charts-summary {
     display: flex;
     align-items: center;

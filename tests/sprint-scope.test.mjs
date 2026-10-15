@@ -7,6 +7,7 @@
  * engagé manquant, mesuré sur un PI réel). D'où la règle, que le moindre refactor peut
  * réinverser sans bruit :
  *     ENGAGEMENT → belongedToSprint()   ·   RÉALISÉ → isInSprint() EN PLUS de `done`
+ *     (3.216.0 : engagedInSprint() = belongedToSprint() moins les retraits d'avant-lancement)
  * Un ticket reporté puis terminé ailleurs est `done` aujourd'hui : le compter dans le réalisé
  * créditerait un sprint de travail fait APRÈS sa clôture. C'est le test central ci-dessous.
  */
@@ -15,8 +16,11 @@ import assert from 'node:assert/strict';
 import { installerEnv } from './helpers/env.mjs';
 
 installerEnv();
-let sc;
-before(async () => { sc = await import('../static/js/utils/sprint-scope.js'); });
+let sc, u;
+before(async () => {
+    sc = await import('../static/js/utils/sprint-scope.js');
+    u = await import('../static/js/utils.js');   // engagedInPi (barrel)
+});
 
 /** Ticket dont l'historique du champ Sprint est une liste cumulative, comme JIRA l'écrit. */
 const tk = (id, sprintName, status, sprintsTraverses = []) => ({
@@ -185,5 +189,82 @@ describe('inSprintNow — périmètre actuel, ou à la clôture pour un sprint c
             ch('2026-01-05T09:00:00.000+0200', '', SP1),
             ch('2026-01-10T09:00:00.000+0200', SP1, '')] };
         assert.equal(sc.inSprintNow(x, SP1), false);
+    });
+});
+
+describe('engagedInSprint — un retrait AVANT le lancement n\'est pas un engagement', () => {
+    const ch = (date, from, to) => ({ field: 'Sprint', date, from, to });
+    // 30.2 démarre le 05/01 à 08:05 Z ; 30.1 est le sprint précédent.
+    const starts = new Map([[SP1, '2025-12-22T08:00:00.000Z'], [SP2, '2026-01-05T08:05:16.000Z']]);
+    test('planifié en 30.2 puis renvoyé en 30.1 avant son démarrage : hors périmètre', () => {
+        // Le cas réel (3 pts de trop, 30 au lieu des 27 du burnup JIRA).
+        const x = { id: 'P', sprintName: SP1, status: 'done', points: 3, createdAt: '2025-12-01T00:00:00Z', recentChanges: [
+            ch('2025-12-10T16:40:10.174+0200', '', SP2),
+            ch('2025-12-28T14:33:26.183+0200', SP2, SP1)] };
+        assert.equal(sc.belongedToSprint(x, SP2), true, 'il y est bien passé…');
+        assert.equal(sc.engagedInSprint(x, SP2, starts), false, '…mais pendant la préparation seulement');
+        assert.equal(sc.engagedInSprint(x, SP1, starts), true);
+        assert.deepEqual(sc.sprintScope([x], SP2, starts).engaged, []);
+    });
+    test('reporté à la clôture du précédent : engagé (le `to` cumulatif arrive avant le lancement)', () => {
+        // Changement à 09:36 +0200 = 07:36 Z, AVANT le démarrage de 08:05 Z.
+        const x = { id: 'R', sprintName: SP2, status: 'todo', createdAt: '2025-12-01T00:00:00Z', recentChanges: [
+            ch('2025-12-20T16:37:47.806+0200', '', SP1),
+            ch('2026-01-05T09:36:16.463+0200', SP1, `${SP1}, ${SP2}`)] };
+        assert.equal(sc.engagedInSprint(x, SP2, starts), true);
+    });
+    test('ajouté en cours de sprint, ou créé dedans : engagé', () => {
+        const ajout = { id: 'A', sprintName: SP2, createdAt: '2025-12-01T00:00:00Z', recentChanges: [
+            ch('2026-01-08T12:01:31.025+0200', '', SP2)] };
+        const cree = { id: 'C', sprintName: SP2, createdAt: '2026-01-09T10:00:00Z', recentChanges: [] };
+        assert.equal(sc.engagedInSprint(ajout, SP2, starts), true);
+        assert.equal(sc.engagedInSprint(cree, SP2, starts), true);
+    });
+    test('ajouté puis retiré EN COURS de sprint : reste engagé (il y a été après le lancement)', () => {
+        const x = { id: 'D', sprintName: '', createdAt: '2025-12-01T00:00:00Z', recentChanges: [
+            ch('2026-01-06T09:00:00.000+0200', '', SP2),
+            ch('2026-01-07T09:00:00.000+0200', SP2, '')] };
+        assert.equal(sc.engagedInSprint(x, SP2, starts), true);
+    });
+    test('sans démarrage connu : belongedToSprint, comme avant', () => {
+        const x = { id: 'P', sprintName: SP1, createdAt: '2025-12-01T00:00:00Z', recentChanges: [
+            ch('2025-12-10T16:40:10.174+0200', '', SP2),
+            ch('2025-12-28T14:33:26.183+0200', SP2, SP1)] };
+        assert.equal(sc.engagedInSprint(x, SP2), true);
+        assert.equal(sc.engagedInSprint(x, SP2, new Map()), true);
+        assert.equal(sc.sprintScope([x], SP2).engaged.length, 1);
+    });
+    test('clé NN.N : chaque sprint de l\'historique est daté par son NOM exact', () => {
+        const x = { id: 'P', sprintName: SP1, createdAt: '2025-12-01T00:00:00Z', recentChanges: [
+            ch('2025-12-10T16:40:10.174+0200', '', SP2),
+            ch('2025-12-28T14:33:26.183+0200', SP2, SP1)] };
+        assert.equal(sc.engagedInSprint(x, '30.2', starts), false);
+    });
+    test('sprintStartsOf : sprint global + teamSprints, par nom', () => {
+        const m = sc.sprintStartsOf({ name: SP1, startDate: 'a', teamSprints: [{ name: SP2, startDate: 'b' }, { name: 'X', startDate: '' }] });
+        assert.equal(m.get(SP1), 'a');
+        assert.equal(m.get(SP2), 'b');
+        assert.equal(m.has('X'), false);
+        assert.equal(sc.sprintStartsOf(null).size, 0);
+    });
+});
+
+describe('engagedInPi — même règle au niveau du PI', () => {
+    const ch = (date, from, to) => ({ field: 'Sprint', date, from, to });
+    const starts = new Map([[SP1, '2025-12-22T08:00:00.000Z'], [SP2, '2026-01-05T08:05:16.000Z']]);
+    test('planifié dans le PI puis renvoyé au backlog avant le lancement : hors périmètre', () => {
+        const x = { id: 'B', sprintName: '', createdAt: '2025-12-01T00:00:00Z', recentChanges: [
+            ch('2025-12-10T10:00:00.000+0200', '', SP2),
+            ch('2025-12-28T10:00:00.000+0200', SP2, '')] };
+        assert.equal(u.belongedToPi(x, 30), true);
+        assert.equal(u.engagedInPi(x, 30, starts), false);
+        assert.equal(u.engagedInPi(x, 30), true, 'sans dates : règle d\'avant');
+    });
+    test('déplacé d\'un sprint du PI à un autre avant le lancement : reste dans le PI', () => {
+        const x = { id: 'M', sprintName: SP2, createdAt: '2025-12-01T00:00:00Z', recentChanges: [
+            ch('2025-12-10T10:00:00.000+0200', '', SP1),
+            ch('2025-12-21T10:00:00.000+0200', SP1, SP2)] };
+        assert.equal(sc.engagedInSprint(x, SP1, starts), false);
+        assert.equal(u.engagedInPi(x, 30, starts), true);
     });
 });

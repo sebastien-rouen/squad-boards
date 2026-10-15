@@ -4,7 +4,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, belongedToPi, extractSprintLabel, belongedToSprint, isInSprint, carriedOverTo, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast, initials, supportMembersOnDay, todayIsoLocal, effectiveRosterForPi, teamNameMatches } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, fmtRelative, hashColor, getSprintForTeam, computeVelocityHistory, computeCurrentSprintEntry, getCurrentPi, extractPiNum, belongedToPi, extractSprintLabel, belongedToSprint, engagedInSprint, sprintStartsOf, isInSprint, carriedOverTo, resolvePiObjectives, isBufferItem, countBlocked, throughputSince, toast, initials, supportMembersOnDay, todayIsoLocal, effectiveRosterForPi, teamNameMatches, cycleDays, leadDays } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { renderCycleTime } from '../components/charts.js';
 import { renderActivityCard, bindActivityClicks } from '../components/activity.js';
@@ -147,9 +147,9 @@ export function renderDashboard(container) {
     const _flowTickets = displayPiNum ? tickets.filter(t => belongedToPi(t, displayPiNum)) : tickets;
     const _flowScopeLabel = displayPiNum ? `PI #${displayPiNum} · périmètre engagé` : 'historique équipe';
     const _doneAll = _flowTickets.filter(t => t.status === 'done');
-    const _doneCT = _flowTickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
-    const _ltVals = _doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
-    const ctMedian = _median(_doneCT.map(t => t.cycleTimeDays));
+    const _doneCT = _flowTickets.filter(t => t.status === 'done' && cycleDays(t) > 0);
+    const _ltVals = _doneCT.map(t => leadDays(t) > 0 ? leadDays(t) : cycleDays(t));
+    const ctMedian = _median(_doneCT.map(t => cycleDays(t)));
     const ltMedian = _median(_ltVals);
     const medWait = Math.max(0, Math.round((ltMedian - ctMedian) * 10) / 10);
 
@@ -164,8 +164,8 @@ export function renderDashboard(container) {
     // Calcul par ticket (cycle/lead) puis MÉDIANE — un ratio de moyennes (avgCT/avgLT) est biaisé
     // par les gros tickets et ne représente pas le ticket typique.
     const _effPerTicket = _doneCT
-        .filter(t => t.leadTimeDays > 0 && t.cycleTimeDays > 0 && t.cycleTimeDays <= t.leadTimeDays)
-        .map(t => t.cycleTimeDays / t.leadTimeDays);
+        .filter(t => leadDays(t) > 0 && cycleDays(t) > 0 && cycleDays(t) <= leadDays(t))
+        .map(t => cycleDays(t) / leadDays(t));
     const flowEff = _effPerTicket.length ? Math.round(_median(_effPerTicket.map(v => v * 100))) : null;
     const flowEffCls = flowEff == null ? 'mc-info'
         : flowEff >= 40 ? 'mc-done' : flowEff >= 25 ? 'mc-info' : 'mc-warning';
@@ -983,7 +983,7 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, d
             // `null` = matching sur le nom EXACT : sans filtre d'équipe (team === 'all'),
             // la tolérance par clé NN.N ferait entrer le sprint 30.1 des autres équipes.
             ts2 = allTickets.filter(t =>
-                belongedToSprint(t, s.name, null) && (team === 'all' || !team || t.team === team)
+                engagedInSprint(t, s.name, sprintStartsOf(store.get('sprintInfo')), null) && (team === 'all' || !team || t.team === team)
             );
             for (const t of ts2) {
                 pts += (t.points || 0);

@@ -3,8 +3,8 @@
  * pastilles d'une équipe seule.
  *
  * Cinq domaines par équipe, chacun rattaché à une mesure QUI EXISTE DÉJÀ dans le site :
- *   🏃 Sprint  — points réalisés / engagés vs temps écoulé   (sprint-scope.js : engagement = belongedToSprint)
- *   🗓️ PI      — points réalisés / périmètre du PI vs temps   (belongedToPi)
+ *   🏃 Sprint  — points réalisés / engagés vs temps écoulé   (sprint-scope.js : engagement = engagedInSprint)
+ *   🗓️ PI      — points réalisés / périmètre du PI vs temps   (engagedInPi)
  *   🛡️ Santé   — score 0–100                                  (business_rules.js : healthScore, même formule que health.js)
  *   🎧 SLA     — % de tickets terminés sous le seuil            (sla_review_card.js : slaModel)
  *   😊 Mood    — moyenne des votes du sprint × 20              (store.moodVotes)
@@ -16,7 +16,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, belongedToSprint, isInSprint, belongedToPi, countBlocked, teamCapacity, rosterCtx, wipThreshold, countWip, weatherOf, weatherRel, weatherChurn, churnTrend, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds, meteoScopeThresholds, scopeStability } from '../utils.js';
+import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, engagedInSprint, sprintStartsOf, isInSprint, engagedInPi, countBlocked, teamCapacity, rosterCtx, wipThreshold, countWip, weatherOf, weatherRel, weatherChurn, churnTrend, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds, meteoScopeThresholds, scopeStability } from '../utils.js';
 import { ANOMALY_RULES, healthScore } from '../business_rules.js';
 import { slaModel } from './sla_review_card.js';
 import { helpIconHtml } from './help_popover.js';
@@ -44,9 +44,10 @@ export function computeTeamMeteo(team, {
     const sprint = getSprintForTeam(team, sprintInfoAll);
     const d = {};
 
-    // 🏃 Sprint — engagement = belongedToSprint (reports compris), réalisé = done ET encore dans le sprint.
+    // 🏃 Sprint — engagement = engagedInSprint (reports compris, retraits d'avant-lancement exclus),
+    // réalisé = done ET encore dans le sprint.
     if (sprint?.name) {
-        const engaged = tt.filter(t => belongedToSprint(t, sprint.name, null));
+        const engaged = tt.filter(t => engagedInSprint(t, sprint.name, sprintStartsOf(sprintInfoAll), null));
         const donePts = sumBy(engaged.filter(t => t.status === 'done' && isInSprint(t, sprint.name, null)), t => t.points);
         const allPts = sumBy(engaged, t => t.points);
         const p = allPts ? pctOf(donePts, allPts) : null;
@@ -58,10 +59,10 @@ export function computeTeamMeteo(team, {
         d.sprint = { level: 'none', value: '—', sub: 'aucun sprint actif' };
     }
 
-    // 🗓️ PI — périmètre = belongedToPi, fenêtre = sprints de l'équipe dans ce PI.
+    // 🗓️ PI — périmètre = engagedInPi (retraits d'avant-lancement exclus), fenêtre = sprints de l'équipe dans ce PI.
     const piSprints = (sprintInfoAll?.teamSprints || []).filter(s => s.team === team && extractPiNum(s.name) === piNum);
     if (piNum && piSprints.length) {
-        const scope = tt.filter(t => belongedToPi(t, piNum));
+        const scope = tt.filter(t => engagedInPi(t, piNum, sprintStartsOf(sprintInfoAll)));
         const scopePts = sumBy(scope, t => t.points);
         const donePts = sumBy(scope.filter(t => t.status === 'done' && extractPiNum(t.sprintName || '') === piNum), t => t.points);
         const p = scopePts ? pctOf(donePts, scopePts) : null;

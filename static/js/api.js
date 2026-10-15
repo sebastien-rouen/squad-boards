@@ -202,7 +202,8 @@ export const exportAll       = ()   => request('/api/export');
 // Bundle de configuration curée (sauvegarde .local, 3.198.0) — cf. app/routers/config_bundle.py
 export const exportConfig    = ()   => request('/api/config/export');
 export const importConfig    = data => request('/api/config/import', { method: 'POST', body: JSON.stringify(data || {}) });
-export const importAll       = (data, mode = 'replace') => request('/api/import', {
+// `dryRun` : import complet côté serveur puis annulation — rien n'est écrit (réponse + `current`).
+export const importAll       = (data, mode = 'replace', { dryRun = false } = {}) => request(`/api/import${dryRun ? '?dry_run=1' : ''}`, {
     method: 'POST',
     body: JSON.stringify({ ...data, mode }),
 });

@@ -20,8 +20,7 @@
 
 import {
     esc, pct, percentile, isTicketExcludedFromFlow, STAGE_FLOW_GROUPS, currentStageGroupKey,
-    computeStageAgeRefs, teamCapacity, rosterCtx, wipThreshold, getStatusLabel, extractPiNum, emptyStateHtml,
-} from '../utils.js';
+    computeStageAgeRefs, teamCapacity, rosterCtx, wipThreshold, getStatusLabel, extractPiNum, emptyStateHtml, cycleDays } from '../utils.js';
 import { WIP_STATUSES } from '../config.js';
 import { isPastPi } from '../business_rules.js';
 import { slaModel } from '../components/sla_review_card.js';
@@ -56,7 +55,7 @@ export function buildFlowData(ctx) {
     const weeks = len / (7 * DAY_MS);
     const perWeek = weeks >= 0.5 ? round1(delivered.length / weeks) : null;
 
-    const cts = delivered.map(t => t.cycleTimeDays).filter(v => v > 0);
+    const cts = delivered.map(t => cycleDays(t)).filter(v => v > 0);
     const sla = slaModel(displayPiNum ? teamTickets.filter(t => extractPiNum(t.sprintName || '') <= displayPiNum) : teamTickets);
     const target = sla.target ? round1(sla.target) : null;
     const conform = target ? cts.filter(v => v <= target).length : 0;

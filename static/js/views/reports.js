@@ -5,7 +5,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, sprintScope, carriedOverTo, extractSprintLabel } from '../utils.js';
+import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, sprintScope, sprintStartsOf, carriedOverTo, extractSprintLabel, workdaysLeft } from '../utils.js';
 import { detectSprintsPerPI } from '../utils/pi-weeks.js';
 import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 import { renderPIVelocityChart, renderStatusChart, renderTypeChart, renderBurndown, renderBurnup, renderCycleTime, renderWIPAge } from '../components/charts.js';
@@ -22,6 +22,7 @@ import { B, E, SB, CS } from './reports-fmt.js';
 import { meteoSummary } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
 import { mountTrainMatrix } from '../components/train_matrix.js';
+import { chartCopyBtnHtml, sectionCopyBtnHtml } from '../components/chart_copy.js';   // clics en délégation (initChartCopy)
 
 let _format = 'text';
 let _chartsCollapsed = localStorage.getItem('sb-rpt-charts-collapsed') === 'true';
@@ -53,9 +54,11 @@ export function renderReports(container) {
     // cours » (`_carriedTo` pour qui veut le nommer), sinon tous les `status === 'done'` en aval
     // le créditeraient au sprint.
     const _sprint = reportSprint({ team, sprintInfo, displayPiNum, isCurrentPi: _isCurrentPi });
+    // Démarrages des sprints : un ticket retiré d'un sprint AVANT son lancement n'y est pas engagé.
+    const _starts = sprintStartsOf(sprintInfo);
     const displayTickets = (() => {
         if (!_sprint?.name) return [];
-        const { engaged, done: credited } = sprintScope(tickets, _sprint.name);
+        const { engaged, done: credited } = sprintScope(tickets, _sprint.name, _starts);
         const ok = new Set(credited.map(t => t.id));
         return engaged.map(t => (t.status === 'done' && !ok.has(t.id) ? { ...t, status: 'inprog', _carriedTo: carriedOverTo(t, _sprint.name) } : t));
     })();
@@ -83,7 +86,7 @@ export function renderReports(container) {
         // la section PI Planning : estimé = engagés reports compris, réalisé = terminés DANS le
         // sprint. Avant : nom de sprint ACTUEL du ticket (un reporté quittait son sprint, un ticket
         // fini ailleurs y était crédité) et, sur « Toutes équipes », le groupe était ignoré.
-        const { engaged, done: credited } = sprintScope(tickets, lbl);
+        const { engaged, done: credited } = sprintScope(tickets, lbl, _starts);
         const liveEst  = sumBy(engaged, t => t.points);
         const liveBuf  = sumBy(engaged.filter(_isBuffer), t => t.points);
         const liveReal = sumBy(credited, t => t.points);
@@ -102,15 +105,19 @@ export function renderReports(container) {
     const typeCounts  = {};
     for (const t of displayTickets) typeCounts[t.type] = (typeCounts[t.type] || 0) + 1;
     // Axe des burndown / burnup = dates du sprint AFFICHÉ (avant : sprint global, celui d'Ami).
+    // Jours LOCAUX (et non `slice(0, 10)`, qui prend le jour UTC : une fin à 22:00 Z tombait la veille).
+    const _localDay = v => { const d = new Date(v); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
     const _spDays = _sprint?.startDate && _sprint?.endDate
-        ? Math.max(1, Math.round((new Date(String(_sprint.endDate).slice(0, 10)) - new Date(String(_sprint.startDate).slice(0, 10))) / 86_400_000) + 1)
+        ? Math.max(1, Math.round((_localDay(_sprint.endDate) - _localDay(_sprint.startDate)) / 86_400_000) + 1)
         : null;
-    const sprintCtx   = { startDate: _sprint?.startDate || new Date(Date.now() - 8 * 86400000).toISOString(), durationDays: _spDays || sprintInfo?.durationDays || 14 };
+    // `workdaysOnly` : samedis et dimanches hors de l'axe des graphiques du rapport (charts.js `_axisDays`).
+    const sprintCtx   = { startDate: _sprint?.startDate || new Date(Date.now() - 8 * 86400000).toISOString(), durationDays: _spDays || sprintInfo?.durationDays || 14, workdaysOnly: true };
     const events      = store.get('events') || [];
     const blocked     = displayTickets.filter(t => t.status === 'blocked').length;
     const bufferPts   = sumBy(displayTickets.filter(_isBuffer), t => t.points);
     const bufPct      = pct(bufferPts, totalPts);
-    const daysLeft    = _isCurrentPi && _sprint?.endDate ? Math.max(0, Math.round((new Date(_sprint.endDate) - Date.now()) / 86_400_000)) : null;
+    // Jours OUVRÉS restants, aujourd'hui compris (utils/workdays.js) — avant : jours calendaires, week-end compris.
+    const daysLeft    = _isCurrentPi && _sprint?.endDate ? workdaysLeft(_sprint.endDate) : null;
 
     // `teamTickets` = tickets de l'equipe SANS reduction au PI affiche : la section PI en a
     // besoin pour retrouver le perimetre engage d'un sprint (un reporte porte le sprint
@@ -177,6 +184,13 @@ export function renderReports(container) {
                         <span class="reports-timeline-label">Métriques sprint</span>
                     </a>
                 </li>
+                <li>
+                    <a class="reports-timeline-item" href="#report-sec-train" data-tl="train">
+                        <span class="reports-timeline-dot"></span>
+                        <span class="reports-timeline-icon">🚂</span>
+                        <span class="reports-timeline-label">Le train, semaine par semaine</span>
+                    </a>
+                </li>
                 ${sections.map(s => {
                     const tlUrgent = s.id === 'pifist' && s.dLeft !== null && s.dLeft <= 1;
                     return `<li>
@@ -195,6 +209,7 @@ export function renderReports(container) {
         <details class="report-section report-section--charts" ${_chartsCollapsed ? '' : 'open'} id="report-sec-metriques">
             <summary class="report-section-charts-summary">
                 <span class="report-section-title"><span class="report-section-icon">📊</span>Métriques sprint</span>
+                ${sectionCopyBtnHtml('#report-sec-metriques', `📊 Métriques sprint — ${team === 'all' ? 'Toutes équipes' : team}${_sprint?.name ? ` · ${_sprint.name}` : ''}${_sprint?.startDate && _sprint?.endDate ? ` (${_fmtShortDate(_sprint.startDate)} → ${_fmtShortDate(_sprint.endDate)})` : ''}`)}
                 <svg class="icon icon-sm report-section-chevron"><use href="#i-chevron-down"/></svg>
             </summary>
 
@@ -232,30 +247,31 @@ export function renderReports(container) {
                 <div class="rpt-kpi-chip${daysLeft <= 2 ? ' rpt-kpi-chip--warn' : ''}">
                     <span class="rpt-kpi-label">Jours restants</span>
                     <span class="rpt-kpi-value">${daysLeft}</span>
-                    <span class="rpt-kpi-sub">${daysLeft === 0 ? 'Sprint terminé' : daysLeft === 1 ? 'Dernier jour' : 'jours'}</span>
+                    <span class="rpt-kpi-sub" title="Jours ouvrés (ni week-end ni férié), aujourd'hui compris">${daysLeft === 0 ? 'Sprint terminé' : daysLeft === 1 ? 'Dernier jour' : 'jours ouvrés'}</span>
                 </div>` : ''}`;
                 })()}
             </div>
 
             <!-- Row 1: Statuts + Types -->
             <div class="dashboard-grid mb-4">
-                <div class="card"><div class="card-header"><span class="card-title">Statuts</span></div><div class="chart-container chart-h-sm"><canvas id="chart-rpt-status"></canvas></div></div>
-                <div class="card"><div class="card-header"><span class="card-title">Types</span></div><div class="chart-container chart-h-sm"><canvas id="chart-rpt-types"></canvas></div></div>
+                <div class="card"><div class="card-header"><span class="card-title">Statuts</span>${chartCopyBtnHtml('chart-rpt-status')}</div><div class="chart-container chart-h-sm"><canvas id="chart-rpt-status"></canvas></div></div>
+                <div class="card"><div class="card-header"><span class="card-title">Types</span>${chartCopyBtnHtml('chart-rpt-types')}</div><div class="chart-container chart-h-sm"><canvas id="chart-rpt-types"></canvas></div></div>
             </div>
 
             <!-- Row 2: Burndown + Burnup -->
             <div class="dashboard-grid mb-4">
-                <div class="card"><div class="card-header"><span class="card-title">Burndown</span></div><div class="chart-container chart-h-sm"><canvas id="chart-rpt-burndown"></canvas></div></div>
-                <div class="card"><div class="card-header"><span class="card-title">Burnup</span></div><div class="chart-container chart-h-sm"><canvas id="chart-rpt-burnup"></canvas></div></div>
+                <div class="card"><div class="card-header"><span class="card-title">Burndown</span>${chartCopyBtnHtml('chart-rpt-burndown')}</div><div class="chart-container chart-h-sm"><canvas id="chart-rpt-burndown"></canvas></div></div>
+                <div class="card"><div class="card-header"><span class="card-title">Burnup</span>${chartCopyBtnHtml('chart-rpt-burnup')}</div><div class="chart-container chart-h-sm"><canvas id="chart-rpt-burnup"></canvas></div></div>
             </div>
 
             <!-- Row 3: Cycle Time + Vélocité PI -->
             <div class="dashboard-grid mb-4">
-                <div class="card"><div class="card-header"><span class="card-title">Cycle Time</span></div><div class="chart-container chart-h-sm"><canvas id="chart-rpt-cycletime"></canvas></div></div>
+                <div class="card"><div class="card-header"><span class="card-title">Cycle Time du sprint</span>${chartCopyBtnHtml('chart-rpt-cycletime')}</div><div class="chart-container chart-h-sm"><canvas id="chart-rpt-cycletime"></canvas></div></div>
                 <div class="card">
                     <div class="card-header">
                         <span class="card-title">Vélocité PI${_piNum ? ` ${_piNum}` : ''}</span>
                         ${piInfo?.velocityTarget ? `<span style="font-size:var(--fs-xs);color:var(--warning)">Objectif : ${piInfo.velocityTarget} pts/sprint</span>` : ''}
+                        ${_piLabels.length ? chartCopyBtnHtml('chart-rpt-velocity') : ''}
                     </div>
                     ${_piLabels.length
                         ? `<div class="chart-container chart-h-sm"><canvas id="chart-rpt-velocity"></canvas></div>`
@@ -333,7 +349,15 @@ export function renderReports(container) {
         </div>
     `;
 
-    mountTrainMatrix(container.querySelector('#train-matrix-host'));
+    // PI AFFICHÉ, groupe du topbar (ses équipes seules), équipe sélectionnée (ligne mise en avant).
+    mountTrainMatrix(container.querySelector('#train-matrix-host'), {
+        piNum: displayPiNum, team: team && team !== 'all' ? team : '',
+        teams: (() => {
+            const groupId = store.get('group');
+            const g = groupId ? (store.get('groups') || []).find(x => x.id === groupId) : null;
+            return g?.teams?.length ? teams.filter(t => g.teams.includes(t)) : null;
+        })(),
+    });
     container.querySelectorAll('[data-fmt]').forEach(btn => {
         btn.addEventListener('click', () => {
             if (btn.dataset.fmt === _format) return;  // déjà actif → rien à faire
@@ -475,7 +499,9 @@ export function renderReports(container) {
         // Périmètre du sprint affiché (avant : `tickets`, tout l'historique de l'équipe).
         renderBurndown('chart-rpt-burndown', displayTickets, sprintCtx, events);
         renderBurnup('chart-rpt-burnup', displayTickets, sprintCtx, events);
-        renderCycleTime('chart-rpt-cycletime', tickets);
+        // Terminés DANS le sprint affiché (un reporté fini ailleurs y est « en cours ») — avant : `tickets`,
+        // tout l'historique de l'équipe (≈ 1 an), percentiles compris, sous le titre « Métriques sprint ».
+        renderCycleTime('chart-rpt-cycletime', displayTickets);
         if (piVelocityData.length) renderPIVelocityChart('chart-rpt-velocity', piVelocityData, piInfo?.velocityTarget);
     };
 

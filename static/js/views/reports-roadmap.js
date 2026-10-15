@@ -14,14 +14,15 @@
  * pas un livrable : comptées à part.
  *
  * ── Burnup du PI ── (remplace l'« Epic Burndown », vide pour toutes les équipes pour la raison
- * ci-dessus). Périmètre = `belongedToPi` (reports compris) ; réalisé = terminé ET resté dans un
+ * ci-dessus). Périmètre = `engagedInPi` (reports compris, retraits d'avant-lancement exclus) ; réalisé = terminé ET resté dans un
  * sprint du PI (règle engagement / réalisé de sprint-scope.js — un ticket du PI fini plus tard
  * ailleurs n'est pas crédité ici). Séries : `burnSeries` (utils/burn.js) via `renderBurnup`, le
- * même calcul que les burnups de sprint : périmètre daté à la CRÉATION du ticket.
+ * même calcul que les burnups de sprint, mais périmètre daté à l'ENTRÉE du ticket dans le PI (`piEntryMs`,
+ * sinon sa création) : daté à la création, un ticket ancien tiré en cours de PI passait pour « initial ».
  */
 
 import {
-    esc, pct, sumBy, extractPiNum, isBufferItem, rollupStatus, weatherRel, belongedToPi,
+    esc, pct, sumBy, extractPiNum, isBufferItem, rollupStatus, weatherRel, engagedInPi, sprintStartsOf, piEntryMs,
     burnSeries, burnDayKey, METEO_GLYPH, METEO_LABEL, emptyStateHtml,
 } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
@@ -203,21 +204,26 @@ export const ROADMAP_GENERATOR = { text: textReport, slack: slackReport, conflue
 // ══════════════════════════════════════════════════════════════════════════════
 
 /** Périmètre du PI et tickets « tels que crédités » : un terminé hors du PI redevient en cours. */
-function burnupTickets({ teamTickets = [], displayPiNum: piNum }) {
-    return teamTickets.filter(t => belongedToPi(t, piNum)).map(t =>
+function burnupTickets({ teamTickets = [], displayPiNum: piNum, sprintInfo }) {
+    const starts = sprintStartsOf(sprintInfo);
+    return teamTickets.filter(t => engagedInPi(t, piNum, starts)).map(t =>
         (t.status === 'done' && extractPiNum(t.sprintName || '') !== piNum ? { ...t, status: 'inprog' } : t));
 }
+
+/** Jour d'ENTRÉE d'un ticket dans le périmètre du PI (AAAA-MM-JJ), '' = dès le premier jour. */
+const piEntryDay = piNum => t => { const ms = piEntryMs(t, piNum); return Number.isFinite(ms) ? burnDayKey(new Date(ms)) : ''; };
 
 export function buildBurnupData(ctx) {
     const w = ctx.piWindow;
     if (!ctx.displayPiNum || !w) return null;
     const tickets = burnupTickets(ctx);
+    const entryDay = piEntryDay(ctx.displayPiNum);
     // setDate et non `+ i × 24 h` : au passage à l'heure d'hiver, minuit + 24 h retombe la veille.
     const days = Array.from({ length: w.days }, (_, i) => { const x = new Date(w.start); x.setDate(x.getDate() + i); return burnDayKey(x); });
-    const s = burnSeries({ engaged: tickets, done: tickets.filter(t => t.status === 'done'), days, today: burnDayKey(new Date()) });
+    const s = burnSeries({ engaged: tickets, done: tickets.filter(t => t.status === 'done'), days, today: burnDayKey(new Date()), entryDay });
     const initial = s.scopeAt[0] ?? s.total;
     // Même série en TICKETS : souvent plus de la moitié du périmètre n'est pas estimée.
-    const c = burnSeries({ engaged: tickets, done: tickets.filter(t => t.status === 'done'), days, today: burnDayKey(new Date()), val: () => 1 });
+    const c = burnSeries({ engaged: tickets, done: tickets.filter(t => t.status === 'done'), days, today: burnDayKey(new Date()), val: () => 1, entryDay });
     // Projection linéaire au rythme observé — seulement une fois le PI bien entamé.
     const projected = !w.over && !w.future && w.elapsed >= 15 ? Math.round(s.done / (w.elapsed / 100)) : null;
     return {
@@ -252,7 +258,7 @@ export function piBurnupHtml(ctx) {
                 ? 'Au rythme actuel, le périmètre d’aujourd’hui serait bouclé avant la fin du PI. '
                 : `Au rythme actuel : ~${d.projected} pts réalisés à la fin du PI sur ${d.total} (${pct(d.projected, d.total)} %). `}
             ${d.unestimated ? `${d.unestimated} ticket${plural(d.unestimated)} sans estimation, non compté${plural(d.unestimated)}. ` : ''}
-            Périmètre = tickets passés par un sprint du PI, datés à leur création ; réalisé = terminé dans un sprint du PI.
+            Périmètre = tickets passés par un sprint du PI (hors retraits avant son lancement), datés à leur entrée dans le PI (sinon à leur création) ; samedis, dimanches et fériés hors de l’axe ; réalisé = terminé dans un sprint du PI.
         </p>
     </div>`;
 }
@@ -263,5 +269,7 @@ export function mountPiBurnup(ctx) {
     if (!w || !document.getElementById('chart-rpt-piburnup')) return;
     // Départ à 1 h : l'axe de charts.js avance de 24 h en 24 h, et un PI de 10 semaines traverse
     // souvent un changement d'heure — depuis minuit, un jour sauterait.
-    renderBurnup('chart-rpt-piburnup', burnupTickets(ctx), { startDate: new Date(w.start + DAY_MS / 24).toISOString(), durationDays: w.days }, []);
+    // `workdaysOnly` : samedis et dimanches hors de l'axe (charts.js `_axisDays`).
+    renderBurnup('chart-rpt-piburnup', burnupTickets(ctx), { startDate: new Date(w.start + DAY_MS / 24).toISOString(), durationDays: w.days, workdaysOnly: true }, [],
+        { entryDay: piEntryDay(ctx.displayPiNum) });   // périmètre daté à l'entrée dans le PI, comme les indicateurs
 }

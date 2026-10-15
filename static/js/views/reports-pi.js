@@ -6,7 +6,7 @@
  *   2. le détail sprint par sprint — User Stories et Buffer, titre + story points.
  *
  * ⚠️ Périmètre d'un sprint : source unique `sprintScope()` (utils/sprint-scope.js), qui
- * porte la règle engagement (`belongedToSprint`) / réalisé (`isInSprint` + done). On part
+ * porte la règle engagement (`engagedInSprint`) / réalisé (`isInSprint` + done). On part
  * donc de `teamTickets` (TOUS les tickets de l'équipe) et jamais des tickets déjà réduits
  * au PI affiché : un ticket reporté porte le sprint d'ARRIVÉE, souvent d'un autre PI, et
  * disparaîtrait de son sprint d'engagement.
@@ -19,7 +19,7 @@
  */
 
 import {
-    esc, sumBy, pct, isBufferItem, sprintScope, carriedOverTo,
+    esc, sumBy, pct, isBufferItem, sprintScope, carriedOverTo, sprintStartsOf,
     extractSprintLabel, resolvePiObjectives, breathIdxOf, sprintNamesOf, getStatusLabel,
 } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
@@ -39,7 +39,7 @@ const plural = (n, s = 's') => (n > 1 ? s : '');
  * @param {object} ctx contexte de rendu de reports.js
  */
 export function buildPiData(ctx) {
-    const { piInfo, team, teamTickets = [], displayPiNum = 0, isCurrentPi = true } = ctx;
+    const { piInfo, sprintInfo, team, teamTickets = [], displayPiNum = 0, isCurrentPi = true } = ctx;
 
     // ── Objectifs du PI affiché, filtrés sur l'équipe ────────────────────────
     const allObjs = resolvePiObjectives({ piInfo, piNum: displayPiNum, isCurrentPi })
@@ -80,8 +80,10 @@ export function buildPiData(ctx) {
         ? Array.from({ length: Math.max(perPi, breathIdx) }, (_, i) => `${displayPiNum}.${i + 1}`)
         : [];
 
+    // Démarrages des sprints : un ticket retiré d'un sprint AVANT son lancement n'y est pas engagé.
+    const starts = sprintStartsOf(sprintInfo);
     const sprints = labels.map((label, i) => {
-        const { engaged, done } = sprintScope(teamTickets, label);
+        const { engaged, done } = sprintScope(teamTickets, label, starts);
         const doneIds = new Set(done.map(t => t.id));
         const split = kind => {
             const items = engaged.filter(kind === 'buffer' ? isBufferItem : t => !isBufferItem(t));
@@ -270,12 +272,15 @@ function htmlReport(ctx) {
  * un reporté terminé ailleurs est marqué ↪ et sa destination nommée — le cocher ici
  * présenterait comme tenu un engagement qui ne l'a pas été.
  */
+/** Titres et sous-titres du format texte en MAJUSCULES (accents gardés : « ÉQUIPES »). */
+const UP = s => String(s).toLocaleUpperCase('fr-FR');
+
 function textReport(ctx) {
     const d = buildPiData(ctx);
     if (!d.piNum) return "🗓️ PI\n\nAucun PI identifié — configurer « Sprint & PI » dans les Paramètres.";
 
     const ptsPct = pct(d.piDonePts, d.piPts);
-    let r = `🗓️ PI #${d.piNum} — ${d.teamLabel}${d.isCurrentPi ? ' (PI courant)' : ''}\n\n`;
+    let r = `🗓️ ${UP(`PI #${d.piNum} — ${d.teamLabel}${d.isCurrentPi ? ' (PI courant)' : ''}`)}\n\n`;
     r += `- 🎯 Objectifs : ${d.objDone}/${d.objectives.length} atteint${plural(d.objDone)}\n`;
     if (d.score != null) r += `- 🏆 Prédictibilité : ${d.score} %\n`;
     r += `- 💎 Story points : ${d.piDonePts}/${d.piPts} (${ptsPct} %)\n`;
@@ -290,12 +295,11 @@ function textReport(ctx) {
         return `- ${icon} ${o.text}${bv(o) ? ` (💰 ${bv(o)})` : ''}\n`;
     }).join('');
 
-    if (d.objectives.length || d.crossTeam.length) r += `\n🎯 PI Objectifs\n`;
-    if (d.committed.length) {
-        r += `\nEngagements${d.bvCommitted ? ` — ${d.bvCommitted} BV` : ''}\n${objLines(d.committed)}`;
-    }
-    if (d.stretch.length) r += `\nExtension (stretch)\n${objLines(d.stretch)}`;
-    if (d.crossTeam.length) r += `\nTransverses (sans équipe)\n${objLines(d.crossTeam)}`;
+    // Titre sur UNE ligne, BV engagé compris ; sous-titres collés à leur titre (pas de ligne vide).
+    if (d.objectives.length || d.crossTeam.length) r += `\n🎯 ${UP('PI Objectifs')}${d.bvCommitted ? ` (${d.bvCommitted} BV)` : ''}\n`;
+    if (d.committed.length) r += `${UP('Engagements')}\n${objLines(d.committed)}`;
+    if (d.stretch.length) r += `${UP('Extension (stretch)')}\n${objLines(d.stretch)}`;
+    if (d.crossTeam.length) r += `${UP('Transverses (sans équipe)')}\n${objLines(d.crossTeam)}`;
     if (!d.objectives.length) r += `\nAucun objectif défini pour ${d.teamLabel} sur le PI ${d.piNum}.\n`;
 
     // ── Détail par sprint ────────────────────────────────────────────────────
@@ -306,11 +310,11 @@ function textReport(ctx) {
     }
     for (const s of filled) {
         const p = pct(s.donePts, s.pts);
-        r += `\n${s.isBreath ? '🍃' : '📆'} Sprint ${s.label}${s.isBreath ? ' (respiration)' : ''}`;
+        r += `\n${s.isBreath ? '🍃' : '📆'} ${UP(`Sprint ${s.label}${s.isBreath ? ' (respiration)' : ''}`)}`;
         r += ` — ${s.donePts}/${s.pts} pts (${p} %)\n`;
         for (const [grp, icon, name] of [[s.us, '📝', 'User Stories'], [s.buffer, '🔄', 'Buffer']]) {
             if (!grp.items.length) continue;
-            r += `\n${icon} ${name} — ${grp.done}/${grp.items.length} terminé${plural(grp.done)}, ${grp.donePts}/${grp.pts} pts\n`;
+            r += `${icon} ${UP(name)}\n`;   // collé au titre du sprint (plus de ligne vide)
             for (const t of grp.items) {
                 const dest = carriedOverTo(t, s.label);
                 const icon2 = s.doneIds.has(t.id) ? '✅' : dest ? '↪️' : (TEXT_ICON[t.status] || '⬜');

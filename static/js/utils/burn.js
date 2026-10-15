@@ -28,12 +28,15 @@ const sum = (list, f) => list.reduce((s, x) => s + (Number(f(x)) || 0), 0);
  * @param {object[]} o.engaged  périmètre engagé (tous les tickets du sprint)
  * @param {object[]} o.done     tickets terminés comptés comme réalisés
  * @param {string[]} o.days     jours de l'axe (AAAA-MM-JJ, croissants)
+ * @param {Function} [o.entryDay] jour d'ENTRÉE d'un ticket dans le périmètre (AAAA-MM-JJ, '' = dès le
+ *                              1er jour) — sa création par défaut ; le Burnup du PI passe son entrée dans le
+ *                              PI (`piEntryMs`), sinon un ticket ancien tiré en cours de PI compte comme initial.
  * @param {string}   o.today    jour courant (AAAA-MM-JJ) — la série s'arrête là
  * @param {Function} [o.val]    poids d'un ticket (points par défaut ; `() => 1` pour compter)
  * @returns {{ shown: string[], slot: Function, doneSlot: Function, total: number, real: number[],
  *             doneDay: number[], scopeAt: number[], addedDay: number[], remaining: number, done: number }}
  */
-export function burnSeries({ engaged = [], done = [], days = [], today, val = t => t.points || 0 }) {
+export function burnSeries({ engaged = [], done = [], days = [], today, val = t => t.points || 0, entryDay = createdDay }) {
     const start = days[0];
     const shown = days.filter(d => d <= today);
     // Avant le sprint → 1er jour ; entre deux jours de l'axe (week-end en jours ouvrés) → jour suivant.
@@ -45,7 +48,7 @@ export function burnSeries({ engaged = [], done = [], days = [], today, val = t 
     const doneDay = shown.map(d => sum(slots.filter(([s]) => s === d), ([, v]) => v));
     const real = [];
     doneDay.reduce((acc, v) => { const left = acc - v; real.push(left); return left; }, total);
-    const scopeAt = shown.map(d => sum(engaged.filter(t => !createdDay(t) || slot(createdDay(t)) <= d), val));
+    const scopeAt = shown.map(d => sum(engaged.filter(t => !entryDay(t) || slot(entryDay(t)) <= d), val));
     const addedDay = scopeAt.map((v, i) => (i ? Math.max(0, v - scopeAt[i - 1]) : 0));
     const remaining = real.at(-1) ?? total;
     return { shown, slot, doneSlot, total, real, doneDay, scopeAt, addedDay, remaining, done: total - remaining };

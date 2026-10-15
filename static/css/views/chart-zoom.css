@@ -260,55 +260,60 @@ body.chart-zoom-lock { overflow: hidden; }
     height: 100% !important;
 }
 
-/* ── Légende / explication ──────────────────────────────────────────────────── */
+/* ── Légende / explication : PANNEAU LATÉRAL (bouton « ? » de l'en-tête) ─────────
+   Avant : un <details> sous le graphique, qui lui prenait sa hauteur une fois déplié. Le panneau prend
+   de la largeur, et la popin s'élargit d'autant : le graphique garde sa taille. État mémorisé
+   (localStorage `sb-chart-zoom-explain`, chart_zoom.js). */
+.chart-zoom-main {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+.chart-zoom-main .chart-zoom-canvas-wrap { min-width: 0; }
+.chart-zoom-dialog:has(.chart-zoom-explain:not([hidden])) { width: min(1460px, 97vw); }
 .chart-zoom-explain {
+    flex: 0 0 360px;
     display: flex;
     flex-direction: column;
     gap: var(--sp-2);
-    padding: var(--sp-4) var(--sp-5);
-    border-top: 1px solid var(--border);
+    padding: var(--sp-4);
+    border-left: 1px solid var(--border);
     background: var(--bg-alt);
     overflow-y: auto;
 }
-.chart-zoom-explain:empty { display: none; }
-
-/* Légende repliable (<details> natif, dépliée par défaut). */
-.chart-zoom-explain-summary {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
+.chart-zoom-explain[hidden] { display: none; }
+.chart-zoom-explain-title {
+    margin: 0;
     font-size: var(--fs-sm);
     font-weight: var(--fw-semibold);
-    color: var(--text-secondary);
-    cursor: pointer;
-    list-style: none;
-    user-select: none;
+    color: var(--text);
 }
-.chart-zoom-explain-summary::-webkit-details-marker { display: none; }
-.chart-zoom-explain-summary:hover { color: var(--text); }
-.chart-zoom-explain-caret {
-    width: 16px;
-    height: 16px;
-    flex: none;
-    transition: transform var(--tr-base);
+/* Bouton « ? » : actif = panneau ouvert. */
+.chart-zoom-help { font-weight: 700; font-size: var(--fs-base); }
+.chart-zoom-help[aria-expanded="true"] { background: var(--primary); border-color: var(--primary); color: var(--text-inverse); }
+/* Écran étroit : le panneau passe PAR-DESSUS le graphique (sinon il l'écraserait). */
+@media (max-width: 900px) {
+    .chart-zoom-explain {
+        position: absolute; inset: 0 0 0 auto; z-index: 5;
+        width: min(360px, 92%);
+        box-shadow: var(--shadow-xl);
+    }
 }
-.chart-zoom-explain-details[open] .chart-zoom-explain-caret { transform: rotate(90deg); }
-.chart-zoom-explain-summary:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-    border-radius: var(--r-sm);
-}
+
 .chart-zoom-explain-body {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: var(--sp-2);
-    margin-top: var(--sp-3);
 }
 
 .chart-zoom-explain-row {
     display: flex;
     gap: var(--sp-3);
     align-items: flex-start;
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--surface-2);
+    border-radius: var(--r-md);
 }
 /* Le bloc texte (p + liste éventuelle) prend la largeur restante et empile ses enfants. */
 .chart-zoom-explain-row > div {
@@ -335,6 +340,7 @@ body.chart-zoom-lock { overflow: hidden; }
     padding-left: var(--sp-4);
     list-style: none;
 }
+.chart-zoom-explain-list li + li { margin-top: 3px; }
 .chart-zoom-explain-list li {
     position: relative;
     font-size: var(--fs-sm);
@@ -364,3 +370,9 @@ body.chart-zoom-lock { overflow: hidden; }
     .chart-zoom-btn { transition: none; }
     .chart-zoom-dialog { transform: none; }
 }
+
+/* ── Copier l'image d'un graphique (chart_copy.js) — bouton d'en-tête de carte ── */
+.chart-copy-btn { flex: 0 0 auto; }   /* poussé à droite par le space-between de .card-header */
+/* Bouton flottant « copier », à gauche du bouton « agrandir » (même apparence, révélé au survol). */
+.chart-copy-float { right: calc(var(--sp-2) + 36px); }
+@media print { .chart-copy-btn, .chart-copy-float, .section-copy-btn { display: none; } }

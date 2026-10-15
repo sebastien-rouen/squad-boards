@@ -5,7 +5,7 @@
  */
 
 import * as api from './api.js';
-import { mapStatus, mapType, extractTeam, parseWikiMarkup } from './utils.js';
+import { mapStatus, mapType, extractTeam, parseWikiMarkup, workdayDurationDays } from './utils.js';
 import { CYCLE_START_STATUSES, CYCLE_END_STATUS } from './config.js';
 import { forcedStatus } from './utils/status-override.js';
 
@@ -111,6 +111,9 @@ export function transformIssue(issue, teamName, sprint, storyPointsField, boardS
     // Durées cumulées (jours) passées dans chaque statut JIRA brut — rejoue tout le changelog
     // pour l'indicateur de flux par colonne (Dashboard/PI Planning). Un statut revisité plusieurs
     // fois voit ses durées additionnées. Clé = libellé JIRA brut normalisé (minuscules, trim).
+    // Jours OUVRÉS (3.216.0, `workdayDurationDays`) : les heures d'un week-end ou d'un férié ne
+    // comptent plus. ⚠️ Valeur figée à l'import : les sprints clos archivés gardent l'ancien
+    // calcul (calendaire) jusqu'à « Tout réimporter depuis JIRA ».
     const stageDurations = {};
     if (issue.changelog?.histories?.length) {
         const statusChanges = [];
@@ -127,7 +130,7 @@ export function transformIssue(issue, teamName, sprint, storyPointsField, boardS
         statusChanges.sort((a, b) => new Date(a.date) - new Date(b.date));
         const _addDuration = (name, fromMs, toMs) => {
             if (!name || !(toMs > fromMs)) return;
-            stageDurations[name] = Math.round(((stageDurations[name] || 0) + (toMs - fromMs) / msPerDay) * 10) / 10;
+            stageDurations[name] = Math.round(((stageDurations[name] || 0) + workdayDurationDays(fromMs, toMs)) * 10) / 10;
         };
         let curStatus = statusChanges[0]?.from || jiraStatusName.toLowerCase().trim();
         let curSinceMs = new Date(f.created).getTime();
@@ -210,7 +213,9 @@ const _CHANGE_FIELDS_SKIP = new Set([
 // planifiée "au lancement" (cf. _pointsAtLaunch dans health.js) — un changement Story Points
 // ancien noyé sous 8+ changements de statut/assignee plus récents serait sinon perdu, et la
 // vélocité planifiée resterait fausse même après resync (footgun GDEM-1777 : 3→5 pts invisible).
-const _CHANGE_FIELDS_KEEP_ALL = new Set(['story points', 'sprint']);
+// `status` et `flagged` (3.216.0) : historique COMPLET pour les périodes de blocage (frises Cycle
+// Time / WIP Age, charts.js) — tronqué, un blocage ancien devenait « durée inconnue ».
+const _CHANGE_FIELDS_KEEP_ALL = new Set(['story points', 'sprint', 'status', 'flagged']);
 
 function _extractRecentChanges(issue, max = 8) {
     const histories = issue?.changelog?.histories || [];
@@ -235,9 +240,10 @@ function _extractRecentChanges(issue, max = 8) {
             (_CHANGE_FIELDS_KEEP_ALL.has(fieldKey) ? kept : other).push(entry);
         }
     }
-    // `other` complète jusqu'au quota ; `kept` (Story Points/Sprint) n'est jamais tronqué.
-    const remaining = Math.max(0, max - kept.length);
-    return [...kept, ...other.slice(0, remaining)]
+    // `kept` (Story Points, Sprint, statut, drapeau) n'est jamais tronqué ; `other` garde ses `max` derniers.
+    // Les autres champs gardent leurs `max` changements les plus récents, QUEL QUE SOIT le volume de
+    // `kept` : depuis que les statuts y sont, un quota « max − kept » aurait évincé responsable, priorité…
+    return [...kept, ...other.slice(0, max)]
         .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 }
 

@@ -81,6 +81,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Filtres : `team_timeline_prefs.js` (localStorage `sb-team-tl-prefs-by-team`, PAR ÉQUIPE + marqueur d'URL `~frise=`, retiré
   par `applyHash` AVANT tout autre marqueur — valeur sans « / » ni « ~ »).
   Miroir : `static/mockups/team-timeline/`.
+  Matrice « 🚂 Le train » des Rapports (`train_matrix.js`, 3.216.0) : `mountTrainMatrix(el, { piNum, team, teams })`
+  — PI AFFICHÉ via `presets(piNum)` (sans argument = PI d'aujourd'hui, pour la frise), groupe → ses équipes.
 - **Sprint d'une équipe** : `getSprintForTeam` — sprint rangé sous une fausse équipe
   (`team: 'F - itération 31.2'` pour Fuego) → sprint actif retrouvé via les tickets
   (`activeSprintFromTickets`). Sans lui : sprint de 2024 et PI courant faux (20 au lieu de 31).
@@ -139,7 +141,11 @@ python main.py          # http://localhost:3001  — Swagger /docs
   vient de `belongedToSprint()` (union des `to` des changements de champ `Sprint` dans
   `recentChanges`, mémoïsée par WeakMap).
   **RÈGLE À NE JAMAIS INVERSER** : l'**engagement** (`all`, `planTk`, `planPts`, `bufPlan*`,
-  cartes du Dashboard, `_ticketsOfSprint`) utilise `belongedToSprint()` ; le **réalisé**
+  cartes du Dashboard, `_ticketsOfSprint`) utilise `engagedInSprint(t, nom, sprintStartsOf(sprintInfo))`
+  (3.216.0) = `belongedToSprint()` MOINS les retraits d'avant-lancement — sans `starts`, un ticket
+  planifié puis déplacé avant le démarrage compte (Fuego 31.1 : 145 pts au lieu de 20) ;
+  `sprintScope(tickets, nom, starts)` idem ; périmètre d'un PI = `engagedInPi(t, PI, starts)`
+  (`belongedToPi` seul = mesures de DURÉE uniquement). Le **réalisé**
   (`done`, `bufDone`, vélocité, `_sprintStats`) exige `isInSprint()` **en plus** du statut
   `done` — sinon un sprint est crédité de travail fini après sa clôture.
   Colonnes « prévu » de Health (tickets / vélocité / Buffer engagés **au lancement**, et leur
@@ -470,7 +476,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
   de l'Epic Burndown, remplacé par le Burnup du PI (`#…/epicburn` redirigé vers `piburnup`).
   ⚠️ Bornes d'un PI = UNIQUEMENT `piBounds` ([utils/pi-weeks.js](static/js/utils/pi-weeks.js), 3.214.0) :
   dernier sprint de l'ÉQUIPE, sinon date MÉDIANE de ce sprint dans le train — une équipe crée ses
-  derniers sprints JIRA en cours de PI (Initiale au PI 31 : « 97 % écoulé » à mi-PI). Rapport, matrice
+  derniers sprints JIRA en cours de PI (Initiale au PI 31 : « 97 % écoulé » à mi-PI).
+  ⚠️ FIN (3.216.0) : dates réelles seulement si ce dernier sprint a DÉMARRÉ (actif / clos) ; futur →
+  CADENCE projetée (`projectedPiSprints`), les dates prévisionnelles JIRA pouvant être fausses
+  (Gabbiano : 31.5 au 30/11, PI fini le 13/11). Fin ramenée au dernier jour OUVRÉ. Rapport, matrice
   météo, détail TV et prévisions la partagent : jamais `sprints.map(s => s.endDate).sort().at(-1)`.
   Vélocité PI du rapport = `sprintScope` par clé « NN.N » (mêmes chiffres que la section PI Planning).
   Équipe(s) = `reports-teams.js` (présence via les helpers exportés de `meteo_fiche.js`) ; Rapport
@@ -516,6 +525,26 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Côté front, `_refreshPooled()` ([cal_banner.js](static/js/components/cal_banner.js)) borne
   la concurrence à 4 et sert `syncCalendars()` ET la modale semaine — ne pas revenir à un
   `Promise.allSettled(list.map(...))` nu. Le toast d'échec NOMME les calendriers fautifs.
+- **Durées de flux en jours OUVRÉS** (3.216.0) : Cycle / Lead Time et âge du WIP = UNIQUEMENT
+  `cycleDays(t)` / `leadDays(t)` / `wipAgeDays()` ([utils/workdays.js](static/js/utils/workdays.js)) —
+  ⚠️ `t.cycleTimeDays` / `t.leadTimeDays` sont CALENDAIRES en base (sync-parse.js) : ne jamais les lire
+  en direct (sauf `> 0` = « dans les métriques de flux », que les helpers préservent).
+- **Historique des tickets** (3.216.0) : `recentChanges` garde TOUS les changements de `story points`,
+  `sprint`, `status` et `flagged` (`_CHANGE_FIELDS_KEEP_ALL`, sync-parse.js) + les 8 derniers des autres
+  champs. Périodes de blocage = UNIQUEMENT `_blockedIntervals` (charts.js) : drapeau OU statut « bloqué ».
+  La liste est triée du plus RÉCENT au plus ancien : jamais `slice(-N)` pour « les N derniers ».
+- **Durées par colonne** (3.216.0) : `stageDurations` en jours OUVRÉS dès la synchro (`workdayDurationDays`) ;
+  les sprints clos archivés gardent l'ancien calcul tant qu'un « Tout réimporter » n'est pas passé.
+- **Test d'import** (3.216.0) : `POST /api/import?dry_run=1` = `import_body(..., commit=False)` (flush) puis
+  rollback. ⚠️ `import_body` ne doit committer QU'À LA FIN — un commit intermédiaire rendrait le test
+  destructeur. L'import en mode Remplacer passe par `confirmDanger`.
+- **Import CSV / .zip d'un export** (3.216.0) : UNIQUEMENT `csvTextToRows` ([settings-io-csv.js](static/js/views/settings-io-csv.js)) —
+  cellules multi-lignes, `""` ≠ cellule vide (`None`), booléens Python. Ne jamais redécouper en lignes avant les guillemets.
+- **Axe des graphiques du rapport** (3.216.0) : jours OUVRÉS (week-ends ET fériés) — `workdaysOnly: true` dans l'objet sprint
+  passé à `renderBurndown` / `renderBurnup` (charts.js `_axisDays`, repère du jour et évènements placés
+  par DATE). Le Board reste calendaire : ne pas poser le drapeau ailleurs sans le demander.
+- **Burnup du PI** (3.216.0) : périmètre daté à l'ENTRÉE dans le PI (`burnSeries({ entryDay })` +
+  `piEntryMs`), jamais à la création — un ticket ancien tiré en cours de PI n'est pas « initial ».
 - **Burndown / burnup réels** (3.195.0) : UNIQUEMENT `burnSeries()` ([utils/burn.js](static/js/utils/burn.js),
   via le barrel) — Board / Rapports / modale de sprint (`charts.js`, axe calendaire) ET TV
   (`tv-sprint.js`, jours ouvrés, fantôme du sprint précédent). Jamais de droite interpolée

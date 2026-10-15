@@ -10,10 +10,10 @@
  *                exactement le moment de le dire
  *   inconnu    → ⚪ à planifier
  *
- * Rien n'est inventé : sprints JIRA (`sprintInfo.teamSprints`), `belongedToPi`, `piCapacityBase`.
+ * Rien n'est inventé : sprints JIRA (`sprintInfo.teamSprints`), `engagedInPi`, `piCapacityBase`.
  */
 
-import { esc, pct as pctOf, sumBy, extractPiNum, belongedToPi, piCapacityBase, lastKnownAbsenceDate, deriveMembersFromAbsences, teamNameMatches, weatherOf, weatherRel, elapsedPct, METEO_GLYPH, METEO_LABEL } from '../utils.js';
+import { esc, pct as pctOf, sumBy, extractPiNum, engagedInPi, sprintStartsOf, piCapacityBase, lastKnownAbsenceDate, deriveMembersFromAbsences, teamNameMatches, weatherOf, weatherRel, elapsedPct, METEO_GLYPH, METEO_LABEL } from '../utils.js';
 import { helpIconHtml } from './help_popover.js';
 import { meteoScaleHtml } from './meteo_matrix.js';
 import { piBounds } from '../utils/pi-weeks.js';
@@ -45,7 +45,7 @@ export function computePiForecast(n, current, { teams, tickets = [], features = 
         return r;
     }
     if (state === 'current') {
-        const scope = scoped.filter(t => belongedToPi(t, n));
+        const scope = scoped.filter(t => engagedInPi(t, n, sprintStartsOf(sprintInfoAll)));
         r.committed = sumBy(scope, t => t.points);
         r.delivered = sumBy(scope.filter(t => t.status === 'done' && extractPiNum(t.sprintName || '') === n), t => t.points);
         // Bornes = `piBounds` (source unique) ; plusieurs équipes → médianes du train.

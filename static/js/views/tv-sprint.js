@@ -18,7 +18,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, sprintScope, sumBy, burnSeries, resolvedDay, createdDay, emptyStateHtml } from '../utils.js';
+import { esc, sprintScope, sprintStartsOf, sumBy, burnSeries, resolvedDay, createdDay, emptyStateHtml } from '../utils.js';
 import { tkAttrs, pagedHtml, dayKey } from './tv-screens.js';
 
 const atNoon = k => new Date(`${k}T12:00:00`);
@@ -50,7 +50,7 @@ function ghostOf(s, teamTickets, usePts) {
     if (!prev) return null;
     const days = workdays(prev);
     if (days.length < 2) return null;
-    const scope = sprintScope(teamTickets, prev.name);
+    const scope = sprintScope(teamTickets, prev.name, sprintStartsOf(store.get('sprintInfo')));
     const val = t => (usePts ? (t.points || 0) : 1);
     const g = burnSeries({ engaged: scope.engaged, done: scope.done, days, today: days.at(-1), val });
     if (!g.total) return null;
@@ -60,7 +60,7 @@ function ghostOf(s, teamTickets, usePts) {
 /** Tout ce que l'écran affiche d'un sprint, calculé une fois. */
 function analyse(s, today) {
     const teamTickets = (store.get('tickets') || []).filter(t => t.team === s.team);
-    const scope = sprintScope(teamTickets, s.name);
+    const scope = sprintScope(teamTickets, s.name, sprintStartsOf(store.get('sprintInfo')));
     const start = dayKey(new Date(s.startDate)), end = dayKey(new Date(s.endDate));
     const days = [];
     for (let d = start; d <= end; d = plusDays(d, 1)) if (!isWeekend(d)) days.push(d);

@@ -11,7 +11,7 @@
  * respectées (cohérent avec les autres cards de flux).
  */
 
-import { esc, isTicketExcludedFromFlow, getStatusLabel, extractPiNum } from '../utils.js';
+import { esc, isTicketExcludedFromFlow, getStatusLabel, extractPiNum, cycleDays } from '../utils.js';
 import { TYPE_ICONS } from '../config.js';
 import { helpIconHtml } from './help_popover.js';
 
@@ -37,7 +37,7 @@ const _p85 = arr => _pctl(arr.slice().sort((a, b) => a - b), 85);
  * on retombe sur le P85 global en signalant que la mesure est provisoire.
  */
 function _model(tickets) {
-    const allDone = (tickets || []).filter(t => t.status === 'done' && t.cycleTimeDays > 0 && !isTicketExcludedFromFlow(t).excluded);
+    const allDone = (tickets || []).filter(t => t.status === 'done' && cycleDays(t) > 0 && !isTicketExcludedFromFlow(t).excluded);
     // Regroupe par PI (dérivé du nom de sprint). PI 0 = non rattachable.
     const byPi = new Map();
     for (const t of allDone) {
@@ -51,20 +51,20 @@ function _model(tickets) {
 
     // Périmètre mesuré : PI courant si identifiable, sinon tout l'historique (dégradé).
     const measured = curPi ? (byPi.get(curPi) || []) : allDone;
-    const measCts = measured.map(t => t.cycleTimeDays);
+    const measCts = measured.map(t => cycleDays(t));
     const p50 = _pctl(measCts.slice().sort((a, b) => a - b), 50);
     const p85 = _p85(measCts);
 
     // Cible : manuelle (localStorage) > P85 du PI précédent > P85 global (provisoire).
     const raw = parseFloat(localStorage.getItem(LS_KEY));
     const isManual = raw > 0;
-    const refP85 = refPi ? _p85((byPi.get(refPi) || []).map(t => t.cycleTimeDays)) : null;
+    const refP85 = refPi ? _p85((byPi.get(refPi) || []).map(t => cycleDays(t))) : null;
     const isProvisional = !isManual && !refPi;               // pas de référence externe fiable
-    const target = isManual ? raw : (refP85 != null ? refP85 : (_p85(allDone.map(t => t.cycleTimeDays)) || 0));
+    const target = isManual ? raw : (refP85 != null ? refP85 : (_p85(allDone.map(t => cycleDays(t))) || 0));
 
-    const conform = measured.filter(t => t.cycleTimeDays <= target).length;
+    const conform = measured.filter(t => cycleDays(t) <= target).length;
     const pct = measured.length ? Math.round((conform / measured.length) * 100) : 0;
-    const breaches = measured.filter(t => t.cycleTimeDays > target).sort((a, b) => b.cycleTimeDays - a.cycleTimeDays);
+    const breaches = measured.filter(t => cycleDays(t) > target).sort((a, b) => cycleDays(b) - cycleDays(a));
     return {
         done: measured, allDoneCount: allDone.length, p50, p85, target,
         isManual, isProvisional, curPi, refPi, conform, pct, breaches,
@@ -96,7 +96,7 @@ export function slaReviewCardHtml(tickets) {
                     <span class="card-title">🎯 SLA Review — respect du délai ${helpIconHtml({ key: 'sla', label: 'Comprendre la SLA / SLE de cycle time' })}</span>
                     <span class="card-subtitle">Objectif : 85% des tickets terminés en ≤
                         <input type="number" class="inline-num-edit sla-target-input" min="1" max="365" step="0.5"
-                            value="${targetTxt}" title="Seuil de cycle time (jours) — modifiable" aria-label="Seuil SLA en jours"> j
+                            value="${targetTxt}" title="Seuil de cycle time (jours ouvrés) — modifiable" aria-label="Seuil SLA en jours ouvrés"> j
                         ${refTag}
                     </span>
                 </div>
@@ -122,7 +122,7 @@ export function slaReviewCardHtml(tickets) {
                         <span class="stuck-id">${esc(t.id)}</span>
                         <span class="stuck-title">${TYPE_ICONS[t.type] ? TYPE_ICONS[t.type] + ' ' : ''}${esc(t.title || '')}</span>
                         <span class="stuck-lead${t.leader ? '' : ' stuck-lead--none'}">${esc(t.leader || 'Non assigné')}</span>
-                        <span class="stuck-age is-danger" title="Cycle time — dépasse le seuil de ${targetTxt} j">${_fmt(t.cycleTimeDays)} j</span>
+                        <span class="stuck-age is-danger" title="Cycle time — dépasse le seuil de ${targetTxt} j">${_fmt(cycleDays(t))} j</span>
                     </button>`).join('')
                     + (hidden > 0 ? `<div class="stage-detail-more">+${hidden} autre${hidden > 1 ? 's' : ''}</div>` : '')
                 : '<p class="text-muted text-sm" style="padding:var(--sp-3)">Tous les tickets terminés respectent le seuil 🎉</p>'}

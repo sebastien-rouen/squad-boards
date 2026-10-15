@@ -32,6 +32,7 @@ import { initTeamSwitcher, openTeamSwitcher } from './components/team_switcher.j
 // sprint_tickets_modal.js (Review/Demo) est chargé à la demande — wrappers lazy plus bas
 import { destroyAllCharts } from './components/charts.js';
 import { initChartZoom } from './components/chart_zoom.js';
+import { initChartCopy } from './components/chart_copy.js';   // 📋 copier l'image d'un graphique / d'une section (délégation)
 import { initDiagramZoom } from './components/diagram_zoom.js';
 import { updateInfoPanel } from './components/infopanel.js';
 import { renderCalBanner } from './components/cal_banner.js';
@@ -701,6 +702,7 @@ async function init() {
     document.getElementById('btn-learn')?.addEventListener('click', () => openLearnMode());
     initOfflineBanner();
     initChartZoom();
+    initChartCopy();
     initDiagramZoom();
     window.__squadBoard = window.__squadBoard || {};
     window.__squadBoard.openTeamSwitcher = openTeamSwitcher;

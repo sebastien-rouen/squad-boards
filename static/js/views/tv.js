@@ -17,7 +17,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, getCurrentPi, sumBy, sprintScope, METEO_GLYPH, METEO_LABEL, worstLevel, emptyStateHtml } from '../utils.js';
+import { esc, getCurrentPi, sumBy, sprintScope, sprintStartsOf, METEO_GLYPH, METEO_LABEL, worstLevel, emptyStateHtml } from '../utils.js';
 import { ANOMALY_BY_KEY, isPastPi } from '../business_rules.js';
 import { meteoMatrixHtml, meteoContext, computeTeamMeteo } from '../components/meteo_matrix.js';
 import { meteoPlanHtml } from '../components/meteo_plan.js';
@@ -291,7 +291,7 @@ function _screenReview({ teams, ctx }) {
     const closed = (ctx.sprintInfoAll?.teamSprints || []).filter(s => teams.includes(s.team) && s.state === 'closed' && s.endDate)
         .sort((a, b) => String(b.endDate).localeCompare(String(a.endDate)))[0];
     if (!closed) return emptyStateHtml({ size: 'tv', icon: '📈', title: 'Aucun sprint clos', text: `La review arrivera avec le premier sprint terminé de ${_scope().label}.` });
-    const scope = sprintScope((store.get('tickets') || []).filter(t => t.team === closed.team), closed.name);
+    const scope = sprintScope((store.get('tickets') || []).filter(t => t.team === closed.team), closed.name, sprintStartsOf(ctx.sprintInfoAll));
     const pts = sumBy(scope.engaged, t => t.points), donePts = sumBy(scope.done, t => t.points);
     const pct = pts ? Math.round((donePts / pts) * 100) : 0;
     const lbl = (String(closed.name).match(/(\d+\.\d+)/) || [])[1] || '';

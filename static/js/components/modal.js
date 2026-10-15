@@ -5,7 +5,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, toastUndo, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, trapFocus } from '../utils.js';
+import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, toastUndo, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, trapFocus, cycleDays, leadDays } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS, TYPE_ICONS } from '../config.js';
 
 const overlay = () => document.getElementById('modal-overlay');
@@ -609,8 +609,8 @@ export function openTicketModal(ticketId) {
     const description = ticket.description || '';
 
     // Cycle / Lead time
-    const ct = ticket.cycleTimeDays;
-    const lt = ticket.leadTimeDays;
+    const ct = cycleDays(ticket);
+    const lt = leadDays(ticket);
 
     // Sprint progress bar data
     const sprintInfo = store.get('sprintInfo');
@@ -816,7 +816,10 @@ export function openTicketModal(ticketId) {
             <details class="mb-4">
                 <summary class="text-xs font-semibold text-muted mb-2">Historique (${ticket.recentChanges.length})</summary>
                 <div class="activity-list">
-                    ${_renderTicketHistory(ticket.recentChanges.slice(-12).reverse())}
+                    ${/* Les 12 PLUS RÉCENTS, affichés du plus ancien au plus récent. Avant : slice(-12) sur une liste
+                       triée du plus récent au plus ancien = les 12 plus ANCIENS — invisible tant que l'historique
+                       tenait en 8 lignes, faux depuis qu'il garde tous les statuts (3.216.0). */
+                      _renderTicketHistory([...ticket.recentChanges].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 12).reverse())}
                 </div>
             </details>
         ` : ''}

@@ -23,6 +23,7 @@
 import { buildSupportPiWeeks, makePiWeeks, snapToWeekMode, SUPPORT_WEEK_MODE_DEFAULT } from './support.js';
 import { loadPiCfg, listPiCfgNumbers } from './pi-config.js';
 import { extractSprintLabel } from './sprint-scope.js';
+import { isWorkday } from './workdays.js';
 
 const _fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 const _addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return _fmt(d); };
@@ -266,6 +267,21 @@ export function projectedPiSprints(sprintInfo, piInfo, piNum) {
     }));
 }
 
+/** Jour LOCAL (AAAA-MM-JJ) d'une date JIRA — « 2026-11-12T23:30:00Z » est déjà le 13 à Paris. */
+const _localIso = v => {
+    const s = String(v || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(s.replace(/([+-]\d{2})(\d{2})$/, '$1:$2'));
+    if (!Number.isFinite(d.getTime())) return s.slice(0, 10);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+/** Dernier jour OUVRÉ ≤ `iso` (un PI ne « finit » pas un dimanche). */
+const _lastWorkdayIso = iso => {
+    const d = new Date(`${iso}T12:00:00`);
+    for (let k = 0; k < 7 && !isWorkday(d); k++) d.setDate(d.getDate() - 1);
+    return _localIso(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+};
+
 /** Médiane basse d'une liste de dates ISO (le tri de chaînes suffit). */
 const _medianIso = list => { const a = list.slice().sort(); return a[Math.floor((a.length - 1) / 2)]; };
 
@@ -278,6 +294,11 @@ const _medianIso = list => { const a = list.slice().sort(); return a[Math.floor(
  * (« 91 % écoulé » à mi-PI → météo PI injustement 🌧️). Sprint manquant → date MÉDIANE de ce sprint
  * dans le train, insensible à un calendrier atypique (Gabbiano : 30/11). `team` = 'all' (ou un
  * groupe, faute de mieux) → médianes du train. Aucun sprint réel → dates projetées.
+ * ⚠️ FIN (3.216.0) : les dates d'un sprint FUTUR sont prévisionnelles, posées à la main dans JIRA —
+ * celles de Gabbiano au PI 31 sont décalées de 2 semaines (31.4 au 02/11, 31.5 jusqu'au 30/11) quand le
+ * PI finit le 13/11. Dernier sprint DÉMARRÉ (actif / clos) → ses dates réelles ; sinon → la CADENCE du
+ * PI (`projectedPiSprints` : début + sprints × durée — 07/09 + 5 × 14 j). Puis fin ramenée au dernier
+ * jour OUVRÉ (le 15/11 est un dimanche → 13/11), comme l'axe des graphiques.
  * @returns {{ startIso: string, endIso: string, projected: boolean }|null}
  */
 export function piBounds({ team = 'all', sprintInfo, piInfo = null, piNum }) {
@@ -293,9 +314,18 @@ export function piBounds({ team = 'all', sprintInfo, piInfo = null, piNum }) {
         return train.length ? _medianIso(train) : null;
     };
     const start = pick(1, 'startDate') || own.map(s => s.startDate).sort()[0];
-    const end = pick(count, 'endDate') || own.map(s => s.endDate).sort().at(-1);
-    if (start && end && end > start) return { startIso: String(start).slice(0, 10), endIso: String(end).slice(0, 10), projected: false };
     const proj = projectedPiSprints(sprintInfo, piInfo, piNum);
+    // Fin : dernier sprint de l'équipe (sinon du train) s'il a DÉMARRÉ ; sinon la cadence projetée.
+    const lastOwn = own.filter(s => idx(s) === count), lastTrain = ofPi.filter(s => idx(s) === count);
+    const pool = lastOwn.length ? lastOwn : lastTrain;
+    const startedEnds = pool.filter(s => s.state === 'active' || s.state === 'closed').map(s => s.endDate);
+    const fromProj = !startedEnds.length && !!proj.length;
+    const end = startedEnds.length ? (lastOwn.length ? startedEnds.sort().at(-1) : _medianIso(startedEnds))
+        : fromProj ? proj.at(-1).endDate
+        : pick(count, 'endDate') || own.map(s => s.endDate).sort().at(-1);
+    if (start && end && _localIso(end) > _localIso(start)) {
+        return { startIso: _localIso(start), endIso: _lastWorkdayIso(_localIso(end)), projected: fromProj };
+    }
     if (!proj.length) return null;
-    return { startIso: proj[0].startDate, endIso: proj.at(-1).endDate, projected: true };
+    return { startIso: proj[0].startDate, endIso: _lastWorkdayIso(proj.at(-1).endDate), projected: true };
 }

@@ -21,6 +21,8 @@
 }
 .tm-team::before { content: ''; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--team, var(--border)); }
 button.tm-team:hover { background: var(--surface-hover); }
+/* Équipe sélectionnée dans le rapport : sa ligne ressort, le train reste lisible autour. */
+.tm-row.is-focus .tm-team { background: color-mix(in srgb, var(--team, var(--primary)) 16%, var(--surface)); box-shadow: inset 3px 0 0 var(--team, var(--primary)); }
 .tm-team--head::before { display: none; }
 .tm-team--head { color: var(--text-muted); font-weight: var(--fw-medium); }
 .tm-col { display: grid; align-content: end; justify-items: center; height: 34px; font-size: 10px; color: var(--text-muted); font-variant-numeric: tabular-nums; }

@@ -9,8 +9,9 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, toast, arrayToCsv } from '../utils.js';
+import { esc, toast, arrayToCsv, confirmDanger } from '../utils.js';
 import { loadReminders } from '../reminders.js';
+import { csvTextToRows } from './settings-io-csv.js';   // parser pur et testé (multi-lignes, "" ≠ vide)
 
 // ── Export (modale à choix multiples) ─────────────────────────────────────────
 // `key` mappe vers 1+ clés de la réponse /api/export (cf. _EXPORT_SPEC côté backend,
@@ -116,53 +117,6 @@ function _downloadBlob(content, mime, filename) {
     a.click(); URL.revokeObjectURL(a.href);
 }
 
-/**
- * Parse un CSV généré par l'export (BOM + délimiteur `;`, cellules entre guillemets,
- * valeurs imbriquées en JSON dans leur cellule — miroir de `arrayToCsv`). Cast au mieux
- * les nombres/booléens (perdus en texte brut par le format CSV), JSON.parse les cellules
- * array/object ; tout le reste reste une chaîne.
- */
-function _csvTextToRows(text) {
-    const clean = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text; // retire le BOM utf-8 ajouté à l'export
-    const lines = clean.split(/\r\n|\n/).filter(l => l.length);
-    if (!lines.length) return [];
-    const parseLine = (line) => {
-        const cells = [];
-        let cur = '', inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-            const ch = line[i];
-            if (inQuotes) {
-                if (ch === '"') {
-                    if (line[i + 1] === '"') { cur += '"'; i++; }
-                    else inQuotes = false;
-                } else cur += ch;
-            } else if (ch === '"') inQuotes = true;
-            else if (ch === ';') { cells.push(cur); cur = ''; }
-            else cur += ch;
-        }
-        cells.push(cur);
-        return cells;
-    };
-    const castCell = (v) => {
-        if (v === '') return null;
-        if ((v[0] === '[' && v[v.length - 1] === ']') || (v[0] === '{' && v[v.length - 1] === '}')) {
-            try { return JSON.parse(v); } catch { /* garde la chaîne brute */ }
-        }
-        if (/^-?\d+$/.test(v)) return parseInt(v, 10);
-        if (/^-?\d+\.\d+$/.test(v)) return parseFloat(v);
-        if (v === 'true') return true;
-        if (v === 'false') return false;
-        return v;
-    };
-    const headers = parseLine(lines[0]);
-    return lines.slice(1).map(line => {
-        const cells = parseLine(line);
-        const row = {};
-        headers.forEach((h, idx) => { row[h] = castCell(cells[idx] ?? ''); });
-        return row;
-    });
-}
-
 /** Déduit la catégorie depuis le nom de fichier `squad-board-<categorie>-AAAA-MM-JJ.csv` (export). */
 function _categoryKeyFromFilename(name) {
     const m = name.match(/^squad-board-(.+?)-\d{4}-\d{2}-\d{2}\.\w+$/i);
@@ -170,7 +124,7 @@ function _categoryKeyFromFilename(name) {
 }
 
 async function _parseCsvFile(file) {
-    const rows = _csvTextToRows(await file.text());
+    const rows = csvTextToRows(await file.text());
     return { [_categoryKeyFromFilename(file.name)]: rows };
 }
 
@@ -232,11 +186,65 @@ async function _parseZipFile(file) {
         const ext = name.split('.').pop().toLowerCase();
         const key = name.replace(/\.\w+$/, '');
         if (ext === 'json') out[key] = JSON.parse(text);
-        else if (ext === 'csv') out[key] = _csvTextToRows(text);
+        else if (ext === 'csv') out[key] = csvTextToRows(text);
 
         offset += 46 + nameLen + extraLen + commentLen;
     }
     return out;
+}
+
+// ── Test d'import (`?dry_run=1`) ─────────────────────────────────────────────
+/** Chute jugée suspecte en mode Remplacer : moins de la moitié des lignes en base (≥ 10). */
+const _IMPORT_DROP_RATIO = 0.5;
+const _fmtN = n => Number(n || 0).toLocaleString('fr-FR');
+
+/** Libellé d'une clé brute (`tickets`, `fistVotes`…) via sa catégorie d'export. */
+function _rawKeyLabel(key) {
+    const c = IMPORT_CATEGORIES.find(x => (EXPORT_CATEGORY_KEYS[x.key] || [x.key]).includes(key));
+    if (!c) return key;
+    return (EXPORT_CATEGORY_KEYS[c.key] || [c.key]).length > 1 ? `${c.icon} ${c.label} · ${key}` : `${c.icon} ${c.label}`;
+}
+
+/** Collections dont le remplacement ferait chuter le nombre de lignes de plus de moitié. */
+function _importDrops(res) {
+    return Object.entries(res?.counts || {})
+        .filter(([k, n]) => (res.current?.[k] ?? 0) >= 10 && n < res.current[k] * _IMPORT_DROP_RATIO)
+        .map(([k, n]) => ({ key: k, from: res.current[k], to: n }));
+}
+
+/** Résultat du test : tableau en base → après, chutes signalées. Rien n'a été écrit. */
+function _importTestHtml(res, mode) {
+    const keys = Object.keys(res?.counts || {});
+    const drops = mode === 'replace' ? _importDrops(res) : [];
+    const dropKeys = new Set(drops.map(d => d.key));
+    const rows = keys.map(k => {
+        const cur = res.current?.[k], n = res.counts[k];
+        const after = mode === 'replace'
+            ? `${_fmtN(n)}${cur ? ` <span class="import-test-delta">(${n >= cur ? '+' : '−'}${Math.round(Math.abs(n - cur) / cur * 100)} %)</span>` : ''}`
+            : '<span class="import-test-muted">fusion</span>';
+        return `<tr${dropKeys.has(k) ? ' class="is-drop"' : ''}><td>${esc(_rawKeyLabel(k))}</td>
+            <td class="num">${cur == null ? '—' : _fmtN(cur)}</td><td class="num">${_fmtN(n)}</td><td class="num">${after}</td></tr>`;
+    }).join('');
+    return `
+        <div class="import-test-ok">✅ Test réussi : l'import passerait (contraintes de la base vérifiées). Rien n'a été écrit.</div>
+        ${drops.length ? `<div class="import-preview-warn import-preview-warn--danger">⚠️ Remplacer ferait chuter ${drops.length > 1 ? 'ces collections' : 'cette collection'} de plus de moitié :
+            ${drops.map(d => `<strong>${esc(_rawKeyLabel(d.key))}</strong> ${_fmtN(d.from)} → ${_fmtN(d.to)}`).join(', ')}. Vérifiez le fichier avant d'importer.</div>` : ''}
+        ${rows ? `<table class="import-test-table">
+            <thead><tr><th>Collection</th><th class="num">En base</th><th class="num">Fichier</th><th class="num">Après import</th></tr></thead>
+            <tbody>${rows}</tbody></table>` : ''}`;
+}
+
+/** Message de confirmation du mode Remplacer (texte brut : confirmDanger échappe). */
+function _replaceConfirmMessage(data, res) {
+    if (res?.counts) {
+        const lines = Object.entries(res.counts).map(([k, n]) => `• ${_rawKeyLabel(k)} : ${_fmtN(res.current?.[k])} → ${_fmtN(n)}`);
+        const drops = _importDrops(res);
+        return `${drops.length ? '⚠️ Chute de plus de moitié sur : ' + drops.map(d => _rawKeyLabel(d.key)).join(', ') + '.\n\n' : ''}`
+            + `Les données en base de ces collections seront supprimées puis remplacées par le fichier :\n${lines.join('\n')}`;
+    }
+    const cats = IMPORT_CATEGORIES.filter(c => _importCategoryCount(data, c) != null).map(c => c.label);
+    return `Les données en base de ces catégories seront supprimées puis remplacées par le fichier : ${cats.join(', ')}.\n\n`
+        + `Astuce : « 🔍 Tester l'import » compare d'abord le fichier à la base, sans rien écrire.`;
 }
 
 /**
@@ -263,9 +271,12 @@ function _openImportModal(container, onImported = null) {
                 </div>
                 <input type="file" accept=".json,.csv,.zip,application/json,text/csv,application/zip" id="import-file-input" multiple style="display:none;">
                 <div id="import-preview"></div>
+                <div id="import-test" aria-live="polite"></div>
             </div>
             <div class="confirm-actions">
                 <button class="btn btn-ghost btn-sm" data-act="cancel">Annuler</button>
+                <button class="btn btn-secondary btn-sm" data-act="test" id="import-test-btn" disabled
+                        title="Import complet côté serveur puis annulation : rien n'est écrit">🔍 Tester l'import</button>
                 <button class="btn btn-primary btn-sm" data-act="ok" id="import-confirm-btn" disabled>Importer</button>
             </div>
         </div>`;
@@ -274,6 +285,8 @@ function _openImportModal(container, onImported = null) {
 
     let parsedData = null;
     let mode = 'replace';
+    // Dernier test (`?dry_run=1`) : jeté à chaque nouveau fichier ou changement de mode.
+    let testResult = null;
 
     const close = () => {
         ov.classList.remove('visible');
@@ -287,6 +300,9 @@ function _openImportModal(container, onImported = null) {
     const fileInput  = ov.querySelector('#import-file-input');
     const previewEl  = ov.querySelector('#import-preview');
     const confirmBtn = ov.querySelector('#import-confirm-btn');
+    const testBtn    = ov.querySelector('#import-test-btn');
+    const testEl     = ov.querySelector('#import-test');
+    const resetTest  = () => { testResult = null; testEl.innerHTML = ''; };
 
     const modeHint = () => mode === 'replace'
         ? '⚠️ Remplace entièrement les données existantes des catégories détectées ci-dessus.'
@@ -320,12 +336,14 @@ function _openImportModal(container, onImported = null) {
         previewEl.querySelectorAll('[data-mode]').forEach(btn => {
             btn.addEventListener('click', () => {
                 mode = btn.dataset.mode;
+                resetTest();
                 previewEl.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
                 const hint = previewEl.querySelector('.import-preview-hint');
                 if (hint) hint.textContent = modeHint();
             });
         });
         confirmBtn.disabled = !recognized.length;
+        testBtn.disabled = !recognized.length;
     };
 
     const handleFiles = async (fileList) => {
@@ -357,10 +375,13 @@ function _openImportModal(container, onImported = null) {
                 }
             }
             parsedData = merged;
+            resetTest();
             renderPreview(files.map(f => f.name), merged);
         } catch (err) {
             parsedData = null;
+            resetTest();
             confirmBtn.disabled = true;
+            testBtn.disabled = true;
             previewEl.innerHTML = `<div class="import-preview-warn import-preview-warn--danger">❌ ${esc(err.message)}</div>`;
         }
     };
@@ -380,11 +401,33 @@ function _openImportModal(container, onImported = null) {
         _downloadBlob(JSON.stringify(_emptyImportTemplate(), null, 2), 'application/json', 'squad-board-template.json');
     });
 
+    const runTest = async () => {
+        testBtn.disabled = true;
+        testEl.innerHTML = `<p class="import-preview-hint">🔍 Test en cours — import complet côté serveur, puis annulation…</p>`;
+        try {
+            testResult = await api.importAll(parsedData, mode, { dryRun: true });
+            testEl.innerHTML = _importTestHtml(testResult, mode);
+        } catch (err) {
+            testResult = null;
+            // L'import échouerait de la même façon : on ne le propose plus pour ce fichier.
+            confirmBtn.disabled = true;
+            testEl.innerHTML = `<div class="import-preview-warn import-preview-warn--danger">❌ L'import échouerait — ${esc(err.message)}</div>`;
+        } finally {
+            testBtn.disabled = !parsedData;
+        }
+    };
+
     ov.addEventListener('click', async e => {
         if (e.target === ov) return close();
         const act = e.target.closest('[data-act]')?.dataset.act;
         if (act === 'cancel') return close();
+        if (act === 'test' && parsedData) return runTest();
         if (act === 'ok' && parsedData) {
+            // Remplacer = réécriture : derrière confirmDanger, avec les écarts du test s'il a été fait.
+            if (mode === 'replace') {
+                const ok = await confirmDanger('Remplacer les données ?', _replaceConfirmMessage(parsedData, testResult), { confirmLabel: 'Remplacer' });
+                if (!ok) return;
+            }
             close();
             try {
                 await api.importAll(parsedData, mode);

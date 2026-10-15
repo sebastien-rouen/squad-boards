@@ -1,3 +1,184 @@
+## [3.216.0] - 2026-10-15
+
+### Engagement d'un sprint : un ticket retiré AVANT le lancement n'y est plus compté
+
+- **`engagedInSprint`** ([utils/sprint-scope.js](static/js/utils/sprint-scope.js)) = `belongedToSprint`
+  moins les tickets qui n'ont été dans le sprint que PENDANT SA PRÉPARATION (planifiés dedans, puis
+  déplacés avant son démarrage). Restent engagés : présents au lancement, ajoutés ensuite (même
+  retirés après), reportés du sprint précédent (le `to` cumulatif arrive avant le lancement).
+  Démarrage retrouvé par le NOM JIRA exact de chaque sprint de l'historique (`sprintStartsOf(sprintInfo)`),
+  donc juste aussi sur la clé « NN.N » en « Toutes équipes » ; sans date connue → règle d'avant.
+- Cas d'origine : Gabbiano 31.3 annonçait 18/30 pts contre 27 au burnup JIRA — GDEM-4594, mise en
+  31.3 le 07/09 puis renvoyée en 31.2 le 24/09, 31.3 lancé le 05/10. Sur le PI 31 : Fuego 31.1
+  145 → 20 pts (tout le PI posé en 31.1 puis réparti le matin du lancement), Kadjar 31.1 45 → 32,
+  31.2 40 → 24, Océane 31.1 30 → 16, Lion 31.3 42 → 33…
+- Branché sur `sprintScope` (3ᵉ argument `starts`) : rapport (section PI, Métriques sprint, Vélocité
+  PI), TV (review, burndown fantôme), bandeau « sprint clos », et sur les engagements écrits à la main :
+  météo 🏃 Sprint (matrice + détail TV), Santé (sprint de référence), cartes de sprint du Dashboard,
+  modale des tickets d'un sprint. Inchangés : périmètres de DURÉE (Temps par colonne, Dashboard et
+  Rétro), base capacité (réalisé seul), `belongedToPi`.
+- **Même règle au niveau du PI : `engagedInPi`** ([utils.js](static/js/utils.js)) = `belongedToPi` moins les
+  tickets qui n'ont fait que passer par un sprint du PI pendant sa préparation ; un déplacement d'un
+  sprint du PI à un autre reste dans le PI. Branché sur la météo 🗓️ PI (matrice + détail TV), les
+  prévisions du PI courant et le Burnup du PI du rapport. PI 31 : Fuego 167 → 162 pts (GCOM-4633,
+  retiré de 31.1 avant son lancement, aujourd'hui en 32.1), Lion 79 → 77 (GEX-18404, renvoyé en 30.6).
+  `belongedToPi` reste la règle des mesures de DURÉE (Temps par colonne : pi.js, Dashboard).
+- **Import .zip / .csv d'un export : erreur 500 corrigée.** Le parser ([settings-io-csv.js](static/js/views/settings-io-csv.js),
+  extrait de settings-io.js, pur et testé) découpait le texte en lignes AVANT de lire les guillemets :
+  une description JIRA multi-lignes devenait des lignes fantômes (5 490 « tickets » pour 4 182, une
+  feature d'id « CODE_FABRICATION(40), » sans titre → « NOT NULL constraint failed: feature.title »).
+  Corrigé aussi : `""` reste une chaîne vide (4 571 descriptions vides devenaient `null`, même
+  violation NOT NULL) et les booléens Python `True` / `False` sont relus. Vérifié sur l'export réel du
+  15/10 rejoué sur une copie de la base : 4 845 tickets, 2 633 features, 2 814 absences = les comptes
+  du module `csv` de Python. Côté serveur, un échec d'import n'est plus un 500 muet : 400, base
+  inchangée, contrainte nommée (`import_all`, [data.py](app/routers/data.py)). Tests : `tests/import-csv.test.mjs`.
+- **🔍 Tester l'import** (modale d'import, [settings-io.js](static/js/views/settings-io.js)) : `POST /api/import?dry_run=1`
+  rejoue l'import COMPLET côté serveur — contraintes de la base comprises — puis annule ; la modale
+  affiche, par collection, en base → fichier → après import, et signale en rouge une chute de plus de
+  moitié en mode Remplacer (≥ 10 lignes en base). Un test en échec désactive « Importer » pour ce
+  fichier. L'import en mode **Remplacer** passe désormais par `confirmDanger`, qui reprend les écarts
+  du test (ou invite à le faire).
+- **📊 Métriques sprint revues** ([reports.js](static/js/views/reports.js)) :
+  - **Cycle Time du sprint** : tickets terminés DANS le sprint affiché — avant : tout l'historique de
+    l'équipe (≈ 1 an), percentiles compris, sous le titre « Métriques sprint ».
+  - **Jours restants** en jours OUVRÉS, aujourd'hui compris (`workdaysLeft`) — avant : jours
+    calendaires, week-end compris (4 au lieu de 3 un jeudi pour une clôture le lundi).
+  - Durée de l'axe des graphiques en jours LOCAUX (`slice(0, 10)` lisait le jour UTC).
+  - Vérifiés sans changement : Complétion / Points / Bloqués / Buffer / Statuts / Types / burndown /
+    burnup (périmètre `sprintScope` du sprint affiché, reporté fini ailleurs = « en cours ») et
+    Vélocité PI (même règle engagement / réalisé que la section PI Planning).
+- **📋 Copier l'image d'un graphique** (Métriques sprint : Statuts, Types, Burndown, Burnup, Cycle Time,
+  Vélocité PI) — [chart_copy.js](static/js/components/chart_copy.js), bouton d'en-tête de carte. Image
+  composée sur le fond RÉEL de la carte (thème clair ou sombre affiché) avec son titre : le canvas
+  Chart.js est transparent, collé tel quel un graphique du thème sombre était illisible sur fond blanc.
+  Refus du presse-papiers → PNG téléchargé.
+  - **Partout sur le site** : bouton flottant « copier » à côté de « agrandir » sur chaque graphique
+    (`_decorateContainer`, chart_zoom.js), sauf là où la carte a déjà son bouton d'en-tête.
+  - **Vue agrandie, « version explicative »** : 📋 dans l'en-tête de la popin — graphique agrandi
+    (vue, tri, filtres actifs dans le titre) + « 👁 Lecture » / « 💡 Interprétation » repliés sous le
+    graphique si la légende est dépliée, pour des coéquipiers qui ne connaissent pas l'outil.
+  - **« Copier la section »** (Métriques sprint) : une image — en-tête (équipe, sprint, dates), ligne
+    des indicateurs, puis les 6 graphiques en grille, titres compris.
+  - **Cycle Time agrandi autoporteur** ([charts.js](static/js/components/charts.js)) : sous-titre de
+    périmètre (« 15 tickets affichés sur 48 terminés (les plus récents) · tri · livrés du … au … · filtre ·
+    jours ouvrés » + repères CT moyen / médiane / 85 % / part d'attente) ; icône du type devant chaque
+    ticket ; au bout de chaque barre « CT 5 j · LT 12 j · ✓ 1 Oct. · 👤 Marie D. » ; en nuage, clé des
+    tickets au-delà du P85 à côté de leur point. « Attente (planifié → démarré) » → « (créé → démarré) » :
+    le lead time part de la création. Vue compacte inchangée.
+    En nuage, ces clés sont CLIQUABLES (soulignées, curseur main) et ouvrent la fiche du ticket.
+  - **WIP Age agrandi autoporteur** : sous-titre (« 12 tickets en cours affichés sur 18 (les plus anciens) ·
+    âge = jours ouvrés depuis la mise en cours (à défaut : la création) » + origine des seuils : P85 du
+    cycle time sur N tickets terminés, ou seuils fixes) ; icône du type, clé et titre ; au bout de chaque
+    barre l'âge, le statut, depuis quand et le lead ; seuils 🟡 / 🔴 tracés et nommés ;
+    clic sur une barre = fiche du ticket (compact compris).
+  - Bout de barre plus lisible (retour utilisateur) : la VALEUR en gras dans la couleur de sa zone
+    (CT : percentile ; WIP : 🟢 / 🟡 / 🔴), puis les repères en couleur de texte normale séparés par
+    « · » espacés (`_barEndText`). Le « LT 47 j » est retiré du Cycle Time : la barre le montre.
+  - **Cycle Time agrandi = FRISE chronologique par défaut** (`_renderCycleTimeline`, charts.js ; vue
+    « ⟿ Frise », barres et nuage restent au choix) : une ligne par ticket rangée par démarrage, sur un vrai
+    axe de dates (lundis, ou jours sous 4 semaines) — segment clair = attente (créé → démarré), plein =
+    cycle time (démarré → livré, couleur du percentile, contour sombre si lead time > P85) ; week-ends et
+    fériés grisés en fond (jours non comptés) ; attente plus ancienne que la fenêtre coupée au bord,
+    « ◂ créé le … » ; en bout de ligne le cycle time (gras, couleur) et le lead. Tickets sans dates de
+    cycle annoncés dans le sous-titre, jamais écartés en silence. Le tri ne s'applique qu'aux barres.
+    Axe de dates LISIBLE (`_dateAxis`) : pas de 1 j / 2 j / 1, 2 ou 4 semaines choisi d'après la largeur
+    réelle du tracé (les dates se chevauchaient), graduations posées à la main sur les lundis
+    (`afterBuildTicks` — Chart.js alignait un pas linéaire sur des multiples depuis 1970, un jeudi).
+    **Débuts de sprint** tracés (« ▸ 31.2 », `_sprintMarks` : nom JIRA exact → démarrage, médiane par
+    clé NN.N sur plusieurs équipes) : un segment qui en traverse un a débordé.
+  - **WIP Age agrandi = FRISE par défaut** (`_renderWipTimeline` ; barres au choix) : chaque ticket en
+    cours de sa mise en travail à aujourd'hui (attente claire + en cours coloré 🟢 🟡 🔴), trait
+    « Aujourd'hui », jours chômés grisés, débuts de sprint, fenêtre de 12 semaines (« ◂ depuis le … »).
+  - Correctif : l'axe des tickets (frises, barres Cycle Time / WIP Age) SAUTAIT des titres — 7 tickets
+    tracés pour 5 noms. `autoSkip` de Chart.js désactivé (`_rowsAxis`), police réduite au-delà de 15,
+    22 et 30 lignes pour que tout tienne.
+  - **WIP Age : tickets BLOQUÉS** — ils n'apparaissaient pas (filtre `inprog`/`review`/`test` seul) :
+    ils sont désormais comptés, marqués 🚫. Début du blocage = dernier passage au drapeau JIRA
+    (`Flagged` → Impediment) ou à un statut classé « bloqué » (`mapStatus`, ex. Retour au demandeur),
+    lu dans l'historique (`_blockedSinceMs`) ; absent de l'historique tronqué → « bloqué » sans durée,
+    jamais inventée. Frise : la partie bloquée est HACHURÉE en rouge jusqu'à aujourd'hui, « 🚫 bloqué 4 j »
+    en bout de ligne, « dont N bloqués » au sous-titre ; barres, infobulle et liste copiée idem.
+  - **Image copiée de la vue agrandie : explication en ENCADRÉ** (`_explainPanel`, chart_copy.js) — fond
+    teinté, « 👁 Lecture » et « 💡 Interprétation » en deux colonnes séparées d'un filet, titres, puces à
+    retrait suspendu, repères en GRAS comme à l'écran (`<strong>` conservé, coupure au mot dans la bonne
+    graisse). Avant : des lignes de texte brut sans hiérarchie.
+  - **Frise Cycle Time : périodes BLOQUÉES hachurées** sur le segment de cycle time (`_blockedIntervals` :
+    historique rejoué, bloqué = drapeau JIRA posé OU statut classé « bloqué »), « 🚫 2 j bloqué » en bout de
+    ligne, chaque période dans l'infobulle, « N bloqués en cours de route » au sous-titre, liste copiée idem.
+  - **Synchro : historique COMPLET des statuts et du drapeau** (`_CHANGE_FIELDS_KEEP_ALL` + `status`,
+    `flagged`, sync-parse.js) — tronqué à 8 changements, un blocage ancien devenait « durée inconnue ».
+    Les autres champs gardent leurs 8 derniers changements, indépendamment (un quota « 8 − conservés »
+    aurait évincé responsable et priorité). ⚠️ Effectif à la prochaine synchro ; pour les sprints clos
+    archivés, après **« Tout réimporter depuis JIRA »**. Fiche ticket : l'historique montrait les 12 changements
+    les plus ANCIENS (`slice(-12)` sur une liste triée du plus récent) — désormais les 12 plus récents.
+  - « Comment lire ce graphique » devient un **panneau latéral** (bouton « ? » de l'en-tête, touche « ? »),
+    fermé par défaut : sous le graphique, il lui prenait sa hauteur. La popin s'élargit quand il est
+    ouvert (le graphique garde sa taille) ; sous 900 px il passe par-dessus. État MÉMORISÉ
+    (`sb-chart-zoom-explain`). Le graphique est redessiné à l'ouverture / fermeture (pas des dates
+    recalculé). L'image copiée inclut TOUJOURS l'explication (Maj+clic : graphique seul).
+  - **« Comment lire ce graphique »** réécrit pour Cycle Time et WIP Age : une ligne par repère visuel
+    (repère en gras), « ce qu'il faut regarder » à part ; Lecture et Interprétation côte à côte en
+    grand écran, chacune dans un encadré.
+  - **« Copier la liste »** (vue agrandie, Cycle Time barres / nuage et WIP Age) : les tickets affichés
+    (même tri, mêmes filtres) avec leurs chiffres — texte à puces pour Slack ET tableau HTML pour
+    Confluence / Teams, clés liées à JIRA. Liste posée par le rendu (`getChartCopyList`, charts.js),
+    vidée à chaque rendu : rien n'est recalculé dans la popin.
+  - Clics en délégation (`initChartCopy`, app.js) : tout bouton `[data-chart-copy]` /
+    `[data-section-copy]` fonctionne sans câblage, re-rendus et popin compris.
+- **Export texte PI Planning** : titres et sous-titres en MAJUSCULES (« 🗓️ PI #31 — GABBIANO (PI COURANT) »,
+  « 📆 SPRINT 31.3 — 18/27 pts », « 📝 USER STORIES »), « 🎯 PI OBJECTIFS (40 BV) » sur une ligne (le BV
+  quitte la ligne « Engagements »), sous-titres collés à leur titre (plus de ligne vide entre le sprint
+  et ses User Stories).
+- **🚂 Le train, semaine par semaine** ([train_matrix.js](static/js/components/train_matrix.js)) : lien dans le
+  sommaire latéral du rapport (`#reports/<équipe>/train`). Revue des données :
+  - « PI » = le PI AFFICHÉ (`presets(piNum)`, team_timeline_model.js, argument optionnel — la frise est
+    inchangée) ; avant : toujours le PI courant, même sur le rapport d'un PI passé.
+  - Groupe du topbar → ses équipes seules ; équipe sélectionnée → sa ligne mise en avant (le train reste).
+  - Clic sur une équipe : dates exactes quand la période n'est pas un préréglage de la frise (avant :
+    la frise s'ouvrait sur le PI courant).
+  - Vérifiés sans changement : présence (roster du PI, fériés exclus, seuils = légende 100 % /
+    75–99 % / < 75 %), support (tickets + tâches du suivi, ⏳ ≥ 3 semaines), incidents prod (mot entier
+    ou label `incident-prod`), MEP (agendas d'équipe et de groupe), arrivées / départs (rosters).
+- **Fin du PI : 13/11 et non 27-30/11** (`piBounds`, [utils/pi-weeks.js](static/js/utils/pi-weeks.js)) — la
+  fin venait du dernier sprint de l'équipe, même FUTUR : ses dates JIRA sont prévisionnelles, et
+  celles de Gabbiano sont décalées de 2 semaines (31.4 au 02/11, 31.5 jusqu'au 30/11 ; le train finit
+  son 31.5 les 11-13/11). Désormais : dernier sprint DÉMARRÉ → ses dates réelles ; sinon la CADENCE
+  du PI (07/09 + 5 × 14 j) ; fin ramenée au dernier jour OUVRÉ (dimanche 15/11 → vendredi 13/11),
+  annoncée « dates projetées ». Jours lus en heure LOCALE (`_localIso`). Corrige aussi le temps écoulé
+  du PI dans la météo (matrice, détail TV, prévisions) et le Burnup du PI. Tests : `tests/pi-weeks.test.mjs`.
+- **Burnup du PI : périmètre daté à l'ENTRÉE dans le PI** ([reports-roadmap.js](static/js/views/reports-roadmap.js),
+  `piEntryMs` dans utils.js) — premier passage du champ Sprint dans un sprint du PI, sinon la création.
+  Daté à la création, un ticket ancien du backlog tiré en cours de PI comptait comme « périmètre
+  initial » : PI 31, « Ajouté » Initiale 2 → 37 pts, Helica 0 → 16, Etoile 9 → 17, Dezir 0 → 5 (les
+  autres équipes inchangées). `burnSeries` prend `entryDay` (défaut : création, burnups de sprint
+  inchangés) ; indicateurs ET graphique passent la même règle. Vérifiés sans changement : bornes
+  (`piBounds`, sprint 1 → dernier sprint de l'équipe, clôture comprise), axe en jours ouvrés, réalisé =
+  terminé dans un sprint du PI, périmètre = `engagedInPi`.
+- **Durées par colonne en jours ouvrés** (`stageDurations`, [sync-parse.js](static/js/sync-parse.js)) :
+  `workdayDurationDays` retire les heures tombées un week-end ou un férié (vendredi 17 h → lundi 9 h =
+  0,7 j, plus 2,7 j). ⚠️ Calculé à l'import : effectif après une synchro, et pour les sprints clos
+  archivés seulement après **« Tout réimporter depuis JIRA »** (l'historique stocké est tronqué, aucun
+  recalcul possible côté front).
+- **Cycle Time, Lead Time et âge du WIP en jours OUVRÉS, partout** : source unique
+  [utils/workdays.js](static/js/utils/workdays.js) (`cycleDays`, `leadDays`, `wipAgeDays`, via le barrel)
+  — ni week-end ni férié. Recalcul depuis les dates déjà en base (`startedDate`, `resolvedDate`,
+  `createdAt`) : aucune resynchro, sprints archivés compris ; `cycleTimeDays` / `leadTimeDays` restent
+  calendaires en base et ne se lisent plus en direct (graphiques Cycle Time et WIP Age, SLA Review,
+  Dashboard, PI, modale ticket, modale de sprint, rapport Flow / Support, détail TV). Sur les 260
+  tickets livrés depuis le 07/09 : médiane 7 → 5 j, P85 32 → 22 j. ⚠️ Un seuil SLA saisi à la main
+  (`sb-sla-target-days`) se lit désormais en jours ouvrés. Inchangés : durées par colonne
+  (`stageDurations`, figées à la synchro) et inactivité (`updatedAt`). Tests : `tests/workdays.test.mjs`.
+- **Graphiques du rapport en jours ouvrés** : burndown et burnup du sprint (Métriques sprint) et Burnup
+  du PI n'ont plus de samedi, de dimanche ni de jour férié (utils/holidays.js) sur leur axe (`workdaysOnly` dans le sprint passé à
+  `renderBurndown` / `renderBurnup`, [charts.js](static/js/components/charts.js) `_axisDays`). L'idéal
+  descend sur les seuls jours travaillés ; un ticket résolu le week-end compte le lundi (`burnSeries`,
+  même règle que la TV) ; repère « Aujourd'hui » et évènements placés par date (week-end → lundi).
+  Le Board garde l'axe calendaire.
+- Export « Texte » de la section PI Planning : titres de groupe sans le détail (`📝 User Stories`,
+  `🔄 Buffer`) — le total reste sur la ligne du sprint.
+- Tests : `tests/sprint-scope.test.mjs` (+9 : retrait d’avant-lancement, report à la clôture, ajout
+  et création en cours, ajout puis retrait, sans date, clé NN.N, `sprintStartsOf`, `engagedInPi` ×2).
+
 ## [3.215.0] - 2026-10-14
 
 ### Rapports — section Équipe(s) refaite ; Rapport complet avec en-tête et « En bref »

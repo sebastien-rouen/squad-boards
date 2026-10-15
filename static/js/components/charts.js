@@ -6,7 +6,11 @@
 
 import { openSprintTicketsModal } from './sprint_tickets_modal.js';
 import { openSprintCompareModal } from './sprint_compare_modal.js';
-import { burnSeries, burnDayKey } from '../utils.js';
+import { burnSeries, burnDayKey, cycleDays, leadDays, wipAgeDays, isWorkday, workdaysBetween, workdayDurationDays, mapStatus, sprintStartsOf, sprintNamesOf, extractSprintLabel } from '../utils.js';
+import { store } from '../state.js';
+import { TYPE_ICONS, STATUS_LABELS } from '../config.js';
+// holidays.js n'est pas dans le barrel : import direct (SOURCE UNIQUE des fériés).
+import { holidayName } from '../utils/holidays.js';
 
 const _charts = new Map();
 
@@ -92,7 +96,12 @@ const _TT = {
 };
 
 function ctx(id) { const c = document.getElementById(id); return c?.getContext('2d'); }
-function kill(id) { if (_charts.has(id)) { _charts.get(id).destroy(); _charts.delete(id); } }
+function kill(id) { _copyLists.delete(id); if (_charts.has(id)) { _charts.get(id).destroy(); _charts.delete(id); } }
+
+// Liste des tickets d'une vue AGRANDIE (« Copier la liste » de chart_zoom.js), posée par le rendu :
+// { heading, subtitle, columns, rows: [{ id, icon, title, flag, cells }] }. Vidée à chaque rendu (kill).
+const _copyLists = new Map();
+export function getChartCopyList(canvasId) { return _copyLists.get(canvasId) || null; }
 function css(prop) { return getComputedStyle(document.documentElement).getPropertyValue(prop).trim(); }
 
 /** Un canvas est-il celui de la popin de zoom ? (préfixe `zoom-`). */
@@ -253,6 +262,41 @@ function sprintDays(startDate, days) {
     return result;
 }
 
+/**
+ * Axe en jours OUVRÉS (`sprint.workdaysOnly`, posé par les Rapports) : samedis, dimanches et jours
+ * FÉRIÉS (utils/holidays.js) retirés de l'axe — ni point, ni étiquette, ni pente de l'idéal sur un
+ * jour non travaillé. Les séries restent celles de burnSeries : un ticket résolu un jour chômé tombe
+ * sur le jour ouvré suivant (même règle que la TV). Le Board garde l'axe calendaire.
+ */
+function _axisDays(sprint) {
+    const days = sprint?.durationDays || 14;
+    const startDate = sprint?.startDate || new Date().toISOString();
+    const all = sprintDays(startDate, days);
+    if (!sprint?.workdaysOnly) return { startDate, days, dayInfo: all, todayIndex: _todayIdx(startDate, days) };
+    const dayInfo = all.filter(d => !d.isOff && !holidayName(burnDayKey(d.date)));
+    return { startDate, days: dayInfo.length, dayInfo, todayIndex: _todayIdxOn(dayInfo) };
+}
+
+/** Index d'aujourd'hui sur un axe filtré (dernier jour de l'axe ≤ aujourd'hui), -1 hors de l'axe. */
+function _todayIdxOn(dayInfo) {
+    const today = burnDayKey(new Date());
+    const keys = dayInfo.map(d => burnDayKey(d.date));
+    if (!keys.length || today < keys[0] || today > keys.at(-1)) return -1;
+    return keys.findLastIndex(k => k <= today);
+}
+
+/** Marqueurs d'évènements sur l'axe : par date sur un axe filtré (un évènement un jour chômé → jour ouvré suivant). */
+function _markersOn(events, sprint, axis) {
+    if (!sprint?.workdaysOnly) return _eventMarkers(events, axis.startDate, axis.days);
+    if (!events?.length) return [];
+    const keys = axis.dayInfo.map(d => burnDayKey(d.date));
+    return events.flatMap(ev => {
+        const k = burnDayKey(new Date(ev.startDate));
+        if (!keys.length || k < keys[0] || k > keys.at(-1)) return [];
+        return [{ dayIdx: keys.findIndex(x => x >= k), icon: _EV_ICONS[ev.type] || 'ℹ️', color: _EV_COLORS[ev.type] || '#94A3B8' }];
+    });
+}
+
 function currentDay(startDate, days) {
     const elapsed = Math.floor((Date.now() - new Date(startDate).getTime()) / MS_DAY);
     return Math.max(0, Math.min(days - 1, elapsed));
@@ -262,12 +306,13 @@ function currentDay(startDate, days) {
  * Séries RÉELLES (utils/burn.js, même calcul que la TV) sur l'axe calendaire du graphique, en points et
  * en tickets. `null` au-delà d'aujourd'hui (Chart.js coupe la ligne). Sprint clos : jusqu'au dernier jour.
  */
-function _burnOnAxis(tickets, dayInfo) {
+function _burnOnAxis(tickets, dayInfo, entryDay) {
     const days = dayInfo.map(d => burnDayKey(d.date));
     const today = burnDayKey(new Date());
     const done = tickets.filter(t => t.status === 'done');
-    const pts = burnSeries({ engaged: tickets, done, days, today });
-    const cnt = burnSeries({ engaged: tickets, done, days, today, val: () => 1 });
+    const extra = entryDay ? { entryDay } : {};   // entrée dans le périmètre (Burnup du PI), sinon la création
+    const pts = burnSeries({ engaged: tickets, done, days, today, ...extra });
+    const cnt = burnSeries({ engaged: tickets, done, days, today, val: () => 1, ...extra });
     const pad = arr => days.map((_, i) => (i < arr.length ? arr[i] : null));
     return { pts, cnt, pad };
 }
@@ -279,11 +324,9 @@ export function renderBurndown(canvasId, tickets, sprint, events = []) {
     _register(canvasId, 'burndown', 'Burndown', renderBurndown, [tickets, sprint, events]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
     _ensureTodayPlugin(); _ensureEventsPlugin();
-    const days = sprint?.durationDays || 14;
-    const startDate = sprint?.startDate || new Date().toISOString();
-    const dayInfo = sprintDays(startDate, days);
-    const todayIndex = _todayIdx(startDate, days);
-    const eventMarkers = _eventMarkers(events, startDate, days);
+    const axis = _axisDays(sprint);
+    const { days, dayInfo, todayIndex } = axis;
+    const eventMarkers = _markersOn(events, sprint, axis);
 
     // Reste à faire RÉEL jour par jour (dates de résolution) — plus de droite interpolée.
     const { pts, cnt, pad } = _burnOnAxis(tickets, dayInfo);
@@ -324,15 +367,13 @@ export function renderBurnup(canvasId, tickets, sprint, events = [], opts = {}) 
     _register(canvasId, 'burnup', 'Burnup', renderBurnup, [tickets, sprint, events, opts]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
     _ensureTodayPlugin(); _ensureEventsPlugin();
-    const days = sprint?.durationDays || 14;
-    const startDate = sprint?.startDate || new Date().toISOString();
-    const dayInfo = sprintDays(startDate, days);
-    const todayIndex = _todayIdx(startDate, days);
-    const eventMarkers = _eventMarkers(events, startDate, days);
+    const axis = _axisDays(sprint);
+    const { dayInfo, todayIndex } = axis;
+    const eventMarkers = _markersOn(events, sprint, axis);
 
     // Fait cumulé RÉEL (dates de résolution) et périmètre en marches (dates de création), tenu
     // ensuite jusqu'à la fin du sprint — même calcul que le burnup de la TV.
-    const { pts, pad } = _burnOnAxis(tickets, dayInfo);
+    const { pts, pad } = _burnOnAxis(tickets, dayInfo, opts.entryDay);
     const scope = pts.total || 1;
     const done = Math.round(pts.done * 10) / 10;
 
@@ -437,6 +478,54 @@ function _pct(sortedAsc, p) {
 }
 const _ctColor = (ct, p50, p85) => ct > p85 ? '#EF4444' : ct > p50 ? '#F59E0B' : '#10B981';
 const _CT_LEADER = (t) => t.leader || t.assignee || '';
+/** « DUPONT, Marie » → « Marie D. » ; « Marie Dupont » → « Marie D. » — tient en bout de barre. */
+const _shortPerson = (n) => {
+    const s = String(n || '').trim();
+    if (!s) return '';
+    const [last, first] = s.includes(',') ? s.split(',').map(x => x.trim()) : [s.split(/\s+/).slice(1).join(' '), s.split(/\s+/)[0]];
+    return last ? `${first} ${last[0].toUpperCase()}.` : first;
+};
+const _plural = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+/**
+ * Texte en bout de barre (vues agrandies) : la VALEUR en gras dans la couleur de sa zone, puis les
+ * repères en couleur de texte normale, séparés par des points médians espacés — un bloc gris continu
+ * se lisait mal (retour utilisateur).
+ */
+function _barEndText(cx, x, y, value, color, rest) {
+    cx.font = '700 12px system-ui,sans-serif';
+    cx.fillStyle = color;
+    cx.fillText(value, x, y);
+    let px = x + cx.measureText(value).width;
+    cx.font = '12px system-ui,sans-serif';
+    for (const part of rest.filter(Boolean)) {
+        cx.fillStyle = css('--text-muted') || '#94a3b8';
+        cx.fillText('  ·  ', px, y);
+        px += cx.measureText('  ·  ').width;
+        cx.fillStyle = css('--text') || '#0f172a';
+        cx.fillText(part, px, y);
+        px += cx.measureText(part).width;
+    }
+}
+const _CT_SORT_LBL = { date: 'date de livraison', ct: 'cycle time', wait: 'attente', lt: 'lead time' };
+/**
+ * Sous-titre de la vue AGRANDIE du Cycle Time : ce qui est affiché, sur quoi, et les repères — le
+ * graphique (et son image copiée) se lit sans survol ni contexte (3.216.0).
+ */
+function _ctSubtitle({ shown, base, sortBy, opts, avgCT, p50ct, p85ct, waitShare, scatter }) {
+    const res = base.map(t => t.resolvedDate).filter(Boolean).sort();
+    const period = res.length ? ` · livrés du ${fmtShortDate(res[0])} au ${fmtShortDate(res.at(-1))}` : '';
+    const filters = [opts.filterType && `type ${opts.filterType}`, opts.filterLeader && `lead ${opts.filterLeader}`].filter(Boolean);
+    const what = scatter
+        ? `${_plural(base.length, 'ticket')} terminé${base.length > 1 ? 's' : ''}`
+        : `${_plural(shown, 'ticket')} affiché${shown > 1 ? 's' : ''} sur ${base.length} terminé${base.length > 1 ? 's' : ''}`
+          + (base.length > shown ? ` (les ${sortBy === 'date' ? 'plus récents' : 'plus longs'})` : '') + ` · tri : ${_CT_SORT_LBL[sortBy] || sortBy}`;
+    return [
+        `${what}${period}${filters.length ? ` · filtre : ${filters.join(', ')}` : ''} · en jours ouvrés`,
+        scatter
+            ? `Point = un ticket (hauteur = cycle time) · CT moyen ${avgCT} j · médiane ${p50ct} j · 85 % ≤ ${p85ct} j · clé affichée au-delà du 85ᵉ percentile`
+            : `Barre = lead time (création → livraison) = attente + cycle time · CT moyen ${avgCT} j · médiane ${p50ct} j · 85 % ≤ ${p85ct} j · attente = ${waitShare} % du lead time`,
+    ];
+}
 
 export function renderCycleTime(canvasId, tickets, opts = {}) {
     _register(canvasId, 'cycletime', 'Cycle Time & Lead Time', renderCycleTime, [tickets, opts]);
@@ -444,12 +533,13 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
     _clearEmptyOverlay(c.canvas);
 
     const zoomed = _isZoom(canvasId);
-    const mode   = zoomed ? (opts.mode || 'bars') : 'bars';   // contrôles uniquement en zoom
+    // Agrandi : la FRISE chronologique par défaut (3.216.0) ; barres et nuage restent au choix.
+    const mode   = zoomed ? (opts.mode || 'timeline') : 'bars';   // contrôles uniquement en zoom
     const sortBy = opts.sortBy || 'date';
 
     // Base : tickets terminés avec un cycle time mesuré, du plus ancien au plus récent.
     let base = tickets
-        .filter(t => t.status === 'done' && t.cycleTimeDays > 0)
+        .filter(t => t.status === 'done' && cycleDays(t) > 0)
         .sort((a, b) => (a.resolvedDate || '') < (b.resolvedDate || '') ? -1 : 1);
 
     // Valeurs de filtre disponibles (calculées AVANT filtrage, pour proposer les chips).
@@ -464,7 +554,7 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
     };
     // Expose les contrôles à la popin de zoom (toggle mode, tri, filtres).
     _setControls(canvasId, {
-        modes:   [{ value: 'bars', label: '▭ Barres' }, { value: 'scatter', label: '⠿ Nuage' }],
+        modes:   [{ value: 'timeline', label: '⟿ Frise' }, { value: 'bars', label: '▭ Barres' }, { value: 'scatter', label: '⠿ Nuage' }],
         sorts:   [
             { value: 'date', label: 'Date' }, { value: 'ct', label: 'Cycle time ↓' },
             { value: 'wait', label: 'Attente ↓' }, { value: 'lt', label: 'Lead time ↓' },
@@ -482,8 +572,8 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
     }
 
     // Percentiles calculés sur l'ensemble filtré (avant troncature d'affichage).
-    const lt = (t) => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays;
-    const ctAll = base.map(t => t.cycleTimeDays).sort((a, b) => a - b);
+    const lt = (t) => leadDays(t) > 0 ? leadDays(t) : cycleDays(t);
+    const ctAll = base.map(t => cycleDays(t)).sort((a, b) => a - b);
     const ltAll = base.map(lt).sort((a, b) => a - b);
     const p50ct = _pct(ctAll, 0.5), p85ct = _pct(ctAll, 0.85);
     const p50lt = _pct(ltAll, 0.5), p85lt = _pct(ltAll, 0.85);
@@ -491,15 +581,20 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
     const avgLT = Math.round(ltAll.reduce((s, v) => s + v, 0) / ltAll.length * 10) / 10;
     // (f) part moyenne d'attente dans le lead time.
     const totLt = base.reduce((s, t) => s + lt(t), 0);
-    const totWait = base.reduce((s, t) => s + Math.max(0, lt(t) - t.cycleTimeDays), 0);
+    const totWait = base.reduce((s, t) => s + Math.max(0, lt(t) - cycleDays(t)), 0);
     const waitShare = totLt > 0 ? Math.round(totWait / totLt * 100) : 0;
 
     const muted  = css('--text-muted') || '#94a3b8';
     const border = css('--border') || '#e2e8f0';
     const limit  = opts.limit || _displayLimit(canvasId, 15, 40);
 
+    if (mode === 'timeline') {
+        _renderCycleTimeline(canvasId, c, base, { p50ct, p85ct, p85lt, avgCT, waitShare, muted, border, limit, opts });
+        return;
+    }
     if (mode === 'scatter') {
-        _renderCycleScatter(canvasId, c, base, { p50ct, p85ct, p50lt, p85lt, avgCT, avgLT, waitShare, muted, border, zoomed, trend: opts.trend !== false });
+        _renderCycleScatter(canvasId, c, base, { p50ct, p85ct, p50lt, p85lt, avgCT, avgLT, waitShare, muted, border, zoomed, trend: opts.trend !== false,
+            subtitle: zoomed ? _ctSubtitle({ shown: base.length, base, sortBy, opts, avgCT, p50ct, p85ct, waitShare, scatter: true }) : null });
         return;
     }
 
@@ -507,18 +602,23 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
     // Tri d'affichage (d) puis troncature.
     const sorters = {
         date: (a, b) => (a.resolvedDate || '') < (b.resolvedDate || '') ? -1 : 1,
-        ct:   (a, b) => a.cycleTimeDays - b.cycleTimeDays,
-        wait: (a, b) => (lt(a) - a.cycleTimeDays) - (lt(b) - b.cycleTimeDays),
+        ct:   (a, b) => cycleDays(a) - cycleDays(b),
+        wait: (a, b) => (lt(a) - cycleDays(a)) - (lt(b) - cycleDays(b)),
         lt:   (a, b) => lt(a) - lt(b),
     };
     // Pour les tris "↓" on garde les plus grands : on trie croissant puis on prend la fin.
     const done = base.slice().sort(sorters[sortBy] || sorters.date).slice(-limit);
 
     const ltVals  = done.map(lt);
-    const labels  = done.map(t => zoomed && t.title ? `${t.id} · ${t.title.slice(0, 45)}` : t.id);
-    const waitData = done.map((t, i) => Math.max(0, ltVals[i] - t.cycleTimeDays));
-    const ctData   = done.map(t => t.cycleTimeDays);
-    const ctColors = done.map(t => _ctColor(t.cycleTimeDays, p50ct, p85ct) + 'cc');
+    // Agrandi : icône du type + clé + titre (tronqué proprement) — le ticket se reconnaît sans survol.
+    const labels  = done.map(t => {
+        if (!zoomed) return t.id;
+        const ti = String(t.title || '');
+        return `${TYPE_ICONS[t.type] || '•'} ${t.id}${ti ? ` · ${ti.length > 42 ? `${ti.slice(0, 41)}…` : ti}` : ''}`;
+    });
+    const waitData = done.map((t, i) => Math.max(0, ltVals[i] - cycleDays(t)));
+    const ctData   = done.map(t => cycleDays(t));
+    const ctColors = done.map(t => _ctColor(cycleDays(t), p50ct, p85ct) + 'cc');
     // (e) outliers = lead time > P85 → bordure épaisse + couleur appuyée.
     const isOutlier = done.map(t => lt(t) > p85lt);
 
@@ -564,14 +664,44 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
         },
     };
 
+    // Agrandi : au bout de chaque barre, le CYCLE TIME (gras, couleur de son percentile), la date de
+    // livraison et le lead — autoporteur, image copiée comprise. Pas le lead time : la barre le montre.
+    const valuesPlugin = {
+        id: 'ctValues',
+        afterDatasetsDraw(chart) {
+            if (!zoomed) return;
+            const { ctx: cx, scales: { x, y } } = chart;
+            if (!x || !y) return;
+            cx.save();
+            cx.textAlign = 'left';
+            cx.textBaseline = 'middle';
+            done.forEach((t, i) => {
+                const ct = cycleDays(t);
+                _barEndText(cx, x.getPixelForValue(ltVals[i]) + 8, y.getPixelForValue(i), `${ct} j`, _ctColor(ct, p50ct, p85ct),
+                    [`livré le ${fmtShortDate(t.resolvedDate)}`, _shortPerson(_CT_LEADER(t))]);
+            });
+            cx.restore();
+        },
+    };
+
+    if (zoomed) _copyLists.set(canvasId, {
+        heading: 'Cycle Time & Lead Time',
+        subtitle: _ctSubtitle({ shown: done.length, base, sortBy, opts, avgCT, p50ct, p85ct, waitShare }).join(' — '),
+        columns: ['Cycle time', 'Lead time', 'Attente', 'Livré le', 'Lead'],
+        rows: done.map((t, i) => ({
+            id: t.id, icon: TYPE_ICONS[t.type] || '•', title: t.title || '', flag: isOutlier[i] ? '⚠ lead time > P85' : '',
+            cells: [`${cycleDays(t)} j`, `${ltVals[i]} j`, `${waitData[i]} j`, fmtShortDate(t.resolvedDate), _shortPerson(_CT_LEADER(t))],
+        })),
+    });
+
     _charts.set(canvasId, new Chart(c, {
         type: 'bar',
-        plugins: [refLinesPlugin],
+        plugins: [refLinesPlugin, valuesPlugin],
         data: {
             labels,
             datasets: [
                 {
-                    label: 'Attente (planifié → démarré)',
+                    label: 'Attente (créé → démarré)',
                     data: waitData,
                     backgroundColor: '#6366F155',
                     borderColor: '#6366F1',
@@ -584,7 +714,7 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
                     label: 'Cycle Time (démarré → terminé)',
                     data: ctData,
                     backgroundColor: ctColors,
-                    borderColor: done.map((t, i) => isOutlier[i] ? '#7f1d1d' : _ctColor(t.cycleTimeDays, p50ct, p85ct)),
+                    borderColor: done.map((t, i) => isOutlier[i] ? '#7f1d1d' : _ctColor(cycleDays(t), p50ct, p85ct)),
                     borderWidth: done.map((_, i) => isOutlier[i] ? 2.5 : 1),
                     borderRadius: { topLeft: 0, bottomLeft: 0, topRight: 3, bottomRight: 3 },
                     stack: 'ct',
@@ -595,6 +725,8 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
         options: {
             ...baseOpts(),
             indexAxis: 'y',
+            // Place à droite pour les valeurs écrites en bout de barre (vue agrandie).
+            layout: { padding: { right: zoomed ? 230 : 0 } },
             interaction: { mode: 'index', intersect: true },
             onClick(event, elements) {
                 if (!elements.length) return;
@@ -610,11 +742,12 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
                     ticks: { color: muted, font: { size: zoomed ? 12 : 9 } },
                     grid: { color: border },
                     beginAtZero: true,
-                    title: { display: true, text: 'Jours depuis la planification', font: { size: zoomed ? 13 : 10 }, color: muted },
+                    title: { display: true, text: 'Jours ouvrés depuis la planification', font: { size: zoomed ? 13 : 10 }, color: muted },
                 },
                 y: {
                     stacked: true,
-                    ticks: { color: muted, font: { size: zoomed ? 12 : 9 } },
+                    // Tous les tickets nommés (jamais sautés), police selon le nombre de lignes.
+                    ticks: { autoSkip: false, color: muted, font: { size: _rowFontSize(done.length, zoomed ? 12 : 9) } },
                     grid: { color: border },
                 },
             },
@@ -629,7 +762,7 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
                         pointStyleWidth: 10,
                         generateLabels() {
                             return [
-                                { text: 'Attente (planifié → démarré)', fillStyle: '#6366F155', strokeStyle: '#6366F1', lineWidth: 1, pointStyle: 'rect' },
+                                { text: 'Attente (créé → démarré)', fillStyle: '#6366F155', strokeStyle: '#6366F1', lineWidth: 1, pointStyle: 'rect' },
                                 { text: `Cycle Time ≤ méd. (${p50ct}j)`, fillStyle: '#10B981cc', strokeStyle: '#10B981', lineWidth: 1, pointStyle: 'rect' },
                                 { text: `CT méd.–85% (${p50ct}–${p85ct}j)`, fillStyle: '#F59E0Bcc', strokeStyle: '#F59E0B', lineWidth: 1, pointStyle: 'rect' },
                                 { text: `CT > 85% (> ${p85ct}j)`,          fillStyle: '#EF4444cc', strokeStyle: '#EF4444', lineWidth: 1, pointStyle: 'rect' },
@@ -638,6 +771,12 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
                         },
                     },
                     onClick: () => {},
+                },
+                subtitle: {
+                    display: zoomed,
+                    text: zoomed ? _ctSubtitle({ shown: done.length, base, sortBy, opts, avgCT, p50ct, p85ct, waitShare }) : '',
+                    color: css('--text-secondary') || '#475569',
+                    font: { size: 12 }, align: 'start', padding: { bottom: 10 },
                 },
                 tooltip: {
                     ..._TT,
@@ -653,7 +792,7 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
                                 const w = waitData[item.dataIndex];
                                 return w > 0 ? `Attente : ${w}j` : null;
                             }
-                            return `Cycle Time : ${t.cycleTimeDays}j  |  Lead Time : ${ltVals[item.dataIndex]}j`;
+                            return `Cycle Time : ${cycleDays(t)}j  |  Lead Time : ${ltVals[item.dataIndex]}j`;
                         },
                         afterBody: items => {
                             const t = done[items[0]?.dataIndex];
@@ -670,20 +809,440 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
     }));
 }
 
+// ── Frises chronologiques (vues agrandies Cycle Time et WIP Age, 3.216.0) ────────
+// Briques partagées : axe de dates lisible, fond des jours chômés, débuts de sprint, repère du jour.
+const _msOf = v => (v ? Date.parse(String(v).replace(/([+-]\d{2})(\d{2})$/, '$1:$2')) : NaN);
+const _dayStart = ms => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const _addDaysMs = (ms, n) => { const d = new Date(ms); d.setDate(d.getDate() + n); return d.getTime(); };
+const _mondayOf = ms => { const d = _dayStart(ms); return _addDaysMs(d, -((new Date(d).getDay() + 6) % 7)); };
+const _isoOf = ms => new Date(ms).toISOString();
+const _OFF_FILL = 'rgba(148,163,184,0.13)';
+
+/**
+ * Axe X de dates : le PAS (1 j, 2 j, 1, 2 ou 4 semaines) suit la largeur RÉELLE du tracé — à pas fixe, les
+ * dates se chevauchaient (retour utilisateur). Graduations construites à la main (`afterBuildTicks`) :
+ * Chart.js aligne sinon un pas linéaire sur des multiples depuis 1970 (un jeudi), et non sur le lundi.
+ */
+function _dateAxis(c, xMin, xMax, { muted, border, reserved = 480 }) {
+    const spanDays = Math.max(1, Math.round((xMax - xMin) / MS_DAY));
+    const plotW = Math.max(240, (c.canvas.clientWidth || c.canvas.parentElement?.clientWidth || 900) - reserved);
+    const maxTicks = Math.max(2, Math.floor(plotW / 78));          // ~78 px par date (« 12 Oct. » + marge)
+    const step = [1, 2, 7, 14, 28].find(n => spanDays / n <= maxTicks) || 28;
+    const from = step >= 7 ? _mondayOf(xMin) : _dayStart(xMin);
+    const values = [];
+    for (let d = from; d <= xMax; d = _addDaysMs(d, step)) if (d >= xMin) values.push(d);
+    return {
+        type: 'linear', min: xMin, max: xMax,
+        afterBuildTicks: scale => { scale.ticks = values.map(value => ({ value })); },
+        ticks: { color: muted, font: { size: 11 }, maxRotation: 0, autoSkip: false, callback: v => fmtShortDate(_isoOf(v)) },
+        grid: { color: border },
+        title: { display: true, text: step >= 7 ? `Calendrier — une graduation ${step === 7 ? 'par lundi' : `tous les ${step / 7} lundis`}` : `Calendrier — une graduation ${step === 1 ? 'par jour' : 'tous les 2 jours'}`, font: { size: 12 }, color: muted },
+    };
+}
+
+/** Débuts de sprint passés par les tickets affichés (nom JIRA exact → démarrage), regroupés par « NN.N ». */
+function _sprintMarks(rows, xMin, xMax) {
+    const starts = sprintStartsOf(store.get('sprintInfo'));
+    const byKey = new Map();
+    for (const t of rows) {
+        for (const n of sprintNamesOf(t)) {
+            const k = extractSprintLabel(n), at = _msOf(starts.get(n));
+            if (!k || !Number.isFinite(at)) continue;
+            (byKey.get(k) || byKey.set(k, new Set()).get(k)).add(_dayStart(at));
+        }
+    }
+    // Plusieurs équipes : une date par clé, la MÉDIANE de leurs démarrages (comme piBounds).
+    return [...byKey].map(([key, set]) => { const a = [...set].sort((x, y) => x - y); return { key, at: a[Math.floor(a.length / 2)] }; })
+        .filter(m => m.at > xMin && m.at < xMax).sort((a, b) => a.at - b.at);
+}
+
+/** Fond : jours chômés grisés ; avant-plan : débuts de sprint (trait + « 31.2 ») et repère du jour. */
+function _timelinePlugin({ xMin, xMax, marks = [], today = false, afterRows }) {
+    return {
+        id: 'sbTimeline',
+        beforeDatasetsDraw(chart) {
+            const { ctx: cx, chartArea, scales: { x } } = chart;
+            if (!x || !chartArea) return;
+            cx.save();
+            cx.fillStyle = _OFF_FILL;
+            for (let d = _dayStart(xMin); d < xMax; d = _addDaysMs(d, 1)) {
+                if (isWorkday(new Date(d))) continue;
+                const x1 = Math.max(chartArea.left, x.getPixelForValue(d)), x2 = Math.min(chartArea.right, x.getPixelForValue(_addDaysMs(d, 1)));
+                if (x2 > x1) cx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
+            }
+            cx.restore();
+        },
+        afterDatasetsDraw(chart) {
+            const { ctx: cx, chartArea, scales: { x } } = chart;
+            if (!x || !chartArea) return;
+            cx.save();
+            const line = (xp, color, label) => {
+                cx.beginPath(); cx.setLineDash([4, 4]); cx.strokeStyle = color; cx.lineWidth = 1.25;
+                cx.moveTo(xp, chartArea.top); cx.lineTo(xp, chartArea.bottom); cx.stroke(); cx.setLineDash([]);
+                cx.font = '600 11px system-ui,sans-serif'; cx.fillStyle = color; cx.textAlign = 'left'; cx.textBaseline = 'bottom';
+                cx.fillText(label, xp + 3, chartArea.top - 3);
+            };
+            for (const m of marks) line(x.getPixelForValue(m.at), css('--primary') || '#0284C7', `▸ ${m.key}`);
+            if (today) line(x.getPixelForValue(Date.now()), '#EF4444', "Aujourd'hui");
+            cx.restore();
+            afterRows?.(chart);
+        },
+    };
+}
+
+/**
+ * Axe Y des graphiques « une ligne par ticket » : TOUS les libellés, jamais sautés. Chart.js masque
+ * sinon une partie des catégories quand il croit manquer de place (`autoSkip`, hauteur des emoji
+ * surestimée) — 7 tickets tracés pour 5 titres affichés. La police rétrécit avec le nombre de lignes.
+ */
+const _rowFontSize = (n, base = 12) => (n > 30 ? 9 : n > 22 ? 10 : n > 15 ? 11 : base);
+const _rowsAxis = (n, { color, base = 12 } = {}) => ({
+    ticks: { autoSkip: false, ...(color ? { color } : {}), font: { size: _rowFontSize(n, base) } },
+    grid: { display: false },
+});
+
+/** Libellé de ligne : (⚠ / 🚫) icône du type, clé, titre tronqué proprement. */
+const _rowLabel = (t, warn = false) => {
+    const ti = String(t.title || '');
+    return `${t.status === 'blocked' ? '🚫 ' : ''}${warn ? '⚠ ' : ''}${TYPE_ICONS[t.type] || '•'} ${t.id}${ti ? ` · ${ti.length > 38 ? `${ti.slice(0, 37)}…` : ti}` : ''}`;
+};
+
+/**
+ * Début du blocage EN COURS : dernier passage au drapeau JIRA (`Flagged` → « Impediment ») ou à un
+ * statut classé « bloqué » (`mapStatus`, ex. « Retour au demandeur »). NaN si l'historique (tronqué à
+ * quelques changements, cf. sync-parse.js) ne le contient plus — on dit alors « bloqué », sans durée.
+ */
+function _blockedSinceMs(t) {
+    let best = NaN;
+    for (const ch of t.recentChanges || []) {
+        const f = String(ch.field || '').toLowerCase();
+        const to = String(ch.to || '').trim();
+        if (!((f === 'flagged' && to) || (f === 'status' && mapStatus(to.toLowerCase()) === 'blocked'))) continue;
+        const ms = _msOf(ch.date);
+        if (Number.isFinite(ms) && !(ms <= best)) best = ms;
+    }
+    return best;
+}
+/**
+ * Périodes de BLOCAGE d'un ticket entre `fromMs` et `toMs`, rejouées depuis son historique : bloqué =
+ * drapeau JIRA posé OU statut classé « bloqué » (`mapStatus`). [{ from, to }] — vide si l'historique
+ * n'en dit rien. Complet depuis que la synchro garde TOUS les changements de statut et de drapeau
+ * (sync-parse.js, 3.216.0) ; avant une resynchro complète, un blocage ancien peut manquer.
+ */
+function _blockedIntervals(t, fromMs, toMs) {
+    const ch = (t.recentChanges || [])
+        .map(c => ({ f: String(c.field || '').toLowerCase(), from: String(c.from || '').trim(), to: String(c.to || '').trim(), ms: _msOf(c.date) }))
+        .filter(c => (c.f === 'status' || c.f === 'flagged') && Number.isFinite(c.ms))
+        .sort((a, b) => a.ms - b.ms);
+    if (!ch.length) return [];
+    const isBlk = s => !!s && mapStatus(s.toLowerCase()) === 'blocked';
+    // État AVANT le premier changement : le `from` du premier changement de chaque champ.
+    let st = isBlk(ch.find(c => c.f === 'status')?.from), fl = !!ch.find(c => c.f === 'flagged')?.from;
+    let open = st || fl ? -Infinity : null;
+    const out = [];
+    for (const c of ch) {
+        if (c.f === 'status') st = isBlk(c.to); else fl = !!c.to;
+        if ((st || fl) && open == null) open = c.ms;
+        else if (!(st || fl) && open != null) { out.push([open, c.ms]); open = null; }
+    }
+    if (open != null) out.push([open, Infinity]);
+    return out.map(([a, b]) => ({ from: Math.max(a, fromMs), to: Math.min(b, toMs) })).filter(x => x.to > x.from);
+}
+/** Durée bloquée (jours ouvrés) d'une liste de périodes, arrondie au demi-jour : « 2 j », « ½ j ». */
+const _blockedDaysTxt = iv => {
+    const d = Math.round(iv.reduce((s, x) => s + workdayDurationDays(x.from, x.to), 0) * 2) / 2;
+    return d < 0.5 ? '< ½ j' : `${String(d).replace('.5', ',5')} j`;
+};
+
+/** « 🚫 bloqué 4 j » (jours ouvrés) ou « 🚫 bloqué » si la date est inconnue. */
+const _blockedTxt = t => `🚫 bloqué${t._blockedDays != null ? ` ${t._blockedDays} j` : ''}`;
+
+/** Hachures (motif) pour la partie BLOQUÉE d'une ligne — lisible en clair comme en sombre. */
+function _stripes(color) {
+    const p = document.createElement('canvas');
+    p.width = p.height = 8;
+    const g = p.getContext('2d');
+    g.fillStyle = `${color}33`; g.fillRect(0, 0, 8, 8);
+    g.strokeStyle = color; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(-2, 10); g.lineTo(10, -2); g.stroke();
+    return g.createPattern(p, 'repeat');
+}
+
+// ── Cycle Time — mode « frise chronologique » (vue agrandie, défaut) ─────────────
+// Une ligne par ticket, rangée par date de démarrage, sur un VRAI axe de dates : segment clair =
+// attente (créé → démarré), segment plein = cycle time (démarré → livré), couleur = percentile CT.
+// Week-ends et fériés grisés en fond : on voit pourquoi ils ne comptent pas (jours OUVRÉS). Une attente
+// commencée avant la fenêtre est coupée au bord gauche, annoncée « ◂ créé le … ». Débuts de sprint tracés.
+function _renderCycleTimeline(canvasId, c, base, p) {
+    const { p50ct, p85ct, p85lt, avgCT, waitShare, muted, border, limit, opts } = p;
+    // Les plus récemment livrés (fenêtre lisible), puis rangés par démarrage : l'ordre de la frise.
+    const dated = base.filter(t => Number.isFinite(_msOf(t.startedDate)) && Number.isFinite(_msOf(t.resolvedDate)));
+    const rows = dated.slice(-limit).sort((a, b) => _msOf(a.startedDate) - _msOf(b.startedDate));
+    if (rows.length < 2) { _emptyOverlay(c.canvas, 'Pas assez de tickets datés pour la frise', '⏱'); return; }
+    const lt = t => (leadDays(t) > 0 ? leadDays(t) : cycleDays(t));
+
+    // Fenêtre : du lundi précédant le 1er démarrage au lendemain de la dernière livraison.
+    const xMin = _mondayOf(Math.min(...rows.map(t => _msOf(t.startedDate))));
+    const xMax = _addDaysMs(_dayStart(Math.max(...rows.map(t => _msOf(t.resolvedDate)))), 1);
+    const created = rows.map(t => _msOf(t.createdAt));
+    const wait  = rows.map((t, i) => [Math.max(xMin, Number.isFinite(created[i]) ? Math.min(created[i], _msOf(t.startedDate)) : _msOf(t.startedDate)), _msOf(t.startedDate)]);
+    const cycle = rows.map(t => [_msOf(t.startedDate), Math.max(_msOf(t.resolvedDate), _msOf(t.startedDate) + MS_DAY / 6)]);
+    const clipped = rows.map((t, i) => Number.isFinite(created[i]) && created[i] < xMin);
+    const outlier = rows.map(t => lt(t) > p85lt);
+    const ctCol = t => _ctColor(cycleDays(t), p50ct, p85ct);
+    const marks = _sprintMarks(rows, xMin, xMax);
+    // Périodes BLOQUÉES pendant le cycle (démarré → livré), hachurées sur le segment.
+    const blockedIv = rows.map(t => _blockedIntervals(t, _msOf(t.startedDate), _msOf(t.resolvedDate)));
+    const nBlocked = blockedIv.filter(iv => iv.length).length;
+    const stripes = _stripes('#DC2626');
+
+    // Hachures des blocages, puis bout de ligne : cycle time (gras, couleur du percentile), blocage, lead ;
+    // « ◂ créé le … » si l'attente est coupée.
+    const afterRows = chart => {
+        const { ctx: cx, chartArea, scales: { x, y } } = chart;
+        const bars = chart.getDatasetMeta(1).data;
+        cx.save();
+        blockedIv.forEach((iv, i) => {
+            const el = bars[i];
+            if (!el || !iv.length) return;
+            const h = el.height || 12, top = el.y - h / 2;
+            for (const b of iv) {
+                const x1 = Math.max(chartArea.left, x.getPixelForValue(b.from)), x2 = Math.min(chartArea.right, x.getPixelForValue(b.to));
+                if (x2 <= x1) continue;
+                cx.fillStyle = stripes; cx.fillRect(x1, top, x2 - x1, h);
+                cx.strokeStyle = '#DC2626'; cx.lineWidth = 1; cx.strokeRect(x1 + 0.5, top + 0.5, x2 - x1 - 1, h - 1);
+            }
+        });
+        cx.textBaseline = 'middle'; cx.textAlign = 'left';
+        rows.forEach((t, i) => {
+            const yp = y.getPixelForValue(i);
+            _barEndText(cx, x.getPixelForValue(cycle[i][1]) + 8, yp, `${cycleDays(t)} j`, ctCol(t),
+                [blockedIv[i].length ? `🚫 ${_blockedDaysTxt(blockedIv[i])} bloqué` : '', _shortPerson(_CT_LEADER(t))]);
+            if (clipped[i]) {
+                cx.font = '11px system-ui,sans-serif';
+                cx.fillStyle = css('--text-muted') || '#94a3b8';
+                cx.fillText(`◂ créé le ${fmtShortDate(_isoOf(created[i]))}`, chartArea.left + 4, yp);
+            }
+        });
+        cx.restore();
+    };
+
+    const res = rows.map(t => t.resolvedDate).sort();
+    const subtitle = [
+        `${_plural(rows.length, 'ticket')} livré${rows.length > 1 ? 's' : ''} du ${fmtShortDate(res[0])} au ${fmtShortDate(res.at(-1))}${dated.length > rows.length ? ` (les plus récents sur ${dated.length})` : ''}`
+            + `${nBlocked ? ` · ${nBlocked} bloqué${nBlocked > 1 ? 's' : ''} en cours de route 🚫` : ''}`
+            + `${base.length > dated.length ? ` · ${base.length - dated.length} sans dates de cycle, non affiché${base.length - dated.length > 1 ? 's' : ''}` : ''}`
+            + `${[opts.filterType && `type ${opts.filterType}`, opts.filterLeader && `lead ${opts.filterLeader}`].filter(Boolean).map(f => ` · filtre ${f}`).join('')}`,
+        `CT moyen ${avgCT} j ouvrés · médiane ${p50ct} j · 85 % ≤ ${p85ct} j · attente = ${waitShare} % du lead time — repères : voir « Comment lire ce graphique »`,
+    ];
+
+    _copyLists.set(canvasId, {
+        heading: 'Cycle Time — frise',
+        subtitle: subtitle.join(' — '),
+        columns: ['Démarré le', 'Livré le', 'Cycle time', 'Lead time', 'Lead'],
+        rows: rows.map((t, i) => ({
+            id: t.id, icon: TYPE_ICONS[t.type] || '•', title: t.title || '',
+            flag: [blockedIv[i].length ? `🚫 ${_blockedDaysTxt(blockedIv[i])} bloqué` : '', outlier[i] ? '⚠ lead time > P85' : ''].filter(Boolean).join(' · '),
+            cells: [fmtShortDate(t.startedDate), fmtShortDate(t.resolvedDate), `${cycleDays(t)} j`, `${lt(t)} j`, _shortPerson(_CT_LEADER(t))],
+        })),
+    });
+
+    _charts.set(canvasId, new Chart(c, {
+        type: 'bar',
+        plugins: [_timelinePlugin({ xMin, xMax, marks, afterRows })],
+        data: {
+            labels: rows.map((t, i) => _rowLabel(t, outlier[i])),
+            datasets: [
+                { label: 'Attente (créé → démarré)', data: wait, backgroundColor: '#6366F133', borderColor: '#6366F199', borderWidth: 1, borderSkipped: false, borderRadius: 3, grouped: false, barPercentage: 0.5 },
+                { label: 'Cycle time (démarré → livré)', data: cycle, backgroundColor: rows.map(t => `${ctCol(t)}dd`), borderColor: rows.map((t, i) => (outlier[i] ? '#7f1d1d' : ctCol(t))), borderWidth: rows.map((_, i) => (outlier[i] ? 2 : 1)), borderSkipped: false, borderRadius: 3, grouped: false, barPercentage: 0.78 },
+            ],
+        },
+        options: {
+            ...baseOpts(),
+            indexAxis: 'y',
+            layout: { padding: { right: 150, top: marks.length ? 16 : 0 } },
+            interaction: { mode: 'index', intersect: true },
+            onClick(event, elements) {
+                const t = elements.length ? rows[elements[0].index] : null;
+                if (t) window.__squadBoard?.openTicketModal?.(t.id);
+            },
+            onHover(event, elements) { event.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+            scales: {
+                x: _dateAxis(c, xMin, xMax, { muted, border }),
+                y: _rowsAxis(rows.length, { color: css('--text') || '#0f172a' }),
+            },
+            plugins: {
+                ...baseOpts().plugins,
+                legend: { position: 'bottom', labels: { color: css('--text-secondary') || '#475569', font: { size: 12 }, usePointStyle: true, pointStyleWidth: 10,
+                    generateLabels: () => [
+                        { text: 'Attente (créé → démarré)', fillStyle: '#6366F133', strokeStyle: '#6366F199', lineWidth: 1, pointStyle: 'rect' },
+                        { text: `Cycle time ≤ médiane (${p50ct} j)`, fillStyle: '#10B981dd', strokeStyle: '#10B981', lineWidth: 1, pointStyle: 'rect' },
+                        { text: `Médiane → 85 % (${p50ct}–${p85ct} j)`, fillStyle: '#F59E0Bdd', strokeStyle: '#F59E0B', lineWidth: 1, pointStyle: 'rect' },
+                        { text: `> 85 % (> ${p85ct} j)`, fillStyle: '#EF4444dd', strokeStyle: '#EF4444', lineWidth: 1, pointStyle: 'rect' },
+                        ...(nBlocked ? [{ text: '🚫 Période bloquée', fillStyle: stripes, strokeStyle: '#DC2626', lineWidth: 1, pointStyle: 'rect' }] : []),
+                        { text: 'Week-end / férié (non compté)', fillStyle: 'rgba(148,163,184,0.25)', strokeStyle: 'transparent', lineWidth: 0, pointStyle: 'rect' },
+                        ...(marks.length ? [{ text: '▸ Début de sprint', fillStyle: 'transparent', strokeStyle: css('--primary') || '#0284C7', lineWidth: 1.5, pointStyle: 'line' }] : []),
+                        { text: `⚠ lead time > ${p85lt} j`, fillStyle: 'transparent', strokeStyle: '#7f1d1d', lineWidth: 2, pointStyle: 'rectRounded' },
+                    ] },
+                    onClick: () => {} },
+                subtitle: { display: true, text: subtitle, color: css('--text-secondary') || '#475569', font: { size: 12 }, align: 'start', padding: { bottom: marks.length ? 18 : 10 } },
+                tooltip: {
+                    ..._TT,
+                    callbacks: {
+                        title: items => { const t = rows[items[0]?.dataIndex]; return t ? [t.title || t.id, t.id] : ''; },
+                        label: () => null,
+                        afterBody: items => {
+                            const i = items[0]?.dataIndex, t = rows[i];
+                            if (!t) return [];
+                            return [
+                                `Créé le ${Number.isFinite(created[i]) ? fmtShortDate(_isoOf(created[i])) : '?'} · démarré le ${fmtShortDate(t.startedDate)} · livré le ${fmtShortDate(t.resolvedDate)}`,
+                                `Cycle time ${cycleDays(t)} j · lead time ${lt(t)} j (jours ouvrés)`,
+                                ...blockedIv[i].map(b => `🚫 Bloqué du ${fmtShortDate(_isoOf(b.from))} au ${fmtShortDate(_isoOf(b.to))} (${_blockedDaysTxt([b])})`),
+                                _CT_LEADER(t) ? `Lead : ${_CT_LEADER(t)}` : '',
+                                outlier[i] ? `⚠ Lead time au-delà du 85ᵉ percentile (${p85lt} j)` : '',
+                            ].filter(Boolean);
+                        },
+                    },
+                },
+            },
+        },
+    }));
+}
+
+// ── WIP Age — mode « frise chronologique » (vue agrandie, défaut) ────────────────
+// Chaque ticket EN COURS, de sa mise en travail jusqu'à aujourd'hui, sur le même calendrier que la frise du
+// Cycle Time : segment clair = attente avant la mise en cours, plein = en cours (couleur 🟢 🟡 🔴 de son âge).
+// Fenêtre bornée à 12 semaines : un ticket plus ancien est coupé au bord, « ◂ depuis le … ».
+function _renderWipTimeline(canvasId, c, wip, p) {
+    const { wipTotal, warnThresh, dangerThresh, p85, doneCount, colorOf } = p;
+    const muted = css('--text-muted') || '#94a3b8', border = css('--border') || '#e2e8f0';
+    const rows = wip.slice().sort((a, b) => a._startMs - b._startMs);
+    const now = Date.now();
+    const xMin = Math.max(_mondayOf(Math.min(...rows.map(t => t._startMs))), _mondayOf(_addDaysMs(now, -84)));
+    const xMax = _addDaysMs(_dayStart(now), 1);
+    const created = rows.map(t => _msOf(t.createdAt));
+    const hasWait = rows.map((t, i) => t.startedSource === 'mise en cours' && Number.isFinite(created[i]) && created[i] < t._startMs);
+    const wait = rows.map((t, i) => (hasWait[i] ? [Math.max(xMin, created[i]), Math.max(xMin, t._startMs)] : null));
+    // Bloqué : le segment « en cours » s'arrête au début du blocage, la suite est hachurée en rouge
+    // (blocage de date inconnue → toute la ligne hachurée).
+    const blockFrom = rows.map(t => (t.status !== 'blocked' ? null : Math.max(xMin, Number.isFinite(t._blockedMs) ? Math.max(t._blockedMs, t._startMs) : t._startMs)));
+    const work = rows.map((t, i) => (blockFrom[i] != null && blockFrom[i] <= Math.max(xMin, t._startMs) ? null : [Math.max(xMin, t._startMs), blockFrom[i] ?? now]));
+    const blocked = rows.map((t, i) => (blockFrom[i] == null ? null : [blockFrom[i], now]));
+    const nBlocked = rows.filter(t => t.status === 'blocked').length;
+    const stripes = _stripes('#DC2626');
+    const clipped = rows.map(t => t._startMs < xMin);
+    const marks = _sprintMarks(rows, xMin, xMax);
+    const sinceTxt = t => `${t.startedSource === 'mise en cours' ? 'depuis le' : 'créé le'} ${fmtShortDate(_isoOf(t._startMs))}`;
+
+    const afterRows = chart => {
+        const { ctx: cx, chartArea, scales: { x, y } } = chart;
+        cx.save();
+        cx.textBaseline = 'middle'; cx.textAlign = 'left';
+        rows.forEach((t, i) => {
+            const yp = y.getPixelForValue(i);
+            _barEndText(cx, x.getPixelForValue(now) + 8, yp, `${t.age} j`, colorOf(t.age),
+                [t.status === 'blocked' ? _blockedTxt(t) : (STATUS_LABELS[t.status] || t.status), _shortPerson(_CT_LEADER(t))]);
+            if (clipped[i]) {
+                cx.font = '11px system-ui,sans-serif';
+                cx.fillStyle = css('--text') || '#0f172a';
+                cx.fillText(`◂ ${sinceTxt(t)}`, chartArea.left + 4, yp);
+            }
+        });
+        cx.restore();
+    };
+
+    const subtitle = [
+        `${_plural(rows.length, 'ticket')} en cours${nBlocked ? `, dont ${nBlocked} bloqué${nBlocked > 1 ? 's' : ''} 🚫` : ''}${wipTotal > rows.length ? ` (les plus anciens sur ${wipTotal})` : ''} · âge = jours ouvrés depuis la mise en cours (à défaut : la création)`,
+        `🟢 < ${warnThresh} j · 🟡 ≥ ${warnThresh} j · 🔴 ≥ ${dangerThresh} j — ${p85 ? `🔴 = 85ᵉ percentile du cycle time (${doneCount} tickets terminés), 🟡 = 70 % de ce seuil` : 'seuils fixes : pas assez de tickets terminés pour un P85'}`,
+    ];
+
+    _copyLists.set(canvasId, {
+        heading: 'WIP Age — frise',
+        subtitle: subtitle.join(' — '),
+        columns: ['Âge', 'Statut', 'Depuis', 'Lead'],
+        rows: rows.map(t => ({
+            id: t.id, icon: TYPE_ICONS[t.type] || '•', title: t.title || '',
+            flag: [t.status === 'blocked' ? _blockedTxt(t) : '', t.age >= dangerThresh ? '🔴 critique' : t.age >= warnThresh ? '🟡 attention' : ''].filter(Boolean).join(' · '),
+            cells: [`${t.age} j`, STATUS_LABELS[t.status] || t.status, sinceTxt(t), _shortPerson(_CT_LEADER(t))],
+        })),
+    });
+
+    _charts.set(canvasId, new Chart(c, {
+        type: 'bar',
+        plugins: [_timelinePlugin({ xMin, xMax, marks, today: true, afterRows })],
+        data: {
+            labels: rows.map(t => _rowLabel(t)),
+            datasets: [
+                { label: 'Attente (créé → mis en cours)', data: wait, backgroundColor: '#6366F133', borderColor: '#6366F199', borderWidth: 1, borderSkipped: false, borderRadius: 3, grouped: false, barPercentage: 0.5 },
+                { label: 'En cours (jusqu’à aujourd’hui)', data: work, backgroundColor: rows.map(t => `${colorOf(t.age)}dd`), borderColor: rows.map(t => colorOf(t.age)), borderWidth: 1, borderSkipped: false, borderRadius: 3, grouped: false, barPercentage: 0.78 },
+                { label: 'Bloqué', data: blocked, backgroundColor: stripes, borderColor: '#DC2626', borderWidth: 1.5, borderSkipped: false, borderRadius: 3, grouped: false, barPercentage: 0.78 },
+            ],
+        },
+        options: {
+            ...baseOpts(),
+            indexAxis: 'y',
+            layout: { padding: { right: 200, top: 16 } },
+            interaction: { mode: 'index', intersect: true },
+            onClick(event, elements) {
+                const t = elements.length ? rows[elements[0].index] : null;
+                if (t) window.__squadBoard?.openTicketModal?.(t.id);
+            },
+            onHover(event, elements) { event.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+            scales: {
+                x: _dateAxis(c, xMin, xMax, { muted, border, reserved: 530 }),
+                y: _rowsAxis(rows.length, { color: css('--text') || '#0f172a' }),
+            },
+            plugins: {
+                ...baseOpts().plugins,
+                legend: { position: 'bottom', labels: { color: css('--text-secondary') || '#475569', font: { size: 12 }, usePointStyle: true, pointStyleWidth: 10,
+                    generateLabels: () => [
+                        { text: 'Attente (créé → mis en cours)', fillStyle: '#6366F133', strokeStyle: '#6366F199', lineWidth: 1, pointStyle: 'rect' },
+                        { text: `En cours < ${warnThresh} j`, fillStyle: '#10B981dd', strokeStyle: '#10B981', lineWidth: 1, pointStyle: 'rect' },
+                        { text: `${warnThresh}–${dangerThresh} j`, fillStyle: '#F59E0Bdd', strokeStyle: '#F59E0B', lineWidth: 1, pointStyle: 'rect' },
+                        { text: `≥ ${dangerThresh} j`, fillStyle: '#EF4444dd', strokeStyle: '#EF4444', lineWidth: 1, pointStyle: 'rect' },
+                        ...(nBlocked ? [{ text: '🚫 Bloqué (depuis le drapeau / statut)', fillStyle: stripes, strokeStyle: '#DC2626', lineWidth: 1.5, pointStyle: 'rect' }] : []),
+                        { text: 'Week-end / férié (non compté)', fillStyle: 'rgba(148,163,184,0.25)', strokeStyle: 'transparent', lineWidth: 0, pointStyle: 'rect' },
+                        ...(marks.length ? [{ text: '▸ Début de sprint', fillStyle: 'transparent', strokeStyle: css('--primary') || '#0284C7', lineWidth: 1.5, pointStyle: 'line' }] : []),
+                        { text: "Aujourd'hui", fillStyle: 'transparent', strokeStyle: '#EF4444', lineWidth: 1.5, pointStyle: 'line' },
+                    ] },
+                    onClick: () => {} },
+                subtitle: { display: true, text: subtitle, color: css('--text-secondary') || '#475569', font: { size: 12 }, align: 'start', padding: { bottom: 18 } },
+                tooltip: {
+                    ..._TT,
+                    callbacks: {
+                        title: items => { const t = rows[items[0]?.dataIndex]; return t ? [t.title || t.id, t.id] : ''; },
+                        label: () => null,
+                        afterBody: items => {
+                            const i = items[0]?.dataIndex, t = rows[i];
+                            if (!t) return [];
+                            return [
+                                `${STATUS_LABELS[t.status] || t.status} · ${sinceTxt(t)}${Number.isFinite(created[i]) && hasWait[i] ? ` · créé le ${fmtShortDate(_isoOf(created[i]))}` : ''}`,
+                                `Âge ${t.age} j ouvrés (${t.age >= dangerThresh ? 'critique 🔴' : t.age >= warnThresh ? 'attention 🟡' : 'OK 🟢'})`,
+                                t.status === 'blocked' ? (Number.isFinite(t._blockedMs) ? `🚫 Bloqué depuis le ${fmtShortDate(_isoOf(t._blockedMs))} (${t._blockedDays} j ouvrés)` : '🚫 Bloqué — début du blocage absent de l’historique récent') : '',
+                                _CT_LEADER(t) ? `Lead : ${_CT_LEADER(t)}` : '',
+                            ].filter(Boolean);
+                        },
+                    },
+                },
+            },
+        },
+    }));
+}
+
 // ── Cycle Time — mode "nuage de points" (scatter temporel) ─────────────────────
 // X = date de résolution, Y = cycle time, couleur = percentile CT.
 // Révèle la tendance dans le temps (flux qui se dégrade / s'améliore).
 function _renderCycleScatter(canvasId, c, base, p) {
-    const { p50ct, p85ct, p50lt, p85lt, avgCT, avgLT, waitShare, muted, border, zoomed, trend } = p;
-    const lt = (t) => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays;
+    const { p50ct, p85ct, p50lt, p85lt, avgCT, avgLT, waitShare, muted, border, zoomed, trend, subtitle } = p;
+    const lt = (t) => leadDays(t) > 0 ? leadDays(t) : cycleDays(t);
     // Ordonné par date de résolution (axe temps).
     const items = base.slice().sort((a, b) => (a.resolvedDate || '') < (b.resolvedDate || '') ? -1 : 1);
     const points = items.map(t => ({
         x: new Date(t.resolvedDate || Date.now()).getTime(),
-        y: t.cycleTimeDays,
+        y: cycleDays(t),
         _t: t,
     }));
-    const ptColors = items.map(t => _ctColor(t.cycleTimeDays, p50ct, p85ct) + 'cc');
+    const ptColors = items.map(t => _ctColor(cycleDays(t), p50ct, p85ct) + 'cc');
     const isOutlier = items.map(t => lt(t) > p85lt);
 
     // (b) Tendance : moyenne mobile sur N tickets (granularité retenue avec l'utilisateur).
@@ -757,20 +1316,59 @@ function _renderCycleScatter(canvasId, c, base, p) {
         },
     };
 
+    // Agrandi : clé des tickets au-delà du 85ᵉ percentile (ou outliers de lead time) à côté de leur point,
+    // CLIQUABLE (ouvre la fiche) : les zones dessinées sont mémorisées pour le test de clic / survol.
+    let idBoxes = [];
+    const idsPlugin = {
+        id: 'ctScatterIds',
+        afterDatasetsDraw(chart) {
+            idBoxes = [];
+            if (!zoomed) return;
+            const meta = chart.getDatasetMeta(0);
+            const { ctx: cx } = chart;
+            cx.save();
+            cx.font = '600 11px system-ui,sans-serif';
+            cx.fillStyle = css('--primary') || '#0284C7';
+            cx.textAlign = 'left';
+            cx.textBaseline = 'middle';
+            items.forEach((t, i) => {
+                if (!(cycleDays(t) > p85ct || isOutlier[i])) return;
+                const el = meta.data[i];
+                if (!el) return;
+                const x0 = el.x + 9, w = cx.measureText(t.id).width;
+                cx.fillText(t.id, x0, el.y);
+                cx.fillRect(x0, el.y + 7, w, 1);   // souligné : se lit comme un lien
+                idBoxes.push({ x1: x0 - 2, x2: x0 + w + 2, y1: el.y - 9, y2: el.y + 9, id: t.id });
+            });
+            cx.restore();
+        },
+    };
+    const idAt = (event) => idBoxes.find(b => event.x >= b.x1 && event.x <= b.x2 && event.y >= b.y1 && event.y <= b.y2)?.id || null;
+
+    if (zoomed) _copyLists.set(canvasId, {
+        heading: 'Cycle Time — nuage',
+        subtitle: (subtitle || []).join(' — '),
+        columns: ['Cycle time', 'Lead time', 'Livré le', 'Lead'],
+        rows: items.map((t, i) => ({
+            id: t.id, icon: TYPE_ICONS[t.type] || '•', title: t.title || '',
+            flag: cycleDays(t) > p85ct ? '🔴 > P85' : isOutlier[i] ? '⚠ lead time > P85' : '',
+            cells: [`${cycleDays(t)} j`, `${lt(t)} j`, fmtShortDate(t.resolvedDate), _shortPerson(_CT_LEADER(t))],
+        })),
+    });
+
     _charts.set(canvasId, new Chart(c, {
         type: 'scatter',
-        plugins: [bandsPlugin],
+        plugins: [bandsPlugin, idsPlugin],
         data: { datasets },
         options: {
             ...baseOpts(),
             interaction: { mode: 'nearest', intersect: true },
             onClick(event, elements) {
-                if (!elements.length) return;
-                const t = points[elements[0].index]?._t;
-                if (t) window.__squadBoard?.openTicketModal?.(t.id);
+                const id = elements.length ? points[elements[0].index]?._t?.id : idAt(event);
+                if (id) window.__squadBoard?.openTicketModal?.(id);
             },
             onHover(event, elements) {
-                event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+                event.native.target.style.cursor = elements.length || idAt(event) ? 'pointer' : 'default';
             },
             scales: {
                 x: {
@@ -789,12 +1387,17 @@ function _renderCycleScatter(canvasId, c, base, p) {
                     beginAtZero: true,
                     ticks: { color: muted, font: { size: zoomed ? 12 : 9 } },
                     grid: { color: border },
-                    title: { display: true, text: 'Cycle time (jours)', font: { size: zoomed ? 13 : 10 }, color: muted },
+                    title: { display: true, text: 'Cycle time (jours ouvrés)', font: { size: zoomed ? 13 : 10 }, color: muted },
                 },
             },
             plugins: {
                 ...baseOpts().plugins,
                 legend: { position: 'bottom', labels: { color: css('--text-secondary') || '#475569', font: { size: zoomed ? 12 : 10 }, usePointStyle: true } },
+                subtitle: {
+                    display: !!subtitle, text: subtitle || '',
+                    color: css('--text-secondary') || '#475569',
+                    font: { size: 12 }, align: 'start', padding: { bottom: 10 },
+                },
                 tooltip: {
                     ..._TT,
                     callbacks: {
@@ -805,7 +1408,7 @@ function _renderCycleScatter(canvasId, c, base, p) {
                         label: item => {
                             const t = item.raw?._t;
                             if (!t) return '';
-                            return `Cycle Time : ${t.cycleTimeDays}j  |  Lead Time : ${lt(t)}j`;
+                            return `Cycle Time : ${cycleDays(t)}j  |  Lead Time : ${lt(t)}j`;
                         },
                         footer: () => `Moy CT: ${avgCT}j · Moy LT: ${avgLT}j · CT méd: ${p50ct}j · CT 85%: ${p85ct}j · Attente: ${waitShare}% du lead time`,
                     },
@@ -823,15 +1426,21 @@ export function renderWIPAge(canvasId, tickets, opts = {}) {
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
     _clearEmptyOverlay(c.canvas);
 
+    const zoomed = _isZoom(canvasId);
     const limit = opts.limit || _displayLimit(canvasId, 15, 40);
     const today = new Date(); today.setHours(0, 0, 0, 0);
+    // Bloqués COMPRIS (3.216.0) : ils sont en cours, et ce sont ceux à surveiller — ils n'apparaissaient pas.
+    const WIP_STATUSES = ['inprog', 'review', 'test', 'blocked'];
+    const wipTotal = tickets.filter(t => WIP_STATUSES.includes(t.status)).length;
     const wip = tickets
-        .filter(t => ['inprog', 'review', 'test'].includes(t.status))
+        .filter(t => WIP_STATUSES.includes(t.status))
         .map(t => {
             const started = t.startedDate ? new Date(t.startedDate) : t.createdAt ? new Date(t.createdAt) : today;
             const startedSource = t.startedDate ? 'mise en cours' : t.createdAt ? 'création (pas de mise en cours)' : 'aujourd\'hui (fallback)';
-            const age = Math.max(1, Math.round((today - started) / MS_DAY));
-            return { ...t, age, startedDate: started.toISOString().slice(0, 10), startedSource };
+            const age = wipAgeDays(started, new Date());   // jours OUVRÉS (utils/workdays.js)
+            const blockedMs = t.status === 'blocked' ? _blockedSinceMs(t) : NaN;
+            return { ...t, age, startedDate: started.toISOString().slice(0, 10), startedSource, _startMs: started.getTime(),
+                _blockedMs: blockedMs, _blockedDays: Number.isFinite(blockedMs) ? workdaysBetween(blockedMs, new Date()) : null };
         })
         .sort((a, b) => b.age - a.age)
         .slice(0, limit);
@@ -842,10 +1451,10 @@ export function renderWIPAge(canvasId, tickets, opts = {}) {
     }
 
     // P85 from done tickets (seuil "85% des tickets done ont fini en moins de X jours")
-    const doneWithCT = tickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
+    const doneWithCT = tickets.filter(t => t.status === 'done' && cycleDays(t) > 0);
     let p85 = null;
     if (doneWithCT.length >= 3) {
-        const sorted = doneWithCT.map(t => t.cycleTimeDays).sort((a, b) => a - b);
+        const sorted = doneWithCT.map(t => cycleDays(t)).sort((a, b) => a - b);
         p85 = sorted[Math.ceil(sorted.length * 0.85) - 1];
     }
     // Fallback : seuils fixes (Kanban classique : ~7j alerte, ~14j critique) si p85 non calculable
@@ -856,12 +1465,49 @@ export function renderWIPAge(canvasId, tickets, opts = {}) {
     const _color = (age) => age >= dangerThresh ? '#EF4444' : age >= warnThresh ? '#F59E0B' : '#10B981';
     const _zoneLabel = (age) => age >= dangerThresh ? 'critique 🔴' : age >= warnThresh ? 'attention 🟡' : 'OK 🟢';
 
-    const labels = wip.map(t => `${t.id} · ${(t.title || '').slice(0, 25)}`);
+    // Agrandi : FRISE par défaut (3.216.0) — barres au choix (sélecteur « Vue » de la popin).
+    _setControls(canvasId, { modes: [{ value: 'timeline', label: '⟿ Frise' }, { value: 'bars', label: '▭ Barres' }] });
+    if (zoomed && (opts.mode || 'timeline') === 'timeline') {
+        _renderWipTimeline(canvasId, c, wip, { wipTotal, warnThresh, dangerThresh, p85, doneCount: doneWithCT.length, colorOf: _color });
+        return;
+    }
+
+    // Agrandi : icône du type + clé + titre tronqué proprement (le ticket se reconnaît sans survol).
+    const labels = wip.map(t => {
+        if (!zoomed) return `${t.status === 'blocked' ? '🚫 ' : ''}${t.id} · ${(t.title || '').slice(0, 25)}`;
+        return _rowLabel(t);
+    });
     const data = wip.map(t => t.age);
+
+    // Agrandi : seuils tracés et nommés + valeurs au bout de chaque barre — autoporteur, image copiée comprise.
+    const wipPlugin = {
+        id: 'wipExplain',
+        afterDatasetsDraw(chart) {
+            if (!zoomed) return;
+            const { ctx: cx, chartArea, scales: { x, y } } = chart;
+            if (!x || !y || !chartArea) return;
+            cx.save();
+            [[warnThresh, '#F59E0B', `🟡 ${warnThresh} j`], [dangerThresh, '#EF4444', `🔴 ${dangerThresh} j${p85 ? ' (P85)' : ''}`]].forEach(([v, col, lbl]) => {
+                const xp = x.getPixelForValue(v);
+                if (xp < chartArea.left || xp > chartArea.right) return;
+                cx.beginPath(); cx.setLineDash([5, 4]); cx.strokeStyle = col; cx.lineWidth = 1.25;
+                cx.moveTo(xp, chartArea.top); cx.lineTo(xp, chartArea.bottom); cx.stroke(); cx.setLineDash([]);
+                cx.font = '600 12px system-ui,sans-serif'; cx.fillStyle = col; cx.textAlign = 'center'; cx.textBaseline = 'bottom';
+                cx.fillText(lbl, xp, chartArea.top - 2);
+            });
+            cx.textAlign = 'left'; cx.textBaseline = 'middle';
+            wip.forEach((t, i) => {
+                const since = `${t.startedSource === 'mise en cours' ? 'depuis le' : 'créé le'} ${fmtShortDate(t.startedDate)}`;
+                _barEndText(cx, x.getPixelForValue(t.age) + 8, y.getPixelForValue(i), `${t.age} j`, _color(t.age),
+                    [t.status === 'blocked' ? _blockedTxt(t) : (STATUS_LABELS[t.status] || t.status), since, _shortPerson(_CT_LEADER(t))]);
+            });
+            cx.restore();
+        },
+    };
     const colors = wip.map(t => _color(t.age));
 
     const datasets = [
-        { label: 'Age (jours)', data, backgroundColor: colors, borderRadius: 3 },
+        { label: 'Âge (jours ouvrés)', data, backgroundColor: colors, borderRadius: 3 },
     ];
     if (p85) {
         datasets.push({
@@ -872,14 +1518,43 @@ export function renderWIPAge(canvasId, tickets, opts = {}) {
         });
     }
 
+    if (zoomed) _copyLists.set(canvasId, {
+        heading: 'WIP Age — tickets en cours',
+        subtitle: `${_plural(wip.length, 'ticket')} sur ${wipTotal} en cours · jours ouvrés · 🟡 ≥ ${warnThresh} j · 🔴 ≥ ${dangerThresh} j${p85 ? ' (P85 du cycle time)' : ' (seuils fixes)'}`,
+        columns: ['Âge', 'Statut', 'Depuis', 'Lead'],
+        rows: wip.map(t => ({
+            id: t.id, icon: TYPE_ICONS[t.type] || '•', title: t.title || '',
+            flag: [t.status === 'blocked' ? _blockedTxt(t) : '', t.age >= dangerThresh ? '🔴 critique' : t.age >= warnThresh ? '🟡 attention' : ''].filter(Boolean).join(' · '),
+            cells: [`${t.age} j`, STATUS_LABELS[t.status] || t.status, `${t.startedSource === 'mise en cours' ? '' : 'créé le '}${fmtShortDate(t.startedDate)}`, _shortPerson(_CT_LEADER(t))],
+        })),
+    });
+
     _charts.set(canvasId, new Chart(c, {
         type: 'bar',
+        plugins: [wipPlugin],
         data: { labels, datasets },
         options: {
             ...baseOpts(),
             indexAxis: 'y',
+            layout: { padding: { right: zoomed ? 330 : 0, top: zoomed ? 18 : 0 } },
+            onClick(event, elements) {
+                const t = elements.length ? wip[elements[0].index] : null;
+                if (t) window.__squadBoard?.openTicketModal?.(t.id);
+            },
+            onHover(event, elements) {
+                event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+            },
             plugins: {
                 ...baseOpts().plugins,
+                subtitle: {
+                    display: zoomed,
+                    text: zoomed ? [
+                        `${_plural(wip.length, 'ticket')} en cours affiché${wip.length > 1 ? 's' : ''} sur ${wipTotal}${wipTotal > wip.length ? ' (les plus anciens)' : ''} · âge = jours ouvrés depuis la mise en cours (à défaut : la création)`,
+                        `🟢 < ${warnThresh} j · 🟡 ≥ ${warnThresh} j · 🔴 ≥ ${dangerThresh} j — ${p85 ? `🔴 = 85ᵉ percentile du cycle time (${doneWithCT.length} tickets terminés), 🟡 = 70 % de ce seuil` : 'seuils fixes : pas assez de tickets terminés pour un P85'}`,
+                    ] : '',
+                    color: css('--text-secondary') || '#475569',
+                    font: { size: 12 }, align: 'start', padding: { bottom: 10 },
+                },
                 tooltip: {
                     callbacks: {
                         label: (ctx) => {
@@ -897,8 +1572,9 @@ export function renderWIPAge(canvasId, tickets, opts = {}) {
                 },
             },
             scales: {
-                x: { ...baseOpts().scales.x, title: { display: true, text: 'Jours en WIP', font: { size: 10 } } },
-                y: { ticks: { font: { size: 9 } }, grid: { display: false } },
+                x: { ...baseOpts().scales.x, ticks: { ...baseOpts().scales.x.ticks, font: { size: zoomed ? 12 : 10 } },
+                     title: { display: true, text: 'Jours ouvrés en WIP', font: { size: zoomed ? 13 : 10 } } },
+                y: _rowsAxis(wip.length, { base: zoomed ? 12 : 9 }),
             },
         },
     }));

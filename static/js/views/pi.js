@@ -4,7 +4,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, getSupportWeekMode, supportWeekHead, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, sprintRealizedVelocity, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel, isSupportAbsent } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, getSupportWeekMode, supportWeekHead, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, sprintRealizedVelocity, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel, isSupportAbsent, cycleDays, leadDays } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildPiWeeks } from '../utils/pi-weeks.js';
 import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAGE_INTRO } from '../components/sondage.js';
@@ -549,9 +549,9 @@ function renderIndicators(el, { tickets = [], flowTickets = null, piNum = 0 }) {
     // `tickets` est filtré sur le sprint où le ticket se trouve et perd les plus lents.
     const _flow = flowTickets || tickets;
     // Lead time & Cycle time — même calcul et rendu que la card du Dashboard (schéma + graphe).
-    const _doneCT = _flow.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
-    const _ltVals = _doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
-    const avgCT = _doneCT.length ? Math.round(_doneCT.reduce((s, t) => s + t.cycleTimeDays, 0) / _doneCT.length * 10) / 10 : 0;
+    const _doneCT = _flow.filter(t => t.status === 'done' && cycleDays(t) > 0);
+    const _ltVals = _doneCT.map(t => leadDays(t) > 0 ? leadDays(t) : cycleDays(t));
+    const avgCT = _doneCT.length ? Math.round(_doneCT.reduce((s, t) => s + cycleDays(t), 0) / _doneCT.length * 10) / 10 : 0;
     const avgLT = _ltVals.length ? Math.round(_ltVals.reduce((s, v) => s + v, 0) / _ltVals.length * 10) / 10 : 0;
     const avgWait = Math.max(0, Math.round((avgLT - avgCT) * 10) / 10);
     const flowEff = avgLT > 0 ? Math.round((avgCT / avgLT) * 100) : null;

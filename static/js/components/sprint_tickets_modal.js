@@ -8,7 +8,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem, computeStageFlow, trapFocus, belongedToSprint, isInSprint, carriedOverTo, extractSprintLabel } from '../utils.js';
+import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem, computeStageFlow, trapFocus, engagedInSprint, sprintStartsOf, isInSprint, carriedOverTo, extractSprintLabel, cycleDays, leadDays } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, STATUS_MAP, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { renderBurndown, renderBurnup } from './charts.js';
@@ -131,10 +131,11 @@ function _resolveCurrentSprint() {
 function _ticketsOfSprint(sprint) {
     const all = store.get('tickets') || [];
     const teamFilter = sprint.team && sprint.team !== 'all';
+    const starts = sprintStartsOf(store.get('sprintInfo'));
     const out = [];
     for (const t of all) {
         if (teamFilter && t.team !== sprint.team) continue;
-        if (!belongedToSprint(t, sprint.name, null)) continue;
+        if (!engagedInSprint(t, sprint.name, starts, null)) continue;
         const moved = carriedOverTo(t, sprint.name, null);
         out.push(moved ? { ...t, _carriedOverTo: moved } : t);
     }
@@ -1543,10 +1544,10 @@ function _leadCycleSectionHtml(tickets, link = (k) => esc(k)) {
     };
     const _fmtD = (v) => `${String(v).replace('.', ',')} j`;
 
-    const doneCT = tickets.filter(t => t.status === 'done' && t.cycleTimeDays > 0);
-    const ltVals = doneCT.map(t => t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays);
+    const doneCT = tickets.filter(t => t.status === 'done' && cycleDays(t) > 0);
+    const ltVals = doneCT.map(t => leadDays(t) > 0 ? leadDays(t) : cycleDays(t));
     const n      = doneCT.length;
-    const ctMed  = _median(doneCT.map(t => t.cycleTimeDays));
+    const ctMed  = _median(doneCT.map(t => cycleDays(t)));
     const ltMed  = _median(ltVals);
     const waitMed = Math.max(0, Math.round((ltMed - ctMed) * 10) / 10);
     const flowEff = ltMed > 0 ? Math.round((ctMed / ltMed) * 100) : null;
@@ -1607,8 +1608,8 @@ function _leadCycleSectionHtml(tickets, link = (k) => esc(k)) {
     if (n > 0) {
         const rows = doneCT
             .map(t => {
-                const lt = t.leadTimeDays > 0 ? t.leadTimeDays : t.cycleTimeDays;
-                const ct = Math.min(t.cycleTimeDays, lt);   // garde-fou : cycle ≤ lead
+                const lt = leadDays(t) > 0 ? leadDays(t) : cycleDays(t);
+                const ct = Math.min(cycleDays(t), lt);   // garde-fou : cycle ≤ lead
                 return { t, lt, ct, wait: Math.max(0, lt - ct) };
             })
             .sort((a, b) => b.lt - a.lt);

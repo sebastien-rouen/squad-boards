@@ -42,9 +42,9 @@ export const METEO_START_TOLERANCE = 15;
  */
 export const METEO_DOMAINS = Object.freeze([
     { key: 'sprint', icon: '🏃', label: 'Sprint', kind: 'rel', hint: 'points réalisés / engagés, comparé au temps écoulé du sprint',
-      formula: 'points réalisés ÷ points engagés, comparé au temps écoulé', source: 'engagement = belongedToSprint (reports compris), réalisé = terminé ET encore dans le sprint' },
+      formula: 'points réalisés ÷ points engagés, comparé au temps écoulé', source: 'engagement = engagedInSprint (reports compris, retraits d\'avant-lancement exclus), réalisé = terminé ET encore dans le sprint' },
     { key: 'pi', icon: '🗓️', label: 'PI', kind: 'rel', hint: 'points réalisés / périmètre du PI, comparé au temps écoulé du PI',
-      formula: 'points réalisés ÷ périmètre du PI, comparé au temps écoulé du PI', source: 'belongedToPi, fenêtre = sprints de l\'équipe dans le PI' },
+      formula: 'points réalisés ÷ périmètre du PI, comparé au temps écoulé du PI', source: 'engagedInPi (retraits d\'avant-lancement exclus), fenêtre = sprints de l\'équipe dans le PI' },
     { key: 'health', icon: '🛡️', label: 'Santé', kind: 'abs', hint: 'score de santé 0–100 (anomalies pondérées, normalisées par tickets actifs)',
       formula: '100 − (anomalies pondérées ÷ tickets actifs) × 35', source: 'les 7 anomalies de Santé — même formule que le score de la vue' },
     { key: 'sla', icon: '🎧', label: 'SLA', kind: 'abs', hint: 'part des tickets terminés sous le seuil de cycle time',

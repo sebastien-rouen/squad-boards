@@ -130,6 +130,73 @@ export function inSprintAt(t, sprintName, at, spk = extractSprintLabel(sprintNam
 }
 
 /**
+ * Date de démarrage de chaque sprint, indexée par NOM JIRA exact — le nom que portent les
+ * tickets dans leur historique. Retrouver le démarrage par ce nom (et pas par la clé NN.N)
+ * reste juste sur « Toutes équipes », où la même clé désigne un sprint par équipe.
+ * @param {object} sprintInfo `store.get('sprintInfo')` (sprint global + `teamSprints`)
+ * @returns {Map<string, string>} nom → startDate
+ */
+const _startsCache = new WeakMap();
+export function sprintStartsOf(sprintInfo) {
+    if (!sprintInfo || typeof sprintInfo !== 'object') return new Map();
+    let m = _startsCache.get(sprintInfo);
+    if (m) return m;
+    m = new Map();
+    for (const s of [sprintInfo, ...(sprintInfo.teamSprints || [])]) {
+        if (s?.name && s.startDate && !m.has(s.name)) m.set(s.name, s.startDate);
+    }
+    _startsCache.set(sprintInfo, m);
+    return m;
+}
+
+/**
+ * Le ticket a-t-il été dans ce sprint À UN MOMENT postérieur à `since` (son démarrage) ?
+ * Vrai s'il y était au démarrage, ou s'il y est entré ensuite (ajout en cours de sprint,
+ * ticket créé dedans). Faux s'il n'y est passé que PENDANT LA PRÉPARATION : planifié dans
+ * le sprint puis déplacé avant son lancement (GDEM-4594 : mise en 31.3 le 07/09, renvoyée
+ * en 31.2 le 24/09, 31.3 démarré le 05/10 — 3 pts comptés en trop, 30 au lieu des 27 de JIRA).
+ */
+export function inSprintSince(t, sprintName, since, spk = extractSprintLabel(sprintName)) {
+    const sinceMs = jiraDateMs(since);
+    if (!Number.isFinite(sinceMs)) return true;
+    if (inSprintAt(t, sprintName, sinceMs, spk)) return true;
+    const has = list => String(list || '').split(',').some(part => {
+        const n = part.trim();
+        return !!n && (n === sprintName || (!!spk && extractSprintLabel(n) === spk));
+    });
+    const changes = (t.recentChanges || t.recent_changes || [])
+        .filter(ch => String(ch.field || '').toLowerCase() === 'sprint')
+        .map(ch => ({ ch, ms: jiraDateMs(ch.date) }))
+        .filter(x => Number.isFinite(x.ms))
+        .sort((a, b) => a.ms - b.ms);
+    if (changes.some(x => x.ms > sinceMs && has(x.ch.to))) return true;
+    // Créé après le démarrage (inSprintAt l'écarte d'office) : son état initial compte.
+    const created = jiraDateMs(t.createdAt || t.created_at);
+    if (Number.isFinite(created) && created > sinceMs) {
+        return changes.length ? has(changes[0].ch.from) : has(t.sprintName || t.sprint_name);
+    }
+    return false;
+}
+
+/**
+ * ENGAGEMENT d'un ticket dans un sprint : il y est passé (`belongedToSprint`) ET y était
+ * encore à son démarrage ou y est entré ensuite (`inSprintSince`). Les sprints visés sont
+ * ceux de l'historique du ticket qui matchent (nom exact ou clé), datés par `starts`
+ * (`sprintStartsOf`). Sans date connue (sprint inconnu, `starts` absent) : `belongedToSprint`
+ * seul, comme avant.
+ * ⚠️ Ce n'est PAS l'engagement « au lancement » (`plannedAtSprintStart`) : les ajouts en
+ * cours de sprint et les reports à la clôture y restent — le burnup JIRA les compte aussi.
+ * @param {Map<string,string>} [starts] nom de sprint → startDate
+ */
+export function engagedInSprint(t, sprintName, starts, spk = extractSprintLabel(sprintName)) {
+    if (!belongedToSprint(t, sprintName, spk)) return false;
+    if (!starts?.size) return true;
+    return [..._scopeOf(t).names]
+        .filter(n => n === sprintName || (!!spk && extractSprintLabel(n) === spk))
+        .some(n => !starts.has(n) || inSprintSince(t, n, starts.get(n), null));
+}
+
+/**
  * Le ticket était-il dans ce sprint À SON LANCEMENT ? — l'engagement au sens strict.
  * `belongedToSprint()` répond « y est-il passé un jour », donc compte aussi les tickets
  * AJOUTÉS en cours de sprint (et ceux retirés avant le démarrage).
@@ -205,16 +272,18 @@ export const carriedOverTo = (t, sprintName, spk = extractSprintLabel(sprintName
 /**
  * Découpe une liste selon le périmètre d'un sprint. Un seul passage, et surtout un seul
  * endroit où la règle engagement/réalisé est écrite.
+ * @param {Map<string,string>} [starts] démarrages des sprints (`sprintStartsOf(sprintInfo)`) :
+ *   sans lui, un ticket retiré du sprint AVANT son lancement compte comme engagé.
  * @returns {{engaged: object[], done: object[], carried: object[]}}
- *   `engaged` = tout ce qui a été engagé (reports compris) ;
+ *   `engaged` = tout ce qui a été engagé (reports compris, retraits d'avant-lancement exclus) ;
  *   `done`    = terminé DANS le sprint (le seul ensemble qui compte pour la vélocité) ;
  *   `carried` = engagé puis reporté ailleurs, quel que soit son statut actuel.
  */
-export function sprintScope(tickets, sprintName) {
+export function sprintScope(tickets, sprintName, starts) {
     const spk = extractSprintLabel(sprintName);
     const engaged = [], done = [], carried = [];
     for (const t of tickets) {
-        if (!belongedToSprint(t, sprintName, spk)) continue;
+        if (!engagedInSprint(t, sprintName, starts, spk)) continue;
         engaged.push(t);
         if (isInSprint(t, sprintName, spk)) {
             if (t.status === 'done') done.push(t);

@@ -6,6 +6,11 @@
  * (tickets + tâches du suivi), point rouge = incident de production, ◆ = MEP, ▲▼ = arrivée / départ,
  * contour rouge = une tâche de support traîne (≥ 3 semaines). Survol = détail ; clic sur une équipe
  * = sa frise sur la période ; clic sur une cellule = sa frise zoomée sur la semaine.
+ *
+ * Contexte du rapport (3.216.0, `mountTrainMatrix(el, opts)`) : « PI » = le PI AFFICHÉ (`piNum`,
+ * avant : toujours le PI courant, même sur le rapport d'un PI passé) ; groupe du topbar → ses
+ * équipes seules (`teams`) ; équipe sélectionnée → sa ligne mise en avant (`team`), le train restant
+ * visible — c'est l'objet de la section.
  */
 
 import { store } from '../state.js';
@@ -15,6 +20,7 @@ import { collect, presets, presenceLevel, addDays, mondayOf, fmt, fmtY, STALE_WE
 
 const PRESETS = ['pi', 'piprev', '6m'];
 let _preset = 'pi';
+let _opts = {};   // { piNum, team, teams } — posé par mountTrainMatrix
 
 /** Données d'une équipe, indexées par semaine (lundi). */
 function teamWeeks(team, A, B) {
@@ -40,14 +46,15 @@ function cell(team, w, d) {
 }
 
 function render(el) {
-    const all = presets(), p = all.find(x => x.key === _preset) || all[0];
+    const all = presets(_opts.piNum), p = all.find(x => x.key === _preset) || all[0];
     const weeks = [];
     for (let w = mondayOf(p.A); w <= p.B; w = addDays(w, 7)) weeks.push(w);
-    const teams = [...(store.get('teams') || [])].sort((a, b) => a.localeCompare(b, 'fr'));
+    const scope = _opts.teams?.length ? _opts.teams : (store.get('teams') || []);
+    const teams = [...scope].sort((a, b) => a.localeCompare(b, 'fr'));
     const rows = teams.map(t => {
         const by = teamWeeks(t, p.A, p.B);
         const empty = { pct: null, inc: 0, mep: 0, sup: 0, stale: 0, inn: 0, out: 0 };
-        return `<div class="tm-row" role="row">
+        return `<div class="tm-row${t === _opts.team ? ' is-focus' : ''}" role="row">
             <button type="button" class="tm-team" data-team="${esc(t)}" style="--team:${teamColor(t)}" title="${esc(`Ouvrir la frise de ${t}`)}">${esc(t)}</button>
             ${weeks.map(w => cell(t, w, by.get(w) || empty)).join('')}
         </div>`;
@@ -79,8 +86,12 @@ function render(el) {
     </details>`;
     el.querySelectorAll('[data-tm-preset]').forEach(b => b.addEventListener('click', () => { _preset = b.dataset.tmPreset; render(el); }));
     // Équipe → sa frise sur la période ; cellule → sa frise zoomée sur la semaine (lien ~frise=)
+    // Préréglage de la frise seulement s'il désigne la MÊME période (« PI » y est le PI courant) ;
+    // sinon les dates exactes — le rapport d'un PI passé ouvrait la frise sur le PI courant.
+    const std = presets().find(x => x.key === p.key && x.A === p.A && x.B === p.B);
+    const period = std ? `p=${p.key}` : `du=${p.A}&au=${p.B}`;
     el.querySelectorAll('.tm-team[data-team]').forEach(b => b.addEventListener('click', () => {
-        location.hash = `#team/${encodeURIComponent(b.dataset.team)}~frise=v=lanes&p=${p.key}`;
+        location.hash = `#team/${encodeURIComponent(b.dataset.team)}~frise=v=lanes&${period}`;
     }));
     el.querySelectorAll('.tm-cell').forEach(b => b.addEventListener('click', () => {
         const w = b.dataset.week;
@@ -88,7 +99,12 @@ function render(el) {
     }));
 }
 
-/** Monte la section dans `el` (Rapports). */
-export function mountTrainMatrix(el) {
+/**
+ * Monte la section dans `el` (Rapports).
+ * @param {{ piNum?: number, team?: string, teams?: string[] }} [opts] PI affiché, équipe à mettre en
+ *   avant, équipes à montrer (groupe) — toutes par défaut.
+ */
+export function mountTrainMatrix(el, opts = {}) {
+    _opts = opts;
     if (el) render(el);
 }

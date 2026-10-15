@@ -218,3 +218,37 @@ describe('semaine partagée entre deux PI : les deux libellés', () => {
         assert.ok(html.includes('rot-wk-transition'), 'classe de couture');
     });
 });
+
+describe('piBounds — fin d’un PI dont le dernier sprint est FUTUR (3.216.0)', () => {
+    // PI 31 : sprints de 2 semaines à partir du lundi 07/09, 5 sprints → fin le vendredi 13/11.
+    // L'équipe G a posé dans JIRA des dates prévisionnelles décalées de 2 semaines (31.5 → 30/11).
+    const sp = (team, n, start, end, state) => ({ team, name: `Team ${team} - Ité 31.${n}`, startDate: start, endDate: end, state });
+    const sprintInfo = { name: 'Team A - Ité 31.3', teamSprints: [
+        sp('A', 1, '2026-09-07T07:00:00Z', '2026-09-21T07:00:00Z', 'closed'),
+        sp('A', 2, '2026-09-21T07:00:00Z', '2026-10-05T07:00:00Z', 'closed'),
+        sp('A', 3, '2026-10-05T07:00:00Z', '2026-10-19T07:00:00Z', 'active'),
+        sp('A', 4, '2026-10-19T07:00:00Z', '2026-11-02T07:00:00Z', 'future'),
+        sp('A', 5, '2026-11-01T22:00:00Z', '2026-11-12T22:00:00Z', 'future'),
+        sp('G', 1, '2026-09-07T07:40:00Z', '2026-09-21T07:40:00Z', 'closed'),
+        sp('G', 2, '2026-09-21T08:21:00Z', '2026-10-05T07:36:00Z', 'closed'),
+        sp('G', 3, '2026-10-05T08:05:00Z', '2026-10-19T07:00:00Z', 'active'),
+        sp('G', 4, '2026-11-02T07:00:00Z', '2026-11-16T07:00:00Z', 'future'),
+        sp('G', 5, '2026-11-16T07:00:00Z', '2026-11-30T07:00:00Z', 'future'),
+    ] };
+    const piInfo = { sprintsPerPI: 5, sprintDuration: 14 };
+    test('dates prévisionnelles décalées ignorées : la cadence fait foi (13/11, pas 30/11)', () => {
+        const b = piWeeks.piBounds({ team: 'G', sprintInfo, piInfo, piNum: 31 });
+        assert.equal(b.startIso, '2026-09-07');
+        assert.equal(b.endIso, '2026-11-13');
+        assert.equal(b.projected, true);
+    });
+    test('train entier : même fin', () => {
+        assert.equal(piWeeks.piBounds({ team: 'all', sprintInfo, piInfo, piNum: 31 }).endIso, '2026-11-13');
+    });
+    test('dernier sprint DÉMARRÉ : ses dates réelles, ramenées au dernier jour ouvré', () => {
+        const closed = { ...sprintInfo, teamSprints: sprintInfo.teamSprints.map(s => ({ ...s, state: 'closed' })) };
+        // 30/11 07:00 Z = lundi 30/11 : jour ouvré, gardé tel quel.
+        assert.equal(piWeeks.piBounds({ team: 'G', sprintInfo: closed, piInfo, piNum: 31 }).endIso, '2026-11-30');
+        assert.equal(piWeeks.piBounds({ team: 'G', sprintInfo: closed, piInfo, piNum: 31 }).projected, false);
+    });
+});

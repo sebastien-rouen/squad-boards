@@ -10,7 +10,7 @@
  * `lastKnownAbsenceDate`, `piInfo.piBaselines`, table `support`.
  */
 
-import { esc, extractPiNum, getSprintForTeam, breathIdxOf, isBreathSprint, sprintIdx, lastKnownAbsenceDate, teamNameMatches, sprintScope, sumBy } from '../utils.js';
+import { esc, extractPiNum, getSprintForTeam, breathIdxOf, isBreathSprint, sprintIdx, lastKnownAbsenceDate, teamNameMatches, sprintScope, sprintStartsOf, sumBy } from '../utils.js';
 import { loadPiCfg } from '../utils/pi-config.js';
 
 const DAY = 86400000;
@@ -44,7 +44,7 @@ export function recentlyClosedHtml({ teams = [], sprintInfoAll, tickets = [], da
         const s = all.filter(x => x.team === t && x.state === 'closed' && x.endDate && _iso(x.endDate) >= floor && _iso(x.endDate) <= todayIso)
             .sort((a, b) => String(b.endDate).localeCompare(String(a.endDate)))[0];
         if (!s) return null;
-        const scope = sprintScope(tickets.filter(x => x.team === t), s.name);
+        const scope = sprintScope(tickets.filter(x => x.team === t), s.name, sprintStartsOf(sprintInfoAll));
         return { team: t, sprint: s, engaged: scope.engaged.length, done: scope.done.length, carried: scope.carried.length, pts: sumBy(scope.engaged, x => x.points), donePts: sumBy(scope.done, x => x.points) };
     }).filter(Boolean).slice(0, 3);
     if (!rows.length) return '';

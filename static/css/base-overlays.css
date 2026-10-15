@@ -508,6 +508,29 @@
     font-size: var(--fs-xs);
     color: var(--text-muted);
 }
+/* Test d'import (`?dry_run=1`) : en base → fichier → après, chutes en rouge. */
+.import-test-ok {
+    margin-top: var(--sp-3);
+    font-size: var(--fs-xs);
+    color: var(--success);
+}
+.import-test-table {
+    width: 100%;
+    margin-top: var(--sp-2);
+    border-collapse: collapse;
+    font-size: var(--fs-xs);
+}
+.import-test-table th,
+.import-test-table td {
+    padding: 3px var(--sp-2);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+}
+.import-test-table th { color: var(--text-muted); font-weight: 600; }
+.import-test-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.import-test-table tr.is-drop td { color: var(--danger); font-weight: 600; }
+.import-test-delta,
+.import-test-muted { color: var(--text-muted); font-weight: 400; }
 
 /* ── Copy button (clé JIRA + titre) ────────────────────────────────────── */
 .copy-btn {

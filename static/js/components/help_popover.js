@@ -153,7 +153,7 @@ export function openLearnMode(openKey = '') {
 /** GLOSSAIRE — les mots du site, avec leur règle. Les schémas existants sont réutilisés, jamais redessinés. */
 export function glossaryHtml() {
     const items = [
-        { icon: '📌', term: 'Engagement vs réalisé', text: 'L\'<strong>engagement</strong> d\'un sprint compte tout ce qui en a fait partie, reports compris (<code>belongedToSprint</code>). Le <strong>réalisé</strong> exige d\'être terminé <strong>et</strong> encore dans le sprint : un ticket fini ailleurs ne crédite pas le sprint qu\'il a quitté.' },
+        { icon: '📌', term: 'Engagement vs réalisé', text: 'L\'<strong>engagement</strong> d\'un sprint compte tout ce qui en a fait partie, reports compris, mais pas un ticket retiré <em>avant</em> le démarrage du sprint (<code>engagedInSprint</code>). Le <strong>réalisé</strong> exige d\'être terminé <strong>et</strong> encore dans le sprint : un ticket fini ailleurs ne crédite pas le sprint qu\'il a quitté.' },
         { icon: '↪', term: 'Ticket glissé', text: 'Engagé dans 30.1, livré dans 30.2 : JIRA le déplace à la clôture. Il reste dans l\'engagement de 30.1 (chip <code>↪ 30.2</code>) et n\'entre jamais dans son réalisé.' },
         { icon: '🍃', term: 'Sprint de respiration', text: 'Le dernier sprint du PI : dette, Inspect &amp; Adapt, préparation du PI suivant. Il ne compte <strong>ni</strong> dans la vélocité moyenne, <strong>ni</strong> dans la capacité, <strong>ni</strong> comme charge suggérée.', svg: velocityDiagramSvg },
         { icon: '⚠', term: 'Capacité plafonnée', text: 'Quand la fenêtre dépasse la dernière absence connue, le taux d\'absence est un <strong>plancher</strong> et la base de capacité un <strong>plafond</strong>. Le chiffre est toujours montré avec cette réserve (cellule orange, ⚠).' },
@@ -307,7 +307,7 @@ export function slaDiagramSvg() {
         <text x="360" y="20" text-anchor="middle" class="hd-sub">Cible de service : « 85% des tickets terminés en ≤ X jours »</text>
         <line x1="40" y1="${base}" x2="680" y2="${base}" class="hd-axis"/>
         ${_arrowHead(693, base, 'right', 'hd-axis-head')}
-        <text x="688" y="${base + 18}" text-anchor="end" class="hd-sub">cycle time (jours) →</text>
+        <text x="688" y="${base + 18}" text-anchor="end" class="hd-sub">cycle time (jours ouvrés) →</text>
         ${bins.map(b => `<rect x="${b.x - bw / 2}" y="${base - b.h}" width="${bw}" height="${b.h}" rx="3" class="${b.ok ? 'hd-band-ok' : 'hd-band-crit'}"/>`).join('')}
         <line x1="${sleX}" y1="40" x2="${sleX}" y2="${base}" class="hd-marker"/>
         <text x="${sleX + 6}" y="52" class="hd-strong">SLE = P85</text>

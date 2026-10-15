@@ -357,9 +357,12 @@ export const timelineWindow = () => model().window;
 export const timelineDepthInfo = () => { const M = model(); return { depth: M.depth, firstRoster: M.firstRoster, firstKnown: M.firstKnown, today: M.today }; };
 export const timelineToday = () => model().today;
 
-/** Présélections de période : PI courant, PI précédent, Été, 6 mois, Tout. */
-export function presets() {
-    const M = model(), t = M.today, cur = piOf(M, t), prev = cur && M.pis[M.pis.indexOf(cur) - 1];
+/** Présélections de période : PI courant, PI précédent, Été, 6 mois, Tout.
+ *  `piNum` (optionnel, matrice du train des Rapports) : « PI » = ce PI-là et « PI précédent » le sien —
+ *  le rapport d'un PI passé ne doit pas montrer le train du PI courant. Sans lui : le PI d'aujourd'hui. */
+export function presets(piNum = 0) {
+    const M = model(), t = M.today;
+    const cur = (piNum && M.pis.find(p => p.n === piNum)) || piOf(M, t), prev = cur && M.pis[M.pis.indexOf(cur) - 1];
     const y = t.slice(5) >= '07-01' ? t.slice(0, 4) : String(+t.slice(0, 4) - 1);
     return [
         cur && { key: 'pi', label: `PI ${cur.n}`, A: cur.start, B: cur.end },

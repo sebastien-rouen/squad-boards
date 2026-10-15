@@ -14,7 +14,10 @@
  * Aucune dépendance npm : Vanilla JS, réutilise Chart.js déjà chargé.
  */
 
-import { getChartMeta, rerenderChart, getChartControls } from './charts.js';
+import { getChartMeta, rerenderChart, getChartControls, getChartCopyList } from './charts.js';
+import { copyChartImage } from './chart_copy.js';
+import { store } from '../state.js';
+import { toast } from '../utils.js';
 
 // ── Explications contextuelles par type de graphique ───────────────────────────
 // `read` : comment lire le graphique. `tip` : interprétation / signal d'alerte.
@@ -36,26 +39,51 @@ const _EXPLAIN = {
         tip: 'Un débit régulier est meilleur qu’un pic isolé. Des jours à zéro répétés en milieu de sprint annoncent un retard de livraison.',
     },
     cycletime: {
-        read: 'Mode <strong>Barres</strong> : un ticket par ligne (attente + cycle time empilés, largeur = lead time). Mode <strong>Nuage</strong> : chaque point est un ticket positionné par sa date de résolution → révèle la tendance dans le temps. Filtres (type/lead) et tri disponibles en haut.',
-        tip: {
-            intro: 'couleur selon le percentile de cycle time ; ⚠ = lead time au-delà du 85ᵉ percentile (point de douleur à creuser en rétro).',
+        read: {
+            intro: 'vue <strong>Frise</strong> (par défaut) — une ligne par ticket livré, rangée par date de démarrage, sur le calendrier. Toutes les durées sont en <strong>jours ouvrés</strong>.',
             items: [
-                '🟢 ≤ médiane',
-                '🟡 médiane → 85ᵉ percentile',
-                '🔴 au-delà du 85ᵉ percentile',
-                '⚠ outlier : lead time > P85',
-                'le footer indique la part d’attente dans le lead time (souvent le vrai problème)',
+                '<strong>Segment clair</strong> : l’attente, de la création du ticket à son démarrage.',
+                '<strong>Segment coloré</strong> : le cycle time, du démarrage à la livraison — 🟢 ≤ médiane · 🟡 jusqu’au 85ᵉ percentile · 🔴 au-delà.',
+                '<strong>Chiffre en bout de ligne</strong> : le cycle time du ticket, puis son lead (responsable).',
+                '<strong>Zones grisées</strong> : week-ends et jours fériés, non comptés.',
+                '<strong>▸ 31.2</strong> : début d’un sprint — un segment qui le traverse a débordé sur le sprint suivant.',
+                '<strong>⚠ devant un ticket</strong> : son lead time (création → livraison) dépasse le 85ᵉ percentile.',
+                '<strong>◂ créé le …</strong> : l’attente commence avant la période affichée (coupée au bord).',
+                '<strong>Vues Barres et Nuage</strong> (sélecteur « Vue ») : mêmes mesures sans le calendrier — barres = attente + cycle time empilés, triables ; nuage = un point par ticket à sa date de livraison, pour la tendance.',
+            ],
+        },
+        tip: {
+            intro: 'ce qu’il faut regarder.',
+            items: [
+                '<strong>Longs segments clairs</strong> : le travail attend avant d’être commencé (priorisation, files amont).',
+                '<strong>Beaucoup de lignes qui se chevauchent</strong> : trop de travail en parallèle — le cycle time s’allonge.',
+                '<strong>Segments qui traversent un ▸ début de sprint</strong> : engagements reportés.',
+                '<strong>🔴 et ⚠</strong> : tickets à creuser en rétro (découpage, dépendance, blocage) — clic = fiche du ticket.',
+                '<strong>Copier la liste</strong> (en-tête) : ces tickets et leurs chiffres, prêts à coller dans Slack ou Confluence.',
             ],
         },
     },
     wipage: {
-        read: 'Âge (en jours) de chaque ticket <strong>encore en cours</strong>, depuis sa mise en travail. La ligne rouge est le seuil p85 (85% des tickets terminés l’ont été en moins de X jours).',
-        tip: {
-            intro: 'un ticket bien au-dessus du p85 est probablement bloqué.',
+        read: {
+            intro: 'vue <strong>Frise</strong> (par défaut) — chaque ticket <strong>encore en cours</strong>, de sa mise en travail jusqu’à aujourd’hui. Âges en <strong>jours ouvrés</strong>.',
             items: [
-                '🟢 sain',
-                '🟡 attention (≥70% du p85)',
-                '🔴 critique (≥p85, à débloquer en priorité)',
+                '<strong>Segment clair</strong> : l’attente entre la création et la mise en cours.',
+                '<strong>Segment coloré</strong> : le temps en cours — 🟢 sain · 🟡 ≥ 70 % du seuil · 🔴 ≥ seuil (85ᵉ percentile du cycle time des tickets terminés).',
+                '<strong>Hachures rouges, 🚫</strong> : ticket bloqué (drapeau JIRA ou statut « bloqué », ex. Retour au demandeur), depuis le début du blocage jusqu’à aujourd’hui — « 🚫 bloqué 4 j » en bout de ligne.',
+                '<strong>Chiffre en bout de ligne</strong> : l’âge du ticket, son statut (ou son blocage) et son lead.',
+                '<strong>Trait rouge « Aujourd’hui »</strong> : là où s’arrêtent toutes les lignes.',
+                '<strong>Zones grisées</strong> : week-ends et fériés, non comptés · <strong>▸ 31.2</strong> : début d’un sprint.',
+                '<strong>◂ depuis le …</strong> : ticket commencé avant la fenêtre affichée (12 semaines).',
+                '<strong>Vue Barres</strong> (sélecteur « Vue ») : les mêmes âges, du plus ancien au plus récent, seuils tracés.',
+            ],
+        },
+        tip: {
+            intro: 'un ticket bien au-delà du seuil rouge est probablement bloqué ou trop gros.',
+            items: [
+                '<strong>🚫 Hachures longues</strong> : blocage qui dure — escalader (dépendance, demandeur, autre équipe).',
+                '<strong>🔴</strong> : à débloquer en priorité (daily) — clic = fiche du ticket.',
+                '<strong>Beaucoup de lignes ouvertes en même temps</strong> : limiter le WIP plutôt que démarrer.',
+                '<strong>Ligne qui traverse plusieurs ▸</strong> : ticket reporté de sprint en sprint, à redécouper.',
             ],
         },
     },
@@ -93,9 +121,31 @@ let _overlay = null;
 let _ids = [];        // liste ordonnée des canvasId zoomables présents dans la page
 let _idx = -1;        // index courant dans _ids
 let _opts = {};       // état des contrôles (mode/tri/filtres) du graphique courant
-let _explainOpen = true; // légende explicative dépliée par défaut (persiste entre navigations)
+// Explication en PANNEAU LATÉRAL (bouton « ? », touche « ? ») : fermée par défaut — sous le graphique,
+// elle lui prenait sa hauteur (retour utilisateur). État MÉMORISÉ d'une visite à l'autre.
+const _LS_EXPLAIN = 'sb-chart-zoom-explain';
+let _explainOpen = (() => { try { return localStorage.getItem(_LS_EXPLAIN) === '1'; } catch { return false; } })();
+function _setExplainOpen(open) {
+    _explainOpen = open;
+    try { localStorage.setItem(_LS_EXPLAIN, open ? '1' : '0'); } catch { /* navigation privée : état non mémorisé */ }
+    _syncExplain();
+    // Le panneau change la LARGEUR du tracé : on redessine une fois la mise en page appliquée, pour que
+    // le pas des dates (_dateAxis, charts.js) soit recalculé — sinon elles se chevauchent à nouveau.
+    if (_overlay && !_overlay.classList.contains('hidden')) requestAnimationFrame(() => _renderCurrent());
+}
+/** Panneau + bouton « ? » alignés sur l'état (bouton masqué pour un graphique sans explication). */
+function _syncExplain() {
+    if (!_overlay) return;
+    const panel = _overlay.querySelector('#chart-zoom-explain');
+    const btn = _overlay.querySelector('#chart-zoom-help');
+    const has = !!panel.innerHTML.trim();
+    btn.hidden = !has;
+    btn.setAttribute('aria-expanded', String(has && _explainOpen));
+    panel.hidden = !(has && _explainOpen);
+}
 
 // ── Décoration : injecte le bouton « agrandir » dans chaque .chart-container ────
+const _COPY_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
 const _MAXIMIZE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/></svg>';
 
 function _decorateContainer(container) {
@@ -111,6 +161,18 @@ function _decorateContainer(container) {
     btn.dataset.zoomTarget = canvas.id;
     btn.innerHTML = _MAXIMIZE_SVG;
     container.appendChild(btn);
+    // 📋 Copier l'image (chart_copy.js, clic en délégation) — sauf si la carte porte déjà son bouton
+    // d'en-tête (Rapports → Métriques sprint) : deux boutons pour la même action.
+    if (!container.closest('.card')?.querySelector(`.card-header [data-chart-copy="${canvas.id}"]`)) {
+        const cp = document.createElement('button');
+        cp.type = 'button';
+        cp.className = 'chart-zoom-btn chart-copy-float';
+        cp.title = 'Copier l\'image du graphique (thème affiché)';
+        cp.setAttribute('aria-label', 'Copier l\'image du graphique');
+        cp.dataset.chartCopy = canvas.id;
+        cp.innerHTML = _COPY_SVG;
+        container.appendChild(cp);
+    }
 }
 
 /** Décore tous les conteneurs de graphique de la page (idempotent). */
@@ -135,6 +197,13 @@ function _buildOverlay() {
                 <button class="chart-zoom-nav" id="chart-zoom-next" title="Graphique suivant (→)" aria-label="Suivant">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
+                <button class="chart-zoom-nav chart-zoom-help" id="chart-zoom-help" aria-expanded="false" aria-controls="chart-zoom-explain" title="Comment lire ce graphique (touche ?)" aria-label="Comment lire ce graphique">?</button>
+                <button class="chart-zoom-nav chart-zoom-copy-list" id="chart-zoom-copy-list" hidden title="Copier la liste des tickets affichés, avec leurs chiffres (Slack, Confluence, Teams…)" aria-label="Copier la liste des tickets">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>
+                </button>
+                <button class="chart-zoom-nav chart-zoom-copy" id="chart-zoom-copy" title="Copier l'image avec son explication (thème affiché) — Maj+clic : le graphique seul" aria-label="Copier l'image du graphique">
+                    ${_COPY_SVG}
+                </button>
                 <button class="chart-zoom-nav chart-zoom-export" id="chart-zoom-export" title="Exporter en PNG" aria-label="Exporter en PNG">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </button>
@@ -143,10 +212,12 @@ function _buildOverlay() {
                 </button>
             </header>
             <div class="chart-zoom-toolbar" id="chart-zoom-toolbar" hidden></div>
-            <div class="chart-zoom-canvas-wrap">
-                <canvas id="${_ZOOM_CANVAS_ID}"></canvas>
+            <div class="chart-zoom-main">
+                <div class="chart-zoom-canvas-wrap">
+                    <canvas id="${_ZOOM_CANVAS_ID}"></canvas>
+                </div>
+                <aside class="chart-zoom-explain" id="chart-zoom-explain" aria-label="Comment lire ce graphique" hidden></aside>
             </div>
-            <footer class="chart-zoom-explain" id="chart-zoom-explain"></footer>
         </div>`;
     document.body.appendChild(ov);
 
@@ -155,6 +226,9 @@ function _buildOverlay() {
     ov.querySelector('#chart-zoom-prev').addEventListener('click', () => _navigate(-1));
     ov.querySelector('#chart-zoom-next').addEventListener('click', () => _navigate(1));
     ov.querySelector('#chart-zoom-export').addEventListener('click', _exportPng);
+    ov.querySelector('#chart-zoom-copy').addEventListener('click', e => _copyExplained(!e.shiftKey));
+    ov.querySelector('#chart-zoom-copy-list').addEventListener('click', _copyList);
+    ov.querySelector('#chart-zoom-help').addEventListener('click', () => _setExplainOpen(!_explainOpen));
     return ov;
 }
 
@@ -190,6 +264,64 @@ function _exportPng() {
     a.click();
 }
 
+/** Explication en SECTIONS pour l'encadré de l'image copiée — même contenu que le panneau « ? ». */
+function _explainSections(kind) {
+    const e = _EXPLAIN[kind];
+    if (!e) return [];
+    const sec = (icon, title, val) => (typeof val === 'string'
+        ? { icon, title, intro: val, items: [] }
+        : { icon, title, intro: val.intro || '', items: val.items || [] });
+    return [sec('👁', 'Lecture', e.read), sec('💡', 'Interprétation', e.tip)];
+}
+
+/**
+ * 📋 Copie « version explicative » : le graphique AGRANDI (vue, tri, filtres compris), son titre, les
+ * filtres actifs et « Comment lire ce graphique », pour l'envoyer à des coéquipiers qui ne connaissent
+ * pas l'outil — TOUJOURS, que la légende soit pliée ou non à l'écran (l'image est composée hors écran,
+ * elle ne rétrécit rien) ; Maj+clic = graphique seul. Fond et couleurs = thème affiché (chart_copy.js).
+ */
+function _copyExplained(withExplain = true) {
+    const meta = getChartMeta(_ids[_idx]);
+    if (!meta) return;
+    const active = [_opts.filterType && `type ${_opts.filterType}`, _opts.filterLeader && `lead ${_opts.filterLeader}`].filter(Boolean);
+    const title = `${meta.title || 'Graphique'}${active.length ? ` · ${active.join(', ')}` : ''}`;
+    copyChartImage(_ZOOM_CANVAS_ID, title, {
+        bgEl: _overlay.querySelector('.chart-zoom-dialog'),
+        explain: withExplain ? _explainSections(meta.kind) : [],
+    });
+}
+
+/**
+ * 📋 « Copier la liste » : les tickets AFFICHÉS par la vue agrandie (même tri, mêmes filtres) avec leurs
+ * chiffres — pour en discuter en rétro. Deux formats d'un coup : texte à puces (Slack) et tableau HTML
+ * (Confluence, Teams), clés liées à JIRA si l'URL est configurée. Liste fournie par charts.js
+ * (`getChartCopyList`), posée au rendu : rien n'est recalculé ici.
+ */
+async function _copyList() {
+    const list = getChartCopyList(_ZOOM_CANVAS_ID);
+    if (!list?.rows?.length) return;
+    const base = String(store.get('jiraUrl') || '').replace(/\/+$/, '');
+    const href = id => (base ? `${base}/browse/${encodeURIComponent(id)}` : '');
+    const text = [`*${list.heading}*`, list.subtitle, '',
+        ...list.rows.map(r => `• ${r.icon} ${r.id} — ${r.title}${r.flag ? `  ${r.flag}` : ''}\n    ${list.columns.map((c, i) => r.cells[i] ? `${c} : ${r.cells[i]}` : '').filter(Boolean).join(' · ')}`),
+    ].join('\n');
+    const html = `<p><strong>${_esc(list.heading)}</strong><br>${_esc(list.subtitle)}</p>
+        <table><thead><tr><th>Ticket</th><th>Titre</th>${list.columns.map(c => `<th>${_esc(c)}</th>`).join('')}<th></th></tr></thead><tbody>
+        ${list.rows.map(r => `<tr><td>${r.icon} ${href(r.id) ? `<a href="${_esc(href(r.id))}">${_esc(r.id)}</a>` : _esc(r.id)}</td><td>${_esc(r.title)}</td>`
+            + `${r.cells.map(v => `<td>${_esc(v || '')}</td>`).join('')}<td>${_esc(r.flag || '')}</td></tr>`).join('')}
+        </tbody></table>`;
+    try {
+        await navigator.clipboard.write([new ClipboardItem({
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+            'text/html': new Blob([html], { type: 'text/html' }),
+        })]);
+        toast(`Liste copiée — ${list.rows.length} ticket${list.rows.length > 1 ? 's' : ''}`, 'success');
+    } catch {
+        try { await navigator.clipboard.writeText(text); toast('Liste copiée (texte seul)', 'success'); }
+        catch (e) { toast(`Copie impossible : ${e.message}`, 'error'); }
+    }
+}
+
 // Rend une partie d'explication. `val` est soit une string (un paragraphe),
 // soit { intro, items: [...] } → l'intro en paragraphe + les items en liste
 // (une ligne par item, plus propre qu'un texte à rallonge avec des puces).
@@ -205,25 +337,19 @@ function _part(label, val) {
 function _explainHtml(kind) {
     const e = _EXPLAIN[kind];
     if (!e) return '';
-    // <details> natif : pliable/dépliable et accessible. `_explainOpen` mémorise
-    // l'état entre les navigations (déplié par défaut).
+    // Contenu du panneau latéral (ouvert / fermé par le bouton « ? », cf. _syncExplain).
     return `
-        <details class="chart-zoom-explain-details"${_explainOpen ? ' open' : ''}>
-            <summary class="chart-zoom-explain-summary">
-                <svg class="chart-zoom-explain-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-                Comment lire ce graphique
-            </summary>
-            <div class="chart-zoom-explain-body">
-                <div class="chart-zoom-explain-row">
-                    <span class="chart-zoom-explain-ico" aria-hidden="true">👁</span>
-                    <div>${_part('Lecture', e.read)}</div>
-                </div>
-                <div class="chart-zoom-explain-row">
-                    <span class="chart-zoom-explain-ico" aria-hidden="true">💡</span>
-                    <div>${_part('Interprétation', e.tip)}</div>
-                </div>
+        <h3 class="chart-zoom-explain-title">Comment lire ce graphique</h3>
+        <div class="chart-zoom-explain-body">
+            <div class="chart-zoom-explain-row">
+                <span class="chart-zoom-explain-ico" aria-hidden="true">👁</span>
+                <div>${_part('Lecture', e.read)}</div>
             </div>
-        </details>`;
+            <div class="chart-zoom-explain-row">
+                <span class="chart-zoom-explain-ico" aria-hidden="true">💡</span>
+                <div>${_part('Interprétation', e.tip)}</div>
+            </div>
+        </div>`;
 }
 
 // Échappe un texte destiné à un attribut HTML (valeurs de filtre issues des données).
@@ -245,7 +371,7 @@ function _renderToolbar(sourceId) {
 
     const mode = _opts.mode || (ctrls.modes?.[0]?.value ?? 'bars');
     const sortBy = _opts.sortBy || (ctrls.sorts?.[0]?.value ?? 'date');
-    const isScatter = mode === 'scatter';
+    const noSort = mode !== 'bars';   // le tri ne concerne que les barres (frise : ordre = démarrage)
 
     // Groupe de chips de filtre (un seul actif à la fois, "Tous" = aucun filtre).
     const filterGroup = (key, optKey, label, values) => {
@@ -265,7 +391,7 @@ function _renderToolbar(sourceId) {
     ).join('');
 
     // Le tri ne concerne que le mode barres.
-    const sortSel = (!isScatter && ctrls.sorts?.length)
+    const sortSel = (!noSort && ctrls.sorts?.length)
         ? `<div class="chart-zoom-tb-group">
                 <span class="chart-zoom-tb-label">Tri</span>
                 <select class="chart-zoom-select" id="chart-zoom-sort">
@@ -315,12 +441,11 @@ function _renderCurrent() {
     _overlay.querySelector('#chart-zoom-title').textContent = meta.title || 'Graphique';
     _overlay.querySelector('#chart-zoom-count').textContent =
         _ids.length > 1 ? `${_idx + 1} / ${_ids.length}` : '';
-    const explainEl = _overlay.querySelector('#chart-zoom-explain');
-    explainEl.innerHTML = _explainHtml(meta.kind);
-    // Mémorise l'état plié/déplié de la légende pour le conserver d'un graphique à l'autre.
-    explainEl.querySelector('.chart-zoom-explain-details')
-        ?.addEventListener('toggle', e => { _explainOpen = e.target.open; });
+    _overlay.querySelector('#chart-zoom-explain').innerHTML = _explainHtml(meta.kind);
+    _syncExplain();
     _renderToolbar(sourceId);
+    // « Copier la liste » : seulement pour les graphiques qui exposent leurs tickets (Cycle Time, WIP Age).
+    _overlay.querySelector('#chart-zoom-copy-list').hidden = !getChartCopyList(_ZOOM_CANVAS_ID)?.rows?.length;
 
     const prev = _overlay.querySelector('#chart-zoom-prev');
     const next = _overlay.querySelector('#chart-zoom-next');
@@ -380,7 +505,7 @@ export function closeChartZoom() {
 export function initChartZoom() {
     // Clic sur un bouton « agrandir » (délégation : survit aux re-renders de vue).
     document.addEventListener('click', e => {
-        const btn = e.target.closest('.chart-zoom-btn');
+        const btn = e.target.closest('.chart-zoom-btn[data-zoom-target]');   // pas le bouton « copier » voisin
         if (btn) { e.preventDefault(); openChartZoom(btn.dataset.zoomTarget); }
     });
 
@@ -388,6 +513,7 @@ export function initChartZoom() {
     document.addEventListener('keydown', e => {
         if (!_overlay || _overlay.classList.contains('hidden')) return;
         if (e.key === 'Escape') { e.preventDefault(); closeChartZoom(); }
+        else if (e.key === '?' && !e.target.closest?.('input, select, textarea')) { e.preventDefault(); _setExplainOpen(!_explainOpen); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); _navigate(-1); }
         else if (e.key === 'ArrowRight') { e.preventDefault(); _navigate(1); }
     });

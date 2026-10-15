@@ -13,7 +13,7 @@
 
 import { store } from '../state.js';
 import { projectedPiSprints } from '../utils/pi-weeks.js';
-import { esc, filterByTeam, sumBy, rosterCtx, piCapacityBase, sprintRealizedVelocity, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, belongedToSprint, plannedAtSprintStart, inSprintNow, sprintScopeDelta, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, rosterCtx, piCapacityBase, sprintRealizedVelocity, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, engagedInSprint, sprintStartsOf, plannedAtSprintStart, inSprintNow, sprintScopeDelta, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -463,7 +463,7 @@ export function renderHealth(container) {
         const spName    = ref?.name || '';
         const _refKey   = _spKey(spName);
         const spTickets = spName
-            ? allTickets.filter(t => t.team === tm && belongedToSprint(t, spName, _refKey))
+            ? allTickets.filter(t => t.team === tm && engagedInSprint(t, spName, sprintStartsOf(sprintInfo), _refKey))
             : piTickets.filter(t => t.team === tm);
         const done    = spTickets.filter(t => t.status === 'done'
             && (!spName || isInSprint(t, spName, _refKey)));

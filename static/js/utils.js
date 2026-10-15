@@ -14,10 +14,11 @@ export * from './utils/capacity-base.js';
 export * from './utils/meteo.js';
 export * from './utils/cal-classify.js';   // détecteur d'agenda (nature + portée), 3.167.0
 export * from './utils/burn.js';           // burndown / burnup réels d'un sprint, 3.195.0
+export * from './utils/workdays.js';       // Cycle / Lead Time, âge du WIP en jours OUVRÉS, 3.216.0
 export * from './utils/empty-state.js';    // état vide commun (icône, titre, phrase, action), 3.197.0
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
-import { extractSprintLabel, sprintNamesOf, activeSprintFromTickets } from './utils/sprint-scope.js';   // usages internes à ce fichier
+import { extractSprintLabel, sprintNamesOf, activeSprintFromTickets, inSprintSince, jiraDateMs } from './utils/sprint-scope.js';   // usages internes à ce fichier
 import { getInactiveSupportMembers } from './utils/support.js';   // usages internes à ce fichier
 
 
@@ -686,6 +687,40 @@ export function extractPiNum(name) {
 export function belongedToPi(t, piNum) {
     if (!piNum) return true;
     return sprintNamesOf(t).some(n => extractPiNum(n) === piNum);
+}
+
+/**
+ * PÉRIMÈTRE ENGAGÉ d'un PI — version « PI » de `engagedInSprint()` (3.216.0) : `belongedToPi` moins
+ * les tickets qui n'ont fait que PASSER par un sprint du PI pendant sa préparation (planifiés puis
+ * renvoyés au backlog ou vers un autre PI avant son démarrage). Il suffit d'UN sprint du PI où le
+ * ticket a été présent depuis le lancement — un déplacement 31.1 → 31.4 reste dans le PI.
+ * Sprint sans date connue (pseudo-sprint « PI31 », sprint pas encore créé) : compté, comme avant.
+ * Réservé au périmètre / à l'engagement : les mesures de DURÉE gardent `belongedToPi`.
+ * @param {Map<string,string>} [starts] `sprintStartsOf(sprintInfo)` — sans lui, `belongedToPi`
+ */
+/**
+ * ENTRÉE d'un ticket dans le PI (ms) : premier changement du champ Sprint qui le place dans un sprint
+ * du PI ; créé directement dedans (ou sans historique) → sa création. Date l'ajout au périmètre du
+ * Burnup du PI (3.216.0) : la création seule comptait comme « initial » un ticket ancien du backlog
+ * tiré en cours de PI (PI 31 : Initiale 2 pts « ajoutés » au lieu de 37, Helica 0 au lieu de 16).
+ * @returns {number} NaN si aucune date n'est connue (le ticket compte alors dès le premier jour)
+ */
+export function piEntryMs(t, piNum) {
+    const created = jiraDateMs(t.createdAt || t.created_at);
+    const inPi = list => String(list || '').split(',').some(p => extractPiNum(p.trim()) === piNum);
+    const changes = (t.recentChanges || t.recent_changes || [])
+        .filter(ch => String(ch.field || '').toLowerCase() === 'sprint')
+        .map(ch => ({ ch, ms: jiraDateMs(ch.date) }))
+        .filter(x => Number.isFinite(x.ms))
+        .sort((a, b) => a.ms - b.ms);
+    if (!changes.length || inPi(changes[0].ch.from)) return created;
+    return changes.find(x => inPi(x.ch.to))?.ms ?? created;
+}
+
+export function engagedInPi(t, piNum, starts) {
+    if (!piNum) return true;
+    return sprintNamesOf(t).some(n => extractPiNum(n) === piNum
+        && (!starts?.has(n) || inSprintSince(t, n, starts.get(n), null)));
 }
 
 /**

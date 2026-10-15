@@ -11,8 +11,8 @@
  */
 
 import { store } from '../state.js';
-import { esc, getCurrentPi, sumBy, getSprintForTeam, belongedToSprint, isInSprint, belongedToPi, extractPiNum, elapsedPct, meteoThresholds,
-    meteoScopeThresholds, scopeStability, churnTrend, weatherChurn, METEO_GLYPH, METEO_LABEL, METEO_REL_BAND } from '../utils.js';
+import { esc, getCurrentPi, sumBy, getSprintForTeam, engagedInSprint, sprintStartsOf, isInSprint, engagedInPi, extractPiNum, elapsedPct, meteoThresholds,
+    meteoScopeThresholds, scopeStability, churnTrend, weatherChurn, METEO_GLYPH, METEO_LABEL, METEO_REL_BAND, cycleDays } from '../utils.js';
 import { computeTeamMeteo, meteoContext } from '../components/meteo_matrix.js';
 import { slaModel } from '../components/sla_review_card.js';
 import { tkAttrs } from './tv-screens.js';
@@ -57,7 +57,7 @@ function byState(open) {
 function detailSprint(team, ctx, tt) {
     const sprint = getSprintForTeam(team, ctx.sprintInfoAll);
     if (!sprint?.name) return { body: '<p class="tv-muted">Aucun sprint actif dans JIRA.</p>', tip: 'Démarrer le sprint dans JIRA pour que la météo le suive.' };
-    const engaged = tt.filter(t => belongedToSprint(t, sprint.name, null));
+    const engaged = tt.filter(t => engagedInSprint(t, sprint.name, sprintStartsOf(ctx.sprintInfoAll), null));
     const done = engaged.filter(t => t.status === 'done' && isInSprint(t, sprint.name, null));
     const all = sumBy(engaged, t => t.points), dp = sumBy(done, t => t.points);
     const p = all ? Math.round((dp / all) * 100) : null, time = elapsedPct(sprint.startDate, sprint.endDate);
@@ -71,7 +71,7 @@ function detailSprint(team, ctx, tt) {
 
 function detailPi(team, ctx, tt) {
     const piNum = ctx.piNum;
-    const scope = tt.filter(t => belongedToPi(t, piNum));
+    const scope = tt.filter(t => engagedInPi(t, piNum, sprintStartsOf(ctx.sprintInfoAll)));
     const all = sumBy(scope, t => t.points), dp = sumBy(scope.filter(t => t.status === 'done' && extractPiNum(t.sprintName || '') === piNum), t => t.points);
     const sprints = (ctx.sprintInfoAll?.teamSprints || []).filter(s => s.team === team && extractPiNum(s.name) === piNum);
     if (!sprints.length || !all) return { body: '<p class="tv-muted">Pas de périmètre PI mesurable (aucun point estimé dans ce PI).</p>', tip: 'Estimer les tickets du PI pour suivre sa trajectoire.' };
@@ -104,8 +104,8 @@ function detailSla(tt) {
     const target = Math.round(m.target * 10) / 10;
     return {
         head: `${m.conform}/${m.done.length} tickets terminés en ≤ ${target} j · P50 ${Math.round(m.p50 * 10) / 10} j · P85 ${Math.round(m.p85 * 10) / 10} j`,
-        body: `${gauge(m.pct)}${m.breaches.length ? `<ul class="tvd-list"><li class="is-bad"><span aria-hidden="true">🐢</span><b>${m.breaches.length}</b><span>hors délai</span><span class="tvd-ids">${m.breaches.slice(0, 6).map(t => `${tk(t.id)}<small> ${Math.round(t.cycleTimeDays)} j</small>`).join(' ')}</span></li></ul>` : ''}`,
-        tip: m.breaches.length ? `Les tickets les plus longs (${Math.round(m.breaches[0].cycleTimeDays)} j pour ${esc(m.breaches[0].id)}) : découper plus fin, limiter le travail en cours.` : 'Délais tenus.',
+        body: `${gauge(m.pct)}${m.breaches.length ? `<ul class="tvd-list"><li class="is-bad"><span aria-hidden="true">🐢</span><b>${m.breaches.length}</b><span>hors délai</span><span class="tvd-ids">${m.breaches.slice(0, 6).map(t => `${tk(t.id)}<small> ${Math.round(cycleDays(t))} j</small>`).join(' ')}</span></li></ul>` : ''}`,
+        tip: m.breaches.length ? `Les tickets les plus longs (${Math.round(cycleDays(m.breaches[0]))} j pour ${esc(m.breaches[0].id)}) : découper plus fin, limiter le travail en cours.` : 'Délais tenus.',
     };
 }
 

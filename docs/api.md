@@ -122,7 +122,7 @@ Meme pattern CRUD que tickets : `/api/features`, `/api/epics`
 | Methode | Route | Description |
 |---------|-------|-------------|
 | `GET` | `/api/export` | Export complet (toutes les tables) |
-| `POST` | `/api/import` | Import (`mode: "replace"` ou `"merge"`) |
+| `POST` | `/api/import` | Import (`mode: "replace"` ou `"merge"`). `?dry_run=1` : import complet puis annulation, rien n'écrit — renvoie `counts`, `current` (lignes en base) et `dryRun: true`. Échec → 400 « Import refusé, base inchangée — … » |
 | `GET` | `/api/config/export` | Bundle de configuration curée `{_meta, db}` — sans tickets / features / epics / sprints, avec règles d'agenda et historique Atlas (3.198.0) |
 | `POST` | `/api/config/import` | Restaure un bundle (`mode: "merge"` par défaut, rien n'est effacé) — domaines : `CONFIG_DOMAINS` (app/routers/config_bundle.py) |
 

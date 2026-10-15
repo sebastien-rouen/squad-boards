@@ -15,8 +15,7 @@
 
 import {
     esc, percentile, filterByTeam, currentSupportRows, supportAbsenceDays, isSupportAbsent,
-    supportPartialDaysLabel, emptyStateHtml,
-} from '../utils.js';
+    supportPartialDaysLabel, emptyStateHtml, leadDays } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
 import { B, E, SB, CS } from './reports-fmt.js';
 import { jiraMs, inWindow, ageDays, windowLabel, num, idleReason } from './reports-scope.js';
@@ -66,7 +65,7 @@ export function buildSupportData(ctx) {
     const sup = all.filter(t => !isSupportTracker(t));
     const entered = period ? sup.filter(t => inWindow(jiraMs(t.createdAt), period)) : [];
     const resolved = period ? sup.filter(t => t.status === 'done' && inWindow(jiraMs(t.resolvedDate), period)) : [];
-    const leads = resolved.map(t => t.leadTimeDays).filter(v => v > 0);
+    const leads = resolved.map(t => leadDays(t)).filter(v => v > 0);
     const open = isCurrentPi
         ? sup.filter(t => t.status !== 'done').map(t => ({ t, age: ageDays(t.createdAt) })).sort((a, b) => b.age - a.age)
         : null;

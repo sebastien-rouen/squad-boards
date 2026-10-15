@@ -9,8 +9,8 @@ import json
 import zipfile
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Request, Response, Depends
-from sqlmodel import Session, select
+from fastapi import APIRouter, Request, Response, Depends, HTTPException
+from sqlmodel import Session, select, func
 
 from app.common import _gen_id, _now, slugify, clean_workshop_fields
 from app.config import JIRA_URL, JIRA_USER, JIRA_TOKEN, JIRA_PROJECT
@@ -201,12 +201,42 @@ def _jira_dates(d, existing=None):
     return out
 
 
+def _current_counts(body: dict, session: Session) -> dict:
+    """Lignes EN BASE pour chaque collection présente dans `body` — comparées au fichier par le test
+    d'import (ex. remplacer 4 182 tickets par 53 se voit avant d'écrire)."""
+    out = {}
+    for key, model, _ser in _EXPORT_SPEC:
+        if isinstance(body.get(key), list):
+            out[key] = session.exec(select(func.count()).select_from(model)).one()
+    for key, typ in (("moodVotes", "mood"), ("fistVotes", "fist"), ("confidenceVotes", "confidence")):
+        if isinstance(body.get(key), list):
+            out[key] = session.exec(select(func.count()).select_from(MoodVote).where(MoodVote.type == typ)).one()
+    return out
+
+
 @router.post("/api/import")
 async def import_all(request: Request, session: Session = Depends(get_session)):
-    return import_body(await request.json(), session)
+    """`?dry_run=1` : import COMPLET (contraintes de la base comprises) puis annulation — rien n'est
+    écrit ; renvoie en plus `current` (lignes en base) pour comparer avant d'importer pour de vrai."""
+    dry = request.query_params.get("dry_run") in ("1", "true")
+    try:
+        body = await request.json()
+        if dry:
+            current = _current_counts(body, session)
+            res = import_body(body, session, commit=False)
+            session.rollback()
+            return {**res, "dryRun": True, "current": current}
+        return import_body(body, session)
+    except Exception as e:  # noqa: BLE001 — tout échec d'écriture doit revenir lisible au front
+        # Avant : 500 nu, « Internal Server Error » dans la console et rien dans l'UI. Rien n'est
+        # écrit (un seul commit en fin d'import_body) : on annule et on NOMME la contrainte violée
+        # (ex. « NOT NULL constraint failed: feature.title » = fichier mal relu, cf. settings-io-csv.js).
+        session.rollback()
+        msg = str(getattr(e, "orig", None) or e).splitlines()[0][:300]
+        raise HTTPException(status_code=400, detail=f"Import refusé, base inchangée — {type(e).__name__} : {msg}")
 
 
-def import_body(body: dict, session: Session) -> dict:
+def import_body(body: dict, session: Session, commit: bool = True) -> dict:
     """Import par domaine (clés de /api/export) — partagé par /api/import et le bundle de
     configuration (/api/config/import, config_bundle.py). `mode` : replace (défaut) | merge."""
     mode = body.get("mode", "replace")
@@ -643,7 +673,10 @@ def import_body(body: dict, session: Session) -> dict:
             ))
         counts["calendars"] = len(items)
 
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()   # test d'import : les contraintes jouent, l'appelant annule
     return {"ok": True, "mode": mode, "counts": counts}
 
 

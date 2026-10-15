@@ -8,7 +8,7 @@ from app.models import (
     Ticket, Feature, Risk, Epic, Member, Team, Skill, Appetence,
     MemberSkill, MemberAppetence, MemberMobility, SprintConfig, PIConfig,
     TeamGroup, Absence, SupportRotation, Event, MoodVote, RetroItem,
-    TeamCalendar, PokerVote, TeamIdentity, WorkshopTemplate, TeamWorkshop, Attachment,
+    TeamCalendar, PokerVote, PokerRound, TeamIdentity, WorkshopTemplate, TeamWorkshop, Attachment,
 )
 
 
@@ -139,6 +139,8 @@ def _pi_dict(p: PIConfig) -> dict | None:
         "piObjectives": p.pi_objectives or {},
         "piBaselines": p.pi_baselines or {},
         "supportWeekModes": p.support_week_modes or {},
+        "personAliases": p.person_aliases or {},
+        "pokerReferences": p.poker_references or {},
         "statusOverride": p.done_override or {},
         "updatedAt": p.updated_at,
     }
@@ -197,6 +199,14 @@ def _poker_dict(p: PokerVote) -> dict:
         "id": p.id, "ticketId": p.ticket_id, "voter": p.voter,
         "value": p.value, "revealed": p.revealed,
         "createdAt": p.created_at, "updatedAt": p.updated_at,
+    }
+
+
+def _poker_round_dict(r: PokerRound) -> dict:
+    return {
+        "id": r.id, "ticketId": r.ticket_id, "team": r.team, "value": r.value,
+        "votes": r.votes or [], "voters": r.voters, "avg": r.avg, "spread": r.spread,
+        "author": r.author, "createdAt": r.created_at,
     }
 
 

@@ -552,6 +552,9 @@
 }
 .toggle-switch input:checked + .toggle-track { background: var(--primary); }
 .toggle-switch input:checked + .toggle-track::after { transform: translateX(16px); }
+.toggle-switch input:focus-visible + .toggle-track { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: 2px; }
+/* Variante « alerte » : allumé = rouge (ex. « Bloqué » de la modale ticket) */
+.toggle-switch--danger input:checked + .toggle-track { background: var(--danger); }
 
 /* ── Reminder grid (Settings - Rappels & Cérémonies) ───────────────────── */
 .reminder-grid {

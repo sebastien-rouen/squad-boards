@@ -60,6 +60,7 @@
     <link rel="stylesheet" href="/css/views/team-timeline.css">
     <link rel="stylesheet" href="/css/views/train-matrix.css">
     <link rel="stylesheet" href="/css/views/cmd-section.css">
+    <link rel="stylesheet" href="/css/views/refinement.css">
     <!-- En DERNIER : .nav-rail passe la barre en flex-wrap:nowrap, et les feuilles de
          vue posent flex-wrap:wrap sur la meme barre avec la MEME specificite. A specificite
          egale, c est l ordre de chargement qui tranche - place avant, le composant perdait
@@ -184,11 +185,13 @@
                     <button id="btn-sync" class="btn btn-secondary btn-split-main" data-tooltip="Sync rapide depuis JIRA (derniers 14 jours, merge)">
                         <svg class="icon"><use href="#i-sync"/></svg>
                         <span class="btn-label">JIRA <small>14j</small></span>
+                        <span class="sync-stale-dot" aria-hidden="true"></span>
                     </button>
                     <button id="btn-sync-menu" class="btn btn-secondary btn-split-arrow" data-tooltip="Options de synchronisation" aria-label="Options de synchronisation" aria-haspopup="true" aria-expanded="false">
                         <svg class="icon icon-xs"><use href="#i-chevron-down"/></svg>
                     </button>
                     <div id="sync-menu" class="sync-menu" hidden>
+                        <div id="sync-menu-info" class="sync-menu-info" hidden></div>
                         <button class="sync-menu-item sync-menu-item--current" data-sync="14">↻ Sync rapide · 14 jours</button>
                         <hr class="sync-menu-sep">
                         <button class="sync-menu-item sync-menu-item--danger" data-sync="full">⟳ Sync complète (replace)</button>

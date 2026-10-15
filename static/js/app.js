@@ -57,6 +57,7 @@ const VIEW_LOADERS = {
     reports:    () => import('./views/reports.js').then(m => m.renderReports),
     settings:   () => import('./views/settings.js').then(m => m.renderSettings),
     team:       () => import('./views/team.js').then(m => m.renderTeam),
+    refinement: () => import('./views/refinement.js').then(m => m.renderRefinement),
     tv:         () => import('./views/tv.js').then(m => m.renderTv),
 };
 const _loadedRenderers = {};
@@ -422,51 +423,49 @@ async function renderView() {
     checkSyncStale();
 }
 
+/**
+ * Fraîcheur de la synchro JIRA : PASTILLE sur le bouton JIRA du topbar (ambre ≥ 2 h, rouge ≥ 48 h)
+ * + infobulle et ligne d'info en tête du menu ▾ (qui, quand, comment). Remplace l'ancien bandeau
+ * pleine largeur sous le topbar, qui prenait une ligne d'écran sur toutes les vues.
+ */
 function checkSyncStale() {
     // Heure de la dernière synchro JIRA : `sprintInfo.updatedAt`, réécrit à chaque import (data.py),
     // donc vrai quel que soit le poste qui a synchronisé. `lastSync` (localStorage) n'est plus écrit
-    // par la synchro : seul, il laissait ce bandeau muet (base vieille de 2 jours, aucun signal).
+    // par la synchro : seul, il laissait l'alerte muette (base vieille de 2 jours, aucun signal).
     const stamps = [store.get('sprintInfo')?.updatedAt, store.get('lastSync')]
         .filter(Boolean).map(v => new Date(v).getTime()).filter(n => !isNaN(n));
     const lastSync = stamps.length ? Math.max(...stamps) : null;
-    const topbar = document.querySelector('.topbar');
-    let banner = document.getElementById('stale-banner');
-    if (!lastSync || !topbar) { banner?.remove(); return; }
-
-    const age = Date.now() - lastSync;
-    const hours = Math.floor(age / 3600000);
-    if (hours >= 2) {
-        if (!banner) {
-            banner = document.createElement('div');
-            banner.id = 'stale-banner';
-            banner.className = 'stale-banner';
-            topbar.insertAdjacentElement('afterend', banner);
-            // Câblé une fois : rapide = le bouton JIRA du topbar (sa durée), complète = Ctrl+K « Sync complète ».
-            banner.addEventListener('click', e => {
-                const b = e.target.closest('[data-stale-sync], [data-stale-close]');
-                if (!b) return;
-                if (b.dataset.staleClose !== undefined) banner.remove();
-                else if (b.dataset.staleSync === 'full') handleJiraImport('full');
-                else document.getElementById('btn-sync')?.click();
-            });
-        }
-        const ago = hours >= 48 ? `${Math.floor(hours / 24)} jours` : `${hours} h`;
-        const when = new Date(lastSync).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-        // Qui a synchronisé, et comment (3.197.0) — posés par la synchro (sync.js → syncedBy / syncKind).
-        const sp = store.get('sprintInfo') || {};
-        const qk = /^rapide-(\d+)$/.exec(sp.syncKind || '');
-        const how = qk ? `synchro rapide, ${qk[1]} j` : sp.syncKind === 'complete' ? 'synchro complète' : '';
-        const by = [sp.syncedBy ? `par ${esc(sp.syncedBy)}` : '', how].filter(Boolean).join(' · ');
-        let qd = 14;
-        try { const n = parseInt(localStorage.getItem('sb-sync-quickDays') || '', 10); if (n >= 1 && n <= 365) qd = n; } catch { /* défaut */ }
-        banner.innerHTML = `<span>Dernière synchro JIRA il y a ${ago} (${when}${by ? ` · ${by}` : ''}) — les données peuvent être obsolètes</span>
-            <div class="stale-banner-actions">
-                <button type="button" class="btn btn-primary btn-sm" data-stale-sync="quick" title="Tickets modifiés ces ${qd} derniers jours — quelques secondes">⚡ Synchro rapide · ${qd} j</button>
-                <button type="button" class="btn btn-secondary btn-sm" data-stale-sync="full" title="Tout réimporter (sprints clos archivés gardés) — plusieurs minutes">Synchro complète</button>
-                <button type="button" class="btn-icon" data-stale-close aria-label="Masquer le bandeau"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
-            </div>`;
-    } else {
-        banner?.remove();
+    document.getElementById('stale-banner')?.remove();   // reliquat d'une version antérieure
+    const btn = document.getElementById('btn-sync');
+    const info = document.getElementById('sync-menu-info');
+    if (!btn) return;
+    let qd = 14;
+    try { const n = parseInt(localStorage.getItem('sb-sync-quickDays') || '', 10); if (n >= 1 && n <= 365) qd = n; } catch { /* défaut */ }
+    const action = `Sync rapide depuis JIRA (derniers ${qd} jours, merge)`;
+    if (!lastSync) {
+        btn.classList.remove('is-stale', 'is-very-stale');
+        btn.dataset.tooltip = action;
+        if (info) info.hidden = true;
+        return;
+    }
+    const hours = Math.floor((Date.now() - lastSync) / 3600000);
+    const ago = hours < 1 ? "moins d'1 h" : hours >= 48 ? `${Math.floor(hours / 24)} jours` : `${hours} h`;
+    const when = new Date(lastSync).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    // Qui a synchronisé, et comment (3.197.0) — posés par la synchro (sync.js → syncedBy / syncKind).
+    const sp = store.get('sprintInfo') || {};
+    const qk = /^rapide-(\d+)$/.exec(sp.syncKind || '');
+    const how = qk ? `synchro rapide, ${qk[1]} j` : sp.syncKind === 'complete' ? 'synchro complète' : '';
+    const by = [sp.syncedBy ? `par ${sp.syncedBy}` : '', how].filter(Boolean).join(' · ');
+    const stale = hours >= 2, veryStale = hours >= 48;
+    btn.classList.toggle('is-stale', stale);
+    btn.classList.toggle('is-very-stale', veryStale);
+    const last = `Dernière synchro il y a ${ago} (${when}${by ? ` · ${by}` : ''})`;
+    btn.dataset.tooltip = stale ? `⚠ ${last} — données peut-être obsolètes. Clic : ${action.charAt(0).toLowerCase()}${action.slice(1)}` : `${action} · ${last}`;
+    btn.setAttribute('aria-label', stale ? `Synchroniser JIRA — dernière synchro il y a ${ago}, données peut-être obsolètes` : 'Synchroniser JIRA');
+    if (info) {
+        info.hidden = false;
+        info.className = `sync-menu-info${veryStale ? ' is-very-stale' : stale ? ' is-stale' : ''}`;
+        info.innerHTML = `<span class="sync-menu-info-dot" aria-hidden="true"></span><span><b>Dernière synchro il y a ${esc(ago)}</b><br>${esc(when)}${by ? ` · ${esc(by)}` : ''}</span>`;
     }
 }
 
@@ -474,7 +473,7 @@ function checkSyncStale() {
 window.__squadBoard = window.__squadBoard || {};
 window.__squadBoard.rerenderView = renderView;
 window.__squadBoard.store = store;
-// Bandeau « données obsolètes » : réévalué à chaque rechargement des données et toutes les 15 min
+// Pastille « données obsolètes » du bouton JIRA : réévaluée à chaque rechargement des données et toutes les 15 min
 // (une page laissée ouverte vieillit sans changer de vue).
 store.on('sprintInfo', () => checkSyncStale());
 setInterval(() => checkSyncStale(), 15 * 60 * 1000);
@@ -721,8 +720,7 @@ async function init() {
         const days = _getQuickDays();
         const lbl = document.querySelector('#btn-sync .btn-label');
         if (lbl) lbl.innerHTML = `JIRA <small>${days}j</small>`;
-        const btn = document.getElementById('btn-sync');
-        if (btn) btn.dataset.tooltip = `Sync rapide depuis JIRA (derniers ${days} jours, merge)`;
+        checkSyncStale();   // infobulle du bouton = SEULE écriture (durée rapide + fraîcheur de la synchro)
         // Highlight l'item courant si présent dans le menu, sinon marque le 14 par défaut
         document.querySelectorAll('#sync-menu .sync-menu-item').forEach(i => {
             i.classList.toggle('sync-menu-item--current', i.dataset.sync === String(days));

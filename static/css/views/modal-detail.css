@@ -2,42 +2,410 @@
 /* ══════════════════════════════════════════════════════════════════════════════
    Modal Detail: rich layout
    ══════════════════════════════════════════════════════════════════════════════ */
-.mdl-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-    margin-bottom: var(--sp-4);
-    padding: var(--sp-3) var(--sp-4);
-    background: var(--bg);
-    border-radius: var(--r-lg);
-    border: 1px solid var(--border);
+/* Barre de titre de la modale TICKET : ligne de repères (navigation, type, clé, copies,
+   commentaires, leader) puis le titre COMPLET sur deux lignes max — avant, il était tronqué sur
+   une seule ligne, coincé entre une dizaine de contrôles. #modal est partagé par toutes les
+   modales : tout ce qui touche .modal-header passe par :has(.mdl-titlebar). */
+#modal:has(.mdl-titlebar) .modal-header {
+    align-items: flex-start;
+    padding: 12px var(--sp-6) 14px;
 }
-.mdl-meta .chip:not(.chip-poker) {
+#modal:has(.mdl-titlebar) .modal-header h2 { flex: 1; }
+#modal:has(.mdl-titlebar) .modal-header-actions { margin-top: 5px; }
+.mdl-titlebar { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+.mdl-titlebar-top { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: var(--fw-medium); }
+.mdl-titlebar-spacer { flex: 1 1 0; min-width: 0; }
+.mdl-nav-group { display: inline-flex; flex-shrink: 0; }
+.mdl-nav-group .mdl-nav-btn { width: 24px; height: 24px; border-radius: 0; }
+.mdl-nav-group .mdl-nav-btn:first-child { border-radius: var(--r-md) 0 0 var(--r-md); }
+.mdl-nav-group .mdl-nav-btn + .mdl-nav-btn { margin-left: -1px; border-radius: 0 var(--r-md) var(--r-md) 0; }
+.mdl-nav-group .mdl-nav-btn svg { width: 12px; height: 12px; }
+.mdl-key { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.mdl-key .mdl-ticket-link,
+.mdl-key .mdl-ticket-id { margin-right: 4px; font-size: 12px; font-weight: var(--fw-semibold); }
+.mdl-titlebar .mdl-header-avatar { width: 24px; height: 24px; }
+.mdl-titlebar .mdl-title-span {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 17px;
+    font-weight: var(--fw-semibold);
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    border-radius: var(--r-sm);
+}
+.mdl-titlebar .mdl-title-span:has(input) { display: block; }
+
+/* En-tête du ticket (`_ticketHeadHtml`, modal.js) : alerte de blocage → fil d'Ariane
+   équipe › parent › ticket → tuiles des propriétés clés. Tout tient sans défilement : une
+   ligne de fil + une rangée de tuiles (qui passent à la ligne sous ~700 px). */
+.mdl-head {
+    margin-bottom: var(--sp-4);
     background: var(--surface);
     border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-xs);
 }
-/* Espaceur flexible plutôt que margin-left:auto sur .mdl-meta-right — avec margin-left:auto,
-   un retour à la ligne (chips de gauche trop nombreuses) pousse .mdl-meta-right tout à droite
-   de sa propre ligne, laissant un grand vide ; un spaceur flex collapse naturellement à 0
-   au lieu de forcer cet écart. */
-.mdl-meta-spacer { flex: 1 1 0; min-width: 0; }
-.mdl-meta-right {
-    display: flex;
+.mdl-head-alert {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    /* color-mix plutôt que --danger-bg : en sombre, --danger-bg est un rouge profond sur lequel
+       le texte --danger ne se lit plus. */
+    background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+    color: var(--danger);
+    border-bottom: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    font-size: 12.5px;
+}
+.mdl-head-alert-txt { flex: 1; min-width: 0; }
+.mdl-head-alert-txt .text-muted { color: inherit; opacity: 0.7; }
+
+/* Fil d'Ariane */
+.mdl-crumbs {
+    display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 6px;
+    min-height: 38px;
+    padding: 6px 10px 6px 8px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+}
+.mdl-head > .mdl-crumbs:first-child { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.mdl-crumb { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.mdl-crumb--team,
+.mdl-crumb-parent {
+    padding: 2px 8px; border-radius: var(--r-md); cursor: pointer;
+    transition: background var(--tr-fast);
+}
+.mdl-crumb--team { font-weight: var(--fw-semibold); color: var(--text); white-space: nowrap; }
+.mdl-crumb--team:hover,
+.mdl-crumb-parent:hover { background: var(--surface-hover); }
+.mdl-crumb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 8%, transparent); }
+.mdl-crumb--parent { flex: 0 1 auto; overflow: hidden; }
+.mdl-crumb--team, .mdl-crumb--self, .mdl-crumb-sep, .mdl-block-toggle, .mdl-crumbs-dates { flex-shrink: 0; }
+.mdl-crumb-parent { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.mdl-crumb-parent .badge { flex-shrink: 0; }
+.mdl-crumb-parent .mdl-link-id { flex-shrink: 0; }
+.mdl-crumb-title {
+    min-width: 0; max-width: 340px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text-secondary);
+}
+.mdl-crumb-empty { color: var(--text-muted); font-style: italic; }
+.mdl-crumb-parent:hover .mdl-crumb-empty { color: var(--primary); }
+/* Édition du parent : le picker prend toute la ligne */
+.mdl-crumbs:has(.epic-picker) { flex-wrap: wrap; }
+.mdl-crumb--parent:has(.epic-picker) { flex: 1 1 100%; order: 10; overflow: visible; }
+.mdl-crumb-parent:has(.epic-picker) { flex: 1; padding: 0; background: none; cursor: default; }
+.mdl-crumb--parent:has(.epic-picker) .btn-open-linked { display: none; }
+.mdl-crumb-sep { color: var(--text-muted); opacity: 0.6; font-size: 14px; line-height: 1; }
+.mdl-crumb--self { font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text); }
+.mdl-crumbs-spacer { flex: 1 1 0; min-width: 0; }
+/* Interrupteur « Bloqué » (.toggle-switch partagé, variante --danger) : pastille discrète éteint,
+   franchement rouge allumé — l'état se lit sans survol. */
+.mdl-block-toggle {
     gap: 6px;
-    align-items: center;
-    flex-wrap: wrap;
+    padding: 2px 9px 2px 4px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: border-color var(--tr-fast), background var(--tr-fast);
 }
-.mdl-meta-right .chip {
-    font-weight: var(--fw-semibold);
+.mdl-block-toggle .toggle-track { width: 26px; height: 15px; }
+.mdl-block-toggle .toggle-track::after { top: 2px; left: 2px; width: 11px; height: 11px; }
+.mdl-block-toggle input:checked + .toggle-track::after { transform: translateX(11px); }
+.mdl-block-toggle-txt { font-size: 11.5px; font-weight: var(--fw-medium); color: var(--text-muted); }
+.mdl-block-toggle:hover { border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.mdl-block-toggle:hover .mdl-block-toggle-txt { color: var(--danger); }
+.mdl-block-toggle.is-on {
+    background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+    border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
-.mdl-meta-created { color: var(--text-muted); white-space: nowrap; }
-.mdl-meta-created small { opacity: 0.75; }
-.mdl-meta-right .text-xs {
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.mdl-block-toggle.is-on .mdl-block-toggle-txt { color: var(--danger); font-weight: var(--fw-bold); }
+.mdl-crumbs-dates { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+/* Tuiles de propriétés */
+.mdl-props {
+    display: grid;
+    /* Statut plus large : les libellés JIRA (« EN COURS DE DÉVELOPPEMENT ») y tiennent entiers. */
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.1fr);
+}
+.mdl-prop {
+    position: relative;
+    display: flex; flex-direction: column; gap: 3px;
+    min-width: 0;
+    padding: 9px 14px 11px;
+    border-left: 1px solid var(--border);
+    transition: background var(--tr-fast);
+}
+.mdl-prop:first-child { border-left: 0; }
+.mdl-prop-label {
+    font-size: 10px; font-weight: var(--fw-semibold);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+.mdl-prop-value {
+    display: flex; align-items: center; gap: 6px;
+    min-height: 24px;
+    font-size: 13px; font-weight: var(--fw-semibold); color: var(--text);
+}
+.mdl-prop-ellipsis { display: block; line-height: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mdl-prop-sub {
+    min-height: 15px;
+    font-size: 11px; color: var(--text-muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mdl-prop--link,
+.mdl-prop--edit { cursor: pointer; }
+.mdl-prop--link:hover,
+.mdl-prop--edit:hover { background: var(--surface-hover); }
+.mdl-prop--link .mdl-prop-label::after,
+.mdl-prop--edit .mdl-prop-label::after {
+    content: ' ✎'; font-size: 9px; opacity: 0.35; vertical-align: middle; margin-left: 2px;
+}
+.mdl-prop--link:hover .mdl-prop-label::after,
+.mdl-prop--edit:hover .mdl-prop-label::after { opacity: 1; color: var(--primary); }
+.mdl-prop--status .badge { font-size: 10.5px; letter-spacing: 0.02em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+/* Tuile Flux : ouvre « Le voyage du ticket » */
+.mdl-prop--more { cursor: pointer; }
+.mdl-prop--more:hover { background: var(--surface-hover); }
+.mdl-prop--more:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: -2px; }
+.mdl-prop-more {
+    float: right; margin-left: 4px;
+    font-size: 9.5px; font-weight: var(--fw-semibold); letter-spacing: 0; text-transform: none;
+    color: var(--primary); opacity: 0.75;
+}
+.mdl-prop--more:hover .mdl-prop-more { opacity: 1; }
+.mdl-prop--more.is-open { background: color-mix(in srgb, var(--primary) 7%, var(--surface)); box-shadow: inset 0 -2px 0 var(--primary); }
+
+/* Estimation : le chiffre en grand, le Poker en action secondaire */
+/* Pastille de points teintée par palier (`pointsTone` → .pts-tone--*, base-components.css) */
+.mdl-points {
+    display: inline-flex; align-items: baseline;
+    font-size: 17px; font-weight: var(--fw-bold); line-height: 1; white-space: nowrap;
+    padding: 3px 9px; border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--ptc) 14%, transparent);
+    color: var(--ptc);
+    border: 1px solid color-mix(in srgb, var(--ptc) 32%, transparent);
+    cursor: pointer; font-variant-numeric: tabular-nums;
+    transition: filter var(--tr-fast);
+}
+.mdl-points:hover { filter: brightness(0.95); }
+.mdl-points small { font-size: 10.5px; font-weight: var(--fw-semibold); margin-left: 2px; opacity: 0.8; }
+.mdl-points.pts-tone--none { border-style: dashed; background: transparent; }
+.pts-hint { color: var(--ptc); font-weight: var(--fw-semibold); }
+.mdl-poker-btn {
+    font: inherit; font-size: 10.5px; font-weight: var(--fw-semibold); cursor: pointer; white-space: nowrap;
+    padding: 1px 7px; border-radius: var(--r-full);
+    background: transparent; color: var(--type-epic);
+    border: 1px solid color-mix(in srgb, var(--type-epic) 35%, transparent);
+    transition: background var(--tr-fast);
+}
+.mdl-poker-btn:hover { background: color-mix(in srgb, var(--type-epic) 12%, transparent); }
+
+/* Sprint : échéance + mini-frise en pied de tuile */
+.mdl-prop-when.is-active { color: var(--primary); font-weight: var(--fw-semibold); }
+.mdl-prop-when.is-urgent { color: var(--warning); font-weight: var(--fw-semibold); }
+.mdl-prop-track {
+    position: absolute; left: 14px; right: 14px; bottom: 5px;
+    height: 3px; border-radius: 2px;
+    background: color-mix(in srgb, var(--text-muted) 22%, transparent);
+}
+.mdl-prop-track-fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--primary); }
+.mdl-prop-track.is-urgent .mdl-prop-track-fill { background: var(--warning); }
+.mdl-prop-track.is-closed .mdl-prop-track-fill { background: var(--text-muted); opacity: 0.5; }
+.mdl-prop-track-mark {
+    position: absolute; top: 50%; width: 7px; height: 7px; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    border: 1.5px solid var(--surface);
+}
+.mdl-prop-track-mark.is-start { background: var(--status-inprog); }
+.mdl-prop-track-mark.is-done  { background: var(--status-done); }
+
+/* ── Disposition du corps (modale / pleine page) ───────────────────────────────
+   Modale : .mdl-aside / .mdl-main / .mdl-aside-tail en display:contents → une seule colonne dans
+   l'ordre historique (Personnes, Description, Liens, Historique, Commentaires) piloté par `order`.
+   Pleine page : description à gauche (lecture), activité à droite (personnes, commentaires,
+   historique complet) — la place gagnée sert à voir PLUS, pas les mêmes blocs en plus grand. */
+.mdl-layout { display: flex; flex-direction: column; }
+.mdl-aside, .mdl-main, .mdl-aside-tail { display: contents; }
+.mdl-layout .mdl-people    { order: 1; }
+.mdl-layout .mdl-desc-wrap { order: 2; }
+.mdl-layout .mdl-links     { order: 3; }
+.mdl-layout .mdl-poker-rounds { order: 4; }   /* même rang que l'historique : l'ordre DOM le place avant */
+.mdl-layout .mdl-history   { order: 4; }
+.mdl-layout .mdl-comments  { order: 5; }
+
+/* `.modal { max-height: 85vh }` est déclaré APRÈS `.modal--fullscreen` (base-components.css) et
+   l'écrasait : la « pleine page » s'arrêtait à 85 % de la hauteur. Spécificité doublée ici. */
+.modal.modal--fullscreen { max-width: 1440px; max-height: calc(100vh - 48px); height: calc(100vh - 48px); }
+.modal--fullscreen .mdl-titlebar .mdl-title-span { font-size: 21px; -webkit-line-clamp: 3; }
+.modal--fullscreen .mdl-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+    grid-template-areas: "main side" "main tail";
+    grid-template-rows: auto 1fr;
+    column-gap: var(--sp-6);
+    align-items: start;
+}
+.modal--fullscreen .mdl-main      { grid-area: main; display: flex; flex-direction: column; min-width: 0; }
+.modal--fullscreen .mdl-aside     { grid-area: side; display: flex; flex-direction: column; min-width: 0; }
+.modal--fullscreen .mdl-aside-tail { grid-area: tail; display: flex; flex-direction: column; min-width: 0; padding-top: var(--sp-2); }
+.modal--fullscreen .mdl-aside-tail .mdl-comments { order: 1; }
+.modal--fullscreen .mdl-aside-tail .mdl-poker-rounds { order: 2; }
+.modal--fullscreen .mdl-aside-tail .mdl-history  { order: 2; }
+/* Personnes empilées dans la colonne d'activité */
+.modal--fullscreen .mdl-people { grid-template-columns: 1fr; row-gap: 0; padding: 4px 0; }
+.modal--fullscreen .mdl-people .mdl-field { padding: 8px 14px; }
+.modal--fullscreen .mdl-people .mdl-field + .mdl-field { border-left: 0; border-top: 1px solid var(--border); }
+/* Lecture confortable : corps de texte agrandi, la colonne fait la largeur */
+.modal--fullscreen .mdl-desc-wrap .mdl-description { font-size: 14.5px; line-height: 1.65; }
+.modal--fullscreen .mdl-comments .comment-form textarea { min-height: 72px; }
+/* Voyage du ticket : la largeur permet 4 cartes par ligne et une frise plus haute */
+.modal--fullscreen .tf-journey { height: 28px; }
+.modal--fullscreen .tf-facts { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.modal--fullscreen .tf-talk ul { columns: 2; column-gap: var(--sp-6); }
+.modal--fullscreen .tf-talk li { break-inside: avoid; }
+@media (max-width: 980px) {
+    .modal--fullscreen .mdl-layout { grid-template-columns: 1fr; grid-template-areas: "side" "main" "tail"; }
+}
+
+/* Tours de Planning Poker conclus (`_pokerRoundsHtml`) */
+.mdl-poker-rounds[hidden] { display: none; }
+.mdl-pr-list { display: flex; flex-direction: column; gap: 6px; }
+.mdl-pr {
+    padding: 8px 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+}
+.mdl-pr-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 11px; color: var(--text-muted); }
+.mdl-pr-date { font-weight: var(--fw-semibold); color: var(--text-secondary); }
+.mdl-pr-flag { margin-left: auto; padding: 0 7px; border-radius: var(--r-full); font-weight: var(--fw-semibold); background: color-mix(in srgb, var(--warning) 15%, transparent); color: var(--warning); }
+.mdl-pr-flag--ok { background: color-mix(in srgb, var(--success) 13%, transparent); color: var(--success); }
+.mdl-pr-body { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.mdl-pr-votes { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.mdl-pr-vote {
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 26px; height: 34px; padding: 0 4px;
+    font-size: 13px; font-weight: var(--fw-bold); line-height: 1; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    font-variant-numeric: tabular-nums;
+}
+.mdl-pr-vote small { margin-top: 2px; font-size: 8px; font-weight: var(--fw-semibold); color: var(--text-muted); }
+.mdl-pr-arrow { color: var(--text-muted); }
+.mdl-pr .mdl-points { font-size: 14px; padding: 2px 8px; cursor: default; }
+.mdl-pr-avg { font-size: 11px; color: var(--text-muted); }
+
+/* Historique : la date absolue (« 19/08/2026 », au-delà de 7 j) dépassait les 50 px de
+   .activity-time (dashboard.css) et chevauchait le nom de l'auteur. */
+.mdl-history .activity-time { flex: 0 0 auto; min-width: 74px; }
+
+/* ── « Le voyage du ticket » (components/ticket_flow.js) ───────────────────── */
+.mdl-flow-panel {
+    padding: 12px 14px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+.mdl-flow-panel[hidden] { display: none; }
+.tf-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tf-title { font-size: 13px; font-weight: var(--fw-bold); color: var(--text); }
+.tf-copy {
+    font: inherit; font-size: 11px; cursor: pointer;
+    padding: 2px 9px; border-radius: var(--r-full);
+    background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border);
+}
+.tf-copy:hover { color: var(--primary); border-color: var(--primary); }
+.tf-story { margin: 6px 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.tf-story b { color: var(--text); }
+.tf-ph--wait    { --phc: color-mix(in srgb, var(--text-muted) 40%, var(--surface)); }
+.tf-ph--prep    { --phc: var(--type-feature); }
+.tf-ph--work    { --phc: var(--status-inprog); }
+.tf-ph--review  { --phc: var(--status-review); }
+.tf-ph--test    { --phc: var(--status-test); }
+.tf-ph--ship    { --phc: var(--status-done); }
+.tf-ph--blocked { --phc: var(--danger); }
+.tf-journey { display: flex; gap: 2px; height: 22px; border-radius: 6px; overflow: hidden; }
+.tf-seg {
+    flex-basis: 0; min-width: 6px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--phc); color: #fff;
+    font-size: 10.5px; font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden;
+}
+.tf-seg.tf-ph--wait { color: var(--text); }
+.tf-seg:hover { filter: brightness(1.08); }
+.tf-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+.tf-leg { display: inline-flex; align-items: center; gap: 4px; }
+.tf-leg i { width: 8px; height: 8px; border-radius: 2px; background: var(--phc); }
+.tf-leg b { color: var(--text); font-weight: var(--fw-semibold); }
+.tf-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 12px 0; }
+.tf-fact {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; align-items: baseline;
+    padding: 8px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: var(--r-md);
+}
+.tf-fact--good { border-left-color: var(--success); }
+.tf-fact--warn { border-left-color: var(--warning); }
+.tf-fact--bad  { border-left-color: var(--danger); }
+.tf-fact-ico { grid-row: span 3; align-self: center; font-size: 18px; line-height: 1; }
+.tf-fact-val { font-size: 15px; font-weight: var(--fw-bold); color: var(--text); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-fact-lbl { font-size: 11px; color: var(--text-secondary); }
+.tf-fact-sub { font-size: 10.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-people { display: flex; padding-top: 2px; }
+.tf-av {
+    width: 20px; height: 20px; border-radius: 50%; margin-right: -5px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: var(--fw-bold); color: #fff;
+    border: 2px solid var(--surface);
+}
+.tf-av--more { background: var(--bg-alt); color: var(--text-secondary); }
+/* Personnes impliquées : avatars cliquables → liste des noms et rôles (carte pleine largeur) */
+.tf-people { font: inherit; background: none; border: 0; padding: 2px 0 0; cursor: pointer; align-items: center; border-radius: var(--r-sm); }
+.tf-people:hover .tf-av { transform: translateY(-1px); }
+.tf-people .tf-av { transition: transform var(--tr-fast); }
+.tf-people-more { margin-left: 10px; font-size: 10.5px; font-weight: var(--fw-semibold); color: var(--primary); }
+.tf-people:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: 2px; }
+.tf-fact--people.is-open { grid-column: 1 / -1; }
+.tf-fact--people .tf-fact-sub { grid-column: 2; }
+.tf-people-list {
+    grid-column: 1 / -1;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 14px;
+    margin: 8px 0 0; padding: 8px 0 0; list-style: none;
+    border-top: 1px dashed var(--border);
+}
+.tf-people-list[hidden] { display: none; }
+.tf-people-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; font-size: 12px; min-width: 0; }
+.tf-people-list .tf-av { margin-right: 0; border-width: 0; }
+.tf-people-name { font-weight: var(--fw-semibold); color: var(--text); }
+.tf-role { font-size: 10px; padding: 0 6px; border-radius: var(--r-full); background: var(--bg-alt); color: var(--text-secondary); }
+.tf-talk {
+    padding: 8px 12px;
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+    border: 1px dashed color-mix(in srgb, var(--primary) 35%, transparent);
+    border-radius: var(--r-md);
+}
+.tf-talk-title { font-size: 11px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); }
+.tf-talk ul { margin: 4px 0 0; padding: 0; list-style: none; }
+.tf-talk li { margin: 3px 0; font-size: 12.5px; line-height: 1.5; color: var(--text); }
+.tf-foot { margin: 8px 0 0; font-size: 10.5px; color: var(--text-muted); }
+.tf-empty { margin: 4px 0; font-size: 12px; font-style: italic; color: var(--text-muted); }
+
+@media (max-width: 720px) {
+    .mdl-crumbs { flex-wrap: wrap; }
+    .mdl-crumbs-dates { flex-basis: 100%; }
+    .mdl-crumb-title { max-width: 180px; }
+    .mdl-props { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mdl-prop { border-top: 1px solid var(--border); }
+    .mdl-prop:nth-child(-n+2) { border-top: 0; }
+    .mdl-prop:nth-child(odd) { border-left: 0; }
+    .mdl-prop--status { grid-column: 1 / -1; }
+    .mdl-prop--status ~ .mdl-prop:nth-child(odd) { border-left: 1px solid var(--border); }
+    .mdl-prop--status ~ .mdl-prop:nth-child(even) { border-left: 0; }
+    .mdl-prop--status ~ .mdl-prop:nth-child(-n+3) { border-top: 1px solid var(--border); }
 }
 
 .mdl-grid {
@@ -46,44 +414,69 @@
     gap: var(--sp-4);
     margin-bottom: var(--sp-4);
 }
-/* Variante 3 colonnes compacte — donne plus de place à la description */
-.mdl-grid--3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    column-gap: var(--sp-3);
-    row-gap: 8px;
-    margin-bottom: var(--sp-3);
-}
-@media (max-width: 720px) {
-    .mdl-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
 .mdl-field { display: flex; flex-direction: column; gap: 2px; }
 .mdl-field--full  { grid-column: 1 / -1; }
 .mdl-field--span2 { grid-column: span 2; }
-/* Epic row — sous le header, pleine largeur, style compact */
-.mdl-epic-row {
-    display: flex; align-items: center; gap: 8px;
-    padding: 5px var(--sp-4);
-    background: var(--bg); border-radius: var(--r-md);
-    border: 1px solid var(--border);
-    margin-bottom: var(--sp-3);
-    font-size: 12.5px;
-}
-.mdl-epic-row .mdl-field-label {
-    flex-shrink: 0; font-size: 10px; letter-spacing: 0.04em;
-}
-.mdl-epic-row .mdl-field-value { font-size: 12.5px; }
-.mdl-epic-row .mdl-field-with-open { display: flex; align-items: center; gap: 4px; }
 .mdl-field-label { font-size: var(--fs-xs); color: var(--text-muted); font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.03em; }
 .mdl-field-value { font-size: var(--fs-sm); color: var(--text); display: flex; align-items: center; gap: var(--sp-2); }
 .mdl-field-value.flex-wrap { flex-wrap: wrap; }
-/* Resserrement spécifique pour la variante 3 colonnes */
-.mdl-grid--3 .mdl-field { gap: 1px; }
-.mdl-grid--3 .mdl-field-label { font-size: 10px; letter-spacing: 0.04em; }
-.mdl-grid--3 .mdl-field-value { font-size: 12.5px; gap: 6px; min-height: 22px; }
-.mdl-grid--3 .mdl-field-value small { font-size: 10.5px; }
-.mdl-grid--3 .chip { padding: 2px 8px; font-size: 11px; gap: 4px; }
-.mdl-grid--3 .mdl-inline-select,
-.mdl-grid--3 .mdl-inline-input { font-size: 11px; padding: 2px 6px; }
+/* Personnes : une rangée de trois cellules libellé au-dessus / valeur (même grammaire que les
+   tuiles de l'en-tête, en plus discret). Labels et sprints traversés vivent dans l'en-tête. */
+.mdl-panel {
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+.mdl-people {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+    margin-bottom: var(--sp-4);
+    padding: 8px 0;
+}
+.mdl-people .mdl-field { gap: 3px; padding: 0 14px; min-width: 0; }
+.mdl-people .mdl-field + .mdl-field { border-left: 1px solid var(--border); }
+.mdl-people .mdl-field-label { font-size: 10px; letter-spacing: 0.05em; }
+.mdl-people .mdl-field-value {
+    min-height: 26px; font-size: 12.5px; gap: 6px;
+    padding: 2px 6px; margin-left: -6px; border-radius: var(--r-md);
+}
+.mdl-people .mdl-field-value.editable-field { cursor: pointer; transition: background var(--tr-fast); }
+.mdl-people .mdl-field-value.editable-field:hover { background: var(--surface-hover); }
+.mdl-panel .chip { padding: 2px 8px; font-size: 11px; gap: 4px; }
+/* Congés : bande « fill » du roster Dashboard (.meteo-iter, meteo.css) + prochaine absence */
+.mdl-presence { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 6px; min-width: 0; font-size: 10.5px; color: var(--text-muted); }
+.mdl-presence .meteo-iter { margin-right: 0; flex-shrink: 0; }
+.mdl-presence .meteo-iter-d { width: 7px; height: 11px; }
+/* Jamais tronqué : « prochain congé : 26 oct → 30 oct » passe à la ligne sous la bande si besoin */
+.mdl-presence-txt { white-space: normal; line-height: 1.35; }
+.mdl-presence.is-now .mdl-presence-txt { color: var(--danger); font-weight: var(--fw-semibold); }
+.mdl-presence.is-unknown { font-style: italic; opacity: 0.75; }
+.chip.chip--away { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 40%, transparent); }
+
+/* Bande « Labels / Passé par » en pied de l'en-tête du ticket */
+.mdl-head-tags {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px;
+    padding: 7px 14px;
+    border-top: 1px solid var(--border);
+}
+.mdl-head-tags:has(+ .mdl-flow-panel[hidden]) { border-radius: 0 0 var(--r-lg) var(--r-lg); }
+.mdl-head-tags-list { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; flex: 1 1 auto; min-width: 0; }
+.mdl-head-hist { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-left: auto; }
+.mdl-head-hist .mdl-prop-label { margin-right: 2px; }
+.mdl-head-tags .chip { padding: 2px 8px; font-size: 11px; gap: 4px; }
+.mdl-head-tags .mdl-inline-input,
+.mdl-head-tags .person-picker-input { font-size: 11px; padding: 2px 6px; }
+
+/* Valeur absente : une invitation à agir plutôt qu'un « — » muet */
+.mdl-empty { color: var(--text-muted); font-size: 12px; font-style: italic; }
+.editable-field:hover > .mdl-empty,
+.editable-field:hover .mdl-empty { color: var(--primary); }
+@media (max-width: 720px) {
+    .mdl-people { grid-template-columns: 1fr; row-gap: 8px; }
+    .mdl-people .mdl-field + .mdl-field { border-left: 0; border-top: 1px solid var(--border); padding-top: 8px; }
+    .mdl-head-hist { margin-left: 0; }
+}
 
 /* ── Description WYSIWYG wrapper ─────────────────────────────────────────── */
 .mdl-desc-wrap { margin-bottom: var(--sp-4); }
@@ -392,6 +785,7 @@
 .person-picker-opt--clear .person-picker-name { color: var(--text-muted); font-style: italic; }
 /* Label picker — pas d'avatar */
 .label-picker .person-picker-input { min-width: 160px; }
+.label-picker-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .label-picker-new .person-picker-name { color: var(--primary); }
 .label-picker-new .person-picker-name strong { font-weight: var(--fw-semibold); }
 /* Chip picker dropdown (priorité, points, équipe) — popin fixe, ne décale pas le layout */
@@ -438,6 +832,15 @@
     width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
 }
 .chip-picker-check { font-size: 10px; opacity: 0.8; }
+/* Points : teinte du palier (`pointsTone` → --ptc, base-components.css), comme la pastille de l'en-tête */
+.chip-picker-opt--pts {
+    min-width: 34px; justify-content: center;
+    font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums;
+    background: color-mix(in srgb, var(--ptc) 14%, var(--surface));
+    color: var(--ptc);
+    border-color: color-mix(in srgb, var(--ptc) 35%, transparent);
+}
+.chip-picker-opt--pts.pts-tone--none { background: var(--surface); border-style: dashed; }
 
 .contrib-add-btn {
     font-size: 11.5px; color: var(--text-muted); padding: 2px 8px;
@@ -504,17 +907,6 @@
 .mdl-field:has(.editable-field:hover) .mdl-field-label::after {
     opacity: 1;
     color: var(--primary);
-}
-/* Pour les chips éditables dans mdl-meta (priorité, points, équipe) */
-.mdl-meta .editable-field::after {
-    content: ' ✎';
-    font-size: 9px;
-    opacity: 0;
-    transition: opacity 0.1s;
-    pointer-events: none;
-}
-.mdl-meta .editable-field:hover::after {
-    opacity: 0.6;
 }
 .mdl-title-span {
     cursor: pointer;

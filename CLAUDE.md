@@ -549,6 +549,47 @@ python main.py          # http://localhost:3001  — Swagger /docs
   via le barrel) — Board / Rapports / modale de sprint (`charts.js`, axe calendaire) ET TV
   (`tv-sprint.js`, jours ouvrés, fantôme du sprint précédent). Jamais de droite interpolée
   (`fait × i / jour courant`) : un ticket compte le jour de sa `resolvedDate`.
+- **Priorité d'un ticket** : UNIQUEMENT `priorityKey()` / `priorityBadge()` ([utils/priority.js](static/js/utils/priority.js),
+  via le barrel) — la base mélange libellés JIRA (« 2. haute ») et clés internes (`high`) ; un lookup exact
+  sur les clés passait tout ticket synchronisé en « medium ». En-tête de la modale ticket = `_ticketHeadHtml`
+  (modal.js) ; style de sa barre de titre sous `#modal:has(.mdl-titlebar)` (#modal est partagé).
+  Taille d'un ticket = `pointsTone()` (utils/points.js, paliers Fibonacci, classes `.pts-tone--*`).
+  Périodes de blocage = `blockedIntervals()` (utils/blocked.js — `_blockedIntervals` de charts.js n'en est
+  qu'un alias). La tuile Sprint EST l'éditeur du sprint (`#sprint-field`) ; les AUTRES sprints et les labels
+  vivent dans la bande `.mdl-head-tags` en pied d'en-tête (plus de panneau « Planification »). Tuile Flux → « Le voyage du ticket » (`components/ticket_flow.js`, modèle pur `ticketFlowModel`) :
+  efficacité = dév + revue + test ÷ total, la préparation (spécification) n'est PAS du temps actif.
+- **Personne JIRA ↔ import RH** : UNIQUEMENT `findPerson` / `samePerson` ([utils/person-name.js](static/js/utils/person-name.js)) —
+  JIRA « Prénom Nom », RH « NOM, Prénom » : l'égalité stricte n'appariait qu'1 leader sur 86 aux absences.
+  Correspondances saisies à la main = `piconfig.person_aliases` (`piInfo.personAliases`, « "" » = pas dans
+  l'import), écrites UNIQUEMENT par `PUT /api/pi/person-alias` (fusion clé par clé), éditées dans Paramètres →
+  Absences ([settings-person-aliases.js](static/js/views/settings-person-aliases.js)) — passer `personAliases`
+  en 3ᵉ argument de `findPerson`, sinon elles sont ignorées. Comptes techniques : `isBotName`.
+  Poker : tickets de référence 1 → 21 = `_pokerReferences` (modal.js), calculés UNE fois à l'ouverture
+  (recalculés après un choix) ; référence ÉPINGLÉE par l'équipe = `piconfig.poker_references`
+  (`{ équipe: { "5": id } }`, `PUT /api/pi/poker-reference`, ticketId null = auto). Cartes de vote NEUTRES
+  (aucune couleur de palier : ne pas orienter le vote). Animations : distribution au CHANGEMENT de phase
+  (fenêtre 700 ms — la popin se re-rend toutes les 3 s), révélation au passage caché → révélé observé APRÈS le
+  1er fetch (`_loaded`, sinon un tour déjà révélé se rejoue). ⚠️ AUCUN re-rendu pendant ces fenêtres (le
+  polling fait `refresh(false)`) : reconstruire le DOM rejouait l'animation (révélation vue deux fois). Sons = `components/poker_sound.js` (Web Audio,
+  coupés par défaut, `sb-poker-sound`). Tours CONCLUS = table `pokerround` (« Enregistrer » → `POST
+  /api/poker/{t}/rounds`, moyenne / écart recalculés côté serveur), DURABLES : dans `/api/export` (+ import),
+  PAS dans `/api/all` (chargés par la modale, section « Estimations en équipe »). `PokerVote` reste éphémère.
+  File des tickets à estimer = UNIQUEMENT `estimationQueue` (utils/estimation-queue.js) : bouton « ⏭ Suivant »
+  du Poker (`_nextToEstimate`) ET page **🃏 Affinage** (`views/refinement.js`, `#refinement/<équipe>`, groupe
+  Équipe & RH) — séance = tours du jour (`GET /api/poker-rounds?team&since`), 🗳 = `GET /api/poker-sessions`.
+  Valeur enregistrée = suite de Fibonacci SEULEMENT (pastilles, choix gardé dans `_savePick` : re-rendu de 3 s).
+  Récap de séance à partager = `components/refinement_recap.js` : UN modèle (`refinementRecapModel`) → Slack
+  (mrkdwn), Teams / mail (HTML à styles EN LIGNE, `text/html` + `text/plain`), CSV — ne pas dupliquer un chiffre.
+  ⚠️ Front servi frais (`NoCacheStaticFiles`) mais routes Python figées au lancement : un serveur sans `--reload`
+  sert la nouvelle page avec l'ANCIENNE API (404 / 405). Ces vues le signalent (« redémarrez le serveur ») au
+  lieu de se taire — garder ce réflexe pour toute route nouvelle appelée par le front.
+  Congés d'une personne dans la modale = `presenceStripHtml` + `nextAbsence` (meteo_fiche.js, même bande que le
+  roster du Dashboard) sur l'itération en cours de l'équipe. Labels = `labelChipHtml` / `labelColor` (utils.js).
+- **Modale ticket en PLEINE PAGE** : le bouton re-rend la modale (`openTicketModal`) dans une vue détaillée —
+  voyage ouvert, description à gauche, activité à droite (personnes, commentaires, historique COMPLET).
+  Corps = `.mdl-layout` > `.mdl-aside` / `.mdl-main` / `.mdl-aside-tail` : en modale normale ces trois
+  conteneurs sont en `display: contents` et l'ordre vient de `order` — un bloc ajouté au corps doit y
+  recevoir son `order`, sinon il se place en tête.
 - **Statuts forcés, lisibilité** (3.195.0) : repère 🎯 d'une carte = `overrideReason(t)`, infobulle
   d'en-tête de colonne = `columnStatusesTip()` ([utils/status-override.js](static/js/utils/status-override.js)).
 - **États vides** (3.197.0) : UNIQUEMENT `emptyStateHtml({ icon, title, text, action, size, tone })`
@@ -561,7 +602,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Historique des niveaux Atlas** (3.198.0) : table `skill_level_history`, écrite UNIQUEMENT par
   `PUT /api/member-skills` (une ligne par changement réel), lue par `components/atlas_history.js`.
 - **Dernière synchro** (3.197.0) : `sprintconfig.synced_by` / `sync_kind`, posés par la synchro
-  seulement (import ET `PUT /api/sprint` ne les écrivent que s'ils sont fournis) — bandeau obsolète.
+  seulement (import ET `PUT /api/sprint` ne les écrivent que s'ils sont fournis) — fraîcheur affichée par la
+  PASTILLE du bouton JIRA (`checkSyncStale`, app.js : ambre ≥ 2 h, rouge ≥ 48 h) + infobulle + ligne en tête du
+  menu ▾ ; plus de bandeau sous le topbar. `checkSyncStale` est la SEULE écriture de l'infobulle de `#btn-sync`.
 - **Marqueur `~membre=<nom>`** (3.197.0, `applyHash`) : ouvre la fiche membre après le routage
   (liens de l'export de la frise). Valeur sans « / » ni « ~ ».
 - **TV : tout tient à l'écran** (3.199.2) — ⚠️ `.tv` fait `100vh` PUIS `zoom` : le zoom agrandit aussi la

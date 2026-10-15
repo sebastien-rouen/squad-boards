@@ -59,6 +59,13 @@ class PIConfig(SQLModel, table=True):
     # Clés = SUPPORT_WEEK_MODES du front (monday … friday). Ici et pas sur `team` : une synchro
     # complète supprime et recrée les équipes. Écrit clé par clé (PUT /api/pi/support-week-mode).
     support_week_modes: dict = Field(default={}, sa_column=Column(JSON))
+    # Correspondances nom JIRA → nom RH (import Congés) que le rapprochement automatique ne trouve
+    # pas : { "Arnaud m": "MARTIN, Arnaud" } ; valeur "" = « pas dans l'import » (ignoré).
+    # Écrit clé par clé (PUT /api/pi/person-alias), lu par `findPerson` (utils/person-name.js).
+    person_aliases: dict = Field(default={}, sa_column=Column(JSON))
+    # Tickets de référence du Planning Poker choisis par l'équipe : { "Gabbiano": { "5": "GDEM-2261" } }.
+    # Sans choix, la popin propose le ticket livré le plus typique (modal.js, `_pokerReferences`).
+    poker_references: dict = Field(default={}, sa_column=Column(JSON))
     updated_at: str = Field(default_factory=_now)
 
 

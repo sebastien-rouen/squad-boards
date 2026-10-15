@@ -581,6 +581,37 @@
     border-left: none;
     margin-left: -1px;
 }
+/* Pastille de fraîcheur sur le bouton JIRA (`checkSyncStale`, app.js) — même grammaire que la
+   pastille du mini-calendrier (.cal-sync-dot) : ambre ≥ 2 h, rouge ≥ 48 h, invisible sinon. */
+#btn-sync { position: relative; }
+.sync-stale-dot {
+    position: absolute; top: 3px; right: 3px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--warning);
+    border: 2px solid var(--surface);
+    opacity: 0; transform: scale(0.6);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+}
+#btn-sync.is-stale .sync-stale-dot { opacity: 1; transform: none; }
+#btn-sync.is-very-stale .sync-stale-dot { background: var(--danger); animation: sync-dot-pulse 2.4s ease-in-out infinite; }
+@keyframes sync-dot-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 25%, transparent); } }
+@media (prefers-reduced-motion: reduce) { #btn-sync.is-very-stale .sync-stale-dot { animation: none; } }
+#btn-sync.syncing .sync-stale-dot { opacity: 0; }
+/* Ligne d'info en tête du menu ▾ : qui, quand, comment */
+.sync-menu-info {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin: 2px 2px 6px; padding: 8px 10px;
+    font-size: 11.5px; line-height: 1.45; color: var(--text-secondary);
+    background: var(--bg-alt); border-radius: var(--r-sm);
+}
+.sync-menu-info[hidden] { display: none; }
+.sync-menu-info b { color: var(--text); font-weight: var(--fw-semibold); }
+.sync-menu-info-dot { flex-shrink: 0; width: 8px; height: 8px; margin-top: 4px; border-radius: 50%; background: var(--success); }
+.sync-menu-info.is-stale { background: color-mix(in srgb, var(--warning) 10%, var(--surface)); }
+.sync-menu-info.is-stale .sync-menu-info-dot { background: var(--warning); }
+.sync-menu-info.is-very-stale { background: color-mix(in srgb, var(--danger) 9%, var(--surface)); }
+.sync-menu-info.is-very-stale .sync-menu-info-dot { background: var(--danger); }
 .sync-menu {
     position: absolute;
     top: calc(100% + 4px);

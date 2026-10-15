@@ -181,6 +181,7 @@ export const NAV_ITEMS = [
     { id: 'support',    label: 'Support',      icon: 'i-users',      shortcut: '',  section: 'team' },
     { id: 'atlas',      label: 'Atlas',        icon: 'i-network',    shortcut: '',  section: 'team' },
     { id: 'agenda',     label: 'Agenda',       icon: 'i-agenda',     shortcut: '',  section: 'team' },
+    { id: 'refinement', label: 'Affinage',     icon: 'i-zap',        shortcut: '',  section: 'team' },
     { id: 'settings',   label: 'Paramètres',   icon: 'i-settings',   shortcut: ',', section: 'footer' },
 ];
 

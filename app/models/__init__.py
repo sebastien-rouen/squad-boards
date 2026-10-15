@@ -6,7 +6,7 @@ ce qui doit avoir lieu avant `create_all`/`run_migrations`.
 from app.models.core import Team, Member, Ticket, Feature, Epic
 from app.models.planning import SprintConfig, PIConfig, TeamGroup
 from app.models.people import Absence, SupportRotation
-from app.models.agile import Event, MoodVote, RetroItem, Risk, PokerVote
+from app.models.agile import Event, MoodVote, RetroItem, Risk, PokerVote, PokerRound
 from app.models.atlas import (
     Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, SkillLevelHistory,
 )
@@ -17,7 +17,7 @@ __all__ = [
     "Team", "Member", "Ticket", "Feature", "Epic",
     "SprintConfig", "PIConfig", "TeamGroup",
     "Absence", "SupportRotation",
-    "Event", "MoodVote", "RetroItem", "Risk", "PokerVote",
+    "Event", "MoodVote", "RetroItem", "Risk", "PokerVote", "PokerRound",
     "Skill", "Appetence", "MemberSkill", "MemberAppetence", "MemberMobility", "SkillLevelHistory",
     "TeamCalendar", "CalendarRule",
     "TeamIdentity", "WorkshopTemplate", "TeamWorkshop", "Attachment",

@@ -5,7 +5,10 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, toastUndo, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, trapFocus, cycleDays, leadDays } from '../utils.js';
+import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, toastUndo, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, priorityBadge, priorityKey, PRIORITY_META, trapFocus, cycleDays, leadDays, wipAgeDays, workdaysBetween, workdaysLeft, pointsTone, teamPointsMedian, estimationQueue, labelChipHtml, labelColor, findPerson, todayIsoLocal, getSprintForTeam } from '../utils.js';
+import { ticketFlowModel, ticketFlowHtml, bindTicketFlow } from './ticket_flow.js';
+import { presenceStripHtml, sprintWorkDays, nextAbsence } from './meteo_fiche.js';
+import { pokerSoundOn, setPokerSound, playPokerSound } from './poker_sound.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS, TYPE_ICONS } from '../config.js';
 
 const overlay = () => document.getElementById('modal-overlay');
@@ -264,8 +267,8 @@ function _makeChipPicker(options, currentValue, onCommit) {
     wrap.className = 'chip-picker';
     wrap.innerHTML = options.map(o => {
         const isCur = o.value !== '' && currentSet.has(o.value);
-        return `<button type="button" class="chip-picker-opt${isCur ? ' is-current' : ''}"
-            data-value="${esc(o.value)}"
+        return `<button type="button" class="chip-picker-opt${o.cls ? ` ${o.cls}` : ''}${isCur ? ' is-current' : ''}"
+            data-value="${esc(o.value)}"${o.title ? ` title="${esc(o.title)}"` : ''}
             style="${o.bg ? `background:${o.bg};` : ''}${o.color ? `color:${o.color};border-color:${o.color}40` : ''}">
             ${o.dot ? `<span class="chip-picker-dot" style="background:${o.dot}"></span>` : ''}
             ${esc(o.label)}
@@ -327,6 +330,13 @@ function _openChipDropdown(el, items, currentValue, onCommit) {
     setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
 }
 
+/** Chip de label retirable, en nœud DOM (ajout à chaud) — même rendu que `labelChipHtml`. */
+function _labelChipEl(label) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = labelChipHtml(label, { removable: true });
+    return tpl.content.firstElementChild;
+}
+
 // Autocomplete pour les labels — suggestions depuis les labels existants du store + frappe libre
 function _makeLabelPicker(currentLabels, onAdd, onCancel) {
     const allTickets  = [...(store.get('tickets') || []), ...(store.get('features') || []), ...(store.get('epics') || [])];
@@ -351,6 +361,7 @@ function _makeLabelPicker(currentLabels, onAdd, onCancel) {
         const matches = suggestions.filter(s => s.toLowerCase().includes(lq));
         list.innerHTML = matches.map(s =>
             `<div class="person-picker-opt label-picker-opt" data-label="${esc(s)}" role="option">
+                <span class="label-picker-dot" style="background:${labelColor(s)}"></span>
                 <span class="person-picker-name">${esc(s)}</span>
             </div>`
         ).join('');
@@ -459,6 +470,10 @@ export function initModal() {
         // Met à jour l'icône : expand ↔ compress
         const btn = document.getElementById('modal-fullpage');
         if (btn) btn.title = isFs ? 'Réduire' : 'Pleine page';
+        // Modale TICKET : la pleine page n'est pas qu'un agrandissement — elle re-rend une vue
+        // détaillée (voyage ouvert, deux colonnes, historique complet).
+        const cur = _modalList[_modalIdx];
+        if (cur && bodyEl()?.querySelector('.mdl-head')) openTicketModal(cur.id);
     });
     overlay()?.addEventListener('click', e => { if (e.target === overlay()) closeModal(); });
     document.addEventListener('keydown', e => {
@@ -512,7 +527,7 @@ function avatar(name, isLeader = false, size = 24) {
 }
 
 function personChip(name, role = '') {
-    if (!name) return `<span class="text-muted">Non assigne</span>`;
+    if (!name) return `<span class="mdl-empty">+ Assigner</span>`;
     return `<span class="inline-flex-center">${avatar(name, role === 'leader', 22)} <span>${esc(name)}</span></span>`;
 }
 
@@ -584,6 +599,241 @@ function _renderTicketHistory(changes) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// En-tête du ticket : fil d'Ariane (équipe › parent › ticket) + tuiles de propriétés
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Date du dernier changement d'un champ du changelog (`to` non vide si `needTo`), ou null. */
+function _lastChangeDate(ticket, field, needTo = false) {
+    const f = field.toLowerCase();
+    const hit = (ticket.recentChanges || [])
+        .filter(c => String(c.field || '').toLowerCase() === f && (!needTo || String(c.to || '').trim()))
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0];
+    return hit?.date || null;
+}
+
+/** « aujourd'hui » / « 1 j » / « 4 j » — jours OUVRÉS écoulés depuis `d` (cf. utils/workdays.js). */
+function _sinceTxt(d) {
+    const n = workdaysBetween(d, new Date());
+    if (n == null) return '';
+    return n < 1 ? "aujourd'hui" : `${n} j`;
+}
+
+/**
+ * Sprint DU TICKET (pas le sprint global de `sprintInfo`, qui est celui d'une autre équipe) :
+ * appariement exact sur `sprintName` parmi les sprints connus de toutes les équipes.
+ */
+function _ticketSprint(ticket) {
+    const name = (ticket.sprintName || '').trim();
+    if (!name) return null;
+    return (store.get('sprintInfo')?.teamSprints || []).find(s => s.name === name) || { name };
+}
+
+/** Tuile Sprint : nom, échéance en jours ouvrés, mini-frise avec début / fin du travail. */
+function _sprintTileHtml(ticket) {
+    const sp = _ticketSprint(ticket);
+    const pi = ticket.piSprint ? esc(ticket.piSprint) : '';
+    if (!sp) {
+        return `<div class="mdl-prop mdl-prop--link mdl-prop--sprint" id="sprint-field" data-field="sprint" data-value="" title="Planifier dans un sprint">
+            <span class="mdl-prop-label">Sprint</span>
+            <span class="mdl-prop-value text-muted">Hors sprint</span>
+            <span class="mdl-prop-sub">${pi || 'Backlog'}</span>
+        </div>`;
+    }
+    const s0 = new Date(sp.startDate).getTime(), s1 = new Date(sp.endDate).getTime();
+    const dated = Number.isFinite(s0) && Number.isFinite(s1) && s1 > s0;
+    const now = Date.now();
+    const pctOf = d => Math.max(0, Math.min(100, ((new Date(d).getTime() - s0) / (s1 - s0)) * 100));
+    let when = '', tone = '';
+    if (dated) {
+        if (sp.state === 'closed' || now > s1) { when = 'Clos'; tone = 'is-closed'; }
+        else if (now < s0) { when = `Démarre le ${fmtDate(sp.startDate)}`; tone = 'is-future'; }
+        else {
+            const left = workdaysLeft(sp.endDate);
+            when = left > 0 ? `J-${left}` : 'Dernier jour';
+            tone = left <= 2 ? 'is-urgent' : 'is-active';
+        }
+    }
+    const bar = dated ? `<span class="mdl-prop-track ${tone}" title="${esc(fmtDate(sp.startDate))} → ${esc(fmtDate(sp.endDate))}">
+            <span class="mdl-prop-track-fill" style="width:${pctOf(now)}%"></span>
+            ${ticket.startedDate ? `<span class="mdl-prop-track-mark is-start" style="left:${pctOf(ticket.startedDate)}%" title="Début du travail · ${esc(fmtDate(ticket.startedDate))}"></span>` : ''}
+            ${ticket.resolvedDate ? `<span class="mdl-prop-track-mark is-done" style="left:${pctOf(ticket.resolvedDate)}%" title="Résolu · ${esc(fmtDate(ticket.resolvedDate))}"></span>` : ''}
+        </span>` : '';
+    return `<div class="mdl-prop mdl-prop--link mdl-prop--sprint" id="sprint-field" data-field="sprint" data-value="${esc(sp.name)}" title="${esc(sp.name)} — cliquer pour changer de sprint">
+        <span class="mdl-prop-label">Sprint</span>
+        <span class="mdl-prop-value mdl-prop-ellipsis">${esc(sp.name)}</span>
+        <span class="mdl-prop-sub">${[when && `<span class="mdl-prop-when ${tone}"${when.startsWith('J-') ? ' title="Jours ouvrés restants, aujourd\'hui compris"' : ''}>${esc(when)}</span>`, pi].filter(Boolean).join(' · ')}</span>
+        ${bar}
+    </div>`;
+}
+
+/** Jours ouvrés de la semaine courante (repli quand l'équipe n'a pas de sprint daté). */
+function _currentWeek() {
+    const d = new Date(); d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));   // lundi
+    const iso = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+    return { label: 'cette semaine', days: Array.from({ length: 5 }, (_, i) => { const x = new Date(d); x.setDate(d.getDate() + i); return iso(x); }) };
+}
+
+/**
+ * Congés d'une personne sur l'itération EN COURS de l'équipe du ticket : bande « fill » du roster
+ * du Dashboard (`presenceStripHtml`, une case par jour ouvré) + prochaine absence. Le nom JIRA
+ * (« Prénom Nom ») est rapproché du nom RH (« NOM, Prénom ») par `findPerson`.
+ * @returns {{ html: string, absentNow: boolean }}
+ */
+function _presenceOf(name, ticket) {
+    if (!name) return { html: '', absentNow: false };
+    const absences = store.get('absences') || [];
+    const absName = findPerson(name, absences.map(a => a.memberName), store.get('piInfo')?.personAliases);
+    if (!absName) {
+        return { html: `<span class="mdl-presence is-unknown" title="${esc(name)} n'est pas rapproché de l'import Congés — à associer dans Paramètres → Absences → Correspondances">congés : non trouvés</span>`, absentNow: false };
+    }
+    const today = todayIsoLocal();
+    const it = sprintWorkDays(getSprintForTeam(ticket.team)) || _currentWeek();
+    const next = nextAbsence(absName, absences, today);
+    const txt = next
+        ? (next.now ? `🌴 absent · ${next.label}` : `prochain congé : ${next.label}`)
+        : 'aucun congé prévu';
+    return {
+        absentNow: !!next?.now,
+        html: `<span class="mdl-presence${next?.now ? ' is-now' : ''}" title="Présence de ${esc(absName)} — itération ${esc(it.label)} (import Congés)">${presenceStripHtml(absName, it, absences, today)}<span class="mdl-presence-txt">${esc(txt)}</span></span>`,
+    };
+}
+
+/** Panneau « voyage du ticket » ouvert ? Mémorisé le temps de la session : la modale se re-rend
+ *  après chaque édition, et passer d'un ticket à l'autre pour comparer doit garder le panneau. */
+let _flowPref = { normal: false, full: true };   // pleine page : le voyage est ouvert d'office
+const _isFull = () => !!document.getElementById('modal')?.classList.contains('modal--fullscreen');
+const _flowOpenNow = () => _flowPref[_isFull() ? 'full' : 'normal'];
+
+/** Tuile Flux : la mesure qui compte selon l'avancement (livré / en cours / pas démarré). */
+function _flowTileHtml(ticket) {
+    const ct = cycleDays(ticket), lt = leadDays(ticket);
+    let value, sub, tip;
+    if (ticket.status === 'done') {
+        value = ct ? `Cycle ${ct} j` : 'Livré';
+        sub = lt ? `Lead ${lt} j` : (ticket.resolvedDate ? `le ${esc(fmtDate(ticket.resolvedDate))}` : '');
+        tip = 'Cycle = mise en cours → livraison · Lead = création → livraison (jours ouvrés)';
+    } else if (ticket.startedDate) {
+        value = `${wipAgeDays(ticket.startedDate)} j en cours`;
+        sub = `depuis le ${esc(fmtDate(ticket.startedDate))}`;
+        tip = 'Âge du travail en cours, en jours ouvrés';
+    } else {
+        value = 'Pas démarré';
+        const wait = workdaysBetween(ticket.createdAt, new Date());
+        sub = wait != null ? `en attente ${wait < 1 ? "depuis aujourd'hui" : `depuis ${wait} j`}` : '';
+        tip = 'Jours ouvrés écoulés depuis la création';
+    }
+    const open = _flowOpenNow();
+    return `<div class="mdl-prop mdl-prop--more${open ? ' is-open' : ''}" id="mdl-flow-tile" role="button" tabindex="0" aria-expanded="${open}" aria-controls="mdl-flow-panel" title="${esc(tip)} — cliquer pour le détail du parcours">
+        <span class="mdl-prop-label">Flux <span class="mdl-prop-more" aria-hidden="true">🧭 détail</span></span>
+        <span class="mdl-prop-value">${value}</span>
+        <span class="mdl-prop-sub">${sub}</span>
+    </div>`;
+}
+
+/** En-tête complet du corps de la modale (remplace les anciennes lignes Epic + Meta + barre de sprint). */
+function _ticketHeadHtml(ticket, all) {
+    const team = ticket.team || '';
+    const teamCol = team ? ((store.get('teamObjects') || []).find(o => o.name === team)?.color || hashColor(team)) : '';
+    const parent = ticket.epic ? all.find(t => t.id === ticket.epic) : null;
+    const pKey = priorityKey(ticket.priority);
+
+    // Statut : depuis quand (dernier changement de statut, sinon début du travail).
+    const statusSince = _lastChangeDate(ticket, 'status') || (ticket.status !== 'todo' ? ticket.startedDate : null) || ticket.createdAt;
+    const statusSub = ticket.status === 'done' && ticket.resolvedDate
+        ? `le ${esc(fmtDate(ticket.resolvedDate))}`
+        : (statusSince ? `depuis ${esc(_sinceTxt(statusSince))}` : '');
+
+    const blockedSince = ticket.flagged ? _lastChangeDate(ticket, 'flagged', true) : null;
+    // Sprint COURANT = tuile Sprint (affichage + édition) ; les AUTRES vont dans la bande du bas.
+    const otherSprints = _sprintsHistoryOfTicket(ticket).filter(sp => !sp.isCurrent);
+
+    // Points : palier ABSOLU (couleur) + repère RELATIF à l'équipe (texte).
+    const pts = pointsTone(ticket.points);
+    const median = team ? teamPointsMedian((store.get('tickets') || []).filter(x => x.team === team)) : null;
+    // Ratio à la médiane de l'équipe : « ≈ méd. » entre 0,8× et 1,25×, sinon « ×1,6 » (tuile étroite).
+    const ratio = median && ticket.points ? ticket.points / median : null;
+    const medTxt = ratio == null ? '' : (ratio >= 0.8 && ratio <= 1.25 ? '≈ méd.' : `×${String(Math.round(ratio * 10) / 10).replace('.', ',')} méd.`);
+    const ptsSub = ticket.points
+        ? [pts.hint ? `<span class="pts-hint pts-tone--${pts.key}">${esc(pts.hint)}</span>` : esc(pts.label), esc(medTxt)].filter(Boolean).join(' · ')
+        : 'non estimé';
+    const ptsTip = ticket.points
+        ? `${pts.label} (${ticket.points} pts)${median ? ` — médiane des tickets estimés de ${team} : ${median} pts` : ''} · cliquer pour changer`
+        : 'Non estimé — cliquer pour estimer, ou lancer un Poker';
+
+    return `<section class="mdl-head" aria-label="Propriétés du ticket">
+        ${ticket.flagged ? `<div class="mdl-head-alert" role="status">
+            <span class="mdl-head-alert-ico" aria-hidden="true">🚫</span>
+            <span class="mdl-head-alert-txt"><strong>Bloqué</strong>${blockedSince ? ` depuis ${esc(_sinceTxt(blockedSince))} <span class="text-muted">· ${esc(fmtDate(blockedSince))}</span>` : ''}</span>
+        </div>` : ''}
+
+        <!-- Fil d'Ariane : équipe › parent › ticket -->
+        <div class="mdl-crumbs">
+            <span class="mdl-crumb mdl-crumb--team editable-field" data-field="team" data-value="${esc(team)}" title="Équipe — cliquer pour changer">
+                ${team ? `<span class="mdl-crumb-dot" style="background:${esc(teamCol)}"></span>${esc(team)}` : '<span class="text-muted">Sans équipe</span>'}
+            </span>
+            <span class="mdl-crumb-sep" aria-hidden="true">›</span>
+            <span class="mdl-crumb mdl-crumb--parent">
+                <span class="mdl-crumb-parent editable-field" data-field="epic" data-value="${esc(ticket.epic || '')}" title="Parent — cliquer pour changer">
+                    ${ticket.epic
+                        ? `${typeBadge(parent?.type || 'feature', { size: '2xs', label: parent ? null : 'Parent' })}<span class="mdl-link-id" data-ticket-id="${esc(ticket.epic)}">${esc(ticket.epic)}</span>${parent?.title ? `<span class="mdl-crumb-title">${esc(parent.title)}</span>` : ''}`
+                        : '<span class="mdl-crumb-empty">+ Rattacher à une feature</span>'}
+                </span>
+                ${ticket.epic ? `<button class="btn-open-linked" data-ticket-id="${esc(ticket.epic)}" title="Ouvrir ${esc(ticket.epic)}"><svg class="icon icon-xs"><use href="#i-external"/></svg></button>` : ''}
+            </span>
+            <span class="mdl-crumb-sep" aria-hidden="true">›</span>
+            <span class="mdl-crumb mdl-crumb--self">${esc(ticket.id)}</span>
+            <span class="mdl-crumbs-spacer"></span>
+            <label class="toggle-switch toggle-switch--danger mdl-block-toggle${ticket.flagged ? ' is-on' : ''}" title="${ticket.flagged ? 'Lever le blocage' : 'Signaler un blocage'}">
+                <input type="checkbox" role="switch" class="editable-field" data-field="flagged" data-value="${ticket.flagged ? 'true' : 'false'}" ${ticket.flagged ? 'checked' : ''} aria-label="Ticket bloqué">
+                <span class="toggle-track"></span>
+                <span class="mdl-block-toggle-txt">${ticket.flagged ? '🚫 Bloqué' : 'Bloqué'}</span>
+            </label>
+            <span class="mdl-crumbs-dates" title="Créé le ${esc(fmtDateLong(ticket.createdAt))} · mis à jour le ${esc(fmtDateLong(ticket.updatedAt))}">
+                Créé le ${esc(fmtDate(ticket.createdAt))} · maj ${esc(fmtRelative(ticket.updatedAt))}
+            </span>
+        </div>
+
+        <!-- Propriétés clés : ce qu'on regarde d'abord -->
+        <div class="mdl-props">
+            <div class="mdl-prop mdl-prop--link mdl-prop--status" data-proxy="mdl-status-badge-link">
+                <span class="mdl-prop-label">Statut</span>
+                <span class="mdl-prop-value">${statusBadge(ticket, { extra: 'mdl-type-badge', attrs: 'id="mdl-status-badge-link" title="Cliquer pour modifier le statut"', title: false })}</span>
+                <span class="mdl-prop-sub">${statusSub}</span>
+            </div>
+            <div class="mdl-prop mdl-prop--edit editable-field" data-field="priority" data-value="${pKey}" title="Priorité — cliquer pour changer">
+                <span class="mdl-prop-label">Priorité</span>
+                <span class="mdl-prop-value">${priorityBadge(ticket.priority)}</span>
+            </div>
+            <div class="mdl-prop mdl-prop--link mdl-prop--points" data-proxy="mdl-points" title="${esc(ptsTip)}">
+                <span class="mdl-prop-label">Estimation</span>
+                <span class="mdl-prop-value">
+                    <span class="mdl-points pts-tone--${pts.key} editable-field" id="mdl-points" data-field="points" data-value="${ticket.points || 0}">${ticket.points ? `${ticket.points}<small>pts</small>` : '—<small>pts</small>'}</span>
+                    <button class="mdl-poker-btn" id="mdl-poker-btn" data-ticket-id="${esc(ticket.id)}" title="Planning Poker — voter collectivement sur les Story Points">🃏 Poker</button>
+                </span>
+                <span class="mdl-prop-sub">${ptsSub}</span>
+            </div>
+            ${_sprintTileHtml(ticket)}
+            ${_flowTileHtml(ticket)}
+        </div>
+
+        <!-- Classement : labels (éditables) + sprints déjà traversés (historique JIRA) -->
+        <div class="mdl-head-tags">
+            <span class="mdl-prop-label">Labels</span>
+            <span class="mdl-head-tags-list" id="labels-inline-wrap">
+                ${(ticket.labels || []).map(l => labelChipHtml(l, { removable: true })).join('')}
+                <input type="text" class="mdl-inline-input" id="label-add-input" placeholder="+ label (Entrée)">
+            </span>
+            ${otherSprints.length ? `<span class="mdl-head-hist" title="Sprints par lesquels le ticket est passé ou a été planifié (historique JIRA)">
+                <span class="mdl-prop-label">Passé par</span>
+                ${otherSprints.map(sp => `<span class="chip chip-sprint chip-sprint--past">○ ${esc(sp.name)}</span>`).join('')}
+            </span>` : ''}
+        </div>
+        <div class="mdl-flow-panel" id="mdl-flow-panel"${_flowOpenNow() ? '' : ' hidden'}></div>
+    </section>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Ticket Detail - rich layout
 // ══════════════════════════════════════════════════════════════════════════════
 export function openTicketModal(ticketId) {
@@ -608,155 +858,79 @@ export function openTicketModal(ticketId) {
     const links = ticket.links || [];
     const description = ticket.description || '';
 
-    // Cycle / Lead time
-    const ct = cycleDays(ticket);
-    const lt = leadDays(ticket);
-
-    // Sprint progress bar data
-    const sprintInfo = store.get('sprintInfo');
-    let sprintBarHtml = '';
-    if (sprintInfo?.startDate && sprintInfo?.endDate) {
-        const sStart = new Date(sprintInfo.startDate).getTime();
-        const sEnd = new Date(sprintInfo.endDate).getTime();
-        const sTotal = sEnd - sStart;
-        const now = Date.now();
-        const sprintPct = Math.max(0, Math.min(100, ((now - sStart) / sTotal) * 100));
-        const remaining = Math.max(0, Math.ceil((sEnd - now) / 86400000));
-        sprintBarHtml = `
-            <div class="mb-3">
-                <div class="mdl-sprint-bar">
-                    <div class="mdl-sprint-fill" style="width:${sprintPct}%"></div>
-                    ${ticket.startedDate ? `<div class="mdl-sprint-marker" style="left:${Math.max(0, Math.min(100, ((new Date(ticket.startedDate).getTime() - sStart) / sTotal) * 100))}%;background:var(--status-inprog)" title="Debut travail"></div>` : ''}
-                    ${ticket.resolvedDate ? `<div class="mdl-sprint-marker" style="left:${Math.max(0, Math.min(100, ((new Date(ticket.resolvedDate).getTime() - sStart) / sTotal) * 100))}%;background:var(--status-done)" title="Resolu"></div>` : ''}
-                </div>
-                <div class="mdl-sprint-dates">
-                    <span>${fmtDate(sprintInfo.startDate)}</span>
-                    <span>${remaining > 0 ? `J-${remaining}` : 'Termine'}</span>
-                    <span>${fmtDate(sprintInfo.endDate)}</span>
-                </div>
-            </div>
-        `;
-    }
-
     // ── G : bordure statut sur la modale ─────────────────────────────────────
     const modalEl = document.getElementById('modal');
     if (modalEl) {
         modalEl.dataset.status = ticket.status;
     }
 
-    // ── Title bar with prev/next ──────────────────────────────────────────────
+    // ── Title bar : repères du ticket (ligne 1) + titre complet sur 2 lignes max (ligne 2) ──
+    // Le style vit sous `.mdl-titlebar` / `#modal:has(.mdl-titlebar)` : #modal est partagé
+    // par toutes les modales, les autres gardent l'en-tête d'origine.
+    const _svgCopy = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+    const _svgLink = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>';
     titleEl().innerHTML = `
-        <button class="mdl-nav-btn${_modalIdx <= 0 ? ' disabled' : ''}" id="mdl-prev" title="Precedent (←)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-        <!-- H : avatar leader -->
-        ${leader ? `<span class="mdl-header-avatar" style="background:${hashColor(leader)}" title="${esc(leader)}">${esc(initials(leader))}</span>` : ''}
-        <!-- D : badge type — clic = scroll vers les chips d'édition dans le corps -->
-        ${typeBadge(ticket.type, { extra: 'mdl-type-badge', attrs: 'id="mdl-type-badge-link" title="Cliquer pour modifier le type"', title: false })}
-        ${jiraLink
-            ? `<a class="mdl-ticket-link" href="${esc(jiraLink)}" target="_blank" rel="noopener" title="Ouvrir dans JIRA">${esc(ticket.id)}</a>`
-            : `<span class="mdl-ticket-id">${esc(ticket.id)}</span>`
-        }
-        <button class="copy-btn copy-btn--always" id="mdl-copy-key" data-copy-key="${esc(ticket.id)}" data-copy-title="${esc(ticket.title)}" title="Copier '${esc(ticket.id)} - ${esc(ticket.title)}'">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-        </button>
-        <!-- E : copie URL JIRA -->
-        ${jiraLink ? `<button class="copy-btn copy-btn--always" id="mdl-copy-url" title="Copier le lien JIRA">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-        </button>` : ''}
-        <span class="truncate flex-1 mdl-title-span" id="mdl-title-span" title="Cliquer pour modifier">${esc(ticket.title)}</span>
-        <!-- C : badge commentaires -->
-        ${comments.length ? `<button class="mdl-comments-badge" id="mdl-scroll-comments" title="Voir les commentaires">💬 ${comments.length}</button>` : ''}
-        <button class="mdl-nav-btn${_modalIdx >= all.length - 1 ? ' disabled' : ''}" id="mdl-next" title="Suivant (→)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+        <span class="mdl-titlebar">
+            <span class="mdl-titlebar-top">
+                <span class="mdl-nav-group" role="group" aria-label="Navigation entre tickets">
+                    <button class="mdl-nav-btn${_modalIdx <= 0 ? ' disabled' : ''}" id="mdl-prev" title="Précédent (←)" aria-label="Ticket précédent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+                    <button class="mdl-nav-btn${_modalIdx >= all.length - 1 ? ' disabled' : ''}" id="mdl-next" title="Suivant (→)" aria-label="Ticket suivant"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+                </span>
+                <!-- D : badge type — clic = liste déroulante des types -->
+                ${typeBadge(ticket.type, { extra: 'mdl-type-badge', attrs: 'id="mdl-type-badge-link" title="Cliquer pour modifier le type"', title: false })}
+                <span class="mdl-key">
+                    ${jiraLink
+                        ? `<a class="mdl-ticket-link" href="${esc(jiraLink)}" target="_blank" rel="noopener" title="Ouvrir dans JIRA">${esc(ticket.id)}</a>`
+                        : `<span class="mdl-ticket-id">${esc(ticket.id)}</span>`}
+                    <button class="copy-btn copy-btn--always" id="mdl-copy-key" data-copy-key="${esc(ticket.id)}" data-copy-title="${esc(ticket.title)}" title="Copier '${esc(ticket.id)} - ${esc(ticket.title)}'">${_svgCopy}</button>
+                    <!-- E : copie URL JIRA -->
+                    ${jiraLink ? `<button class="copy-btn copy-btn--always" id="mdl-copy-url" title="Copier le lien JIRA">${_svgLink}</button>` : ''}
+                </span>
+                <span class="mdl-titlebar-spacer"></span>
+                <!-- C : badge commentaires -->
+                ${comments.length ? `<button class="mdl-comments-badge" id="mdl-scroll-comments" title="Voir les commentaires">💬 ${comments.length}</button>` : ''}
+                <!-- H : avatar leader -->
+                ${leader ? `<span class="mdl-header-avatar" style="background:${hashColor(leader)}" title="Leader : ${esc(leader)}">${esc(initials(leader))}</span>` : ''}
+            </span>
+            <span class="mdl-title-span" id="mdl-title-span" title="${esc(ticket.title)} — cliquer pour modifier">${esc(ticket.title)}</span>
+        </span>
     `;
 
     // ── Body ──────────────────────────────────────────────────────────────────
+    const isFull = _isFull();
     bodyEl().innerHTML = `
-        <!-- Epic — avant meta, sous le header -->
-        ${(() => {
-            const epicObj = ticket.epic ? all.find(t => t.id === ticket.epic) : null;
-            const epicTitle = epicObj?.title || '';
-            return `<div class="mdl-epic-row">
-                <span class="mdl-field-label">Epic</span>
-                <div class="mdl-field-with-open">
-                    <span class="mdl-field-value editable-field" data-field="epic" data-value="${esc(ticket.epic || '')}">
-                        ${ticket.epic
-                            ? `<span class="mdl-link-id" data-ticket-id="${esc(ticket.epic)}">${esc(ticket.epic)}</span>${epicTitle ? ` <span class="text-muted text-xs">– ${esc(epicTitle)}</span>` : ''}`
-                            : '<span class="text-muted text-xs">— Aucun</span>'}
-                    </span>
-                    ${ticket.epic
-                        ? `<button class="btn-open-linked" data-ticket-id="${esc(ticket.epic)}" title="Ouvrir ${esc(ticket.epic)}"><svg class="icon icon-xs"><use href="#i-external"/></svg></button>`
-                        : ''}
-                </div>
-            </div>`;
-        })()}
+        ${_ticketHeadHtml(ticket, all)}
 
-        <!-- Meta row -->
-        <div class="mdl-meta">
-            ${statusBadge(ticket, { extra: 'mdl-type-badge', attrs: 'id="mdl-status-badge-link" title="Cliquer pour modifier le statut"', title: false })}
-            ${(() => {
-                const p = ticket.priority || 'medium';
-                const pc = p === 'critical' ? 'var(--danger)' : p === 'high' ? 'var(--warning)' : p === 'low' ? 'var(--text-muted)' : 'var(--info)';
-                const pb = p === 'critical' ? 'var(--danger-bg)' : p === 'high' ? 'var(--warning-bg)' : p === 'low' ? 'var(--bg-alt)' : 'var(--info-bg)';
-                const pi = p === 'critical' ? '🔴' : p === 'high' ? '🟠' : p === 'low' ? '⚪' : '🔵';
-                return `<span class="chip editable-field" data-field="priority" data-value="${p}" style="background:${pb};color:${pc};border-color:${pc}30">${pi} ${esc(p)}</span>`;
-            })()}
-            <span class="badge badge-points editable-field" data-field="points" data-value="${ticket.points || 0}">${ticket.points ? `${ticket.points} pts` : '— pts'}</span>
-            <button class="chip chip-poker" id="mdl-poker-btn" data-ticket-id="${esc(ticket.id)}" title="Planning Poker — voter collectivement sur les Story Points">🃏 Réestimer</button>
-            <span class="chip editable-field" data-field="flagged" data-value="${ticket.flagged ? 'true' : 'false'}" style="${ticket.flagged ? 'background:var(--danger-bg);color:var(--danger);border-color:var(--danger)30' : 'opacity:0.35'}" title="${ticket.flagged ? 'Cliquer pour débloquer' : 'Cliquer pour bloquer'}">🚫 Bloqué</span>
-            ${ct ? `<span class="chip" title="Cycle time">⏱ ${ct}j cycle</span>` : ''}
-            ${lt ? `<span class="chip" title="Lead time">📅 ${lt}j lead</span>` : ''}
-            <span class="mdl-meta-spacer"></span>
-            <div class="mdl-meta-right">
-                <span class="chip editable-field" data-field="team" data-value="${esc(ticket.team || '')}" style="${ticket.team ? '' : 'opacity:0.5'}">${ticket.team ? esc(ticket.team) : '— Équipe'}</span>
-                ${ticket.piSprint ? `<span class="chip">${esc(ticket.piSprint)}</span>` : ''}
-                ${ticket.sprintName ? `<span class="text-xs text-muted">${esc(ticket.sprintName)}</span>` : ''}
-                <span class="text-xs text-muted mdl-meta-created" title="${esc(fmtDateLong(ticket.createdAt))} · maj ${esc(fmtRelative(ticket.updatedAt))}">
-                    ${esc(fmtDate(ticket.createdAt))}
-                    <small>· ${esc(fmtRelative(ticket.updatedAt))}</small>
-                </span>
-            </div>
-        </div>
-
-        ${sprintBarHtml}
-
-        <!-- Fields grid (3 colonnes compactes) -->
-        <div class="mdl-grid mdl-grid--3">
+        <!-- Mise en page : en modale, une seule colonne dans l'ordre historique (CSS « order », les deux
+             conteneurs en display:contents) ; en PLEINE PAGE, description à gauche, activité à droite. -->
+        <div class="mdl-layout">
+        <aside class="mdl-aside" aria-label="Personnes et activité">
+        <!-- Personnes : une rangée de trois cellules (labels et historique de sprint = bas de l'en-tête) -->
+        <section class="mdl-panel mdl-people" aria-label="Personnes">
             <div class="mdl-field">
                 <span class="mdl-field-label">Leader</span>
                 <span class="mdl-field-value editable-field" data-field="leader" data-value="${esc(leader || '')}">${personChip(leader, 'leader')}</span>
+                ${_presenceOf(leader, ticket).html}
             </div>
             <div class="mdl-field">
                 <span class="mdl-field-label">Rapporteur</span>
                 <span class="mdl-field-value editable-field" data-field="reporter" data-value="${esc(reporter || '')}">${personChip(reporter)}</span>
+                ${_presenceOf(reporter, ticket).html}
             </div>
             <div class="mdl-field">
-                <span class="mdl-field-label">Contributors</span>
+                <span class="mdl-field-label">Contributeurs</span>
                 <span class="mdl-field-value flex-wrap" id="contrib-inline-wrap">
-                    ${contributors.map(c => `<span class="chip chip-gap">${avatar(c, false, 18)} ${esc(c)} <button type="button" class="contrib-rm" data-name="${esc(c)}" title="Retirer">×</button></span>`).join('')}
+                    ${contributors.map(c => {
+                        const away = _presenceOf(c, ticket).absentNow;
+                        return `<span class="chip chip-gap${away ? ' chip--away' : ''}"${away ? ` title="${esc(c)} est absent·e aujourd'hui"` : ''}>${avatar(c, false, 18)} ${esc(c)}${away ? ' 🌴' : ''} <button type="button" class="contrib-rm" data-name="${esc(c)}" title="Retirer">×</button></span>`;
+                    }).join('')}
                     <button type="button" class="contrib-add-btn" id="contrib-add-btn" title="Ajouter un contributeur">+ Ajouter</button>
                 </span>
             </div>
-            <!-- Sprint + Labels côte à côte -->
-            ${(() => {
-                const sprints = _sprintsHistoryOfTicket(ticket);
-                const piTag = ticket.piSprint ? `<span class="chip chip-pi" title="PI dérivé">${esc(ticket.piSprint)}</span>` : '';
-                const currentSprint = ticket.sprintName || '';
-                const sprintContent = sprints.length
-                    ? sprints.map(s => `<span class="chip chip-sprint${s.isCurrent ? ' chip-sprint--current' : ' chip-sprint--past'}" title="${s.isCurrent ? 'Sprint courant' : 'Sprint historique'}">${s.isCurrent ? '● ' : '○ '}${esc(s.name)}</span>`).join('') + piTag
-                    : `<span class="text-muted text-xs">— Aucun sprint</span>${piTag}`;
-                return `<div class="mdl-field">
-                    <span class="mdl-field-label">Sprint(s)</span>
-                    <span class="mdl-field-value flex-wrap editable-field" id="sprint-field" data-field="sprint" data-value="${esc(currentSprint)}">${sprintContent}</span>
-                </div>
-                <div class="mdl-field mdl-field--span2">
-                    <span class="mdl-field-label">Labels</span>
-                    <span class="mdl-field-value flex-wrap" id="labels-inline-wrap">
-                        ${(ticket.labels || []).map(l => `<span class="chip chip-gap">${esc(l)} <button type="button" class="label-rm" data-label="${esc(l)}" title="Retirer">×</button></span>`).join('')}
-                        <input type="text" class="mdl-inline-input" id="label-add-input" placeholder="+ label (Entrée)">
-                    </span>
-                </div>`;
-            })()}
-        </div>
+        </section>
 
+        </aside>
+        <div class="mdl-main">
         <!-- Description (wysiwyg inline) -->
         <div class="mdl-desc-wrap" id="desc-wrap">
             <div class="mdl-desc-header">
@@ -811,21 +985,28 @@ export function openTicketModal(ticketId) {
             </div>
         ` : ''}
 
-        <!-- History -->
+        </div>
+        <div class="mdl-aside-tail">
+        <!-- Tours de Planning Poker conclus — chargés à la demande (hors /api/all), cachés s'il n'y en a pas -->
+        <details open class="mb-4 mdl-poker-rounds" id="mdl-poker-rounds" data-ticket="${esc(ticket.id)}" hidden>
+            <summary class="text-xs font-semibold text-muted mb-2">🃏 Estimations en équipe (<span data-pr-count>0</span>)</summary>
+            <div class="mdl-pr-list"></div>
+        </details>
+        <!-- History — pleine page : déplié et COMPLET (en modale : les 12 plus récents) -->
         ${ticket.recentChanges?.length ? `
-            <details class="mb-4">
+            <details class="mb-4 mdl-history"${isFull ? ' open' : ''}>
                 <summary class="text-xs font-semibold text-muted mb-2">Historique (${ticket.recentChanges.length})</summary>
                 <div class="activity-list">
                     ${/* Les 12 PLUS RÉCENTS, affichés du plus ancien au plus récent. Avant : slice(-12) sur une liste
                        triée du plus récent au plus ancien = les 12 plus ANCIENS — invisible tant que l'historique
                        tenait en 8 lignes, faux depuis qu'il garde tous les statuts (3.216.0). */
-                      _renderTicketHistory([...ticket.recentChanges].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 12).reverse())}
+                      _renderTicketHistory([...ticket.recentChanges].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, isFull ? undefined : 12).reverse())}
                 </div>
             </details>
         ` : ''}
 
         <!-- Comments -->
-        <details open class="mb-4">
+        <details open class="mb-4 mdl-comments">
             <summary class="text-xs font-semibold text-muted mb-2">Commentaires (${comments.length})</summary>
             <div class="comment-list" id="comment-list">
                 ${comments.length ? comments.map(c => `
@@ -847,6 +1028,9 @@ export function openTicketModal(ticketId) {
                 <button class="btn btn-primary btn-sm self-end" id="btn-add-comment">Envoyer</button>
             </div>
         </details>
+
+        </div>
+        </div>
 
         <!-- Actions -->
         <div class="form-actions">
@@ -892,6 +1076,47 @@ export function openTicketModal(ticketId) {
             openTicketModal(el.dataset.ticketId);
         });
     });
+
+    // Tuiles de l'en-tête : un clic sur la tuile (hors bouton / champ éditable) relaie vers son
+    // éditeur — statut (badge), points. (La tuile Sprint EST l'éditeur du sprint : #sprint-field.)
+    bodyEl().querySelectorAll('.mdl-prop[data-proxy]').forEach(tile => {
+        tile.addEventListener('click', e => {
+            const target = document.getElementById(tile.dataset.proxy);
+            if (!target || target.contains(e.target) || e.target.closest('button, .editable-field')) return;
+            target.click();
+        });
+    });
+
+    // Tours de Poker conclus : chargés après le rendu (garde : la modale a pu changer de ticket entre-temps)
+    api.getPokerRounds(ticket.id).then(rounds => {
+        const box = bodyEl()?.querySelector('#mdl-poker-rounds');
+        if (!box || box.dataset.ticket !== ticket.id || !rounds?.length) return;
+        box.querySelector('[data-pr-count]').textContent = rounds.length;
+        box.querySelector('.mdl-pr-list').innerHTML = _pokerRoundsHtml(rounds);
+        box.hidden = false;
+    }).catch(() => { /* historique facultatif : la modale reste utilisable sans */ });
+
+    // Tuile Flux → panneau « Le voyage du ticket » (rendu à la demande : le modèle relit l'équipe).
+    const flowTile = bodyEl().querySelector('#mdl-flow-tile');
+    const flowPanel = bodyEl().querySelector('#mdl-flow-panel');
+    if (flowTile && flowPanel) {
+        const renderFlow = () => {
+            const model = ticketFlowModel(ticket, tickets.filter(x => x.team && x.team === ticket.team));
+            flowPanel.innerHTML = ticketFlowHtml(model);
+            bindTicketFlow(flowPanel, model);
+        };
+        const toggleFlow = () => {
+            const open = flowPanel.hidden;
+            _flowPref[_isFull() ? 'full' : 'normal'] = open;
+            flowTile.classList.toggle('is-open', open);
+            flowTile.setAttribute('aria-expanded', String(open));
+            flowPanel.hidden = !open;
+            if (open) renderFlow();
+        };
+        flowTile.addEventListener('click', toggleFlow);
+        flowTile.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFlow(); } });
+        if (!flowPanel.hidden) renderFlow();
+    }
 
     bodyEl().querySelector('#btn-edit-ticket')?.addEventListener('click', () => { closeModal(); openEditModal(ticket); });
 
@@ -985,7 +1210,9 @@ export function openTicketModal(ticketId) {
 
     // Sync URL hash — replaceState si la modale est déjà ouverte (navigation prev/next)
     // pour éviter d'empiler des entrées qui forcent plusieurs "retours" à la fermeture.
-    const baseHash = location.hash.replace(/^#/, '').replace(/\/ticket\/[^/]+$/, '') || store.get('view') || 'dashboard';
+    // `/poker` final compris : ouvrir un ticket depuis la popin (« Suivant à estimer ») empilait sinon
+    // « …/ticket/A/poker/ticket/B ».
+    const baseHash = location.hash.replace(/^#/, '').replace(/\/ticket\/[^/]+(\/poker)?$/, '') || store.get('view') || 'dashboard';
     const targetHash = `#${baseHash}/ticket/${encodeURIComponent(ticketId)}`;
     if (location.hash !== targetHash) {
         if (!overlay().classList.contains('hidden')) history.replaceState(null, '', targetHash);
@@ -1123,14 +1350,15 @@ function _bindInlineEditors(container, ticket) {
     }
 
     // ── Chip pickers : priorité, points, équipe ──────────────────────────────
-    const PRIO_CFG = {
-        critical: { label: '🔴 Critical', color: 'var(--danger)',      bg: 'var(--danger-bg)'  },
-        high:     { label: '🟠 High',     color: 'var(--warning)',     bg: 'var(--warning-bg)' },
-        medium:   { label: '🔵 Medium',   color: 'var(--info)',        bg: 'var(--info-bg)'    },
-        low:      { label: '⚪ Low',      color: 'var(--text-muted)',  bg: 'var(--bg-alt)'     },
-    };
+    // Libellés / niveaux : PRIORITY_META (utils/priority.js), même source que le badge de l'en-tête.
+    const PRIO_COLORS = { critical: ['var(--danger)', 'var(--danger-bg)'], high: ['var(--warning)', 'var(--warning-bg)'], medium: ['var(--info)', 'var(--info-bg)'], low: ['var(--text-muted)', 'var(--bg-alt)'] };
+    const PRIO_CFG = Object.fromEntries(Object.entries(PRIORITY_META).map(([k, m]) => [k, { label: m.label, color: PRIO_COLORS[k][0], bg: PRIO_COLORS[k][1] }]));
     const prioOptions = Object.entries(PRIO_CFG).map(([v, c]) => ({ value: v, label: c.label, color: c.color, bg: c.bg }));
-    const ptOptions   = [0,1,2,3,5,8,13,21].map(p => ({ value: String(p), label: p ? `${p}` : '—' }));
+    // Points : même palier de couleur que la pastille de l'en-tête (pointsTone → .pts-tone--*).
+    const ptOptions   = [0,1,2,3,5,8,13,21].map(p => {
+        const tone = pointsTone(p);
+        return { value: String(p), label: p ? `${p}` : '—', cls: `chip-picker-opt--pts pts-tone--${tone.key}`, title: p ? `${tone.label}${tone.hint ? ` — ${tone.hint}` : ''}` : 'Non estimé' };
+    });
     const teamObjs    = store.get('teamObjects') || [];
     const teamOptions = [
         { value: '', label: '— Aucune' },
@@ -1259,7 +1487,7 @@ function _bindInlineEditors(container, ticket) {
             ];
             // Toutes les valeurs courantes (sprint actif JIRA + sprints historiques)
             const currentValues = [...new Set([ticket.sprintName, ...historicalSprints].filter(Boolean))];
-            const fieldEl = sprintEl.closest('.mdl-field');
+            const fieldEl = sprintEl.closest('.mdl-field, .mdl-prop');
             _openChipPicker(sprintEl, sprintOptions, currentValues, async (val) => {
                 try { await apiSave({ sprintName: val || null }, fieldEl); openTicketModal(ticket.id); }
                 catch (err) { toast(err.message, 'error'); }
@@ -1330,10 +1558,7 @@ function _bindInlineEditors(container, ticket) {
             getLabels(),
             async (val) => {
                 if (!val || getLabels().includes(val)) return;
-                const chip = document.createElement('span');
-                chip.className = 'chip chip-gap';
-                chip.innerHTML = `${esc(val)} <button type="button" class="label-rm" data-label="${esc(val)}" title="Retirer">×</button>`;
-                labelsWrap.insertBefore(chip, labelPickerWrap);
+                labelsWrap.insertBefore(_labelChipEl(val), labelPickerWrap);
                 await saveL();
             },
             () => { labelInput.value = ''; }
@@ -1359,6 +1584,77 @@ function _bindInlineEditors(container, ticket) {
 const POKER_FIB  = [1, 2, 3, 5, 8, 13, 21, '?'];
 const POKER_FIBS = [1, 2, 3, 5, 8, 13, 21];
 
+/** Échelle « animale » des tailles : un repère ludique qui parle à tout le monde. */
+const POKER_ANIMALS = { 1: '🐭', 2: '🐇', 3: '🦊', 5: '🐶', 8: '🐴', 13: '🐘', 21: '🐋' };
+
+/**
+ * Tickets de RÉFÉRENCE du Poker : pour chaque taille 1 → 21, le ticket livré le plus TYPIQUE
+ * (Cycle Time le plus proche de la médiane de cette taille), de l'équipe du ticket — sinon du
+ * train, signalé. Calculé une fois à l'ouverture : la popin se re-rend à chaque rafraîchissement
+ * des votes. Durées en jours ouvrés (`cycleDays`).
+ */
+function _pokerReferences(ticket) {
+    const all = store.get('tickets') || [];
+    const done = all.filter(t => t.id !== ticket.id && t.status === 'done' && cycleDays(t) > 0);
+    // Références ÉPINGLÉES par l'équipe (piInfo.pokerReferences) : priment sur le choix automatique.
+    const saved = (ticket.team && store.get('piInfo')?.pokerReferences?.[ticket.team]) || {};
+    const team = ticket.team ? done.filter(t => t.team === ticket.team) : [];
+    const median = arr => { const v = [...arr].sort((a, b) => a - b); const m = Math.floor(v.length / 2); return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; };
+    const rows = POKER_FIBS.map(v => {
+        let src = 'team', pool = team.filter(t => Number(t.points) === v);
+        if (!pool.length) { src = 'train'; pool = done.filter(t => Number(t.points) === v); }
+        const pinned = saved[String(v)] ? all.find(t => t.id === saved[String(v)]) : null;
+        if (!pool.length) return { v, ref: pinned, n: 0, median: null, src: null, chosen: !!pinned, candidates: [] };
+        const med = median(pool.map(cycleDays));
+        // Candidats = les plus typiques d'abord (Cycle Time le plus proche de la médiane), puis récents.
+        const candidates = [...pool].sort((a, b) => Math.abs(cycleDays(a) - med) - Math.abs(cycleDays(b) - med)
+            || String(b.resolvedDate || '').localeCompare(String(a.resolvedDate || ''))).slice(0, 6);
+        return { v, ref: pinned || candidates[0], n: pool.length, median: med, src, chosen: !!pinned, candidates };
+    });
+    const max = Math.max(1, ...rows.map(r => r.median || 0));
+    return { rows, max, team: ticket.team || '' };
+}
+
+/** Tableau des tickets de référence (bas de la popin Poker). `mine` = ma carte, `nearest` = consensus. */
+function _pokerRefsHtml(refs, { open, mine, nearest, current, picking }) {
+    const jiraUrl = store.get('jiraUrl');
+    const fmtJ = d => `${String(Math.round(d * 10) / 10).replace('.', ',')} j`;
+    return `<div class="poker-refs${open ? ' is-open' : ''}">
+        <button type="button" class="poker-refs-toggle" id="poker-refs-toggle" aria-expanded="${open}">
+            <span>📏 Tickets de référence${refs.team ? ` — ${esc(refs.team)}` : ''}</span>
+            <small>le ticket livré « typique » de chaque taille</small>
+            <span class="poker-refs-chev" aria-hidden="true">${open ? '▾' : '▸'}</span>
+        </button>
+        ${open ? `<table class="poker-refs-table">
+            <thead><tr><th>Taille</th><th>Ticket de référence</th><th title="Cycle Time médian des tickets livrés de cette taille (jours ouvrés)">Durée typique</th><th>Tickets</th>${refs.team ? '<th></th>' : ''}</tr></thead>
+            <tbody>${refs.rows.map(r => {
+                const tone = pointsTone(r.v).key;
+                const cls = [r.v === mine ? 'is-mine' : '', r.v === nearest ? 'is-nearest' : '', r.v === current ? 'is-current' : ''].filter(Boolean).join(' ');
+                const ref = r.ref;
+                const refHtml = ref
+                    ? `${jiraUrl ? `<a class="poker-ref-id" href="${esc(`${jiraUrl}/browse/${ref.id}`)}" target="_blank" rel="noopener">${esc(ref.id)}</a>` : `<span class="poker-ref-id">${esc(ref.id)}</span>`}
+                       <span class="poker-ref-title" title="${esc(ref.title || '')}">${esc(ref.title || '')}</span>
+                       ${r.chosen ? `<span class="poker-ref-pin" title="Référence choisie par l'équipe ${esc(refs.team)}">📌 équipe</span>` : r.src === 'train' ? '<span class="poker-ref-src" title="Aucun ticket livré de cette taille dans l\'équipe : référence prise dans le train">train</span>' : ''}`
+                    : '<span class="poker-ref-none">aucun ticket livré de cette taille</span>';
+                return `<tr class="${cls}">
+                    <td><span class="poker-ref-size"><span class="poker-ref-animal" aria-hidden="true">${POKER_ANIMALS[r.v]}</span><span class="mdl-points pts-tone--${tone}">${r.v}<small>pts</small></span></span></td>
+                    <td class="poker-ref-cell"><div class="poker-ref-line">${refHtml}${r.v === current ? '<span class="poker-ref-tag">ce ticket</span>' : ''}${r.v === nearest ? '<span class="poker-ref-tag poker-ref-tag--star">★ consensus</span>' : ''}</div></td>
+                    <td>${r.median != null ? `<span class="poker-ref-bar"><i class="pts-tone--${tone}" style="width:${Math.max(6, r.median / refs.max * 100)}%"></i></span><b>${fmtJ(r.median)}</b>` : '—'}</td>
+                    <td class="poker-ref-n">${r.n || '—'}</td>
+                    ${refs.team ? `<td class="poker-ref-act">${r.candidates.length || r.chosen
+                        ? `<button type="button" class="poker-ref-btn${picking === r.v ? ' is-on' : ''}" data-ref-pick="${r.v}" title="Choisir le ticket de référence de l'équipe pour ${r.v} pts">${picking === r.v ? 'Fermer' : r.chosen ? 'Changer' : '📌 Choisir'}</button>` : ''}</td>` : ''}
+                </tr>${picking === r.v ? `<tr class="poker-ref-cands"><td colspan="5">
+                    <span class="poker-ref-cands-title">Quel ticket représente le mieux « ${r.v} pts » pour ${esc(refs.team)} ? <small>(les plus typiques d'abord)</small></span>
+                    <div class="poker-ref-cands-list">${r.candidates.map((c, i) => `<button type="button" class="poker-ref-cand${r.chosen && r.ref?.id === c.id ? ' is-chosen' : ''}" data-ref-choose="${r.v}" data-ref-id="${esc(c.id)}" title="${esc(c.title || '')}">
+                        <span class="poker-ref-id">${esc(c.id)}</span><span class="poker-ref-title">${esc(c.title || '')}</span><span class="poker-ref-cand-d">${fmtJ(cycleDays(c))}${i === 0 ? ' · ★ typique' : ''}</span>
+                    </button>`).join('')}</div>
+                    ${r.chosen ? `<button type="button" class="poker-ref-reset" data-ref-unpin="${r.v}">↺ Revenir au choix automatique</button>` : ''}
+                </td></tr>` : ''}`;
+            }).join('')}</tbody>
+        </table>` : ''}
+    </div>`;
+}
+
 // Génère une couleur HSL stable à partir d'un nom
 const _pokerColor = (name) => {
     let h = 0;
@@ -1367,6 +1663,35 @@ const _pokerColor = (name) => {
 };
 const _initials = (name) => name.trim().split(/\s+/).map(w => w[0]?.toUpperCase() || '').slice(0, 2).join('');
 // Adapte un vote serveur {voter,value,revealed} → forme front {name,val,me,revealed}.
+/** Tickets à estimer APRÈS celui-ci : file partagée avec la page « Séance d'affinage »
+ *  (`estimationQueue`, utils/estimation-queue.js), son sprint en tête. Relue à chaque clic. */
+const _nextToEstimate = ticket =>
+    estimationQueue(store.get('tickets') || [], ticket.team, { sprintName: ticket.sprintName, exclude: ticket.id }).map(x => x.t);
+
+/** Historique des tours de Poker CONCLUS d'un ticket (section de la modale, chargée à la demande). */
+function _pokerRoundsHtml(rounds) {
+    const fmt = d => String(Math.round(d * 10) / 10).replace('.', ',');
+    return rounds.map(r => {
+        const nums = (r.votes || []).map(v => Number(v.value)).filter(Number.isFinite);
+        const min = nums.length ? Math.min(...nums) : null, max = nums.length ? Math.max(...nums) : null;
+        const split = r.spread != null && r.spread >= 4;
+        return `<div class="mdl-pr">
+            <div class="mdl-pr-head">
+                <span class="mdl-pr-date" title="${esc(_fmtHistDate(r.createdAt))}">${esc(fmtRelative(r.createdAt))}</span>
+                <span class="mdl-pr-who">${r.voters} votant${r.voters > 1 ? 's' : ''}${r.author ? ` · enregistré par ${esc(r.author)}` : ''}</span>
+                ${split ? `<span class="mdl-pr-flag" title="Écart-type ${fmt(r.spread)} — à revoir en rétro ?">⚠️ fort désaccord ${min} ↔ ${max}</span>`
+                    : r.spread === 0 && r.voters > 1 ? '<span class="mdl-pr-flag mdl-pr-flag--ok">🎯 unanimité</span>' : ''}
+            </div>
+            <div class="mdl-pr-body">
+                <span class="mdl-pr-votes">${(r.votes || []).map(v => `<span class="mdl-pr-vote" title="${esc(v.voter)} : ${esc(v.value)}">${esc(v.value)}<small>${esc(initials(v.voter))}</small></span>`).join('')}</span>
+                <span class="mdl-pr-arrow" aria-hidden="true">→</span>
+                <span class="mdl-points pts-tone--${pointsTone(r.value).key}" title="Valeur retenue">${r.value}<small>pts</small></span>
+                ${r.avg != null ? `<span class="mdl-pr-avg">moy. ${fmt(r.avg)}</span>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
 const _adaptVote = (v, myName) => ({
     name: v.voter,
     val: v.value === '?' ? '?' : (v.value === '' || v.value == null ? null : parseInt(v.value)),
@@ -1383,6 +1708,21 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
     document.body.appendChild(ov);
     requestAnimationFrame(() => ov.classList.add('visible'));
 
+    // Tickets de référence : calculés UNE fois (la popin se re-rend à chaque rafraîchissement)
+    let _refs = _pokerReferences(ticket);
+    let _refsOpen = localStorage.getItem('sb-poker-refs') !== 'closed';
+    let _refsPick = null;   // taille dont on choisit la référence (liste des candidats dépliée)
+    // Animations des cartes : la « distribution » ne se rejoue qu'au CHANGEMENT de phase (pas à chaque
+    // rafraîchissement de 3 s) ; le « pop » ne vaut que pour le rendu qui suit un clic.
+    let _dealtFor = null, _dealUntil = 0;
+    let _justPicked = null;
+    // Révélation animée : seulement au PASSAGE caché → révélé observé par CE navigateur (clic local
+    // ou rafraîchissement) — `null` à l'ouverture, pour ne pas rejouer un tour déjà révélé.
+    let _wasRevealed = null, _revealUntil = 0, _loaded = false;
+    // Valeur à enregistrer choisie parmi la suite (null = consensus). Gardée ici : la popin se
+    // re-rend toutes les 3 s et un choix porté par le DOM seul sauterait.
+    let _savePick = null;
+
     // État des votes (source = serveur, rafraîchi par polling pour le live multi-utilisateurs)
     let _serverVotes = [];
     let _pollTimer = null;
@@ -1397,7 +1737,7 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
 
     // Rafraîchit l'état depuis le serveur puis re-render (sans casser la saisie en cours).
     const refresh = async (rerender = true) => {
-        try { _serverVotes = await api.getPoker(ticket.id); }
+        try { _serverVotes = await api.getPoker(ticket.id); _loaded = true; }
         catch { /* réseau : on garde le dernier état connu */ }
         if (rerender) render();
     };
@@ -1419,11 +1759,31 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
 
         // Phase : 'identity' | 'vote' | 'revealed'
         const phase = !myName ? 'identity' : revealed ? 'revealed' : 'vote';
+        // Fenêtre de 700 ms : l'ouverture enchaîne deux rendus (état vide, puis 1er fetch des votes)
+        // qui couperaient l'animation ; les rafraîchissements de 3 s, eux, tombent hors fenêtre.
+        if (_dealtFor !== phase) { _dealtFor = phase; _dealUntil = Date.now() + 700; }
+        const deal = Date.now() < _dealUntil;
+        const shown = votes.filter(v => v.val !== null).length;
+        // Le 1er rendu (avant tout fetch) voit 0 vote, donc « non révélé » : n'observer la transition
+        // qu'une fois les votes chargés, sinon ouvrir un tour déjà révélé rejouerait l'animation.
+        if (_loaded) {
+            if (_wasRevealed === false && revealed) {
+                _revealUntil = Date.now() + shown * 140 + 1600;
+                playPokerSound('reveal', { count: shown });
+            }
+            _wasRevealed = revealed;
+        }
+        const revealAnim = revealed && Date.now() < _revealUntil;
+        // Délai après lequel stats, répartition et consensus apparaissent (tous les avatars retournés).
+        const revealDelay = `${shown * 140 + 250}ms`;
 
         // Lien de partage : doit TOUJOURS pointer vers la modale de ré-estimation poker
         // (ex. .../#health/Gabbiano/ticket/GDEM-4117/poker). On normalise en retirant un
         // éventuel /poker final puis en le rajoutant — qu'on soit déjà sur /poker ou non.
         const shareUrl = location.href.replace(/\/poker$/, '') + '/poker';
+        const queue = _nextToEstimate(ticket);
+        if (!revealed) _savePick = null;   // nouveau tour : on repart du consensus
+        const picked = _savePick ?? nearest;
 
         ov.innerHTML = `
         <div class="poker-modal poker-phase--${phase}">
@@ -1438,6 +1798,9 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
                     </div>
                 </div>
                 <div class="poker-hdr-right">
+                    <button class="poker-sound-btn${pokerSoundOn() ? ' is-on' : ''}" id="poker-sound" aria-pressed="${pokerSoundOn()}"
+                            title="${pokerSoundOn() ? 'Sons activés — cliquer pour couper' : 'Activer les sons (choix d\'une carte, révélation) — pratique en visio'}">${pokerSoundOn() ? '🔊' : '🔇'}</button>
+                    ${queue.length ? `<button class="poker-next-btn" id="poker-next" title="Ticket suivant à estimer : ${esc(queue[0].id)} — ${esc(queue[0].title || '')}">⏭ Suivant <span class="poker-next-n">${queue.length}</span></button>` : ''}
                     <button class="poker-share-btn" id="poker-share" title="Copier le lien pour inviter des collègues">
                         <svg class="icon icon-sm"><use href="#i-copy"/></svg>
                         Partager
@@ -1469,13 +1832,17 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
                 <!-- Colonne gauche : cartes -->
                 <div class="poker-vote-section">
                     <div class="poker-vote-label">Votre estimation</div>
-                    <div class="poker-cards">
-                        ${POKER_FIB.map(v => {
+                    <div class="poker-cards${deal ? ' poker-cards--deal' : ''}">
+                        ${POKER_FIB.map((v, i) => {
                             const isSelected = meVote?.val === v;
-                            const disabled   = !myName || phase === 'revealed';
-                            return `<button class="poker-card${isSelected ? ' poker-card--selected' : ''}${disabled ? ' poker-card--disabled' : ''}"
-                                        data-val="${v}" ${disabled ? 'disabled' : ''}
-                                        title="${v} SP${v === '?' ? ' — valeur inconnue' : ''}">
+                            // Après révélation : carte inactive (un nouveau tour est nécessaire pour revoter).
+                            // Sans prénom : carte CLIQUABLE qui amène au champ prénom (plus de bouton mort).
+                            const disabled   = phase === 'revealed';
+                            const locked     = !myName;
+                            const pop        = isSelected && _justPicked === v;
+                            return `<button type="button" class="poker-card${isSelected ? ' poker-card--selected' : ''}${disabled ? ' poker-card--disabled' : ''}${locked ? ' poker-card--locked' : ''}${pop ? ' poker-card--pop' : ''}"
+                                        data-val="${v}" style="--i:${i}" ${disabled ? 'disabled' : ''}${locked ? ' aria-disabled="true"' : ''}
+                                        title="${locked ? 'Indiquez d\'abord votre prénom pour voter' : disabled ? 'Votes révélés — « Nouveau tour » pour revoter' : `${v} SP${v === '?' ? ' — valeur inconnue' : ''}`}">
                                 <span class="poker-card-val">${v}</span>
                                 ${isSelected ? '<span class="poker-card-check">✓</span>' : ''}
                             </button>`;
@@ -1512,11 +1879,11 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
                     <div class="poker-avatars">
                         ${votes.length === 0
                             ? `<div class="poker-empty">Personne n'a encore rejoint…</div>`
-                            : votes.map(v => {
+                            : votes.map((v, vi) => {
                                 const hasVal = v.val !== null;
                                 const color  = _pokerColor(v.name);
                                 const showVal = revealed && hasVal;
-                                return `<div class="poker-voter${v.me ? ' poker-voter--me' : ''}${!hasVal ? ' poker-voter--waiting' : ''}">
+                                return `<div class="poker-voter${v.me ? ' poker-voter--me' : ''}${!hasVal ? ' poker-voter--waiting' : ''}${revealAnim && showVal ? ' poker-voter--flip' : ''}" style="--i:${votes.slice(0, vi).filter(x => x.val !== null).length}">
                                     <div class="poker-voter-avatar" style="background:${color}">
                                         ${showVal
                                             ? `<span class="poker-voter-val">${v.val}</span>`
@@ -1532,7 +1899,7 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
 
                     <!-- Stats + distribution + consensus (après révélation) -->
                     ${revealed && numVotes.length >= 2 ? `
-                    <div class="poker-stats">
+                    <div class="poker-stats${revealAnim ? ' poker-reveal-in' : ''}" style="--reveal-delay:${revealDelay}">
                         <div class="poker-stat">
                             <span class="poker-stat-lbl">Moy.</span>
                             <span class="poker-stat-val">${avg.toFixed(1)}</span>
@@ -1553,7 +1920,7 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
                             </span>
                         </div>
                     </div>
-                    <div class="poker-distrib">
+                    <div class="poker-distrib${revealAnim ? ' poker-reveal-in' : ''}" style="--reveal-delay:${revealDelay}">
                         ${POKER_FIBS.filter(f => numVotes.some(v => v.val === f)).map(f => {
                             const count = numVotes.filter(v => v.val === f).length;
                             const pct   = Math.round(count / numVotes.length * 100);
@@ -1574,25 +1941,64 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
 
             <!-- Footer : sauvegarde -->
             ${revealed && nearest !== null ? `
-            <div class="poker-footer">
+            <div class="poker-footer${revealAnim ? ' poker-reveal-in' : ''}" style="--reveal-delay:${revealDelay}">
+                <!-- Valeur à enregistrer : la suite de Fibonacci SEULEMENT (plus de saisie libre « 4 » ou « 7 ») -->
                 <div class="poker-save-row">
-                    <span class="poker-save-label">Valeur à enregistrer</span>
-                    <div class="poker-save-input-wrap">
-                        <input class="input poker-save-input" id="poker-save-pts"
-                               type="number" min="0" max="99" value="${nearest}">
-                        <span class="poker-save-unit">SP</span>
+                    <div class="poker-save-head">
+                        <span class="poker-save-label">Valeur à enregistrer</span>
+                        <span class="poker-save-hint">★ consensus <b>${nearest}</b>${Number(ticket.points) > 0 ? ` · actuellement ${Number(ticket.points)} pts` : ' · pas encore estimé'}</span>
                     </div>
-                    <button class="btn btn-primary poker-save-btn" id="poker-save">
-                        <svg class="icon icon-sm"><use href="#i-check"/></svg>
-                        Enregistrer
-                    </button>
+                    <div class="poker-save-pick" role="radiogroup" aria-label="Valeur à enregistrer">
+                        ${POKER_FIBS.map(f => {
+                            const n = numVotes.filter(v => v.val === f).length;
+                            return `<button type="button" role="radio" aria-checked="${f === picked}" data-save-pts="${f}"
+                                    class="poker-save-chip pts-tone--${pointsTone(f).key}${f === picked ? ' is-on' : ''}${f === nearest ? ' is-nearest' : ''}"
+                                    title="${f} pts${n ? ` — ${n} vote${n > 1 ? 's' : ''}` : ''}${f === nearest ? ' · consensus' : ''}">
+                                <span class="poker-save-chip-val">${f}</span>
+                                <span class="poker-save-chip-n" aria-hidden="true">${'•'.repeat(Math.min(n, 5))}</span>
+                                ${f === nearest ? '<span class="poker-save-chip-star" aria-hidden="true">★</span>' : ''}
+                            </button>`;
+                        }).join('')}
+                    </div>
+                    <div class="poker-save-actions">
+                        <button class="btn btn-primary poker-save-btn" id="poker-save">
+                            <svg class="icon icon-sm"><use href="#i-check"/></svg>
+                            Enregistrer <b class="poker-save-val">${picked} pts</b>
+                        </button>
+                        ${queue.length ? `<button class="btn btn-secondary poker-save-next" id="poker-save-next" title="Enregistrer puis estimer ${esc(queue[0].id)}">Enregistrer &amp; suivant ⏭</button>` : ''}
+                    </div>
                 </div>
                 ${std >= 4 ? `<div class="poker-save-warn">⚠️ Fort désaccord (σ ${std.toFixed(1)}) — pensez à en discuter d'abord.</div>` : ''}
             </div>` : ''}
+
+            <!-- Tickets de référence : un ticket livré typique par taille, pour se caler -->
+            ${_pokerRefsHtml(_refs, { open: _refsOpen, mine: typeof meVote?.val === 'number' ? meVote.val : null, nearest: revealed ? nearest : null, current: Number(ticket.points) || null, picking: _refsPick })}
         </div>`;
 
         // ── Listeners ───────────────────────────────────────────────────────
         ov.querySelector('#poker-close').addEventListener('click', close);
+        ov.querySelector('#poker-refs-toggle')?.addEventListener('click', () => {
+            _refsOpen = !_refsOpen;
+            try { localStorage.setItem('sb-poker-refs', _refsOpen ? 'open' : 'closed'); } catch { /* navigation privée */ }
+            render();
+        });
+        // Référence d'équipe : déplier les candidats d'une taille, en choisir un, ou revenir à l'auto.
+        ov.querySelector('.poker-refs-table')?.addEventListener('click', async e => {
+            const pick = e.target.closest('[data-ref-pick]');
+            if (pick) { const v = Number(pick.dataset.refPick); _refsPick = _refsPick === v ? null : v; render(); return; }
+            const choose = e.target.closest('[data-ref-choose]'), unpin = e.target.closest('[data-ref-unpin]');
+            if (!choose && !unpin) return;
+            const v = Number((choose || unpin).dataset.refChoose || unpin?.dataset.refUnpin);
+            try {
+                const res = await api.setPokerReference(ticket.team, v, choose ? choose.dataset.refId : null);
+                const pi = store.get('piInfo');
+                if (pi) pi.pokerReferences = res.pokerReferences || {};
+                _refs = _pokerReferences(ticket);
+                _refsPick = null;
+                toast(choose ? `📌 ${choose.dataset.refId} = référence ${v} pts pour ${ticket.team}` : `${v} pts : retour au choix automatique`, 'success');
+                render();
+            } catch (err) { toast(err.message, 'error'); }
+        });
         ov.addEventListener('click', e => { if (e.target === ov) close(); });
 
         // Partager le lien
@@ -1616,19 +2022,40 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
             render();
         });
 
+        // Sons : bascule (le clic est le geste qui autorise l'audio) + aperçu à l'activation
+        ov.querySelector('#poker-sound')?.addEventListener('click', () => {
+            const on = !pokerSoundOn();
+            setPokerSound(on);
+            if (on) playPokerSound('flip');
+            render();
+        });
+
         // Changer de nom
         ov.querySelector('#poker-change-name')?.addEventListener('click', () => {
             localStorage.removeItem('sb-poker-myname');
             render();
         });
 
-        // Sélection carte → vote serveur (upsert), puis refresh
+        _justPicked = null;   // le « pop » ne vaut que pour CE rendu
+
+        // Sélection carte → vote serveur (upsert), puis refresh. Retour visuel IMMÉDIAT (carte levée)
+        // sans attendre le réseau. Sans prénom : amène au champ prénom, avec un petit coup de coude.
         ov.querySelectorAll('.poker-card:not([disabled])').forEach(card => {
             card.addEventListener('click', async () => {
                 const name = localStorage.getItem('sb-poker-myname');
-                if (!name) return;
-                try { await api.pokerVote(ticket.id, name, String(card.dataset.val)); await refresh(); }
-                catch (e) { toast(e.message, 'error'); }
+                if (!name) {
+                    const form = ov.querySelector('#poker-identity-form');
+                    form?.classList.remove('is-nudge'); void form?.offsetWidth; form?.classList.add('is-nudge');
+                    ov.querySelector('#poker-voter-name')?.focus();
+                    return;
+                }
+                ov.querySelectorAll('.poker-card--pending').forEach(c => c.classList.remove('poker-card--pending'));
+                card.classList.add('poker-card--pending');
+                const raw = card.dataset.val;
+                _justPicked = raw === '?' ? '?' : Number(raw);
+                playPokerSound('flip');
+                try { await api.pokerVote(ticket.id, name, String(raw)); await refresh(); }
+                catch (e) { _justPicked = null; card.classList.remove('poker-card--pending'); toast(e.message, 'error'); }
             });
         });
 
@@ -1659,24 +2086,63 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
             });
         });
 
-        // Sauvegarder la valeur retenue + reset de la session de vote
-        ov.querySelector('#poker-save')?.addEventListener('click', async () => {
-            const input = ov.querySelector('#poker-save-pts');
-            const pts   = parseInt(input?.value);
-            if (isNaN(pts) || pts < 0) { input?.focus(); return; }
-            const btn = ov.querySelector('#poker-save');
-            btn.disabled = true;
+        // Passer à un autre ticket sans quitter le Poker : rouvre la modale du ticket puis SA popin
+        // (le bouton 🃏 de la modale porte le bon `apiSave` et pose /poker dans l'URL).
+        const goTo = id => {
+            clearInterval(_pollTimer);
+            if (location.hash.endsWith('/poker')) history.replaceState(null, '', location.hash.replace(/\/poker$/, ''));
+            ov.remove();
+            openTicketModal(id);
+            requestAnimationFrame(() => document.getElementById('mdl-poker-btn')?.click());
+        };
+        ov.querySelector('#poker-next')?.addEventListener('click', () => {
+            const nx = _nextToEstimate(ticket)[0];
+            if (nx) goTo(nx.id);
+        });
+
+        // Sauvegarder la valeur retenue : trace du tour (historique du ticket), points, puis reset
+        // de la session de vote. La trace ne bloque pas : un échec est signalé, les points passent.
+        // Choix de la valeur : mise à jour EN PLACE (un re-rendu rejouerait la révélation animée)
+        ov.querySelector('.poker-save-pick')?.addEventListener('click', e => {
+            const chip = e.target.closest('[data-save-pts]');
+            if (!chip) return;
+            _savePick = Number(chip.dataset.savePts);
+            ov.querySelectorAll('[data-save-pts]').forEach(c => {
+                const on = c === chip;
+                c.classList.toggle('is-on', on);
+                c.setAttribute('aria-checked', String(on));
+            });
+            const lbl = ov.querySelector('.poker-save-val');
+            if (lbl) lbl.textContent = `${_savePick} pts`;
+        });
+
+        const saveRound = async (goNext) => {
+            const pts = _savePick ?? nearest;
+            if (!POKER_FIBS.includes(pts)) return;
+            const btn = ov.querySelector(goNext ? '#poker-save-next' : '#poker-save');
+            ov.querySelectorAll('#poker-save, #poker-save-next').forEach(b => { b.disabled = true; });
             try {
+                const cast = votes.filter(v => v.val !== null).map(v => ({ voter: v.name, value: String(v.val) }));
+                await api.savePokerRound(ticket.id, { value: pts, votes: cast, author: myName, team: ticket.team || '' })
+                    .catch(e => toast((e?.status === 404 || e?.status === 405)
+                        ? 'Tour non archivé : le serveur tourne sur une version plus ancienne que la page — redémarrez-le (Ctrl+C puis python main.py). Les points, eux, sont enregistrés.'
+                        : `Tour non archivé dans l'historique : ${e.message}`, 'warning', 9000));
                 await apiSave({ points: pts });
                 await api.pokerReset(ticket.id);
                 btn.innerHTML = `<svg class="icon icon-sm"><use href="#i-check"/></svg> Enregistré !`;
-                setTimeout(() => { close(); openTicketModal(ticket.id); }, 700);
                 toast(`Story Points mis à jour : ${pts} SP`, 'success');
+                const nx = goNext ? _nextToEstimate(ticket)[0] : null;
+                setTimeout(() => {
+                    if (nx) goTo(nx.id);
+                    else { close(); openTicketModal(ticket.id); }
+                }, 600);
             } catch (e) {
                 toast(e.message, 'error');
-                btn.disabled = false;
+                ov.querySelectorAll('#poker-save, #poker-save-next').forEach(b => { b.disabled = false; });
             }
-        });
+        };
+        ov.querySelector('#poker-save')?.addEventListener('click', () => saveRound(false));
+        ov.querySelector('#poker-save-next')?.addEventListener('click', () => saveRound(true));
     };
 
     // Rendu initial immédiat (état vide) puis 1er fetch, enfin polling live (~3 s).
@@ -1685,7 +2151,11 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
     _pollTimer = setInterval(() => {
         // Ne pas ré-écraser pendant que l'utilisateur saisit (nom ou valeur à enregistrer)
         const ae = document.activeElement;
-        if (ae && ov.contains(ae) && (ae.id === 'poker-voter-name' || ae.id === 'poker-save-pts')) {
+        // Pendant une animation (distribution des cartes, révélation), PAS de re-rendu : le DOM serait
+        // reconstruit et l'animation rejouée (la révélation paraissait arriver deux fois). Les données
+        // sont tout de même mises à jour ; le rendu suivant, hors fenêtre, retombe sur l'état final.
+        const animating = Date.now() < Math.max(_revealUntil, _dealUntil);
+        if (animating || (ae && ov.contains(ae) && ae.id === 'poker-voter-name')) {
             refresh(false);   // met à jour les données sans re-render
         } else {
             refresh();
@@ -2016,10 +2486,7 @@ export function openCreateModal(defaults = {}) {
         getLabels(),
         (val) => {
             if (!val || getLabels().includes(val)) return;
-            const chip = document.createElement('span');
-            chip.className = 'chip chip-gap';
-            chip.innerHTML = `${esc(val)} <button type="button" class="label-rm" data-label="${esc(val)}" title="Retirer">×</button>`;
-            labelsWrap.insertBefore(chip, labelPickerWrap);
+            labelsWrap.insertBefore(_labelChipEl(val), labelPickerWrap);
         },
         () => {}
     );
@@ -2271,7 +2738,12 @@ function _renderChildrenSidebar(feature) {
     toggleBtn.className = 'mdl-nav-btn mdl-children-toggle';
     toggleBtn.title = `Tickets enfants (${total}) — cliquer pour afficher/masquer`;
     toggleBtn.innerHTML = `🌿<span class="mdl-children-toggle-count">${total}</span>`;
-    if (nextBtn) titleH2.insertBefore(toggleBtn, nextBtn);
+    // #mdl-next vit dans .mdl-nav-group (barre de titre en deux lignes) : insertBefore(…, nextBtn) sur le
+    // titre lèverait NotFoundError — le bouton va dans la grappe de droite de la ligne de repères.
+    const topBar = titleH2.querySelector('.mdl-titlebar-top');
+    const spacer = topBar?.querySelector('.mdl-titlebar-spacer');
+    if (spacer) spacer.after(toggleBtn);
+    else if (nextBtn) nextBtn.after(toggleBtn);
     else titleH2.appendChild(toggleBtn);
 
     // Sidebar (sibling de #modal pour déborder sur la droite)

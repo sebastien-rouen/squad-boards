@@ -66,8 +66,9 @@ export function meteoTrendHtml(team, ctx) {
     </section>`;
 }
 
-/** Prochaine absence (≥ aujourd'hui) d'une personne, libellée « 2 → 3 sept. ». */
-function _nextAbsence(name, absences, todayIso) {
+/** Prochaine absence (≥ aujourd'hui) d'une personne, libellée « 2 → 3 sept. » — partagée avec la
+ *  modale ticket. `name` = nom TEL QU'ÉCRIT dans les absences (cf. `findPerson`). */
+export function nextAbsence(name, absences, todayIso) {
     const fmt = iso => { const d = String(iso || '').slice(0, 10); return d ? new Date(`${d}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace(/\./g, '') : ''; };
     const next = (absences || [])
         .filter(a => a.memberName === name && String(a.endDate || '').slice(0, 10) >= todayIso)
@@ -130,7 +131,7 @@ export function meteoRosterHtml(team, ctx) {
     const todayIso = todayIsoLocal();
     const it = sprintWorkDays(getSprintForTeam(team, sprintInfoAll));
     const rows = cap.members.map(m => {
-        const abs = _nextAbsence(m.name, absences, todayIso);
+        const abs = nextAbsence(m.name, absences, todayIso);
         return `<tr>
             <td><span class="meteo-plan-avatar" aria-hidden="true">${esc(initials(m.name))}</span> ${esc(m.name)}</td>
             <td>${m.role ? esc(m.role) : '<span class="meteo-roster-unknown" title="Rôle inconnu : compté à 100 %">rôle ?</span>'}</td>

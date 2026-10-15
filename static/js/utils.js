@@ -16,6 +16,11 @@ export * from './utils/cal-classify.js';   // détecteur d'agenda (nature + port
 export * from './utils/burn.js';           // burndown / burnup réels d'un sprint, 3.195.0
 export * from './utils/workdays.js';       // Cycle / Lead Time, âge du WIP en jours OUVRÉS, 3.216.0
 export * from './utils/empty-state.js';    // état vide commun (icône, titre, phrase, action), 3.197.0
+export * from './utils/priority.js';       // priorité : clé normalisée (libellés JIRA « 2. haute ») + badge
+export * from './utils/points.js';         // taille d'un ticket (paliers Fibonacci) + médiane d'équipe
+export * from './utils/blocked.js';        // périodes de blocage (drapeau OU statut bloqué)
+export * from './utils/person-name.js';    // même personne JIRA « Prénom Nom » ↔ RH « NOM, Prénom »
+export * from './utils/estimation-queue.js'; // file des tickets à estimer (séance d'affinage, Poker « Suivant »)
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
 import { extractSprintLabel, sprintNamesOf, activeSprintFromTickets, inSprintSince, jiraDateMs } from './utils/sprint-scope.js';   // usages internes à ce fichier
@@ -505,6 +510,20 @@ export function hashColor(str) {
     }
     const h = Math.abs(hash) % 360;
     return `hsl(${h}, 55%, 50%)`;
+}
+
+/** Couleur STABLE d'un label (insensible à la casse : « PI30 » ≡ « pi30 »), même famille que les avatars. */
+export const labelColor = label => hashColor(String(label || '').trim().toLowerCase());
+
+/**
+ * Chip de LABEL — point d'entrée unique (cartes du Board, modale ticket). Teinte = `labelColor`,
+ * posée en `--lc` ; style `.chip-label` (base-components.css).
+ * @param {string} label
+ * @param {object} [opts]  `removable` → bouton × (`.label-rm`, câblé par l'appelant)
+ */
+export function labelChipHtml(label, opts = {}) {
+    const rm = opts.removable ? ` <button type="button" class="label-rm" data-label="${esc(label)}" title="Retirer">×</button>` : '';
+    return `<span class="chip chip-label${opts.removable ? ' chip-gap' : ''}" style="--lc:${labelColor(label)}" title="${esc(label)}">${esc(label)}${rm}</span>`;
 }
 
 /** Get initials from a name (max 2 chars). */

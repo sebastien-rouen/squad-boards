@@ -310,6 +310,44 @@
     text-align: center;
 }
 
+/* Taille d'un ticket (`pointsTone`, utils/points.js) : pose --ptc, et teinte tout .badge-points
+   qui porte le modificateur. Paliers Fibonacci : 1-2 / 3-5 / 8 / 13 / 21+. */
+.pts-tone--none { --ptc: var(--text-muted); }
+.pts-tone--xs   { --ptc: var(--success); }
+.pts-tone--s    { --ptc: var(--info); }
+.pts-tone--m    { --ptc: var(--warning); }
+.pts-tone--l    { --ptc: color-mix(in srgb, var(--warning) 45%, var(--danger)); }
+.pts-tone--xl   { --ptc: var(--danger); }
+.badge-points[class*="pts-tone--"] {
+    background: color-mix(in srgb, var(--ptc) 14%, transparent);
+    color: var(--ptc);
+}
+
+/* Priorité (`priorityBadge`, utils/priority.js) : même « wash » que .badge-type, couleur --pc,
+   trois barres de niveau (critique = trois barres + teinte danger). */
+.badge-prio {
+    gap: 5px;
+    font-weight: var(--fw-semibold);
+    padding: 2px 8px 2px 6px;
+    background: color-mix(in srgb, var(--pc) 12%, transparent);
+    color: var(--pc);
+    border: 1px solid color-mix(in srgb, var(--pc) 28%, transparent);
+    border-radius: var(--r-sm);
+}
+.badge-prio--critical { --pc: var(--danger); }
+.badge-prio--high     { --pc: var(--warning); }
+.badge-prio--medium   { --pc: var(--info); }
+.badge-prio--low      { --pc: var(--text-muted); }
+.badge-prio-bars { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 10px; }
+.badge-prio-bars i { width: 3px; border-radius: 1px; background: currentColor; opacity: 0.25; }
+.badge-prio-bars i:nth-child(1) { height: 40%; }
+.badge-prio-bars i:nth-child(2) { height: 70%; }
+.badge-prio-bars i:nth-child(3) { height: 100%; }
+.badge-prio-bars[data-lvl="1"] i:nth-child(-n+1),
+.badge-prio-bars[data-lvl="2"] i:nth-child(-n+2),
+.badge-prio-bars[data-lvl="3"] i,
+.badge-prio-bars[data-lvl="4"] i { opacity: 1; }
+
 /* ── Cards ─────────────────────────────────────────────────────────────────── */
 .card {
     background: var(--surface);

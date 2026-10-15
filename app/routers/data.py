@@ -20,14 +20,14 @@ from app.models import (
     Team, Member, Ticket, Feature, Epic, SprintConfig, PIConfig, TeamGroup,
     Absence, SupportRotation, Event, MoodVote, RetroItem, Risk,
     Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, TeamCalendar,
-    TeamIdentity, WorkshopTemplate, TeamWorkshop,
+    TeamIdentity, WorkshopTemplate, TeamWorkshop, PokerRound,
 )
 from app.serializers import (
     _ticket_dict, _feature_dict, _epic_dict, _member_dict, _team_dict, _group_dict,
     _absence_dict, _support_dict, _event_dict, _risk_dict, _skill_dict, _appetence_dict,
     _member_skill_dict, _member_appetence_dict, _mobility_dict, _sprint_dict, _pi_dict,
     _retro_dict, _mood_dict, _cal_dict, _team_identity_dict, _workshop_template_dict,
-    _team_workshop_dict,
+    _team_workshop_dict, _poker_round_dict,
 )
 from app.routers.planning import _clean_status_override
 
@@ -55,6 +55,7 @@ _EXPORT_SPEC = [
     ("teamIdentities",   TeamIdentity,    _team_identity_dict),
     ("workshopTemplates", WorkshopTemplate, _workshop_template_dict),
     ("teamWorkshops",    TeamWorkshop,    _team_workshop_dict),
+    ("pokerRounds",      PokerRound,      _poker_round_dict),
 ]
 
 
@@ -403,6 +404,8 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
         p.pi_objectives    = pd.get("piObjectives", p.pi_objectives or {})
         p.pi_baselines     = pd.get("piBaselines", p.pi_baselines or {})
         p.support_week_modes = pd.get("supportWeekModes", p.support_week_modes or {})
+        p.person_aliases   = pd.get("personAliases", p.person_aliases or {})
+        p.poker_references = pd.get("pokerReferences", p.poker_references or {})
         if "statusOverride" in pd or "doneOverride" in pd:   # restauration d'une sauvegarde ; la synchro ne l'envoie pas
             p.done_override = _clean_status_override(pd.get("statusOverride", pd.get("doneOverride")))
         # Historise les objectifs importés sous la clé du PI courant si pas déjà couverts.
@@ -518,6 +521,27 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
                 pi_sprint=d.get("piSprint"),
             ))
         counts["retroItems"] = len(items)
+
+    # Tours de Planning Poker conclus (historique des tickets) — fusion par id
+    if "pokerRounds" in body and body["pokerRounds"] is not None:
+        items = body["pokerRounds"]
+        if mode == "replace":
+            for row in session.exec(select(PokerRound)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(PokerRound(
+                id=d.get("id") or _gen_id(),
+                ticket_id=d.get("ticketId", ""),
+                team=d.get("team", ""),
+                value=int(d.get("value") or 0),
+                votes=d.get("votes") or [],
+                voters=int(d.get("voters") or 0),
+                avg=d.get("avg"),
+                spread=d.get("spread"),
+                author=d.get("author", ""),
+                created_at=d.get("createdAt") or _now(),
+            ))
+        counts["pokerRounds"] = len(items)
 
     # ── Atlas : compétences / appétences / niveaux / mobilité ──────────────────
     if "skills" in body and body["skills"] is not None:

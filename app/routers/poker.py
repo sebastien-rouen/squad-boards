@@ -8,14 +8,19 @@ Endpoints :
     POST /api/poker/{ticket}/vote     → upsert du vote d'un participant (1 par voteur)
     POST /api/poker/{ticket}/reveal   → révèle tous les votes du ticket
     POST /api/poker/{ticket}/reset    → efface tous les votes du ticket
+    GET  /api/poker/{ticket}/rounds   → tours CONCLUS du ticket (historique, du plus récent au plus ancien)
+    POST /api/poker/{ticket}/rounds   → enregistre un tour conclu (votes + valeur retenue)
+
+Les tours conclus (`PokerRound`) sont DURABLES : dans /api/export (et sa restauration), pas dans /api/all
+(chargés à la demande par la modale ticket).
 """
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlmodel import Session, select
 
 from app.common import _now
 from app.db import get_session
-from app.models import PokerVote
-from app.serializers import _poker_dict
+from app.models import PokerVote, PokerRound
+from app.serializers import _poker_dict, _poker_round_dict
 
 router_poker = APIRouter(tags=["poker"])
 
@@ -85,3 +90,53 @@ def leave_poker(ticket: str, voter: str, session: Session = Depends(get_session)
         session.delete(p)
     session.commit()
     return [_poker_dict(p) for p in _votes_of(ticket, session)]
+
+
+@router_poker.get("/api/poker/{ticket}/rounds")
+def list_poker_rounds(ticket: str, session: Session = Depends(get_session)):
+    q = select(PokerRound).where(PokerRound.ticket_id == ticket).order_by(PokerRound.created_at.desc())
+    return [_poker_round_dict(r) for r in session.exec(q).all()]
+
+
+@router_poker.post("/api/poker/{ticket}/rounds")
+async def save_poker_round(ticket: str, request: Request, session: Session = Depends(get_session)):
+    """Body : { value, votes: [{ voter, value }], author, team }. Moyenne et écart recalculés ici."""
+    body = await request.json()
+    try:
+        value = int(body.get("value"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Valeur retenue invalide")
+    votes = [{"voter": str(v.get("voter") or "").strip(), "value": str(v.get("value") or "").strip()}
+             for v in (body.get("votes") or []) if isinstance(v, dict)]
+    votes = [v for v in votes if v["voter"] and v["value"] in _ALLOWED]
+    nums = [int(v["value"]) for v in votes if v["value"].isdigit()]
+    avg = round(sum(nums) / len(nums), 2) if nums else None
+    spread = round((sum((n - avg) ** 2 for n in nums) / len(nums)) ** 0.5, 2) if len(nums) > 1 else (0.0 if nums else None)
+    r = PokerRound(ticket_id=ticket, team=(body.get("team") or "").strip(), value=value, votes=votes,
+                   voters=len(votes), avg=avg, spread=spread, author=(body.get("author") or "").strip())
+    session.add(r)
+    session.commit()
+    session.refresh(r)
+    return _poker_round_dict(r)
+
+
+@router_poker.get("/api/poker-rounds")
+def list_team_rounds(team: str = "", since: str = "", session: Session = Depends(get_session)):
+    """Tours conclus d'une équipe depuis `since` (ISO) — page « Séance d'affinage » (du plus récent au plus ancien)."""
+    q = select(PokerRound)
+    if team:
+        q = q.where(PokerRound.team == team)
+    if since:
+        q = q.where(PokerRound.created_at >= since)
+    return [_poker_round_dict(r) for r in session.exec(q.order_by(PokerRound.created_at.desc())).all()]
+
+
+@router_poker.get("/api/poker-sessions")
+def list_poker_sessions(session: Session = Depends(get_session)):
+    """Sessions de vote EN COURS : { ticketId: { votes, revealed } } — repère « 🗳 en cours » de la file."""
+    out: dict = {}
+    for v in session.exec(select(PokerVote)).all():
+        s = out.setdefault(v.ticket_id, {"votes": 0, "revealed": True})
+        s["votes"] += 1
+        s["revealed"] = s["revealed"] and bool(v.revealed)
+    return out

@@ -86,6 +86,10 @@ def run_migrations(engine):
         # (`rot-mode-<équipe>`), donc propre à chaque navigateur. Sur piconfig et pas sur team :
         # une synchro complète (import `replace`) supprime et recrée toutes les équipes.
         ("piconfig", "support_week_modes", "ALTER TABLE piconfig ADD COLUMN support_week_modes JSON DEFAULT '{}'"),
+        # Correspondances nom JIRA → nom RH (Paramètres → Absences), partagées par toute l'équipe
+        ("piconfig", "person_aliases",     "ALTER TABLE piconfig ADD COLUMN person_aliases JSON DEFAULT '{}'"),
+        # Tickets de référence du Planning Poker épinglés par équipe et par taille
+        ("piconfig", "poker_references",   "ALTER TABLE piconfig ADD COLUMN poker_references JSON DEFAULT '{}'"),
         ("workshoptemplate", "icon",       "ALTER TABLE workshoptemplate ADD COLUMN icon TEXT DEFAULT '📋'"),
         # Auteur d'un fait marquant (frise de la page Équipe, 3.170.0) — nom saisi, pas de compte
         ("event", "author",                "ALTER TABLE event ADD COLUMN author TEXT DEFAULT ''"),

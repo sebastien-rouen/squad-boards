@@ -164,6 +164,16 @@ textarea.input {
     font-size: var(--fs-xs);
     color: var(--text-secondary);
 }
+/* Label (`labelChipHtml`, utils.js) : teinte stable par label (--lc = labelColor), lisible en clair
+   comme en sombre (texte mélangé à --text plutôt que la couleur pure). */
+.chip.chip-label {
+    background: color-mix(in srgb, var(--lc) 13%, transparent);
+    color: color-mix(in srgb, var(--lc) 65%, var(--text));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 32%, transparent);
+    font-weight: var(--fw-medium);
+    max-width: 180px;
+}
+.chip.chip-label .label-rm { color: inherit; }
 /* Sprint chips dans la modal détail ticket — distinguer courant vs historique */
 .chip-sprint {
     border: 1px solid var(--border);

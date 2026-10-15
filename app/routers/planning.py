@@ -109,6 +109,10 @@ async def update_pi(request: Request, session: Session = Depends(get_session)):
         p.pi_baselines   = body.get("piBaselines") or {}
     if "supportWeekModes" in body:
         p.support_week_modes = body.get("supportWeekModes") or {}
+    if "personAliases" in body:
+        p.person_aliases = body.get("personAliases") or {}
+    if "pokerReferences" in body:
+        p.poker_references = body.get("pokerReferences") or {}
     if "statusOverride" in body:
         p.done_override = _clean_status_override(body.get("statusOverride"))
     # Historisation auto : à chaque save des objectifs du PI courant, on snapshot dans
@@ -170,6 +174,67 @@ async def set_support_week_mode(request: Request, session: Session = Depends(get
     session.commit()
     session.refresh(p)
     return {"ok": True, "supportWeekModes": p.support_week_modes}
+
+
+@router.put("/api/pi/person-alias")
+async def set_person_alias(request: Request, session: Session = Depends(get_session)):
+    """Correspondance nom JIRA → nom RH (import Congés). Fusion clé par clé, comme le mode de semaine.
+
+    Body : { jira, rh } — rh = nom RH tel qu'écrit dans les absences ; "" = « pas dans l'import »
+    (la personne n'est plus proposée) ; null = supprimer la correspondance.
+    """
+    body = await request.json()
+    jira = (body.get("jira") or "").strip()
+    if not jira:
+        raise HTTPException(400, "jira requis")
+    p = session.get(PIConfig, "pi-1")
+    if not p:
+        p = PIConfig(id="pi-1")
+    aliases = dict(p.person_aliases or {})
+    rh = body.get("rh")
+    if rh is None:
+        aliases.pop(jira, None)
+    else:
+        aliases[jira] = str(rh).strip()
+    p.person_aliases = aliases
+    p.updated_at = _now()
+    session.add(p)
+    session.commit()
+    session.refresh(p)
+    return {"ok": True, "personAliases": p.person_aliases}
+
+
+@router.put("/api/pi/poker-reference")
+async def set_poker_reference(request: Request, session: Session = Depends(get_session)):
+    """Ticket de référence du Planning Poker pour UNE équipe et UNE taille. Fusion clé par clé.
+
+    Body : { team, points, ticketId } — ticketId null = revenir au choix automatique.
+    """
+    body = await request.json()
+    team = (body.get("team") or "").strip()
+    points = str(body.get("points") or "").strip()
+    if not team or not points.isdigit():
+        raise HTTPException(400, "team et points requis")
+    p = session.get(PIConfig, "pi-1")
+    if not p:
+        p = PIConfig(id="pi-1")
+    refs = {k: dict(v) for k, v in (p.poker_references or {}).items()}
+    team_refs = refs.get(team, {})
+    tid = (body.get("ticketId") or "").strip()
+    if tid:
+        team_refs[points] = tid
+    else:
+        team_refs.pop(points, None)
+    if team_refs:
+        refs[team] = team_refs
+    else:
+        refs.pop(team, None)
+    p.poker_references = refs
+    p.updated_at = _now()
+    session.add(p)
+    session.commit()
+    session.refresh(p)
+    return {"ok": True, "pokerReferences": p.poker_references}
 
 
 # Colonnes cibles, par PRIORITÉ : un statut présent dans deux listes reste dans la première.

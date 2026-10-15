@@ -6,7 +6,7 @@
 
 import { openSprintTicketsModal } from './sprint_tickets_modal.js';
 import { openSprintCompareModal } from './sprint_compare_modal.js';
-import { burnSeries, burnDayKey, cycleDays, leadDays, wipAgeDays, isWorkday, workdaysBetween, workdayDurationDays, mapStatus, sprintStartsOf, sprintNamesOf, extractSprintLabel } from '../utils.js';
+import { burnSeries, burnDayKey, cycleDays, leadDays, wipAgeDays, isWorkday, workdaysBetween, workdayDurationDays, mapStatus, blockedIntervals, sprintStartsOf, sprintNamesOf, extractSprintLabel } from '../utils.js';
 import { store } from '../state.js';
 import { TYPE_ICONS, STATUS_LABELS } from '../config.js';
 // holidays.js n'est pas dans le barrel : import direct (SOURCE UNIQUE des fériés).
@@ -923,31 +923,8 @@ function _blockedSinceMs(t) {
     }
     return best;
 }
-/**
- * Périodes de BLOCAGE d'un ticket entre `fromMs` et `toMs`, rejouées depuis son historique : bloqué =
- * drapeau JIRA posé OU statut classé « bloqué » (`mapStatus`). [{ from, to }] — vide si l'historique
- * n'en dit rien. Complet depuis que la synchro garde TOUS les changements de statut et de drapeau
- * (sync-parse.js, 3.216.0) ; avant une resynchro complète, un blocage ancien peut manquer.
- */
-function _blockedIntervals(t, fromMs, toMs) {
-    const ch = (t.recentChanges || [])
-        .map(c => ({ f: String(c.field || '').toLowerCase(), from: String(c.from || '').trim(), to: String(c.to || '').trim(), ms: _msOf(c.date) }))
-        .filter(c => (c.f === 'status' || c.f === 'flagged') && Number.isFinite(c.ms))
-        .sort((a, b) => a.ms - b.ms);
-    if (!ch.length) return [];
-    const isBlk = s => !!s && mapStatus(s.toLowerCase()) === 'blocked';
-    // État AVANT le premier changement : le `from` du premier changement de chaque champ.
-    let st = isBlk(ch.find(c => c.f === 'status')?.from), fl = !!ch.find(c => c.f === 'flagged')?.from;
-    let open = st || fl ? -Infinity : null;
-    const out = [];
-    for (const c of ch) {
-        if (c.f === 'status') st = isBlk(c.to); else fl = !!c.to;
-        if ((st || fl) && open == null) open = c.ms;
-        else if (!(st || fl) && open != null) { out.push([open, c.ms]); open = null; }
-    }
-    if (open != null) out.push([open, Infinity]);
-    return out.map(([a, b]) => ({ from: Math.max(a, fromMs), to: Math.min(b, toMs) })).filter(x => x.to > x.from);
-}
+// Périodes de blocage : source unique utils/blocked.js (partagée avec le détail « Flux » de la modale).
+const _blockedIntervals = blockedIntervals;
 /** Durée bloquée (jours ouvrés) d'une liste de périodes, arrondie au demi-jour : « 2 j », « ½ j ». */
 const _blockedDaysTxt = iv => {
     const d = Math.round(iv.reduce((s, x) => s + workdayDurationDays(x.from, x.to), 0) * 2) / 2;

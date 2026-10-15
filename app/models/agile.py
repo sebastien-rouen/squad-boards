@@ -1,4 +1,4 @@
-"""Modèles agile : Event, MoodVote, RetroItem, Risk."""
+"""Modèles agile : Event, MoodVote, RetroItem, Risk, PokerVote, PokerRound."""
 from typing import Optional
 
 from sqlmodel import SQLModel, Field, JSON, Column
@@ -79,3 +79,21 @@ class Risk(SQLModel, table=True):
     pi_sprint: Optional[str] = None
     created_at: str = Field(default_factory=_now)
     updated_at: str = Field(default_factory=_now)
+
+
+class PokerRound(SQLModel, table=True):
+    """Tour de Planning Poker CONCLU (bouton « Enregistrer ») — trace durable, contrairement à
+    `PokerVote` (vote en cours, effacé au « Nouveau tour »). Affiché dans l'historique du ticket :
+    les grosses divergences (« 3 contre 13 ») se retrouvent en rétro.
+    """
+    __table_args__ = _TA
+    id: str = Field(default_factory=_gen_id, primary_key=True)
+    ticket_id: str = ""
+    team: str = ""
+    value: int = 0                                          # points retenus
+    votes: list = Field(default=[], sa_column=Column(JSON))  # [{ voter, value }] — value "1".."21" ou "?"
+    voters: int = 0
+    avg: Optional[float] = None
+    spread: Optional[float] = None                          # écart-type des votes numériques
+    author: str = ""                                        # nom saisi dans la popin (sb-poker-myname)
+    created_at: str = Field(default_factory=_now)

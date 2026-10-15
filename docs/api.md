@@ -114,8 +114,26 @@ Meme pattern CRUD que tickets : `/api/features`, `/api/epics`
 | Methode | Route | Description |
 |---------|-------|-------------|
 | `GET/PUT` | `/api/sprint` | `syncedBy` / `syncKind` (3.197.0) : posés par la synchro seulement |
-| `GET/PUT` | `/api/pi` | |
+| `GET/PUT` | `/api/pi` | `personAliases`, `pokerReferences` (3.217.0) en plus |
+| `PUT` | `/api/pi/person-alias` | `{ jira, rh }` — correspondance nom JIRA → nom RH (Congés), fusion clé par clé ; `rh: ""` = pas dans l'import, `null` = supprimer (3.217.0) |
+| `PUT` | `/api/pi/poker-reference` | `{ team, points, ticketId }` — ticket de référence du Poker épinglé par équipe et taille ; `ticketId: null` = choix automatique (3.217.0) |
 | `GET` | `/api/sync-stamp` | Horodatage de la dernière synchro (mode TV) |
+
+## Planning Poker
+
+| Methode | Route | Description |
+|---------|-------|-------------|
+| `GET` | `/api/poker/{ticket}` | Votes en cours du ticket (éphémères, hors `/api/all` et `/api/export`) |
+| `POST` | `/api/poker/{ticket}/vote` | `{ voter, value }` — upsert d'un vote (`1`…`21` ou `?`) |
+| `POST` | `/api/poker/{ticket}/reveal` | Révèle les votes |
+| `POST` | `/api/poker/{ticket}/reset` | Efface les votes du ticket |
+| `DELETE` | `/api/poker/{ticket}/voter/{voter}` | Retire un participant |
+| `GET` | `/api/poker/{ticket}/rounds` | Tours CONCLUS du ticket, du plus récent au plus ancien (3.217.0) |
+| `POST` | `/api/poker/{ticket}/rounds` | `{ value, votes, author, team }` — archive un tour conclu ; moyenne et écart recalculés côté serveur (3.217.0) |
+| `GET` | `/api/poker-rounds?team=&since=` | Tours conclus d'une équipe depuis une date ISO — page 🃏 Affinage (3.217.0) |
+| `GET` | `/api/poker-sessions` | Sessions de vote en cours `{ ticketId: { votes, revealed } }` (3.217.0) |
+
+> Les tours conclus (`pokerRounds`) sont DURABLES : inclus dans `/api/export` et sa restauration.
 
 ## Import / Export
 

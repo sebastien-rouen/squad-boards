@@ -3,7 +3,7 @@
  * Shows leader + contributor avatars.
  */
 
-import { esc, initials, hashColor, daysInCurrentColumn, fmtDate, typeBadge, currentStageGroupKey } from '../utils.js';
+import { esc, initials, hashColor, daysInCurrentColumn, fmtDate, typeBadge, currentStageGroupKey, labelChipHtml } from '../utils.js';
 import { overrideReason } from '../utils/status-override.js';
 
 const _DWELL_SOURCE_LABEL = {
@@ -134,7 +134,7 @@ export function renderCard(ticket, { ageRefs } = {}) {
                     ${ticket.flagged ? '<svg class="icon icon-sm text-danger"><use href="#i-alert"/></svg>' : ''}
                 </div>
             </div>
-            ${labels.length ? `<div class="ticket-labels">${labels.map(l => `<span class="chip">${esc(l)}</span>`).join('')}</div>` : ''}
+            ${labels.length ? `<div class="ticket-labels">${labels.map(l => labelChipHtml(l)).join('')}</div>` : ''}
         </div>
     `;
 }

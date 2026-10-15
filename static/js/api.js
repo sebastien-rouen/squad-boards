@@ -113,6 +113,10 @@ export const setPiObjectives = (piNumber, objectives) => request(`/api/pi/object
 export const setPiBaseline   = (piNumber, payload) => request(`/api/pi/baseline/${piNumber}`, { method: 'PUT', body: JSON.stringify(payload) });
 // Mode de semaine de support d'UNE équipe (fusion côté serveur, les autres équipes sont préservées)
 export const setSupportWeekMode = (team, mode) => request('/api/pi/support-week-mode', { method: 'PUT', body: JSON.stringify({ team, mode }) });
+/** Correspondance nom JIRA → nom RH ; rh = '' (pas dans l'import) ou null (supprimer). */
+export const setPersonAlias = (jira, rh) => request('/api/pi/person-alias', { method: 'PUT', body: JSON.stringify({ jira, rh }) });
+/** Ticket de référence du Poker (équipe, taille) ; ticketId null = revenir au choix automatique. */
+export const setPokerReference = (team, points, ticketId) => request('/api/pi/poker-reference', { method: 'PUT', body: JSON.stringify({ team, points, ticketId }) });
 
 // ── Groups (lignes produit) ───────────────────────────────────────────────────
 export const getGroups       = ()   => request('/api/groups');
@@ -165,6 +169,12 @@ export const pokerVote       = (ticket, voter, value) =>
 export const pokerReveal     = ticket          => request(`${_pk(ticket)}/reveal`, { method: 'POST' });
 export const pokerReset      = ticket          => request(`${_pk(ticket)}/reset`, { method: 'POST' });
 export const pokerLeave      = (ticket, voter) => request(`${_pk(ticket)}/voter/${encodeURIComponent(voter)}`, { method: 'DELETE' });
+// Tours CONCLUS (historique durable du ticket, affiché dans la modale)
+export const getPokerRounds  = ticket          => request(`${_pk(ticket)}/rounds`);
+export const savePokerRound  = (ticket, data)  => request(`${_pk(ticket)}/rounds`, { method: 'POST', body: JSON.stringify(data) });
+/** Tours conclus d'une équipe depuis `since` (ISO) et sessions de vote en cours — page « Séance d'affinage ». */
+export const getTeamPokerRounds = (team, since) => request(`/api/poker-rounds?team=${encodeURIComponent(team)}&since=${encodeURIComponent(since || '')}`);
+export const getPokerSessions   = ()            => request('/api/poker-sessions');
 
 // ── Retro Items ───────────────────────────────────────────────────────────────
 export const getRetro        = (params = {}) => {

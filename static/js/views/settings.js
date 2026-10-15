@@ -19,6 +19,7 @@ import {
 } from './settings-io.js';
 import { _parsePivotAbsencesCsv, _memberAbsenceInfo, _isTransverseTeam, diagnosePivotCsv, convertCommasToSemicolons } from './settings-absences-csv.js';
 import { jiraSectionHtml, wireJiraSection } from './settings-jira.js';
+import { personAliasesHtml, wirePersonAliases } from './settings-person-aliases.js';
 import { backupCardHtml, wireBackup } from './settings-backup.js';
 import { calDetectHtml, wireCalDetect } from './settings-cal-detect.js';
 import { meteoSectionHtml, wireMeteoSection } from './settings-meteo.js';
@@ -403,6 +404,8 @@ export function renderSettings(container) {
                         </div>
                     </details>
                 ` : '<p class="text-muted text-sm mb-4">Aucune absence enregistree</p>'}
+
+                ${personAliasesHtml()}
 
                 <div class="abs-add-card">
                     <div class="abs-add-card-title">
@@ -1146,6 +1149,7 @@ export function renderSettings(container) {
 
     // ── Plugin JIRA (connexion, sync, équipes masquées, groupes) ─────────────
     wireJiraSection(container, () => reloadAndRender(container));
+    wirePersonAliases(container, () => reloadAndRender(container));
     wireBackup(container, () => reloadAndRender(container));   // 💾 Sauvegarde & restauration (Données)
     wireCalDetect(container);
 

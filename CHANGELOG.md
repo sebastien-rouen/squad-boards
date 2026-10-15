@@ -1,3 +1,73 @@
+## [3.217.0] - 2026-10-15
+
+### Modale ticket : en-tête structuré, tout l'essentiel sans défiler
+
+- **En-tête du ticket** (`_ticketHeadHtml`, [modal.js](static/js/components/modal.js)) : fil d'Ariane
+  équipe › parent › ticket, puis cinq tuiles libellées — Statut (depuis quand), Priorité, Estimation,
+  Sprint (jours ouvrés restants + mini-frise début / fin du travail), Flux — et une bande Labels /
+  « Passé par » (autres sprints). Remplace les lignes Epic + Meta et la barre de sprint, qui suivait le
+  sprint GLOBAL (celui d'une autre équipe) au lieu de celui du ticket.
+- **Barre de titre en deux lignes** : repères (navigation, type, clé, copies, commentaires, leader) puis
+  le titre COMPLET (2 lignes max, il était tronqué). Style sous `#modal:has(.mdl-titlebar)` (#modal partagé).
+- **Priorité** : `priorityKey` / `priorityBadge` ([utils/priority.js](static/js/utils/priority.js)) — les
+  libellés JIRA « 2. haute » tombaient tous en « medium » bleu. **Points** : `pointsTone`
+  ([utils/points.js](static/js/utils/points.js)), paliers Fibonacci colorés (`.pts-tone--*`) + ratio à la
+  médiane de l'équipe, aussi dans le sélecteur de points. **Labels** : `labelChipHtml` / `labelColor`,
+  couleur stable par label (modale, cartes du Board).
+- **Bloqué** : interrupteur (`.toggle-switch--danger`, composant existant) + bandeau « Bloqué depuis N j ».
+- **Personnes** : une rangée Leader / Rapporteur / Contributeurs, avec les **congés** de l'itération en
+  cours (bande du roster Dashboard, `presenceStripHtml`) et 🌴 sur un contributeur absent.
+- **🧭 Le voyage du ticket** (clic sur la tuile Flux, [ticket_flow.js](static/js/components/ticket_flow.js)) :
+  récit, frise des colonnes par phase, efficacité du flux (dév + revue + test ÷ total — la préparation
+  n'est PAS du temps actif), étape la plus longue, allers-retours, blocages, réestimations, sprints
+  traversés, comparaison à l'équipe, personnes impliquées (cliquables, doublons JIRA / RH fusionnés,
+  automates à part), questions pour la rétro, résumé à copier.
+- **Pleine page** : vraie vue détaillée (voyage ouvert, description à gauche, activité à droite,
+  historique complet) ; elle ne s'arrêtait plus à 85 % de la hauteur. Corps en `.mdl-layout`
+  (`display: contents` + `order` en modale normale).
+- Corrigés au passage : bouton 🌿 Enfants des features (NotFoundError), dates d'historique qui
+  chevauchaient l'auteur, URL qui empilait `/ticket/A/poker/ticket/B`.
+
+### Planning Poker
+
+- Cartes de vote sur UNE ligne, NEUTRES (aucune couleur : ne pas orienter le vote), curseur main,
+  animations (distribution, survol, choix) ; révélation animée (avatars retournés un par un,
+  consensus qui brille) ; sons optionnels ([poker_sound.js](static/js/components/poker_sound.js), Web Audio,
+  coupés par défaut). Aucun re-rendu pendant une animation (la révélation se jouait deux fois).
+- **Tickets de référence 1 → 21** (le livré le plus typique de chaque taille, échelle 🐭 → 🐋), ÉPINGLABLES
+  par l'équipe (`piconfig.poker_references`, `PUT /api/pi/poker-reference`).
+- **Valeur à enregistrer** : suite de Fibonacci seulement (pastilles, consensus présélectionné).
+- **Tours conclus archivés** : table `pokerround` (`/api/poker/{t}/rounds`), section « 🃏 Estimations en
+  équipe » de la modale (⚠️ fort désaccord / 🎯 unanimité). Dans `/api/export`, pas dans `/api/all`.
+- **« ⏭ Suivant » / « Enregistrer & suivant »** : file `estimationQueue`
+  ([utils/estimation-queue.js](static/js/utils/estimation-queue.js)).
+
+### 🃏 Affinage — nouvelle page (groupe Équipe & RH, `#refinement/<équipe>`)
+
+- File des tickets à estimer (sprint en cours, autres sprints, backlog), démarrage du Poker, séance du
+  jour (temps par ticket, désaccords), avancement du sprint ([refinement.js](static/js/views/refinement.js)).
+- **📤 Récap** à partager : Slack, Teams / mail (HTML à styles en ligne), CSV
+  ([refinement_recap.js](static/js/components/refinement_recap.js)).
+- Serveur plus ancien que la page (routes absentes, lancé sans rechargement) : signalé (« redémarrez le
+  serveur ») au lieu d'un « la séance n'a pas commencé » trompeur.
+
+### Congés ↔ JIRA, synchro
+
+- **Rapprochement des noms** JIRA « Prénom Nom » ↔ RH « NOM, Prénom » : `findPerson` / `samePerson`
+  ([utils/person-name.js](static/js/utils/person-name.js)) — 78 leaders sur 86 retrouvés (1 avant).
+  **Correspondances à la main** dans Paramètres → Absences ([settings-person-aliases.js](static/js/views/settings-person-aliases.js),
+  `piconfig.person_aliases`, `PUT /api/pi/person-alias`), suggestion présélectionnée si elle est unique.
+- **Fraîcheur de la synchro JIRA** : pastille sur le bouton JIRA (ambre ≥ 2 h, rouge ≥ 48 h) + infobulle +
+  ligne en tête du menu ▾, à la place du bandeau sous le topbar (`checkSyncStale`, [app.js](static/js/app.js)).
+- Périodes de blocage : source unique `blockedIntervals` ([utils/blocked.js](static/js/utils/blocked.js)),
+  `charts.js` s'y branche.
+
+### Base
+
+- Colonnes `piconfig.person_aliases` et `piconfig.poker_references` (migrations), table `pokerround`
+  (`create_all`). `/api/export` gagne `pokerRounds` et, dans `pi`, `personAliases` / `pokerReferences`.
+- Tests : `tests/priority.test.mjs`, `tests/ticket-flow.test.mjs`, `tests/person-name.test.mjs`.
+
 ## [3.216.0] - 2026-10-15
 
 ### Engagement d'un sprint : un ticket retiré AVANT le lancement n'y est plus compté

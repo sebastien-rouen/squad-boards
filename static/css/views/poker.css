@@ -74,7 +74,7 @@
 .poker-name-input { flex: 1; max-width: 200px; }
 
 /* Corps */
-.poker-body { display: grid; grid-template-columns: 1fr 1fr; flex: 1; min-height: 0; overflow: hidden; }
+.poker-body { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); flex: 1; min-height: 0; overflow: hidden; }
 .poker-vote-section { padding: 16px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 12px; }
 .poker-results-section { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .poker-vote-label, .poker-voters-label {
@@ -89,18 +89,54 @@
 }
 
 /* Cartes */
-.poker-cards { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Cartes sur UNE ligne, fluides (ratio 52 × 72 conservé) et NEUTRES : aucune couleur par valeur
+   (les paliers .pts-tone--* restent hors des cartes) pour ne pas orienter le vote. */
+.poker-cards { display: flex; flex-wrap: nowrap; gap: 6px; padding-top: 8px; }
 .poker-card {
-    width: 52px; height: 72px; border-radius: 10px;
+    flex: 1 1 0; min-width: 0; max-width: 52px; aspect-ratio: 52 / 72; height: auto; border-radius: 9px;
     border: 2px solid var(--border); background: var(--bg);
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; font-family: inherit;
-    transition: all .15s; box-shadow: 0 2px 4px rgba(0,0,0,.06);
+    transform-origin: 50% 100%;
+    transition: transform .22s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease, border-color .15s ease, background .15s ease, opacity .2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,.06);
 }
-.poker-card:hover:not([disabled]) { border-color: var(--primary); transform: translateY(-5px); box-shadow: 0 8px 20px rgba(99,102,241,.22); }
-.poker-card--selected { border-color: var(--primary); background: var(--primary); transform: translateY(-8px); box-shadow: 0 10px 24px rgba(99,102,241,.4); }
-.poker-card--disabled { opacity: .4; cursor: default; }
-.poker-card-val { font-size: 20px; font-weight: var(--fw-bold); color: var(--text); }
+/* Survol : la carte se lève et s'incline (alternance gauche / droite, comme une main de cartes) */
+.poker-card:hover:not([disabled]) { border-color: var(--primary); transform: translateY(-7px) rotate(-3deg); box-shadow: 0 10px 22px rgba(99,102,241,.25); }
+.poker-card:nth-child(even):hover:not([disabled]) { transform: translateY(-7px) rotate(3deg); }
+.poker-card:active:not([disabled]) { transform: translateY(-2px) scale(.94); transition-duration: .08s; }
+.poker-card--selected,
+.poker-card--pending { border-color: var(--primary); background: var(--primary); transform: translateY(-9px); box-shadow: 0 10px 24px rgba(99,102,241,.4); }
+.poker-card--selected:hover:not([disabled]),
+.poker-card--selected:nth-child(even):hover:not([disabled]) { transform: translateY(-11px) rotate(0deg); }
+.poker-card--pending .poker-card-val { color: #fff; }
+/* Votes révélés : inactive ; sans prénom : cliquable (amène au champ prénom), juste atténuée */
+.poker-card--disabled { opacity: .4; cursor: not-allowed; }
+.poker-card--locked { opacity: .6; }
+.poker-card--locked:hover { opacity: .85; }
+
+/* Distribution : les cartes arrivent en éventail, l'une après l'autre (--i = rang) */
+.poker-cards--deal .poker-card { animation: poker-deal .5s cubic-bezier(.22, 1.2, .36, 1) backwards; animation-delay: calc(var(--i) * 45ms); }
+@keyframes poker-deal {
+    from { opacity: 0; transform: translateY(22px) rotate(calc((var(--i) - 3.5) * 5deg)) scale(.85); }
+}
+/* Carte choisie : petit saut + check qui apparaît */
+.poker-card--pop { animation: poker-pop .45s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes poker-pop {
+    0%   { transform: translateY(-9px) scale(1); }
+    45%  { transform: translateY(-16px) scale(1.12) rotate(-5deg); }
+    100% { transform: translateY(-9px) scale(1); }
+}
+.poker-card--pop .poker-card-check { animation: poker-check .35s .1s ease-out both; }
+@keyframes poker-check { from { opacity: 0; transform: scale(.3); } }
+/* Coup de coude sur le prénom quand on clique une carte sans s'être identifié */
+.poker-identity-form.is-nudge { animation: poker-nudge .42s ease; }
+@keyframes poker-nudge { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+@media (prefers-reduced-motion: reduce) {
+    .poker-card, .poker-cards--deal .poker-card, .poker-card--pop, .poker-card--pop .poker-card-check, .poker-identity-form.is-nudge { animation: none; transition: none; }
+    .poker-card:hover:not([disabled]), .poker-card:nth-child(even):hover:not([disabled]) { transform: none; }
+}
+.poker-card-val { font-size: clamp(14px, 4.2vw, 20px); font-weight: var(--fw-bold); color: var(--text); }
 .poker-card--selected .poker-card-val { color: #fff; }
 .poker-card-check { position: absolute; bottom: 4px; right: 4px; font-size: 9px; color: rgba(255,255,255,.8); }
 .poker-card { position: relative; }
@@ -158,6 +194,52 @@
 .poker-distrib-n { font-size: 10px; color: var(--text-muted); width: 18px; }
 .poker-distrib-star { color: var(--primary); font-size: 11px; }
 
+/* ── Révélation animée (passage caché → révélé) ───────────────────────────────────────────
+   Avatars retournés un par un (--i = rang parmi les votants), puis stats, répartition (barres qui
+   poussent) et consensus qui brille, après --reveal-delay (tous les avatars retournés). */
+.poker-voter--flip .poker-voter-avatar {
+    animation: poker-flip .62s cubic-bezier(.3, 1.35, .5, 1) backwards;
+    animation-delay: calc(var(--i) * 140ms);
+}
+@keyframes poker-flip {
+    0%   { transform: perspective(300px) rotateY(180deg) scale(.85); filter: brightness(.7); }
+    55%  { transform: perspective(300px) rotateY(-12deg) scale(1.08); filter: none; }
+    100% { transform: perspective(300px) rotateY(0) scale(1); }
+}
+.poker-voter--flip .poker-voter-val { animation: poker-val-in .3s ease-out backwards; animation-delay: calc(var(--i) * 140ms + 260ms); }
+@keyframes poker-val-in { from { opacity: 0; transform: scale(.4); } }
+.poker-reveal-in { animation: poker-rise .4s ease-out backwards; animation-delay: var(--reveal-delay, 0ms); }
+@keyframes poker-rise { from { opacity: 0; transform: translateY(8px); } }
+.poker-distrib.poker-reveal-in .poker-distrib-bar { animation: poker-grow .6s cubic-bezier(.22, 1, .36, 1) backwards; animation-delay: var(--reveal-delay, 0ms); }
+@keyframes poker-grow { from { width: 0; } }
+.poker-distrib.poker-reveal-in .poker-distrib-row--nearest {
+    animation: poker-shine 1.1s ease-out backwards;
+    animation-delay: calc(var(--reveal-delay, 0ms) + 450ms);
+    border-radius: var(--r-sm);
+}
+@keyframes poker-shine {
+    0%   { background: transparent; box-shadow: none; }
+    35%  { background: color-mix(in srgb, var(--primary) 16%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent); }
+    100% { background: transparent; box-shadow: none; }
+}
+.poker-distrib.poker-reveal-in .poker-distrib-star { display: inline-block; animation: poker-star .5s cubic-bezier(.34, 1.56, .64, 1) backwards; animation-delay: calc(var(--reveal-delay, 0ms) + 450ms); }
+@keyframes poker-star { from { opacity: 0; transform: scale(0) rotate(-90deg); } }
+
+/* Bouton sons (en-tête) */
+.poker-sound-btn {
+    width: 30px; height: 30px; border-radius: var(--r-md); cursor: pointer;
+    font-size: 15px; line-height: 1;
+    background: transparent; border: 1px solid var(--border);
+    opacity: .6; transition: opacity var(--tr-fast), background var(--tr-fast), border-color var(--tr-fast);
+}
+.poker-sound-btn:hover { opacity: 1; background: var(--surface-hover); }
+.poker-sound-btn.is-on { opacity: 1; border-color: color-mix(in srgb, var(--primary) 45%, transparent); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+@media (prefers-reduced-motion: reduce) {
+    .poker-voter--flip .poker-voter-avatar, .poker-voter--flip .poker-voter-val, .poker-reveal-in,
+    .poker-distrib.poker-reveal-in .poker-distrib-bar, .poker-distrib.poker-reveal-in .poker-distrib-row--nearest,
+    .poker-distrib.poker-reveal-in .poker-distrib-star { animation: none; }
+}
+
 /* Footer sauvegarde */
 .poker-footer {
     border-top: 1px solid var(--border);
@@ -166,15 +248,158 @@
     border-radius: 0 0 var(--r-lg) var(--r-lg);
     display: flex; flex-direction: column; gap: 6px;
 }
-.poker-save-row { display: flex; align-items: center; gap: 10px; }
-.poker-save-label { font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-muted); white-space: nowrap; }
-.poker-save-input-wrap { display: flex; align-items: center; gap: 4px; }
-.poker-save-input {
-    width: 68px; text-align: center;
-    font-size: var(--fs-lg); font-weight: var(--fw-bold);
-    padding: 4px 8px; border-radius: var(--r-md);
-    border: 2px solid var(--primary);
+/* Ligne « Valeur à enregistrer » : en-tête (consensus, valeur actuelle), pastilles de la suite de
+   Fibonacci teintées par palier (.pts-tone--*, comme le tableau des références — le vote est déjà
+   révélé, la couleur ne biaise plus rien), puis les actions. */
+.poker-save-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "head head" "pick actions"; gap: 8px 14px; align-items: center; }
+.poker-save-head { grid-area: head; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.poker-save-label { font-size: 10.5px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+.poker-save-hint { font-size: 11.5px; color: var(--text-muted); }
+.poker-save-hint b { color: var(--primary); }
+.poker-save-pick { grid-area: pick; display: flex; gap: 6px; flex-wrap: nowrap; }
+.poker-save-chip {
+    position: relative; flex: 1 1 0; min-width: 0; max-width: 48px; height: 46px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    font: inherit; cursor: pointer;
+    background: var(--surface); color: var(--text);
+    border: 1.5px solid var(--border); border-radius: 10px;
+    transition: transform .18s cubic-bezier(.34, 1.56, .64, 1), border-color .15s, background .15s, box-shadow .15s;
 }
-.poker-save-unit { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-muted); }
-.poker-save-btn { flex: 1; justify-content: center; font-size: var(--fs-sm); padding: 8px 16px; }
+.poker-save-chip:hover { transform: translateY(-2px); border-color: var(--ptc); }
+.poker-save-chip-val { font-size: 16px; font-weight: var(--fw-bold); line-height: 1; font-variant-numeric: tabular-nums; }
+.poker-save-chip-n { min-height: 8px; font-size: 9px; line-height: 8px; letter-spacing: 1px; color: var(--ptc); }
+.poker-save-chip-star { position: absolute; top: -7px; right: -5px; font-size: 11px; color: var(--warning); text-shadow: 0 0 0 var(--surface); }
+.poker-save-chip.is-nearest { border-style: dashed; border-color: color-mix(in srgb, var(--ptc) 60%, transparent); }
+.poker-save-chip.is-on {
+    border-style: solid; border-color: var(--ptc);
+    background: color-mix(in srgb, var(--ptc) 16%, var(--surface));
+    color: var(--ptc);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ptc) 22%, transparent);
+    transform: translateY(-2px);
+}
+.poker-save-chip:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: 2px; }
+.poker-save-actions { grid-area: actions; display: flex; flex-direction: column; gap: 6px; min-width: 170px; }
+.poker-save-btn { justify-content: center; font-size: var(--fs-sm); padding: 9px 16px; }
+.poker-save-val { margin-left: 2px; font-weight: var(--fw-bold); }
+@media (max-width: 560px) {
+    .poker-save-row { grid-template-columns: 1fr; grid-template-areas: "head" "pick" "actions"; }
+    .poker-save-actions { flex-direction: row; min-width: 0; }
+    .poker-save-actions .btn { flex: 1; }
+}
 .poker-save-warn { font-size: 11px; color: var(--warning); }
+
+/* ── Tickets de référence (bas de la popin, `_pokerRefsHtml` dans modal.js) ─────────────────
+   Un ticket livré « typique » par taille, avec l'échelle animale 🐭 → 🐋, la pastille de points
+   aux couleurs des paliers (.pts-tone--*) et la durée médiane en barre. La popin défile : le
+   tableau ajoute ~7 lignes sous les cartes. */
+.poker-modal { overflow-y: auto; }
+/* Sans ça, le corps (flex: 1 + min-height: 0) se TASSAIT pour laisser la place au tableau et
+   rognait la colonne des participants (répartition des votes invisible) : c'est la popin qui défile. */
+.poker-modal > * { flex-shrink: 0; }
+.poker-refs { border-top: 1px solid var(--border); }
+.poker-refs-toggle {
+    display: flex; align-items: baseline; gap: 8px; width: 100%;
+    padding: 10px 16px; font: inherit; text-align: left; cursor: pointer;
+    background: none; border: 0; color: var(--text);
+}
+.poker-refs-toggle > span:first-child { font-size: 12.5px; font-weight: var(--fw-bold); }
+.poker-refs-toggle small { font-size: 11px; color: var(--text-muted); }
+.poker-refs-chev { margin-left: auto; color: var(--text-muted); }
+.poker-refs-toggle:hover { background: var(--surface-hover); }
+/* Colonnes FIXES : sans ça, un long titre de candidat (ligne dépliée, colspan) élargissait tout le
+   tableau au-delà de la popin et coupait les boutons de droite. */
+.poker-refs-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; table-layout: fixed; }
+.poker-refs-table th:nth-child(1) { width: 98px; }
+.poker-refs-table th:nth-child(3) { width: 118px; }
+.poker-refs-table th:nth-child(4) { width: 62px; }
+.poker-refs-table th:nth-child(5) { width: 96px; }
+.poker-refs-table th {
+    padding: 2px 10px; text-align: left; font-size: 10px; font-weight: var(--fw-semibold);
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
+}
+.poker-refs-table th:first-child, .poker-refs-table td:first-child { padding-left: 16px; }
+.poker-refs-table td { padding: 5px 10px; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); vertical-align: middle; }
+.poker-refs-table tr.is-mine td { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.poker-refs-table tr.is-mine td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+.poker-refs-table tr.is-nearest td { background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.poker-ref-size { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.poker-ref-animal { font-size: 16px; line-height: 1; width: 20px; text-align: center; }
+.poker-refs .mdl-points { font-size: 13px; padding: 2px 7px; cursor: default; }
+.poker-ref-cell { overflow: hidden; }
+.poker-ref-line { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
+.poker-ref-line > * { flex-shrink: 0; }
+.poker-ref-line .poker-ref-title, .poker-ref-line .poker-ref-none { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.poker-refs-table tr.is-current td { background: color-mix(in srgb, var(--text-muted) 7%, transparent); }
+.poker-ref-id { flex-shrink: 0; white-space: nowrap; font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-semibold); color: var(--primary); margin-right: 6px; text-decoration: none; }
+a.poker-ref-id:hover { text-decoration: underline; }
+.poker-ref-title { color: var(--text-secondary); }
+.poker-ref-none { color: var(--text-muted); font-style: italic; }
+.poker-ref-src, .poker-ref-tag {
+    margin-left: 6px; padding: 0 6px; border-radius: var(--r-full);
+    font-size: 10px; font-weight: var(--fw-semibold); vertical-align: 1px;
+    background: var(--bg-alt); color: var(--text-secondary);
+}
+.poker-ref-tag { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); }
+.poker-ref-tag--star { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
+.poker-ref-bar { display: inline-block; width: 60px; height: 6px; margin-right: 6px; border-radius: 3px; background: var(--bg-alt); vertical-align: middle; overflow: hidden; }
+.poker-ref-bar i { display: block; height: 100%; border-radius: inherit; background: var(--ptc); }
+.poker-refs-table td:nth-child(3) { white-space: nowrap; }
+.poker-ref-n { color: var(--text-muted); text-align: right; font-variant-numeric: tabular-nums; }
+/* Référence choisie par l'équipe (📌) + choix parmi les tickets les plus typiques */
+.poker-ref-pin {
+    margin-left: 6px; padding: 0 6px; border-radius: var(--r-full);
+    font-size: 10px; font-weight: var(--fw-semibold); vertical-align: 1px;
+    background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success);
+}
+.poker-ref-act { white-space: nowrap; text-align: right; padding-right: 16px !important; }
+.poker-ref-btn {
+    font: inherit; font-size: 10.5px; font-weight: var(--fw-semibold); cursor: pointer;
+    padding: 1px 8px; border-radius: var(--r-full);
+    background: transparent; color: var(--text-muted); border: 1px solid var(--border);
+    opacity: 0.55; transition: opacity var(--tr-fast), color var(--tr-fast), border-color var(--tr-fast);
+}
+.poker-refs-table tr:hover .poker-ref-btn, .poker-ref-btn:focus-visible, .poker-ref-btn.is-on { opacity: 1; }
+.poker-ref-btn:hover, .poker-ref-btn.is-on { color: var(--primary); border-color: var(--primary); }
+.poker-ref-cands td { background: var(--bg); padding: 8px 16px 10px !important; }
+.poker-ref-cands-title { display: block; margin-bottom: 6px; font-size: 11.5px; font-weight: var(--fw-semibold); color: var(--text); }
+.poker-ref-cands-title small { font-weight: var(--fw-normal); color: var(--text-muted); }
+.poker-ref-cands-list { display: flex; flex-direction: column; gap: 4px; }
+.poker-ref-cand {
+    display: flex; align-items: center; gap: 6px; min-width: 0; width: 100%;
+    padding: 5px 8px; font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+    transition: border-color var(--tr-fast), background var(--tr-fast);
+}
+.poker-ref-cand:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
+.poker-ref-cand.is-chosen { border-color: var(--success); box-shadow: inset 3px 0 0 var(--success); }
+.poker-ref-cand .poker-ref-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poker-ref-cand-d { flex-shrink: 0; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.poker-ref-reset {
+    margin-top: 6px; font: inherit; font-size: 11px; cursor: pointer;
+    background: none; border: 0; padding: 2px 0; color: var(--text-muted);
+}
+.poker-ref-reset:hover { color: var(--primary); text-decoration: underline; }
+@media (max-width: 560px) {
+    .poker-refs-table th:nth-child(1) { width: 74px; }
+    .poker-refs-table th:nth-child(3) { width: 84px; }
+    .poker-refs-table th:nth-child(5) { width: 78px; }
+    .poker-ref-animal { display: none; }
+    .poker-refs-table th:nth-child(4), .poker-refs-table td:nth-child(4) { display: none; }
+    .poker-ref-bar { width: 32px; }
+}
+
+/* Séance d'affinage : ticket suivant à estimer (en-tête) + « Enregistrer & suivant » (pied) */
+.poker-next-btn {
+    display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px;
+    font: inherit; font-size: 12px; font-weight: var(--fw-semibold); cursor: pointer;
+    background: transparent; color: var(--primary);
+    border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent); border-radius: var(--r-md);
+    transition: background var(--tr-fast);
+}
+.poker-next-btn:hover { background: color-mix(in srgb, var(--primary) 9%, transparent); }
+.poker-next-n {
+    min-width: 18px; padding: 0 5px; border-radius: var(--r-full);
+    font-size: 10.5px; line-height: 16px; text-align: center;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.poker-save-next { white-space: nowrap; }

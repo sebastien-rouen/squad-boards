@@ -591,6 +591,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   jamais dans une phrase ; état replié des sections gardé par l'appelant (`_pdClosed`).
   Page Affinage : 📝 = description vide (tous types), ⚠️ = STORY sans critère d'acceptation repéré
   (`acceptanceStatus`, même repérage que le volet ; une tâche sans critère est normale) + filtre « à compléter ».
+  « 📋 Copier pour Slack » = `toCompleteSlack` (refinement_recap.js) : regroupé par RAPPORTEUR, sprint en cours signalé.
   Récap de séance à partager = `components/refinement_recap.js` : UN modèle (`refinementRecapModel`) → Slack
   (mrkdwn), Teams / mail (HTML à styles EN LIGNE, `text/html` + `text/plain`), CSV — ne pas dupliquer un chiffre.
   ⚠️ Front servi frais (`NoCacheStaticFiles`) mais routes Python figées au lancement : un serveur sans `--reload`

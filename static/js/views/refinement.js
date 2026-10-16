@@ -18,7 +18,7 @@ import {
     esc, fmtRelative, typeBadge, copyToClipboard, priorityBadge, pointsTone, emptyStateHtml,
     estimationQueue, ESTIMATION_GROUPS, getSprintForTeam, workdaysBetween, parseWikiMarkup,
 } from '../utils.js';
-import { refinementRecapModel, recapSlack, recapHtml, copyRecapRich, downloadRecapCsv } from '../components/refinement_recap.js';
+import { refinementRecapModel, recapSlack, recapHtml, copyRecapRich, downloadRecapCsv, toCompleteSlack } from '../components/refinement_recap.js';
 import { acceptanceStatus } from '../components/desc_sections.js';
 
 const _BACKLOG_PREVIEW = 12;
@@ -166,8 +166,11 @@ function _html(team) {
             <div class="card rf-queue">
                 <div class="card-header">
                     <span class="card-title">📋 File d'attente</span>
-                    ${toFix ? `<button type="button" class="rf-fix-toggle${_st.onlyMissing ? ' is-on' : ''}" data-rf-only-missing aria-pressed="${!!_st.onlyMissing}"
-                        title="Tickets sans description (📝), ou stories sans critère d'acceptation repéré (⚠️) — à compléter avant la séance">⚠️ ${toFix} à compléter${_st.onlyMissing ? ' · voir tout' : ''}</button>`
+                    ${toFix ? `<span class="rf-fix-actions">
+                        <button type="button" class="rf-fix-copy" data-rf-copy-fix title="Copier pour Slack la liste des tickets à compléter, regroupés par rapporteur">📋 Copier pour Slack</button>
+                        <button type="button" class="rf-fix-toggle${_st.onlyMissing ? ' is-on' : ''}" data-rf-only-missing aria-pressed="${!!_st.onlyMissing}"
+                        title="Tickets sans description (📝), ou stories sans critère d'acceptation repéré (⚠️) — à compléter avant la séance">⚠️ ${toFix} à compléter${_st.onlyMissing ? ' · voir tout' : ''}</button>
+                    </span>`
                         : '<span class="card-subtitle">même équipe · sans points · hors epics / features</span>'}
                 </div>
                 ${groups || emptyStateHtml({ icon: '🎉', title: 'Rien à estimer', text: `Tous les tickets en cours de ${team} ont des points.`, tone: 'ok' })}
@@ -236,6 +239,12 @@ export async function renderRefinement(container) {
         const open = e.target.closest('[data-rf-open]');
         if (open) { window.__squadBoard?.openTicketModal?.(open.dataset.rfOpen); return; }
         if (e.target.closest('[data-rf-more]') && _st) { _st.showAllBacklog = true; _paint(container); return; }
+        if (e.target.closest('[data-rf-copy-fix]') && _st) {
+            const { queue } = _data(_st.team);
+            const items = queue.map(x => ({ ...x, status: _acceptance(x.t) })).filter(x => x.status !== 'ok');
+            if (items.length) copyToClipboard(toCompleteSlack(_st.team, items), 'Liste à compléter copiée');
+            return;
+        }
         if (e.target.closest('[data-rf-only-missing]') && _st) { _st.onlyMissing = !_st.onlyMissing; _paint(container); return; }
         if (e.target.closest('[data-rf-recap]') && _st) { _st.recapOpen = !_st.recapOpen; _paint(container); return; }
         const copy = e.target.closest('[data-rf-copy]');

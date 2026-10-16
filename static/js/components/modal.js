@@ -5,10 +5,11 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, toastUndo, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, priorityBadge, priorityKey, PRIORITY_META, trapFocus, cycleDays, leadDays, wipAgeDays, workdaysBetween, workdaysLeft, pointsTone, teamPointsMedian, estimationQueue, labelChipHtml, labelColor, findPerson, todayIsoLocal, getSprintForTeam } from '../utils.js';
+import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, toastUndo, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, priorityBadge, priorityKey, PRIORITY_META, trapFocus, cycleDays, leadDays, wipAgeDays, workdaysBetween, workdaysLeft, pointsTone, teamPointsMedian, estimationQueue, labelChipHtml, labelColor, findPerson, todayIsoLocal, getSprintForTeam, emptyStateHtml } from '../utils.js';
 import { ticketFlowModel, ticketFlowHtml, bindTicketFlow } from './ticket_flow.js';
 import { presenceStripHtml, sprintWorkDays, nextAbsence } from './meteo_fiche.js';
 import { pokerSoundOn, setPokerSound, playPokerSound } from './poker_sound.js';
+import { descSections, descSectionsHtml } from './desc_sections.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS, TYPE_ICONS } from '../config.js';
 
 const overlay = () => document.getElementById('modal-overlay');
@@ -1712,6 +1713,28 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
     let _refs = _pokerReferences(ticket);
     let _refsOpen = localStorage.getItem('sb-poker-refs') !== 'closed';
     let _refsPick = null;   // taille dont on choisit la référence (liste des candidats dépliée)
+    // Volet « Description » à droite de la popin : rendu calculé UNE fois (la popin se re-rend toutes
+    // les 3 s), ouvert / fermé EN PLACE (sans re-rendu, donc sans rejouer d'animation), état mémorisé.
+    let _descOpen = (() => { try { return localStorage.getItem('sb-poker-desc') === 'open'; } catch { return false; } })();
+    // `_renderCommentBody('')` rend un tiret « — » (non vide) : tester la description BRUTE, sinon le volet
+    // n'affichait jamais « Pas de description ».
+    const _descHtml = String(ticket.description || '').trim() ? (_renderCommentBody(ticket.description) || '') : '';
+    // Sections utiles pour estimer (critères d'acceptation, règles de gestion, DoD, points d'attention)
+    // épinglées en tête ; la description complète passe dessous, repliée s'il y en a.
+    const _descPinned = descSections(_descHtml);
+    const _descHasAccept = _descPinned.some(x => x.key === 'accept');
+    const _pdClosed = new Set();   // sections repliées par l'utilisateur (survit aux re-rendus de 3 s)
+    let _pdFullOpen = false;       // « Description complète » dépliée ?
+    const _descParent = ticket.epic ? [...(store.get('features') || []), ...(store.get('epics') || [])].find(x => x.id === ticket.epic) : null;
+    const _descMeta = [
+        typeBadge(ticket.type, { size: '2xs' }),
+        priorityBadge(ticket.priority, { size: '2xs' }),
+        Number(ticket.points) > 0 ? `<span class="mdl-points pts-tone--${pointsTone(ticket.points).key}">${Number(ticket.points)}<small>pts</small></span>` : '<span class="poker-desc-nopts">non estimé</span>',
+    ].join('');
+    const _descExtra = [
+        ticket.epic ? `<span class="poker-desc-parent" title="${esc(_descParent?.title || '')}">↳ <b>${esc(ticket.epic)}</b> ${esc(_descParent?.title || '')}</span>` : '',
+        (ticket.labels || []).length ? `<span class="poker-desc-labels">${ticket.labels.map(l => labelChipHtml(l)).join('')}</span>` : '',
+    ].filter(Boolean).join('');
     // Animations des cartes : la « distribution » ne se rejoue qu'au CHANGEMENT de phase (pas à chaque
     // rafraîchissement de 3 s) ; le « pop » ne vaut que pour le rendu qui suit un clic.
     let _dealtFor = null, _dealUntil = 0;
@@ -1785,7 +1808,9 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
         if (!revealed) _savePick = null;   // nouveau tour : on repart du consensus
         const picked = _savePick ?? nearest;
 
+        const descScroll = ov.querySelector('.poker-desc-body')?.scrollTop || 0;
         ov.innerHTML = `
+        <div class="poker-stage">
         <div class="poker-modal poker-phase--${phase}">
 
             <!-- Header -->
@@ -1973,10 +1998,60 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
 
             <!-- Tickets de référence : un ticket livré typique par taille, pour se caler -->
             ${_pokerRefsHtml(_refs, { open: _refsOpen, mine: typeof meVote?.val === 'number' ? meVote.val : null, nearest: revealed ? nearest : null, current: Number(ticket.points) || null, picking: _refsPick })}
+        </div>
+
+        <!-- Volet latéral « Description » : onglet vertical replié, panneau condensé déplié -->
+        <aside class="poker-desc${_descOpen ? ' is-open' : ''}" aria-label="Description du ticket">
+            <button type="button" class="poker-desc-tab" id="poker-desc-toggle" aria-expanded="${_descOpen}" aria-controls="poker-desc-panel"
+                    title="${_descOpen ? 'Replier la description' : 'Afficher la description du ticket'}">
+                <span class="poker-desc-tab-chev" aria-hidden="true">${_descOpen ? '›' : '‹'}</span>
+                <span class="poker-desc-tab-lbl">📄 Description${!_descHtml ? ' · vide' : _descHasAccept ? ' · ✅' : ''}</span>
+            </button>
+            <div class="poker-desc-panel" id="poker-desc-panel">
+                <div class="poker-desc-head">
+                    <span class="poker-desc-title">📄 Description</span>
+                    <span class="poker-desc-meta">${_descMeta}</span>
+                    ${_descExtra ? `<div class="poker-desc-extra">${_descExtra}</div>` : ''}
+                </div>
+                <div class="poker-desc-body adf-body">${!_descHtml
+                    ? emptyStateHtml({ icon: '📝', title: 'Pas de description', text: 'Le ticket n\'a pas de description dans JIRA — à préciser avant d\'estimer ?' })
+                    : _descPinned.length
+                        ? `${descSectionsHtml(_descPinned, esc, _pdClosed)}
+                           <details class="pd-full"${_pdFullOpen ? ' open' : ''}><summary>📄 Description complète</summary><div class="pd-full-body">${_descHtml}</div></details>`
+                        : `${!_descHasAccept ? '<p class="pd-hint">ℹ️ Aucun critère d\'acceptation repéré dans la description.</p>' : ''}${_descHtml}`}</div>
+            </div>
+        </aside>
         </div>`;
+        const descBody = ov.querySelector('.poker-desc-body');
+        if (descBody && descScroll) descBody.scrollTop = descScroll;
 
         // ── Listeners ───────────────────────────────────────────────────────
         ov.querySelector('#poker-close').addEventListener('click', close);
+        // État replié / déplié des sections, gardé entre deux re-rendus (« toggle » ne remonte pas : capture)
+        ov.querySelector('.poker-desc-body')?.addEventListener('toggle', e => {
+            const d = e.target;
+            if (d.matches?.('[data-pd-sec]')) { const i = Number(d.dataset.pdSec); if (d.open) _pdClosed.delete(i); else _pdClosed.add(i); }
+            else if (d.matches?.('.pd-full')) _pdFullOpen = d.open;
+        }, true);
+
+        // Puces « L'essentiel » : déplier la section visée et y défiler (dans le volet seulement)
+        ov.querySelector('.pd-nav')?.addEventListener('click', e => {
+            const chip = e.target.closest('[data-pd-go]');
+            const sec = chip && ov.querySelector(`[data-pd-sec="${chip.dataset.pdGo}"]`);
+            if (!sec) return;
+            sec.open = true;
+            const body = ov.querySelector('.poker-desc-body');
+            body.scrollTo({ top: sec.offsetTop - body.offsetTop - 8, behavior: 'smooth' });
+        });
+        ov.querySelector('#poker-desc-toggle')?.addEventListener('click', e => {
+            _descOpen = !_descOpen;
+            try { localStorage.setItem('sb-poker-desc', _descOpen ? 'open' : 'closed'); } catch { /* navigation privée */ }
+            const aside = ov.querySelector('.poker-desc'), btn = e.currentTarget;
+            aside.classList.toggle('is-open', _descOpen);
+            btn.setAttribute('aria-expanded', String(_descOpen));
+            btn.title = _descOpen ? 'Replier la description' : 'Afficher la description du ticket';
+            btn.querySelector('.poker-desc-tab-chev').textContent = _descOpen ? '›' : '‹';
+        });
         ov.querySelector('#poker-refs-toggle')?.addEventListener('click', () => {
             _refsOpen = !_refsOpen;
             try { localStorage.setItem('sb-poker-refs', _refsOpen ? 'open' : 'closed'); } catch { /* navigation privée */ }

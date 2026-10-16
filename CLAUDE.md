@@ -184,6 +184,12 @@ python main.py          # http://localhost:3001  — Swagger /docs
   « dates projetées ». `computeCapacityNextPI` (utils.js) n'a plus d'appelant.
   Carte = TOUJOURS le PI sélectionné ; PI en cours/passé → + « Réalisé » ; ligne « Fiabilité de
   la base » = réalisé ÷ base des 3 PI clos précédents (✓ ≤ 10 %, ~ ≤ 25 %, ✗ au-delà).
+  Détail « Par itération » : base du sprint (`sprintCapacityBase`, somme = total) ↔ j/h PRÉSENTS =
+  UNIQUEMENT `iterationManDays` (meteo_fiche.js — aussi la carte roster du Dashboard, navigable ‹ › via
+  `rosterSprints`, qui projette les pts par le MÊME `sprintCapacityBase`) ↔ réalisé. La base lit les
+  fiches d'absence, les j/h la bande de présence (fériés déduits) : un léger écart est normal.
+  ⚠️ AFFICHAGE : jamais « ETP » (choix utilisateur) — capacité en story points, présence en j/h ;
+  `teamEtp` / `.etp` restent les noms internes (= j/h par jour ouvré).
   ⚠️ Vélocité réalisée d'un sprint = UNIQUEMENT `sprintRealizedVelocity(tickets, sprint)`
   (capacity-base.js) — Santé (base, fiabilité) ET page PI (Capacité, cumul via
   `_withRealizedVelocity`). Ordre : Done locaux restés dans le sprint > JIRA si > 0 > 0 si des
@@ -578,6 +584,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
   du Poker (`_nextToEstimate`) ET page **🃏 Affinage** (`views/refinement.js`, `#refinement/<équipe>`, groupe
   Équipe & RH) — séance = tours du jour (`GET /api/poker-rounds?team&since`), 🗳 = `GET /api/poker-sessions`.
   Valeur enregistrée = suite de Fibonacci SEULEMENT (pastilles, choix gardé dans `_savePick` : re-rendu de 3 s).
+  Volet « Description » à droite de la popin (`.poker-stage` > `.poker-modal` + `.poker-desc`) : rendu calculé
+  UNE fois, ouvert / fermé EN PLACE (`sb-poker-desc`), défilement conservé au re-rendu ; < 1180 px il se superpose.
+  « 📌 L'essentiel pour estimer » = `descSections` (components/desc_sections.js) : critères d'acceptation, règles
+  de gestion, DoD, points d'attention, repérés sur un TITRE `hN` ou un PARAGRAPHE-LIBELLÉ court (gras ou « : »),
+  jamais dans une phrase ; état replié des sections gardé par l'appelant (`_pdClosed`).
+  Page Affinage : 📝 = description vide (tous types), ⚠️ = STORY sans critère d'acceptation repéré
+  (`acceptanceStatus`, même repérage que le volet ; une tâche sans critère est normale) + filtre « à compléter ».
   Récap de séance à partager = `components/refinement_recap.js` : UN modèle (`refinementRecapModel`) → Slack
   (mrkdwn), Teams / mail (HTML à styles EN LIGNE, `text/html` + `text/plain`), CSV — ne pas dupliquer un chiffre.
   ⚠️ Front servi frais (`NoCacheStaticFiles`) mais routes Python figées au lancement : un serveur sans `--reload`

@@ -15,7 +15,7 @@
 import { store } from '../state.js';
 import * as api from '../api.js';
 import {
-    esc, fmtRelative, typeBadge, copyToClipboard, priorityBadge, pointsTone, emptyStateHtml,
+    esc, fmtRelative, typeBadge, copySlack, priorityBadge, pointsTone, emptyStateHtml,
     estimationQueue, ESTIMATION_GROUPS, getSprintForTeam, workdaysBetween, parseWikiMarkup,
 } from '../utils.js';
 import { refinementRecapModel, recapSlack, recapHtml, copyRecapRich, downloadRecapCsv, toCompleteSlack } from '../components/refinement_recap.js';
@@ -242,7 +242,7 @@ export async function renderRefinement(container) {
         if (e.target.closest('[data-rf-copy-fix]') && _st) {
             const { queue } = _data(_st.team);
             const items = queue.map(x => ({ ...x, status: _acceptance(x.t) })).filter(x => x.status !== 'ok');
-            if (items.length) copyToClipboard(toCompleteSlack(_st.team, items), 'Liste à compléter copiée');
+            if (items.length) copySlack(toCompleteSlack(_st.team, items), 'Liste à compléter copiée');
             return;
         }
         if (e.target.closest('[data-rf-only-missing]') && _st) { _st.onlyMissing = !_st.onlyMissing; _paint(container); return; }
@@ -251,7 +251,7 @@ export async function renderRefinement(container) {
         if (copy && _st) {
             const { queue, rounds } = _data(_st.team);
             const m = refinementRecapModel({ team: _st.team, rounds, queue });
-            if (copy.dataset.rfCopy === 'slack') copyToClipboard(recapSlack(m), 'Récap Slack copié');
+            if (copy.dataset.rfCopy === 'slack') copySlack(recapSlack(m), 'Récap Slack copié');
             else if (copy.dataset.rfCopy === 'rich') copyRecapRich(m);
             else downloadRecapCsv(m);
         }

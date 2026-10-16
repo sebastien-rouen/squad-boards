@@ -548,6 +548,7 @@ details[open] .feat-buf-toggle-icon { transform: rotate(90deg); }
 .psf-unit button:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: -2px; }
 .psf-note { margin: 0 0 8px; font-size: 12px; color: var(--warning); }
 .psf-elapsed-key { color: #EF4444; font-weight: 700; }
+.psf-add-key { color: #C026D3; font-weight: 700; }
 .psf-chart { position: relative; height: 260px; margin: 6px 0 10px; }
 .psf-table-wrap { overflow-x: auto; }
 .psf-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; table-layout: fixed; }

@@ -8,7 +8,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, sumBy, toast, ticketModalOnTop, copyToClipboard, getSprintForTeam, isBufferItem, computeStageFlow, trapFocus, engagedInSprint, sprintStartsOf, isInSprint, carriedOverTo, extractSprintLabel, cycleDays, leadDays } from '../utils.js';
+import { esc, pct, sumBy, toast, ticketModalOnTop, copySlack, getSprintForTeam, isBufferItem, computeStageFlow, trapFocus, engagedInSprint, sprintStartsOf, isInSprint, carriedOverTo, extractSprintLabel, cycleDays, leadDays } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, STATUS_MAP, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { renderBurndown, renderBurnup } from './charts.js';
@@ -353,7 +353,7 @@ function _renderShell(sprint, tickets, opts = {}) {
     // Boutons copier + télécharger — initial render. Re-bindés après fetch JIRA.
     overlay.querySelector('#sb-modal-copy')?.addEventListener('click', () => {
         const txt = _buildSprintReport(sprint, tickets);
-        copyToClipboard(txt, 'Rapport sprint');
+        copySlack(txt, 'Rapport sprint');
     });
     overlay.querySelector('#sb-modal-dl-md')?.addEventListener('click', () => {
         const md = _buildSprintReportMd(sprint, tickets);
@@ -635,7 +635,7 @@ function _rerenderBody(overlay, sprint, tickets, opts = {}) {
     };
     rebind('sb-modal-copy', () => {
         const txt = _buildSprintReport(sprint, tickets);
-        copyToClipboard(txt, 'Rapport sprint');
+        copySlack(txt, 'Rapport sprint');
     });
     rebind('sb-modal-dl-md', () => {
         const md = _buildSprintReportMd(sprint, tickets);

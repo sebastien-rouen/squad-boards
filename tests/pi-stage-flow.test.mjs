@@ -204,6 +204,37 @@ describe('piStageFlowModel — flux jour par jour', () => {
         assert.equal(F.piFlowEpicRows(none).at(-1).label, 'Sans epic');
         assert.equal(F.piFlowPick(none, { epic: '__none' }).length, 3);
     });
+    test('repères ADDED SCOPE du graphique : jour d\'entrée de chaque ajout, cumul par jour, clic = ce jour-là', () => {
+        const late = tk('G', { points: 3, jiraStatus: 'Prêt', createdAt: '2025-12-29T10:00:00.000+0100' });
+        const late2 = tk('K', { points: 2, jiraStatus: 'À Faire', createdAt: '2025-12-27T10:00:00.000+0100' });   // samedi
+        const m = model({ tickets: [...fixtures(), late, late2], teams: ['O', 'X'] });
+        const d29 = m.days.indexOf('2025-12-29');
+        assert.deepEqual({ ...m.addedDays[d29], ids: m.addedDays[d29].ids.sort() }, { v: 5, n: 2, ids: ['G', 'K'] }, 'samedi → jour ouvré suivant');
+        assert.equal(m.addedDays.filter(Boolean).length, 1);
+        assert.deepEqual(F.piFlowPick(m, { key: '__added', addedDay: d29 }).map(x => x.t.id), ['G', 'K']);
+        assert.equal(F.piFlowPick(m, { key: '__added', addedDay: 0 }).length, 0);
+    });
+    test('« Copier pour Slack » du détail par epic : texte brut SANS balisage + HTML avec liens cliquables', () => {
+        // Collé dans le compositeur Slack, le mrkdwn s'affichait tel quel (« *Epic* », « <url|GCOM-1> ») : la copie
+        // porte désormais du HTML (gras, liens) et un texte brut propre de secours.
+        const withEpics = fixtures().map(t => ({ ...t, title: `Titre ${t.id} <b>`, epic: { A: 'E1', D: 'E1', F: 'E2' }[t.id] || '' }));
+        const late = tk('G', { points: 3, jiraStatus: 'Prêt', title: 'Ajout', epic: 'E2', createdAt: '2025-12-29T10:00:00.000+0100' });
+        const m = model({ tickets: [...withEpics, late], teams: ['O', 'X'] });
+        const opts = { title: 'GCOM - O', epicTitle: id => ({ E1: 'Epic Un', E2: 'Epic Deux' })[id], jiraUrl: 'https://jira.example', today: '2026-01-02' };
+        const txt = F.piFlowEpicText(m, opts), lines = txt.split('\n');
+        assert.equal(lines[0], '📂 Détail par epic — GCOM - O · PI 31 (02/01)');
+        assert.equal(lines[1], '9 pts · ✅ 44 % terminé ⚠️ · ⏳ 58 % du PI écoulé · ➕ Added scope −3 pts', '⚠️ : en retard sur le temps écoulé');
+        assert.ok(lines.includes('Epic Deux — 5 pts · 🔵 5 · ➕ −3'));
+        assert.ok(lines.includes('    🔵 G Ajout · Prêt · 3 pts · ➕'), 'ticket en cours : id, titre, statut du jour, points');
+        assert.ok(lines.includes('    ✅ A, D'), 'terminés groupés');
+        assert.doesNotMatch(txt, /\*|<https?:|\||(^|\s)_\S/m, 'aucun balisage mrkdwn dans le texte brut');
+        assert.match(txt, /F Titre F <b> · Prêt/, 'texte brut : le titre tel quel, sans échappement HTML');
+        const html = F.piFlowEpicHtml(m, opts);
+        assert.match(html, /<b>Epic Deux<\/b>/);
+        assert.match(html, /<a href="https:\/\/jira\.example\/browse\/G">G<\/a>/);
+        assert.match(html, /Titre F &lt;b&gt;/, 'titres échappés dans le HTML');
+        assert.doesNotMatch(F.piFlowEpicHtml(m, { ...opts, jiraUrl: '' }), /<a /, 'sans base JIRA : pas de lien');
+    });
     test('PI sans bornes : pas de modèle', () => {
         assert.equal(F.piStageFlowModel({ tickets: [], piNum: 31, bounds: null }), null);
     });

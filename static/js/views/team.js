@@ -11,7 +11,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, toast, hashColor, initials, effectiveRosterForPi, teamNameMatches, confirmDanger, copyToClipboard, promptModal, extractTeam, getCurrentPi, diagramFrameHtml, fileExt, ZOOMABLE_IMAGE_EXT } from '../utils.js';
+import { esc, toast, hashColor, initials, effectiveRosterForPi, teamNameMatches, confirmDanger, copySlack, promptModal, extractTeam, getCurrentPi, diagramFrameHtml, fileExt, ZOOMABLE_IMAGE_EXT } from '../utils.js';
 import { openMemberCard } from './atlas.js';
 import { mountTeamCalendar } from '../components/team_calendar.js';
 import { mountTeamTimeline } from '../components/team_timeline.js';
@@ -266,7 +266,7 @@ function _bindIdentityForm(container, team) {
     });
     container.querySelector('#btn-copy-slack')?.addEventListener('click', () => {
         const identity = (store.get('teamIdentities') || []).find(i => i.team === team) || {};
-        copyToClipboard(_buildSlackText(team, identity), 'Copié pour Slack');
+        copySlack(_buildSlackText(team, identity), 'Copié pour Slack');
     });
     container.querySelectorAll('.team-id-member-chip[data-member]').forEach(btn => {
         btn.addEventListener('click', () => openMemberCard(btn.dataset.member));

@@ -12,7 +12,7 @@ import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
 import { registerExternalChart, renderCycleTime, renderPiFlow } from '../components/charts.js';
 import { piStageFlowModel, piFlowCardHtml, bindPiFlowCards, piFlowUnit, piFlowView, piFlowPct, piFlowLate, bufferTest, lineProductScope } from '../components/pi_stage_flow.js';
-import { METEO_GLYPH, VOTE_KINDS, toastUndo, effectiveRosterForPi, teamNameMatches, isWorkday, percentile } from '../utils.js';
+import { METEO_GLYPH, VOTE_KINDS, toastUndo, effectiveRosterForPi, teamNameMatches, isWorkday, percentile, copySlack } from '../utils.js';
 import { meteoSummary, METEO_MC } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
 import { updateInfoPanel } from '../components/infopanel.js';
@@ -591,11 +591,11 @@ function _piFlowCards(piNum) {
     const epicTitle = id => titles.get(id) || id;
     const isTeam = team && team !== 'all';
     const fromLine = l => ({ id: l.group ? 'group' : 'all', title: l.title, prefix: l.prefix, boundsTeam: 'all', tickets: l.tickets, teams: l.teams,
-        epics: { teams: l.teams, team: isTeam && l.teams.includes(team) ? team : '', epicTitle } });
+        epics: { teams: l.teams, team: isTeam && l.teams.includes(team) ? team : '', epicTitle, jiraUrl: store.get('jiraUrl') || '' } });
     const specs = [];
     if (isTeam && !line) {
         specs.push({ id: 'team', title: team, prefix: '', boundsTeam: team, tickets: all.filter(t => t.team === team), teams: [],
-            epics: { teams: [], team: '', epicTitle },
+            epics: { teams: [], team: '', epicTitle, jiraUrl: store.get('jiraUrl') || '' },
             note: `${esc(team)} n'est rattachée à aucune ligne produit : <a href="#settings">Paramètres → Lignes produit / Groupes</a>.` });
     } else {
         specs.push(fromLine(line));
@@ -2603,9 +2603,8 @@ function renderSupportRota(el, { teams, teamObjects }) {
                     }).join(', ');
                     lines.push(`  • ${w.label} (${_fmtD(w.weekStart)} → ${_fmtD(w.weekEnd)}) : ${members || '—'}`);
                 }
-                navigator.clipboard.writeText(lines.join('\n'))
-                    .then(() => { btn.textContent = '✓ Copié !'; setTimeout(() => { btn.textContent = '📋 Copier'; }, 1500); })
-                    .catch(() => toast('Copie impossible', 'error'));
+                copySlack(lines.join('\n'), 'Rotation copiée')
+                    .then(ok => { if (ok) { btn.textContent = '✓ Copié !'; setTimeout(() => { btn.textContent = '📋 Copier'; }, 1500); } });
             });
         });
     };

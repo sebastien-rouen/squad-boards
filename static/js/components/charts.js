@@ -602,6 +602,30 @@ export function renderPiFlow(canvasId, m, title = 'Flux cumulé par état', opts
     }
 
     _ensureTodayPlugin();
+    // Repères ADDED SCOPE (3.226.0) : « +N » au-dessus de la pile les jours où des tickets sont entrés dans le PI
+    // (hors Buffer) — relie un saut de la pile à son ajout. Position calculée une fois par rendu, pour le clic.
+    const ADD = '#C026D3';
+    const stackTop = i => stages.reduce((a, s) => a + (m.series[s.key][i] || 0), 0);
+    let marks = [];
+    const addedPlugin = {
+        id: 'sbAddedScope',
+        afterDatasetsDraw(chart) {
+            const { ctx: g, scales: { x, y } } = chart;
+            marks = [];
+            g.save();
+            g.font = '700 10px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+            (m.addedDays || []).forEach((a, i) => {
+                if (!a?.v || i >= m.shownN) return;   // ajouts non estimés : rien à montrer en points
+                const px = x.getPixelForValue(i), py = y.getPixelForValue(stackTop(i)) - 4;
+                g.fillStyle = ADD;
+                g.beginPath(); g.moveTo(px, py); g.lineTo(px - 4, py - 6); g.lineTo(px + 4, py - 6); g.closePath(); g.fill();
+                g.fillText(`+${fmt(a.v)}`, px, py - 7);
+                marks.push({ i, px, py: py - 10 });
+            });
+            g.restore();
+        },
+    };
+    const markAt = evt => marks.find(k => Math.abs(evt.x - k.px) <= 9 && Math.abs(evt.y - k.py) <= 12);
     // Bande sous le pointeur : cumul des états du jour, de bas (05) en haut (00).
     const bandAt = (chart, evt) => {
         const i = chart.scales.x.getValueForPixel(evt.x);
@@ -618,6 +642,7 @@ export function renderPiFlow(canvasId, m, title = 'Flux cumulé par état', opts
     };
     _charts.set(canvasId, new Chart(c, {
         type: 'line',
+        plugins: [addedPlugin],
         data: {
             labels: m.labels,
             datasets: stages.map(s => ({
@@ -629,9 +654,19 @@ export function renderPiFlow(canvasId, m, title = 'Flux cumulé par état', opts
         options: {
             ...base,
             todayIndex: m.todayIndex,
-            onClick: pick && ((evt, _els, chart) => { const b = bandAt(chart, evt); if (b) pick({ ...b, team: '' }); }),
-            onHover: pick && ((evt, _els, chart) => { evt.native.target.style.cursor = bandAt(chart, evt) ? 'pointer' : 'default'; }),
-            plugins: { ...base.plugins, legend, tooltip: { ...tooltip, reverse: false } },
+            layout: { padding: { top: 16 } },   // place des repères « +N » au-dessus de la pile
+            onClick: pick && ((evt, _els, chart) => {
+                const k = markAt(evt);
+                if (k) { pick({ key: '__added', addedDay: k.i, i: k.i, team: '' }); return; }
+                const b = bandAt(chart, evt); if (b) pick({ ...b, team: '' });
+            }),
+            onHover: pick && ((evt, _els, chart) => { evt.native.target.style.cursor = markAt(evt) || bandAt(chart, evt) ? 'pointer' : 'default'; }),
+            plugins: { ...base.plugins, legend, tooltip: { ...tooltip, reverse: false, callbacks: { ...tooltip.callbacks,
+                footer: items => {
+                    const a = m.addedDays?.[items[0]?.dataIndex]?.v ? m.addedDays[items[0].dataIndex] : null;
+                    return [tooltip.callbacks.footer(items), a ? `➕ ${fmt(a.v)} ${unit} entrés dans le PI ce jour (${a.ids.slice(0, 4).join(', ')}${a.ids.length > 4 ? '…' : ''})` : '']
+                        .filter(Boolean).join('\n');
+                } } } },
             scales: {
                 x: { ...base.scales.x, stacked: true, ticks: { ...base.scales.x.ticks, maxRotation: 0, autoSkipPadding: 8 } },
                 y: { ...base.scales.y, stacked: true, title: { display: true, text: unit, color: css('--text-muted') || '#94a3b8', font: { size: 10 } } },

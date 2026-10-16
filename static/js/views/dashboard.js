@@ -242,7 +242,12 @@ export function renderDashboard(container) {
         bounds: piBounds({ team: 'all', sprintInfo: sprintInfoAll, piInfo, piNum: displayPiNum }),
         isBuffer: bufferTest(store.get('features') || []),
     }) : null;
-    const _psrHtml = _psrModel ? piFlowRowsHtml(_psrModel, { title: _psrLine.title, highlight: team,
+    // « 📋 Détail par epic » : même message Slack que la page PI, sur l'équipe filtrée (sinon toute la ligne produit).
+    const _psrTeam = team && team !== 'all' && _psrLine?.teams.includes(team) ? team : '';
+    const _epicTitles = new Map([...(store.get('epics') || []), ...(store.get('features') || [])].map(x => [x.id, x.title]));
+    const _psrCopy = _psrLine ? { title: _psrTeam ? `${_psrLine.prefix}${_psrTeam}` : _psrLine.title, team: _psrTeam,
+        epicTitle: id => _epicTitles.get(id) || id, jiraUrl: store.get('jiraUrl') || '' } : null;
+    const _psrHtml = _psrModel ? piFlowRowsHtml(_psrModel, { title: _psrLine.title, highlight: team, copyLabel: _psrCopy?.title || '',
         href: `#pi/${groupId && (!team || team === 'all') ? `group:${encodeURIComponent(groupId)}` : encodeURIComponent(team || 'all')}/indicators` }) : '';
     const _pipOpts = {
         label: team && team !== 'all' ? team : (groups.find(g => g.id === groupId)?.name || 'Toutes les équipes'),
@@ -835,7 +840,7 @@ export function renderDashboard(container) {
         if (oncall) mountNavRail(oncall, { labelPrev: 'Personnes précédentes', labelNext: 'Personnes suivantes' });
         bindStageFlowCard(container, _flowScopeTickets, _flowCardOpts);
         bindPiProgress(container, _pipModel, _pipOpts);
-        bindPiFlowRows(container, _psrModel);
+        bindPiFlowRows(container, _psrModel, _psrCopy);
         bindAgingWipCard(container);
         bindSlaReviewCard(container, tickets);
         bindMeteoMatrix(container);

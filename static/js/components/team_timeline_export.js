@@ -12,7 +12,7 @@
  *    correctrice limitée à cette image-témoin, posée le temps de l'export (`METRICS_FIX`).
  */
 
-import { esc, toast, copyToClipboard, exportChoiceModal } from '../utils.js';
+import { esc, toast, copyToClipboard, copySlack, exportChoiceModal } from '../utils.js';
 import { store } from '../state.js';
 import { CATS, FACT_TYPES, fmt, fmtY, fmtShort, monthName, diff, dayOfWeek, collectView, summary, timelineToday, mepFollowUps, onePeopleList, shortName } from './team_timeline_model.js';
 import { lanesHtml } from './team_timeline_lanes.js';
@@ -120,7 +120,7 @@ export async function openTimelineExport(st) {
             } else {
                 const md = toMarkdown(img.est, c, s);
                 if (picked.format === 'md-copy') await copyToClipboard(md, 'Markdown copié');
-                else if (picked.format === 'slack') await copyToClipboard(toSlack(md), 'Copié pour Slack');
+                else if (picked.format === 'slack') await copySlack(toSlack(md), 'Copié pour Slack');
                 else { download(mdBlob(md), `${fileName(img.est)}.md`); toast('Markdown exporté', 'success'); }
             }
         } catch (e) {

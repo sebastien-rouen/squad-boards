@@ -36,7 +36,7 @@ const _EXPLAIN = {
     },
     piflow: {
         read: 'Une bande par <strong>état du rapport JIRA</strong> (00.TODO en haut → 05.DEVELOPMENT_DONE en bas), en story points ou en tickets, <strong>jour ouvré par jour ouvré</strong> sur le PI. Chaque jour rejoue l’historique réel des tickets (sprint, statut, points à cette date) : rien n’est interpolé. Le haut de la pile = périmètre du PI ce jour-là ; le dernier jour = le tableau sous le graphique.',
-        tip: 'Une bande <strong>03 / 04</strong> qui s’épaissit = travail qui s’accumule en cours ou en test (goulot). Le vert doit monter régulièrement vers le haut de la pile ; une pile qui <em>baisse</em> signale des tickets retirés du PI, une pile qui monte des ajouts.',
+        tip: 'Une bande <strong>03 / 04</strong> qui s’épaissit = travail qui s’accumule en cours ou en test (goulot). Le vert doit monter régulièrement vers le haut de la pile ; une pile qui <em>baisse</em> signale des tickets retirés du PI, une pile qui monte des ajouts. Le repère <strong>▼ +N</strong> marque les jours où des tickets sont entrés dans le PI (hors Buffer : l’Added scope du tableau) — cliquer dessus pour les lister.',
     },
     throughput: {
         read: 'Nombre de tickets <strong>terminés par jour</strong>. Les barres grises sont les week-ends ; la courbe bleue est la moyenne glissante sur 3 jours.',

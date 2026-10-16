@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, getCurrentPi, effectiveRosterForPi, teamNameMatches, toast, supportMembersOnDay } from '../utils.js';
+import { esc, getCurrentPi, effectiveRosterForPi, teamNameMatches, toast, supportMembersOnDay, copySlack } from '../utils.js';
 
 const ABSENCE_CONFIG = {
     conge:     { label: 'Congé',     color: '#991b1b', bg: '#fecaca' },
@@ -545,7 +545,7 @@ export function renderAgenda(container) {
             msg = `🎧 *Support · ${dateRange}* : ${_atNames(supportThisWeek)}`;
         }
         try {
-            await navigator.clipboard.writeText(msg);
+            if (!await copySlack(msg)) throw new Error('copie');
             if (btn) _copyDone(btn, '📋 Copier');
         } catch {}
     });
@@ -567,7 +567,7 @@ export function renderAgenda(container) {
             lines.push(`  • ${_slackName(name)} (${_dayRange(idxs[0], idxs[idxs.length - 1])})`);
         }
         try {
-            await navigator.clipboard.writeText(lines.join('\n'));
+            if (!await copySlack(lines.join('\n'))) throw new Error('copie');
             if (btn) { btn.textContent = '✓'; setTimeout(() => { btn.textContent = '📋'; }, 1600); }
         } catch {}
     });
@@ -625,7 +625,7 @@ export function renderAgenda(container) {
         if (_absLines.length) { lines.push(..._absLines); lines.push(''); }
 
         try {
-            await navigator.clipboard.writeText(lines.join('\n').trimEnd());
+            if (!await copySlack(lines.join('\n').trimEnd())) throw new Error('copie');
             if (btn) _copyDone(btn, '📋 Semaine');
         } catch {}
     });
@@ -699,7 +699,7 @@ export function renderAgenda(container) {
             if (dayAbsLines.length) { lines.push(...dayAbsLines); lines.push(''); }
 
             try {
-                await navigator.clipboard.writeText(lines.join('\n').trimEnd());
+                if (!await copySlack(lines.join('\n').trimEnd())) throw new Error('copie');
                 btn.textContent = '✓';
                 setTimeout(() => { btn.textContent = '📋'; }, 1600);
             } catch {

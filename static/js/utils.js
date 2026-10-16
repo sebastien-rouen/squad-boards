@@ -23,8 +23,10 @@ export * from './utils/person-name.js';    // même personne JIRA « Prénom Nom
 export * from './utils/estimation-queue.js'; // file des tickets à estimer (séance d'affinage, Poker « Suivant »)
 export * from './utils/vote-kinds.js';     // échelles Mood / Fist of Five (Santé, info-panel)
 export * from './utils/jira-stages.js';    // états du rapport JIRA du train (00.TODO → 05.DEVELOPMENT_DONE), 3.225.0
+export * from './utils/rich-copy.js';      // mrkdwn → HTML enrichi + texte brut (copies Slack), 3.227.0
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
+import { mrkdwnToHtml, mrkdwnToPlain } from './utils/rich-copy.js';   // usages internes à ce fichier
 import { extractSprintLabel, sprintNamesOf, activeSprintFromTickets, currentSprintNames, jiraDateMs, isAbandoned } from './utils/sprint-scope.js';   // usages internes à ce fichier
 import { getInactiveSupportMembers } from './utils/support.js';   // usages internes à ce fichier
 
@@ -639,6 +641,27 @@ export async function copyToClipboard(text, label = 'Copié') {
     } catch (e) {
         toast(`Copie impossible : ${e.message}`, 'error');
         return false;
+    }
+}
+
+/**
+ * « Copier pour Slack » : le message (écrit en mrkdwn) part en HTML enrichi — gras, liens cliquables — ET en texte
+ * brut sans balisage (`utils/rich-copy.js`). Copier le mrkdwn tel quel l'affichait brut une fois collé dans Slack
+ * (« *Support* », « <url|GCOM-1> »). Repli texte brut hors contexte sécurisé (http par IP du réseau local).
+ * @returns {Promise<boolean>}
+ */
+export async function copySlack(md, label = 'Copié pour Slack') {
+    const plain = mrkdwnToPlain(md);
+    try {
+        if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('presse-papiers riche indisponible');
+        await navigator.clipboard.write([new ClipboardItem({
+            'text/html': new Blob([mrkdwnToHtml(md)], { type: 'text/html' }),
+            'text/plain': new Blob([plain], { type: 'text/plain' }),
+        })]);
+        toast(`${label} — collez-le dans Slack`, 'success', 1800);
+        return true;
+    } catch {
+        return copyToClipboard(plain, label);
     }
 }
 

@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, hashColor, toast, getSprintForTeam, getCurrentPi, extractTeam, relevantCalendars, lastCalendarSync, supportMembersOnDay, previousWorkingDayIso, calNatureWithRules } from '../utils.js';
+import { esc, hashColor, toast, getSprintForTeam, getCurrentPi, extractTeam, relevantCalendars, lastCalendarSync, supportMembersOnDay, previousWorkingDayIso, calNatureWithRules, copySlack } from '../utils.js';
 import * as api from '../api.js';
 import { holidayName } from '../utils/holidays.js';
 
@@ -1092,7 +1092,7 @@ function _wireWeekContent(overlay, allEvents, refresh, navigate, resetToToday, t
             const dayEvs = allEvents.filter(ev => _eventCoversDay(ev, dk));
             const msg = _buildDaySlack(dayEvs, day);
             try {
-                await navigator.clipboard.writeText(msg);
+                if (!await copySlack(msg)) throw new Error('copie');
                 btn.textContent = '✓';
                 setTimeout(() => { btn.textContent = '📋'; }, 1800);
             } catch {
@@ -1109,7 +1109,7 @@ function _wireWeekContent(overlay, allEvents, refresh, navigate, resetToToday, t
             const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
             const msg = _buildWeekSlack(allEvents, days);
             try {
-                await navigator.clipboard.writeText(msg);
+                if (!await copySlack(msg)) throw new Error('copie');
                 copyBtn.textContent = '✓';
                 copyBtn.title = 'Copié !';
                 setTimeout(() => { copyBtn.textContent = '📋'; copyBtn.title = 'Copier la semaine (Slack)'; }, 1800);

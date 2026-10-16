@@ -11,7 +11,7 @@
  *   • CLIQUABLE : un segment, une légende ou la barre d'une équipe déplie la liste de ces tickets sous la
  *     barre (re-cliquer = replier) ; chaque ligne ouvre la modale du ticket.
  */
-import { esc, pct, sumBy, engagedInPi, getStatusLabel, wipAgeDays, workdaysBetween, copyToClipboard, todayIsoLocal } from '../utils.js';
+import { esc, pct, sumBy, engagedInPi, getStatusLabel, wipAgeDays, workdaysBetween, copySlack, todayIsoLocal } from '../utils.js';
 import { TYPE_ICONS } from '../config.js';
 
 const _fmtDay = iso => new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
@@ -221,7 +221,7 @@ export function bindPiProgress(container, m, opts) {
     };
     card.addEventListener('click', e => {
         if (e.target.closest('[data-pip-copy]')) {
-            if (m.sp.by.wip.length) copyToClipboard(riskTicketsText(m, opts), 'Tickets à risque copiés');
+            if (m.sp.by.wip.length) copySlack(riskTicketsText(m, opts), 'Tickets à risque copiés');
             return;
         }
         if (e.target.closest('[data-pip-close]')) { open = null; panel.hidden = true; card.querySelectorAll('.is-active[data-pip-bucket]').forEach(el => el.classList.remove('is-active')); return; }

@@ -1,3 +1,22 @@
+## [3.227.0] - 2026-10-17
+
+### Ajouts au PI visibles dans le flux, copies Slack lisibles partout, détail par epic sur le Dashboard
+
+- **Repères ▼ +N** sur le graphique Flux de la ligne produit : les jours où des tickets sont entrés dans le PI
+  (hors Buffer, l'Added scope du tableau), au-dessus de la pile — relie un saut à son ajout. Infobulle avec les
+  tickets, clic = la liste des ajouts de ce jour-là.
+- **Détail par epic → 📋 Copier pour Slack** : message lisible au lieu d'un tableau. En-tête (périmètre, part
+  terminée, temps écoulé, Added scope), puis par epic une synthèse par état (un emoji par état) et ses tickets
+  — en cours un par ligne (titre, statut du jour, points), terminés groupés ; ➕ = ajout. Copié en TEXTE ENRICHI
+  (titres en gras, numéros de tickets cliquables vers JIRA) avec un texte brut propre de secours : aucun `*`,
+  `_` ni `<lien|ID>` affiché une fois collé dans Slack.
+- **Toutes les copies « pour Slack » en texte enrichi** : tickets à risque (Dashboard), message et pool de
+  rotation, récap et liste « à compléter » de l'Affinage, sondages Mood / Fist, journée et semaine du bandeau
+  calendrier, messages d'Agenda, rotation de la page PI, rapport de sprint, carte d'équipe, export Slack de la
+  frise. Gras, italique et liens cliquables conservés au collage, texte brut sans balisage en secours.
+- **Dashboard → Avancement du PI → 📋 Détail par epic** : le même message que la page PI, pour l'équipe filtrée
+  (ou toute la ligne produit), sans quitter le Dashboard.
+
 ## [3.226.0] - 2026-10-17
 
 ### Added scope du PI, détail par epic, états JIRA de la ligne produit sur le Dashboard

@@ -29,7 +29,7 @@ import {
     getSupportPool, saveSupportPool, poolQuotaTotal, POOL_ALL_KEY,
     generatePooledSupportRotation, carrySupportRowsOutside,
     posteOfRole, posteRoles, posteLabel, remapQuotasToPostes,
-    copyToClipboard, promptModal,
+    copySlack, promptModal,
 } from '../utils.js';
 import { buildPiWeeks } from '../utils/pi-weeks.js';
 import { _rotRefreshPanels, _rotWireDayCells } from './settings-rotation.js';
@@ -584,9 +584,9 @@ export function wirePoolSection(container) {
     };
 
     root.querySelector('#rot-pool-copy')?.addEventListener('click', () => {
-        // `copyToClipboard` gère le repli execCommand : `navigator.clipboard` est absent
+        // `copySlack` (repli `copyToClipboard`) gère le repli execCommand : `navigator.clipboard` est absent
         // hors contexte sécurisé (accès en http par IP LAN) et lève une TypeError synchrone.
-        copyToClipboard(_message(), 'Message du pool copié');
+        copySlack(_message(), 'Message du pool copié');
     });
 
     // Clic droit → libellé du rôle, comme sur le bouton Copier d'une équipe

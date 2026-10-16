@@ -3,7 +3,7 @@
  * Partagé entre reports.js et pi.js.
  */
 
-import { copyToClipboard } from '../utils.js';
+import { copySlack } from '../utils.js';
 
 export const SONDAGE_TEMPLATES = [
   { theme: ':roller_coaster: Votre humeur en 1 emoji ?',
@@ -273,7 +273,7 @@ export const SONDAGE_INTRO = {
 export function wireSlackCopy(btn, getText, label = '📋 Copier') {
   if (!btn) return;
   btn.addEventListener('click', async () => {
-    const ok = await copyToClipboard(getText(), 'Message Slack copié');
+    const ok = await copySlack(getText(), 'Message Slack copié');
     btn.textContent = ok ? '✓ Copié !' : label;
     setTimeout(() => { btn.textContent = label; }, 1500);
   });

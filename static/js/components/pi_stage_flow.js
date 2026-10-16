@@ -12,7 +12,7 @@
  * historique tronqué (le statut le plus ancien connu vaut alors pour les jours d'avant).
  */
 import { esc, extractPiNum, belongedToPi, piEntryMs, isBufferItem, sprintNamesAt, historyOf, jiraDateMs, isWorkday, workdaysBetween, burnDayKey, mapStatus,
-    stageOfLabel, JIRA_STAGES, copyToClipboard, todayIsoLocal, emptyStateHtml, teamNameMatches } from '../utils.js';
+    stageOfLabel, JIRA_STAGES, copyToClipboard, toast, todayIsoLocal, emptyStateHtml, teamNameMatches } from '../utils.js';
 
 const UNIT_KEY = 'sb-pi-stageflow-unit';
 export const piFlowUnit = () => { try { return localStorage.getItem(UNIT_KEY) === 'tickets' ? 'tickets' : 'pts'; } catch { return 'pts'; } };
@@ -164,14 +164,28 @@ export function piStageFlowModel({ tickets = [], piNum, bounds, today = todayIso
     // réservée : ses ajouts sont prévus). Une réestimation n'est pas un ajout ; un ajout retiré depuis ne compte plus.
     // JIRA l'affiche en NÉGATIF — conservé à l'écran et à la copie pour que les deux tableaux se comparent.
     const startCut = _endOfDayMs(bounds.startIso);
-    for (const x of now) { const e = piEntryMs(x.t, piNum); x.added = Number.isFinite(e) && e > startCut && !isBuffer(x.t); }
+    // Jour d'ENTRÉE de chaque ajout (`addedIdx`) et cumul par jour (`addedDays[i]`) : repères du graphique Flux.
+    const addedDays = [];
+    for (const x of now) {
+        const e = piEntryMs(x.t, piNum);
+        x.added = Number.isFinite(e) && e > startCut && !isBuffer(x.t);
+        if (!x.added) continue;
+        const k = burnDayKey(new Date(e));
+        let i = days.findIndex(d => d >= k);
+        if (i < 0) i = days.length - 1;
+        x.addedIdx = i;
+        addedDays[i] ||= { v: 0, n: 0, ids: [] };
+        addedDays[i].v = _r1(addedDays[i].v + x.snap.v);
+        addedDays[i].n += 1;
+        addedDays[i].ids.push(x.t.id);
+    }
     if (snapshotOnly && shownN) byDay[shownN - 1] = now;
     const row = _row;
     return {
         piNum, unit, days, shownN, elapsed: _elapsedPct(bounds, today),
         labels: days.map(d => `${d.slice(8, 10)}/${d.slice(5, 7)}`),
         todayIndex: today >= days[0] && today <= days.at(-1) ? shownN - 1 : -1,
-        series, byDay, total: row('Total', now), now,
+        series, byDay, addedDays, total: row('Total', now), now,
         rows: teams.length ? teams.map(tm => row(tm, now.filter(x => x.t.team === tm))) : [],
         guessed: [...guessed],
     };
@@ -213,6 +227,81 @@ export function piFlowEpicTsv(m, { title, team = '', epicTitle }) {
     return [`${title}\tPI ${m.piNum}\t${m.unit === 'tickets' ? 'tickets' : 'story points'}`,
         ['Epic', 'TOTAL', ...JIRA_STAGES.map(s => s.label), 'ADDED SCOPE'].join('\t'),
         ...rows.map(r => [r.label, _fmt(r.total), ...JIRA_STAGES.map(s => _fmt(r.by[s.key])), _fmt(-r.added || 0)].join('\t'))].join('\n');
+}
+
+// Message du détail par epic (Slack) : un emoji par état (lisible sans légende), 00 → 05.
+const _SLACK_ICO = { todo: '⚪', scoping: '🟣', ready: '🔵', dev: '🛠️', testing: '🧪', done: '✅' };
+const _cut = (v, n) => { const t = String(v || '').trim().replace(/\s+/g, ' '); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
+const _pts = v => `${_fmt(v)} pt${v > 1 ? 's' : ''}`;
+
+/**
+ * Lignes du message, en segments neutres : chaîne = texte, `{ b }` = gras, `{ i }` = italique, `{ id, url }` = ticket.
+ * Un seul modèle pour deux rendus — texte enrichi (Slack convertit gras et liens au collage) et texte brut sans
+ * aucun balisage : le mrkdwn (`*gras*`, `<url|ID>`) s'affichait tel quel une fois collé dans le compositeur Slack.
+ * `{ indent: true }` en tête de ligne = ligne de ticket, décalée.
+ */
+function _epicMessage(m, { title, team = '', epicTitle, jiraUrl = '', today = todayIsoLocal() }) {
+    const u = m.unit === 'tickets' ? 'tickets' : 'pts';
+    const tk = t => ({ id: t.id, url: jiraUrl ? `${jiraUrl}/browse/${t.id}` : '' });
+    const scope = m.now.filter(x => !team || x.t.team === team);
+    const head = _row('', scope);
+    const all = piFlowEpicRows(m, { team, epicTitle });
+    const rows = all.filter(r => r.total > 0), hidden = all.filter(r => !r.total);
+    const order = JIRA_STAGES.map(s => s.key).reverse();   // le plus avancé d'abord : 04 test, 03 dév…
+    const epicOf = r => scope.filter(x => (r.id === '__none' ? !x.t.epic : x.t.epic === r.id));
+    const late = piFlowLate(head.donePct, m.elapsed);
+    const L = [
+        [{ b: `📂 Détail par epic — ${title} · PI ${m.piNum}` }, ` (${today.slice(8, 10)}/${today.slice(5, 7)})`],
+        [`${_fmt(head.total)} ${u} · ✅ ${head.donePct} % terminé${late ? ' ⚠️' : ''} · ⏳ ${m.elapsed} % du PI écoulé`
+            + (head.added ? ` · ➕ Added scope −${_fmt(head.added)} ${u}` : '')],
+        [{ i: JIRA_STAGES.map(s => `${_SLACK_ICO[s.key]} ${s.short}`).join(' · ') + ' · ➕ ajouté au PI' }],
+    ];
+    for (const r of rows) {
+        const list = epicOf(r);
+        const parts = JIRA_STAGES.filter(s => r.by[s.key]).map(s => `${_SLACK_ICO[s.key]} ${_fmt(r.by[s.key])}`);
+        L.push([], [{ b: r.label }, ` — ${_fmt(r.total)} ${u} · ${parts.join(' · ')}${r.added ? ` · ➕ −${_fmt(r.added)}` : ''}`]);
+        const open = list.filter(x => x.snap.key !== 'done')
+            .sort((a, b) => order.indexOf(a.snap.key) - order.indexOf(b.snap.key) || b.snap.pts - a.snap.pts);
+        for (const x of open) {
+            L.push([{ indent: true }, `${_SLACK_ICO[x.snap.key]} `, tk(x.t), ` ${_cut(x.t.title, 70)} · `,
+                { i: x.snap.label || JIRA_STAGES.find(s => s.key === x.snap.key).short },
+                (x.snap.pts > 0 ? ` · ${_pts(x.snap.pts)}` : '') + (x.added ? ' · ➕' : '')]);
+        }
+        const done = list.filter(x => x.snap.key === 'done').sort((a, b) => b.snap.pts - a.snap.pts);
+        if (done.length) L.push([{ indent: true }, '✅ ', ...done.flatMap((x, k) => [k ? ', ' : '', tk(x.t), x.added ? ' ➕' : ''])]);
+    }
+    if (hidden.length) L.push([], [{ i: `+ ${hidden.length} epic${hidden.length > 1 ? 's' : ''} sans point (${hidden.reduce((a, r) => a + r.n, 0)} tickets non estimés)` }]);
+    return L;
+}
+
+/** Détail par epic en TEXTE BRUT : aucun balisage, numéros de tickets sans lien (le lien vit dans la version riche). */
+export function piFlowEpicText(m, opts) {
+    return _epicMessage(m, opts).map(line => line.map(p => (typeof p === 'string' ? p
+        : p.indent ? '    ' : p.id ? p.id : (p.b ?? p.i ?? ''))).join('')).join('\n');
+}
+
+/** Détail par epic en HTML : gras, italique et liens JIRA cliquables — collé dans Slack, il garde sa mise en forme. */
+export function piFlowEpicHtml(m, opts) {
+    const part = p => (typeof p === 'string' ? esc(p)
+        : p.indent ? '&nbsp;&nbsp;&nbsp;&nbsp;'
+        : p.id ? (p.url ? `<a href="${esc(p.url)}">${esc(p.id)}</a>` : esc(p.id))
+        : p.b != null ? `<b>${esc(p.b)}</b>` : `<i>${esc(p.i)}</i>`);
+    return _epicMessage(m, opts).map(line => (line.length ? `<div>${line.map(part).join('')}</div>` : '<div><br></div>')).join('');
+}
+
+/** Copie le détail par epic : HTML riche (Slack, Teams, mail) + texte brut de secours. */
+export async function copyPiFlowEpic(m, opts) {
+    const html = piFlowEpicHtml(m, opts), text = piFlowEpicText(m, opts);
+    try {
+        if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('presse-papiers riche indisponible');
+        await navigator.clipboard.write([new ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+        })]);
+        toast('Détail par epic copié — collez-le dans Slack (liens cliquables)', 'success');
+    } catch {
+        copyToClipboard(text, 'Détail par epic copié (texte)');
+    }
 }
 
 /** Tableau au format du rapport JIRA (TSV : se colle dans un tableur ou Confluence). */
@@ -264,7 +353,7 @@ export function piFlowEpicsHtml(m, { teams = [], team = '', epicTitle }) {
         <td class="psf-added ${r.added ? '' : 'is-zero'}">${r.added ? cell(r, '__added', `−${_fmt(r.added)}`, ` title="Ajoutés après le 1ᵉʳ jour du PI, hors Buffer"`) : '0'}</td></tr>`;
     return `<div class="psf-epics-bar">
             <span class="psf-chips" role="group" aria-label="Équipe">${chip('', 'Toutes')}${teams.map(t => chip(t, t)).join('')}</span>
-            ${rows.length ? `<button type="button" class="btn btn-ghost btn-xs" data-psf-epic-copy title="Copier le détail par epic au format du rapport JIRA">📋 Copier</button>` : ''}
+            ${rows.length ? `<button type="button" class="btn btn-ghost btn-xs" data-psf-epic-copy title="Copier pour Slack : synthèse par epic et tickets avec leur lien JIRA">📋 Copier pour Slack</button>` : ''}
         </div>
         ${rows.length ? `<div class="psf-table-wrap"><table class="psf-table psf-table--epics">
             <thead><tr><th>Epic</th><th title="Total en ${u}">Total</th>${JIRA_STAGES.map(s => `<th title="${esc(s.label)}"><i style="background:${s.color}"></i>${esc(s.code)}</th>`).join('')}<th class="psf-added" title="ADDED SCOPE (négatif, comme dans JIRA)">Added</th></tr></thead>
@@ -276,8 +365,9 @@ export function piFlowEpicsHtml(m, { teams = [], team = '', epicTitle }) {
  * Tickets d'une sélection : état `key` ('' = tous) au jour `i` (dernier jour affiché par défaut), d'une équipe
  * (`team` vide = toute la carte). Triés par points décroissants.
  */
-export function piFlowPick(m, { key = '', i = m.shownN - 1, team = '', epic = '' } = {}) {
-    const src = key === '__added' ? m.now.filter(x => x.added) : (m.byDay[i] || []).filter(x => !key || x.snap.key === key);
+export function piFlowPick(m, { key = '', i = m.shownN - 1, team = '', epic = '', addedDay = null } = {}) {
+    const src = key === '__added' ? m.now.filter(x => x.added && (addedDay == null || x.addedIdx === addedDay))
+        : (m.byDay[i] || []).filter(x => !key || x.snap.key === key);
     return src.filter(x => (!team || x.t.team === team) && (!epic || (epic === '__none' ? !x.t.epic : x.t.epic === epic)))
         .sort((a, b) => b.snap.pts - a.snap.pts || String(a.t.id).localeCompare(String(b.t.id)));
 }
@@ -338,7 +428,7 @@ export function piFlowCardHtml(m, { id, title, note = '', epics = null }) {
     if (!m.shownN) return `<div class="card psf">${head(`PI #${m.piNum} · pas encore commencé`)}${emptyStateHtml({ icon: '🌊', title: 'Le PI n\'a pas commencé', text: `Le flux démarrera le ${esc(m.labels[0] || '')}.` })}</div>`;
     const sub = `PI #${m.piNum} · <b>${_fmt(m.total.total)} ${u}</b> · ${m.total.n} ticket${m.total.n > 1 ? 's' : ''} · ${view === 'bars'
         ? `état JIRA du jour${m.rows.length ? ', une barre par équipe' : ''} · <span class="psf-elapsed-key">┆</span> ${m.elapsed} % du PI écoulé — cliquer un segment`
-        : 'état JIRA jour par jour (jours ouvrés) — cliquer une bande'}`;
+        : `état JIRA jour par jour (jours ouvrés)${m.addedDays.some(a => a?.v > 0) ? ' · <span class="psf-add-key">▼ +N</span> entrés dans le PI (hors Buffer)' : ''} — cliquer une bande ou un repère`}`;
     const barsH = view === 'bars' ? ` style="height:${Math.max(150, 46 * barN + 100)}px"` : '';
     return `<div class="card psf" data-psf="${esc(id)}">
         ${head(sub)}
@@ -412,7 +502,7 @@ export function bindPiFlowCards(root, cards, rerender) {
         }
         if (e.target.closest('[data-psf-epic-copy]') && c?.epics) {
             const lbl = c.epics.team ? `${c.prefix || ''}${c.epics.team}` : c.title;
-            copyToClipboard(piFlowEpicTsv(c.m, { title: lbl, team: c.epics.team, epicTitle: c.epics.epicTitle }), 'Détail par epic copié');
+            copyPiFlowEpic(c.m, { title: lbl, team: c.epics.team, epicTitle: c.epics.epicTitle, jiraUrl: c.epics.jiraUrl });
             return;
         }
         const cell = e.target.closest('[data-psf-cell]');
@@ -430,11 +520,12 @@ export function bindPiFlowCards(root, cards, rerender) {
  * @param {string} o.title      « Ligne produit GCOM »
  * @param {string} [o.highlight] équipe filtrée (ligne mise en avant)
  * @param {string} [o.href]     lien vers le détail (page PI → Indicateurs)
+ * @param {string} [o.copyLabel] périmètre du bouton « Détail par epic » (même message que la page PI), '' = sans bouton
  */
 const _ink = hex => { const n = parseInt(String(hex).slice(1, 7), 16);
     return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 150 ? '#fff' : '#0f172a'; };
 
-export function piFlowRowsHtml(m, { title, highlight = '', href = '' }) {
+export function piFlowRowsHtml(m, { title, highlight = '', href = '', copyLabel = '' }) {
     const rows = m?.rows.filter(r => r.n) || [];
     if (!rows.length) return '';
     const el = m.elapsed;
@@ -456,6 +547,7 @@ export function piFlowRowsHtml(m, { title, highlight = '', href = '' }) {
     return `<div class="psr" data-psr>
         <div class="psr-head"><b>États JIRA — ${esc(title)}</b>
             <span class="text-muted">en story points · <i class="psr-key" aria-hidden="true"></i> ${el} % du PI écoulé</span>
+            ${copyLabel ? `<button type="button" class="btn btn-ghost btn-xs psr-copy" data-psr-copy title="Copier pour Slack le détail par epic de ${esc(copyLabel)} (tickets avec leur lien JIRA)">📋 Détail par epic</button>` : ''}
             ${href ? `<a class="psr-more" href="${esc(href)}" title="Flux cumulé jour par jour, tableau, Added scope">Détail →</a>` : ''}</div>
         ${rows.map(line).join('')}
         <div class="psr-legend">${JIRA_STAGES.map(s => `<span><i style="background:${s.color}"></i>${esc(s.code)} ${esc(s.short)}</span>`).join('')}</div>
@@ -466,12 +558,14 @@ export function piFlowRowsHtml(m, { title, highlight = '', href = '' }) {
 /**
  * Clic sur un segment de `piFlowRowsHtml` → liste des tickets dans son volet (distinct de celui de la carte hôte,
  * qui garde sa propre logique d'ouverture). Re-cliquer le même segment replie.
+ * @param {object} [copyOpts]  options de `copyPiFlowEpic` (title, team, epicTitle, jiraUrl) du bouton « Détail par epic »
  */
-export function bindPiFlowRows(root, m) {
+export function bindPiFlowRows(root, m, copyOpts = null) {
     const box = root.querySelector('[data-psr]');
     const panel = box?.querySelector('[data-psr-list]');
     if (!box || !m || !panel) return;
     let open = '';
+    box.querySelector('[data-psr-copy]')?.addEventListener('click', () => { if (copyOpts) copyPiFlowEpic(m, copyOpts); });
     box.addEventListener('click', e => {
         const seg = e.target.closest('[data-psr-key]');
         if (!seg) return;

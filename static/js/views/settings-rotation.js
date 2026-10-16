@@ -11,7 +11,7 @@ import { store } from '../state.js';
 import * as api from '../api.js';
 import { saveSupportWeekMode } from '../support-week-mode.js';
 import {
-    esc, toast, copyToClipboard, deriveMembersFromAbsences, generateSupportRotation,
+    esc, toast, copyToClipboard, copySlack, deriveMembersFromAbsences, generateSupportRotation,
     SUPPORT_WEEK_MODES, getSupportWeekMode, supportWorkingDays, supportWeekHead,
     supportDaysForMember, supportAbsenceDayLevel, isMemberSupportActive, setMemberSupportActive,
     isSupportAbsent,
@@ -406,7 +406,7 @@ function _rotWirePanelEvents(container) {
             const msg  = _rotBuildCopyMessage(team);
             // Même repli que la copie de liste ci-dessous : `navigator.clipboard` est absent
             // hors contexte sécurisé, et l'appeler nu y lève une TypeError non rattrapable.
-            copyToClipboard(msg, 'Message de rotation copié');
+            copySlack(msg, 'Message de rotation copié');
         });
         // Clic droit → personnaliser le libellé du rôle (ex: "Support N3 OPS")
         btn.addEventListener('contextmenu', async e => {

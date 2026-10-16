@@ -559,9 +559,18 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Ligne produit = UNIQUEMENT `lineProductScope` (page PI ET Dashboard). Dashboard : `piFlowRowsHtml` dans
   `piProgressHtml(m, { statesHtml })` (remplace `.pip-teams`), modèle `snapshotOnly` (pas de rejeu jour par jour).
   Page PI : UNE carte (ligne produit ; carte équipe seulement sans ligne produit). Détail par epic =
-  `piFlowEpicRows` / `piFlowEpicsHtml` (titre d'epic : `t.epic` = id de FEATURE), epics à 0 masquées comme JIRA. Clic = `piFlowPick(m, { key, i, team })` sur
+  `piFlowEpicRows` / `piFlowEpicsHtml` (titre d'epic : `t.epic` = id de FEATURE), epics à 0 masquées comme JIRA.
+  Copie du détail par epic = `copyPiFlowEpic` : `text/html` (`piFlowEpicHtml`, liens `jiraUrl/browse/ID`) +
+  `text/plain` (`piFlowEpicText`), un seul modèle `_epicMessage`. Le TSV `piFlowEpicTsv` reste exporté.
+  Même message sur le Dashboard (bouton `data-psr-copy` des lignes d'états, `bindPiFlowRows(root, m, copyOpts)`). Repères d'ajout du Flux = `m.addedDays[i]` (jour d'entrée `x.addedIdx`, slot =
+  jour ouvré suivant), dessinés seulement si des points ; clic → `piFlowPick({ key: '__added', addedDay })`. Clic = `piFlowPick(m, { key, i, team })` sur
   `m.byDay[i]` (tickets + statut JIRA du jour) via le contrôleur rendu par `bindPiFlowCards` → `opts.onPick` de
   `renderPiFlow`, ignoré dans le zoom ; la bande cliquée se retrouve par le cumul des séries (05 en bas).
+- **Copies « pour Slack »** (3.227.0) : UNIQUEMENT `copySlack(md, label)` (utils.js) — jamais `copyToClipboard` /
+  `clipboard.writeText` sur un message mrkdwn. Collé dans le compositeur Slack, le mrkdwn s'affiche TEL QUEL
+  (« *Support* », « <url|GCOM-1> ») : `copySlack` écrit `text/html` (`mrkdwnToHtml`) + `text/plain` sans balisage
+  (`mrkdwnToPlain`, [utils/rich-copy.js](static/js/utils/rich-copy.js)). Les générateurs restent en mrkdwn. Hors
+  périmètre volontaire : Rapports (formats Slack / Confluence choisis, le wiki Confluence casserait), TSV, listes.
 - **Durées de flux en jours OUVRÉS** (3.216.0) : Cycle / Lead Time et âge du WIP = UNIQUEMENT
   `cycleDays(t)` / `leadDays(t)` / `wipAgeDays()` ([utils/workdays.js](static/js/utils/workdays.js)) —
   ⚠️ `t.cycleTimeDays` / `t.leadTimeDays` sont CALENDAIRES en base (sync-parse.js) : ne jamais les lire

@@ -553,7 +553,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
   du topbar ou tout le train. Unité `sb-pi-stageflow-unit`, vue de la carte ligne produit `sb-pi-stageflow-view`
   (`flow` | `bars`, commun aux deux cartes : une barre par équipe, 00 à gauche → 05 à droite, valeurs dans les
   segments via `_barValuesPlugin`, + part terminée en bout de barre et repère du temps écoulé `m.elapsed` —
-  `_elapsedPct` = calcul de pi_progress, retard = `piFlowLate`, même règle ; mode % : `sb-pi-stageflow-pct`). Clic = `piFlowPick(m, { key, i, team })` sur
+  `_elapsedPct` = calcul de pi_progress, retard = `piFlowLate`, même règle ; mode % : `sb-pi-stageflow-pct`).
+  ADDED SCOPE (3.226.0) = entrés dans le PI après la fin de son 1ᵉʳ jour (`piEntryMs`), points du jour, hors
+  Buffer (`bufferTest(features)` : étiquette du ticket OU de l'epic, epic « [Buffer] ») ; NÉGATIF comme JIRA.
+  Ligne produit = UNIQUEMENT `lineProductScope` (page PI ET Dashboard). Dashboard : `piFlowRowsHtml` dans
+  `piProgressHtml(m, { statesHtml })` (remplace `.pip-teams`), modèle `snapshotOnly` (pas de rejeu jour par jour).
+  Page PI : UNE carte (ligne produit ; carte équipe seulement sans ligne produit). Détail par epic =
+  `piFlowEpicRows` / `piFlowEpicsHtml` (titre d'epic : `t.epic` = id de FEATURE), epics à 0 masquées comme JIRA. Clic = `piFlowPick(m, { key, i, team })` sur
   `m.byDay[i]` (tickets + statut JIRA du jour) via le contrôleur rendu par `bindPiFlowCards` → `opts.onPick` de
   `renderPiFlow`, ignoré dans le zoom ; la bande cliquée se retrouve par le cumul des séries (05 en bas).
 - **Durées de flux en jours OUVRÉS** (3.216.0) : Cycle / Lead Time et âge du WIP = UNIQUEMENT

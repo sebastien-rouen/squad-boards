@@ -11,7 +11,7 @@ import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAG
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
 import { registerExternalChart, renderCycleTime, renderPiFlow } from '../components/charts.js';
-import { piStageFlowModel, piFlowCardHtml, bindPiFlowCards, piFlowUnit, piFlowView, piFlowPct, piFlowLate } from '../components/pi_stage_flow.js';
+import { piStageFlowModel, piFlowCardHtml, bindPiFlowCards, piFlowUnit, piFlowView, piFlowPct, piFlowLate, bufferTest, lineProductScope } from '../components/pi_stage_flow.js';
 import { METEO_GLYPH, VOTE_KINDS, toastUndo, effectiveRosterForPi, teamNameMatches, isWorkday, percentile } from '../utils.js';
 import { meteoSummary, METEO_MC } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
@@ -572,8 +572,10 @@ function renderDeps(el, { depItems = [], teamObjects = [] }) {
 
 // ── Onglet Indicateurs : métriques de flux du PI (Lead/Cycle time, Temps par colonne, Aging WIP) ──
 /**
- * « 🌊 Flux cumulé » de l'onglet Indicateurs (`pi_stage_flow.js`) : l'équipe filtrée PUIS sa ligne produit
- * (groupe de Paramètres, une ligne par équipe) ; sans équipe, le groupe du topbar ou tout le train.
+ * « 🌊 Flux cumulé » de l'onglet Indicateurs (`pi_stage_flow.js`) : UNE carte, la ligne produit de l'équipe filtrée
+ * (groupe de Paramètres, une ligne par équipe, détail par epic ouvert sur l'équipe) ; sans équipe, le groupe du
+ * topbar ou tout le train. La carte de l'équipe seule ne sert plus que si elle n'a pas de ligne produit (3.226.0 :
+ * la ligne produit montre tout, la carte équipe faisait doublon).
  */
 function _piFlowCards(piNum) {
     const cards = new Map();
@@ -582,21 +584,28 @@ function _piFlowCards(piNum) {
     const groups = store.get('groups') || [], all = store.get('tickets') || [];
     const sprintInfo = store.get('sprintInfo'), piInfo = store.get('piInfo');
     const unit = piFlowUnit();
-    const ofGroup = g => ({ id: 'group', title: `Ligne produit ${g.name}`, prefix: `${g.name} - `, boundsTeam: 'all',
-        tickets: all.filter(t => g.teams.includes(t.team)), teams: g.teams });
+    const isBuffer = bufferTest(store.get('features') || []);
+    const line = lineProductScope({ team, groupId, groups, tickets: all, teams: store.get('teams') || [] });
+    // Titre d'epic : `t.epic` porte l'id de la FEATURE parente (repli : epic du store).
+    const titles = new Map([...(store.get('epics') || []), ...(store.get('features') || [])].map(x => [x.id, x.title]));
+    const epicTitle = id => titles.get(id) || id;
+    const isTeam = team && team !== 'all';
+    const fromLine = l => ({ id: l.group ? 'group' : 'all', title: l.title, prefix: l.prefix, boundsTeam: 'all', tickets: l.tickets, teams: l.teams,
+        epics: { teams: l.teams, team: isTeam && l.teams.includes(team) ? team : '', epicTitle } });
     const specs = [];
-    if (team && team !== 'all') {
-        const g = groups.find(x => (x.teams || []).some(n => teamNameMatches(n, team)));
-        specs.push({ id: 'team', title: team, prefix: g ? `${g.name} - ` : '', boundsTeam: team, tickets: all.filter(t => t.team === team), teams: [],
-            note: g ? '' : `${esc(team)} n'est rattachée à aucune ligne produit : <a href="#settings">Paramètres → Lignes produit / Groupes</a>.` });
-        if (g) specs.push(ofGroup(g));
+    if (isTeam && !line) {
+        specs.push({ id: 'team', title: team, prefix: '', boundsTeam: team, tickets: all.filter(t => t.team === team), teams: [],
+            epics: { teams: [], team: '', epicTitle },
+            note: `${esc(team)} n'est rattachée à aucune ligne produit : <a href="#settings">Paramètres → Lignes produit / Groupes</a>.` });
     } else {
-        const g = groupId && groups.find(x => x.id === groupId);
-        specs.push(g ? ofGroup(g) : { id: 'all', title: 'Toutes les équipes', boundsTeam: 'all', tickets: all, teams: store.get('teams') || [] });
+        specs.push(fromLine(line));
     }
     for (const sp of specs) {
         const bounds = piBounds({ team: sp.boundsTeam, sprintInfo, piInfo, piNum });
-        cards.set(sp.id, { ...sp, m: piStageFlowModel({ tickets: sp.tickets, piNum, bounds, unit, teams: sp.teams }) });
+        const m = piStageFlowModel({ tickets: sp.tickets, piNum, bounds, unit, teams: sp.teams, isBuffer });
+        // Puces du détail par epic : les seules équipes qui ont des tickets dans le PI.
+        if (m && sp.epics.teams.length) sp.epics.teams = m.rows.filter(r => r.n).map(r => r.label);
+        cards.set(sp.id, { ...sp, m });
     }
     const wide = cards.size === 1 ? ' psf--wide' : '';
     return {

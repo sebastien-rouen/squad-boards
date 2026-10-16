@@ -22,6 +22,7 @@ import { meteoFicheHtml, bindMeteoFiche } from '../components/meteo_fiche.js';
 import { endOfPiHtml, recentlyClosedHtml } from '../components/meteo_endpi.js';
 import { firstLaunchHtml, bindFirstLaunch } from '../components/first_launch.js';
 import { piProgressModel, piProgressHtml, bindPiProgress } from '../components/pi_progress.js';
+import { piStageFlowModel, piFlowRowsHtml, bindPiFlowRows, bufferTest, lineProductScope } from '../components/pi_stage_flow.js';
 import { piBounds } from '../utils/pi-weeks.js';
 
 export function renderDashboard(container) {
@@ -233,6 +234,16 @@ export function renderDashboard(container) {
         bounds: isCurrentPi ? piBounds({ team, sprintInfo: sprintInfoAll, piInfo, piNum: displayPiNum }) : null,
         teams: teams.map((name, i) => ({ name, color: teamObjects.find(o => o.name === name)?.color || TEAM_COLORS[i % TEAM_COLORS.length] })),
     });
+    // États JIRA de la ligne produit (une ligne par équipe), sous la barre : même modèle que la page PI → Indicateurs,
+    // état du jour seul (`snapshotOnly`) — pas de rejeu du PI jour par jour sur la page d'accueil.
+    const _psrLine = displayPiNum ? lineProductScope({ team, groupId, groups, tickets: allTickets, teams }) : null;
+    const _psrModel = _psrLine ? piStageFlowModel({
+        tickets: _psrLine.tickets, piNum: displayPiNum, teams: _psrLine.teams, snapshotOnly: true,
+        bounds: piBounds({ team: 'all', sprintInfo: sprintInfoAll, piInfo, piNum: displayPiNum }),
+        isBuffer: bufferTest(store.get('features') || []),
+    }) : null;
+    const _psrHtml = _psrModel ? piFlowRowsHtml(_psrModel, { title: _psrLine.title, highlight: team,
+        href: `#pi/${groupId && (!team || team === 'all') ? `group:${encodeURIComponent(groupId)}` : encodeURIComponent(team || 'all')}/indicators` }) : '';
     const _pipOpts = {
         label: team && team !== 'all' ? team : (groups.find(g => g.id === groupId)?.name || 'Toutes les équipes'),
         staleDays: STALE_DAYS, stagDays: _stagDays,
@@ -771,7 +782,7 @@ export function renderDashboard(container) {
         <section class="dash-stream">
             <header class="dash-stream-hd"><h2>👥 Équipe &amp; risques</h2><span class="dash-stream-sub">santé &amp; signaux</span></header>
 
-        ${piProgressHtml(_pipModel)}
+        ${piProgressHtml(_pipModel, { statesHtml: _psrHtml })}
 
         ${_teamsCards}
 
@@ -824,6 +835,7 @@ export function renderDashboard(container) {
         if (oncall) mountNavRail(oncall, { labelPrev: 'Personnes précédentes', labelNext: 'Personnes suivantes' });
         bindStageFlowCard(container, _flowScopeTickets, _flowCardOpts);
         bindPiProgress(container, _pipModel, _pipOpts);
+        bindPiFlowRows(container, _psrModel);
         bindAgingWipCard(container);
         bindSlaReviewCard(container, tickets);
         bindMeteoMatrix(container);

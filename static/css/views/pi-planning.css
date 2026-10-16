@@ -559,6 +559,9 @@ details[open] .feat-buf-toggle-icon { transform: rotate(90deg); }
 .psf-table tbody th { text-align: left; font-weight: var(--fw-semibold); color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 .psf-table td.is-zero { color: var(--text-muted); opacity: .55; }
 .psf-table .psf-total { font-weight: var(--fw-bold); color: var(--text); }
+.psf-table .psf-added { border-left: 1px dashed var(--border); color: var(--warning); font-weight: var(--fw-semibold); }
+.psf-table thead .psf-added { color: var(--text-muted); }
+.psf-table td.psf-added.is-zero { color: var(--text-muted); font-weight: normal; }
 .psf-table tr.psf-sum th, .psf-table tr.psf-sum td { border-top: 2px solid var(--border); border-bottom: 0; font-weight: var(--fw-bold); }
 .psf-guess { margin: 8px 0 0; font-size: 11px; color: var(--warning); }
 .psf-table td button { all: unset; cursor: pointer; padding: 1px 5px; border-radius: var(--r-sm); font: inherit; }
@@ -566,6 +569,20 @@ details[open] .feat-buf-toggle-icon { transform: rotate(90deg); }
 .psf-table td button.is-active { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent); }
 .psf-table td button:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: 1px; }
 .psf-list { margin-top: var(--sp-3); }
+/* Détail par epic (second tableau du rapport JIRA) */
+.psf-epics { margin-top: var(--sp-3); border-top: 1px dashed var(--border); padding-top: var(--sp-2); }
+.psf-epics > summary { cursor: pointer; font-size: 12.5px; font-weight: var(--fw-semibold); color: var(--text); padding: 2px 0; }
+.psf-epics > summary:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: 2px; }
+.psf-epics-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.psf-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.psf-chip { border: 1px solid var(--border); background: transparent; color: var(--text-secondary); border-radius: var(--r-full); font-size: 11px; padding: 2px 9px; cursor: pointer; }
+.psf-chip:hover { border-color: var(--primary); color: var(--text); }
+.psf-chip.is-on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.psf-chip:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: 1px; }
+.psf-table--epics th:first-child { width: 38%; }
+.psf-epics-hidden { margin: 6px 0 0; font-size: 11px; }
+.psf-table--epics tbody th { font-weight: normal; text-transform: none; letter-spacing: 0; }
+.psf-table--epics tbody th small { display: block; font-size: 10px; color: var(--text-muted); }
 .psf-list-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
 .psf-list .stuck-row { grid-template-columns: auto auto minmax(0, 1fr) auto auto; }
 /* Liste d'une ligne produit : une colonne « équipe » de plus */

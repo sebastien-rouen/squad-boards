@@ -517,3 +517,58 @@ details[open] .feat-buf-toggle-icon { transform: rotate(90deg); }
     align-items: start;
 }
 .pi-indicators > .card { min-width: 0; }
+
+/* ══ Onglets Burnup / Dépendances / Équipes / Support : carte commune (pi.js) ══════════════════
+   En-tête uniforme (icône, titre, sous-titre, actions) — même grammaire que le panneau de vote (.vp-card). */
+.pi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-xs); overflow: hidden; }
+.pi-card-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.pi-card-ico { font-size: 24px; line-height: 1; }
+.pi-card-title { flex: 1; min-width: 0; }
+.pi-card-title b { display: block; font-size: 15px; color: var(--text); }
+.pi-card-title small { display: block; font-size: 12px; color: var(--text-muted); }
+.pi-card-body { padding: 14px 18px 18px; }
+
+/* Équipes : grille de cartes (avancement, statuts, effectif, absences) */
+.pit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.pit-card {
+    display: flex; flex-direction: column; gap: 8px; padding: 12px 14px;
+    background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--tc);
+    border-radius: var(--r-md); transition: box-shadow .15s, transform .15s;
+}
+.pit-card:hover { box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.pit-card.is-current { box-shadow: 0 0 0 2px color-mix(in srgb, var(--tc) 35%, transparent); }
+.pit-head { display: flex; align-items: center; gap: 8px; }
+.pit-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--tc); flex-shrink: 0; }
+.pit-name { flex: 1; min-width: 0; font-size: 14px; font-weight: var(--fw-bold); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pit-blocked { font-size: 11px; font-weight: var(--fw-semibold); padding: 0 7px; border-radius: var(--r-full); background: var(--danger-bg); color: var(--danger); }
+.pit-pts { display: flex; align-items: baseline; gap: 8px; }
+.pit-pct { font-size: 22px; font-weight: var(--fw-bold); line-height: 1; font-variant-numeric: tabular-nums; }
+.pit-pts-txt { font-size: 12px; color: var(--text-muted); }
+.pit-pts-txt b { color: var(--text); }
+.pit-status { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--bg-alt); }
+.pit-status-empty { flex: 1; }
+.pit-legend { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 10.5px; color: var(--text-secondary); }
+.pit-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.pit-foot { display: flex; flex-wrap: wrap; gap: 4px 12px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 11.5px; color: var(--text-secondary); }
+.pit-abs { color: var(--warning); font-weight: var(--fw-semibold); }
+
+/* Burnup : la carte englobe en-tête, graphique et légende */
+.pi-burnup.pi-card { padding: 0 0 12px; gap: 0; }
+.pi-burnup.pi-card .pi-burnup-hdr { padding: 14px 18px; border-bottom: 1px solid var(--border); margin: 0; }
+.pi-burnup.pi-card .chart-container { margin: 14px 18px 4px; width: auto; max-width: none; }   /* 100 % + marges débordait de la carte */
+.pi-burnup.pi-card .pi-burnup-legend { margin: 0 18px; }
+.pi-burnup-kpi--ok strong { color: var(--success); }
+
+/* Dépendances : la matrice respire dans la carte */
+.pi-card-body .team-dep-board, .pi-card-body .tdb { margin: 0; }
+
+/* Support (lecture seule) : mêmes repères que Paramètres → Rotation, sans interaction */
+.pi-support-rota .rot-member-td { text-align: left; }
+.pi-support-rota .rot-member-td .rot-active-toggle { display: inline-flex; vertical-align: middle; margin-right: 6px; cursor: default; }
+.pi-support-rota .rot-active-toggle:hover { transform: none; border-color: inherit; }
+.pi-support-rota .pirot-lock { cursor: default; }
+.pi-support-rota .pirot-lock:hover { background: none; opacity: .5; }
+.pi-support-rota .rot-panel-hdr[data-pirot-toggle] { cursor: pointer; }
+.pi-support-rota .rot-panel-hdr[data-pirot-toggle]:hover { background: var(--surface-hover); }
+.pi-support-rota .rot-panel-hdr[data-pirot-toggle]:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: -2px; }
+.pi-support-rota .rot-day { cursor: default; }

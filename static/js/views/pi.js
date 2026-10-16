@@ -6,12 +6,12 @@ import { store } from '../state.js';
 import * as api from '../api.js';
 import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, getSupportWeekMode, supportWeekHead, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, sprintRealizedVelocity, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel, isSupportAbsent, cycleDays, leadDays } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
-import { buildPiWeeks } from '../utils/pi-weeks.js';
+import { buildPiWeeks, piBounds } from '../utils/pi-weeks.js';
 import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAGE_INTRO } from '../components/sondage.js';
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
 import { registerExternalChart, renderCycleTime } from '../components/charts.js';
-import { METEO_GLYPH, VOTE_KINDS, toastUndo } from '../utils.js';
+import { METEO_GLYPH, VOTE_KINDS, toastUndo, effectiveRosterForPi, teamNameMatches, isWorkday } from '../utils.js';
 import { meteoSummary, METEO_MC } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
 import { updateInfoPanel } from '../components/infopanel.js';
@@ -130,8 +130,22 @@ export function renderPI(container) {
         return { ...f, progress, childCount: children.length, allCount: children.length, rolledStatus, childPts: displayPts, childPtsDone };
     });
 
-    // Team capacity — membres dérivés des absences (source de vérité CSV RH)
+    // Team capacity — onglet Équipes. Roster = celui DU PI affiché (`effectiveRosterForPi`, partis
+    // exclus) et absences BORNÉES au PI (`piBounds`) : l'ancien calcul sommait tout l'historique des
+    // congés (« 381 j d'absence ») et comptait les membres partis.
+    // `effectiveMembers` reste utilisé par `_computeCapByTeam` (Capacité) : ne pas le retirer.
     const effectiveMembers = deriveMembersFromAbsences(absences, store.get('members') || []);
+    const _roster   = piNum ? effectiveRosterForPi(piInfo, piNum, absences, store.get('members') || []) : effectiveMembers;
+    const _piWin    = piNum ? piBounds({ sprintInfo: store.get('sprintInfo'), piInfo, piNum }) : null;
+    const _wdCount  = (a, b) => { let n = 0; for (const d = new Date(`${a}T12:00:00`); d <= new Date(`${b}T12:00:00`); d.setDate(d.getDate() + 1)) if (isWorkday(d)) n++; return n; };
+    const _absInPi  = a => {   // jours d'absence DANS la fenêtre du PI, au prorata des jours ouvrés recouverts
+        if (!_piWin) return a.days || 0;
+        const s0 = String(a.startDate || '').slice(0, 10), e0 = String(a.endDate || a.startDate || '').slice(0, 10);
+        const s1 = s0 > _piWin.startIso ? s0 : _piWin.startIso, e1 = e0 < _piWin.endIso ? e0 : _piWin.endIso;
+        if (!s0 || s1 > e1) return 0;
+        const full = _wdCount(s0, e0);
+        return full ? (a.days || 0) * _wdCount(s1, e1) / full : 0;
+    };
     const teamCap = teams.map((t, i) => {
         const tObj = teamObjects.find(o => o.name === t);
         const color = tObj?.color || TEAM_COLORS[i % TEAM_COLORS.length];
@@ -143,11 +157,14 @@ export function renderPI(container) {
         const done = tt.filter(x => x.status === 'done').length;
         const pts = sumBy(tt, x => x.points);
         const donePts = sumBy(tt.filter(x => x.status === 'done'), x => x.points);
-        const members = effectiveMembers.filter(m => m.team === t);
-        // absences gardent le nom brut "Team Fuego" — on accepte les deux formes
-        const teamAbsences = absences.filter(a => a.team === t || a.team === 'Team ' + t);
-        const absDays = teamAbsences.reduce((s, a) => s + (a.days || 0), 0);
-        return { name: t, color, total, done, pts, donePts, memberCount: members.length, absDays };
+        const members = _roster.filter(m => teamNameMatches(m.team, t));
+        const names = new Set(members.map(m => m.name));
+        const absDays = Math.round(absences.filter(a => names.has(a.memberName)).reduce((s, a) => s + _absInPi(a), 0) * 2) / 2;
+        // Statuts calculés sur les tickets DE L'ÉQUIPE (l'onglet les relisait dans les tickets filtrés sur
+        // l'équipe sélectionnée : « 0 tickets » partout sauf chez elle).
+        const statusCounts = {};
+        for (const x of tt) statusCounts[x.status] = (statusCounts[x.status] || 0) + 1;
+        return { name: t, color, total, done, pts, donePts, memberCount: members.length, absDays, statusCounts, blocked: statusCounts.blocked || 0 };
     });
 
     // Capacité nette estimée par équipe sur le PI entier (pour la ligne séparatrice dans Features)
@@ -533,12 +550,13 @@ export function renderPI(container) {
 // ── Dépendances tab (programme board inter-équipes #14) ─────────────────────────
 function renderDeps(el, { depItems = [], teamObjects = [] }) {
     el.innerHTML = `
-        <div class="pi-section">
-            <div class="pi-section-hdr">
-                <h3 class="pi-section-title">Dépendances inter-équipes</h3>
-                <span class="text-xs text-muted">Liens JIRA « bloque / est bloqué par / dépend de » sur le périmètre du PI</span>
+        <div class="pi-card">
+            <div class="pi-card-head">
+                <span class="pi-card-ico" aria-hidden="true">🔗</span>
+                <div class="pi-card-title"><b>Dépendances inter-équipes</b>
+                    <small>Liens JIRA « bloque / est bloqué par / dépend de » sur le périmètre du PI — ligne = l'équipe qui dépend, colonne = celle dont elle dépend</small></div>
             </div>
-            ${renderTeamDepBoard(depItems, teamObjects)}
+            <div class="pi-card-body">${renderTeamDepBoard(depItems, teamObjects)}</div>
         </div>`;
     bindTeamDepBoard(el, depItems);
 }
@@ -2198,41 +2216,46 @@ function _rotFmtCapDate(iso) {
 }
 
 // ── Teams tab ─────────────────────────────────────────────────────────────────
-function renderTeams(el, { teamCap, tickets, teams }) {
-    const byTeam = groupBy(tickets, t => t.team);
-
+function renderTeams(el, { teamCap }) {
+    // Une carte par équipe : avancement en points, répartition des statuts (barre empilée + légende),
+    // effectif du PI et absences sur le PI. Équipe sélectionnée dans le topbar mise en avant.
+    const ST = ['done', 'test', 'review', 'inprog', 'blocked', 'todo'];
+    const ST_CLR = { done: 'var(--status-done)', test: 'var(--status-test, var(--warning))', review: 'var(--status-review, #8b5cf6)', inprog: 'var(--status-inprog)', blocked: 'var(--status-blocked)', todo: 'var(--status-todo, var(--text-muted))' };
+    const sel = store.get('team');
+    const cards = [...teamCap].sort((x, y) => (y.name === sel) - (x.name === sel)).map(t => {
+        const p = pct(t.donePts, t.pts);
+        const total = t.total || 0;
+        const bar = total ? ST.map(s => { const c = t.statusCounts?.[s] || 0; return c ? `<span style="flex:${c};background:${ST_CLR[s]}" title="${esc(STATUS_LABELS[s] || s)} : ${c}"></span>` : ''; }).join('') : '';
+        return `<div class="pit-card${t.name === sel ? ' is-current' : ''}" style="--tc:${t.color}">
+            <div class="pit-head">
+                <span class="pit-dot"></span>
+                <span class="pit-name">${esc(t.name)}</span>
+                ${t.blocked ? `<span class="pit-blocked" title="${t.blocked} ticket(s) bloqué(s)">🚫 ${t.blocked}</span>` : ''}
+            </div>
+            <div class="pit-pts">
+                <span class="pit-pct" style="color:${p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--primary)' : 'var(--warning)'}">${p}%</span>
+                <span class="pit-pts-txt"><b>${t.donePts}</b> / ${t.pts} pts livrés</span>
+            </div>
+            <div class="progress progress-thin"><div class="progress-bar ${progressColor(p)}" style="width:${p}%"></div></div>
+            <div class="pit-status" aria-label="Répartition des statuts">${bar || '<span class="pit-status-empty"></span>'}</div>
+            <div class="pit-legend">
+                ${ST.filter(s => t.statusCounts?.[s]).map(s => `<span><i style="background:${ST_CLR[s]}"></i>${esc(STATUS_LABELS[s] || s)} ${t.statusCounts[s]}</span>`).join('') || '<span class="text-muted">Aucun ticket sur ce PI</span>'}
+            </div>
+            <div class="pit-foot">
+                <span title="Tickets de l'équipe sur le PI">🎫 ${total} ticket${total > 1 ? 's' : ''} · ${t.done} terminé${t.done > 1 ? 's' : ''}</span>
+                <span title="Membres du roster du PI">👥 ${t.memberCount}</span>
+                ${t.absDays > 0 ? `<span class="pit-abs" title="Jours d'absence du roster sur la durée du PI">🌴 ${String(t.absDays).replace('.', ',')} j</span>` : ''}
+            </div>
+        </div>`;
+    }).join('');
     el.innerHTML = `
-        <div class="team-cards">
-            ${teamCap.map(t => {
-                const tt = byTeam.get(t.name) || [];
-                const blocked = tt.filter(x => x.status === 'blocked').length;
-                const p = pct(t.donePts, t.pts);
-                const statusCounts = {};
-                for (const x of tt) statusCounts[x.status] = (statusCounts[x.status] || 0) + 1;
-                return `
-                    <div class="team-card">
-                        <div class="team-card-header">
-                            <span class="team-card-name inline-flex-center"><span class="team-dot" style="background:${t.color}"></span> ${esc(t.name)}</span>
-                            <span class="badge badge-points">${t.donePts}/${t.pts} pts</span>
-                        </div>
-                        <div class="progress progress-thin"><div class="progress-bar ${progressColor(p)}" style="width:${p}%"></div></div>
-                        <div class="team-card-stats">
-                            <span>${tt.length} tickets</span>
-                            <span>${t.done} done</span>
-                            ${blocked > 0 ? `<span class="text-danger">${blocked} bloques</span>` : ''}
-                            ${t.absDays > 0 ? `<span class="text-warning">${t.absDays}j abs</span>` : ''}
-                        </div>
-                        <div class="flex gap-1 mt-2 flex-wrap">
-                            ${['todo', 'inprog', 'review', 'test', 'blocked', 'done'].map(s => {
-                                const c = statusCounts[s] || 0;
-                                return c ? statusBadge({ status: s }, { label: `${STATUS_LABELS[s]} ${c}` }) : '';
-                            }).join('')}
-                        </div>
-                    </div>
-                `;
-            }).join('')}
-        </div>
-    `;
+        <div class="pi-card">
+            <div class="pi-card-head">
+                <span class="pi-card-ico" aria-hidden="true">👥</span>
+                <div class="pi-card-title"><b>Équipes du PI</b><small>Points livrés, statuts des tickets, effectif et absences sur le PI</small></div>
+            </div>
+            <div class="pi-card-body"><div class="pit-grid">${cards}</div></div>
+        </div>`;
 }
 
 // Formate "NOM, Prénom" → "Prénom NOM" pour l'affichage
@@ -2260,11 +2283,25 @@ function _sortSupportMembers(names) {
 }
 
 // ── Support Rotation (lecture seule) ─────────────────────────────────────────
+// Panneaux dépliés de l'onglet Support (localStorage `sb-pi-rot-open`) : une équipe sélectionnée est
+// toujours dépliée ; en « Toutes équipes », seules celles que l'utilisateur a ouvertes le sont.
+const _PI_ROT_OPEN = 'sb-pi-rot-open';
+const _piRotOpenSet = () => { try { return new Set(JSON.parse(localStorage.getItem(_PI_ROT_OPEN) || '[]')); } catch { return new Set(); } };
+function _piRotIsOpen(team) {
+    const sel = store.get('team');
+    if (sel && sel !== 'all') return !_piRotOpenSet().has(`-${team}`);   // équipe filtrée : ouverte sauf repli explicite
+    return _piRotOpenSet().has(team);
+}
+function _piRotToggle(team) {
+    const set = _piRotOpenSet(), sel = store.get('team'), filtered = sel && sel !== 'all';
+    const key = filtered ? `-${team}` : team;
+    if (set.has(key)) set.delete(key); else set.add(key);
+    try { localStorage.setItem(_PI_ROT_OPEN, JSON.stringify([...set])); } catch { /* navigation privée */ }
+}
 function renderSupportRota(el, { teams, teamObjects }) {
     const support    = store.get('support') || [];
     const absences   = store.get('absences') || [];
     const members    = store.get('members') || [];
-    const allMembers = deriveMembersFromAbsences(absences, members);
     const piInfo     = store.get('piInfo');
     const sprintInfo = store.get('sprintInfo');
     const today      = new Date().toISOString().slice(0, 10);
@@ -2284,110 +2321,89 @@ function renderSupportRota(el, { teams, teamObjects }) {
     const _render = () => {
         const piOffset   = store.get('piOffset') || 0;
         const showNext   = piOffset > 0; // pour les classes CSS existantes
+        // Panneaux calqués sur Paramètres → Rotation (settings-rotation.js, `_rotTeamPanelHtml`), en LECTURE
+        // SEULE : roster DU PI affiché (`effectiveRosterForPi`, partis exclus — l'ancienne version prenait tout
+        // l'historique des congés), bande des 5 jours dans chaque cellule, semaines passées 🔒 grisées,
+        // membres hors support grisés 🚫, total compté sur le roster seulement, panneaux repliables.
         const panels = teamNames.map(teamName => {
             const tObj  = teamObjects.find(o => o.name === teamName);
             const color = tObj?.color || '#64748b';
             const mode  = getSupportWeekMode(teamName);
-            // Semaines du PI sélectionné — source unique utils/pi-weeks.js, même calcul que
-            // « Paramètres → Rotation » et la page Support (recul sur le jour du mode, semaine de
-            // transition, nombre d'itérations propre au PI visé). L'ancienne reconstruction locale
-            // prolongeait la cadence du PI courant avec SON nombre de sprints : PI 30 (6) → PI 31
-            // (5) donnait des semaines décalées, sans aucune rotation en base en face.
-            const { weeks: allWeeks, piNum: targetPiNum } = buildPiWeeks({ piInfo, sprintInfo, piOffset, weekMode: mode });
-            const panelPiNum = targetPiNum;
-            const teamMembers = allMembers.filter(m => _matchTeam(m.team, teamName));
-            // N'afficher que les membres actifs (support activé)
-            const activeMemberNames = teamMembers.map(m => m.name).filter(n => isMemberSupportActive(n));
-            const sortedMembers = _sortSupportMembers(activeMemberNames);
-            if (!teamMembers.length) return '';
+            // Semaines du PI sélectionné — source unique utils/pi-weeks.js (même calcul que Paramètres et Support).
+            const { weeks: allWeeks, piNum: panelPiNum } = buildPiWeeks({ piInfo, sprintInfo, piOffset, weekMode: mode });
+            const roster = effectiveRosterForPi(piInfo, panelPiNum, absences, members).filter(m => teamNameMatches(m.team, teamName));
+            if (!roster.length) return '';
+            const teamMembers = _sortSupportMembers(roster.map(m => m.name));
+            const rosterSet = new Set(teamMembers);
             const teamSupport = support.filter(s => _matchTeam(s.team, teamName));
             const mpw = parseInt(localStorage.getItem(`rot-mpw-${teamName}`)) || 2;
-
-            // Compteur global de passages en support par membre (tous PIs)
-            const supportCounts = {};
-            for (const s of teamSupport) {
-                for (const n of (s.members || [])) supportCounts[n] = (supportCounts[n] || 0) + 1;
+            const weekCount = w => (teamSupport.find(s => s.weekStart === w.weekStart)?.members || []).filter(m => rosterSet.has(m)).length;
+            const filledWeeks = allWeeks.filter(w => weekCount(w) > 0).length;
+            const fullWeeks = allWeeks.filter(w => weekCount(w) === mpw).length;
+            const summaryColor = fullWeeks === allWeeks.length ? 'var(--success)' : filledWeeks > 0 ? 'var(--warning)' : 'var(--danger)';
+            const activeCount = teamMembers.filter(isMemberSupportActive).length;
+            const inactive = teamMembers.length - activeCount;
+            const memberSummary = inactive ? `${activeCount}/${teamMembers.length} actif${activeCount > 1 ? 's' : ''} <small class="rot-sum-inactive">(${inactive} hors support)</small>` : `${teamMembers.length} membre${teamMembers.length > 1 ? 's' : ''}`;
+            const summary = `<span class="rot-sum">${memberSummary}${panelPiNum ? ` · PI ${panelPiNum}` : ''} · <span style="color:${summaryColor}">${filledWeeks}/${allWeeks.length} sem.</span></span>`;
+            const open = _piRotIsOpen(teamName);
+            if (!open) {
+                return `<div class="rot-panel" style="border-left:3px solid ${color}">
+                    <div class="rot-panel-hdr" data-pirot-toggle="${esc(teamName)}" role="button" tabindex="0" aria-expanded="false">
+                        <span class="rot-chevron">▶</span><span class="rot-dot" style="background:${color}"></span>
+                        <span class="rot-name">${esc(teamName)}</span>${summary}
+                    </div>
+                </div>`;
             }
-
-            // Résumé
-            const filledWeeks = allWeeks.filter(w => {
-                const e = teamSupport.find(s => s.weekStart === w.weekStart);
-                return e && (e.members || []).length > 0;
-            }).length;
-            const summaryColor = filledWeeks === allWeeks.length ? 'var(--success)' : filledWeeks > 0 ? 'var(--warning)' : 'var(--danger)';
-            const memberCount = sortedMembers.length;
-
-            // En-têtes semaines
             const weekRow = allWeeks.map(w => {
-                const isCur = today >= w.weekStart && today <= w.weekEnd;
+                const isCur = today >= w.weekStart && today <= w.weekEnd, isPast = w.weekEnd < today;
                 const wh = supportWeekHead(w);
-                return `<th class="rot-wk-th${isCur ? ' rot-wk-current' : ''}${showNext ? ' rot-wk-next-pi' : ''}${wh.cls}">
+                return `<th class="rot-wk-th${isCur ? ' rot-wk-current' : ''}${showNext ? ' rot-wk-next-pi' : ''}${isPast ? ' rot-wk-past' : ''}${wh.cls}">
                     <span class="rot-wk-label"${wh.title ? ` title="${wh.title}"` : ''}>${wh.text}</span>
                     <span class="rot-wk-dates">${_rotFmtCapDate(w.weekStart)}</span>
+                    ${isPast ? '<span class="rot-wk-lock rot-wk-lock--past pirot-lock" title="Semaine passée">🔒</span>' : ''}
                 </th>`;
             }).join('');
-
-            // Lignes membres — cellules en lecture seule (triées actifs > prénom > nom)
-            const memberRows = sortedMembers.map(name => {
-                const m = { name };
+            const memberRows = teamMembers.map(name => {
+                const active = isMemberSupportActive(name);
                 const cells = allWeeks.map(w => {
-                    const entry  = teamSupport.find(s => s.weekStart === w.weekStart);
-                    const sel    = entry && (entry.members || []).includes(m.name);
-                    const isCur  = today >= w.weekStart && today <= w.weekEnd;
+                    const entry = teamSupport.find(s => s.weekStart === w.weekStart);
+                    const sel = entry && (entry.members || []).includes(name);
+                    const isCur = today >= w.weekStart && today <= w.weekEnd, isPast = w.weekEnd < today;
                     const wdList = supportWorkingDays(w.weekStart);
-                    // Détermine absent/partial à la semaine à partir des jours individuels
-                    const dayLevels = wdList.map(d => supportAbsenceDayLevel(m.name, d.iso, absences));
-                    const absCount  = dayLevels.filter(l => l === 'full').length + dayLevels.filter(l => l === 'half').length * 0.5;
-                    const absent    = isSupportAbsent(absCount);   // même seuil que le tirage (règle n°1)
-                    const partial   = absCount > 0 && !absent;
-                    const cls = ['rot-cell', absent ? 'rot-cell-absent' : '', partial ? 'rot-cell-partial' : '', isCur ? 'rot-cell-current' : '', showNext ? 'rot-cell-next-pi' : ''].filter(Boolean).join(' ');
-                    // Cellule figée. Semaine pleine → ✓ compact ; couverture partielle ou absences → strip.
-                    const days = sel ? supportDaysForMember(entry, m.name) : [];
-                    const needsStrip = days.length > 0 && days.length < 5;
-                    const hasAnyAbs  = dayLevels.some(Boolean);
-                    let inner;
-                    if (!sel && !hasAnyAbs) {
-                        inner = `<span class="rot-chip"></span>`;
-                    } else if (sel && days.length === 5 && !hasAnyAbs) {
-                        inner = `<span class="rot-chip rot-chip-on" style="background:${color}22;color:${color};border-color:${color}">✓</span>`;
-                    } else {
-                        inner = `<span class="rot-strip rot-strip-ro">${wdList.map((d, i) => {
-                            const on  = days.includes(d.index);
-                            const abs = dayLevels[i];
-                            const absCls = abs ? ` rot-day-abs-${abs}` : '';
-                            return `<span class="rot-day${on ? ' on' : ''}${absCls}"
-                                title="${d.letter}${abs === 'full' ? ' (absent)' : abs === 'half' ? ' (½j congé)' : ''}">${d.letter}</span>`;
-                        }).join('')}</span>`;
-                    }
-                    return `<td class="${cls}">${inner}</td>`;
+                    const dayLevels = wdList.map(d => supportAbsenceDayLevel(name, d.iso, absences));
+                    const absCount = dayLevels.filter(l => l === 'full').length + dayLevels.filter(l => l === 'half').length * 0.5;
+                    const absent = isSupportAbsent(absCount);   // même seuil que le tirage (règle n°1)
+                    const days = sel ? supportDaysForMember(entry, name) : [];
+                    const cls = ['rot-cell', absent ? 'rot-cell-absent' : '', absCount > 0 && !absent ? 'rot-cell-partial' : '',
+                        isCur ? 'rot-cell-current' : '', showNext ? 'rot-cell-next-pi' : '', isPast ? 'rot-cell-locked' : ''].filter(Boolean).join(' ');
+                    const strip = wdList.map((d, i) => {
+                        const abs = dayLevels[i];
+                        return `<span class="rot-day${days.includes(d.index) ? ' on' : ''}${abs ? ` rot-day-abs-${abs}` : ''}${isPast ? ' rot-day-locked' : ''}"
+                            title="${d.letter}${days.includes(d.index) ? ' — de support' : ''}${abs === 'full' ? ' (absent)' : abs === 'half' ? ' (½j congé)' : ''}">${d.letter}</span>`;
+                    }).join('');
+                    return `<td class="${cls}"><span class="rot-strip rot-strip-ro">${strip}</span></td>`;
                 }).join('');
-                const count = supportCounts[m.name] || 0;
-                const countBadge = count > 0 ? `<span class="rot-pass-count" title="${count} passage${count > 1 ? 's' : ''} en support">×${count}</span>` : '';
-                return `<tr>
+                return `<tr class="${active ? '' : 'rot-row-inactive'}">
                     <td class="rot-member-td">
-                        <span class="rot-member-name" title="${esc(m.name)}">${esc(_fmtMemberName(m.name))}</span>
+                        <span class="rot-active-toggle pirot-active${active ? ' is-on' : ''}" title="${active ? 'Actif en support' : 'Hors support'}" aria-hidden="true">${active ? '🛎️' : '🚫'}</span>
+                        <span class="rot-member-name${active ? '' : ' is-inactive'}" title="${esc(name)}">${esc(_fmtMemberName(name))}</span>
                     </td>
                     ${cells}
-                    <td class="rot-count-col">${countBadge}</td>
                 </tr>`;
             }).join('');
-
-            // Ligne totaux
             const countRow = allWeeks.map(w => {
-                const entry = teamSupport.find(s => s.weekStart === w.weekStart);
-                const cnt   = entry ? (entry.members || []).length : 0;
+                const cnt = weekCount(w);
                 const isCur = today >= w.weekStart && today <= w.weekEnd;
-                const cls   = cnt === mpw ? 'rot-count-ok' : cnt > 0 ? 'rot-count-partial' : '';
+                const cls = cnt === mpw ? 'rot-count-ok' : cnt > 0 ? 'rot-count-partial' : '';
                 return `<td class="rot-cell rot-count-cell ${cls}${isCur ? ' rot-cell-current' : ''}${showNext ? ' rot-cell-next-pi' : ''}">${cnt}/${mpw}</td>`;
             }).join('');
-
             return `<div class="rot-panel" style="border-left:3px solid ${color}">
-                <div class="rot-panel-hdr">
-                    <span class="rot-dot" style="background:${color}"></span>
-                    <span class="rot-name">${esc(teamName)}</span>
-                    <span class="rot-sum">${memberCount} membres · <span style="color:${summaryColor}">${filledWeeks}/${allWeeks.length} sem.</span></span>
+                <div class="rot-panel-hdr" data-pirot-toggle="${esc(teamName)}" role="button" tabindex="0" aria-expanded="true">
+                    <span class="rot-chevron">▼</span><span class="rot-dot" style="background:${color}"></span>
+                    <span class="rot-name">${esc(teamName)}</span>${summary}
                     <div class="rot-panel-actions" onclick="event.stopPropagation()">
-                        <button class="btn btn-sm btn-secondary rot-btn" data-rot-copy="${esc(teamName)}" title="Copier un message de rotation prêt à coller (Slack/Teams). Clic droit = personnaliser le libellé.">📋 Copier</button>
+                        <button class="btn btn-sm btn-secondary rot-btn" data-rot-copy="${esc(teamName)}" title="Copier un message de rotation prêt à coller (Slack/Teams)">📋 Copier</button>
+                        <button class="btn btn-sm btn-secondary rot-btn" data-pirot-edit="${esc(teamName)}" title="Modifier la rotation de ${esc(teamName)} dans Paramètres">⚙ Éditer</button>
                     </div>
                 </div>
                 <div class="rot-panel-body">
@@ -2397,17 +2413,12 @@ function renderSupportRota(el, { teams, teamObjects }) {
                                 <tr>
                                     <th class="rot-member-th" rowspan="2">Membre</th>
                                     <th colspan="${allWeeks.length}" class="rot-pi-group-th${showNext ? ' rot-pi-group-next' : ''}">PI ${panelPiNum || '?'}</th>
-                                    <th class="rot-count-col-th" rowspan="2" title="Nombre total de passages en support"></th>
                                 </tr>
                                 <tr>${weekRow}</tr>
                             </thead>
                             <tbody>
                                 ${memberRows}
-                                <tr class="rot-count-row">
-                                    <td class="rot-member-th">Total</td>
-                                    ${countRow}
-                                    <td class="rot-count-col"></td>
-                                </tr>
+                                <tr class="rot-count-row"><td class="rot-member-th">Total</td>${countRow}</tr>
                             </tbody>
                         </table>
                     </div>
@@ -2430,6 +2441,7 @@ function renderSupportRota(el, { teams, teamObjects }) {
         el.innerHTML = `
             <div class="pi-support-rota">
                 <div class="pi-support-rota-hdr">
+                    <div class="pi-card-title"><b>🛎️ Rotation support</b><small>Lecture seule — même grille que Paramètres → Rotation</small></div>
                     ${piSelectorHtml}
                     <a class="picap-settings-link" id="pir-goto-settings" href="#settings">
                         <svg class="icon icon-sm"><use href="#i-settings"/></svg>
@@ -2445,6 +2457,19 @@ function renderSupportRota(el, { teams, teamObjects }) {
                 if (!Number.isNaN(o)) store.set('piOffset', o);
             });
         });
+        el.querySelectorAll('[data-pirot-toggle]').forEach(hdr => {
+            const go = () => { _piRotToggle(hdr.dataset.pirotToggle); _render(); };
+            hdr.addEventListener('click', e => { if (!e.target.closest('button, a')) go(); });
+            hdr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+        });
+        // ⚙ Éditer : ouvre Paramètres → Rotation sur CETTE équipe (store.settingsTeam, cf. page Support)
+        el.querySelectorAll('[data-pirot-edit]').forEach(btn => btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const sb = window.__squadBoard?.store;
+            sb?.set('settingsTeam', btn.dataset.pirotEdit);
+            sb?.set('settingsSection', 'rotation');
+            sb?.set('view', 'settings');
+        }));
         el.querySelector('#pir-goto-settings')?.addEventListener('click', e => {
             e.preventDefault();
             window.__squadBoard?.store.set('settingsSection', 'rotation');
@@ -2558,7 +2583,7 @@ function renderBurnup(el, { piInfo, teams, teamObjects }) {
     };
 
     el.innerHTML = `
-        <div class="pi-burnup">
+        <div class="pi-burnup pi-card">
             <div class="pi-burnup-hdr">
                 <div>
                     <h3 class="pi-burnup-title">PI#${piNumber} Burnup ${teamFilter ? `— ${esc(team)}` : '— toutes équipes'}</h3>
@@ -2568,6 +2593,7 @@ function renderBurnup(el, { piInfo, teams, teamObjects }) {
                     ${commitmentTotal > 0 ? `<span class="pi-burnup-kpi"><span class="lbl">Engagement</span><strong>${commitmentTotal} pts</strong></span>` : ''}
                     <span class="pi-burnup-kpi pi-burnup-kpi--accent"><span class="lbl">Livré (à date)</span><strong>${cumTotal[cumTotal.length - 1] || 0} pts</strong></span>
                     ${commitmentTotal > 0 ? `<span class="pi-burnup-kpi"><span class="lbl">% atteint</span><strong>${Math.round((cumTotal[cumTotal.length - 1] / commitmentTotal) * 100)}%</strong></span>` : ''}
+                    ${commitmentTotal > 0 ? `<span class="pi-burnup-kpi${(cumTotal[cumTotal.length - 1] || 0) >= commitmentTotal ? ' pi-burnup-kpi--ok' : ''}"><span class="lbl">Reste</span><strong>${Math.max(0, commitmentTotal - (cumTotal[cumTotal.length - 1] || 0))} pts</strong></span>` : ''}
                 </div>
             </div>
             <div class="chart-container chart-h-md"><canvas id="pi-burnup-chart"></canvas></div>
@@ -2625,14 +2651,16 @@ function renderBurnup(el, { piInfo, teams, teamObjects }) {
 
         new window.Chart(ctx, {
             type: 'line',
-            data: { labels: sprintNames, datasets },
+            // Axe : « 31.1 » plutôt que « Team G - Ité 31.1 » (le nom complet reste dans l'infobulle)
+            data: { labels: sprintNames.map(n => (n.match(/(\d+\.\d+)/) || [])[1] || n), datasets },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
+                layout: { padding: { right: 18 } },   // le dernier libellé (« 31.5 ») était coupé au bord
                 plugins: {
                     legend: { display: false }, // on a notre propre legend HTML
-                    tooltip: { mode: 'index' },
+                    tooltip: { mode: 'index', callbacks: { title: items => sprintNames[items[0]?.dataIndex] || '' } },
                 },
                 scales: {
                     y: { beginAtZero: true, title: { display: true, text: 'Story Points (cumulé)' } },

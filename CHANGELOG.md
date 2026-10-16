@@ -1,3 +1,18 @@
+## [3.220.0] - 2026-10-16
+
+### Page PI : onglets Burnup, Dépendances, Équipes et Support restylés
+
+- **Carte commune** (`pi-card`) : en-tête icône + titre + sous-titre sur les quatre onglets.
+- **Support** : grille calquée sur Paramètres → Rotation, en lecture seule — bande des 5 jours dans chaque
+  cellule, semaines passées 🔒 grisées, membres hors support 🚫, panneaux repliables, « ⚙ Éditer » qui ouvre la
+  rotation de l'équipe dans Paramètres. **Corrigé** : roster DU PI affiché (`effectiveRosterForPi`) au lieu de
+  tout l'historique des congés (15 membres dont des partis pour Gabbiano, contre 6) ; total compté sur le roster.
+- **Équipes** : cartes repensées (avancement en points, répartition des statuts en barre + légende, effectif,
+  absences). **Corrigé** : statuts relus dans les tickets DE CHAQUE équipe (« 0 tickets » partout sauf l'équipe
+  sélectionnée) et absences bornées au PI et au roster du PI (606,5 j → 44 j pour Gabbiano).
+- **Burnup** : carte, indicateur « Reste », axe en « 31.1 » (nom complet dans l'infobulle), dernier libellé
+  n'est plus coupé. **Dépendances** : matrice dans une carte avec le sens de lecture rappelé.
+
 ## [3.219.0] - 2026-10-16
 
 ### Votes Mood / Fist of Five : saisie en un clic dans l'info-panel, page PI restylée

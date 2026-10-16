@@ -619,6 +619,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
   retire le DERNIER vote de cette valeur (`toastUndo`, suppression en base différée). Une équipe, sprint EN COURS.
   Page PI (onglets Mood / Fist, `renderVotingPanel`) : MÊME grammaire (cartes emoji, +1 par clic, × au survol,
   pastilles de sprint) et mêmes échelles `VOTE_KINDS` — plus d'échelle propre à la page.
+- **Page PI → onglets Support / Équipes** : roster = `effectiveRosterForPi` du PI AFFICHÉ (jamais
+  `deriveMembersFromAbsences` seul, qui garde les partis) ; absences de l'onglet Équipes bornées au PI (`piBounds`,
+  prorata des jours ouvrés). Grille Support = même balisage que Paramètres → Rotation, en lecture seule.
 - **Historique des niveaux Atlas** (3.198.0) : table `skill_level_history`, écrite UNIQUEMENT par
   `PUT /api/member-skills` (une ligne par changement réel), lue par `components/atlas_history.js`.
 - **Dernière synchro** (3.197.0) : `sprintconfig.synced_by` / `sync_kind`, posés par la synchro

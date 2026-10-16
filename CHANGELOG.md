@@ -1,3 +1,23 @@
+## [3.218.0] - 2026-10-16
+
+### Planning Poker : volet « Description » et critères d'acceptation
+
+- **Volet latéral « 📄 Description »** à droite de la popin, même hauteur : onglet vertical replié, panneau
+  condensé déplié (type, priorité, points, parent, labels, puis la description). Rendu calculé une fois,
+  ouvert / fermé sans re-rendu (aucune animation rejouée), défilement conservé, état mémorisé
+  (`sb-poker-desc`) ; sous 1 180 px il se superpose au bord de la popin.
+- **📌 L'essentiel pour estimer** ([desc_sections.js](static/js/components/desc_sections.js)) : critères
+  d'acceptation, règles de gestion, DoD, points d'attention repérés sur un TITRE ou un PARAGRAPHE-LIBELLÉ
+  (jamais dans une phrase), épinglés en tête, repliables, avec puces de navigation ; compteur « N scénarios »
+  seulement (pas de compte de puces). 78 tickets ont des critères repérés.
+- Corrigé : un ticket sans description n'affichait jamais « Pas de description » (`_renderCommentBody('')`
+  rend un tiret).
+
+### Page Affinage : tickets à compléter avant la séance
+
+- 📝 = description vide (tous types), ⚠️ = story sans critère d'acceptation repéré (même repérage que le
+  volet) ; filtre « ⚠️ N à compléter » ; badges en icône pour garder les titres lisibles.
+
 ## [3.217.0] - 2026-10-15
 
 ### Modale ticket : en-tête structuré, tout l'essentiel sans défiler

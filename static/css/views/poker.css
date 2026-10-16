@@ -403,3 +403,113 @@ a.poker-ref-id:hover { text-decoration: underline; }
     background: color-mix(in srgb, var(--primary) 14%, transparent);
 }
 .poker-save-next { white-space: nowrap; }
+
+/* ── Volet « Description » à droite de la popin ─────────────────────────────────────────────
+   .poker-stage aligne popin + volet sur la MÊME hauteur (align-items: stretch). Replié : onglet
+   vertical de 34 px ; déplié : 400 px, en-tête (type, priorité, points, parent, labels) + corps
+   condensé qui défile seul. La popin elle-même n'est pas touchée. */
+.poker-stage { display: flex; align-items: stretch; gap: 8px; max-width: 96vw; max-height: 92vh; }
+.poker-desc {
+    display: flex; flex-shrink: 0;
+    width: 34px; max-height: 92vh;
+    background: var(--surface); border-radius: var(--r-lg);
+    box-shadow: 0 24px 64px rgba(0,0,0,.3);
+    overflow: hidden;
+    transition: width .28s cubic-bezier(.22, 1, .36, 1);
+}
+.poker-desc.is-open { width: 400px; }
+.poker-desc-tab {
+    flex: 0 0 34px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 14px 0; border: 0; cursor: pointer; font: inherit;
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface)); color: var(--text-secondary);
+    border-right: 1px solid transparent;
+    transition: background var(--tr-fast), color var(--tr-fast);
+}
+.poker-desc.is-open .poker-desc-tab { border-right-color: var(--border); }
+.poker-desc-tab:hover { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--primary); }
+.poker-desc-tab:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: -3px; }
+.poker-desc-tab-chev { font-size: 16px; line-height: 1; font-weight: var(--fw-bold); }
+.poker-desc-tab-lbl { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11.5px; font-weight: var(--fw-semibold); letter-spacing: .03em; white-space: nowrap; }
+.poker-desc-panel {
+    flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
+    opacity: 0; transition: opacity .18s ease .05s;
+}
+.poker-desc.is-open .poker-desc-panel { opacity: 1; }
+.poker-desc:not(.is-open) .poker-desc-panel { visibility: hidden; }
+.poker-desc-head { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 14px 16px 10px; border-bottom: 1px solid var(--border); min-width: 366px; }
+.poker-desc-title { font-size: 13px; font-weight: var(--fw-bold); color: var(--text); margin-right: auto; }
+.poker-desc-meta { display: inline-flex; align-items: center; gap: 6px; }
+.poker-desc-meta .mdl-points { font-size: 12px; padding: 1px 7px; cursor: default; }
+.poker-desc-nopts { font-size: 11px; color: var(--text-muted); font-style: italic; }
+.poker-desc-extra { flex-basis: 100%; display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; color: var(--text-secondary); }
+.poker-desc-parent { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poker-desc-parent b { font-family: var(--font-mono); font-size: 11px; color: var(--primary); }
+.poker-desc-labels { display: flex; flex-wrap: wrap; gap: 4px; }
+.poker-desc-labels .chip { font-size: 10.5px; padding: 1px 7px; }
+
+/* Corps condensé : titres, listes et paragraphes resserrés ; images et tableaux contenus */
+.poker-desc-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px 16px 16px; min-width: 366px; font-size: 12.5px; line-height: 1.55; color: var(--text); }
+.poker-desc-body > :first-child { margin-top: 0; }
+.poker-desc-body h1, .poker-desc-body h2, .poker-desc-body h3, .poker-desc-body h4 { margin: 12px 0 4px; font-size: 13.5px; font-weight: var(--fw-bold); line-height: 1.35; }
+.poker-desc-body h1 { font-size: 14.5px; }
+.poker-desc-body p { margin: 0 0 6px; }
+.poker-desc-body ul, .poker-desc-body ol { margin: 0 0 6px; padding-left: 18px; }
+.poker-desc-body li { margin: 2px 0; }
+.poker-desc-body li > p { margin: 0; }
+.poker-desc-body img { max-width: 100%; height: auto; border-radius: var(--r-sm); }
+.poker-desc-body table { display: block; max-width: 100%; overflow-x: auto; font-size: 11.5px; border-collapse: collapse; }
+.poker-desc-body th, .poker-desc-body td { padding: 3px 6px; border: 1px solid var(--border); }
+.poker-desc-body pre, .poker-desc-body code { font-size: 11px; }
+.poker-desc-body pre { max-width: 100%; overflow-x: auto; padding: 6px 8px; }
+.poker-desc-body blockquote { margin: 6px 0; padding: 2px 0 2px 10px; border-left: 3px solid var(--border); color: var(--text-secondary); }
+.poker-desc-body a { word-break: break-word; }
+.poker-desc-body hr { margin: 10px 0; border: 0; border-top: 1px solid var(--border); }
+
+/* Écran étroit : le volet se superpose au bord droit de la popin (sous son en-tête) */
+@media (max-width: 1180px) {
+    .poker-stage { position: relative; }
+    .poker-desc { position: absolute; top: 66px; bottom: 10px; right: 0; z-index: 3; max-height: none; }
+    .poker-desc.is-open { width: min(400px, 92vw); }
+}
+@media (prefers-reduced-motion: reduce) { .poker-desc, .poker-desc-panel { transition: none; } }
+
+/* « 📌 L'essentiel pour estimer » (components/desc_sections.js) en tête du volet Description */
+.pd-pinned { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.pd-pinned-title { font-size: 10.5px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+.pd-sec, .pd-chip {
+    --pd: var(--text-muted);
+}
+.pd-sec {
+    padding: 8px 10px 6px; border-radius: var(--r-md);
+    background: color-mix(in srgb, var(--pd) 6%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--pd) 25%, transparent); border-left: 3px solid var(--pd);
+}
+.pd-sec--accept { --pd: var(--success); }  /* aussi sur .pd-chip */
+.pd-sec--rules  { --pd: var(--info); }
+.pd-sec--dod    { --pd: var(--type-epic); }
+.pd-sec--watch  { --pd: var(--warning); }
+.pd-sec-head { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text); cursor: pointer; list-style: none; }
+.pd-sec-head::-webkit-details-marker { display: none; }
+.pd-sec-head::after { content: '▾'; margin-left: 2px; font-size: 11px; color: var(--text-muted); }
+.pd-sec:not([open]) > .pd-sec-head::after { content: '▸'; }
+.pd-sec[open] > .pd-sec-head { margin-bottom: 4px; }
+.pd-nav { display: flex; flex-wrap: wrap; gap: 5px; }
+.pd-chip {
+    font: inherit; font-size: 11px; font-weight: var(--fw-semibold); cursor: pointer;
+    padding: 2px 9px; border-radius: var(--r-full);
+    background: color-mix(in srgb, var(--pd) 10%, var(--surface)); color: var(--text);
+    border: 1px solid color-mix(in srgb, var(--pd) 35%, transparent);
+}
+.pd-chip:hover { background: color-mix(in srgb, var(--pd) 18%, var(--surface)); }
+.pd-sec-head b { flex: 1 1 auto; min-width: 0; }
+.pd-sec-ico { font-size: 13px; }
+.pd-sec-n { flex-shrink: 0; white-space: nowrap; padding: 0 7px; border-radius: var(--r-full); font-size: 10.5px; font-weight: var(--fw-bold); background: color-mix(in srgb, var(--pd) 16%, transparent); color: var(--pd); }
+.pd-sec-body > :last-child { margin-bottom: 2px; }
+.pd-sec-body h1, .pd-sec-body h2, .pd-sec-body h3, .pd-sec-body h4 { font-size: 12.5px; margin: 8px 0 3px; }
+.pd-full { border-top: 1px dashed var(--border); padding-top: 8px; }
+.pd-full > summary { cursor: pointer; font-size: 12px; font-weight: var(--fw-semibold); color: var(--text-secondary); list-style: none; }
+.pd-full > summary::before { content: '▸ '; color: var(--text-muted); }
+.pd-full[open] > summary::before { content: '▾ '; }
+.pd-full > summary:hover { color: var(--primary); }
+.pd-full-body { margin-top: 8px; }
+.pd-hint { margin: 0 0 10px !important; padding: 6px 8px; border-radius: var(--r-sm); font-size: 11.5px; background: var(--bg-alt); color: var(--text-secondary); }

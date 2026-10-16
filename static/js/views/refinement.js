@@ -16,11 +16,26 @@ import { store } from '../state.js';
 import * as api from '../api.js';
 import {
     esc, fmtRelative, typeBadge, copyToClipboard, priorityBadge, pointsTone, emptyStateHtml,
-    estimationQueue, ESTIMATION_GROUPS, getSprintForTeam, workdaysBetween,
+    estimationQueue, ESTIMATION_GROUPS, getSprintForTeam, workdaysBetween, parseWikiMarkup,
 } from '../utils.js';
 import { refinementRecapModel, recapSlack, recapHtml, copyRecapRich, downloadRecapCsv } from '../components/refinement_recap.js';
+import { acceptanceStatus } from '../components/desc_sections.js';
 
 const _BACKLOG_PREVIEW = 12;
+
+// Critères d'acceptation : même repérage que le volet du Poker (desc_sections.js), mis en cache par
+// objet ticket (la page se repeint toutes les 8 s ; le store remplace les objets à chaque rechargement).
+const _accCache = new WeakMap();
+// Critères attendus sur les STORIES seulement (une tâche technique sans critère est normale) ; une
+// description VIDE se signale pour tous les types.
+function _acceptance(t) {
+    if (_accCache.has(t)) return _accCache.get(t);
+    const raw = String(t.description || '');
+    let v = acceptanceStatus(raw.trim().startsWith('<') ? raw : parseWikiMarkup(raw));
+    if (v === 'missing' && t.type !== 'story') v = 'ok';
+    _accCache.set(t, v);
+    return v;
+}
 const _SESSION_GAP_MIN = 45;
 let _st = null;   // { team, rounds, sessions, timer, unsubs, showAllBacklog, recapOpen }
 
@@ -47,6 +62,7 @@ function _sessionRounds(rounds) {
 
 function _queueRowHtml({ t }, i, sessions, showSprint) {
     const live = sessions?.[t.id];
+    const acc = _acceptance(t);
     const age = workdaysBetween(t.createdAt, new Date());
     return `<li class="rf-row">
         <span class="rf-rank">${i + 1}</span>
@@ -54,6 +70,8 @@ function _queueRowHtml({ t }, i, sessions, showSprint) {
         <button type="button" class="rf-id" data-rf-open="${esc(t.id)}" title="Ouvrir le ticket">${esc(t.id)}</button>
         <span class="rf-title" title="${esc(t.title || '')}">${esc(t.title || '')}</span>
         <span class="rf-meta">
+            ${acc === 'empty' ? '<span class="rf-warn rf-warn--empty" title="Pas de description dans JIRA : à rédiger avant d\'estimer" aria-label="Sans description">📝</span>'
+                : acc === 'missing' ? '<span class="rf-warn" title="Story sans critère d\'acceptation repéré dans la description : à compléter avant d\'estimer" aria-label="Sans critères d\'acceptation">⚠️</span>' : ''}
             ${live ? `<span class="rf-live" title="${live.votes} vote${live.votes > 1 ? 's' : ''} déjà posé${live.votes > 1 ? 's' : ''}${live.revealed ? ' (révélés)' : ''}">🗳 ${live.votes}</span>` : ''}
             ${priorityBadge(t.priority, { size: '2xs' })}
             ${showSprint && t.sprintName ? `<span class="rf-sprint" title="${esc(t.sprintName)}">${esc(t.sprintName)}</span>` : ''}
@@ -96,11 +114,13 @@ function _html(team) {
     const pct = inSprint + doneSprint ? Math.round(doneSprint / (inSprint + doneSprint) * 100) : null;
     const first = queue[0]?.t;
 
+    const toFix = queue.filter(x => _acceptance(x.t) !== 'ok').length;
+    const shown = _st.onlyMissing ? queue.filter(x => _acceptance(x.t) !== 'ok') : queue;
     const groups = ESTIMATION_GROUPS.map(g => {
-        const items = queue.filter(x => x.group === g.key);
+        const items = shown.filter(x => x.group === g.key);
         if (!items.length) return '';
         const limit = g.key === 'backlog' && !_st.showAllBacklog ? _BACKLOG_PREVIEW : Infinity;
-        const offset = queue.indexOf(items[0]);
+        const offset = queue.indexOf(items[0]);   // rang dans la file COMPLÈTE, même filtrée
         return `<section class="rf-group">
             <h3 class="rf-group-title">${esc(g.key === 'sprint' && sprintName ? `${g.label} · ${sprintName}` : g.label)} <span class="rf-count">${items.length}</span></h3>
             <ol class="rf-list">${items.slice(0, limit).map((x, i) => _queueRowHtml(x, offset + i, _st.sessions, g.key === 'other')).join('')}</ol>
@@ -144,7 +164,12 @@ function _html(team) {
         </section>` : ''}
         <div class="rf-cols">
             <div class="card rf-queue">
-                <div class="card-header"><span class="card-title">📋 File d'attente</span><span class="card-subtitle">même équipe · sans points · hors epics / features</span></div>
+                <div class="card-header">
+                    <span class="card-title">📋 File d'attente</span>
+                    ${toFix ? `<button type="button" class="rf-fix-toggle${_st.onlyMissing ? ' is-on' : ''}" data-rf-only-missing aria-pressed="${!!_st.onlyMissing}"
+                        title="Tickets sans description (📝), ou stories sans critère d'acceptation repéré (⚠️) — à compléter avant la séance">⚠️ ${toFix} à compléter${_st.onlyMissing ? ' · voir tout' : ''}</button>`
+                        : '<span class="card-subtitle">même équipe · sans points · hors epics / features</span>'}
+                </div>
                 ${groups || emptyStateHtml({ icon: '🎉', title: 'Rien à estimer', text: `Tous les tickets en cours de ${team} ont des points.`, tone: 'ok' })}
             </div>
             <div class="card rf-session">
@@ -200,7 +225,7 @@ export async function renderRefinement(container) {
         });
         return;
     }
-    _st = { team, rounds: [], sessions: {}, timer: null, unsubs: [], showAllBacklog: false, recapOpen: false };
+    _st = { team, rounds: [], sessions: {}, timer: null, unsubs: [], showAllBacklog: false, recapOpen: false, onlyMissing: false };
     _paint(container);
     await _load();
     _paint(container);
@@ -211,6 +236,7 @@ export async function renderRefinement(container) {
         const open = e.target.closest('[data-rf-open]');
         if (open) { window.__squadBoard?.openTicketModal?.(open.dataset.rfOpen); return; }
         if (e.target.closest('[data-rf-more]') && _st) { _st.showAllBacklog = true; _paint(container); return; }
+        if (e.target.closest('[data-rf-only-missing]') && _st) { _st.onlyMissing = !_st.onlyMissing; _paint(container); return; }
         if (e.target.closest('[data-rf-recap]') && _st) { _st.recapOpen = !_st.recapOpen; _paint(container); return; }
         const copy = e.target.closest('[data-rf-copy]');
         if (copy && _st) {

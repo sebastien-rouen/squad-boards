@@ -114,9 +114,9 @@ describe('piStageFlowModel — flux jour par jour', () => {
         assert.equal(m.total.total, 6);
         assert.equal(m.total.by.done, 4);
         const tsv = F.piFlowTsv(m, { title: 'GCOM', prefix: 'GCOM - ' }).split('\n');
-        assert.equal(tsv[1], '\tTOTAL\t00.TODO\t01.SCOPING\t02.READY_TO_DEV\t03.IN_DEVELOPMENT\t04.IN_TESTING\t05.DEVELOPMENT_DONE');
-        assert.equal(tsv[2], 'GCOM - O\t4\t0\t0\t0\t0\t0\t4');
-        assert.equal(tsv.at(-1), 'Total\t6\t0\t0\t2\t0\t0\t4');
+        assert.equal(tsv[1], '\tTOTAL\t00.TODO\t01.SCOPING\t02.READY_TO_DEV\t03.IN_DEVELOPMENT\t04.IN_TESTING\t05.DEVELOPMENT_DONE\tADDED SCOPE');
+        assert.equal(tsv[2], 'GCOM - O\t4\t0\t0\t0\t0\t0\t4\t0');
+        assert.equal(tsv.at(-1), 'Total\t6\t0\t0\t2\t0\t0\t4\t0');
     });
     test('bande cliquée : les tickets de cet état CE JOUR-LÀ, avec le statut JIRA du jour', () => {
         const m = model({ teams: ['O', 'X'] });
@@ -147,6 +147,62 @@ describe('piStageFlowModel — flux jour par jour', () => {
         assert.equal(F.piFlowLate(30, 59), true);
         assert.equal(F.piFlowLate(50, 59), false);
         assert.equal(F.piFlowLate(0, 10), false, 'démarrage du PI');
+    });
+    test('ADDED SCOPE : entrés dans le PI après son 1ᵉʳ jour, hors Buffer, en négatif comme JIRA', () => {
+        // Calé sur le rapport JIRA du PI 31 : Ami −2 (GCOM-4879 créé le lendemain du lancement), Bellier −3,
+        // le ticket du Buffer (GCOM-5022, étiquette portée par son epic seule) écarté.
+        const late = tk('G', { points: 3, jiraStatus: 'Prêt', createdAt: '2025-12-29T10:00:00.000+0100' });
+        const buf = tk('H', { points: 5, jiraStatus: 'Prêt', epic: 'BUF', createdAt: '2025-12-29T10:00:00.000+0100' });
+        const reest = tk('R', { points: 8, jiraStatus: 'Prêt', recentChanges: [ch('Story Points', '2025-12-29T10:00:00.000+0100', '3', '8')] });
+        const m = model({ tickets: [...fixtures(), late, buf, reest], teams: ['O', 'X'], isBuffer: t => t.epic === 'BUF' });
+        assert.equal(m.rows[0].added, 3, 'G seul : H est du Buffer, R n\'est qu\'une réestimation, A était là dès le début');
+        assert.deepEqual(F.piFlowPick(m, { key: '__added' }).map(x => x.t.id), ['G']);
+        assert.equal(F.piFlowTsv(m, { title: 'GCOM' }).split('\n')[2].split('\t').at(-1), '-3');
+    });
+    test('état du jour seul (Dashboard) : mêmes lignes, sans rejouer le PI', () => {
+        const full = model({ teams: ['O', 'X'] }), snap = model({ teams: ['O', 'X'], snapshotOnly: true });
+        assert.deepEqual(snap.rows, full.rows);
+        assert.equal(snap.series.done[0], null, 'pas de série jour par jour');
+        assert.deepEqual(F.piFlowPick(snap, { key: 'done', team: 'O' }).map(x => x.t.id), ['A', 'D'], 'clic d\'un segment');
+    });
+    test('lignes du Dashboard : une par équipe, 00 → 05, repère du temps écoulé, retard en rouge', () => {
+        const html = F.piFlowRowsHtml(model({ teams: ['O', 'X'], snapshotOnly: true }), { title: 'Ligne produit T', highlight: 'X' });
+        assert.match(html, /États JIRA — Ligne produit T/);
+        assert.equal((html.match(/class="psr-row/g) || []).length, 2);
+        assert.match(html, /psr-row is-current[\s\S]*?>X </, 'équipe filtrée mise en avant');
+        assert.match(html, /left:58%/);
+        assert.match(html, /psr-done is-late[^>]*>✓ 0 %/, 'X : rien de terminé à 58 % du PI');
+        assert.equal(F.piFlowRowsHtml(null, { title: 'x' }), '');
+    });
+    test('ligne produit : groupe de l\'équipe, sinon groupe du topbar, sinon tout le train ; Buffer par l\'epic', () => {
+        const groups = [{ id: 'g1', name: 'GCOM', teams: ['Ami', 'Fuego'] }];
+        const tickets = [{ id: '1', team: 'Fuego' }, { id: '2', team: 'Lion' }];
+        assert.deepEqual(F.lineProductScope({ team: 'Fuego', groups, tickets }).tickets.map(t => t.id), ['1']);
+        assert.equal(F.lineProductScope({ team: 'Lion', groups, tickets }), null);
+        assert.equal(F.lineProductScope({ team: 'all', groupId: 'g1', groups, tickets }).title, 'Ligne produit GCOM');
+        assert.equal(F.lineProductScope({ team: 'all', groups, tickets, teams: ['Fuego', 'Lion'] }).tickets.length, 2);
+        const isBuf = F.bufferTest([{ id: 'E1', title: '[Buffer] Bellier - PI31', labels: [] }, { id: 'E2', title: 'X', labels: ['Buffer'] }]);
+        assert.equal(isBuf({ epic: 'E1', labels: [] }), true, 'GCOM-5022 : seule l\'epic porte le Buffer');
+        assert.equal(isBuf({ epic: 'E2' }), true);
+        assert.equal(isBuf({ epic: 'E3', labels: ['buffer'] }), true);
+        assert.equal(isBuf({ epic: 'E3', labels: [] }), false);
+    });
+    test('détail PAR EPIC (second tableau JIRA) : total décroissant, « Sans epic » en dernier, filtre équipe', () => {
+        const withEpics = fixtures().map(t => ({ ...t, epic: { A: 'E1', D: 'E2', F: 'E2' }[t.id] || '' }));
+        const late = tk('G', { points: 3, jiraStatus: 'Prêt', epic: 'E2', createdAt: '2025-12-29T10:00:00.000+0100' });
+        const m = model({ tickets: [...withEpics, late], teams: ['O', 'X'] });
+        const title = id => ({ E1: 'Epic Un', E2: 'Epic Deux' })[id];
+        const rows = F.piFlowEpicRows(m, { epicTitle: title });
+        assert.deepEqual(rows.map(r => [r.label, r.total, r.added]), [['Epic Deux', 6, 3], ['Epic Un', 3, 0]]);
+        assert.deepEqual(rows[0].teams.sort(), ['O', 'X']);
+        assert.deepEqual(F.piFlowEpicRows(m, { team: 'X', epicTitle: title }).map(r => r.label), ['Epic Deux']);
+        assert.deepEqual(F.piFlowPick(m, { key: 'ready', epic: 'E2' }).map(x => x.t.id), ['G', 'F'], 'clic d\'une cellule d\'epic');
+        const tsv = F.piFlowEpicTsv(m, { title: 'GCOM - O', epicTitle: title }).split('\n');
+        assert.equal(tsv[1], 'Epic\tTOTAL\t00.TODO\t01.SCOPING\t02.READY_TO_DEV\t03.IN_DEVELOPMENT\t04.IN_TESTING\t05.DEVELOPMENT_DONE\tADDED SCOPE');
+        assert.equal(tsv[2], 'Epic Deux\t6\t0\t0\t5\t0\t0\t1\t-3');
+        const none = model({ tickets: fixtures(), teams: ['O'] });
+        assert.equal(F.piFlowEpicRows(none).at(-1).label, 'Sans epic');
+        assert.equal(F.piFlowPick(none, { epic: '__none' }).length, 3);
     });
     test('PI sans bornes : pas de modèle', () => {
         assert.equal(F.piStageFlowModel({ tickets: [], piNum: 31, bounds: null }), null);

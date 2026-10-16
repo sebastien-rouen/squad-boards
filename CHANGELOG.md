@@ -1,3 +1,21 @@
+## [3.226.0] - 2026-10-17
+
+### Added scope du PI, détail par epic, états JIRA de la ligne produit sur le Dashboard
+
+- **Colonne « Added scope »** (page PI → Indicateurs, tableau et copie) : points des tickets entrés dans le PI
+  après son premier jour, hors Buffer (étiquette du ticket ou de son epic, epic « [Buffer] … »). Une
+  réestimation n'est pas un ajout. Affichée en négatif, comme dans le rapport JIRA du train : PI 31, Ami −2
+  et Bellier −3 au point près. Cliquable : la liste des tickets ajoutés.
+- **Dashboard → 📈 Avancement du PI** : une ligne par équipe de la ligne produit, avec les six états JIRA (00 → 05,
+  points dans les segments), le repère du temps écoulé du PI et la part terminée (rouge si en retard).
+  Segments cliquables, lien « Détail → » vers la page PI. Elles remplacent les lignes par équipe à trois états.
+- **📂 Détail par epic** sous le tableau de la ligne produit, au format du second tableau du rapport JIRA (une
+  ligne par epic, six états, Added scope, total décroissant) : puces d'équipe (ouvert sur l'équipe filtrée),
+  cellules cliquables, copie. Les epics à 0 pt sont masquées comme dans JIRA et comptées en pied de tableau.
+  Vérifié contre le rapport du PI 31 : Fuego identique epic par epic (76 pts).
+- **Page PI → Indicateurs : une seule carte**, la ligne produit (pleine largeur). La carte de l'équipe seule
+  faisait doublon ; elle ne reste que pour une équipe rattachée à aucune ligne produit.
+
 ## [3.225.0] - 2026-10-16
 
 ### Page PI → Indicateurs : flux cumulé par état JIRA, équipe et ligne produit

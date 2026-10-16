@@ -73,7 +73,13 @@ export function piProgressModel({ tickets, piNum, starts, bounds = null, teams =
     };
 }
 
-export function piProgressHtml(m) {
+/**
+ * @param {object} m  modèle `piProgressModel`
+ * @param {object} [o]
+ * @param {string} [o.statesHtml]  lignes « États JIRA » de la ligne produit (`piFlowRowsHtml`, 3.225.0) : elles
+ *                                 REMPLACENT les lignes par équipe à trois états, qui feraient doublon.
+ */
+export function piProgressHtml(m, { statesHtml = '' } = {}) {
     if (!m) return '';
     const { sp } = m;
     if (!sp.total) {
@@ -106,13 +112,13 @@ export function piProgressHtml(m) {
                 </div>
             </div>
         </div>
-        ${m.teams.length ? `<div class="pip-teams">
+        ${statesHtml || (m.teams.length ? `<div class="pip-teams">
             ${m.teams.map(tm => `<div class="pip-team">
                 <span class="pip-team-name" title="${esc(tm.name)}"><span class="team-dot" style="background:${esc(tm.color)}"></span>${esc(tm.name)}</span>
                 ${_barHtml(tm.sp, m.elapsed, { team: tm.name })}
                 <span class="pip-team-val" title="${tm.sp.by.done.length} terminés sur ${tm.sp.total}">${pct(tm.sp.by.done.length, tm.sp.total)} %</span>
             </div>`).join('')}
-        </div>` : ''}
+        </div>` : '')}
         <div class="pip-list" data-pip-list hidden></div>
     </div>`;
 }

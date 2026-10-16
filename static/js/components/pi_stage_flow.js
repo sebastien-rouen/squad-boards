@@ -11,8 +11,8 @@
  * ⚠️ Historique de statut COMPLET depuis 3.216.0 seulement : un sprint clos archivé avant peut porter un
  * historique tronqué (le statut le plus ancien connu vaut alors pour les jours d'avant).
  */
-import { esc, extractPiNum, belongedToPi, sprintNamesAt, historyOf, jiraDateMs, isWorkday, workdaysBetween, burnDayKey, mapStatus,
-    stageOfLabel, JIRA_STAGES, copyToClipboard, todayIsoLocal, emptyStateHtml } from '../utils.js';
+import { esc, extractPiNum, belongedToPi, piEntryMs, isBufferItem, sprintNamesAt, historyOf, jiraDateMs, isWorkday, workdaysBetween, burnDayKey, mapStatus,
+    stageOfLabel, JIRA_STAGES, copyToClipboard, todayIsoLocal, emptyStateHtml, teamNameMatches } from '../utils.js';
 
 const UNIT_KEY = 'sb-pi-stageflow-unit';
 export const piFlowUnit = () => { try { return localStorage.getItem(UNIT_KEY) === 'tickets' ? 'tickets' : 'pts'; } catch { return 'pts'; } };
@@ -99,6 +99,28 @@ function _elapsedPct(bounds, today) {
 /** En retard : moins terminé que le temps écoulé, au-delà de la marge de démarrage (même règle que pi_progress). */
 export const piFlowLate = (donePct, elapsed) => elapsed >= 15 && donePct + 10 < elapsed;
 
+/** Ticket du Buffer : étiquette « buffer » du ticket OU de son epic, ou epic « [Buffer] … » (GCOM-5022 : l'epic seule). */
+export function bufferTest(features = []) {
+    const ids = new Set(features.filter(f => isBufferItem(f) || /^\s*\[buffer\]/i.test(f.title || '')).map(f => f.id));
+    return t => isBufferItem(t) || ids.has(t.epic);
+}
+
+/**
+ * Ligne produit à montrer (page PI ET Dashboard, même choix) : le groupe de l'équipe filtrée, sinon le groupe du
+ * topbar, sinon tout le train (`teams` = toutes les équipes). null = équipe rattachée à aucun groupe.
+ * @returns {{ title, prefix, teams: string[], tickets: object[], group }|null}
+ */
+export function lineProductScope({ team, groupId, groups = [], tickets = [], teams = [] }) {
+    const ofGroup = g => ({ title: `Ligne produit ${g.name}`, prefix: `${g.name} - `, teams: g.teams || [], group: g,
+        tickets: tickets.filter(t => (g.teams || []).includes(t.team)) });
+    if (team && team !== 'all') {
+        const g = groups.find(x => (x.teams || []).some(n => teamNameMatches(n, team)));
+        return g ? ofGroup(g) : null;
+    }
+    const g = groupId && groups.find(x => x.id === groupId);
+    return g ? ofGroup(g) : { title: 'Toutes les équipes', prefix: '', teams, tickets, group: null };
+}
+
 /**
  * @param {object}   o
  * @param {object[]} o.tickets  tickets du périmètre (équipe ou ligne produit), NON réduits au PI
@@ -107,8 +129,10 @@ export const piFlowLate = (donePct, elapsed) => elapsed >= 15 && donePct + 10 < 
  * @param {string}   [o.today]  AAAA-MM-JJ local
  * @param {'pts'|'tickets'} [o.unit]
  * @param {string[]} [o.teams]  une ligne par équipe dans `rows` (ligne produit)
+ * @param {(t) => boolean} [o.isBuffer]  ticket du Buffer (hors ADDED SCOPE) — `bufferTest(features)` ajoute l'epic « [Buffer] »
+ * @param {boolean}  [o.snapshotOnly]  état du jour seul, sans rejouer le PI jour par jour (Dashboard)
  */
-export function piStageFlowModel({ tickets = [], piNum, bounds, today = todayIsoLocal(), unit = 'pts', teams = [] }) {
+export function piStageFlowModel({ tickets = [], piNum, bounds, today = todayIsoLocal(), unit = 'pts', teams = [], isBuffer = isBufferItem, snapshotOnly = false }) {
     if (!piNum || !bounds?.startIso || !bounds?.endIso) return null;
     const days = [];
     for (let d = new Date(`${bounds.startIso}T12:00:00`); burnDayKey(d) <= bounds.endIso; d.setDate(d.getDate() + 1)) {
@@ -120,7 +144,7 @@ export function piStageFlowModel({ tickets = [], piNum, bounds, today = todayIso
     const guessed = new Set();
     const series = Object.fromEntries(JIRA_STAGES.map(s => [s.key, days.map(() => null)]));
     const byDay = [];   // byDay[i] = [{ t, snap }] : la liste d'une bande cliquée (`piFlowPick`)
-    for (let i = 0; i < shownN; i++) {
+    for (let i = snapshotOnly ? shownN : 0; i < shownN; i++) {
         const at = Math.min(Date.now(), _endOfDayMs(days[i]));
         for (const s of JIRA_STAGES) series[s.key][i] = 0;
         byDay[i] = [];
@@ -135,14 +159,14 @@ export function piStageFlowModel({ tickets = [], piNum, bounds, today = todayIso
     // État d'AUJOURD'HUI (ou de la fin du PI s'il est passé), ticket par ticket : tableau + listes.
     const at = Math.min(Date.now(), _endOfDayMs(today < bounds.endIso ? today : bounds.endIso));
     const now = cands.map(({ t, h }) => ({ t, snap: _snapshot(t, h, at, piNum, unit, guessed) })).filter(x => x.snap);
-    const row = (label, list) => {
-        const by = Object.fromEntries(JIRA_STAGES.map(s => [s.key, 0]));
-        for (const x of list) by[x.snap.key] += x.snap.v;
-        for (const k in by) by[k] = _r1(by[k]);
-        const total = _r1(Object.values(by).reduce((a, b) => a + b, 0));
-        // Part TERMINÉE (05) : le chiffre posé en bout de barre, comparé au temps écoulé du PI.
-        return { label, by, total, n: list.length, donePct: total > 0 ? Math.round(by.done / total * 100) : 0 };
-    };
+    // ADDED SCOPE, calé sur le rapport JIRA du train (PI 31 : Ami −2, Bellier −3 au point près) : tickets du
+    // périmètre ENTRÉS dans le PI après son premier jour (`piEntryMs`), à leurs points du jour, HORS Buffer (capacité
+    // réservée : ses ajouts sont prévus). Une réestimation n'est pas un ajout ; un ajout retiré depuis ne compte plus.
+    // JIRA l'affiche en NÉGATIF — conservé à l'écran et à la copie pour que les deux tableaux se comparent.
+    const startCut = _endOfDayMs(bounds.startIso);
+    for (const x of now) { const e = piEntryMs(x.t, piNum); x.added = Number.isFinite(e) && e > startCut && !isBuffer(x.t); }
+    if (snapshotOnly && shownN) byDay[shownN - 1] = now;
+    const row = _row;
     return {
         piNum, unit, days, shownN, elapsed: _elapsedPct(bounds, today),
         labels: days.map(d => `${d.slice(8, 10)}/${d.slice(5, 7)}`),
@@ -153,10 +177,48 @@ export function piStageFlowModel({ tickets = [], piNum, bounds, today = todayIso
     };
 }
 
+/** Ligne du tableau : points par état, total, part terminée (05), ADDED SCOPE — équipe, total ou epic. */
+function _row(label, list) {
+    const by = Object.fromEntries(JIRA_STAGES.map(s => [s.key, 0]));
+    for (const x of list) by[x.snap.key] += x.snap.v;
+    for (const k in by) by[k] = _r1(by[k]);
+    const total = _r1(Object.values(by).reduce((a, b) => a + b, 0));
+    // Part TERMINÉE (05) : le chiffre posé en bout de barre, comparé au temps écoulé du PI.
+    const added = _r1(list.filter(x => x.added).reduce((a, x) => a + x.snap.v, 0));
+    return { label, by, total, n: list.length, donePct: total > 0 ? Math.round(by.done / total * 100) : 0, added };
+}
+
+/**
+ * Détail PAR EPIC (le second tableau du rapport JIRA : une ligne par epic, ses six états, son ADDED SCOPE), sur
+ * l'état du jour. `t.epic` porte l'id de la FEATURE parente (cf. CLAUDE.md) — `epicTitle` le traduit.
+ * Tri : total décroissant (ordre du rapport JIRA), « Sans epic » en dernier.
+ * @returns {{ id: string, label, by, total, n, added, donePct, teams: string[] }[]}  id '__none' = sans epic
+ */
+export function piFlowEpicRows(m, { team = '', epicTitle = id => id } = {}) {
+    const groups = new Map();
+    for (const x of m?.now || []) {
+        if (team && x.t.team !== team) continue;
+        const k = x.t.epic || '__none';
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(x);
+    }
+    return [...groups].map(([id, list]) => ({ id, ..._row(id === '__none' ? 'Sans epic' : (epicTitle(id) || id), list),
+        teams: [...new Set(list.map(x => x.t.team))] }))
+        .sort((a, b) => (a.id === '__none') - (b.id === '__none') || b.total - a.total || a.label.localeCompare(b.label));
+}
+
+/** Détail par epic au format du rapport JIRA (TSV). */
+export function piFlowEpicTsv(m, { title, team = '', epicTitle }) {
+    const rows = piFlowEpicRows(m, { team, epicTitle }).filter(r => r.total > 0);   // comme le rapport JIRA
+    return [`${title}\tPI ${m.piNum}\t${m.unit === 'tickets' ? 'tickets' : 'story points'}`,
+        ['Epic', 'TOTAL', ...JIRA_STAGES.map(s => s.label), 'ADDED SCOPE'].join('\t'),
+        ...rows.map(r => [r.label, _fmt(r.total), ...JIRA_STAGES.map(s => _fmt(r.by[s.key])), _fmt(-r.added || 0)].join('\t'))].join('\n');
+}
+
 /** Tableau au format du rapport JIRA (TSV : se colle dans un tableur ou Confluence). */
 export function piFlowTsv(m, { title, prefix = '' }) {
-    const head = ['', 'TOTAL', ...JIRA_STAGES.map(s => s.label)].join('\t');
-    const line = r => [r.label === 'Total' ? r.label : `${prefix}${r.label}`, _fmt(r.total), ...JIRA_STAGES.map(s => _fmt(r.by[s.key]))].join('\t');
+    const head = ['', 'TOTAL', ...JIRA_STAGES.map(s => s.label), 'ADDED SCOPE'].join('\t');
+    const line = r => [r.label === 'Total' ? r.label : `${prefix}${r.label}`, _fmt(r.total), ...JIRA_STAGES.map(s => _fmt(r.by[s.key])), _fmt(-r.added || 0)].join('\t');
     // Sans ligne par équipe (carte d'une équipe) : la ligne porte son nom, comme le rapport JIRA.
     const total = m.rows.length ? m.total : { ...m.total, label: title };
     return [`${title}\tPI ${m.piNum}\t${m.unit === 'tickets' ? 'tickets' : 'story points'}`, head,
@@ -171,20 +233,52 @@ function _tableHtml(m, title) {
         <td class="psf-total"><button type="button" data-psf-cell="" data-psf-team="${esc(team)}" title="Lister les ${r.n} tickets">${_fmt(r.total)}</button></td>
         ${JIRA_STAGES.map(s => `<td class="${r.by[s.key] ? '' : 'is-zero'}">${r.by[s.key]
             ? `<button type="button" data-psf-cell="${s.key}" data-psf-team="${esc(team)}" title="${esc(s.label)}${team ? ` · ${esc(team)}` : ''} — lister les tickets">${_fmt(r.by[s.key])}</button>`
-            : _fmt(0)}</td>`).join('')}</tr>`;
+            : _fmt(0)}</td>`).join('')}
+        <td class="psf-added ${r.added ? '' : 'is-zero'}">${r.added
+            ? `<button type="button" data-psf-cell="__added" data-psf-team="${esc(team)}" title="${_fmt(r.added)} ${u} entrés dans le PI après son premier jour (hors Buffer) — JIRA l'affiche en négatif. Lister les tickets">−${_fmt(r.added)}</button>`
+            : '0'}</td></tr>`;
     return `<div class="psf-table-wrap"><table class="psf-table">
-        <thead><tr><th></th><th title="Total en ${u}">Total</th>${JIRA_STAGES.map(s => `<th title="${esc(s.label)}"><i style="background:${s.color}"></i>${esc(s.code)}<span>${esc(s.short)}</span></th>`).join('')}</tr></thead>
+        <thead><tr><th></th><th title="Total en ${u}">Total</th>${JIRA_STAGES.map(s => `<th title="${esc(s.label)}"><i style="background:${s.color}"></i>${esc(s.code)}<span>${esc(s.short)}</span></th>`).join('')}<th class="psf-added" title="ADDED SCOPE : entrés dans le PI après son premier jour, hors Buffer (négatif, comme dans JIRA)">Added<span>scope</span></th></tr></thead>
         <tbody>${rows.map(r => tr(r, r.label)).join('')}${rows.length ? tr(m.total, '', 'psf-sum') : tr({ ...m.total, label: title }, '')}</tbody>
     </table></div>`;
+}
+
+/**
+ * Section « 📂 Détail par epic » sous le tableau d'une ligne produit : choix de l'équipe (puces), tableau au format
+ * du rapport JIRA, cellules cliquables (liste des tickets de l'epic dans cet état), copie TSV.
+ * @param {object} o
+ * @param {string[]} o.teams     équipes proposées (celles qui ont des tickets)
+ * @param {string}   o.team      équipe affichée ('' = toutes)
+ * @param {Function} o.epicTitle id de feature → titre
+ */
+export function piFlowEpicsHtml(m, { teams = [], team = '', epicTitle }) {
+    // Epics à 0 (tickets non estimés) masquées, comme dans le rapport JIRA — comptées en pied de tableau.
+    const all = piFlowEpicRows(m, { team, epicTitle });
+    const rows = all.filter(r => r.total > 0), hidden = all.filter(r => !r.total);
+    const u = m.unit === 'tickets' ? 'tk' : 'pts';
+    const chip = (v, lbl) => `<button type="button" class="psf-chip${v === team ? ' is-on' : ''}" data-psf-epic-team="${esc(v)}" aria-pressed="${v === team}">${esc(lbl)}</button>`;
+    const cell = (r, k, v, extra = '') => `<button type="button" data-psf-cell="${k}" data-psf-team="${esc(team)}" data-psf-epic="${esc(r.id)}" data-psf-epic-label="${esc(r.label)}"${extra}>${v}</button>`;
+    const tr = r => `<tr><th scope="row" title="${esc(r.label)}${!team && r.teams.length ? ` — ${esc(r.teams.join(', '))}` : ''}">${esc(r.label)}${!team && teams.length > 1 ? `<small>${esc(r.teams.join(', '))}</small>` : ''}</th>
+        <td class="psf-total">${cell(r, '', _fmt(r.total), ` title="Lister les ${r.n} tickets"`)}</td>
+        ${JIRA_STAGES.map(s => `<td class="${r.by[s.key] ? '' : 'is-zero'}">${r.by[s.key] ? cell(r, s.key, _fmt(r.by[s.key])) : _fmt(0)}</td>`).join('')}
+        <td class="psf-added ${r.added ? '' : 'is-zero'}">${r.added ? cell(r, '__added', `−${_fmt(r.added)}`, ` title="Ajoutés après le 1ᵉʳ jour du PI, hors Buffer"`) : '0'}</td></tr>`;
+    return `<div class="psf-epics-bar">
+            <span class="psf-chips" role="group" aria-label="Équipe">${chip('', 'Toutes')}${teams.map(t => chip(t, t)).join('')}</span>
+            ${rows.length ? `<button type="button" class="btn btn-ghost btn-xs" data-psf-epic-copy title="Copier le détail par epic au format du rapport JIRA">📋 Copier</button>` : ''}
+        </div>
+        ${rows.length ? `<div class="psf-table-wrap"><table class="psf-table psf-table--epics">
+            <thead><tr><th>Epic</th><th title="Total en ${u}">Total</th>${JIRA_STAGES.map(s => `<th title="${esc(s.label)}"><i style="background:${s.color}"></i>${esc(s.code)}</th>`).join('')}<th class="psf-added" title="ADDED SCOPE (négatif, comme dans JIRA)">Added</th></tr></thead>
+            <tbody>${rows.map(tr).join('')}</tbody></table></div>` : '<p class="text-muted text-sm">Aucun ticket estimé.</p>'}
+        ${hidden.length ? `<p class="psf-epics-hidden text-muted" title="${esc(hidden.map(r => `${r.label} (${r.n} ticket${r.n > 1 ? 's' : ''})`).join(' · '))}">+ ${hidden.length} epic${hidden.length > 1 ? 's' : ''} sans ${u === 'pts' ? 'point' : 'ticket'} (${hidden.reduce((a, r) => a + r.n, 0)} tickets non estimés), masquée${hidden.length > 1 ? 's' : ''} comme dans le rapport JIRA</p>` : ''}`;
 }
 
 /**
  * Tickets d'une sélection : état `key` ('' = tous) au jour `i` (dernier jour affiché par défaut), d'une équipe
  * (`team` vide = toute la carte). Triés par points décroissants.
  */
-export function piFlowPick(m, { key = '', i = m.shownN - 1, team = '' } = {}) {
-    return (m.byDay[i] || [])
-        .filter(x => (!key || x.snap.key === key) && (!team || x.t.team === team))
+export function piFlowPick(m, { key = '', i = m.shownN - 1, team = '', epic = '' } = {}) {
+    const src = key === '__added' ? m.now.filter(x => x.added) : (m.byDay[i] || []).filter(x => !key || x.snap.key === key);
+    return src.filter(x => (!team || x.t.team === team) && (!epic || (epic === '__none' ? !x.t.epic : x.t.epic === epic)))
         .sort((a, b) => b.snap.pts - a.snap.pts || String(a.t.id).localeCompare(String(b.t.id)));
 }
 
@@ -208,8 +302,8 @@ function _listHtml(m, sel, multiTeam) {
         </button>`;
     }).join('');
     return `<div class="pip-list-head">
-            ${st ? `<i class="psf-list-dot" style="background:${st.color}"></i><b>${esc(st.label)}</b>` : '<b>Tous les états</b>'}
-            <span class="text-muted">${isToday ? 'aujourd\'hui' : `le ${esc(m.labels[i])}`}${sel.team ? ` · ${esc(sel.team)}` : ''} · ${list.length} ticket${list.length > 1 ? 's' : ''} · ${_fmt(pts)} pts</span>
+            ${st ? `<i class="psf-list-dot" style="background:${st.color}"></i><b>${esc(st.label)}</b>` : sel.key === '__added' ? '<b>➕ Added scope</b><span class="text-muted">entrés après le 1ᵉʳ jour du PI, hors Buffer ·</span>' : '<b>Tous les états</b>'}
+            <span class="text-muted">${isToday ? 'aujourd\'hui' : `le ${esc(m.labels[i])}`}${sel.team ? ` · ${esc(sel.team)}` : ''}${sel.epicLabel ? ` · ${esc(sel.epicLabel)}` : ''} · ${list.length} ticket${list.length > 1 ? 's' : ''} · ${_fmt(pts)} pts</span>
             <button type="button" class="btn-icon pip-list-close" data-psf-close aria-label="Replier la liste" title="Replier">×</button>
         </div>
         <div class="stuck-list pip-list-rows${multiTeam ? ' psf-rows--team' : ''}">${rows || '<p class="text-muted text-sm">Aucun ticket.</p>'}</div>
@@ -223,7 +317,7 @@ function _listHtml(m, sel, multiTeam) {
  * @param {string} o.title « Fuego », « Ligne produit GCOM »
  * @param {string} [o.note] précision sous le titre (HTML déjà échappé : équipe hors ligne produit…)
  */
-export function piFlowCardHtml(m, { id, title, note = '' }) {
+export function piFlowCardHtml(m, { id, title, note = '', epics = null }) {
     const unit = m?.unit || piFlowUnit();
     const seg = (attr, cur, opts) => `<span class="psf-unit" role="group">${opts.map(([v, lbl, tip]) =>
         `<button type="button" class="${cur === v ? 'is-on' : ''}" data-${attr}="${v}" aria-pressed="${cur === v}"${tip ? ` title="${esc(tip)}"` : ''}>${lbl}</button>`).join('')}</span>`;
@@ -250,6 +344,8 @@ export function piFlowCardHtml(m, { id, title, note = '' }) {
         ${head(sub)}
         <div class="chart-container psf-chart"${barsH}><canvas id="psf-chart-${esc(id)}" aria-label="Flux cumulé par état — ${esc(title)}"></canvas></div>
         ${_tableHtml(m, title)}
+        ${epics ? `<details class="psf-epics" open><summary>📂 Détail par epic</summary>
+            <div data-psf-epics>${piFlowEpicsHtml(m, epics)}</div></details>` : ''}
         <div class="pip-list psf-list" data-psf-list hidden></div>
         ${m.guessed.length ? `<p class="psf-guess" title="Libellés JIRA absents de utils/jira-stages.js, rangés d'après le statut interne">⚠ Statut${m.guessed.length > 1 ? 's' : ''} non répertorié${m.guessed.length > 1 ? 's' : ''} : ${m.guessed.map(esc).join(', ')}</p>` : ''}
     </div>`;
@@ -273,7 +369,7 @@ export function bindPiFlowCards(root, cards, rerender) {
         const card = root.querySelector(`[data-psf="${CSS.escape(id)}"]`);
         const c = cards.get(id);
         if (!card || !c?.m) return;
-        const key = `${sel.key}|${sel.i ?? ''}|${sel.team || ''}`;
+        const key = `${sel.key}|${sel.i ?? ''}|${sel.team || ''}|${sel.epic || ''}`;
         if (open.get(id) === key) { close(card, id); return; }
         open.set(id, key);
         card.querySelectorAll('[data-psf-cell].is-active').forEach(el => el.classList.remove('is-active'));
@@ -307,8 +403,90 @@ export function bindPiFlowCards(root, cards, rerender) {
         if (e.target.closest('[data-psf-close]')) { close(card, id); return; }
         const row = e.target.closest('.psf-row[data-ticket]');
         if (row) { window.__squadBoard?.openTicketModal?.(row.dataset.ticket); return; }
+        const chip = e.target.closest('[data-psf-epic-team]');
+        const c = cards.get(id);
+        if (chip && c?.epics) {
+            c.epics = { ...c.epics, team: chip.dataset.psfEpicTeam };
+            card.querySelector('[data-psf-epics]').innerHTML = piFlowEpicsHtml(c.m, c.epics);
+            return;
+        }
+        if (e.target.closest('[data-psf-epic-copy]') && c?.epics) {
+            const lbl = c.epics.team ? `${c.prefix || ''}${c.epics.team}` : c.title;
+            copyToClipboard(piFlowEpicTsv(c.m, { title: lbl, team: c.epics.team, epicTitle: c.epics.epicTitle }), 'Détail par epic copié');
+            return;
+        }
         const cell = e.target.closest('[data-psf-cell]');
-        if (cell) pick(id, { key: cell.dataset.psfCell, team: cell.dataset.psfTeam || '' }, cell);
+        if (cell) pick(id, { key: cell.dataset.psfCell, team: cell.dataset.psfTeam || '', epic: cell.dataset.psfEpic || '', epicLabel: cell.dataset.psfEpicLabel || '' }, cell);
     }));
     return { pick };
+}
+
+/**
+ * Dashboard → carte « 📈 Avancement du PI » : une ligne par équipe de la ligne produit, mêmes six états et même
+ * repère du temps écoulé que les barres de la page PI. Barres HTML (pas de Chart.js sur la page d'accueil),
+ * chacune ramenée à 100 % pour comparer des équipes de tailles différentes ; points écrits dans les segments.
+ * @param {object} m  modèle `piStageFlowModel({ snapshotOnly: true, teams })`
+ * @param {object} o
+ * @param {string} o.title      « Ligne produit GCOM »
+ * @param {string} [o.highlight] équipe filtrée (ligne mise en avant)
+ * @param {string} [o.href]     lien vers le détail (page PI → Indicateurs)
+ */
+const _ink = hex => { const n = parseInt(String(hex).slice(1, 7), 16);
+    return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 150 ? '#fff' : '#0f172a'; };
+
+export function piFlowRowsHtml(m, { title, highlight = '', href = '' }) {
+    const rows = m?.rows.filter(r => r.n) || [];
+    if (!rows.length) return '';
+    const el = m.elapsed;
+    const line = r => {
+        const late = piFlowLate(r.donePct, el);
+        const segs = JIRA_STAGES.map(s => {
+            const v = r.by[s.key];
+            if (!v) return '';
+            const w = r.total > 0 ? v / r.total * 100 : 0;
+            return `<button type="button" class="psr-seg" style="width:${w}%;background:${s.color};color:${_ink(s.color)}" data-psr-key="${s.key}" data-psr-team="${esc(r.label)}"
+                title="${esc(s.label)} : ${_fmt(v)} pts (${Math.round(w)} %) — cliquer pour la liste">${w >= 9 ? _fmt(v) : ''}</button>`;
+        }).join('');
+        return `<div class="psr-row${highlight && teamNameMatches(r.label, highlight) ? ' is-current' : ''}">
+            <span class="psr-name" title="${esc(r.label)} · ${_fmt(r.total)} pts">${esc(r.label)} <small>${_fmt(r.total)}</small></span>
+            <span class="psr-bar">${segs}<i class="psr-now" style="left:${el}%" aria-hidden="true"></i></span>
+            <span class="psr-done${late ? ' is-late' : ''}" title="Terminé (05) : ${r.donePct} % des points${late ? ` — en retard sur le temps écoulé (${el} %)` : ''}">✓ ${r.donePct} %</span>
+        </div>`;
+    };
+    return `<div class="psr" data-psr>
+        <div class="psr-head"><b>États JIRA — ${esc(title)}</b>
+            <span class="text-muted">en story points · <i class="psr-key" aria-hidden="true"></i> ${el} % du PI écoulé</span>
+            ${href ? `<a class="psr-more" href="${esc(href)}" title="Flux cumulé jour par jour, tableau, Added scope">Détail →</a>` : ''}</div>
+        ${rows.map(line).join('')}
+        <div class="psr-legend">${JIRA_STAGES.map(s => `<span><i style="background:${s.color}"></i>${esc(s.code)} ${esc(s.short)}</span>`).join('')}</div>
+        <div class="pip-list psf-list" data-psr-list hidden></div>
+    </div>`;
+}
+
+/**
+ * Clic sur un segment de `piFlowRowsHtml` → liste des tickets dans son volet (distinct de celui de la carte hôte,
+ * qui garde sa propre logique d'ouverture). Re-cliquer le même segment replie.
+ */
+export function bindPiFlowRows(root, m) {
+    const box = root.querySelector('[data-psr]');
+    const panel = box?.querySelector('[data-psr-list]');
+    if (!box || !m || !panel) return;
+    let open = '';
+    box.addEventListener('click', e => {
+        const seg = e.target.closest('[data-psr-key]');
+        if (!seg) return;
+        const key = `${seg.dataset.psrKey}|${seg.dataset.psrTeam}`;
+        box.querySelectorAll('.psr-seg.is-active').forEach(x => x.classList.remove('is-active'));
+        if (open === key && !panel.hidden) { open = ''; panel.hidden = true; return; }
+        open = key;
+        seg.classList.add('is-active');
+        panel.innerHTML = _listHtml(m, { key: seg.dataset.psrKey, team: seg.dataset.psrTeam }, true);
+        panel.hidden = false;
+        panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+    panel.addEventListener('click', e => {
+        if (e.target.closest('[data-psf-close]')) { open = ''; panel.hidden = true; box.querySelectorAll('.psr-seg.is-active').forEach(x => x.classList.remove('is-active')); return; }
+        const row = e.target.closest('.psf-row[data-ticket]');
+        if (row) window.__squadBoard?.openTicketModal?.(row.dataset.ticket);
+    });
 }

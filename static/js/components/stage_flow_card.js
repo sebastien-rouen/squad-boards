@@ -48,22 +48,59 @@ export const STAGE_LABELS = {
 };
 
 /**
+ * Périmètres au choix (Dashboard : sprint en cours / PI / PI précédent) — `opts.scopes` =
+ * `[{ key, label, badge, tickets }]`, choix mémorisé sous `opts.storageKey`. Chaque segment se
+ * compare au périmètre de RÉFÉRENCE (`opts.compareOf(clé) → clé`, défaut : le suivant de la liste)
+ * — c'est la comparaison qui fait l'intérêt du sélecteur.
+ * Sans `scopes`, la card mesure `tickets` comme avant (page PI).
+ */
+function _resolve(tickets, opts) {
+    const scopes = (opts.scopes || []).filter(sc => sc && sc.tickets);
+    if (!scopes.length) return { tickets, scopeLabel: opts.scopeLabel || 'historique équipe', scopes: [], active: null, ref: null };
+    let key = null;
+    try { key = opts.storageKey ? localStorage.getItem(opts.storageKey) : null; } catch { /* défaut */ }
+    const active = scopes.find(sc => sc.key === key) || scopes.find(sc => sc.key === opts.scope) || scopes[0];
+    const refKey = opts.compareOf ? opts.compareOf(active.key) : null;
+    const ref = scopes.find(sc => sc.key === refKey && sc !== active)
+        || (opts.compareOf ? null : scopes[scopes.indexOf(active) + 1] || scopes.find(sc => sc !== active)) || null;
+    return { tickets: active.tickets, scopeLabel: active.badge || active.label, scopes, active, ref };
+}
+
+// Écart à la référence : plus long = plus lent (rouge), sous 10 % ou 0,3 j = stable.
+function _deltaHtml(g, refGroups, refLabel) {
+    const r = refGroups.find(x => x.key === g.key);
+    if (!r) return `<span class="stage-flow-delta is-na" title="Colonne absente sur ${esc(refLabel)}">— vs ${esc(refLabel)}</span>`;
+    const d = Math.round((g.medDays - r.medDays) * 10) / 10;
+    const stable = Math.abs(d) < 0.3 || (r.medDays > 0 && Math.abs(d) / r.medDays < 0.1);
+    const cls = stable ? 'is-flat' : d > 0 ? 'is-up' : 'is-down';
+    const txt = stable ? '≈' : `${d > 0 ? '▲ +' : '▼ '}${String(d).replace('.', ',')} j`;
+    return `<span class="stage-flow-delta ${cls}" title="Médiane ${esc(refLabel)} : ${String(r.medDays).replace('.', ',')} j (${r.count} ticket${r.count > 1 ? 's' : ''})">${txt} <small>vs ${esc(refLabel)}</small></span>`;
+}
+
+/**
  * @param {object[]} tickets  périmètre à mesurer — c'est l'APPELANT qui le choisit.
  * @param {object}   [opts]
  * @param {string}   [opts.scopeLabel]  libellé du périmètre affiché dans le badge. Il était
  *   écrit « historique équipe » en dur alors que le Dashboard passait déjà des tickets filtrés
  *   par PI : le badge mentait sur ce qui était mesuré.
+ * @param {object[]} [opts.scopes]      périmètres au choix (cf `_resolve`)
  */
-export function stageFlowCardHtml(tickets, { scopeLabel = 'historique équipe' } = {}) {
-    const groups = computeStageFlow(tickets);
-    if (!groups.length) return '';
+export function stageFlowCardHtml(tickets, opts = {}) {
+    const r = _resolve(tickets, opts);
+    const groups = computeStageFlow(r.tickets);
+    if (!groups.length && !r.scopes.length) return '';
     // Couverture : combien de tickets (non exclus du flux) portent au moins une durée d'étape.
-    const candidates = (tickets || []).filter(t => !isTicketExcludedFromFlow(t).excluded);
+    const candidates = (r.tickets || []).filter(t => !isTicketExcludedFromFlow(t).excluded);
     const measured = candidates.filter(t => {
         const sd = t.stageDurations || t.stage_durations || {};
         return Object.values(sd).some(d => d > 0);
     }).length;
-    const scopeBadge = metricScopeHtml({ scope: scopeLabel, measured, total: candidates.length, excludedReason: 'aucune durée d\'étape (changelog JIRA manquant)' });
+    const scopeBadge = metricScopeHtml({ scope: r.scopeLabel, measured, total: candidates.length, excludedReason: 'aucune durée d\'étape (changelog JIRA manquant)' });
+    const refGroups = r.ref ? computeStageFlow(r.ref.tickets) : null;
+    const switcher = r.scopes.length > 1 ? `
+        <div class="stage-flow-scopes" role="group" aria-label="Période mesurée">
+            ${r.scopes.map(sc => `<button type="button" class="stage-flow-scope${sc === r.active ? ' is-active' : ''}" data-flow-scope="${esc(sc.key)}" aria-pressed="${sc === r.active}" title="Mesurer sur ${esc(sc.badge || sc.label)}">${esc(sc.label)}</button>`).join('')}
+        </div>` : '';
     return `
         <div class="card stage-flow-card">
             <div class="card-header">
@@ -72,9 +109,10 @@ export function stageFlowCardHtml(tickets, { scopeLabel = 'historique équipe' }
                     <span class="card-subtitle">Durée médiane (P50) par étape · P85 en repère — cliquer pour le détail</span>
                     ${scopeBadge}
                 </div>
-                <button type="button" class="btn btn-ghost btn-xs stage-flow-copy-all" title="Copier le détail de toutes les colonnes (Slack)">📋 Copier</button>
+                <button type="button" class="btn btn-ghost btn-xs stage-flow-copy-all" title="Copier le détail de toutes les colonnes (Slack)"${groups.length ? '' : ' disabled'}>📋 Copier</button>
             </div>
-            <div class="lct-schema">
+            ${switcher ? `<div class="stage-flow-toolbar"><span class="stage-flow-toolbar-lbl">Mesurer sur</span>${switcher}${r.ref ? `<span class="text-xs text-muted">comparé à ${esc(r.ref.label)}</span>` : ''}</div>` : ''}
+            ${groups.length ? `<div class="lct-schema">
                 <div class="lct-flow">
                     ${groups.map(g => `
                     <button type="button" class="lct-seg stage-flow-seg stage-flow-seg--${g.key}" data-stage-key="${g.key}" title="${g.count} ticket${g.count > 1 ? 's' : ''} concerné${g.count > 1 ? 's' : ''} — médiane ${g.medDays} j · P85 ${g.p85Days} j · moyenne ${g.avgDays} j — cliquer pour le détail">
@@ -82,9 +120,10 @@ export function stageFlowCardHtml(tickets, { scopeLabel = 'historique équipe' }
                         <span class="lct-seg-val">${g.medDays} j</span>
                         <span class="stage-flow-p85" title="85% des tickets passent moins de ${g.p85Days} j dans cette étape">P85 ${g.p85Days} j</span>
                         <span class="stage-flow-count">${g.count} ticket${g.count > 1 ? 's' : ''}</span>
+                        ${refGroups ? _deltaHtml(g, refGroups, r.ref.label) : ''}
                     </button>`).join('')}
                 </div>
-            </div>
+            </div>` : `<p class="text-muted text-sm stage-flow-empty">Aucune durée d'étape sur ${esc(r.scopeLabel)} — essayez une autre période.</p>`}
         </div>`;
 }
 
@@ -101,12 +140,19 @@ export function bindStageFlowCard(container, tickets, opts = {}) {
         card.outerHTML = html;
         bindStageFlowCard(container, tickets, opts);
     };
+    const current = () => _resolve(tickets, opts).tickets;
+    container.querySelectorAll('.stage-flow-card [data-flow-scope]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            try { if (opts.storageKey) localStorage.setItem(opts.storageKey, btn.dataset.flowScope); } catch { /* sans mémoire */ }
+            refresh();
+        });
+    });
     container.querySelectorAll('.stage-flow-seg[data-stage-key]').forEach(seg => {
-        seg.addEventListener('click', () => _openStageFlowDetail(seg.dataset.stageKey, tickets, refresh));
+        seg.addEventListener('click', () => _openStageFlowDetail(seg.dataset.stageKey, current(), refresh));
     });
     container.querySelector('.stage-flow-copy-all')?.addEventListener('click', async () => {
         try {
-            await navigator.clipboard.writeText(_buildAllStagesCopyText(tickets));
+            await navigator.clipboard.writeText(_buildAllStagesCopyText(current()));
             toast('Résumé de toutes les colonnes copié — collable dans Slack', 'success');
         } catch (err) { toast('Copie impossible : ' + err.message, 'error'); }
     });

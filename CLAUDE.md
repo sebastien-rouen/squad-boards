@@ -627,6 +627,17 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `.pi-section-hdr` (partagés avec Dashboard / Roadmap) ni les cartes de mesure (stage flow, aging WIP).
   Dépendances (`components/dep_graph.js`, page PI seulement) : un lien est RÉSOLU quand l'item attendu (`to`) est
   `done` ; la matrice ne garde que les équipes ayant un lien inter-équipes (les autres sont citées à part).
+- **Dashboard, flux « Équipe & risques » / « Pilotage & flux »** (3.222.0) : « 📈 Avancement du PI » =
+  `components/pi_progress.js` (périmètre `engagedInPi`, repère « aujourd'hui » en jours ouvrés via `piBounds`,
+  segments / légendes cliquables → liste des tickets, « Copier les tickets à risque » : stagnation affichée en
+  DATE — seuil calendaire de la card Bloqués / stagnants ≠ âge en jours ouvrés). « ⏳ Temps par colonne » :
+  `opts.scopes` + `storageKey` + `compareOf` (stage_flow_card.js) — Sprint / PI / PI − 1, chaque segment comparé
+  à sa référence ; sans `scopes`, comportement d'avant (page PI, Rétro). Activité récente (activity.js, Dashboard
+  + Board + Kanban) : liste RECALCULÉE depuis les tickets (période `sb-activity-hours-<scope>`, 1 j par défaut ;
+  filtres champ ET auteur à facettes) — plus de masquage CSS (`--overflow` rendait vide un filtre sur un champ
+  rare). Barre de filtres : re-rendre son `innerHTML`, jamais l'élément (le rail l'enveloppe).
+- **Échap et couches** : popin ticket au-dessus d'une couche (`.above-demo`) → Échap ne ferme QU'ELLE
+  (`stopImmediatePropagation` dans modal.js) ; les couches dessous testent `ticketModalOnTop()` (utils/modals.js).
 - **Historique des niveaux Atlas** (3.198.0) : table `skill_level_history`, écrite UNIQUEMENT par
   `PUT /api/member-skills` (une ligne par changement réel), lue par `components/atlas_history.js`.
 - **Dernière synchro** (3.197.0) : `sprintconfig.synced_by` / `sync_kind`, posés par la synchro

@@ -478,7 +478,14 @@ export function initModal() {
     });
     overlay()?.addEventListener('click', e => { if (e.target === overlay()) closeModal(); });
     document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && !overlay().classList.contains('hidden')) closeModal();
+        if (e.key === 'Escape' && !overlay().classList.contains('hidden')) {
+            // Popin au-dessus d'une autre couche (vue agrandie, Démo, alertes) : Échap ne ferme QU'ELLE —
+            // sans stopImmediatePropagation, l'écouteur de la couche dessous, appelé juste après, voyait la
+            // popin déjà fermée et se fermait aussi.
+            const onTop = overlay().classList.contains('above-demo');
+            closeModal();
+            if (onTop) e.stopImmediatePropagation();
+        }
     });
     window.__squadBoard = window.__squadBoard || {};
     window.__squadBoard.openTicketModal = openTicketModal;

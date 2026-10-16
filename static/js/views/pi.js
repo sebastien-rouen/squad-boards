@@ -507,7 +507,7 @@ export function renderPI(container) {
     if (!container._piKbCleanup) {
         const _piKbHandler = e => {
             if (!container.isConnected) { document.removeEventListener('keydown', _piKbHandler); return; }
-            if (e.target.closest('input,textarea,select,[contenteditable]')) return;
+            if (e.target.closest?.('input,textarea,select,[contenteditable]')) return;
             if (e.metaKey || e.ctrlKey || e.altKey) return;
             const idx = parseInt(e.key, 10);
             if (idx >= 1 && idx <= 9) {

@@ -17,7 +17,7 @@
 import { getChartMeta, rerenderChart, getChartControls, getChartCopyList } from './charts.js';
 import { copyChartImage } from './chart_copy.js';
 import { store } from '../state.js';
-import { toast } from '../utils.js';
+import { toast, ticketModalOnTop } from '../utils.js';
 
 // ── Explications contextuelles par type de graphique ───────────────────────────
 // `read` : comment lire le graphique. `tip` : interprétation / signal d'alerte.
@@ -512,6 +512,7 @@ export function initChartZoom() {
     // Raccourcis clavier quand la popin est ouverte.
     document.addEventListener('keydown', e => {
         if (!_overlay || _overlay.classList.contains('hidden')) return;
+        if (ticketModalOnTop()) return;   // un ticket ouvert depuis la vue agrandie a la main sur le clavier
         if (e.key === 'Escape') { e.preventDefault(); closeChartZoom(); }
         else if (e.key === '?' && !e.target.closest?.('input, select, textarea')) { e.preventDefault(); _setExplainOpen(!_explainOpen); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); _navigate(-1); }

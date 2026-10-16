@@ -21,6 +21,8 @@ import { meteoPlanHtml, bindMeteoPlan } from '../components/meteo_plan.js';
 import { meteoFicheHtml } from '../components/meteo_fiche.js';
 import { endOfPiHtml, recentlyClosedHtml } from '../components/meteo_endpi.js';
 import { firstLaunchHtml, bindFirstLaunch } from '../components/first_launch.js';
+import { piProgressModel, piProgressHtml, bindPiProgress } from '../components/pi_progress.js';
+import { piBounds } from '../utils/pi-weeks.js';
 
 export function renderDashboard(container) {
     const team = store.get('team');
@@ -119,6 +121,19 @@ export function renderDashboard(container) {
     const _flowScopeBadge = isCurrentPi
         ? (sprintInfo ? `${sprintInfo.name} · périmètre engagé` : 'historique équipe')
         : (displayPiNum ? `PI #${displayPiNum} · périmètre engagé` : 'historique équipe');
+    // Sélecteur de la card : sprint en cours / PI affiché / PI précédent, chacun comparé à une
+    // référence (sprint → son PI, PI → le précédent) — même règle de périmètre (durées, reports compris).
+    const _flowSk = extractSprintLabel(sprintInfo?.name || '');
+    const _flowCardOpts = {
+        scopeLabel: _flowScopeBadge,
+        storageKey: 'sb-dash-flow-scope',
+        scopes: [
+            isCurrentPi && sprintInfo ? { key: 'sprint', label: `Sprint ${_flowSk || ''}`.trim(), badge: `${sprintInfo.name} · périmètre engagé`, tickets: _flowScopeTickets } : null,
+            displayPiNum ? { key: 'pi', label: `PI ${displayPiNum}`, badge: `PI #${displayPiNum} · périmètre engagé`, tickets: tickets.filter(t => belongedToPi(t, displayPiNum)) } : null,
+            displayPiNum > 1 ? { key: 'prev', label: `PI ${displayPiNum - 1}`, badge: `PI #${displayPiNum - 1} · périmètre engagé`, tickets: tickets.filter(t => belongedToPi(t, displayPiNum - 1)) } : null,
+        ].filter(Boolean),
+        compareOf: k => (k === 'sprint' ? 'pi' : k === 'pi' ? 'prev' : 'pi'),
+    };
 
     const total = displayTickets.length;
     const done = displayTickets.filter(t => t.status === 'done').length;
@@ -211,6 +226,18 @@ export function renderDashboard(container) {
         .filter(({ t, stag }) => t.status === 'blocked' || (stag != null && stag >= STALE_DAYS))
         .sort((a, b) => (b.stag ?? 0) - (a.stag ?? 0))
         .slice(0, 12);
+
+    // ── Avancement du PI (tête du flux « Équipe & risques ») : tickets ENGAGÉS dans le PI affiché ──
+    const _pipModel = piProgressModel({
+        tickets, piNum: displayPiNum, starts: sprintStartsOf(sprintInfoAll),
+        bounds: isCurrentPi ? piBounds({ team, sprintInfo: sprintInfoAll, piInfo, piNum: displayPiNum }) : null,
+        teams: teams.map((name, i) => ({ name, color: teamObjects.find(o => o.name === name)?.color || TEAM_COLORS[i % TEAM_COLORS.length] })),
+    });
+    const _pipOpts = {
+        label: team && team !== 'all' ? team : (groups.find(g => g.id === groupId)?.name || 'Toutes les équipes'),
+        staleDays: STALE_DAYS, stagDays: _stagDays,
+        lastMove: t => [t.startedDate, _lastStatusChange(t)].filter(Boolean).sort().at(-1) || null,
+    };
 
     // Recent changes — délégué au composant activity.js
 
@@ -725,7 +752,7 @@ export function renderDashboard(container) {
                 </div>
                 <div class="chart-container chart-h-md"><canvas id="chart-cycletime"></canvas></div>
             </div>
-            ${stageFlowCardHtml(_flowScopeTickets, { scopeLabel: _flowScopeBadge })}
+            ${stageFlowCardHtml(_flowScopeTickets, _flowCardOpts)}
             <div class="health-velo-host">
                 ${_veloTeamChips}
                 ${velocityCardHtml({ velocityHistory, currentSprintEntry, target: piInfo?.velocityTarget || null, maxPoints: _veloMax })}
@@ -743,6 +770,8 @@ export function renderDashboard(container) {
 
         <section class="dash-stream">
             <header class="dash-stream-hd"><h2>👥 Équipe &amp; risques</h2><span class="dash-stream-sub">santé &amp; signaux</span></header>
+
+        ${piProgressHtml(_pipModel)}
 
         ${_teamsCards}
 
@@ -793,7 +822,8 @@ export function renderDashboard(container) {
         // toutes), et la bande est en tête de dashboard — chaque ligne repousse les KPI.
         const oncall = container.querySelector('.db-oncall-chips');
         if (oncall) mountNavRail(oncall, { labelPrev: 'Personnes précédentes', labelNext: 'Personnes suivantes' });
-        bindStageFlowCard(container, _flowScopeTickets, { scopeLabel: _flowScopeBadge });
+        bindStageFlowCard(container, _flowScopeTickets, _flowCardOpts);
+        bindPiProgress(container, _pipModel, _pipOpts);
         bindAgingWipCard(container);
         bindSlaReviewCard(container, tickets);
         bindMeteoMatrix(container);

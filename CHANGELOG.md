@@ -1,3 +1,43 @@
+## [3.225.0] - 2026-10-16
+
+### Page PI → Indicateurs : flux cumulé par état JIRA, équipe et ligne produit
+
+- **🌊 Flux cumulé** : surfaces empilées des six états du rapport JIRA du train (00.TODO, 01.SCOPING,
+  02.READY_TO_DEV, 03.IN_DEVELOPMENT, 04.IN_TESTING, 05.DEVELOPMENT_DONE), jour ouvré par jour ouvré sur le PI,
+  en story points ou en tickets. Deux cartes : **l'équipe** et **sa ligne produit** (groupe de Paramètres), avec
+  sous chaque graphique le tableau du jour, une ligne par équipe pour la ligne produit, comme le rapport JIRA.
+  **📋 Copier** le colle tel quel dans un tableur ou Confluence.
+- **Rien n'est interpolé** : chaque jour rejoue l'historique réel des tickets (sprint, statut et points à cette
+  date). Un ticket retiré du PI ou passé en « Clos sans suite » sort de la pile le jour même. Sans historique de
+  statut (sprints clos archivés), l'état est reconstruit par les dates de démarrage et de livraison. Le dernier
+  jour donne le même chiffre que l'Avancement du PI du Dashboard.
+- **Cliquable** : une bande du graphique déplie, sous la carte, les tickets dans cet état ce jour-là (statut JIRA
+  du jour, points, équipe) ; une cellule du tableau fait de même pour aujourd'hui (équipe × état, ou total).
+  Chaque ligne ouvre le ticket.
+- **Vue 📊 Barres** sur les deux cartes (une barre pour l'équipe, une par équipe pour la ligne produit) : états
+  du jour de gauche à droite, du non commencé (00) au terminé (05), points écrits dans chaque segment assez large,
+  segments cliquables. Bascule 📈 Flux / 📊 Barres commune aux deux cartes, mémorisée.
+- **Barres en %** (bascule Valeur / %) : chaque équipe ramenée à 100 % pour comparer des équipes de tailles
+  différentes. **Part terminée en bout de barre** (« ✓ 46 % », en rouge si l'équipe est en retard sur le
+  calendrier) et **repère du temps écoulé du PI** (jours ouvrés, même chiffre que l'Avancement du PI) : ligne
+  « 60 % du PI » en %, trait sur chaque barre en valeur, là où le terminé devrait être à ce rythme.
+
+## [3.224.0] - 2026-10-16
+
+### Avancement du PI aligné sur le rapport JIRA du train
+
+- **Corrigé — périmètre d'un PI** (Dashboard « 📈 Avancement du PI », page PI, Météo, prévisions, Burnup du
+  rapport, TV) : un ticket compte dans le PI s'il est **aujourd'hui** dans un de ses sprints, comme dans JIRA.
+  Les reports à la clôture restent comptés (engagement non tenu) ; sortent les tickets **retirés** (renvoyés
+  au backlog ou au PI suivant, y compris le matin du lancement), ceux qui n'étaient que dans le pseudo-sprint
+  « PI31 » et les **« Clos sans suite »**, qui ne comptent plus comme terminés. Vérifié au point près contre le
+  tableau JIRA du PI 31 : Fuego passe de 170 à 84 pts (le tableau en donnait 76 avant les tickets créés ou
+  estimés dans la journée), Ami de 76 tickets dont 31 « Clos sans suite » à 43 tickets / 21 pts.
+- **Sprints renommés dans JIRA** (« PI#31 » devenu « PI#30.6 ») : le nom actuel fait foi, l'historique en
+  garde l'ancien.
+- **Page PI** : mêmes tickets que le Dashboard. Sur un PI passé, les tickets reportés n'étaient plus comptés,
+  et des tickets seulement étiquetés « PI31 » l'étaient. La vélocité réalisée ne change pas.
+
 ## [3.223.0] - 2026-10-16
 
 ### Capacité en j/h et story points partout, roster navigable par itération

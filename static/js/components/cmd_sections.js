@@ -81,7 +81,7 @@ const RAW = [
 
     // ── PI Planning (onglets) ──────────────────────────────────────────────
     { view: 'pi', icon: '🎯', label: 'Objectifs du PI',      tab: 'objectives', sel: '#pi-tabs', keywords: 'objectifs pi committed stretch atteinte' },
-    { view: 'pi', icon: '📊', label: 'Indicateurs du PI',    tab: 'indicators', sel: '#pi-tabs', keywords: 'indicateurs metriques pi lead time temps par colonne' },
+    { view: 'pi', icon: '📊', label: 'Indicateurs du PI',    tab: 'indicators', sel: '#pi-tabs', keywords: 'indicateurs metriques pi lead time temps par colonne flux cumule cfd etats jira todo scoping ready ligne produit' },
     { view: 'pi', icon: '📦', label: 'Features du PI',       tab: 'features',   sel: '#pi-tabs', keywords: 'features epics perimetre pi' },
     { view: 'pi', icon: '⚡', label: 'Capacité du PI',        tab: 'capacity',   sel: '#pi-tabs', keywords: 'capacite charge prevue etp absences base' },
     { view: 'pi', icon: '📈', label: 'Burnup du PI',         tab: 'burnup',     sel: '#pi-tabs', keywords: 'burnup pi avancement points' },

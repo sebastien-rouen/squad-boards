@@ -6,7 +6,7 @@
 
 import { openSprintTicketsModal } from './sprint_tickets_modal.js';
 import { openSprintCompareModal } from './sprint_compare_modal.js';
-import { burnSeries, burnDayKey, cycleDays, leadDays, wipAgeDays, isWorkday, workdaysBetween, workdayDurationDays, mapStatus, blockedIntervals, sprintStartsOf, sprintNamesOf, extractSprintLabel } from '../utils.js';
+import { burnSeries, burnDayKey, cycleDays, leadDays, wipAgeDays, isWorkday, workdaysBetween, workdayDurationDays, mapStatus, blockedIntervals, sprintStartsOf, sprintNamesOf, extractSprintLabel, JIRA_STAGES } from '../utils.js';
 import { store } from '../state.js';
 import { TYPE_ICONS, STATUS_LABELS } from '../config.js';
 // holidays.js n'est pas dans le barrel : import direct (SOURCE UNIQUE des fériés).
@@ -461,6 +461,181 @@ export function renderCFD(canvasId, tickets, sprint, events = []) {
             eventMarkers,
             plugins: { ...baseOpts().plugins, legend: { position: 'right', labels: { color: css('--text-secondary') || '#475569', font: { size: 10 }, usePointStyle: true, pointStyleWidth: 10 } } },
             scales: { x: { ...baseOpts().scales.x, stacked: true }, y: { ...baseOpts().scales.y, stacked: true, max: total } },
+        },
+    }));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 3 bis. Flux cumulé du PI par état JIRA (page PI → Indicateurs, `pi_stage_flow.js`)
+// ══════════════════════════════════════════════════════════════════════════════
+/**
+ * Surfaces empilées des six états du rapport JIRA (05 en bas → 00 en haut, lecture d'un CFD) à partir du
+ * modèle `piStageFlowModel` — séries RÉELLES, rien d'interpolé (≠ renderCFD). Jours futurs vides.
+ * `opts.view = 'bars'` : une barre horizontale par équipe (`m.rows` ; sans lignes, UNE barre `opts.barLabel`),
+ * segments = états du jour, de 00 (non commencé, à gauche) à 05 (terminé, à droite), valeurs écrites dedans.
+ * `opts.onPick({ key, i, team })` : clic sur une bande (jour `i`) ou un segment (équipe `team`) — ignoré en zoom.
+ */
+/**
+ * Barres du flux cumulé : valeur au centre de chaque segment assez large (texte sombre sur fond clair), part
+ * TERMINÉE en bout de barre (rouge si en retard sur le temps écoulé) et repère du temps écoulé du PI — une
+ * ligne pleine hauteur en %, un trait par barre en valeur (à `total × écoulé`, ce qui serait fini à ce rythme).
+ */
+function _barValuesPlugin({ fmt, pct, rows, elapsed, isLate }) {
+    const dark = hex => {
+        const n = parseInt(String(hex).slice(1, 7), 16);
+        return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 150;
+    };
+    const RED = '#EF4444';
+    return {
+        id: 'sbBarValues',
+        afterDatasetsDraw(chart) {
+            const { ctx: g, scales: { x, y }, chartArea } = chart;
+            g.save();
+            g.font = '600 11px system-ui,sans-serif';
+            g.textAlign = 'center';
+            g.textBaseline = 'middle';
+            chart.data.datasets.forEach((ds, di) => {
+                const meta = chart.getDatasetMeta(di);
+                if (meta.hidden) return;
+                meta.data.forEach((bar, i) => {
+                    const v = ds.data[i];
+                    if (!v) return;
+                    const txt = pct ? `${Math.round(v)} %` : fmt(v);
+                    const w = Math.abs(bar.x - bar.base);
+                    if (w < g.measureText(txt).width + 8 || bar.height < 14) return;
+                    g.fillStyle = dark(ds.borderColor) ? '#fff' : '#0f172a';
+                    g.fillText(txt, (bar.x + bar.base) / 2, bar.y);
+                });
+            });
+            // Repère « temps écoulé »
+            const anyBar = chart.getDatasetMeta(0).data;
+            g.strokeStyle = RED; g.lineWidth = 1.5; g.setLineDash([4, 3]);
+            if (pct && elapsed != null) {
+                const px = x.getPixelForValue(elapsed);
+                g.beginPath(); g.moveTo(px, chartArea.top); g.lineTo(px, chartArea.bottom); g.stroke();
+                g.setLineDash([]); g.fillStyle = RED; g.font = '600 9px system-ui,sans-serif'; g.textBaseline = 'bottom';
+                g.fillText(`${elapsed} % du PI`, px, chartArea.top - 1);
+            } else if (elapsed != null) {
+                rows.forEach((r, i) => {
+                    const bar = anyBar[i];
+                    if (!bar || !r.total) return;
+                    const px = x.getPixelForValue(r.total * elapsed / 100), h = bar.height / 2 + 4;
+                    g.beginPath(); g.moveTo(px, bar.y - h); g.lineTo(px, bar.y + h); g.stroke();
+                });
+            }
+            g.setLineDash([]);
+            // Part terminée en bout de barre
+            g.font = '700 11px system-ui,sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle';
+            rows.forEach((r, i) => {
+                const bar = anyBar[i];
+                if (!bar || !r.total) return;
+                g.fillStyle = isLate(r.donePct) ? RED : '#10B981';
+                g.fillText(`✓ ${r.donePct} %`, x.getPixelForValue(pct ? 100 : r.total) + 6, bar.y);
+            });
+            g.restore();
+        },
+    };
+}
+
+export function renderPiFlow(canvasId, m, title = 'Flux cumulé par état', opts = {}) {
+    _register(canvasId, 'piflow', title, renderPiFlow, [m, title, opts]);
+    const c = ctx(canvasId); if (!c || !window.Chart || !m) return; kill(canvasId);
+    const unit = m.unit === 'tickets' ? 'tickets' : 'pts';
+    const stages = [...JIRA_STAGES].reverse();   // 05 d'abord : bas de la pile / gauche de la barre
+    const pick = !_isZoom(canvasId) && typeof opts.onPick === 'function' ? opts.onPick : null;
+    const base = baseOpts();
+    const fmt = v => String(Math.round((v || 0) * 10) / 10).replace('.', ',');
+    const legend = { position: 'bottom', reverse: true, labels: { ...base.plugins.legend.labels, usePointStyle: true, pointStyleWidth: 10, font: { size: 10 } } };
+    const tooltip = {
+        ..._TT, itemSort: (a, b) => b.datasetIndex - a.datasetIndex,
+        callbacks: {
+            label: it => ` ${it.dataset.label} : ${fmt(it.parsed[opts.view === 'bars' ? 'x' : 'y'])} ${unit}`,
+            footer: items => `Total : ${fmt(items.reduce((s, it) => s + (it.parsed[opts.view === 'bars' ? 'x' : 'y'] || 0), 0))} ${unit}${pick ? ' — cliquer pour la liste' : ''}`,
+        },
+    };
+
+    if (opts.view === 'bars') {
+        const multi = m.rows.length > 0;
+        const rows = multi ? m.rows.filter(r => r.n) : [{ ...m.total, label: opts.barLabel || 'Total' }];
+        const order = JIRA_STAGES;   // 00 à gauche → 05 à droite : le terminé finit la barre
+        const pct = !!opts.pct;
+        const val = (r, k) => (pct ? (r.total > 0 ? r.by[k] / r.total * 100 : 0) : r.by[k]);
+        const isLate = typeof opts.isLate === 'function' ? opts.isLate : () => false;
+        const maxTotal = Math.max(1, ...rows.map(r => r.total));
+        _charts.set(canvasId, new Chart(c, {
+            type: 'bar',
+            plugins: [_barValuesPlugin({ fmt, pct, rows, elapsed: m.elapsed, isLate: d => isLate(d, m.elapsed) })],
+            data: {
+                labels: rows.map(r => `${r.label} · ${fmt(r.total)}`),
+                datasets: order.map(s => ({
+                    label: s.label, data: rows.map(r => val(r, s.key)), raw: rows.map(r => r.by[s.key]),
+                    backgroundColor: s.color + 'D9', borderColor: s.color, borderWidth: 1, borderSkipped: false,
+                    barPercentage: 0.75, categoryPercentage: 0.9,
+                })),
+            },
+            options: {
+                ...base,
+                indexAxis: 'y',
+                interaction: { mode: 'nearest', axis: 'xy', intersect: true },
+                onClick: pick && ((evt, els) => {
+                    const el = els[0];
+                    if (el) pick({ key: order[el.datasetIndex].key, i: m.shownN - 1, team: multi ? rows[el.index].label : '' });
+                }),
+                onHover: pick && ((evt, els) => { evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; }),
+                layout: { padding: { top: pct ? 12 : 4, right: 58 } },   // place du « ✓ 46 % » en bout de barre
+                plugins: { ...base.plugins, legend: { ...legend, reverse: false },
+                    tooltip: { ...tooltip, itemSort: (a, b) => a.datasetIndex - b.datasetIndex, mode: 'index', intersect: true, axis: 'y',
+                        callbacks: {
+                            label: it => { const raw = it.dataset.raw[it.dataIndex], tot = rows[it.dataIndex].total;
+                                return ` ${it.dataset.label} : ${fmt(raw)} ${unit} (${tot > 0 ? Math.round(raw / tot * 100) : 0} %)`; },
+                            footer: items => { const r = rows[items[0]?.dataIndex]; if (!r) return '';
+                                return `Total : ${fmt(r.total)} ${unit} · terminé ${r.donePct} % · ${m.elapsed} % du PI écoulé${pick ? ' — cliquer pour la liste' : ''}`; },
+                        } } },
+                scales: {
+                    x: { ...base.scales.x, stacked: true, beginAtZero: true, ...(pct ? { max: 100, ticks: { ...base.scales.x.ticks, callback: v => `${v} %` } } : { suggestedMax: maxTotal }),
+                        title: { display: true, text: pct ? '% du périmètre de chaque équipe' : unit, color: css('--text-muted') || '#94a3b8', font: { size: 10 } } },
+                    y: { ...base.scales.y, stacked: true, grid: { display: false }, ticks: { ...base.scales.y.ticks, color: css('--text-secondary') || '#475569', font: { size: 11, weight: '600' } } },
+                },
+            },
+        }));
+        return;
+    }
+
+    _ensureTodayPlugin();
+    // Bande sous le pointeur : cumul des états du jour, de bas (05) en haut (00).
+    const bandAt = (chart, evt) => {
+        const i = chart.scales.x.getValueForPixel(evt.x);
+        const idx = Math.round(i);
+        if (!(idx >= 0 && idx < m.shownN)) return null;
+        const y = chart.scales.y.getValueForPixel(evt.y);
+        let cum = 0;
+        for (const s of stages) {
+            const v = m.series[s.key][idx] || 0;
+            if (v > 0 && y >= cum && y <= cum + v) return { key: s.key, i: idx };
+            cum += v;
+        }
+        return null;
+    };
+    _charts.set(canvasId, new Chart(c, {
+        type: 'line',
+        data: {
+            labels: m.labels,
+            datasets: stages.map(s => ({
+                label: s.label, data: m.series[s.key],
+                backgroundColor: s.color + 'B3', borderColor: s.color, borderWidth: 1,
+                fill: true, pointRadius: 0, pointHoverRadius: 3, tension: 0.15, spanGaps: false,
+            })),
+        },
+        options: {
+            ...base,
+            todayIndex: m.todayIndex,
+            onClick: pick && ((evt, _els, chart) => { const b = bandAt(chart, evt); if (b) pick({ ...b, team: '' }); }),
+            onHover: pick && ((evt, _els, chart) => { evt.native.target.style.cursor = bandAt(chart, evt) ? 'pointer' : 'default'; }),
+            plugins: { ...base.plugins, legend, tooltip: { ...tooltip, reverse: false } },
+            scales: {
+                x: { ...base.scales.x, stacked: true, ticks: { ...base.scales.x.ticks, maxRotation: 0, autoSkipPadding: 8 } },
+                y: { ...base.scales.y, stacked: true, title: { display: true, text: unit, color: css('--text-muted') || '#94a3b8', font: { size: 10 } } },
+            },
         },
     }));
 }

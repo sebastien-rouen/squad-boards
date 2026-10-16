@@ -34,6 +34,10 @@ const _EXPLAIN = {
         read: 'Chaque bande colorée représente un statut. L’<strong>épaisseur</strong> d’une bande = nombre de tickets dans ce statut à un instant donné.',
         tip: 'Une bande qui s’élargit (ex. « En cours » ou « Revue ») révèle un <em>goulot d’étranglement</em>. Un flux sain montre des bandes parallèles et régulières.',
     },
+    piflow: {
+        read: 'Une bande par <strong>état du rapport JIRA</strong> (00.TODO en haut → 05.DEVELOPMENT_DONE en bas), en story points ou en tickets, <strong>jour ouvré par jour ouvré</strong> sur le PI. Chaque jour rejoue l’historique réel des tickets (sprint, statut, points à cette date) : rien n’est interpolé. Le haut de la pile = périmètre du PI ce jour-là ; le dernier jour = le tableau sous le graphique.',
+        tip: 'Une bande <strong>03 / 04</strong> qui s’épaissit = travail qui s’accumule en cours ou en test (goulot). Le vert doit monter régulièrement vers le haut de la pile ; une pile qui <em>baisse</em> signale des tickets retirés du PI, une pile qui monte des ajouts.',
+    },
     throughput: {
         read: 'Nombre de tickets <strong>terminés par jour</strong>. Les barres grises sont les week-ends ; la courbe bleue est la moyenne glissante sur 3 jours.',
         tip: 'Un débit régulier est meilleur qu’un pic isolé. Des jours à zéro répétés en milieu de sprint annoncent un retard de livraison.',

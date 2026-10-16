@@ -22,9 +22,10 @@ export * from './utils/blocked.js';        // périodes de blocage (drapeau OU s
 export * from './utils/person-name.js';    // même personne JIRA « Prénom Nom » ↔ RH « NOM, Prénom »
 export * from './utils/estimation-queue.js'; // file des tickets à estimer (séance d'affinage, Poker « Suivant »)
 export * from './utils/vote-kinds.js';     // échelles Mood / Fist of Five (Santé, info-panel)
+export * from './utils/jira-stages.js';    // états du rapport JIRA du train (00.TODO → 05.DEVELOPMENT_DONE), 3.225.0
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
-import { extractSprintLabel, sprintNamesOf, activeSprintFromTickets, inSprintSince, jiraDateMs } from './utils/sprint-scope.js';   // usages internes à ce fichier
+import { extractSprintLabel, sprintNamesOf, activeSprintFromTickets, currentSprintNames, jiraDateMs, isAbandoned } from './utils/sprint-scope.js';   // usages internes à ce fichier
 import { getInactiveSupportMembers } from './utils/support.js';   // usages internes à ce fichier
 
 
@@ -710,15 +711,6 @@ export function belongedToPi(t, piNum) {
 }
 
 /**
- * PÉRIMÈTRE ENGAGÉ d'un PI — version « PI » de `engagedInSprint()` (3.216.0) : `belongedToPi` moins
- * les tickets qui n'ont fait que PASSER par un sprint du PI pendant sa préparation (planifiés puis
- * renvoyés au backlog ou vers un autre PI avant son démarrage). Il suffit d'UN sprint du PI où le
- * ticket a été présent depuis le lancement — un déplacement 31.1 → 31.4 reste dans le PI.
- * Sprint sans date connue (pseudo-sprint « PI31 », sprint pas encore créé) : compté, comme avant.
- * Réservé au périmètre / à l'engagement : les mesures de DURÉE gardent `belongedToPi`.
- * @param {Map<string,string>} [starts] `sprintStartsOf(sprintInfo)` — sans lui, `belongedToPi`
- */
-/**
  * ENTRÉE d'un ticket dans le PI (ms) : premier changement du champ Sprint qui le place dans un sprint
  * du PI ; créé directement dedans (ou sans historique) → sa création. Date l'ajout au périmètre du
  * Burnup du PI (3.216.0) : la création seule comptait comme « initial » un ticket ancien du backlog
@@ -737,10 +729,23 @@ export function piEntryMs(t, piNum) {
     return changes.find(x => inPi(x.ch.to))?.ms ?? created;
 }
 
-export function engagedInPi(t, piNum, starts) {
+/**
+ * PÉRIMÈTRE d'un PI, aligné sur le rapport JIRA du train (3.224.0) : ticket présent AUJOURD'HUI dans un
+ * sprint du PI — la colonne « nb actuel » de Health (`inSprintNow`) étendue au PI. Le `to` JIRA étant
+ * CUMULATIF pour les sprints clos, un report à la clôture (31.5 → 32.1) reste dans le PI 31 (engagement
+ * non tenu) ; un déplacement 31.1 → 31.4 aussi. Sortent : les retraits (avant le lancement, le matin du
+ * PI Planning ou en cours de sprint — renvoyés au backlog ou au PI suivant), le pseudo-sprint « PI31 »
+ * quitté, et les tickets abandonnés (`isAbandoned`). Sprints renommés : cf. `currentSprintNames`.
+ * PI 31 avant 3.224.0 : Fuego 170 pts au lieu des 76 de JIRA (pseudo-sprint « PI31 » sans date compté
+ * d'office, ménage du matin du lancement), Ami 31 « Clos sans suite » comptés terminés.
+ * Les retraits restent visibles là où ils sont l'objet : Health (`engagedInSprint`, retirés grisés).
+ * Réservé au périmètre : les mesures de DURÉE gardent `belongedToPi`.
+ * @param {Map<string,string>} [starts] ignoré depuis 3.224.0 (gardé pour les appelants)
+ */
+export function engagedInPi(t, piNum) {
     if (!piNum) return true;
-    return sprintNamesOf(t).some(n => extractPiNum(n) === piNum
-        && (!starts?.has(n) || inSprintSince(t, n, starts.get(n), null)));
+    if (isAbandoned(t)) return false;
+    return currentSprintNames(t).some(n => extractPiNum(n) === piNum);
 }
 
 /**

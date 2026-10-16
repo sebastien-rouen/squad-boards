@@ -1,8 +1,8 @@
 /**
  * « 📈 Avancement du PI » — tête du flux « 👥 Équipe & risques » du Dashboard.
  *
- *   • périmètre = tickets ENGAGÉS dans le PI affiché (`engagedInPi` + `sprintStartsOf`, cf. CLAUDE.md :
- *     un reporté reste dans le PI, un ticket juste passé par la préparation n'y est pas) ;
+ *   • périmètre = tickets du PI affiché, ALIGNÉ sur le rapport JIRA du train (`engagedInPi`, 3.224.0, cf. CLAUDE.md :
+ *     un reporté reste dans le PI ; un retiré, un pseudo-sprint « PI31 » quitté ou un « Clos sans suite » n'y est pas) ;
  *   • trois états, en TICKETS : à faire (gris) · en cours (bleu, bloqués compris et signalés) · terminé (vert) ;
  *     points en infobulle ; repère « aujourd'hui » = part du PI écoulée en jours OUVRÉS (PI courant seulement) ;
  *   • une ligne par équipe quand le périmètre en compte plusieurs ;

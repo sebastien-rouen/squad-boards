@@ -8,6 +8,7 @@ import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, g
 import { STATUS_LABELS } from '../config.js';
 import { loadReminders, REMINDER_DEFS } from '../reminders.js';
 import { openAlertModal } from './alert_modal.js';
+import { panelVotesHtml, bindPanelVotes } from './panel_votes.js';
 // sprint.js est chargé à la demande (lazy loading des vues) — cf. handler "Aller au Daily"
 
 const panel = () => document.getElementById('info-panel');
@@ -125,9 +126,6 @@ export function updateInfoPanel() {
     }));
     const supportMembers   = currentSupport.flatMap(s => s.members || []);
 
-    // Mood & fist votes
-    const moodVotes = store.get('moodVotes') || [];
-    const fistVotes = store.get('fistVotes') || [];
 
     // Reminder thresholds from settings (localStorage)
     const reminders = loadReminders();
@@ -441,38 +439,11 @@ export function updateInfoPanel() {
         }
     }
 
-    // ── Mood Meter ────────────────────────────────────────────────────────
-    if (dLeft !== null && reminders.mood.enabled && dLeft <= reminders.mood.dBefore) {
-        const filtered = moodVotes.filter(v =>
-            (team === 'all' || v.team === team) && _inVoteScope(v)
-        );
-        const moodAvg  = filtered.length
-            ? Math.round(filtered.reduce((s, v) => s + v.value, 0) / filtered.length * 10) / 10
-            : null;
-        const moodPct  = moodAvg !== null ? Math.round((moodAvg / 5) * 100) : 0;
-        const moodClr  = moodAvg >= 4 ? 'var(--status-done)' : moodAvg >= 3 ? 'var(--warning)' : 'var(--danger)';
-        const teamSlug = encodeURIComponent(team && team !== 'all' ? team : 'all');
-        const moodHref = `/#pi/${teamSlug}/mood`;
-
-        html += `
-        <div class="panel-card">
-            <div class="panel-card-header">
-                <div class="panel-title">🎭 Mood</div>
-                <a class="panel-link-sm" href="${moodHref}" title="Voter / modifier">Voter →</a>
-            </div>
-            ${moodAvg !== null ? `
-                <div class="panel-meter-row">
-                    <span class="panel-meter-score" style="color:${moodClr}">${moodAvg}</span>
-                    <span class="panel-meter-max">/5</span>
-                    <span class="panel-meter-count">${filtered.length} vote${filtered.length > 1 ? 's' : ''}</span>
-                </div>
-                <div class="panel-bar-track mt-1">
-                    <div class="panel-bar-fill" style="width:${moodPct}%;background:${moodClr}"></div>
-                </div>
-            ` : `
-                <div class="panel-sub mt-1">Aucun vote${voteLabel ? ` · ${esc(voteLabel)}` : ''}</div>
-            `}
-        </div>`;
+    // ── 🗳 Votes du sprint : Mood + Fist of Five, vote en un clic (components/panel_votes.js) ──
+    // Toujours affichée dès qu'un sprint est connu (l'ancienne carte Mood n'apparaissait qu'à
+    // l'approche de l'échéance) ; le vote de confiance n'est plus caché dans la carte Objectifs.
+    if (voteLabel && sprintStarted) {
+        html += panelVotesHtml({ team, curLabel, voteLabel, inScope: _inVoteScope });
     }
 
     // ── Objectifs PI (dès le premier jour de sprint) ──────────────────────
@@ -487,14 +458,6 @@ export function updateInfoPanel() {
             const objInprog = objs.filter(o => o.status === 'inprog').length;
             const objPct    = pct(objDone, objs.length);
             const objClr    = objPct >= 80 ? 'var(--status-done)' : objPct >= 40 ? 'var(--status-inprog)' : 'var(--status-todo)';
-
-            const fistFiltered = fistVotes.filter(v =>
-                (team === 'all' || v.team === team) && _inVoteScope(v)
-            );
-            const fistAvg = fistFiltered.length
-                ? Math.round(fistFiltered.reduce((s, v) => s + v.value, 0) / fistFiltered.length * 10) / 10
-                : null;
-            const fistClr = fistAvg >= 4 ? 'var(--status-done)' : fistAvg >= 3 ? 'var(--warning)' : 'var(--danger)';
 
             html += `
             <div class="panel-card">
@@ -520,17 +483,6 @@ export function updateInfoPanel() {
                     }).join('')}
                     ${objs.length > 6 ? `<div class="panel-list-item"><span class="text-muted text-xs">+${objs.length - 6} autre${objs.length - 6 > 1 ? 's' : ''}</span></div>` : ''}
                 </div>
-                ${fistAvg !== null ? `
-                <div class="panel-meter-row mt-2">
-                    <span class="panel-sub" style="margin-right:6px">✊ Vote confiance${voteLabel ? ` · ${esc(voteLabel)}` : ''}</span>
-                    <span class="panel-meter-score" style="color:${fistClr};font-size:1rem">${fistAvg}</span>
-                    <span class="panel-meter-max">/5</span>
-                    <span class="panel-meter-count">${fistFiltered.length} vote${fistFiltered.length > 1 ? 's' : ''}</span>
-                </div>
-                <div class="panel-bar-track mt-1">
-                    <div class="panel-bar-fill" style="width:${Math.round((fistAvg/5)*100)}%;background:${fistClr}"></div>
-                </div>
-                ` : voteLabel ? `<div class="panel-sub mt-2">✊ Aucun vote confiance · ${esc(voteLabel)}</div>` : ''}
             </div>`;
         }
     }
@@ -564,6 +516,12 @@ export function updateInfoPanel() {
 
     el.innerHTML = html;
     _attachPanelEvents(el);
+    // Après un vote : le panneau ET les vues qui affichent ces votes (météo Mood du Dashboard, colonnes
+    // Mood / Confiance de la Santé), sinon elles restent sur l'ancienne moyenne jusqu'au prochain rendu.
+    bindPanelVotes(el, { team, curLabel, onChanged: () => {
+        if (['dashboard', 'health'].includes(store.get('view'))) window.__squadBoard?.rerenderView?.();
+        else updateInfoPanel();
+    } });
 }
 
 function _attachPanelEvents(el) {

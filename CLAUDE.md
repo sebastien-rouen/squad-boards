@@ -613,6 +613,12 @@ python main.py          # http://localhost:3001  — Swagger /docs
   epics / sprints). ⚠️ Une nouvelle table de configuration s'ajoute à `CONFIG_DOMAINS` (sinon absente
   de la restauration). Les secrets du navigateur sont filtrés dans [settings-backup.js](static/js/views/settings-backup.js)
   (`isSecret`) à l'export ET à la restauration.
+- **Votes Mood / Confiance dans l'info-panel** : `components/panel_votes.js` (carte « 🗳 Votes du sprint »),
+  échelles = `VOTE_KINDS` (utils/vote-kinds.js, ré-exporté par health-votes.js). CHAQUE CLIC AJOUTE UN VOTE
+  (recueil des votes de l'équipe depuis un poste, comme la page PI — pas de « mon vote ») ; × au survol =
+  retire le DERNIER vote de cette valeur (`toastUndo`, suppression en base différée). Une équipe, sprint EN COURS.
+  Page PI (onglets Mood / Fist, `renderVotingPanel`) : MÊME grammaire (cartes emoji, +1 par clic, × au survol,
+  pastilles de sprint) et mêmes échelles `VOTE_KINDS` — plus d'échelle propre à la page.
 - **Historique des niveaux Atlas** (3.198.0) : table `skill_level_history`, écrite UNIQUEMENT par
   `PUT /api/member-skills` (une ligne par changement réel), lue par `components/atlas_history.js`.
 - **Dernière synchro** (3.197.0) : `sprintconfig.synced_by` / `sync_kind`, posés par la synchro

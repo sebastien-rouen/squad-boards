@@ -20,26 +20,12 @@ import { esc } from '../utils.js';
 /**
  * Échelles et libellés — l'ordre des tableaux suit les valeurs 1→5.
  * L'échelle Fist reprend celle du panneau de vote PI (views/pi.js → renderFist) :
- * poing fermé = aucune confiance, main ouverte = confiance totale.
+ * un doigt (☝️) = aucune confiance, main ouverte (🖐️) = confiance totale.
  */
-export const VOTE_KINDS = {
-    mood: {
-        label: 'Mood',
-        icon: '🎭',
-        storeKey: 'moodVotes',
-        what: "Humeur ressentie par l'équipe sur le sprint",
-        emojis: ['😞', '😕', '😐', '🙂', '😄'],
-        scale:  ['Très mauvais', 'Mauvais', 'Neutre', 'Bien', 'Excellent'],
-    },
-    fist: {
-        label: 'Confiance',
-        icon: '✊',
-        storeKey: 'fistVotes',
-        what: "Fist of Five — confiance dans l'atteinte des objectifs du PI",
-        emojis: ['✊', '✌️', '🤟', '🖖', '🖐️'],
-        scale:  ['Aucune confiance', 'Faible confiance', 'Confiance modérée', 'Bonne confiance', 'Confiance totale'],
-    },
-};
+// Échelles (emojis, libellés, clé de store) : SOURCE UNIQUE dans utils/vote-kinds.js — partagée avec le
+// vote rapide de l'info-panel (components/panel_votes.js), qui ne peut pas importer un module de views/.
+import { VOTE_KINDS } from '../utils.js';
+export { VOTE_KINDS };
 
 // Instantané des votes par type — rafraîchi à chaque render de Health et après chaque
 // vote, pour que les cellules re-rendues à chaud restent cohérentes avec le store.

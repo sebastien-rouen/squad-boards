@@ -4,13 +4,14 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, getSupportWeekMode, supportWeekHead, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, sprintRealizedVelocity, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel, isSupportAbsent, cycleDays, leadDays } from '../utils.js';
+import { esc, pct, progressColor, filterByTeam, groupBy, sumBy, toast, deriveMembersFromAbsences, roleCapacityPct, breathIdxByPi, isBreathSprint, rollupStatus, belongedToPi, getSupportWeekMode, supportWeekHead, isMemberSupportActive, extractPiNum, resolvePiObjectives, isBufferItem, sprintRealizedVelocity, computeVelocityBreakdown, computeCommitment, confirmDanger, statusBadge, getCurrentPi, isAbandoned, engagedInPi, supportWorkingDays, supportDaysForMember, supportAbsenceDayLevel, isSupportAbsent, cycleDays, leadDays } from '../utils.js';
 import { STATUS_LABELS, TEAM_COLORS } from '../config.js';
 import { buildPiWeeks, piBounds } from '../utils/pi-weeks.js';
 import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAGE_INTRO } from '../components/sondage.js';
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
-import { registerExternalChart, renderCycleTime } from '../components/charts.js';
+import { registerExternalChart, renderCycleTime, renderPiFlow } from '../components/charts.js';
+import { piStageFlowModel, piFlowCardHtml, bindPiFlowCards, piFlowUnit, piFlowView, piFlowPct, piFlowLate } from '../components/pi_stage_flow.js';
 import { METEO_GLYPH, VOTE_KINDS, toastUndo, effectiveRosterForPi, teamNameMatches, isWorkday, percentile } from '../utils.js';
 import { meteoSummary, METEO_MC } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
@@ -49,18 +50,25 @@ export function renderPI(container) {
         const m = s.match(/^(\d+)\.\d+$/);
         return !!(m && parseInt(m[1], 10) === piNum);
     };
-    const _ticketInPi = (t) => _inPi(t.piSprint) || _inPi(t.sprintName) ||
+    // Tickets du PI = `engagedInPi`, MÊME source que le Dashboard et la Météo, alignée sur le rapport JIRA
+    // du train (3.224.0) : présents dans un sprint du PI (reports à la clôture compris), sans les retirés ni
+    // les « Clos sans suite ». L'ancien filtre (sprint ACTUEL, `piSprint`, étiquettes) perdait les reportés
+    // d'un PI passé et ajoutait des tickets seulement étiquetés. Il ne sert plus qu'à la vélocité réalisée
+    // (`piTicketsAll`), qui garde sa mesure.
+    const _ticketInPiAll = (t) => _inPi(t.piSprint) || _inPi(t.sprintName) ||
         (t.labels || []).some(l => _inPi(l));
+    const _ticketInPi = (t) => engagedInPi(t, piNum);
     const _featureInPi = (f) => _inPi(f.piSprint) || _inPi(f.sprintName) ||
         (f.labels || []).some(l => _inPi(l));
 
     // Filtre par équipe puis par PI
     const allTeamTickets   = filterByTeam(store.get('tickets') || [], team);
     const allTeamFeatures  = filterByTeam(store.get('features') || [], team);
-    const tickets  = piTag ? allTeamTickets.filter(_ticketInPi)  : allTeamTickets;
-    // Périmètre des mesures de DURÉE (card « Temps par colonne ») : `_ticketInPi` lit le sprint
-    // Où LE TICKET SE TROUVE, donc rate ceux que JIRA a déplacés à la clôture — justement les
-    // plus longs. Les compteurs et le réalisé gardent `tickets` (règle engagement/réalisé).
+    const tickets  = piTag ? allTeamTickets.filter(_ticketInPi)  : allTeamTickets.filter(t => !isAbandoned(t));
+    const piTicketsAll = piTag ? allTeamTickets.filter(_ticketInPiAll) : allTeamTickets;
+    // Périmètre des mesures de DURÉE (card « Temps par colonne ») : `belongedToPi`, retirés compris —
+    // un ticket travaillé puis sorti du PI a bien passé ce temps dans les colonnes. Les compteurs
+    // gardent `tickets` (périmètre aligné sur JIRA).
     const flowTickets = piNum ? allTeamTickets.filter(t => belongedToPi(t, piNum)) : allTeamTickets;
     const features = piTag ? allTeamFeatures.filter(_featureInPi) : allTeamFeatures;
 
@@ -152,7 +160,7 @@ export function renderPI(container) {
         // Filtre par équipe ET par PI sélectionné
         const tt = (piTag
             ? filterByTeam(store.get('tickets') || [], t).filter(_ticketInPi)
-            : filterByTeam(store.get('tickets') || [], t));
+            : filterByTeam(store.get('tickets') || [], t).filter(x => !isAbandoned(x)));
         const total = tt.length;
         const done = tt.filter(x => x.status === 'done').length;
         const pts = sumBy(tt, x => x.points);
@@ -170,7 +178,7 @@ export function renderPI(container) {
     // Capacité nette estimée par équipe sur le PI entier (pour la ligne séparatrice dans Features)
     const sprintInfo2  = store.get('sprintInfo');
     // Vélocité réalisée de chaque sprint : `sprintRealizedVelocity`, même mesure que Santé.
-    const allTeamSprints = (sprintInfo2?.teamSprints || []).map(s => _withRealizedVelocity(s, tickets));
+    const allTeamSprints = (sprintInfo2?.teamSprints || []).map(s => _withRealizedVelocity(s, piTicketsAll));
     const rolePctMap   = _capGetRolePct();
     const excludedRolesForCap = _capGetExcludedRoles();
     const historyMode2 = _capGetHistoryMode();
@@ -563,9 +571,53 @@ function renderDeps(el, { depItems = [], teamObjects = [] }) {
 }
 
 // ── Onglet Indicateurs : métriques de flux du PI (Lead/Cycle time, Temps par colonne, Aging WIP) ──
-function renderIndicators(el, { tickets = [], flowTickets = null, piNum = 0 }) {
-    // Toutes les mesures de DURÉE de cet onglet partagent le périmètre engagé (reports compris) :
-    // `tickets` est filtré sur le sprint où le ticket se trouve et perd les plus lents.
+/**
+ * « 🌊 Flux cumulé » de l'onglet Indicateurs (`pi_stage_flow.js`) : l'équipe filtrée PUIS sa ligne produit
+ * (groupe de Paramètres, une ligne par équipe) ; sans équipe, le groupe du topbar ou tout le train.
+ */
+function _piFlowCards(piNum) {
+    const cards = new Map();
+    if (!piNum) return { html: '', cards, draw() {} };
+    const team = store.get('team'), groupId = store.get('group');
+    const groups = store.get('groups') || [], all = store.get('tickets') || [];
+    const sprintInfo = store.get('sprintInfo'), piInfo = store.get('piInfo');
+    const unit = piFlowUnit();
+    const ofGroup = g => ({ id: 'group', title: `Ligne produit ${g.name}`, prefix: `${g.name} - `, boundsTeam: 'all',
+        tickets: all.filter(t => g.teams.includes(t.team)), teams: g.teams });
+    const specs = [];
+    if (team && team !== 'all') {
+        const g = groups.find(x => (x.teams || []).some(n => teamNameMatches(n, team)));
+        specs.push({ id: 'team', title: team, prefix: g ? `${g.name} - ` : '', boundsTeam: team, tickets: all.filter(t => t.team === team), teams: [],
+            note: g ? '' : `${esc(team)} n'est rattachée à aucune ligne produit : <a href="#settings">Paramètres → Lignes produit / Groupes</a>.` });
+        if (g) specs.push(ofGroup(g));
+    } else {
+        const g = groupId && groups.find(x => x.id === groupId);
+        specs.push(g ? ofGroup(g) : { id: 'all', title: 'Toutes les équipes', boundsTeam: 'all', tickets: all, teams: store.get('teams') || [] });
+    }
+    for (const sp of specs) {
+        const bounds = piBounds({ team: sp.boundsTeam, sprintInfo, piInfo, piNum });
+        cards.set(sp.id, { ...sp, m: piStageFlowModel({ tickets: sp.tickets, piNum, bounds, unit, teams: sp.teams }) });
+    }
+    const wide = cards.size === 1 ? ' psf--wide' : '';
+    return {
+        cards,
+        html: [...cards.values()].map(c => piFlowCardHtml(c.m, c).replace('class="card psf"', `class="card psf${wide}"`)).join(''),
+        // `ctl` = contrôleur de `bindPiFlowCards` : un clic sur une bande / un segment déplie la liste.
+        draw(ctl) {
+            for (const c of cards.values()) {
+                if (!c.m?.shownN) continue;
+                renderPiFlow(`psf-chart-${c.id}`, c.m, `Flux cumulé — ${c.title}`,
+                    { view: piFlowView(), pct: piFlowPct(), isLate: piFlowLate, barLabel: c.title, onPick: sel => ctl.pick(c.id, sel) });
+            }
+        },
+    };
+}
+
+function renderIndicators(el, data) {
+    const { tickets = [], flowTickets = null, piNum = 0 } = data;
+    const _pf = _piFlowCards(piNum);
+    // Toutes les mesures de DURÉE de cet onglet partagent `flowTickets` (`belongedToPi`, retirés compris) :
+    // `tickets` écarte les retirés et les « Clos sans suite », qui ont pourtant passé du temps en colonne.
     const _flow = flowTickets || tickets;
     // Lead time & Cycle time — même calcul et rendu que la card du Dashboard (schéma + graphe).
     const _doneCT = _flow.filter(t => t.status === 'done' && cycleDays(t) > 0);
@@ -587,10 +639,11 @@ function renderIndicators(el, { tickets = [], flowTickets = null, piNum = 0 }) {
             <div class="pi-card-head">
                 <span class="pi-card-ico" aria-hidden="true">📊</span>
                 <div class="pi-card-title"><b>Indicateurs de flux</b>
-                    <small>Lead / Cycle time, temps par colonne et âge du WIP — ${piNum ? `périmètre engagé du PI #${piNum} (reports compris)` : 'historique de l\'équipe'} · jours ouvrés</small></div>
+                    <small>Flux cumulé par état JIRA (équipe et ligne produit), Lead / Cycle time, temps par colonne et âge du WIP — ${piNum ? `périmètre engagé du PI #${piNum} (reports compris)` : 'historique de l\'équipe'} · jours ouvrés</small></div>
             </div>
         </div>
         <div class="pi-indicators">
+            ${_pf.html}
             <div class="card pi-lct">
                 <div class="card-header">
                     <span class="card-title">⏱ Lead time &amp; Cycle time ${helpIconHtml({ key: 'lct', label: 'Comprendre lead time vs cycle time' })}</span>
@@ -619,7 +672,8 @@ function renderIndicators(el, { tickets = [], flowTickets = null, piNum = 0 }) {
             ${agingWipCardHtml(_flow)}
         </div>`;
 
-    requestAnimationFrame(() => renderCycleTime('pi-chart-cycletime', _flow));
+    const _pfCtl = bindPiFlowCards(el, _pf.cards, () => renderIndicators(el, data));
+    requestAnimationFrame(() => { renderCycleTime('pi-chart-cycletime', _flow); _pf.draw(_pfCtl); });
     bindStageFlowCard(el, _flow, { scopeLabel: piNum ? `PI #${piNum} · périmètre engagé` : 'historique équipe' });
     bindAgingWipCard(el);
 }

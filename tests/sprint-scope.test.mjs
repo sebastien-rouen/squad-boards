@@ -249,22 +249,73 @@ describe('engagedInSprint — un retrait AVANT le lancement n\'est pas un engage
     });
 });
 
-describe('engagedInPi — même règle au niveau du PI', () => {
+describe('engagedInPi — périmètre du PI aligné sur JIRA (3.224.0)', () => {
+    // Rapport JIRA du train, PI 31 : Fuego 76 pts, le site 170 — 85 pts renvoyés au PI suivant pendant la
+    // préparation (pseudo-sprint « PI31 », ménage du matin du lancement), et 31 « Clos sans suite » comptés
+    // terminés chez Ami. Règle : présent AUJOURD'HUI dans un sprint du PI, reports à la clôture compris.
     const ch = (date, from, to) => ({ field: 'Sprint', date, from, to });
     const starts = new Map([[SP1, '2025-12-22T08:00:00.000Z'], [SP2, '2026-01-05T08:05:16.000Z']]);
+    const SP31 = 'Equipe O - Ité 31.1';
     test('planifié dans le PI puis renvoyé au backlog avant le lancement : hors périmètre', () => {
         const x = { id: 'B', sprintName: '', createdAt: '2025-12-01T00:00:00Z', recentChanges: [
             ch('2025-12-10T10:00:00.000+0200', '', SP2),
             ch('2025-12-28T10:00:00.000+0200', SP2, '')] };
         assert.equal(u.belongedToPi(x, 30), true);
         assert.equal(u.engagedInPi(x, 30, starts), false);
-        assert.equal(u.engagedInPi(x, 30), true, 'sans dates : règle d\'avant');
     });
-    test('déplacé d\'un sprint du PI à un autre avant le lancement : reste dans le PI', () => {
+    test('déplacé d\'un sprint du PI à un autre : reste dans le PI', () => {
         const x = { id: 'M', sprintName: SP2, createdAt: '2025-12-01T00:00:00Z', recentChanges: [
             ch('2025-12-10T10:00:00.000+0200', '', SP1),
             ch('2025-12-21T10:00:00.000+0200', SP1, SP2)] };
         assert.equal(sc.engagedInSprint(x, SP1, starts), false);
         assert.equal(u.engagedInPi(x, 30, starts), true);
+    });
+    test('REPORTÉ à la clôture vers le PI suivant (`to` cumulatif) : reste dans le PI', () => {
+        const x = { id: 'R', sprintName: SP31, createdAt: '2025-12-01T00:00:00Z', recentChanges: [
+            ch('2025-12-10T10:00:00.000+0100', '', SP2),
+            ch('2026-01-16T18:00:00.000+0100', SP2, `${SP2}, ${SP31}`)] };
+        assert.equal(u.engagedInPi(x, 30, starts), true);
+        assert.equal(u.engagedInPi(x, 31, starts), true);
+    });
+    test('retiré en cours de sprint vers le PI suivant (le matin du lancement ou après) : hors périmètre', () => {
+        const mk = date => ({ id: 'J', sprintName: SP31, createdAt: '2025-11-01T00:00:00Z', recentChanges: [
+            ch('2025-12-01T10:00:00.000+0100', '', SP1),
+            ch(date, SP1, SP31)] });
+        assert.equal(u.engagedInPi(mk('2025-12-22T10:38:00.000Z'), 30, starts), false);
+        assert.equal(u.engagedInPi(mk('2025-12-29T15:00:00.000Z'), 30, starts), false);
+        assert.equal(sc.engagedInSprint(mk('2025-12-29T15:00:00.000Z'), SP1, starts), true,
+            'le sprint, lui, le garde comme engagé puis retiré (Health)');
+    });
+    test('pseudo-sprint « PI30 » : quitté = hors périmètre, encore porté = dedans', () => {
+        const parti = { id: 'P', sprintName: SP31, createdAt: '2025-11-01T00:00:00Z', recentChanges: [
+            ch('2025-11-05T10:00:00.000+0100', '', 'PI30'),
+            ch('2025-12-01T10:00:00.000+0100', 'PI30', SP31)] };
+        const reste = { id: 'Q', sprintName: 'PI30', createdAt: '2025-11-01T00:00:00Z', recentChanges: [
+            ch('2025-11-05T10:00:00.000+0100', '', 'PI30')] };
+        assert.equal(u.belongedToPi(parti, 30), true);
+        assert.equal(u.engagedInPi(parti, 30, starts), false);
+        assert.equal(u.engagedInPi(reste, 30, starts), true);
+    });
+    test('sprint RENOMMÉ après le dernier changement (« PI#31 » → « PI#30.6 ») : le nom actuel fait foi', () => {
+        const x = { id: 'N', sprintName: 'PI#30.6', createdAt: '2025-11-01T00:00:00Z', recentChanges: [
+            ch('2025-11-05T10:00:00.000+0100', '', 'PI#31')] };
+        assert.deepEqual(sc.currentSprintNames(x), ['PI#30.6']);
+        assert.equal(u.engagedInPi(x, 31), false);
+        assert.equal(u.engagedInPi(x, 30), true);
+        const multi = { id: 'K', sprintName: 'Equipe O - Ité 27.5', recentChanges: [
+            ch('2025-11-05T10:00:00.000+0100', 'Equipe O - Ité 27.5', `Equipe O - Ité 27.5, ${SP31}`)] };
+        assert.equal(u.engagedInPi(multi, 31), true, 'ticket dans deux sprints : le nom actuel est l\'un d\'eux, pas de renommage');
+    });
+    test('ticket sans historique : son sprint actuel fait foi', () => {
+        assert.equal(u.engagedInPi(tk('S', SP1, 'todo'), 30), true);
+        assert.equal(u.engagedInPi(tk('S', SP31, 'todo'), 30), false);
+    });
+    test('ticket abandonné (« Clos sans suite ») hors périmètre du PI', () => {
+        const x = { ...tk('C', SP1, 'done'), jiraStatus: 'Clos sans suite' };
+        assert.equal(sc.isAbandoned(x), true);
+        assert.equal(sc.isAbandoned({ jiraStatus: "Won't Fix" }), true);
+        assert.equal(sc.isAbandoned({ jiraStatus: 'En Prod' }), false);
+        assert.equal(u.engagedInPi(x, 30, starts), false);
+        assert.equal(u.engagedInPi({ ...x, jiraStatus: 'Terminé' }, 30, starts), true);
     });
 });

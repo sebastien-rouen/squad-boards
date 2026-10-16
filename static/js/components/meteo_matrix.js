@@ -59,7 +59,7 @@ export function computeTeamMeteo(team, {
         d.sprint = { level: 'none', value: '—', sub: 'aucun sprint actif' };
     }
 
-    // 🗓️ PI — périmètre = engagedInPi (retraits d'avant-lancement exclus), fenêtre = sprints de l'équipe dans ce PI.
+    // 🗓️ PI — périmètre = engagedInPi (aligné sur JIRA : reports compris, retirés et abandonnés exclus), fenêtre = sprints de l'équipe dans ce PI.
     const piSprints = (sprintInfoAll?.teamSprints || []).filter(s => s.team === team && extractPiNum(s.name) === piNum);
     if (piNum && piSprints.length) {
         const scope = tt.filter(t => engagedInPi(t, piNum, sprintStartsOf(sprintInfoAll)));

@@ -14,7 +14,7 @@
  * pas un livrable : comptées à part.
  *
  * ── Burnup du PI ── (remplace l'« Epic Burndown », vide pour toutes les équipes pour la raison
- * ci-dessus). Périmètre = `engagedInPi` (reports compris, retraits d'avant-lancement exclus) ; réalisé = terminé ET resté dans un
+ * ci-dessus). Périmètre = `engagedInPi` (aligné sur JIRA : reports compris, retirés et abandonnés exclus) ; réalisé = terminé ET resté dans un
  * sprint du PI (règle engagement / réalisé de sprint-scope.js — un ticket du PI fini plus tard
  * ailleurs n'est pas crédité ici). Séries : `burnSeries` (utils/burn.js) via `renderBurnup`, le
  * même calcul que les burnups de sprint, mais périmètre daté à l'ENTRÉE du ticket dans le PI (`piEntryMs`,

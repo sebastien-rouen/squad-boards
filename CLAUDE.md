@@ -144,7 +144,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
   cartes du Dashboard, `_ticketsOfSprint`) utilise `engagedInSprint(t, nom, sprintStartsOf(sprintInfo))`
   (3.216.0) = `belongedToSprint()` MOINS les retraits d'avant-lancement — sans `starts`, un ticket
   planifié puis déplacé avant le démarrage compte (Fuego 31.1 : 145 pts au lieu de 20) ;
-  `sprintScope(tickets, nom, starts)` idem ; périmètre d'un PI = `engagedInPi(t, PI, starts)`
+  `sprintScope(tickets, nom, starts)` idem. Périmètre d'un PI = `engagedInPi(t, PI)` (3.224.0, ALIGNÉ sur
+  le rapport JIRA du train) = présent AUJOURD'HUI dans un sprint du PI (`currentSprintNames` : dernier `to`
+  cumulatif, donc reports à la clôture compris ; sprint RENOMMÉ → le nom actuel fait foi), sans retirés ni
+  abandonnés (`isAbandoned`, « Clos sans suite »). Source UNIQUE du Dashboard (Avancement du PI), de la
+  page PI (`_ticketInPi`), de la Météo, des prévisions, du Burnup du rapport et de la TV — vérifié au point
+  près contre le tableau JIRA du PI 31. ⚠️ Ne pas y remettre les retraits : ils vivent dans Health
+  (`engagedInSprint`). La vélocité de la page PI garde l'ancien filtre (`_ticketInPiAll`).
   (`belongedToPi` seul = mesures de DURÉE uniquement). Le **réalisé**
   (`done`, `bufDone`, vélocité, `_sprintStats`) exige `isInSprint()` **en plus** du statut
   `done` — sinon un sprint est crédité de travail fini après sa clôture.
@@ -537,6 +543,19 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Côté front, `_refreshPooled()` ([cal_banner.js](static/js/components/cal_banner.js)) borne
   la concurrence à 4 et sert `syncCalendars()` ET la modale semaine — ne pas revenir à un
   `Promise.allSettled(list.map(...))` nu. Le toast d'échec NOMME les calendriers fautifs.
+- **Flux cumulé du PI par état JIRA** (3.225.0, page PI → Indicateurs) : `components/pi_stage_flow.js` (modèle
+  `piStageFlowModel` + carte), graphique `renderPiFlow` (charts.js). États 00.TODO → 05.DEVELOPMENT_DONE =
+  UNIQUEMENT `stageOfLabel` / `JIRA_STAGES` ([utils/jira-stages.js](static/js/utils/jira-stages.js)) — ≠ `STATUS_MAP`
+  (qualif = 04 ici, `done` là-bas) ; un libellé absent est signalé sous la carte, l'ajouter à `_BY_LABEL`.
+  Chaque jour REJOUE l'historique (`sprintNamesAt`, statut, story points) — jamais interpolé (≠ `renderCFD` du
+  Board, qui simule). Historique de statut absent / tronqué → reconstruit par `startedDate` / `resolvedDate`.
+  Deux cartes : équipe du topbar + sa ligne produit (groupe dont `teams` la contient) ; sans équipe, le groupe
+  du topbar ou tout le train. Unité `sb-pi-stageflow-unit`, vue de la carte ligne produit `sb-pi-stageflow-view`
+  (`flow` | `bars`, commun aux deux cartes : une barre par équipe, 00 à gauche → 05 à droite, valeurs dans les
+  segments via `_barValuesPlugin`, + part terminée en bout de barre et repère du temps écoulé `m.elapsed` —
+  `_elapsedPct` = calcul de pi_progress, retard = `piFlowLate`, même règle ; mode % : `sb-pi-stageflow-pct`). Clic = `piFlowPick(m, { key, i, team })` sur
+  `m.byDay[i]` (tickets + statut JIRA du jour) via le contrôleur rendu par `bindPiFlowCards` → `opts.onPick` de
+  `renderPiFlow`, ignoré dans le zoom ; la bande cliquée se retrouve par le cumul des séries (05 en bas).
 - **Durées de flux en jours OUVRÉS** (3.216.0) : Cycle / Lead Time et âge du WIP = UNIQUEMENT
   `cycleDays(t)` / `leadDays(t)` / `wipAgeDays()` ([utils/workdays.js](static/js/utils/workdays.js)) —
   ⚠️ `t.cycleTimeDays` / `t.leadTimeDays` sont CALENDAIRES en base (sync-parse.js) : ne jamais les lire
@@ -634,7 +653,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Dépendances (`components/dep_graph.js`, page PI seulement) : un lien est RÉSOLU quand l'item attendu (`to`) est
   `done` ; la matrice ne garde que les équipes ayant un lien inter-équipes (les autres sont citées à part).
 - **Dashboard, flux « Équipe & risques » / « Pilotage & flux »** (3.222.0) : « 📈 Avancement du PI » =
-  `components/pi_progress.js` (périmètre `engagedInPi`, repère « aujourd'hui » en jours ouvrés via `piBounds`,
+  `components/pi_progress.js` (périmètre `engagedInPi` aligné sur JIRA, repère « aujourd'hui » en jours ouvrés via `piBounds`,
   segments / légendes cliquables → liste des tickets, « Copier les tickets à risque » : stagnation affichée en
   DATE — seuil calendaire de la card Bloqués / stagnants ≠ âge en jours ouvrés). « ⏳ Temps par colonne » :
   `opts.scopes` + `storageKey` + `compareOf` (stage_flow_card.js) — Sprint / PI / PI − 1, chaque segment comparé

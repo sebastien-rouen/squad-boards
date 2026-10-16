@@ -90,6 +90,16 @@ export function belongedToSprint(t, sprintName, spk = extractSprintLabel(sprintN
     return h.names.has(sprintName) || (!!spk && h.keys.has(spk));
 }
 
+/**
+ * Ticket ABANDONNÉ (« Clos sans suite », won't fix, doublon) : `STATUS_MAP` le range en `done`, mais
+ * il ne fait pas partie du périmètre d'un PI — le rapport JIRA du train l'exclut. Le compter gonflait
+ * les « Terminés » de l'Avancement du PI (Ami, PI 31 : 31 tickets sur 76). Libellé JIRA BRUT
+ * (`jiraStatus`), comparé sans casse ni accents.
+ */
+const _ABANDONED = new Set(['clos sans suite', 'won\'t fix', 'wont fix', 'won\'t do', 'duplicate', 'annule', 'abandonne']);
+export const isAbandoned = t => _ABANDONED.has(
+    String(t?.jiraStatus || t?.jira_status || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase());
+
 // Date JIRA → ms. Le changelog écrit « 2026-10-05T09:36:16.463+0200 » quand les sprints
 // portent « 2026-10-05T08:05:16.000Z » : comparer les CHAÎNES classerait 09:36+02 (07:36 Z)
 // APRÈS 08:05 Z. On normalise le décalage sans deux-points avant de parser.
@@ -127,6 +137,45 @@ export function inSprintAt(t, sprintName, at, spk = extractSprintLabel(sprintNam
         const n = part.trim();
         return !!n && (n === sprintName || (!!spk && extractSprintLabel(n) === spk));
     });
+}
+
+/**
+ * Sprints où le ticket se trouve AUJOURD'HUI : le `to` du dernier changement du champ Sprint (cumulatif :
+ * les sprints clos traversés y restent), à défaut le sprint actuel.
+ * ⚠️ Le changelog garde le nom d'un sprint AU MOMENT du changement : un sprint renommé ensuite (« PI#31 »
+ * devenu « PI#30.6 », « PI32 » devenu « Team F - itération 32.1 » — 53 tickets en base au PI 31) laisse
+ * un historique périmé. Sprint actuel absent de ce dernier `to` ⇒ c'est lui qui fait foi.
+ */
+export const currentSprintNames = t => sprintNamesAt(t, Infinity);
+
+/**
+ * Sprints du ticket À L'INSTANT `atMs` (même lecture que `currentSprintNames`, rejouée dans le temps) :
+ * `to` du dernier changement antérieur, à défaut `from` du premier ; créé après `atMs` → aucun. Une fois
+ * le DERNIER changement passé, un historique périmé (sprint renommé) cède au sprint actuel.
+ * Flux cumulé du PI (`pi_stage_flow.js`).
+ */
+export function sprintNamesAt(t, atMs) {
+    const created = jiraDateMs(t.createdAt || t.created_at);
+    if (Number.isFinite(created) && created > atMs) return [];
+    const cur = String(t.sprintName || t.sprint_name || '').trim();
+    const changes = historyOf(t, 'sprint');
+    if (!changes.length) return cur ? [cur] : [];
+    const split = v => String(v || '').split(',').map(s => s.trim()).filter(Boolean);
+    const before = changes.filter(x => x.ms <= atMs).pop();
+    if (before === changes.at(-1)) {
+        const last = split(before.ch.to);
+        return cur && !last.includes(cur) ? [cur] : last;
+    }
+    return before ? split(before.ch.to) : split(changes[0].ch.from);
+}
+
+/** Changements d'UN champ (minuscules : 'sprint', 'status', 'story points'), datés et triés. */
+export function historyOf(t, field) {
+    return (t.recentChanges || t.recent_changes || [])
+        .filter(ch => String(ch.field || '').toLowerCase() === field)
+        .map(ch => ({ ch, ms: jiraDateMs(ch.date) }))
+        .filter(x => Number.isFinite(x.ms))
+        .sort((a, b) => a.ms - b.ms);
 }
 
 /**

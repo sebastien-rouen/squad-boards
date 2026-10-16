@@ -534,6 +534,43 @@ details[open] .feat-buf-toggle-icon { transform: rotate(90deg); }
 .pi-support-rota .rot-panel-hdr[data-pirot-toggle]:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: -2px; }
 .pi-support-rota .rot-day { cursor: default; }
 
+/* ── Indicateurs : « 🌊 Flux cumulé » par état JIRA, équipe + ligne produit (pi_stage_flow.js) ── */
+.psf { min-width: 0; }
+.psf--wide { grid-column: 1 / -1; }
+.psf-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.psf-head .card-title { display: block; }
+.psf-head .card-subtitle { display: block; margin-top: 2px; }
+.psf-head .card-subtitle b { color: var(--text); }
+.psf-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.psf-unit { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r-full); overflow: hidden; }
+.psf-unit button { border: 0; background: transparent; color: var(--text-secondary); font-size: 11px; padding: 3px 10px; cursor: pointer; }
+.psf-unit button.is-on { background: var(--primary); color: #fff; }
+.psf-unit button:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: -2px; }
+.psf-note { margin: 0 0 8px; font-size: 12px; color: var(--warning); }
+.psf-elapsed-key { color: #EF4444; font-weight: 700; }
+.psf-chart { position: relative; height: 260px; margin: 6px 0 10px; }
+.psf-table-wrap { overflow-x: auto; }
+.psf-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; table-layout: fixed; }
+.psf-table th, .psf-table td { padding: 5px 4px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.psf-table th:first-child { width: 22%; }
+.psf-table thead th { font-size: 10.5px; font-weight: var(--fw-semibold); color: var(--text-muted); vertical-align: bottom; white-space: normal; line-height: 1.2; }
+.psf-table thead th i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.psf-table thead th span { display: block; font-weight: normal; font-size: 10px; text-transform: none; letter-spacing: 0; }
+.psf-table tbody th { text-align: left; font-weight: var(--fw-semibold); color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+.psf-table td.is-zero { color: var(--text-muted); opacity: .55; }
+.psf-table .psf-total { font-weight: var(--fw-bold); color: var(--text); }
+.psf-table tr.psf-sum th, .psf-table tr.psf-sum td { border-top: 2px solid var(--border); border-bottom: 0; font-weight: var(--fw-bold); }
+.psf-guess { margin: 8px 0 0; font-size: 11px; color: var(--warning); }
+.psf-table td button { all: unset; cursor: pointer; padding: 1px 5px; border-radius: var(--r-sm); font: inherit; }
+.psf-table td button:hover { background: var(--surface-2); color: var(--primary); }
+.psf-table td button.is-active { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent); }
+.psf-table td button:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: 1px; }
+.psf-list { margin-top: var(--sp-3); }
+.psf-list-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.psf-list .stuck-row { grid-template-columns: auto auto minmax(0, 1fr) auto auto; }
+/* Liste d'une ligne produit : une colonne « équipe » de plus */
+.psf-list .psf-rows--team .stuck-row { grid-template-columns: auto auto minmax(0, 1fr) auto auto auto; }
+
 /* ── Indicateurs : carte Lead / Cycle time (pi.js renderIndicators) ─────────────────────────── */
 .pi-indicators { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pi-indicators > .pi-lct { grid-column: 1 / -1; }

@@ -145,3 +145,36 @@ export function downloadRecapCsv(m) {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
+
+/**
+ * Message « à compléter avant la séance » (page Affinage, bouton 📋) : tickets 📝 sans description /
+ * ⚠️ story sans critère d'acceptation, REGROUPÉS PAR RAPPORTEUR (la personne à relancer), le sprint en
+ * cours signalé en premier. Slack (mrkdwn) ; les noms restent en clair (pas d'identifiant Slack connu).
+ * @param {string} team
+ * @param {{ t: object, group: string, status: 'empty'|'missing' }[]} items  dans l'ordre de la file
+ */
+export function toCompleteSlack(team, items) {
+    const jira = store.get('jiraUrl');
+    const link = t => (jira ? `<${jira}/browse/${t.id}|${t.id}>` : t.id);
+    const short = s => { const t = String(s || '').trim(); return t.length > 70 ? `${t.slice(0, 68).trim()}…` : t; };
+    const byWho = new Map();
+    for (const it of items) {
+        const who = it.t.reporter || 'Rapporteur inconnu';
+        if (!byWho.has(who)) byWho.set(who, []);
+        byWho.get(who).push(it);
+    }
+    const groups = [...byWho].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'fr'));
+    const L = [
+        `📝 *Affinage ${team} — ${items.length} ticket${items.length > 1 ? 's' : ''} à compléter avant la séance*`,
+        'Merci de compléter la description / les critères d\'acceptation de vos tickets 🙏 — on pourra les estimer sereinement.',
+    ];
+    for (const [who, list] of groups) {
+        L.push('', `*${who}* (${list.length})`);
+        for (const it of list) {
+            const what = it.status === 'empty' ? '📝 sans description' : '⚠️ sans critères d\'acceptation';
+            L.push(`• ${link(it.t)} ${short(it.t.title)} — ${what}${it.group === 'sprint' ? ' · 🏃 sprint en cours' : ''}`);
+        }
+    }
+    L.push('', '_Critère d\'acceptation = une condition vérifiable : « Étant donné… Lorsque… Alors… », ou une liste de résultats attendus._');
+    return L.join('\n');
+}

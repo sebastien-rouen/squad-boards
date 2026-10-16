@@ -1,3 +1,16 @@
+## [3.228.0] - 2026-10-17
+
+### Rapports : la copie au format Slack garde gras et liens, numéros de tickets liés à JIRA
+
+- **Rapports → format Slack → copier une section** (ou le rapport complet) : ce que montre l'aperçu est copié en
+  texte enrichi — en-têtes et chiffres en gras, liens cliquables (Roadmap) — avec un texte brut sans balisage
+  en secours. Avant, seul le texte affiché partait : gras et adresses des liens étaient perdus. Formats Texte
+  et Confluence inchangés.
+- **Numéros de tickets liés à JIRA** dans les listes du format Slack (Sprint : tickets et bloqués ; PI ; Flow :
+  vieillissants et bloqués ; Support : ouverts) : chaque ligne commence par son numéro cliquable — avant, seul le
+  titre apparaissait. Sur le rapport de Fuego : 134 liens dans le rapport complet.
+- **Copies Slack** : un gras autour d'un lien (`*<url|GCOM-1>*`) reste un gras.
+
 ## [3.227.0] - 2026-10-17
 
 ### Ajouts au PI visibles dans le flux, copies Slack lisibles partout, détail par epic sur le Dashboard

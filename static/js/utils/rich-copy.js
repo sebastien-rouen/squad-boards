@@ -45,24 +45,25 @@ function _inline(raw) {
     return { html: html + _h(raw.slice(last)), plain: plain + raw.slice(last) };
 }
 
-/** Une ligne mrkdwn → { html, plain } : liens d'abord (leur texte peut contenir des marqueurs), puis le reste. */
+/**
+ * Une ligne mrkdwn → { html, plain }. Les liens sont MIS DE CÔTÉ (jeton `\0n\0`) le temps du formatage en ligne,
+ * puis réinsérés : un gras AUTOUR d'un lien (`*<url|GCOM-1>*`, Rapports) reste un gras.
+ */
 function _line(src) {
-    let html = '', plain = '', last = 0;
-    const text = s => { const r = _inline(_decode(s)); html += r.html; plain += r.plain; };
-    for (const mt of src.matchAll(_LINK)) {
-        text(src.slice(last, mt.index));
+    const links = [];
+    const masked = src.replace(_LINK, (...mt) => { links.push(mt); return `\u0000${links.length - 1}\u0000`; });
+    const r = _inline(_decode(masked));
+    const link = (mt, kind) => {
         const [, url, label, special, channel] = mt;
         if (url) {
-            const shown = _decode(label || url.replace(/^mailto:/, ''));
-            html += `<a href="${_h(url)}">${_inline(shown).html}</a>`;
-            plain += _inline(shown).plain;
-        } else {
-            const t = special ? `@${special}` : channel ? `#${channel}` : '@…';
-            html += _h(t); plain += t;
+            const shown = _inline(_decode(label || url.replace(/^mailto:/, '')));
+            return kind === 'html' ? `<a href="${_h(url)}">${shown.html}</a>` : shown.plain;
         }
-        last = mt.index + mt[0].length;
-    }
-    text(src.slice(last));
+        const t = special ? `@${special}` : channel ? `#${channel}` : '@…';
+        return kind === 'html' ? _h(t) : t;
+    };
+    const unmask = (str, kind) => str.replace(/\u0000(\d+)\u0000/g, (_, k) => link(links[+k], kind));
+    const html = unmask(r.html, 'html'), plain = unmask(r.plain, 'plain');
     // Indentation conservée dans le HTML (un collage riche écrase les espaces de tête).
     const lead = (src.match(/^ +/) || [''])[0].length;
     return { html: lead ? '&nbsp;'.repeat(lead) + html.replace(/^ +/, '') : html, plain };

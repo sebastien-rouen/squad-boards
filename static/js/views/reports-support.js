@@ -17,7 +17,7 @@ import {
     esc, percentile, filterByTeam, currentSupportRows, supportAbsenceDays, isSupportAbsent,
     supportPartialDaysLabel, emptyStateHtml, leadDays } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
-import { B, E, SB, CS } from './reports-fmt.js';
+import { B, E, SB, CS, TK } from './reports-fmt.js';
 import { jiraMs, inWindow, ageDays, windowLabel, num, idleReason } from './reports-scope.js';
 import { isSupportTracker } from '../components/team_timeline_support.js';
 
@@ -184,7 +184,7 @@ function slackReport(ctx) {
     if (d.leadP50 != null) r += `${E('⏱️')} ${B('Délai médian')} : ${num(d.leadP50)} j\n`;
     if (d.open) {
         r += `${E('📂')} ${B('Ouverts')} : ${SB(d.open.length, d.open.length ? 'yellow' : 'green')}\n`;
-        for (const { t, age } of d.open.slice(0, MAX_OPEN)) r += `• ${esc(t.title)} <span class="s-muted">${age} j</span>\n`;
+        for (const { t, age } of d.open.slice(0, MAX_OPEN)) r += `• ${TK(t, ctx.jiraUrl)}${esc(t.title)} <span class="s-muted">${age} j</span>\n`;
     }
     return r;
 }

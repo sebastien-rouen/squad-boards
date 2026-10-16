@@ -13,7 +13,7 @@
 
 import { store } from '../state.js';
 import { projectedPiSprints } from '../utils/pi-weeks.js';
-import { esc, filterByTeam, sumBy, rosterCtx, piCapacityBase, sprintRealizedVelocity, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, engagedInSprint, sprintStartsOf, plannedAtSprintStart, inSprintNow, sprintScopeDelta, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip } from '../utils.js';
+import { esc, filterByTeam, sumBy, rosterCtx, piCapacityBase, sprintRealizedVelocity, sprintCapacityBase, lastKnownAbsenceDate, isBreathSprint, effectiveRosterForPi, teamNameMatches, getCurrentPi, extractPiNum, extractSprintLabel, engagedInSprint, sprintStartsOf, plannedAtSprintStart, inSprintNow, sprintScopeDelta, jiraDateMs, isInSprint, carriedOverTo, toast, hashColor, computeVelocityHistory, computeCurrentSprintEntry, isBufferItem, teamCapacity, wipThreshold, countWip, todayIsoLocal } from '../utils.js';
 import * as api from '../api.js';
 import { TEAM_COLORS } from '../config.js';
 import { openAlertModal } from '../components/alert_modal.js';
@@ -23,6 +23,7 @@ import { ANOMALY_RULES, isActionRetro, healthScore } from '../business_rules.js'
 import { VOTE_KINDS, setVotes, pushVote, voteCellHtml, voteTotalHtml, voteRowCls, voteCount, pickerHtml } from './health-votes.js';
 import { computeCoverage, coverageBannerHtml, wireCoverageBanner } from './health-coverage.js';
 import { meteoMatrixHtml, meteoPillsHtml, meteoContext, bindMeteoMatrix } from '../components/meteo_matrix.js';
+import { sprintWorkDays, iterationManDays } from '../components/meteo_fiche.js';
 
 // Historique local du score Health (snapshot à chaque visite, max 30 entrées)
 const HEALTH_HIST_KEY = 'sb-health-history';
@@ -98,7 +99,7 @@ function _capacityTip(cap, team, piNum, lastAbsence) {
         L.push(`   🍃 ${cap.breathExcluded} sprint${cap.breathExcluded > 1 ? 's' : ''} de respiration écarté${cap.breathExcluded > 1 ? 's' : ''} de la moyenne`);
     }
     L.push('');
-    L.push(`2. Effectif compté : ${s.etp.toFixed(2)} ETP (et non ${s.members.length} personnes)`);
+    L.push(`2. Effectif compté : ${s.etp.toFixed(2)} j/h par jour ouvré (${s.members.length} personnes, pondérées par rôle)`);
     for (const m of s.members) {
         const flag = m.pct === 0 ? ' ✗ exclu' : (m.unknownRole ? ' ⚠ rôle inconnu → 100 % par défaut' : '');
         L.push(`   ${m.pct === 0 ? '·' : '•'} ${m.name} — ${m.role || '(sans rôle)'} ${m.pct} %${flag}`);
@@ -107,7 +108,7 @@ function _capacityTip(cap, team, piNum, lastAbsence) {
     L.push(`   Réglable dans Paramètres → Capacité dev — % de travail par rôle.`);
     L.push('');
     L.push(`3. Disponibilité sur le PI : ${cap.absencesDays.toFixed(1)} j d'absence pondérés`);
-    L.push(`   sur ${(cap.openDays * s.etp).toFixed(1)} j-ETP ouvrés (${cap.openDays} j ouvrés × ${s.etp.toFixed(2)} ETP)`);
+    L.push(`   sur ${(cap.openDays * s.etp).toFixed(1)} j/h ouvrés (${cap.openDays} j ouvrés × ${s.etp.toFixed(2)} j/h par jour)`);
     L.push(`   → ${pctTxt} % d'indisponibilité`);
     L.push('');
     const nbSp = cap.dated || cap.sprintsCount;
@@ -221,7 +222,7 @@ export function renderHealth(container) {
         });
         if (!cap) return null;
         const plan = sprints.filter(sp => !isBreathSprint(sp.name, cap.breathIdx));
-        return { ...cap, piNum, projected: !known.length,
+        return { ...cap, piNum, projected: !known.length, planSprints: plan,
             windowStart: plan[0]?.startDate || null, windowEnd: plan.at(-1)?.endDate || null };
     };
 
@@ -391,6 +392,44 @@ export function renderHealth(container) {
                 <div class="capacity-mini-hist-hd"><span class="capacity-mini-hist-lbl">Fiabilité de la base</span><span class="capacity-mini-hist-mean">écart moyen ±${meanGap} %</span></div>
                 <div class="capacity-mini-hist-its">${hist.map(h => `<span class="capacity-mini-hist-it is-${h.lvl}">PI ${h.pi} <b>${h.sign} ${h.pct} %</b></span>`).join('')}</div>
             </div>` : '';
+        // Détail PAR ITÉRATION : la base du sprint (même `sprintCapacityBase` que la matrice — leur
+        // somme fait le total affiché) en regard des JOURS/HOMME présents (`iterationManDays`, même mesure
+        // que la carte roster du Dashboard) et du réalisé des sprints clos. Repliable, état par navigateur.
+        const _todayIso = todayIsoLocal();
+        const _fr1 = n => (Math.round(n * 10) / 10).toString().replace('.', ',');
+        const spRows = (cap.planSprints || []).map(sp => {
+            const b = sprintCapacityBase({ avg: cap.avg, sprint: sp, absences, team, etp: cap.etp,
+                pctOf: _pctOfFor(cap), lastAbsenceDate: _lastAbsence });
+            const it = sprintWorkDays(sp);
+            const md = it ? iterationManDays(cap.staff?.members, it, absences) : null;
+            const share = md?.nominal > 0 ? Math.min(100, Math.round(md.present / md.nominal * 100)) : null;
+            const real = sp.state === 'closed' ? _sprintVelo(team, sp) : null;
+            const now = it && it.days[0] <= _todayIso && _todayIso <= it.days.at(-1);
+            const realTxt = real != null ? `${real}` : now ? 'en cours' : '—';
+            const realLvl = real != null && b?.points ? (Math.abs(real / b.points - 1) <= 0.1 ? 'good' : Math.abs(real / b.points - 1) <= 0.25 ? 'warn' : 'bad') : '';
+            const sTip = `${extractSprintLabel(sp.name) || sp.name}${sp.projected ? ' (dates projetées)' : ''} — ${_fmtDm(sp.startDate)} → ${_fmtDm(sp.endDate)}`
+                + `\n🎯 Base : ${b ? `${b.points} pts (${cap.avg.toFixed(1)} pts/sp − ${Math.round(b.ratio * 100)} % d'absences)` : 'non calculable'}`
+                + (md ? `\n👥 Présence : ${_fr1(md.present)} j/h sur ${_fr1(md.nominal)} (${share} %) — congés et fériés déduits` : '')
+                + (real != null ? `\n✅ Réalisé : ${real} pts` : '');
+            return `<div class="capacity-mini-sp${now ? ' is-now' : ''}" title="${esc(sTip)}">
+                <span class="capacity-mini-sp-lbl">${esc(extractSprintLabel(sp.name) || sp.name)}${sp.projected ? '<i title="Dates projetées">*</i>' : ''}</span>
+                <span class="capacity-mini-sp-base">${b ? b.points : '—'}</span>
+                <span class="capacity-mini-sp-etp">${share != null ? `<span class="capacity-mini-sp-bar${share < 75 ? ' is-low' : ''}"><i style="width:${share}%"></i></span>${_fr1(md.present)}` : '—'}</span>
+                <span class="capacity-mini-sp-real${realLvl ? ` is-${realLvl}` : ''}">${realTxt}</span>
+            </div>`;
+        }).join('');
+        // Jours/homme présents sur les sprints planifiables du PI (ligne de synthèse de la carte).
+        const _mdPi = (cap.planSprints || []).reduce((acc, sp) => {
+            const r = iterationManDays(cap.staff?.members, sprintWorkDays(sp), absences);
+            return r ? { present: acc.present + r.present, nominal: acc.nominal + r.nominal } : acc;
+        }, { present: 0, nominal: 0 });
+        let _spOpen = false;
+        try { _spOpen = localStorage.getItem('sb-health-cap-sprints') === '1'; } catch { /* stockage indisponible */ }
+        const spHtml = spRows ? `<details class="capacity-mini-sprints"${_spOpen ? ' open' : ''}>
+                <summary>Par itération (${(cap.planSprints || []).length})</summary>
+                <div class="capacity-mini-sp capacity-mini-sp-hd"><span>Itér.</span><span>🎯 base pts</span><span>👥 j/h présents</span><span>✅ réalisé pts</span></div>
+                ${spRows}
+            </details>` : '';
         const lbl = when === 'future' ? 'Capacité prévisionnelle' : 'Capacité prévue';
         const tag = when === 'current' ? ' <small>(en cours)</small>' : when === 'past' ? ' <small>(clos)</small>' : '';
         const tip = _capacityTip(cap, team, capPi, _lastAbsence)
@@ -403,10 +442,11 @@ export function renderHealth(container) {
                 <div class="capacity-mini-sub">${esc(team)} · ${_fmtDm(cap.windowStart)} → ${_fmtDm(cap.windowEnd)}${cap.projected ? ' · <em>dates projetées</em>' : ''}</div>
                 <div class="capacity-mini-row">
                     <span>⚡ ${cap.avg.toFixed(1)} pts/sp × ${cap.sprintsCount}</span>
-                    <span>👥 ${cap.etp.toFixed(1)} ETP</span>
+                    <span title="Jours/homme présents sur les sprints planifiables (capacité par rôle, congés et fériés déduits) / sans absence">👥 ${_mdPi.nominal ? `${Math.round(_mdPi.present)} / ${Math.round(_mdPi.nominal)} j/h` : '—'}</span>
                     <span style="color:${ratioColor}">🏖 −${ratioPct}%</span>
                 </div>
                 ${histHtml}
+                ${spHtml}
                 ${when !== 'future' ? `<div class="capacity-mini-row capacity-mini-done"><span>✅ Réalisé ${done} pts${cap.points ? ` · ${Math.round(done / cap.points * 100)} %` : ''}</span><span>${closed.length}/${cap.sprintsCount} sprints clos</span></div>` : ''}
             </div>`;
     })() : '';
@@ -781,6 +821,9 @@ C'est un point de départ chiffré, pas un engagement : la « Charge prévue » 
 
     wireCoverageBanner(container);
     bindMeteoMatrix(container);
+    container.querySelector('.capacity-mini-sprints')?.addEventListener('toggle', e => {
+        try { localStorage.setItem('sb-health-cap-sprints', e.currentTarget.open ? '1' : '0'); } catch { /* stockage indisponible */ }
+    });
 
     // Graphe(s) de vélocité (Chart.js) — monté(s) après insertion du DOM.
     // Mode ligne produit : un graphe par équipe du groupe (canvasId dédié par équipe).
@@ -973,8 +1016,8 @@ function _openSprintModal(meta, teamName, metric, initialSprintName, pushHistory
         const chargeTitle = chargeSuggested
             ? `🎯 Base de capacité suggérée : ${capSp.points} pts\n`
                 + `Vélocité moyenne ${meta.capBase.avg.toFixed(1)} pts/sprint (${meta.capBase.sprintsUsed} sprints clos des PI ${meta.capBase.pis.join(' et ')})\n`
-                + `− ${Math.round(capSp.ratio * 100)} % d'absences sur ce sprint (${capSp.absencesDays.toFixed(1)} j pondérés sur ${(capSp.openDays * capSp.etp).toFixed(1)} j-ETP)\n`
-                + `Effectif : ${capSp.etp.toFixed(2)} ETP — ${meta.capBase.staff.counted} personne${meta.capBase.staff.counted > 1 ? 's' : ''} comptée${meta.capBase.staff.counted > 1 ? 's' : ''}`
+                + `− ${Math.round(capSp.ratio * 100)} % d'absences sur ce sprint (${capSp.absencesDays.toFixed(1)} j pondérés sur ${(capSp.openDays * capSp.etp).toFixed(1)} j/h ouvrés)\n`
+                + `Effectif : ${capSp.etp.toFixed(2)} j/h par jour ouvré — ${meta.capBase.staff.counted} personne${meta.capBase.staff.counted > 1 ? 's' : ''} comptée${meta.capBase.staff.counted > 1 ? 's' : ''}`
                 + (meta.capBase.staff.ignored ? `, ${meta.capBase.staff.ignored} à 0 % (rôle exclu)` : '')
                 + ` — détail dans l'infobulle 🎯 Base capacité de la matrice`
                 + (capSp.capped ? `\n⚠ Congés connus jusqu'au ${_fmtD(_lastKnownAbsence)} seulement : absences sous-estimées, base optimiste.` : '')

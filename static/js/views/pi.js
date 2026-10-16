@@ -221,7 +221,8 @@ export function renderPI(container) {
             for (let idx = 0; idx < _spCnt; idx++) {
                 const win = _wins?.[idx] || null;
                 if (win?.isIP) continue;
-                const totalDays = memberEtp * _spDur;
+                // Jours OUVRÉS de la fenêtre — même règle que renderCapacity (plus `× _spDur` calendaires).
+                const totalDays = memberEtp * (win ? _workdays(win.from, win.to) : _capNominalWorkdays(_spDur));
                 const absDays = win
                     ? Math.round(mems.reduce((s, m) => {
                         const p2 = _capRolePct(m.role, _rolePctMap) / 100;
@@ -1462,6 +1463,9 @@ function _workdays(isoFrom, isoTo) {
     return count;
 }
 
+/** Jours ouvrés d'un sprint SANS fenêtre datée : `sprintDur` calendaires ramenés aux jours ouvrés (14 → 10). */
+const _capNominalWorkdays = sprintDur => Math.round(sprintDur * 5 / 7);
+
 function _capMemberAvail(members, absences, absTeamName, from, to, sprintDur, rolePctMap = {}) {
     // Jours ouvrés réels du sprint (base pour le % dispo) — plus précis que sprintDur configuré
     const sprintWorkdays = _workdays(from, to);
@@ -1673,8 +1677,11 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapB
             const window    = sprintWindows?.[idx] || null;
             const isIP      = window?.isIP || false; // Sprint Innovation & Planning
 
-            // Jours théoriques disponibles (pondérés par ETP rôle)
-            const totalDays = memberEtp * sprintDur;
+            // Jours/homme théoriques = Σ capacité de rôle × jours OUVRÉS de la fenêtre. Avant :
+            // `memberEtp × sprintDur`, soit 14 jours CALENDAIRES face à des absences comptées en jours
+            // ouvrés — +40 % de jours théoriques, donc un % d'absence sous-estimé d'autant.
+            const workDays  = window ? _workdays(window.from, window.to) : _capNominalWorkdays(sprintDur);
+            const totalDays = memberEtp * workDays;
 
             // Absences sur la fenêtre de ce sprint — pondérées par le ratio rôle de chaque membre
             const absDays = window
@@ -1700,7 +1707,7 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapB
             // Disponibilité par membre (pour la tooltip détail)
             const memberAvail = window
                 ? _capMemberAvail(members, absences, absTeamName, window.from, window.to, sprintDur, rolePctMap)
-                : members.filter(m => _capRolePct(m.role, rolePctMap) > 0).map(m => ({ name: m.name, role: m.role || '', rolePct: _capRolePct(m.role, rolePctMap), absDays: 0, availDays: sprintDur, availPct: 100 }));
+                : members.filter(m => _capRolePct(m.role, rolePctMap) > 0).map(m => ({ name: m.name, role: m.role || '', rolePct: _capRolePct(m.role, rolePctMap), absDays: 0, availDays: workDays, availPct: 100 }));
 
             // Données réelles du sprint (si déjà clôturé) — comptabilisées même pour sprint IP
             // Cherche par index (pattern XX.N) en priorité, puis par fenêtre de dates
@@ -1722,7 +1729,7 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapB
                 if (fromTkts > 0) realVel = fromTkts;
             }
 
-            return { label, totalDays, absDays, availDays, availPct, spEst, spBuf, spNet, realVel, realState, window, memberAvail, isIP };
+            return { label, workDays, totalDays, absDays, availDays, availPct, spEst, spBuf, spNet, realVel, realState, window, memberAvail, isIP };
         });
 
         const totalSpEst  = sumBy(sprints, s => s.spEst);
@@ -1815,17 +1822,18 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapB
                         <span class="team-dot" style="background:${td.color}"></span>
                         <span class="picap-team-name">${esc(td.teamName)}</span>
                         <span class="picap-team-meta picap-has-tt">${(() => {
-                            const etp = Math.round(td.memberEtp * 10) / 10;
+                            // Jamais d'« ETP » à l'écran (choix utilisateur) : des JOURS/HOMME par sprint
+                            // type (jours ouvrés de `sprintDur`), chaque jour pondéré par la capacité du rôle.
+                            const spDays = _capNominalWorkdays(sprintDur);
+                            const jh = v => (Math.round(v * spDays * 10) / 10).toString().replace('.', ',');
                             const pct = td.memberCount > 0 ? Math.round((td.memberEtp / td.memberCount) * 100) : 100;
-                            const etpStr = etp !== td.memberCount
-                                ? `${td.memberCount} membres <span class="picap-meta-etp">(${etp} ETP · ${pct}%)</span>`
-                                : `${td.memberCount} membres`;
+                            const etpStr = `${td.memberCount} membres <span class="picap-meta-etp" title="Jours/homme d'un sprint de ${spDays} jours ouvrés, chaque jour pondéré par la capacité du rôle (hors absences)">· ${jh(td.memberEtp)} j/h par sprint${pct !== 100 ? ` (${pct} %)` : ''}</span>`;
                             // Regroupe par rôle pour le tooltip
                             const byRole = {};
                             td.members.forEach(m => {
                                 const r = m.role || 'Dev';
                                 const p = _capRolePct(m.role, rolePctMap);
-                                if (!byRole[r]) byRole[r] = { pct: p, count: 0, etp: 0 };
+                                if (!byRole[r]) byRole[r] = { pct: p, count: 0, etp: 0 };   // etp = j/h par jour ouvré
                                 byRole[r].count++;
                                 byRole[r].etp += p / 100;
                             });
@@ -1836,7 +1844,7 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapB
                                     return `
                                 <div class="picap-tt-row${isZero ? ' picap-tt-row--excluded' : ''}">
                                     <span>${esc(role)} <em class="picap-tt-role-count">(×${d.count})</em>${isZero ? ' <em class="picap-tt-role-excl">exclu</em>' : ''}</span>
-                                    <strong>${isZero ? '—' : `${Math.round(d.etp * 10) / 10} ETP <span class="picap-tt-role-pct">${d.pct}%</span>`}</strong>
+                                    <strong>${isZero ? '—' : `${jh(d.etp)} j/h <span class="picap-tt-role-pct">${d.pct}%</span>`}</strong>
                                 </div>`;
                                 }).join('');
                             const histRows = td.avgVelPerSprint > 0 ? `
@@ -1852,8 +1860,8 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapB
                                 ${roleRows}
                                 <div class="picap-tt-sep"></div>
                                 <div class="picap-tt-row picap-tt-row--total">
-                                    <span>Total ETP</span>
-                                    <strong>${etp} ETP <span class="picap-tt-role-pct">(${pct}%)</span></strong>
+                                    <span>Total par sprint (${spDays} j ouvrés)</span>
+                                    <strong>${jh(td.memberEtp)} j/h <span class="picap-tt-role-pct">(${pct}%)</span></strong>
                                 </div>
                                 ${histRows}
                             </div>`;
@@ -1983,20 +1991,20 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapB
                                         </div>
                                         <div class="picap-tt-row">
                                             <span>Durée sprint</span>
-                                            <strong>${sprintDur} j</strong>
+                                            <strong>${s.workDays} j ouvrés</strong>
                                         </div>
                                         <div class="picap-tt-row">
                                             <span>Jours théoriques</span>
-                                            <strong>${s.totalDays} j</strong>
+                                            <strong>${Math.round(s.totalDays * 10) / 10} j/h</strong>
                                         </div>
                                         ${s.absDays > 0 ? `
                                         <div class="picap-tt-row picap-tt-row--warn">
                                             <span>Congés / absences</span>
-                                            <strong>− ${s.absDays} j</strong>
+                                            <strong>− ${s.absDays} j/h</strong>
                                         </div>` : ''}
                                         <div class="picap-tt-row picap-tt-row--total">
                                             <span>Jours disponibles</span>
-                                            <strong>${s.availDays} j (${s.availPct}%)</strong>
+                                            <strong>${Math.round(s.availDays * 10) / 10} j/h (${s.availPct}%)</strong>
                                         </div>
                                     </div>
                                 </div>
@@ -2047,17 +2055,17 @@ function renderCapacity(el, { piInfo, absences, teams, teamObjects, _computeCapB
                                             <span>Calcul estimation</span>
                                         </div>
                                         <div class="picap-tt-row">
-                                            <span>Jours théoriques (${Math.round(td.memberEtp * 10) / 10} ETP × ${sprintDur}j)</span>
-                                            <strong>${Math.round(s.totalDays * 10) / 10} j</strong>
+                                            <span>Jours théoriques (${td.memberCount} membres pondérés × ${s.workDays} j ouvrés)</span>
+                                            <strong>${Math.round(s.totalDays * 10) / 10} j/h</strong>
                                         </div>
                                         ${s.absDays > 0 ? `
                                         <div class="picap-tt-row picap-tt-row--warn">
                                             <span>− Absences pondérées</span>
-                                            <strong>− ${s.absDays} j</strong>
+                                            <strong>− ${s.absDays} j/h</strong>
                                         </div>` : ''}
                                         <div class="picap-tt-row">
                                             <span>= Jours disponibles</span>
-                                            <strong>${Math.round(s.availDays * 10) / 10} j (${s.availPct}%)</strong>
+                                            <strong>${Math.round(s.availDays * 10) / 10} j/h (${s.availPct}%)</strong>
                                         </div>
                                         <div class="picap-tt-sep"></div>
                                         <div class="picap-tt-row">

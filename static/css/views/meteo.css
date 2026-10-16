@@ -217,8 +217,31 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 .meteo-roster-bar { display: inline-block; width: 64px; height: 6px; border-radius: 3px; background: var(--bg-alt); vertical-align: middle; overflow: hidden; }
 .meteo-roster-bar i { display: block; height: 100%; background: var(--primary); }
 .meteo-roster-unknown { color: var(--amber-text); font-style: italic; }
+/* Colonne « Dispo » : j/h présents sur l'itération + part des story points (compact) */
+.meteo-roster-dispo { display: flex; align-items: baseline; gap: 3px; font-variant-numeric: tabular-nums; }
+.meteo-roster-dispo b { font-weight: var(--fw-semibold); }
+.meteo-roster-dispo small { font-size: var(--fs-xs); color: var(--text-muted); }
+.meteo-roster-bar--dispo { width: 40px; margin-right: 4px; align-self: center; flex: none; }
+.meteo-roster-pts { flex: none; }
+.meteo-roster-table td.meteo-roster-dispo-td { min-width: 170px; }
+.meteo-roster-dispo.is-full .meteo-roster-bar--dispo i { background: var(--status-done); }
+.meteo-roster-dispo.is-mid  .meteo-roster-bar--dispo i { background: var(--warning); }
+.meteo-roster-dispo.is-low  .meteo-roster-bar--dispo i { background: var(--danger); }
+.meteo-roster-dispo.is-none { color: var(--text-muted); }
+.meteo-roster-pts {
+    margin-left: auto; padding: 0 6px; border-radius: 999px; align-self: center;
+    background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--primary);
+    font-size: 10.5px; font-weight: var(--fw-semibold); line-height: 16px;
+}
+.meteo-roster-table tfoot td { border-top: 1px solid var(--border); border-bottom: 0; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-secondary); padding-top: var(--sp-2); }
+.meteo-roster-table tfoot td:first-child { display: table-cell; }
 .meteo-roster-table td.is-now { color: var(--amber-text); font-weight: var(--fw-semibold); }
 .meteo-roster-table td.is-next { color: var(--text-secondary); }
+/* Navigation d'itération (◀ / ▶) : projection de la présence sur un sprint voisin. */
+.meteo-roster-nav { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); padding: 0 var(--sp-4) var(--sp-2); }
+.meteo-roster-it { display: inline-flex; align-items: baseline; gap: var(--sp-1); min-width: 9em; justify-content: center; font-variant-numeric: tabular-nums; }
+.meteo-roster-it small { font-size: var(--fs-xs); color: var(--text-muted); }
+.meteo-roster-tag { font-style: normal; font-size: 10px; padding: 0 var(--sp-1); border-radius: var(--r-sm, 4px); background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
 
 /* Bande de présence de l'itération (meteo_fiche.js) : cases de LARGEUR FIXE, posées AVANT le texte
    de la prochaine absence — les bandes s'alignent d'un membre à l'autre. */

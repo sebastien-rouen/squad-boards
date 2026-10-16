@@ -1,7 +1,9 @@
 /**
  * Météo des équipes — la FICHE d'une équipe, deuxième rangée (Dashboard filtré) :
  *   😊 tendance du mood et de la confiance, sprint par sprint ;
- *   👥 roster du PI avec la capacité par rôle et la prochaine absence.
+ *   👥 roster du PI avec la capacité par rôle et la prochaine absence — itération navigable
+ *      (◀ / ▶) pour PROJETER la présence sur un sprint voisin, futur compris (dates projetées) :
+ *      capacité en STORY POINTS (`sprintCapacityBase`, même base que Santé) et présence en j/h.
  *
  * Tout vient de sources déjà en place : `store.moodVotes` / `fistVotes` appariés par clé
  * `NN.N` (comme health-votes.js), `effectiveRosterForPi` (snapshot du PI, sinon dérivation
@@ -9,9 +11,12 @@
  * La tendance répond au #13 du BACKLOG sans nouvelle table : les votes existent par sprint.
  */
 
-import { esc, initials, extractPiNum, teamNameMatches, effectiveRosterForPi, teamEtp, getSprintForTeam, supportAbsenceDayLevel, todayIsoLocal } from '../utils.js';
+import { esc, initials, extractPiNum, teamNameMatches, effectiveRosterForPi, teamEtp, getSprintForTeam, supportAbsenceDayLevel, todayIsoLocal,
+    avgVelocityOverLastPis, sprintRealizedVelocity, sprintCapacityBase, lastKnownAbsenceDate, breathIdxOf, isBreathSprint } from '../utils.js';
 // holidays.js n'est pas dans le barrel : import direct, comme cal_banner.js (SOURCE UNIQUE des fériés).
 import { holidayName } from '../utils/holidays.js';
+// pi-weeks.js n'est pas dans le barrel : import direct, comme health.js.
+import { piNumFromSprintName, projectedPiSprints } from '../utils/pi-weeks.js';
 import { sparkline } from './sparkline.js';
 import { helpIconHtml } from './help_popover.js';
 
@@ -119,45 +124,218 @@ export function presenceStripHtml(name, it, absences, todayIso = todayIsoLocal()
     return `<span class="meteo-iter" role="img" aria-label="${esc(`Itération ${it.label} : ${summary}`)}">${cells}</span>`;
 }
 
+/**
+ * Itérations navigables de l'équipe : PI de son sprint en cours ± 1. Sprints JIRA de l'équipe
+ * d'abord (dédoublonnés par clé `NN.N`), complétés par la CADENCE (`projectedPiSprints`) pour les
+ * sprints que JIRA n'a pas encore créés — une équipe crée ses derniers sprints en cours de PI.
+ * `curIdx` = sprint en cours (`getSprintForTeam`), à défaut le premier qui n'est pas fini.
+ * @returns {{ list: Array<{name, startDate, endDate, state?, projected?}>, curIdx: number }}
+ */
+export function rosterSprints(team, { sprintInfoAll, piInfo, piNum } = {}) {
+    const cur = getSprintForTeam(team, sprintInfoAll);
+    const byLbl = new Map();
+    const add = s => { const l = _lbl(s?.name); if (l && s.startDate && s.endDate && !byLbl.has(l)) byLbl.set(l, s); };
+    add(cur);
+    (sprintInfoAll?.teamSprints || []).filter(s => s.team === team).forEach(add);
+    const basePi = piNumFromSprintName(cur?.name) || piNum;
+    if (!basePi) return { list: [...byLbl.values()], curIdx: byLbl.size ? 0 : -1 };
+    for (const n of [basePi - 1, basePi, basePi + 1]) projectedPiSprints(sprintInfoAll, piInfo, n).forEach(add);
+    const list = [...byLbl.values()]
+        .filter(s => Math.abs(piNumFromSprintName(s.name) - basePi) <= 1)
+        .sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)));
+    let curIdx = cur ? list.findIndex(s => _lbl(s.name) === _lbl(cur.name)) : -1;
+    if (curIdx < 0) {
+        const today = todayIsoLocal();
+        curIdx = list.findIndex(s => String(s.endDate).slice(0, 10) >= today);
+        if (curIdx < 0) curIdx = list.length - 1;
+    }
+    return { list, curIdx };
+}
+
+// Décalage affiché par équipe (en mémoire : une projection est une lecture, pas un réglage).
+const _rosterOffset = new Map();
+const _shortDate = iso => new Date(`${String(iso).slice(0, 10)}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace(/\./g, '');
+const _fr1 = n => (Math.round(n * 10) / 10).toString().replace('.', ',');
+
+/**
+ * Jours/homme d'une itération — SOURCE UNIQUE (carte roster du Dashboard, détail par sprint de la
+ * carte 🎯 Capacité de Santé). Chaque jour ouvré d'un membre vaut sa capacité par rôle (Dev 1 j/h,
+ * Tech Lead 0,7, PO/SM 0) ; `present` déduit congés et fériés (`presenceLevel`, même lecture que la
+ * bande, ½ journée = moitié), `nominal` = itération pleine, sans aucune absence.
+ * @param {Array<{name: string, pct: number}>} members  `teamEtp(...).members`
+ * @param {{days: string[]}} it  `sprintWorkDays(sprint)`
+ * @returns {{present: number, nominal: number}|null}
+ */
+export function iterationManDays(members, it, absences) {
+    if (!it?.days?.length) return null;
+    let present = 0, nominal = 0;
+    for (const m of members || []) {
+        const w = m.pct / 100;
+        if (!w) continue;
+        nominal += w * it.days.length;
+        for (const iso of it.days) {
+            const lvl = presenceLevel(m.name, iso, absences);
+            present += w * (lvl === 'in' ? 1 : lvl === 'half' ? 0.5 : 0);
+        }
+    }
+    return { present, nominal };
+}
+
+/** Sprints d'un PI pour l'équipe : JIRA d'abord, complétés par la cadence (repère de la respiration). */
+function _piSprintsOf(team, pi, { sprintInfoAll, piInfo } = {}) {
+    const byLbl = new Map();
+    const add = s => { const l = _lbl(s?.name); if (l && !byLbl.has(l)) byLbl.set(l, s); };
+    (sprintInfoAll?.teamSprints || []).filter(s => s.team === team && piNumFromSprintName(s.name) === pi).forEach(add);
+    projectedPiSprints(sprintInfoAll, piInfo, pi).forEach(add);
+    return [...byLbl.values()];
+}
+
+/**
+ * Story points projetés d'une itération pour l'équipe — SOURCE UNIQUE hors Santé (carte roster du
+ * Dashboard, section Équipe(s) du rapport) : `sprintCapacityBase` (vélocité moyenne des 2 PI précédant
+ * celui du sprint, moins ses absences pondérées par rôle), MÊME calcul que la Base capacité de Santé.
+ * @param {{members: Array<{name, pct}>, etp: number}} cap  `teamEtp(roster, roleCapacity)`
+ * @param {{sprintInfoAll, piInfo, absences, tickets}} ctx  `tickets` = TOUS les tickets (vélocité passée)
+ * @returns {null|{breath: true}|{points, ratio, capped, avg, last}} `null` = pas de vélocité de référence
+ */
+export function sprintPointsProjection(team, sp, cap, ctx) {
+    const { sprintInfoAll, piInfo, absences = [], tickets = [] } = ctx;
+    const pi = piNumFromSprintName(sp?.name);
+    if (!pi || !cap?.members?.length) return null;
+    const spp = piInfo?.sprintsPerPI || 0;
+    if (isBreathSprint(sp.name, breathIdxOf(_piSprintsOf(team, pi, ctx), spp))) return { breath: true };
+    const v = avgVelocityOverLastPis(sprintInfoAll?.teamSprints || [], team, pi, 2,
+        s => sprintRealizedVelocity(tickets, s.team ? s : { ...s, team }), spp);
+    if (!v.avg) return null;
+    const pct = new Map(cap.members.map(m => [m.name, m.pct]));
+    const last = lastKnownAbsenceDate(absences);
+    const b = sprintCapacityBase({ avg: v.avg, sprint: sp, absences, team, etp: cap.etp,
+        pctOf: n => (pct.has(n) ? pct.get(n) : 0), lastAbsenceDate: last });
+    return b ? { ...b, avg: v.avg, last } : null;
+}
+
+/** Jours d'absence d'un membre sur l'itération (½ journée = 0,5), fériés exclus. */
+function _iterAbsence(name, it, absences) {
+    return it.days.reduce((s, iso) => {
+        const lvl = presenceLevel(name, iso, absences);
+        return s + (lvl === 'out' ? 1 : lvl === 'half' ? 0.5 : 0);
+    }, 0);
+}
+
 export function meteoRosterHtml(team, ctx) {
     const { piInfo, piNum, absences = [], members = [], sprintInfoAll } = ctx;
-    const roster = effectiveRosterForPi(piInfo, piNum, absences, members).filter(m => teamNameMatches(m.team, team));
+    const { list, curIdx } = rosterSprints(team, ctx);
+    const offset = curIdx < 0 ? 0 : Math.max(-curIdx, Math.min(list.length - 1 - curIdx, _rosterOffset.get(team) || 0));
+    _rosterOffset.set(team, offset);
+    const sp = curIdx < 0 ? getSprintForTeam(team, sprintInfoAll) : list[curIdx + offset];
+    const shifted = offset !== 0;
+    // Roster du PI de l'itération affichée s'il a un snapshot ; sinon celui de la carte (projection
+    // à effectif constant — la dérivation des absences ramènerait les partis).
+    const spPi = piNumFromSprintName(sp?.name);
+    const rosterPi = shifted && spPi && piInfo?.piMembers?.[String(spPi)]?.length ? spPi : piNum;
+    const roster = effectiveRosterForPi(piInfo, rosterPi, absences, members).filter(m => teamNameMatches(m.team, team));
     if (!roster.length) {
-        return `<section class="card meteo-roster"><div class="card-header"><span class="card-title">👥 L'équipe</span></div>
+        return `<section class="card meteo-roster" data-roster-team="${esc(team)}"><div class="card-header"><span class="card-title">👥 L'équipe</span></div>
             <p class="meteo-fiche-empty">Aucun membre connu pour ${esc(team)} — le roster vient du <b>CSV des absences</b> (Paramètres → Absences) ou du snapshot du PI.</p></section>`;
     }
     const cap = teamEtp(roster, piInfo?.roleCapacity || {});
     // Jour LOCAL : `toISOString()` donnait la veille entre minuit et 2 h (heure d'été).
     const todayIso = todayIsoLocal();
-    const it = sprintWorkDays(getSprintForTeam(team, sprintInfoAll));
+    const it = sprintWorkDays(sp);
+    const md = iterationManDays(cap.members, it, absences);
+    const pts = it ? sprintPointsProjection(team, sp, cap, ctx) : null;
+    // Colonne « Dispo » : j/h PRÉSENTS du membre sur l'itération affichée (même lecture que la bande
+    // et que le total d'en-tête, `iterationManDays`) + sa part des story points projetés, au prorata de
+    // ces j/h — la somme des parts retombe sur le total de l'équipe (≈ N pts d'en-tête).
+    const ptsTotal = pts && !pts.breath ? pts.points : null;
+    const dispoOf = m => {
+        const d = it ? iterationManDays([m], it, absences) : null;
+        if (!d || !d.nominal) return null;
+        return { ...d, pct: m.pct, pts: ptsTotal != null && md?.present ? ptsTotal * d.present / md.present : null };
+    };
+    const dispoHtml = d => {
+        if (!d) return '<span class="meteo-roster-dispo is-none" title="Rôle compté à 0 % : hors capacité dev">—</span>';
+        const r = d.present / d.nominal;
+        const cls = r >= 0.999 ? 'is-full' : r >= 0.75 ? 'is-mid' : 'is-low';
+        const tip = (d.pct != null ? `Capacité dev du rôle : ${d.pct} % · ` : '') + `${_fr1(d.present)} j/h présents sur ${_fr1(d.nominal)} (${Math.round(r * 100)} %)`
+            + (d.pts != null ? ` · ≈ ${_fr1(d.pts)} pts, part des ${ptsTotal} pts projetés de l'équipe au prorata des j/h` : '');
+        return `<span class="meteo-roster-dispo ${cls}" title="${esc(tip)}">
+            <span class="meteo-roster-bar meteo-roster-bar--dispo"><i style="width:${Math.round(r * 100)}%"></i></span>
+            <b>${_fr1(d.present)}</b><small>/${_fr1(d.nominal)} j/h</small>${d.pts != null ? `<span class="meteo-roster-pts">≈ ${_fr1(d.pts)} pts</span>` : ''}
+        </span>`;
+    };
     const rows = cap.members.map(m => {
-        const abs = nextAbsence(m.name, absences, todayIso);
+        let absTxt, absCls = '';
+        if (shifted && it) {
+            const n = _iterAbsence(m.name, it, absences);
+            absTxt = n ? `🌴 ${_fr1(n)} j` : '—';
+            absCls = n ? 'is-next' : '';
+        } else {
+            const abs = nextAbsence(m.name, absences, todayIso);
+            absTxt = abs ? `${abs.now ? '🌴 absent' : abs.label}${abs.days ? ` <small>(${abs.days} j)</small>` : ''}` : '—';
+            absCls = abs ? (abs.now ? 'is-now' : 'is-next') : '';
+        }
         return `<tr>
             <td><span class="meteo-plan-avatar" aria-hidden="true">${esc(initials(m.name))}</span> ${esc(m.name)}</td>
             <td>${m.role ? esc(m.role) : '<span class="meteo-roster-unknown" title="Rôle inconnu : compté à 100 %">rôle ?</span>'}</td>
-            <td><span class="meteo-roster-bar" title="${m.pct} % de capacité dev"><i style="width:${m.pct}%"></i></span> <b>${m.pct} %</b></td>
-            <td class="meteo-roster-abs ${abs ? (abs.now ? 'is-now' : 'is-next') : ''}">${it ? presenceStripHtml(m.name, it, absences, todayIso) : ''}<span>${abs ? `${abs.now ? '🌴 absent' : abs.label}${abs.days ? ` <small>(${abs.days} j)</small>` : ''}` : '—'}</span></td>
+            ${it ? `<td class="meteo-roster-dispo-td">${dispoHtml(dispoOf(m))}</td>` : ''}
+            <td class="meteo-roster-abs ${absCls}">${it ? presenceStripHtml(m.name, it, absences, todayIso) : ''}<span>${absTxt}</span></td>
         </tr>`;
     }).join('');
     const legend = it ? `<p class="meteo-iter-legend">Itération ${esc(it.label)} :
         <span><i class="meteo-iter-d is-in"></i> présent</span><span><i class="meteo-iter-d is-half"></i> ½ journée</span>
         <span><i class="meteo-iter-d is-out"></i> absent</span><span><i class="meteo-iter-d is-off"></i> férié</span>
         <span><i class="meteo-iter-d is-in is-today"></i> aujourd'hui</span></p>` : '';
+    const tag = !sp ? '' : sp.projected ? ' <em class="meteo-roster-tag" title="Sprint pas encore créé dans JIRA : dates déduites de la cadence du PI">projetée</em>'
+        : offset > 0 ? ' <em class="meteo-roster-tag">à venir</em>' : offset < 0 ? ' <em class="meteo-roster-tag">passée</em>' : '';
+    const nav = curIdx < 0 || !it ? '' : `
+        <div class="meteo-roster-nav" role="group" aria-label="Itération affichée">
+            <button type="button" class="btn-icon" data-roster-step="-1" title="Itération précédente" aria-label="Itération précédente" ${curIdx + offset <= 0 ? 'disabled' : ''}>‹</button>
+            <span class="meteo-roster-it" aria-live="polite"><b>${esc(it.label)}</b>${tag}<small>${esc(_shortDate(sp.startDate))} → ${esc(_shortDate(sp.endDate))}</small></span>
+            <button type="button" class="btn-icon" data-roster-step="1" title="Itération suivante" aria-label="Itération suivante" ${curIdx + offset >= list.length - 1 ? 'disabled' : ''}>›</button>
+            ${shifted ? '<button type="button" class="btn btn-ghost btn-xs" data-roster-step="0" title="Revenir à l\'itération en cours">↺ en cours</button>' : ''}
+        </div>`;
     return `
-    <section class="card meteo-roster" aria-labelledby="meteo-roster-title">
+    <section class="card meteo-roster" aria-labelledby="meteo-roster-title" data-roster-team="${esc(team)}">
         <div class="card-header">
-            <span class="card-title" id="meteo-roster-title">👥 L'équipe — PI #${piNum || '?'}</span>
-            <span class="card-subtitle">${roster.length} personne${roster.length > 1 ? 's' : ''} · <b>${(Math.round(cap.etp * 10) / 10).toString().replace('.', ',')} ETP</b>${cap.ignored ? ` · ${cap.ignored} à 0 %` : ''}${cap.unknownRole ? ` · ${cap.unknownRole} rôle inconnu` : ''}</span>
+            <span class="card-title" id="meteo-roster-title">👥 L'équipe — PI #${rosterPi || '?'}</span>
+            <span class="card-subtitle">${roster.length} personne${roster.length > 1 ? 's' : ''}${it ? ` · ${esc(it.label)} :` : ''}${pts?.breath ? ' <b title="Sprint de respiration : rien n\'y est engagé">🍃 respiration</b>'
+                : pts ? ` <b title="${esc(`Capacité projetée : ${pts.avg.toFixed(1)} pts/sprint (vélocité moyenne des 2 PI précédents) − ${Math.round(pts.ratio * 100)} % d'absences sur l'itération — même calcul que la Base capacité de Santé`)}">≈ ${pts.points} pts</b>${pts.capped ? ` <span title="${esc(`Congés connus jusqu'au ${_shortDate(pts.last)} seulement : absences sous-estimées, projection optimiste`)}">⚠</span>` : ''}` : ''}${md ? ` · <span title="Jours/homme de l'itération : chaque jour ouvré compte la capacité du rôle (Paramètres → Capacité dev), congés et fériés déduits — sur ${esc(_fr1(md.nominal))} j/h sans absence">${_fr1(md.present)} / ${_fr1(md.nominal)} j/h</span>` : ''}${cap.ignored ? ` · ${cap.ignored} à 0 %` : ''}${cap.unknownRole ? ` · ${cap.unknownRole} rôle inconnu` : ''}</span>
         </div>
+        ${nav}
         <div class="meteo-wrap">
             <table class="meteo-roster-table">
-                <caption class="meteo-sr">Membres de l'équipe, capacité par rôle et prochaine absence</caption>
-                <thead><tr><th scope="col">Membre</th><th scope="col">Rôle</th><th scope="col">Capacité</th><th scope="col">Prochaine absence${it ? `<small class="meteo-iter-th">itération ${esc(it.label)}</small>` : ''}</th></tr></thead>
+                <caption class="meteo-sr">Membres de l'équipe, disponibilité sur l'itération et ${shifted ? 'absences sur l\'itération' : 'prochaine absence'}</caption>
+                <thead><tr><th scope="col">Membre</th><th scope="col">Rôle</th>${it ? `<th scope="col" title="Capacité réelle sur l'itération : j/h présents (congés et fériés déduits) et part des story points projetés">Dispo<small class="meteo-iter-th">itération ${esc(it.label)}</small></th>` : ''}<th scope="col">${shifted ? 'Absences' : 'Prochaine absence'}${it ? `<small class="meteo-iter-th">itération ${esc(it.label)}</small>` : ''}</th></tr></thead>
                 <tbody>${rows}</tbody>
+                ${it && md ? `<tfoot><tr><td colspan="2">Total équipe</td><td class="meteo-roster-dispo-td">${dispoHtml({ ...md, pts: ptsTotal })}</td><td></td></tr></tfoot>` : ''}
             </table>
         </div>
         ${legend}
     </section>`;
+}
+
+/**
+ * Navigation ◀ / ▶ de la carte roster : re-rend la SEULE carte (pas le Dashboard), puis rend le
+ * focus au bouton cliqué. `getCtx` = contexte frais (`meteoContext`) à chaque pas.
+ */
+export function bindMeteoFiche(container, getCtx) {
+    const card = container.querySelector('.meteo-roster[data-roster-team]');
+    if (!card) return;
+    card.addEventListener('click', e => {
+        const btn = e.target.closest('[data-roster-step]');
+        if (!btn || btn.disabled) return;
+        const team = card.dataset.rosterTeam;
+        const step = Number(btn.dataset.rosterStep);
+        _rosterOffset.set(team, step === 0 ? 0 : (_rosterOffset.get(team) || 0) + step);
+        const tpl = document.createElement('template');
+        tpl.innerHTML = meteoRosterHtml(team, getCtx()).trim();
+        card.replaceWith(tpl.content.firstElementChild);
+        bindMeteoFiche(container, getCtx);
+        const again = container.querySelector(`.meteo-roster [data-roster-step="${step}"]:not([disabled])`)
+            || container.querySelector('.meteo-roster [data-roster-step]:not([disabled])');
+        again?.focus();
+    });
 }
 
 /** La rangée « fiche » : tendance + roster. */

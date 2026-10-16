@@ -1,3 +1,20 @@
+## [3.223.0] - 2026-10-16
+
+### Capacité en j/h et story points partout, roster navigable par itération
+
+- **Roster « 👥 L'équipe » du Dashboard** : itération navigable ‹ › (sprint voisin, futur compris, dates
+  projetées par la cadence quand JIRA ne l'a pas encore créé) ; en-tête « ≈ N pts · présents / possibles j/h » ;
+  colonne **Dispo** par personne (j/h présents sur l'itération, barre verte / orange / rouge, part des story
+  points au prorata des j/h) et ligne « Total équipe » ; la colonne « Capacité » disparaît (% du rôle en infobulle).
+- **Santé → carte 🎯 Capacité** : détail repliable **par itération** (base en pts, j/h présents, réalisé coloré
+  selon l'écart à la base) ; effectif en j/h au lieu d'ETP.
+- **Rapports → Équipe(s)** : capacité projetée en story points (même calcul que la Base capacité de Santé),
+  présence en j/h — écran, texte, Slack et Confluence ; « En bref » du rapport complet aligné.
+- **Page PI → Capacité** : **corrigé** — jours théoriques en jours OUVRÉS de la fenêtre (14 jours calendaires
+  face à des absences en jours ouvrés gonflaient les jours théoriques de 40 % et sous-estimaient l'absence) ;
+  j/h au lieu d'ETP.
+- **Jamais « ETP » à l'écran ni dans les exports** : capacité en story points, présence en j/h.
+
 ## [3.222.0] - 2026-10-16
 
 ### Dashboard : avancement du PI, temps par colonne comparé, activité récente filtrable

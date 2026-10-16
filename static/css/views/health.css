@@ -919,3 +919,19 @@
 .capacity-mini-hist-its { display: flex; flex-wrap: wrap; gap: 2px 10px; }
 .capacity-mini-hist-it { white-space: nowrap; }
 .capacity-mini-hist-mean { font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+/* Détail par itération de la carte 🎯 Capacité : base vs ETP présents (iterationEtp) vs réalisé. */
+.capacity-mini-sprints { margin-top: 6px; padding-top: 6px; border-top: 1px dashed color-mix(in srgb, var(--primary) 25%, var(--border)); font-size: 10.5px; color: var(--text-muted); }
+.capacity-mini-sprints > summary { cursor: pointer; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.capacity-mini-sp { display: grid; grid-template-columns: 3.4em 3.6em minmax(6.5em, 1fr) 4.4em; align-items: center; gap: 6px; padding: 1px 4px; border-radius: 4px; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.capacity-mini-sp > span:not(:first-child) { text-align: right; }
+.capacity-mini-sp-hd { margin-top: 4px; font-size: 9.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); }
+.capacity-mini-sp.is-now { background: color-mix(in srgb, var(--primary) 10%, transparent); font-weight: 600; }
+.capacity-mini-sp-lbl i { font-style: normal; color: var(--text-muted); }
+.capacity-mini-sp-base { color: var(--primary); font-weight: 700; }
+.capacity-mini-sp-etp { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.capacity-mini-sp-bar { display: inline-block; width: 36px; height: 5px; border-radius: 3px; background: var(--bg-alt); overflow: hidden; }
+.capacity-mini-sp-bar i { display: block; height: 100%; background: var(--success); }
+.capacity-mini-sp-bar.is-low i { background: var(--warning); }
+.capacity-mini-sp-real.is-good { color: var(--success); }
+.capacity-mini-sp-real.is-warn { color: var(--warning); }
+.capacity-mini-sp-real.is-bad  { color: var(--danger); }

@@ -7,18 +7,20 @@
  *
  *   • Une équipe → son EFFECTIF du PI (`effectiveRosterForPi`, roster du PI et non l'historique des
  *     congés), pondéré par rôle (`teamEtp`, Paramètres → capacité par rôle) ; la PRÉSENCE de chacun
- *     sur le sprint (bande `presenceStripHtml`, la même que la carte roster de la météo) et la
- *     capacité du sprint en jours·ETP ; les RESPONSABLES des tickets (`t.leader || t.assignee`).
+ *     sur le sprint (bande `presenceStripHtml`, la même que la carte roster de la météo), la
+ *     présence en j/h et la CAPACITÉ PROJETÉE en story points (`sprintPointsProjection`, même calcul
+ *     que la carte roster et la Base capacité de Santé) ; les RESPONSABLES des tickets (`t.leader || t.assignee`).
  *     ⚠️ Rapprocher responsables JIRA (« Fabien Gazelot ») et roster RH (« GAZELOT, Fabien ») serait
  *     une heuristique : les deux listes restent séparées. La part de tickets SANS responsable est
  *     dite (Fuego, sprint 31.3 : 27 sur 33) — c'est elle qui rend une répartition par personne vide.
- *   • Toutes équipes / groupe → une ligne par équipe : avancement du sprint, bloqués, ETP, présence.
+ *   • Toutes équipes / groupe → une ligne par équipe : avancement du sprint, bloqués, j/h, présence.
+ *   ⚠️ Jamais « ETP » à l'écran ni dans les exports (choix utilisateur) : j/h et story points.
  *     Les équipes sans ticket ni membre sont écartées (boards fantômes « B », « C »…).
  */
 
 import { esc, pct, sumBy, effectiveRosterForPi, teamEtp, teamNameMatches } from '../utils.js';
 import { store } from '../state.js';
-import { presenceStripHtml, presenceLevel, sprintWorkDays } from '../components/meteo_fiche.js';
+import { presenceStripHtml, presenceLevel, sprintWorkDays, sprintPointsProjection } from '../components/meteo_fiche.js';
 import { B, E, SB, CS } from './reports-fmt.js';
 import { displayName } from './reports-support.js';
 import { num } from './reports-scope.js';
@@ -26,7 +28,7 @@ import { num } from './reports-scope.js';
 const plural = (n, s = 's') => (n > 1 ? s : '');
 const clr = p => (p == null ? 'gray' : p >= 80 ? 'green' : p >= 50 ? 'yellow' : 'red');
 const round1 = v => Math.round(v * 10) / 10;
-const etpTxt = v => num(round1(v));
+const jhTxt = v => num(round1(v));
 
 /** Présence d'un ensemble de membres sur les jours du sprint, pondérée par la capacité du rôle. */
 function presence(members, it, absences, roleCapacity) {
@@ -54,6 +56,9 @@ export function buildTeamsData(ctx) {
 
     if (scoped) {
         const pres = presence(roster.filter(m => teamNameMatches(m.team, team)), it, absences, roleCap);
+        // Vélocité de référence = TOUS les tickets (PI passés), pas `tickets` (périmètre du sprint).
+        const capPts = it ? sprintPointsProjection(team, sprint, { members: pres.people, etp: pres.etp },
+            { sprintInfoAll: store.get('sprintInfo'), piInfo, absences, tickets: store.get('tickets') || [] }) : null;
         const byOwner = new Map();
         let unassigned = 0;
         for (const t of tickets) {
@@ -64,7 +69,7 @@ export function buildTeamsData(ctx) {
             if (t.status === 'done') o.done++;
         }
         return {
-            mode: 'team', teamLabel: team, it, pres, unassigned, total: tickets.length,
+            mode: 'team', teamLabel: team, it, pres, capPts, unassigned, total: tickets.length,
             owners: [...byOwner.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'fr')),
         };
     }
@@ -87,7 +92,10 @@ export function buildTeamsData(ctx) {
 }
 
 const sprintTxt = d => (d.it ? `Sprint ${d.it.label} · ${d.it.days.length} jours ouvrés` : 'sprint inconnu');
-const presTxt = p => (p.rate == null ? 'présence inconnue' : `présence ${p.rate} % (${etpTxt(p.avail)}/${etpTxt(p.theo)} j·ETP)`);
+const presTxt = p => (p.rate == null ? 'présence inconnue' : `présence ${p.rate} % (${jhTxt(p.avail)}/${jhTxt(p.theo)} j/h)`);
+/** Capacité projetée en clair (exports) — `null` si aucune vélocité de référence. */
+const capTxt = c => (!c ? null : c.breath ? '🍃 sprint de respiration, rien n’y est engagé'
+    : `≈ ${c.points} pts (${num(round1(c.avg))} pts/sprint − ${Math.round(c.ratio * 100)} % d’absences)${c.capped ? ' ⚠ congés connus partiellement' : ''}`);
 
 // ── Rendu riche (format « Texte » de la vue) ─────────────────────────────────
 
@@ -99,10 +107,16 @@ function teamHtml(d) {
         <p class="rpt-flow-period">👥 ${esc(d.teamLabel)} · ${esc(sprintTxt(d))}</p>
         <div class="rpt-metrics-row rpt-flow-metrics">
             <div class="rpt-metric"><span class="rpt-metric-label">Effectif</span><span class="rpt-metric-val">${p.people.length}</span>
-                <span class="rpt-metric-pct">${etpTxt(p.etp)} ETP</span></div>
+                <span class="rpt-metric-pct">${jhTxt(p.theo)} j/h sur le sprint</span></div>
+            ${d.capPts ? `<div class="rpt-metric" title="${esc(d.capPts.breath ? 'Sprint de respiration : rien n’y est engagé'
+                : `Vélocité moyenne des 2 PI précédents (${num(round1(d.capPts.avg))} pts/sprint) − ${Math.round(d.capPts.ratio * 100)} % d’absences sur le sprint, pondérées par rôle — même calcul que la Base capacité de Santé`
+                + (d.capPts.capped ? '\n⚠ Congés connus seulement en partie : projection optimiste' : ''))}">
+                <span class="rpt-metric-label">Capacité projetée</span>
+                <span class="rpt-metric-val">${d.capPts.breath ? '🍃' : `≈ ${d.capPts.points}${d.capPts.capped ? ' ⚠' : ''}`}</span>
+                <span class="rpt-metric-pct">${d.capPts.breath ? 'respiration' : 'story points'}</span></div>` : ''}
             <div class="rpt-metric"><span class="rpt-metric-label">Présence sprint</span>
                 <span class="rpt-metric-val rpt-pi-pct--${clr(p.rate)}">${p.rate == null ? '—' : `${p.rate}%`}</span>
-                <span class="rpt-metric-pct">${etpTxt(p.avail)}/${etpTxt(p.theo)} j·ETP</span></div>
+                <span class="rpt-metric-pct">${jhTxt(p.avail)}/${jhTxt(p.theo)} j/h</span></div>
             <div class="rpt-metric"><span class="rpt-metric-label">Absences</span><span class="rpt-metric-val">${num(p.awayDays)} j</span></div>
             <div class="rpt-metric${unPct > 50 ? ' rpt-metric--alert' : ''}"><span class="rpt-metric-label">Sans responsable</span>
                 <span class="rpt-metric-val">${d.unassigned}/${d.total}</span></div>
@@ -141,7 +155,7 @@ function trainHtml(d) {
         <p class="rpt-flow-period">👥 ${esc(d.teamLabel)} · ${esc(sprintTxt(d))}</p>
         <div class="rpt-tm-wrap"><table class="rpt-tm-table">
             <caption class="meteo-sr">Avancement du sprint, bloqués, effectif et présence par équipe</caption>
-            <thead><tr><th scope="col">Équipe</th><th scope="col">Avancement</th><th scope="col">Points</th><th scope="col">Bloqués</th><th scope="col">ETP</th><th scope="col">Présence</th></tr></thead>
+            <thead><tr><th scope="col">Équipe</th><th scope="col">Avancement</th><th scope="col">Points</th><th scope="col">Bloqués</th><th scope="col" title="Jours/homme présents / possibles sur le sprint (capacité du rôle, congés et fériés déduits)">j/h</th><th scope="col">Présence</th></tr></thead>
             <tbody>${d.rows.map(r => {
                 const p = pct(r.done, r.n);
                 return `<tr>
@@ -149,7 +163,7 @@ function trainHtml(d) {
                     <td>${r.n ? `<span class="rpt-rm-bar" aria-hidden="true"><i class="rpt-pi-bar-fill rpt-pi-bar--${clr(p)}" style="width:${p}%"></i></span> ${r.done}/${r.n}` : '—'}</td>
                     <td>${r.pts ? `${r.donePts}/${r.pts}` : '—'}</td>
                     <td class="${r.blocked ? 'rpt-tm-away' : ''}">${r.blocked || '—'}</td>
-                    <td>${r.pres.people.length ? etpTxt(r.pres.etp) : '—'}</td>
+                    <td>${r.pres.people.length && r.pres.theo ? `${jhTxt(r.pres.avail)}/${jhTxt(r.pres.theo)}` : '—'}</td>
                     <td class="rpt-pi-pct--${clr(r.pres.rate)}">${r.pres.rate == null ? '—' : `${r.pres.rate} %`}</td>
                 </tr>`;
             }).join('')}</tbody>
@@ -166,8 +180,9 @@ function textReport(ctx) {
     let r = `👥 Équipe — ${d.teamLabel} — ${sprintTxt(d)}\n\n`;
     if (d.mode === 'team') {
         const p = d.pres;
-        r += `- 👤 Effectif : ${p.people.length} personne${plural(p.people.length)}, ${etpTxt(p.etp)} ETP\n`;
+        r += `- 👤 Effectif : ${p.people.length} personne${plural(p.people.length)}, ${jhTxt(p.theo)} j/h sur le sprint\n`;
         r += `- 🗓️ ${presTxt(p).replace(/^p/, 'P')}\n`;
+        if (capTxt(d.capPts)) r += `- 🎯 Capacité projetée : ${capTxt(d.capPts)}\n`;
         const away = p.people.filter(m => m.away);
         if (away.length) r += `- 🌴 Absents : ${away.map(m => `${displayName(m.name)} (${num(m.away)} j)`).join(', ')}\n`;
         if (d.owners.length) r += `\n🎯 Responsables\n${d.owners.map(o => `- ${o.name} — ${o.done}/${o.n} ticket${plural(o.n)}${o.pts ? `, ${o.pts} pts` : ''}\n`).join('')}`;
@@ -186,8 +201,9 @@ function slackReport(ctx) {
     let r = `<div class="s-header">${E('👥')} Équipe · ${esc(d.teamLabel)}</div><hr class="s-divider"><span class="s-muted">${esc(sprintTxt(d))}</span>\n`;
     if (d.mode === 'team') {
         const p = d.pres;
-        r += `${E('👤')} ${B('Effectif')} : ${p.people.length} · ${etpTxt(p.etp)} ETP\n`;
-        r += `${E('🗓️')} ${B('Présence')} : ${p.rate == null ? '—' : SB(`${p.rate}%`, clr(p.rate))} <span class="s-muted">${etpTxt(p.avail)}/${etpTxt(p.theo)} j·ETP</span>\n`;
+        r += `${E('👤')} ${B('Effectif')} : ${p.people.length} · ${jhTxt(p.theo)} j/h sur le sprint\n`;
+        r += `${E('🗓️')} ${B('Présence')} : ${p.rate == null ? '—' : SB(`${p.rate}%`, clr(p.rate))} <span class="s-muted">${jhTxt(p.avail)}/${jhTxt(p.theo)} j/h</span>\n`;
+        if (capTxt(d.capPts)) r += `${E('🎯')} ${B('Capacité projetée')} : ${esc(capTxt(d.capPts))}\n`;
         const away = p.people.filter(m => m.away);
         if (away.length) r += `${E('🌴')} ${B('Absents')} : ${esc(away.map(m => `${displayName(m.name)} (${num(m.away)} j)`).join(', '))}\n`;
         if (d.owners.length) r += `${E('🎯')} ${B('Responsables')} : ${esc(d.owners.map(o => `${o.name} ${o.done}/${o.n}`).join(' · '))}\n`;
@@ -207,7 +223,8 @@ function confluenceReport(ctx) {
     let r = `<h2>Équipe — ${esc(d.teamLabel)}</h2><p><em>${esc(sprintTxt(d))}</em></p>`;
     if (d.mode === 'team') {
         const p = d.pres;
-        r += `<p><strong>Effectif :</strong> ${p.people.length} (${etpTxt(p.etp)} ETP) — <strong>Présence :</strong> ${p.rate == null ? '—' : CS(`${p.rate}%`, clr(p.rate))}`;
+        r += `<p><strong>Effectif :</strong> ${p.people.length} (${jhTxt(p.theo)} j/h sur le sprint) — <strong>Présence :</strong> ${p.rate == null ? '—' : CS(`${p.rate}%`, clr(p.rate))}`;
+        if (capTxt(d.capPts)) r += ` — <strong>Capacité projetée :</strong> ${esc(capTxt(d.capPts))}`;
         r += ` — <strong>Sans responsable :</strong> ${d.unassigned}/${d.total}</p>`;
         r += `<table><tr><th>Membre</th><th>Rôle</th><th>Capacité</th><th>Absent (j)</th></tr>`;
         r += p.people.map(m => `<tr><td>${esc(displayName(m.name))}</td><td>${esc(m.role || '-')}</td><td>${m.pct} %</td><td>${m.away ? num(m.away) : '-'}</td></tr>`).join('');
@@ -215,9 +232,9 @@ function confluenceReport(ctx) {
         if (d.owners.length) r += `<h3>Responsables</h3><table><tr><th>Personne</th><th>Tickets faits</th><th>Points</th></tr>${d.owners.map(o => `<tr><td>${esc(o.name)}</td><td>${o.done}/${o.n}</td><td>${o.pts || '-'}</td></tr>`).join('')}</table>`;
         return r;
     }
-    r += `<table><tr><th>Équipe</th><th>Tickets</th><th>Points</th><th>Bloqués</th><th>ETP</th><th>Présence</th></tr>`;
+    r += `<table><tr><th>Équipe</th><th>Tickets</th><th>Points</th><th>Bloqués</th><th>j/h</th><th>Présence</th></tr>`;
     r += d.rows.map(row => `<tr><td>${esc(row.name)}</td><td>${CS(`${row.done}/${row.n}`, clr(pct(row.done, row.n)))}</td><td>${row.donePts}/${row.pts}</td>`
-        + `<td>${row.blocked ? CS(row.blocked, 'red') : '-'}</td><td>${row.pres.people.length ? etpTxt(row.pres.etp) : '-'}</td><td>${row.pres.rate == null ? '-' : `${row.pres.rate} %`}</td></tr>`).join('');
+        + `<td>${row.blocked ? CS(row.blocked, 'red') : '-'}</td><td>${row.pres.people.length && row.pres.theo ? `${jhTxt(row.pres.avail)}/${jhTxt(row.pres.theo)}` : '-'}</td><td>${row.pres.rate == null ? '-' : `${row.pres.rate} %`}</td></tr>`).join('');
     return `${r}</table>`;
 }
 

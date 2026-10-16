@@ -1,3 +1,23 @@
+## [3.222.0] - 2026-10-16
+
+### Dashboard : avancement du PI, temps par colonne comparé, activité récente filtrable
+
+- **📈 Avancement du PI** en tête de « 👥 Équipe & risques » : barre terminés / en cours / à faire des tickets
+  ENGAGÉS dans le PI (reports compris), points livrés, repère « aujourd'hui » (part du PI écoulée en jours
+  ouvrés, pourcentage en orange si l'équipe est en retard sur le temps), une ligne par équipe en multi-équipes.
+  Segments et légendes **cliquables** : la liste des tickets concernés se déplie (en cours = plus anciens d'abord,
+  terminés = plus récents), chaque ligne ouvre le ticket. **📋 Copier les tickets à risque** : texte Slack en trois
+  groupes (bloqués, sans mouvement, autres en cours) avec statut, responsable, âge en jours ouvrés, dernier
+  mouvement et points.
+- **⏳ Temps par colonne** : sélecteur « Mesurer sur » Sprint / PI / PI précédent (mémorisé) ; chaque colonne
+  affiche l'écart à sa référence (sprint → son PI, PI → le précédent) en rouge si plus lente, vert si plus rapide.
+- **Activité récente** (Dashboard, Board, Kanban) : période **6 h → 30 j, 1 j par défaut** (mémorisée par vue),
+  résumé (modifs · tickets · personnes), séparateurs par jour avec l'heure, « Afficher plus », état vide qui
+  propose d'élargir. Filtres combinables **champ ET personne** (re-cliquer = retirer, compteurs à facettes, toutes
+  les personnes de la période). **Corrigé** : un filtre sur un champ rare affichait une liste vide sans message.
+- **Échap** ne ferme plus que la couche du dessus : une popin ticket ouverte depuis une vue agrandie, la Démo ou
+  les alertes se ferme seule, la couche du dessous reste ouverte (← / → idem).
+
 ## [3.221.0] - 2026-10-16
 
 ### Page PI : carte commune partout, Indicateurs et Dépendances retravaillés

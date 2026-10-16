@@ -646,6 +646,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     font-size: var(--fs-xs);
     color: var(--text-muted);
     white-space: nowrap;
+    flex-shrink: 0;
     min-width: 50px;
     font-family: var(--font-mono);
 }
@@ -749,8 +750,43 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .act-value--prio-high    { background: color-mix(in srgb, var(--warning) 14%, transparent); border-color: color-mix(in srgb, var(--warning) 35%, transparent); color: var(--amber-text); }
 .act-value--prio-low, .act-value--prio-lowest { background: color-mix(in srgb, var(--info) 8%, transparent); border-color: color-mix(in srgb, var(--info) 22%, transparent); color: var(--text-secondary); }
 
-/* Barre de filtres au-dessus de l'activité — chips cliquables, mono-sélection */
+/* Barre de filtres au-dessus de l'activité — un champ ET/OU un auteur (re-cliquer = retirer) */
 .activity-wrapper { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+/* Période (6 h → 30 j) + résumé chiffré de ce qui est affiché */
+.act-toolbar {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    gap: var(--sp-2) var(--sp-3); padding-top: var(--sp-2);
+}
+.act-window {
+    display: inline-flex; align-items: center; gap: 2px; padding: 2px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2);
+}
+.act-window-lbl {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-muted); padding: 0 6px 0 8px;
+}
+.act-window-btn {
+    border: 0; background: transparent; color: var(--text-secondary); cursor: pointer;
+    font: inherit; font-size: 11.5px; font-weight: var(--fw-medium); font-variant-numeric: tabular-nums;
+    padding: 3px 10px; border-radius: 999px; transition: background 0.15s ease, color 0.15s ease;
+}
+.act-window-btn:hover { background: var(--surface); color: var(--text); }
+.act-window-btn.is-active {
+    background: var(--surface); color: var(--primary); font-weight: var(--fw-semibold);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.act-window-btn:focus-visible, .act-filter-chip:focus-visible, .act-more:focus-visible {
+    outline: 2px solid var(--primary); outline-offset: 2px;
+}
+.act-summary { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.act-summary b { color: var(--text); font-weight: var(--fw-semibold); }
+.act-card-badge {
+    margin-left: auto; margin-right: var(--sp-2); padding: 1px 8px; border-radius: 999px;
+    background: var(--surface-2); color: var(--text-muted);
+    font-size: 11px; font-weight: var(--fw-medium); font-variant-numeric: tabular-nums;
+}
+.activity-filters:empty, .nav-rail-wrap:has(> .activity-filters:empty) { display: none; }
 .activity-filters {
     display: flex;
     flex-wrap: wrap;
@@ -760,7 +796,8 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     border-bottom: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
 }
 .act-filter-label {
-    font-size: 11px;
+    flex-shrink: 0;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-muted);
@@ -787,10 +824,21 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     transition: transform 0.1s ease, opacity 0.15s ease, box-shadow 0.15s ease;
     opacity: 0.7;
 }
+.act-filter-chip { white-space: nowrap; flex-shrink: 0; font-family: inherit; }
 .act-filter-chip:hover { opacity: 1; transform: translateY(-1px); }
 .act-filter-chip.is-active {
     opacity: 1;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
+    font-weight: var(--fw-semibold);
+    /* anneau INTÉRIEUR : le rail défile (overflow) et rognerait un anneau extérieur */
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--primary) 65%, transparent);
+}
+.act-filter-chip.is-empty { opacity: 0.45; }
+.act-filter-x { font-size: 12px; line-height: 1; margin-left: 1px; opacity: 0.8; }
+.act-filter-ava {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: color-mix(in srgb, currentColor 18%, transparent);
+    font-size: 8.5px; font-weight: var(--fw-bold); letter-spacing: -0.02em;
 }
 .act-filter-chip--all { background: var(--surface); border-color: var(--border); }
 .act-filter-chip--all.is-active {
@@ -817,12 +865,22 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     font-weight: var(--fw-bold);
     font-variant-numeric: tabular-nums;
 }
-.activity-filter-empty {
-    font-style: italic;
-    text-align: center;
+/* Séparateur de jour (période de plusieurs jours) */
+.act-day {
+    position: sticky; top: 0; z-index: 1;
+    margin-top: var(--sp-2); padding: 4px 0 2px;
+    background: var(--surface);
+    font-size: 10.5px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-muted); border-bottom: 1px solid var(--border);
 }
-/* État initial : items au-delà de `max` masqués (visibles seulement quand on
-   active un filtre spécifique qui les fait apparaître via _applyFilter) */
+.act-day:first-child { margin-top: 0; }
+.act-more {
+    align-self: center; margin: var(--sp-2) 0 var(--sp-1);
+    padding: 5px 14px; border-radius: 999px; cursor: pointer;
+    border: 1px dashed var(--border); background: transparent; color: var(--primary);
+    font: inherit; font-size: 12px; font-weight: var(--fw-medium);
+}
+.act-more:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); border-style: solid; }
 .activity-item--overflow { display: none; }
 
 /* Activité groupée : un même auteur a modifié plusieurs champs du même ticket.
@@ -928,6 +986,34 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .stage-flow-card .lct-flow { flex-wrap: wrap; }
 .stage-flow-p85 { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; opacity: .85; margin-top: 1px; }
 .stage-flow-count { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px; }
+/* Sélecteur de période (Sprint / PI / PI précédent) + écart à la référence dans chaque segment */
+.stage-flow-toolbar { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin: 0 0 var(--sp-3); }
+.stage-flow-toolbar-lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.stage-flow-scopes {
+    display: inline-flex; gap: 2px; padding: 2px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2);
+}
+.stage-flow-scope {
+    border: 0; background: transparent; cursor: pointer; white-space: nowrap;
+    font: inherit; font-size: 11.5px; font-weight: var(--fw-medium); color: var(--text-secondary);
+    padding: 3px 10px; border-radius: 999px;
+}
+.stage-flow-scope:hover { background: var(--surface); color: var(--text); }
+.stage-flow-scope.is-active {
+    background: var(--surface); color: var(--primary); font-weight: var(--fw-semibold);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.stage-flow-scope:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.stage-flow-delta {
+    margin-top: 4px; padding: 1px 7px; border-radius: 999px;
+    font-size: 10.5px; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; white-space: nowrap;
+    background: var(--surface); border: 1px solid var(--border); color: var(--text-muted);
+}
+.stage-flow-delta small { font-weight: var(--fw-medium); opacity: .8; }
+.stage-flow-delta.is-up   { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.stage-flow-delta.is-down { color: var(--success-text, var(--status-done)); border-color: color-mix(in srgb, var(--status-done) 40%, transparent); }
+.stage-flow-delta.is-na   { font-weight: var(--fw-medium); opacity: .7; }
+.stage-flow-empty { padding: var(--sp-3); text-align: center; }
 .stage-flow-seg--dev    { background: color-mix(in srgb, var(--status-inprog) 16%, transparent); border: 1px solid color-mix(in srgb, var(--status-inprog) 45%, transparent); }
 .stage-flow-seg--review { background: color-mix(in srgb, var(--status-review, #8b5cf6) 16%, transparent); border: 1px solid color-mix(in srgb, var(--status-review, #8b5cf6) 45%, transparent); }
 .stage-flow-seg--test   { background: color-mix(in srgb, var(--status-test, #06b6d4) 16%, transparent); border: 1px solid color-mix(in srgb, var(--status-test, #06b6d4) 45%, transparent); }
@@ -1470,3 +1556,84 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 }
 .forecast-bar:last-child { background: var(--primary); }
 
+
+/* ── 📈 Avancement du PI (tête de « Équipe & risques », components/pi_progress.js) ────────── */
+.pip-card { display: flex; flex-direction: column; gap: var(--sp-3); }
+.pip-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+.pip-head .card-subtitle { display: block; margin-top: 2px; }
+.pip-copy { white-space: nowrap; margin-left: auto; }
+.pip-copy-n {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 16px; padding: 0 5px;
+    border-radius: 999px; background: color-mix(in srgb, var(--status-inprog) 18%, transparent); color: var(--status-inprog);
+    font-size: 10px; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums;
+}
+.pip-main { display: flex; align-items: center; gap: var(--sp-3); }
+.pip-pct {
+    font-size: 30px; line-height: 1; font-weight: var(--fw-bold); color: var(--status-done);
+    font-variant-numeric: tabular-nums; min-width: 64px;
+}
+.pip-pct small { font-size: 15px; margin-left: 1px; opacity: .75; }
+.pip-pct.is-late { color: var(--warning); }
+.pip-main-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.pip-bar {
+    position: relative; display: flex; height: 10px; border-radius: 999px; overflow: visible;
+    background: var(--surface-2);
+}
+.pip-bar--big { height: 20px; }
+.pip-seg {
+    appearance: none; border: 0; padding: 0; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; min-width: 3px;
+    font-size: 10.5px; font-weight: var(--fw-bold); color: #fff; font-variant-numeric: tabular-nums;
+    transition: width .4s ease;
+}
+.pip-seg:first-child { border-top-left-radius: 999px; border-bottom-left-radius: 999px; }
+.pip-seg:nth-last-child(1 of .pip-seg) { border-top-right-radius: 999px; border-bottom-right-radius: 999px; }
+.pip-seg--done { background: var(--status-done); }
+.pip-seg--wip  { background: var(--status-inprog); }
+.pip-seg--todo { background: var(--status-todo); }
+.pip-now {
+    position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px;
+    background: var(--text); border-radius: 2px; box-shadow: 0 0 0 1.5px var(--surface);
+}
+.pip-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--text-secondary); }
+.pip-lg { display: inline-flex; align-items: center; gap: 5px; }
+button.pip-lg {
+    appearance: none; border: 1px solid transparent; background: transparent; cursor: pointer;
+    font: inherit; color: inherit; padding: 1px 7px 1px 5px; margin: -1px -2px; border-radius: 999px;
+}
+button.pip-lg:hover { background: var(--surface-2); }
+button.pip-lg.is-active { background: var(--surface-2); border-color: color-mix(in srgb, var(--primary) 45%, transparent); color: var(--text); }
+.pip-lg--blocked { color: var(--danger); }
+.pip-lg--blocked b { color: var(--danger); }
+.pip-seg:hover { filter: brightness(1.08); }
+.pip-seg.is-active { box-shadow: inset 0 0 0 2px var(--surface), inset 0 0 0 3.5px var(--text); }
+.pip-seg:focus-visible, button.pip-lg:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.pip-list { border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); padding-top: var(--sp-2); animation: pip-in .18s ease; }
+@keyframes pip-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.pip-list-head { display: flex; align-items: center; gap: var(--sp-2); font-size: 12.5px; margin-bottom: var(--sp-1); }
+.pip-list-head .text-muted { font-size: 11.5px; }
+.pip-list-close { margin-left: auto; }
+.pip-list-rows { max-height: 320px; overflow-y: auto; }
+.pip-list-more { margin: var(--sp-1) 0 0; text-align: center; }
+.pip-lg i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.pip-lg b { color: var(--text); font-variant-numeric: tabular-nums; }
+.pip-lg--done i { background: var(--status-done); }
+.pip-lg--wip  i { background: var(--status-inprog); }
+.pip-lg--todo i { background: var(--status-todo); }
+.pip-lg--now  { color: var(--text-muted); }
+.pip-lg--now i { width: 2px; height: 11px; border-radius: 1px; background: var(--text); }
+.pip-teams {
+    display: flex; flex-direction: column; gap: 7px;
+    padding-top: var(--sp-2); border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+}
+.pip-team { display: grid; grid-template-columns: minmax(90px, 140px) 1fr 40px; align-items: center; gap: var(--sp-2); }
+.pip-team-name {
+    display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+    font-size: 12px; font-weight: var(--fw-medium); color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pip-team-val { font-size: 11.5px; font-weight: var(--fw-semibold); text-align: right; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+    .pip-main { flex-direction: column; align-items: stretch; }
+    .pip-team { grid-template-columns: 80px 1fr 36px; }
+}

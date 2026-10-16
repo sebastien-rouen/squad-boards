@@ -448,3 +448,15 @@ export function promptModal(title, opts = {}) {
         setTimeout(() => { input.focus(); input.select(); }, 50);
     });
 }
+
+
+/**
+ * La popin TICKET est-elle affichée au-dessus d'une autre couche (vue agrandie d'un graphique, Démo,
+ * fenêtre d'alertes) ? Elle porte alors `.above-demo` (cf. openTicketModal). Les couches du dessous
+ * doivent ignorer le clavier : sinon Échap fermait la popin ET la couche dessous, et ← / → naviguaient
+ * dans les deux à la fois.
+ */
+export function ticketModalOnTop() {
+    const o = document.getElementById('modal-overlay');
+    return !!o && !o.classList.contains('hidden') && o.classList.contains('above-demo');
+}

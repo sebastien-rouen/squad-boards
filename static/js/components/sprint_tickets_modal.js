@@ -8,7 +8,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, sumBy, toast, copyToClipboard, getSprintForTeam, isBufferItem, computeStageFlow, trapFocus, engagedInSprint, sprintStartsOf, isInSprint, carriedOverTo, extractSprintLabel, cycleDays, leadDays } from '../utils.js';
+import { esc, pct, sumBy, toast, ticketModalOnTop, copyToClipboard, getSprintForTeam, isBufferItem, computeStageFlow, trapFocus, engagedInSprint, sprintStartsOf, isInSprint, carriedOverTo, extractSprintLabel, cycleDays, leadDays } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, STATUS_MAP, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { renderBurndown, renderBurnup } from './charts.js';
@@ -383,7 +383,7 @@ function _renderShell(sprint, tickets, opts = {}) {
     });
 
     const onKey = e => {
-        if (e.key === 'Escape') { _closeModal(); document.removeEventListener('keydown', onKey); }
+        if (e.key === 'Escape' && !ticketModalOnTop()) { _closeModal(); document.removeEventListener('keydown', onKey); }
     };
     document.addEventListener('keydown', onKey);
 }
@@ -1518,6 +1518,7 @@ export function openDemoMode(sprint, tickets) {
     overlay.querySelector('.demo-mode-close')?.addEventListener('click', closeDemo);
 
     const onKey = e => {
+        if (ticketModalOnTop()) return;   // ticket ouvert par-dessus la Démo : il a la main sur le clavier
         if (e.key === 'Escape') closeDemo();
         else if (e.key === ' ') { e.preventDefault(); isPaused = !isPaused; }
         else if (e.key === 'f' || e.key === 'F') {

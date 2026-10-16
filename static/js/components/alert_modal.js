@@ -10,7 +10,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, sumBy, toast, deriveMembersFromAbsences, getStatusLabel, statusBadge, teamCapacity, rosterCtx, wipThreshold, countWip, trapFocus, getCurrentPi } from '../utils.js';
+import { esc, sumBy, toast, ticketModalOnTop, deriveMembersFromAbsences, getStatusLabel, statusBadge, teamCapacity, rosterCtx, wipThreshold, countWip, trapFocus, getCurrentPi } from '../utils.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { ANOMALY_BY_KEY } from '../business_rules.js';
@@ -237,7 +237,7 @@ function _bindModalEvents(overlay, actionable, tickets, dirty) {
 
     // Esc to close
     const onKey = e => {
-        if (e.key === 'Escape') { _closeAlertModal(); document.removeEventListener('keydown', onKey); }
+        if (e.key === 'Escape' && !ticketModalOnTop()) { _closeAlertModal(); document.removeEventListener('keydown', onKey); }
     };
     document.addEventListener('keydown', onKey);
 

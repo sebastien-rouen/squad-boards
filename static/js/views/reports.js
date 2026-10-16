@@ -5,7 +5,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, sprintScope, sprintStartsOf, carriedOverTo, extractSprintLabel, workdaysLeft, copySlack } from '../utils.js';
+import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, sprintScope, sprintStartsOf, carriedOverTo, extractSprintLabel, workdaysLeft, copySlack, copyRich } from '../utils.js';
 import { detectSprintsPerPI } from '../utils/pi-weeks.js';
 import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 import { renderPIVelocityChart, renderStatusChart, renderTypeChart, renderBurndown, renderBurnup, renderCycleTime, renderWIPAge } from '../components/charts.js';
@@ -18,7 +18,7 @@ import { ROADMAP_GENERATOR, piBurnupHtml, mountPiBurnup } from './reports-roadma
 import { reportWindows, reportSprint } from './reports-scope.js';
 import { TEAMS_GENERATOR } from './reports-teams.js';
 import { makeFullGenerator } from './reports-full.js';
-import { B, E, SB, CS, TK, previewToMrkdwn } from './reports-fmt.js';
+import { B, E, SB, CS, TK, previewToMrkdwn, confluenceClipboardHtml } from './reports-fmt.js';
 import { meteoSummary } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
 import { mountTrainMatrix } from '../components/train_matrix.js';
@@ -454,10 +454,14 @@ export function renderReports(container) {
             const el = container.querySelector(`[data-content="${btn.dataset.section}"]`);
             if (!el) return;
             try {
-                // Slack : l'aperçu est traduit en mrkdwn puis copié en texte enrichi (gras, liens) + brut —
-                // son `textContent` perdait gras et adresses des liens. Texte / Confluence : inchangés.
+                // Slack : l'aperçu est traduit en mrkdwn puis copié en texte enrichi (gras, liens) + brut.
+                // Confluence : l'aperçu est copié en HTML (titres, tableaux, statuts, liens) + texte brut.
+                // Les deux copiaient le `textContent` : toute la mise en forme et les liens étaient perdus.
                 if (_format === 'slack') {
                     if (!await copySlack(previewToMrkdwn(el.innerHTML), 'Section copiée')) throw new Error('copie');
+                } else if (_format === 'confluence') {
+                    const ok = await copyRich(confluenceClipboardHtml(el.innerHTML), el.innerText || el.textContent, 'Section copiée', 'collez-la dans Confluence');
+                    if (!ok) throw new Error('copie');
                 } else {
                     await navigator.clipboard.writeText(el.dataset.plain || el.textContent);
                 }
@@ -1308,7 +1312,7 @@ const GENERATORS = {
                     const stClr = _clr === 'green' ? 'green' : t.status === 'done' ? 'green' : t.status === 'blocked' ? 'red' : t.status === 'todo' ? 'gray' : 'blue';
                     const icon = _stIcon[t.status] || '';
                     return `<tr>
-                        <td>${esc(t.title)}</td>
+                        <td>${TK(t, ctx.jiraUrl)}${esc(t.title)}</td>
                         <td style="text-align:center">${t.points || '-'}</td>
                         <td>${CS(`${icon} ${esc(st)}`, t.status === 'done' ? 'green' : t.status === 'blocked' ? 'red' : t.status === 'todo' ? 'gray' : 'blue')}</td>
                     </tr>`;

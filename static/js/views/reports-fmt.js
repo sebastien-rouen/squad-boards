@@ -66,3 +66,22 @@ export function previewToMrkdwn(html) {
     return s.replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
         .replace(/\n{3,}/g, '\n\n').trim();
 }
+
+// Statuts Confluence (`CS`) : leurs couleurs vivent dans le CSS de l'aperçu, perdu au collage → styles en ligne.
+const _CS_STYLE = {
+    green: 'background:#e3fcef;color:#006644', red: 'background:#ffebe6;color:#bf2600', blue: 'background:#deebff;color:#0747a6',
+    yellow: 'background:#fffae6;color:#ff8b00', gray: 'background:#f4f5f7;color:#5e6c84',
+};
+
+/**
+ * Aperçu Confluence d'une section → HTML à coller dans Confluence (3.228.0). La copie prenait le `textContent` :
+ * titres, tableaux, statuts colorés et liens disparaissaient. Ici : statuts `CS` en styles EN LIGNE (pastille),
+ * attributs propres à l'aperçu retirés (`class`, `target`, `rel`), le reste (h2 / h3 / table / a / b) tel quel —
+ * l'éditeur Confluence le convertit en titres, tableaux et liens. Pur : chaîne → chaîne.
+ */
+export function confluenceClipboardHtml(html) {
+    return String(html ?? '')
+        .replace(/<span class="c-status c-(green|red|blue|yellow|gray)">/g, (_, c) =>
+            `<span style="${_CS_STYLE[c]};font-weight:600;font-size:0.85em;padding:1px 6px;border-radius:3px;text-transform:uppercase">`)
+        .replace(/\s(?:class|target|rel)="[^"]*"/g, '');
+}

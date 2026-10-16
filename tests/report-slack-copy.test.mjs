@@ -48,3 +48,15 @@ describe('TK — numéro de ticket lié dans les listes Slack des rapports', () 
         assert.equal(fmt.TK({}, 'https://j'), '');
     });
 });
+
+describe('Confluence — copie de l\'aperçu en HTML (titres, tableaux, statuts, liens)', () => {
+    test('statut coloré en style EN LIGNE, attributs de l\'aperçu retirés, structure et liens gardés', () => {
+        const html = `<h3>Sprint 31.3</h3><table><tr><td>${fmt.TK({ id: 'G-1' }, 'https://jira')}Titre</td><td>${fmt.CS('Terminé', 'green')}</td></tr></table>`;
+        const out = fmt.confluenceClipboardHtml(html);
+        assert.equal(out, '<h3>Sprint 31.3</h3><table><tr><td><a href="https://jira/browse/G-1">G-1</a> Titre</td>'
+            + '<td><span style="background:#e3fcef;color:#006644;font-weight:600;font-size:0.85em;padding:1px 6px;border-radius:3px;text-transform:uppercase">Terminé</span></td></tr></table>');
+    });
+    test('sans statut ni lien : rien d\'autre ne change', () => {
+        assert.equal(fmt.confluenceClipboardHtml('<h2>PI 31</h2><p>Texte &amp; co</p>'), '<h2>PI 31</h2><p>Texte &amp; co</p>');
+    });
+});

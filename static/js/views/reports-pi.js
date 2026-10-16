@@ -379,7 +379,7 @@ function confluenceReport(ctx) {
         r += `<h3>Sprint ${esc(s.label)}${s.isBreath ? ' 🍃' : ''} — ${s.donePts}/${s.pts} pts</h3>`;
         r += `<table><tr><th>Type</th><th>Titre</th><th>Points</th><th>Statut</th></tr>`;
         for (const [grp, name] of [[s.us, 'US'], [s.buffer, 'Buffer']]) {
-            r += grp.items.map(t => `<tr><td>${name}</td><td>${esc(t.title || t.key || '?')}</td><td>${t.points || '-'}</td>`
+            r += grp.items.map(t => `<tr><td>${name}</td><td>${TK(t, ctx.jiraUrl)}${esc(t.title || t.key || '?')}</td><td>${t.points || '-'}</td>`
                 + `<td>${CS(STATUS_LABELS[t.status] || t.status || '-', s.doneIds.has(t.id) ? 'green' : t.status === 'blocked' ? 'red' : 'gray')}</td></tr>`).join('');
         }
         r += `</table>`;

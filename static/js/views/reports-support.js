@@ -207,7 +207,7 @@ function confluenceReport(ctx) {
     r += `</p>`;
     if (d.open?.length) {
         r += `<h3>Tickets ouverts (${d.open.length})</h3><table><tr><th>Ticket</th><th>Âge</th><th>Statut</th></tr>`;
-        r += d.open.slice(0, MAX_OPEN).map(({ t, age }) => `<tr><td>${esc(t.title)}</td><td>${age} j</td><td>${esc(statusLbl(t))}</td></tr>`).join('');
+        r += d.open.slice(0, MAX_OPEN).map(({ t, age }) => `<tr><td>${TK(t, ctx.jiraUrl)}${esc(t.title)}</td><td>${age} j</td><td>${esc(statusLbl(t))}</td></tr>`).join('');
         r += `</table>`;
     }
     return r;

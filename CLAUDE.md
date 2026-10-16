@@ -573,7 +573,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Rapports (3.228.0) : seul le format SLACK passe par là — son aperçu HTML (`B` / `E` / `SB`, `s-header`,
   `s-link`…) est traduit par `previewToMrkdwn` (reports-fmt.js) ; Texte et Confluence copient comme avant (le
   wiki Confluence ne doit pas être converti). Une nouvelle primitive d'aperçu Slack s'ajoute aussi à ce traducteur.
-  Ticket listé au format Slack = `TK(t, ctx.jiraUrl)` (reports-fmt.js, numéro lié + espace) devant le titre.
+  Ticket listé au format Slack OU Confluence = `TK(t, ctx.jiraUrl)` (reports-fmt.js, numéro lié + espace) devant
+  le titre. Format CONFLUENCE (3.229.0) : copie `copyRich(confluenceClipboardHtml(aperçu), innerText)` — statuts
+  `CS` en styles EN LIGNE (le CSS de l'aperçu ne suit pas le collage), `class` / `target` / `rel` retirés ; un
+  nouveau style de statut s'ajoute à `_CS_STYLE`. `copyRich(html, plain)` (utils.js) = copieur générique.
 - **Durées de flux en jours OUVRÉS** (3.216.0) : Cycle / Lead Time et âge du WIP = UNIQUEMENT
   `cycleDays(t)` / `leadDays(t)` / `wipAgeDays()` ([utils/workdays.js](static/js/utils/workdays.js)) —
   ⚠️ `t.cycleTimeDays` / `t.leadTimeDays` sont CALENDAIRES en base (sync-parse.js) : ne jamais les lire

@@ -249,12 +249,12 @@ function confluenceReport(ctx) {
     r += `</table>`;
     if (n?.aging.length) {
         r += `<h3>Ça traîne</h3><table><tr><th>Ticket</th><th>Colonne</th><th>Âge</th><th>P85</th></tr>`;
-        r += n.aging.slice(0, MAX_AGING).map(a => `<tr><td>${esc(a.t.title)}</td><td>${esc(a.stage)}</td><td>${num(a.age)} j</td><td>${num(a.p85)} j</td></tr>`).join('');
+        r += n.aging.slice(0, MAX_AGING).map(a => `<tr><td>${TK(a.t, ctx.jiraUrl)}${esc(a.t.title)}</td><td>${esc(a.stage)}</td><td>${num(a.age)} j</td><td>${num(a.p85)} j</td></tr>`).join('');
         r += `</table>`;
     }
     if (n?.blocked.length) {
         r += `<h3>Bloqués</h3><table><tr><th>Ticket</th><th>Responsable</th></tr>`;
-        r += n.blocked.map(b => `<tr><td>${esc(b.t.title)}</td><td>${esc(b.t.leader || b.t.assignee || '-')}</td></tr>`).join('');
+        r += n.blocked.map(b => `<tr><td>${TK(b.t, ctx.jiraUrl)}${esc(b.t.title)}</td><td>${esc(b.t.leader || b.t.assignee || '-')}</td></tr>`).join('');
         r += `</table>`;
     }
     return r;

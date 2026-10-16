@@ -1,3 +1,13 @@
+## [3.229.0] - 2026-10-17
+
+### Rapports : la copie au format Confluence garde titres, tableaux, statuts et liens
+
+- **Rapports → format Confluence → copier une section** (ou le rapport complet) : l'aperçu est copié en HTML —
+  titres, tableaux, statuts en pastilles colorées, liens — que l'éditeur Confluence reprend au collage ; texte
+  brut en secours. Avant, seul le texte affiché partait : ni tableau, ni couleur, ni lien.
+- **Numéros de tickets liés à JIRA** dans les tableaux Confluence (Sprint, PI, Flow, Support), comme au format
+  Slack. Rapport complet de Fuego : 149 liens, 193 statuts colorés, 17 tableaux.
+
 ## [3.228.0] - 2026-10-17
 
 ### Rapports : la copie au format Slack garde gras et liens, numéros de tickets liés à JIRA

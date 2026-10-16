@@ -650,15 +650,23 @@ export async function copyToClipboard(text, label = 'Copié') {
  * (« *Support* », « <url|GCOM-1> »). Repli texte brut hors contexte sécurisé (http par IP du réseau local).
  * @returns {Promise<boolean>}
  */
-export async function copySlack(md, label = 'Copié pour Slack') {
-    const plain = mrkdwnToPlain(md);
+export function copySlack(md, label = 'Copié pour Slack') {
+    return copyRich(mrkdwnToHtml(md), mrkdwnToPlain(md), label, 'collez-le dans Slack');
+}
+
+/**
+ * Copie HTML enrichi + texte brut de secours (Slack, Confluence, Teams, mail gardent la mise en forme au collage).
+ * Repli texte brut hors contexte sécurisé (http par IP du réseau local), où `clipboard.write` n'existe pas.
+ * @returns {Promise<boolean>}
+ */
+export async function copyRich(html, plain, label = 'Copié', hint = '') {
     try {
         if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('presse-papiers riche indisponible');
         await navigator.clipboard.write([new ClipboardItem({
-            'text/html': new Blob([mrkdwnToHtml(md)], { type: 'text/html' }),
+            'text/html': new Blob([html], { type: 'text/html' }),
             'text/plain': new Blob([plain], { type: 'text/plain' }),
         })]);
-        toast(`${label} — collez-le dans Slack`, 'success', 1800);
+        toast(hint ? `${label} — ${hint}` : label, 'success', 1800);
         return true;
     } catch {
         return copyToClipboard(plain, label);

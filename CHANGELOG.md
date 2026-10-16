@@ -1,3 +1,19 @@
+## [3.219.0] - 2026-10-16
+
+### Votes Mood / Fist of Five : saisie en un clic dans l'info-panel, page PI restylée
+
+- **Info-panel → « 🗳️ Votes du sprint »** ([panel_votes.js](static/js/components/panel_votes.js)) : Mood et
+  Confiance de l'équipe (moyenne, compteur par valeur), toujours visibles (la carte Mood n'apparaissait qu'à
+  l'approche de l'échéance, la confiance était cachée dans Objectifs PI). Chaque clic AJOUTE un vote (recueil
+  de l'équipe depuis un poste) ; × au survol = retire le dernier vote de cette valeur, « Annuler » 6 s. Une
+  équipe, sprint en cours ; Dashboard et Santé se mettent à jour après un vote.
+- **Page PI → onglets Mood / Fist** (`renderVotingPanel`) restylés dans la même grammaire : grandes cartes
+  emoji avec libellé, compteur et ×, sprint en pastilles ; résultats = moyenne du train + répartition,
+  grille de cartes par équipe (clic = la sélectionner), équipes sans vote regroupées.
+- **Échelles uniques** `VOTE_KINDS` ([utils/vote-kinds.js](static/js/utils/vote-kinds.js), ré-exporté par
+  health-votes.js) : la page PI n'a plus sa propre échelle Mood (😡😟 → 😞😕) ; Fist of Five 1 = ☝️ (un doigt)
+  au lieu de ✊ (qui se lit « 0 »).
+
 ## [3.218.0] - 2026-10-16
 
 ### Planning Poker : volet « Description » et critères d'acceptation

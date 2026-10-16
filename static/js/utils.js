@@ -21,6 +21,7 @@ export * from './utils/points.js';         // taille d'un ticket (paliers Fibona
 export * from './utils/blocked.js';        // périodes de blocage (drapeau OU statut bloqué)
 export * from './utils/person-name.js';    // même personne JIRA « Prénom Nom » ↔ RH « NOM, Prénom »
 export * from './utils/estimation-queue.js'; // file des tickets à estimer (séance d'affinage, Poker « Suivant »)
+export * from './utils/vote-kinds.js';     // échelles Mood / Fist of Five (Santé, info-panel)
 
 import { esc, toast } from './utils/dom.js';   // usages internes à ce fichier
 import { extractSprintLabel, sprintNamesOf, activeSprintFromTickets, inSprintSince, jiraDateMs } from './utils/sprint-scope.js';   // usages internes à ce fichier

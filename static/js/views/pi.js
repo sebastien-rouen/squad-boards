@@ -11,7 +11,7 @@ import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAG
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
 import { registerExternalChart, renderCycleTime } from '../components/charts.js';
-import { METEO_GLYPH } from '../utils.js';
+import { METEO_GLYPH, VOTE_KINDS, toastUndo } from '../utils.js';
 import { meteoSummary, METEO_MC } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
 import { updateInfoPanel } from '../components/infopanel.js';
@@ -2715,26 +2715,16 @@ function _launchConfetti(anchor) {
     requestAnimationFrame(frame);
 }
 
-// ── Mood / ROTI tab ──────────────────────────────────────────────────────────
+// ── Mood / ROTI et Fist of Five : échelles = VOTE_KINDS (utils/vote-kinds.js), les MÊMES emojis que la
+// Santé et le vote rapide de l'info-panel (la page PI avait sa propre échelle Mood 😡😟😐🙂😄).
+const _voteScale = kind => VOTE_KINDS[kind].emojis.map((label, i) => ({ value: i + 1, label, desc: VOTE_KINDS[kind].scale[i] }));
+
 function renderMood(el, { teams }) {
-    renderVotingPanel(el, 'mood', 'Mood / ROTI', teams, [
-        { value: 1, label: '😡', desc: 'Tres mal' },
-        { value: 2, label: '😟', desc: 'Mal' },
-        { value: 3, label: '😐', desc: 'Neutre' },
-        { value: 4, label: '🙂', desc: 'Bien' },
-        { value: 5, label: '😄', desc: 'Excellent' },
-    ]);
+    renderVotingPanel(el, 'mood', 'Mood / ROTI', teams, _voteScale('mood'));
 }
 
-// ── Fist of Five tab ─────────────────────────────────────────────────────────
 function renderFist(el, { teams, objectives = [] }) {
-    renderVotingPanel(el, 'fist', 'Fist of Five (confiance)', teams, [
-        { value: 1, label: '✊', desc: 'Pas du tout' },
-        { value: 2, label: '✌️', desc: 'Peu confiant' },
-        { value: 3, label: '🤟', desc: 'Moyen' },
-        { value: 4, label: '🖖', desc: 'Confiant' },
-        { value: 5, label: '🖐️', desc: 'Tres confiant' },
-    ], objectives);
+    renderVotingPanel(el, 'fist', 'Fist of Five (confiance)', teams, _voteScale('fist'), objectives);
 }
 
 // Re-synchronise le store global (moodVotes/fistVotes) après un vote/suppression dans le
@@ -2775,50 +2765,77 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
         : [];
 
     // ── Formulaire (rendu une seule fois) ─────────────────────────────────────
+    // Même grammaire que le vote rapide de l'info-panel (components/panel_votes.js) : chaque clic AJOUTE
+    // un vote (recueil de toute l'équipe depuis un poste), compteur par valeur pour l'équipe choisie,
+    // × au survol = retire le DERNIER vote de cette valeur (suppression différée, « Annuler »).
+    const kindDef = VOTE_KINDS[type] || { icon: '🗳️', what: '' };
     el.innerHTML = `
-        <div class="card mb-4">
-            <div class="card-header">
-                <span class="card-title">Voter</span>
-                <button class="btn btn-secondary btn-xs btn-copy-vote-slack" title="Copier les résultats pour Slack">📋 Copier Slack</button>
-                <button class="btn btn-icon btn-xs btn-vote-help" title="A quoi sert ce vote ?">❓</button>
-            </div>
-            <div class="vote-layout">
-                <div class="vote-fields">
-                    <div class="form-group mb-2">
-                        <label class="label">Equipe</label>
-                        <select class="select w-full" id="vote-team">
-                            ${teams.map(t => `<option value="${esc(t)}"${t === currentTeam ? ' selected' : ''}>${esc(t)}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group mb-2">
-                        <label class="label">Sprint</label>
-                        ${piSprints.length
-                            ? `<select class="select w-full" id="vote-sprint">
-                                   <option value="">- Tous -</option>
-                                   ${piSprints.map(s => `<option value="${esc(s)}"${s === defaultSprint ? ' selected' : ''}>${esc(s)}</option>`).join('')}
-                               </select>`
-                            : `<input class="input" id="vote-sprint" value="${esc(defaultSprint)}" placeholder="Sprint...">`
-                        }
-                    </div>
-                    <div class="form-group">
-                        <label class="label">Note (optionnel)</label>
-                        <input class="input" id="vote-note" placeholder="Commentaire...">
-                    </div>
+        <div class="card vp-card mb-4">
+            <div class="vp-head">
+                <div class="vp-title">
+                    <span class="vp-ico" aria-hidden="true">${kindDef.icon}</span>
+                    <div><b>${esc(title)}</b>${kindDef.what ? `<small>${esc(kindDef.what)}</small>` : ''}</div>
                 </div>
-                <div class="vote-btns">
-                    ${scale.map(s => `
-                        <button class="vote-btn" data-value="${s.value}" title="${s.desc}">
-                            <span style="font-size:22px">${s.label}</span>
-                            <span class="text-xs text-muted">${s.value}</span>
-                        </button>
-                    `).join('')}
+                <div class="vp-actions">
+                    <button class="btn btn-secondary btn-xs btn-copy-vote-slack" title="Copier l'invitation au vote pour Slack">📋 Copier Slack</button>
+                    <button class="btn btn-icon btn-xs btn-vote-help" title="À quoi sert ce vote ?">❓</button>
                 </div>
             </div>
+            <div class="vp-ctx">
+                <label class="vp-field">
+                    <span class="vp-field-lbl">Équipe</span>
+                    <select class="select" id="vote-team">
+                        ${teams.map(t => `<option value="${esc(t)}"${t === currentTeam ? ' selected' : ''}>${esc(t)}</option>`).join('')}
+                    </select>
+                </label>
+                <div class="vp-field">
+                    <span class="vp-field-lbl">Sprint</span>
+                    ${piSprints.length
+                        ? `<div class="vp-sprints" role="radiogroup" aria-label="Sprint">
+                               ${['', ...piSprints].map(sp => `<button type="button" role="radio" class="vp-sprint${sp === defaultSprint ? ' is-on' : ''}" data-vp-sprint="${esc(sp)}" aria-checked="${sp === defaultSprint}">${sp ? esc(sp) : 'Tous'}</button>`).join('')}
+                           </div>
+                           <input type="hidden" id="vote-sprint" value="${esc(defaultSprint)}">`
+                        : `<input class="input" id="vote-sprint" value="${esc(defaultSprint)}" placeholder="Sprint…">`}
+                </div>
+                <label class="vp-field vp-field--note">
+                    <span class="vp-field-lbl">Note <small>(optionnel)</small></span>
+                    <input class="input" id="vote-note" placeholder="Commentaire…">
+                </label>
+            </div>
+            <div class="vp-btns" aria-label="Ajouter un vote">
+                ${scale.map(s => `<span class="vp-cell">
+                    <button type="button" class="vote-btn vp-btn" data-value="${s.value}" title="${esc(s.desc)} (${s.value}) · clic = +1 vote">
+                        <span class="vp-emo">${s.label}</span>
+                        <span class="vp-lbl">${esc(s.desc)}</span>
+                        <span class="vp-val">${s.value}</span>
+                        <span class="vp-n" hidden></span>
+                    </button>
+                    <button type="button" class="vp-del" data-vp-del="${s.value}" title="Retirer le dernier vote ${s.label}" aria-label="Retirer un vote ${esc(s.desc)}" hidden>×</button>
+                </span>`).join('')}
+            </div>
+            <p class="vp-hint">Chaque clic ajoute un vote pour l'équipe et le sprint choisis · × retire le dernier de cette valeur</p>
         </div>
 
         <!-- Résultats (zone rafraîchie indépendamment) -->
         <div id="vote-results"></div>
     `;
+
+    // Suppressions en attente (« Annuler » possible) : exclues des résultats tant qu'elles ne sont pas confirmées
+    const _pendingDel = new Set();
+    let lastFiltered = [];
+
+    // Compteurs par valeur de l'équipe choisie, sur les cartes de vote (et × si au moins un vote)
+    function paintBtnCounts() {
+        const teamSel = el.querySelector('#vote-team')?.value;
+        el.querySelectorAll('.vp-cell').forEach(cell => {
+            const v = Number(cell.querySelector('.vp-btn').dataset.value);
+            const n = lastFiltered.filter(x => x.team === teamSel && x.value === v).length;
+            const badge = cell.querySelector('.vp-n'), del = cell.querySelector('.vp-del');
+            badge.hidden = !n; badge.textContent = n || '';
+            cell.classList.toggle('has-votes', !!n);
+            del.hidden = !n || !(el.querySelector('#vote-sprint')?.value.trim());
+        });
+    }
 
     let lastResults = null;
 
@@ -2826,7 +2843,10 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
     async function refreshResults() {
         const sprint  = el.querySelector('#vote-sprint')?.value.trim() || '';
         const allVotes = await api.getMood({ type });
-        const filtered = sprint ? allVotes.filter(v => (v.piSprint || '') === sprint) : allVotes;
+        const live = allVotes.filter(v => !_pendingDel.has(v.id));
+        const filtered = sprint ? live.filter(v => (v.piSprint || '') === sprint) : live;
+        lastFiltered = filtered;
+        paintBtnCounts();
 
         const byTeam = {};
         for (const v of filtered) {
@@ -2849,44 +2869,62 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
         const resultsEl = el.querySelector('#vote-results');
         if (!resultsEl) return;
 
-        const gColor = globalAvg >= 4 ? 'var(--success)' : globalAvg >= 3 ? 'var(--warning)' : globalAvg ? 'var(--danger)' : 'var(--text-muted)';
+        const tone  = avg => (avg >= 4 ? 'var(--success)' : avg >= 3 ? 'var(--warning)' : avg ? 'var(--danger)' : 'var(--text-muted)');
+        const face  = avg => (scale.find(s => s.value === Math.round(avg)) || scale[scale.length - 1]).label;
+        const segBg = v => (v >= 4 ? 'var(--success)' : v >= 3 ? 'var(--warning)' : 'var(--danger)');
+        const distrib = votes => scale.map(s => {
+            const cnt = votes.filter(v => v.value === s.value).length;
+            return cnt ? `<span class="vr-seg" style="flex:${cnt};background:${segBg(s.value)}" title="${esc(s.label)} ${esc(s.desc)} : ${cnt}"></span>` : '';
+        }).join('');
+        const teamSel = el.querySelector('#vote-team')?.value;
+        const voted = teamAvgs.filter(t => t.count), empty = teamAvgs.filter(t => !t.count);
         resultsEl.innerHTML = `
-            <div class="vr-header">
-                ${globalVotes
-                    ? `<span class="vr-global-score" style="color:${gColor}">${globalAvg}<span class="vr-global-unit">/5</span></span>
-                       <span class="vr-global-label">moyenne · ${globalVotes} vote${globalVotes !== 1 ? 's' : ''}${sprint ? ` · sprint <strong>${esc(sprint)}</strong>` : ''}</span>`
-                    : `<span class="vr-global-label text-muted">Aucun vote${sprint ? ` pour le sprint <strong>${esc(sprint)}</strong>` : ''}</span>`
-                }
-            </div>
-            <div class="vr-list">
-                ${teamAvgs.map(t => {
-                    const sc = t.avg >= 4 ? 'var(--success)' : t.avg >= 3 ? 'var(--warning)' : t.avg ? 'var(--danger)' : 'var(--text-muted)';
-                    const emoji = t.count ? (scale.find(s => s.value === Math.round(t.avg)) || scale[scale.length - 1]).label : '';
-                    const bars = scale.map(s => {
-                        const cnt = t.votes.filter(v => v.value === s.value).length;
-                        const flex = t.count ? cnt / t.count : 0;
-                        if (!flex) return '';
-                        const bg = s.value >= 4 ? 'var(--success)' : s.value >= 3 ? 'var(--warning)' : 'var(--danger)';
-                        return `<span class="vr-seg" style="flex:${flex};background:${bg}" title="${esc(s.label)}: ${cnt}"></span>`;
-                    }).join('');
-                    return `
-                    <div class="vr-row${t.count ? '' : ' vr-row--empty'}">
-                        <div class="vr-row-top">
+            <div class="card vr-card">
+                <div class="vr-top">
+                    ${globalVotes
+                        ? `<div class="vr-global">
+                               <span class="vr-global-emo">${face(globalAvg)}</span>
+                               <span class="vr-global-score" style="color:${tone(globalAvg)}">${String(globalAvg).replace('.', ',')}<small>/5</small></span>
+                           </div>
+                           <div class="vr-global-meta">
+                               <b>Moyenne du train</b>
+                               <span>${globalVotes} vote${globalVotes !== 1 ? 's' : ''} · ${voted.length} équipe${voted.length > 1 ? 's' : ''}${sprint ? ` · sprint ${esc(sprint)}` : ' · tous les sprints'}</span>
+                               <span class="vr-distrib vr-distrib--global">${distrib(filtered)}</span>
+                           </div>`
+                        : `<div class="vr-global-meta"><b>Aucun vote</b><span>${sprint ? `pour le sprint ${esc(sprint)}` : 'sur ce PI'} — le premier clic lance le recueil.</span></div>`}
+                </div>
+                ${voted.length ? `<div class="vr-grid">
+                    ${voted.map(t => `
+                    <div class="vr-team${t.name === teamSel ? ' is-current' : ''}" data-vr-team="${esc(t.name)}" title="Cliquer pour voter pour ${esc(t.name)}">
+                        <div class="vr-team-head">
                             <span class="vr-dot" style="background:${t.color}"></span>
                             <span class="vr-name">${esc(t.name)}</span>
-                            ${t.count ? `<button class="vr-del vote-del-team" data-team="${esc(t.name)}" title="Supprimer les votes">🗑</button>` : ''}
+                            <button class="vr-del vote-del-team" data-team="${esc(t.name)}" title="Supprimer les votes de ${esc(t.name)}${sprint ? ` (sprint ${esc(sprint)})` : ''}">🗑</button>
                         </div>
-                        <div class="vr-row-mid">
-                            <div class="vr-score" style="color:${sc}">
-                                ${t.count ? `<span class="vr-emoji">${emoji}</span><span class="vr-val">${t.avg}</span><span class="vr-unit">/5</span>` : '<span class="vr-val" style="color:var(--text-muted)">—</span>'}
-                            </div>
-                            <span class="vr-count">${t.count ? `${t.count} vote${t.count > 1 ? 's' : ''}` : ''}</span>
+                        <div class="vr-team-score">
+                            <span class="vr-emoji">${face(t.avg)}</span>
+                            <span class="vr-val" style="color:${tone(t.avg)}">${String(t.avg).replace('.', ',')}</span><span class="vr-unit">/5</span>
+                            <span class="vr-count">${t.count} vote${t.count > 1 ? 's' : ''}</span>
                         </div>
-                        <div class="vr-distrib">${bars || '<span class="vr-distrib-empty"></span>'}</div>
-                    </div>`;
-                }).join('')}
+                        <div class="vr-distrib">${distrib(t.votes)}</div>
+                    </div>`).join('')}
+                </div>` : ''}
+                ${empty.length ? `<div class="vr-empty">
+                    <span class="vr-empty-lbl">Sans vote${sprint ? ` en ${esc(sprint)}` : ''} :</span>
+                    ${empty.map(t => `<button type="button" class="vr-empty-team${t.name === teamSel ? ' is-current' : ''}" data-vr-team="${esc(t.name)}" title="Voter pour ${esc(t.name)}"><span class="vr-dot" style="background:${t.color}"></span>${esc(t.name)}</button>`).join('')}
+                </div>` : ''}
             </div>
         `;
+
+        // Clic sur une équipe (carte ou pastille « sans vote ») → la sélectionner pour voter
+        resultsEl.querySelectorAll('[data-vr-team]').forEach(card => {
+            card.addEventListener('click', e => {
+                if (e.target.closest('.vote-del-team')) return;
+                const sel = el.querySelector('#vote-team');
+                if (sel) { sel.value = card.dataset.vrTeam; sel.dispatchEvent(new Event('change')); }
+                el.querySelector('.vp-card')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+        });
 
         // Boutons suppression par équipe
         resultsEl.querySelectorAll('.vote-del-team').forEach(btn => {
@@ -2921,12 +2959,13 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
         const sprint = el.querySelector('#vote-sprint')?.value.trim() || '';
         const noSprint = !sprint;
         el.querySelectorAll('.vote-btn').forEach(btn => { btn.disabled = noSprint; });
+        paintBtnCounts();
         let hint = el.querySelector('.vote-sprint-hint');
         if (noSprint) {
             if (!hint) {
                 hint = document.createElement('p');
-                hint.className = 'vote-sprint-hint text-xs text-muted text-center mt-2';
-                el.querySelector('.vote-btn')?.closest('.flex')?.insertAdjacentElement('afterend', hint);
+                hint.className = 'vote-sprint-hint vp-hint vp-hint--warn';
+                el.querySelector('.vp-btns')?.insertAdjacentElement('afterend', hint);
             }
             hint.textContent = 'Sélectionnez un sprint pour pouvoir voter.';
         } else {
@@ -2945,10 +2984,14 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
             const note    = el.querySelector('#vote-note')?.value || '';
             if (!teamVal) { toast('Sélectionnez une équipe', 'warning'); return; }
             btn.disabled = true;
+            btn.classList.remove('is-pop'); void btn.offsetWidth; btn.classList.add('is-pop');
             try {
-                await api.createMood({ type, team: teamVal, value: parseInt(btn.dataset.value), piSprint: sprint, note });
-                toast(`Vote enregistré : ${btn.title}`, 'success');
+                const val = parseInt(btn.dataset.value);
+                await api.createMood({ type, team: teamVal, value: val, piSprint: sprint, note });
                 await refreshResults();
+                const n = lastFiltered.filter(v => v.team === teamVal).length;
+                const sc = scale.find(x => x.value === val);
+                toast(`${teamVal} : +1 ${sc?.label || ''} ${sc?.desc || ''} (${n} vote${n > 1 ? 's' : ''})`, 'success', 1800);
                 await _syncGlobalVoteStore(type);
             } catch (e) {
                 toast(e.message, 'error');
@@ -2958,8 +3001,43 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
         });
     });
 
-    // Changement de sprint → sync boutons + rafraîchir les résultats
+    // Changement de sprint → sync boutons + rafraîchir les résultats (champ libre OU pastilles)
     el.querySelector('#vote-sprint')?.addEventListener('change', () => { syncVoteBtns(); refreshResults(); });
+    el.querySelector('.vp-sprints')?.addEventListener('click', e => {
+        const chip = e.target.closest('[data-vp-sprint]');
+        if (!chip) return;
+        el.querySelector('#vote-sprint').value = chip.dataset.vpSprint;
+        el.querySelectorAll('.vp-sprint').forEach(c => { const on = c === chip; c.classList.toggle('is-on', on); c.setAttribute('aria-checked', String(on)); });
+        syncVoteBtns(); refreshResults();
+    });
+    // Changement d'équipe → compteurs des cartes de vote + équipe mise en avant dans les résultats
+    el.querySelector('#vote-team')?.addEventListener('change', () => refreshResults());
+
+    // × au survol d'une carte de vote : retire le DERNIER vote de cette valeur (équipe + sprint choisis),
+    // tout de suite à l'écran, en base après 6 s sauf « Annuler » — même geste que l'info-panel.
+    el.querySelector('.vp-btns')?.addEventListener('click', e => {
+        const del = e.target.closest('[data-vp-del]');
+        if (!del) return;
+        e.stopPropagation();
+        const value = Number(del.dataset.vpDel);
+        const teamVal = el.querySelector('#vote-team')?.value;
+        const last = lastFiltered.filter(v => v.team === teamVal && v.value === value)
+            .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))[0];
+        if (!last) return;
+        _pendingDel.add(last.id);
+        refreshResults();
+        const sc = scale.find(x => x.value === value);
+        toastUndo(`${teamVal} : un vote ${sc?.label || ''} retiré`, {
+            seconds: 6,
+            onUndo: () => { _pendingDel.delete(last.id); refreshResults(); },
+            onCommit: async () => {
+                try { await api.deleteMood(last.id); } catch (err) { toast(err.message, 'error'); }
+                _pendingDel.delete(last.id);
+                await refreshResults();
+                _syncGlobalVoteStore(type);
+            },
+        });
+    });
 
     // Copie le message d'invitation au sondage (template fun pour Mood, structuré pour Fist)
     // Helper partagé wireSlackCopy : le texte est recalculé au clic depuis le sprint courant.

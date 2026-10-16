@@ -287,6 +287,56 @@
 .info-panel .panel-meter-score { font-size: var(--fs-lg); font-weight: var(--fw-bold); line-height: 1; }
 .info-panel .panel-meter-max   { font-size: var(--fs-xs); color: var(--text-muted); }
 .info-panel .panel-meter-count { font-size: var(--fs-xs); color: var(--text-muted); margin-left: auto; }
+/* 🗳 Votes du sprint (components/panel_votes.js) : Mood + Fist of Five, vote en un clic —
+   même grammaire que les .vote-btns de la page PI, en compact pour la largeur du panneau. */
+.info-panel .pv-row + .pv-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.info-panel .pv-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+.info-panel .pv-label { font-size: 12px; font-weight: var(--fw-semibold); color: var(--text); }
+.info-panel .pv-avg { margin-left: auto; font-size: 14px; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+.info-panel .pv-avg small { font-size: 10px; font-weight: var(--fw-medium); color: var(--text-muted); margin-left: 1px; }
+.info-panel .pv-count { font-size: 10.5px; color: var(--text-muted); }
+.info-panel .pv-head .pv-count:only-of-type, .info-panel .pv-label + .pv-count { margin-left: auto; }
+.info-panel .pv-btns { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.info-panel .pv-btn {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    height: 34px; padding: 0; cursor: pointer; font: inherit;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md);
+    transition: transform .15s cubic-bezier(.34, 1.56, .64, 1), border-color .15s, background .15s;
+}
+.info-panel .pv-emo { font-size: 18px; line-height: 1; filter: grayscale(.35); transition: filter .15s; }
+.info-panel .pv-btn:hover:not([disabled]) { transform: translateY(-2px); border-color: var(--primary); }
+.info-panel .pv-btn:hover:not([disabled]) .pv-emo { filter: none; }
+.info-panel .pv-btn:active:not([disabled]) { transform: scale(.94); }
+.info-panel .pv-cell.has-votes .pv-emo { filter: none; }
+/* Clic = +1 vote : petit saut de confirmation */
+.info-panel .pv-btn.is-pop { animation: pv-pop .35s cubic-bezier(.34, 1.56, .64, 1); border-color: var(--primary); }
+@keyframes pv-pop { 40% { transform: translateY(-4px) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .info-panel .pv-btn.is-pop { animation: none; } }
+.info-panel .pv-btn[disabled] { cursor: default; opacity: .7; }
+.info-panel .pv-btn:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: 1px; }
+.info-panel .pv-n {
+    position: absolute; top: -5px; right: -4px; min-width: 15px; height: 15px; padding: 0 3px;
+    border-radius: 999px; font-size: 9px; font-weight: var(--fw-bold); line-height: 15px; text-align: center;
+    background: var(--text-secondary); color: var(--surface);
+}
+.info-panel .pv-cell { position: relative; display: flex; }
+.info-panel .pv-cell > .pv-btn { flex: 1; min-width: 0; }
+/* × « retirer le dernier vote de cette valeur » : au survol / focus d'un emoji qui a des votes ;
+   toujours visible sans survol (tactile) */
+.info-panel .pv-del {
+    position: absolute; bottom: -6px; left: -5px; z-index: 1;   /* en bas : le haut porte les compteurs voisins */
+    width: 17px; height: 17px; padding: 0; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: var(--fw-bold); line-height: 1; cursor: pointer;
+    background: var(--danger); color: #fff; border: 2px solid var(--surface);
+    opacity: 0; transform: scale(.6); pointer-events: none;
+    transition: opacity .15s, transform .15s cubic-bezier(.34, 1.56, .64, 1);
+}
+.info-panel .pv-cell:hover .pv-del, .info-panel .pv-cell:focus-within .pv-del { opacity: 1; transform: none; pointer-events: auto; }
+.info-panel .pv-del:hover { filter: brightness(1.1); transform: scale(1.12); }
+.info-panel .pv-del:focus-visible { outline: 2px solid var(--border-focus, var(--primary)); outline-offset: 1px; }
+@media (hover: none) { .info-panel .pv-del { opacity: 1; transform: none; pointer-events: auto; } }
+.info-panel .pv-hint { margin-top: 8px; font-size: 10px; color: var(--text-muted); text-align: center; }
 .info-panel .panel-card-chevron { font-size: 11px; color: var(--text-muted); transition: transform .22s; line-height: 1; }
 .info-panel .panel-card--expanded .panel-card-chevron { transform: rotate(180deg); }
 .info-panel .panel-card-detail { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .35s ease, opacity .2s; }

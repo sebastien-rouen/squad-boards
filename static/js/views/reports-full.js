@@ -79,7 +79,8 @@ function briefLines(ctx) {
 
     const t = buildTeamsData(ctx);
     if (t.mode === 'team' && t.pres.people.length) {
-        lines.push(['👥', 'Équipe', `${t.pres.people.length} personnes (${num(Math.round(t.pres.etp * 10) / 10)} ETP)`
+        lines.push(['👥', 'Équipe', `${t.pres.people.length} personnes (${num(Math.round(t.pres.theo * 10) / 10)} j/h sur le sprint)`
+            + `${t.capPts?.points != null ? ` · capacité ≈ ${t.capPts.points} pts` : ''}`
             + `${t.pres.rate != null ? ` · présence ${t.pres.rate} %` : ''}${t.unassigned ? ` · ${t.unassigned}/${t.total} tickets sans responsable` : ''}`]);
     } else if (t.mode === 'train') {
         lines.push(['👥', 'Équipes', `${t.rows.length} équipe${t.rows.length > 1 ? 's' : ''} sur le sprint`]);

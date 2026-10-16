@@ -128,7 +128,8 @@ describe('matrice — colonne 🎯 Base capacité', () => {
     test('l\'infobulle nomme les membres comptés et exclut le rôle à 0 %', () => {
         const h = rendre({ piOffset: 1 });
         const tip = (h.match(/class="health-cell health-capa-cell[^"]*" title="([\s\S]*?)">/) || [])[1] || '';
-        assert.match(tip, /2\.70 ETP/, 'Dev+Dev+TechLead 70 % = 2,70 ETP, le PO ne compte pas');
+        assert.match(tip, /2\.70 j\/h par jour ouvré/, 'Dev+Dev+TechLead 70 % = 2,70 j/h par jour, le PO ne compte pas');
+        assert.doesNotMatch(tip, /ETP/, 'jamais « ETP » à l\'écran');
         assert.match(tip, /Petit, D/);
         assert.match(tip, /exclu/);
         assert.match(tip, /respiration/, 'la respiration écartée est annoncée');

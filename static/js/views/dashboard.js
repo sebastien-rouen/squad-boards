@@ -18,7 +18,7 @@ import { metricScopeHtml } from '../components/metric_scope.js';
 import { forecastCardHtml } from '../components/forecast_card.js';
 import { meteoMatrixHtml, meteoPillsHtml, meteoContext, bindMeteoMatrix } from '../components/meteo_matrix.js';
 import { meteoPlanHtml, bindMeteoPlan } from '../components/meteo_plan.js';
-import { meteoFicheHtml } from '../components/meteo_fiche.js';
+import { meteoFicheHtml, bindMeteoFiche } from '../components/meteo_fiche.js';
 import { endOfPiHtml, recentlyClosedHtml } from '../components/meteo_endpi.js';
 import { firstLaunchHtml, bindFirstLaunch } from '../components/first_launch.js';
 import { piProgressModel, piProgressHtml, bindPiProgress } from '../components/pi_progress.js';
@@ -828,6 +828,7 @@ export function renderDashboard(container) {
         bindSlaReviewCard(container, tickets);
         bindMeteoMatrix(container);
         bindMeteoPlan(container);
+        bindMeteoFiche(container, () => meteoContext(displayPiNum));
         bindFirstLaunch(container);
     });
 

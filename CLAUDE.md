@@ -188,8 +188,14 @@ python main.py          # http://localhost:3001  — Swagger /docs
   UNIQUEMENT `iterationManDays` (meteo_fiche.js — aussi la carte roster du Dashboard, navigable ‹ › via
   `rosterSprints`, qui projette les pts par le MÊME `sprintCapacityBase`) ↔ réalisé. La base lit les
   fiches d'absence, les j/h la bande de présence (fériés déduits) : un léger écart est normal.
-  ⚠️ AFFICHAGE : jamais « ETP » (choix utilisateur) — capacité en story points, présence en j/h ;
-  `teamEtp` / `.etp` restent les noms internes (= j/h par jour ouvré).
+  Carte roster : colonne « Dispo » = `iterationManDays([membre])` + part des pts projetés AU PRORATA des j/h
+  présents (la somme retombe sur le « ≈ N pts » d'en-tête) ; plus de colonne « Capacité » (% du rôle en infobulle).
+  ⚠️ AFFICHAGE, PARTOUT (écran ET exports) : jamais « ETP » (choix utilisateur) — capacité en story
+  points, présence en j/h (sur le sprint ; « j/h par jour ouvré » seulement dans le DÉTAIL d'un calcul) ; `teamEtp` / `.etp` / `memberEtp` restent
+  les noms internes. Projection en pts hors Santé = UNIQUEMENT `sprintPointsProjection` (meteo_fiche.js :
+  roster du Dashboard + section Équipe(s) du rapport). Page PI → Capacité : jours théoriques = capacité
+  de rôle × jours OUVRÉS de la fenêtre (`_workdays`), jamais `× sprintDuration` (14 j calendaires face à
+  des absences en jours ouvrés : +40 %) — dans `renderCapacity` ET `_computeCapByTeam`.
   ⚠️ Vélocité réalisée d'un sprint = UNIQUEMENT `sprintRealizedVelocity(tickets, sprint)`
   (capacity-base.js) — Santé (base, fiabilité) ET page PI (Capacité, cumul via
   `_withRealizedVelocity`). Ordre : Done locaux restés dans le sprint > JIRA si > 0 > 0 si des

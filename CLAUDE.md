@@ -622,6 +622,11 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Page PI → onglets Support / Équipes** : roster = `effectiveRosterForPi` du PI AFFICHÉ (jamais
   `deriveMembersFromAbsences` seul, qui garde les partis) ; absences de l'onglet Équipes bornées au PI (`piBounds`,
   prorata des jours ouvrés). Grille Support = même balisage que Paramètres → Rotation, en lecture seule.
+  Onglets PI = carte commune `.pi-card` (+ `-head` / `-title` / `-actions` / `-body`, pi-planning.css) : Objectifs,
+  Indicateurs, Features, Burnup, Dépendances, Équipes (Capacité pas encore). Ne pas restyler `.team-card` /
+  `.pi-section-hdr` (partagés avec Dashboard / Roadmap) ni les cartes de mesure (stage flow, aging WIP).
+  Dépendances (`components/dep_graph.js`, page PI seulement) : un lien est RÉSOLU quand l'item attendu (`to`) est
+  `done` ; la matrice ne garde que les équipes ayant un lien inter-équipes (les autres sont citées à part).
 - **Historique des niveaux Atlas** (3.198.0) : table `skill_level_history`, écrite UNIQUEMENT par
   `PUT /api/member-skills` (une ligne par changement réel), lue par `components/atlas_history.js`.
 - **Dernière synchro** (3.197.0) : `sprintconfig.synced_by` / `sync_kind`, posés par la synchro

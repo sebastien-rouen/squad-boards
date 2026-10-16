@@ -1,3 +1,19 @@
+## [3.221.0] - 2026-10-16
+
+### Page PI : carte commune partout, Indicateurs et Dépendances retravaillés
+
+- **Objectifs, Indicateurs, Features** dans la carte commune `pi-card` (titre, portée, actions).
+- **Indicateurs → Lead time & Cycle time** en pleine largeur : 4 indicateurs (lead time moyen, cycle time avec
+  médiane et P85, attente moyenne, flow efficiency avec jauge et repère 40 %) et frise PROPORTIONNELLE
+  Créé → Démarré → Livré (l'attente prend la place qu'elle représente) ; graphique plus haut.
+- **Graphique Lead time** : l'axe de gauche montre le titre du ticket en plus de la clé (vue compacte comprise).
+- **Dépendances** ([dep_graph.js](static/js/components/dep_graph.js)) : indicateurs (inter-équipes, NON RÉSOLUS =
+  item attendu pas encore livré, résolus, internes, équipe la plus sollicitée / la plus dépendante), liens les
+  plus forts en puces, matrice compacte (équipes concernées seulement, couleur selon les non résolus, totaux),
+  détail avec le statut de l'item attendu.
+- **Équipes** : sous-titres explicites sur les barres « Avancement en points » et « Tickets par statut ».
+- **Corrigé** : un ticket ouvert depuis un graphique AGRANDI s'affichait derrière la vue agrandie.
+
 ## [3.220.0] - 2026-10-16
 
 ### Page PI : onglets Burnup, Dépendances, Équipes et Support restylés

@@ -610,11 +610,12 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
     const done = base.slice().sort(sorters[sortBy] || sorters.date).slice(-limit);
 
     const ltVals  = done.map(lt);
-    // Agrandi : icône du type + clé + titre (tronqué proprement) — le ticket se reconnaît sans survol.
+    // Clé + titre (tronqué proprement) — le ticket se reconnaît sans survol. Compact : titre plus court,
+    // la carte du Dashboard est étroite ; agrandi : icône du type en plus et titre plus long.
     const labels  = done.map(t => {
-        if (!zoomed) return t.id;
-        const ti = String(t.title || '');
-        return `${TYPE_ICONS[t.type] || '•'} ${t.id}${ti ? ` · ${ti.length > 42 ? `${ti.slice(0, 41)}…` : ti}` : ''}`;
+        const ti = String(t.title || '').trim(), max = zoomed ? 42 : 28;
+        const short = ti.length > max ? `${ti.slice(0, max - 1).trim()}…` : ti;
+        return `${zoomed ? `${TYPE_ICONS[t.type] || '•'} ` : ''}${t.id}${short ? ` · ${short}` : ''}`;
     });
     const waitData = done.map((t, i) => Math.max(0, ltVals[i] - cycleDays(t)));
     const ctData   = done.map(t => cycleDays(t));

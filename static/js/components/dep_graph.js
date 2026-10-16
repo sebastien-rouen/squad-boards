@@ -12,7 +12,7 @@
  *   - renderTeamDepBoard(items, teamObjects) → HTML "programme board" inter-équipes (#14)
  */
 
-import { esc, hashColor } from '../utils.js';
+import { esc, hashColor, statusBadge } from '../utils.js';
 
 // Direction d'un lien : 'dependsOn' (cet item dépend du lié) | 'blocks' (cet item bloque le lié) | null
 function _linkDirection(type) {
@@ -169,9 +169,19 @@ export function computeTeamDependencies(items) {
     };
 }
 
+// Un lien est RÉSOLU quand l'item dont on dépend (« to ») est livré.
+const _resolved = l => l.toItem?.status === 'done';
+
 /**
- * HTML du "programme board" : matrice équipe (dépend) × équipe (dont elle dépend).
- * Les cellules inter-équipes non vides sont cliquables (data-dep-from / data-dep-to).
+ * HTML du « programme board » inter-équipes :
+ *   • indicateurs — liens inter-équipes, NON RÉSOLUS (l'item attendu n'est pas livré), résolus, internes,
+ *     équipe la plus sollicitée (dont les autres dépendent) et la plus dépendante ;
+ *   • liens les plus forts en puces cliquables ;
+ *   • matrice COMPACTE : seulement les équipes qui ont une dépendance inter-équipes (lignes = qui dépend,
+ *     colonnes = dont elle dépend), couleur selon les liens non résolus, ✓ quand tout est livré, totaux ;
+ *     les équipes sans lien inter-équipes sont citées à part (avec leurs liens internes) ;
+ *   • détail au clic (cellule ou puce) : chaque lien, les deux tickets, le statut de l'item attendu.
+ * Les éléments cliquables portent `data-dep-from` / `data-dep-to` (câblés par bindTeamDepBoard).
  */
 export function renderTeamDepBoard(items, teamObjects = []) {
     const { teamEdges, teams, crossCount, edges } = computeTeamDependencies(items);
@@ -179,62 +189,114 @@ export function renderTeamDepBoard(items, teamObjects = []) {
         return `<div class="empty-state"><p>Aucune dépendance bloquante détectée sur ce périmètre.</p>
             <p class="text-xs text-muted mt-1">Les dépendances proviennent des liens JIRA « bloque / est bloqué par / dépend de » entre tickets, epics et features synchronisés.</p></div>`;
     }
-    const countByKey = new Map(teamEdges.map(te => [`${te.from}→${te.to}`, te]));
     const dot = t => `<span class="dep-team-dot" style="background:${esc(_teamColor(t, teamObjects))}"></span>`;
+    const cross = teamEdges.filter(te => te.crossTeam);
+    const intra = teamEdges.filter(te => !te.crossTeam);
+    const open = te => te.links.filter(l => !_resolved(l)).length;
+    const unresolved = cross.reduce((s, te) => s + open(te), 0);
+    const byKey = new Map(cross.map(te => [`${te.from}→${te.to}`, te]));
+    const rows = [...new Set(cross.map(te => te.from))].sort((a, b) => a.localeCompare(b, 'fr'));
+    const cols = [...new Set(cross.map(te => te.to))].sort((a, b) => a.localeCompare(b, 'fr'));
+    const sum = (list, f) => list.reduce((s, x) => s + f(x), 0);
+    const rowTotal = r => sum(cross.filter(te => te.from === r), te => te.count);
+    const colTotal = c => sum(cross.filter(te => te.to === c), te => te.count);
+    const mostAsked = [...cols].sort((a, b) => colTotal(b) - colTotal(a))[0];
+    const mostDep = [...rows].sort((a, b) => rowTotal(b) - rowTotal(a))[0];
+    const askedBy = c => new Set(cross.filter(te => te.to === c).map(te => te.from)).size;
 
-    const headRow = `<tr><th class="dep-mx-corner" title="Lignes : équipe qui dépend · Colonnes : équipe dont elle dépend">dépend ↓ / de →</th>${teams.map(t => `<th class="dep-mx-col">${dot(t)}<span>${esc(t)}</span></th>`).join('')}</tr>`;
-    const bodyRows = teams.map(rt => {
-        const cells = teams.map(ct => {
-            const te = countByKey.get(`${rt}→${ct}`);
-            if (!te) return `<td class="dep-mx-cell dep-mx-empty">·</td>`;
-            const cross = rt !== ct;
-            return `<td class="dep-mx-cell${cross ? ' dep-mx-cross' : ' dep-mx-intra'}" data-dep-from="${esc(rt)}" data-dep-to="${esc(ct)}" title="${esc(rt)} dépend de ${esc(ct)} — ${te.count} lien${te.count > 1 ? 's' : ''}${cross ? ' (inter-équipes)' : ' (interne)'} · cliquer pour le détail">${te.count}</td>`;
-        }).join('');
-        return `<tr><th class="dep-mx-row">${dot(rt)}<span>${esc(rt)}</span></th>${cells}</tr>`;
-    }).join('');
+    const kpi = (ico, val, lbl, cls = '', title = '') => `<div class="dbx-kpi ${cls}"${title ? ` title="${esc(title)}"` : ''}><span class="dbx-kpi-ico">${ico}</span><span class="dbx-kpi-val">${val}</span><span class="dbx-kpi-lbl">${lbl}</span></div>`;
+    const kpis = `<div class="dbx-kpis">
+        ${kpi('🔗', crossCount, `lien${crossCount > 1 ? 's' : ''} inter-équipes`, crossCount ? 'is-warn' : '')}
+        ${kpi('⏳', unresolved, `non résolu${unresolved > 1 ? 's' : ''}`, unresolved ? 'is-bad' : 'is-ok', "L'item dont on dépend n'est pas encore livré")}
+        ${kpi('✅', crossCount - unresolved, `résolu${crossCount - unresolved > 1 ? 's' : ''}`, 'is-ok', "L'item dont on dépend est livré")}
+        ${kpi('🏠', edges.length - crossCount, `interne${edges.length - crossCount > 1 ? 's' : ''}`, '', 'Liens entre items d\'une même équipe')}
+        ${mostAsked ? kpi(dot(mostAsked), esc(mostAsked), `la plus sollicitée · ${askedBy(mostAsked)} équipe${askedBy(mostAsked) > 1 ? 's' : ''} en dépendent`, 'dbx-kpi--team') : ''}
+        ${mostDep ? kpi(dot(mostDep), esc(mostDep), `la plus dépendante · ${rowTotal(mostDep)} lien${rowTotal(mostDep) > 1 ? 's' : ''}`, 'dbx-kpi--team') : ''}
+    </div>`;
 
-    return `
-        <div class="dep-board">
-            <div class="dep-board-summary">
-                <span class="dep-board-kpi ${crossCount > 0 ? 'dep-board-kpi--warn' : ''}">${crossCount}</span>
-                <span class="text-sm text-muted">dépendance${crossCount > 1 ? 's' : ''} inter-équipes${edges.length !== crossCount ? ` · ${edges.length - crossCount} interne${edges.length - crossCount > 1 ? 's' : ''}` : ''}</span>
-            </div>
-            <div class="table-wrap dep-mx-wrap">
-                <table class="dep-mx-table">
-                    <thead>${headRow}</thead>
-                    <tbody>${bodyRows}</tbody>
-                </table>
-            </div>
-            <div class="dep-board-detail" id="dep-board-detail" hidden></div>
-        </div>`;
+    const top = [...cross].sort((a, b) => open(b) - open(a) || b.count - a.count).slice(0, 6);
+    const chips = top.length ? `<div class="dbx-top"><span class="dbx-top-lbl">Liens les plus forts :</span>
+        ${top.map(te => `<button type="button" class="dbx-chip${open(te) ? ' has-open' : ''}" data-dep-from="${esc(te.from)}" data-dep-to="${esc(te.to)}" title="${esc(te.from)} dépend de ${esc(te.to)} — cliquer pour le détail">
+            ${dot(te.from)}${esc(te.from)} <span class="dbx-arrow">→</span> ${dot(te.to)}${esc(te.to)} <b>${te.count}</b>${open(te) ? ` <span class="dbx-open" title="${open(te)} non résolu${open(te) > 1 ? 's' : ''}">· ${open(te)} ⏳</span>` : ' <span class="dbx-done" title="Tous résolus">· ✓</span>'}
+        </button>`).join('')}</div>` : '';
+
+    const heat = n => (n >= 3 ? 'h3' : n === 2 ? 'h2' : n === 1 ? 'h1' : 'h0');
+    const matrix = cross.length ? `<div class="table-wrap dep-mx-wrap"><table class="dbx-table">
+        <thead><tr>
+            <th class="dbx-corner" title="Lignes : l'équipe qui dépend · Colonnes : l'équipe dont elle dépend"><span>dépend ↓</span><span>de →</span></th>
+            ${cols.map(c => `<th class="dbx-col">${dot(c)}<span>${esc(c)}</span></th>`).join('')}
+            <th class="dbx-total-col" title="Nombre de liens dont l'équipe dépend">Total</th>
+        </tr></thead>
+        <tbody>
+            ${rows.map(r => `<tr>
+                <th class="dbx-row">${dot(r)}<span>${esc(r)}</span></th>
+                ${cols.map(c => {
+                    if (r === c) return '<td class="dbx-cell dbx-self">—</td>';
+                    const te = byKey.get(`${r}→${c}`);
+                    if (!te) return '<td class="dbx-cell dbx-empty"></td>';
+                    const o = open(te);
+                    return `<td class="dbx-cell dbx-${o ? heat(o) : 'ok'}" data-dep-from="${esc(r)}" data-dep-to="${esc(c)}" tabindex="0"
+                        title="${esc(r)} dépend de ${esc(c)} — ${te.count} lien${te.count > 1 ? 's' : ''}${o ? `, ${o} non résolu${o > 1 ? 's' : ''}` : ', tous résolus'} · cliquer pour le détail">
+                        <b>${te.count}</b>${o ? (o < te.count ? `<small>${o} ⏳</small>` : '') : '<small>✓</small>'}</td>`;
+                }).join('')}
+                <td class="dbx-total">${rowTotal(r)}</td>
+            </tr>`).join('')}
+        </tbody>
+        <tfoot><tr><th class="dbx-row dbx-foot" title="Nombre de liens qui attendent l'équipe">Sollicitée</th>${cols.map(c => `<td class="dbx-total">${colTotal(c)}</td>`).join('')}<td class="dbx-total dbx-grand">${crossCount}</td></tr></tfoot>
+    </table></div>` : '<p class="dbx-none">✓ Aucune dépendance inter-équipes : seulement des liens internes.</p>';
+
+    const involved = new Set([...rows, ...cols]);
+    const quiet = teams.filter(t => !involved.has(t));
+    const intraOf = t => sum(intra.filter(te => te.from === t), te => te.count);
+    const note = quiet.length ? `<div class="dbx-quiet"><span class="dbx-quiet-lbl">Sans dépendance inter-équipes :</span>
+        ${quiet.map(t => `<span class="dbx-quiet-team">${dot(t)}${esc(t)}${intraOf(t) ? ` <small>${intraOf(t)} interne${intraOf(t) > 1 ? 's' : ''}</small>` : ''}</span>`).join('')}</div>` : '';
+
+    return `<div class="dep-board">
+        ${kpis}
+        ${chips}
+        ${matrix}
+        <div class="dbx-legend"><span><i class="dbx-h1"></i>1 non résolu</span><span><i class="dbx-h2"></i>2</span><span><i class="dbx-h3"></i>3 et +</span><span><i class="dbx-ok"></i>tous résolus ✓</span><span>⏳ = item attendu pas encore livré</span></div>
+        ${note}
+        <div class="dep-board-detail" id="dep-board-detail" hidden></div>
+    </div>`;
 }
 
-/** Bind les clics sur les cellules de la matrice → liste détaillée des liens sous la table. */
+/** Clic sur une cellule ou une puce → liste détaillée des liens sous la matrice. */
 export function bindTeamDepBoard(container, items) {
     const detail = container.querySelector('#dep-board-detail');
     if (!detail) return;
     const { teamEdges } = computeTeamDependencies(items);
     const byKey = new Map(teamEdges.map(te => [`${te.from}→${te.to}`, te]));
-    container.querySelectorAll('.dep-mx-cell[data-dep-from]').forEach(cell => {
-        cell.addEventListener('click', () => {
-            const te = byKey.get(`${cell.dataset.depFrom}→${cell.dataset.depTo}`);
-            if (!te) return;
-            container.querySelectorAll('.dep-mx-cell.is-selected').forEach(c => c.classList.remove('is-selected'));
-            cell.classList.add('is-selected');
-            detail.hidden = false;
-            detail.innerHTML = `
-                <div class="dep-detail-hdr"><strong>${esc(te.from)}</strong> dépend de <strong>${esc(te.to)}</strong> — ${te.count} lien${te.count > 1 ? 's' : ''}</div>
-                <div class="dep-detail-list">
-                    ${te.links.map(l => `
-                        <div class="dep-detail-row">
-                            <button class="dep-detail-key" data-ticket-id="${esc(l.from)}" title="${esc(l.fromItem.title || '')}">${esc(l.from)}</button>
-                            <span class="dep-detail-arrow" title="dépend de / bloqué par">⟶</span>
-                            <button class="dep-detail-key" data-ticket-id="${esc(l.to)}" title="${esc(l.toItem.title || '')}">${esc(l.to)}</button>
-                            <span class="dep-detail-title">${esc((l.toItem.title || '').slice(0, 60))}</span>
-                        </div>`).join('')}
-                </div>`;
-            detail.querySelectorAll('.dep-detail-key[data-ticket-id]').forEach(b =>
-                b.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(b.dataset.ticketId)));
-        });
+    const show = el => {
+        const te = byKey.get(`${el.dataset.depFrom}→${el.dataset.depTo}`);
+        if (!te) return;
+        container.querySelectorAll('.is-selected[data-dep-from]').forEach(c => c.classList.remove('is-selected'));
+        container.querySelectorAll(`[data-dep-from="${CSS.escape(te.from)}"][data-dep-to="${CSS.escape(te.to)}"]`).forEach(c => c.classList.add('is-selected'));
+        const links = [...te.links].sort((a, b) => _resolved(a) - _resolved(b));
+        const open = links.filter(l => !_resolved(l)).length;
+        detail.hidden = false;
+        detail.innerHTML = `
+            <div class="dep-detail-hdr"><strong>${esc(te.from)}</strong> dépend de <strong>${esc(te.to)}</strong> — ${te.count} lien${te.count > 1 ? 's' : ''}${open ? ` · <span class="dbx-open">${open} non résolu${open > 1 ? 's' : ''}</span>` : ' · <span class="dbx-done">tous résolus ✓</span>'}</div>
+            <div class="dep-detail-list">
+                ${links.map(l => `<div class="dbx-link${_resolved(l) ? ' is-resolved' : ''}">
+                    <div class="dbx-link-side">
+                        <button class="dep-detail-key" data-ticket-id="${esc(l.from)}">${esc(l.from)}</button>
+                        <span class="dbx-link-title" title="${esc(l.fromItem.title || '')}">${esc(l.fromItem.title || '')}</span>
+                    </div>
+                    <span class="dbx-link-arrow" title="dépend de / est bloqué par">attend ⟶</span>
+                    <div class="dbx-link-side">
+                        <button class="dep-detail-key" data-ticket-id="${esc(l.to)}">${esc(l.to)}</button>
+                        <span class="dbx-link-title" title="${esc(l.toItem.title || '')}">${esc(l.toItem.title || '')}</span>
+                        ${statusBadge(l.toItem, { size: '2xs' })}
+                    </div>
+                </div>`).join('')}
+            </div>`;
+        detail.querySelectorAll('.dep-detail-key[data-ticket-id]').forEach(b =>
+            b.addEventListener('click', () => window.__squadBoard?.openTicketModal?.(b.dataset.ticketId)));
+        detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+    container.querySelectorAll('[data-dep-from]').forEach(el => {
+        el.addEventListener('click', () => show(el));
+        el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(el); } });
     });
 }

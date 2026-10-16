@@ -1209,6 +1209,11 @@ export function openTicketModal(ticketId) {
         if (_modalIdx < _modalList.length - 1) openTicketModal(_modalList[_modalIdx + 1].id);
     });
 
+    // Ouverte depuis un graphique AGRANDI (clic sur un ticket du Lead time…) : la vue agrandie est au même
+    // niveau (`--z-modal`) et, ajoutée plus tard au DOM, passait DEVANT la popin. `.above-demo` (z 11000)
+    // la remet au premier plan ; closeModal la retire.
+    if (document.querySelector('.chart-zoom-overlay--open')) overlay().classList.add('above-demo');
+
     // Sync URL hash — replaceState si la modale est déjà ouverte (navigation prev/next)
     // pour éviter d'empiler des entrées qui forcent plusieurs "retours" à la fermeture.
     // `/poker` final compris : ouvrir un ticket depuis la popin (« Suivant à estimer ») empilait sinon

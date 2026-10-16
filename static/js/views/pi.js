@@ -11,7 +11,7 @@ import { buildMoodSlackRaw, buildFistSlackRaw, wireSlackCopy, FIST_SCALE, SONDAG
 import { renderPICalendar } from './picalendar.js';
 import { renderTeamDepBoard, bindTeamDepBoard, computeTeamDependencies } from '../components/dep_graph.js';
 import { registerExternalChart, renderCycleTime } from '../components/charts.js';
-import { METEO_GLYPH, VOTE_KINDS, toastUndo, effectiveRosterForPi, teamNameMatches, isWorkday } from '../utils.js';
+import { METEO_GLYPH, VOTE_KINDS, toastUndo, effectiveRosterForPi, teamNameMatches, isWorkday, percentile } from '../utils.js';
 import { meteoSummary, METEO_MC } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
 import { updateInfoPanel } from '../components/infopanel.js';
@@ -573,31 +573,46 @@ function renderIndicators(el, { tickets = [], flowTickets = null, piNum = 0 }) {
     const avgLT = _ltVals.length ? Math.round(_ltVals.reduce((s, v) => s + v, 0) / _ltVals.length * 10) / 10 : 0;
     const avgWait = Math.max(0, Math.round((avgLT - avgCT) * 10) / 10);
     const flowEff = avgLT > 0 ? Math.round((avgCT / avgLT) * 100) : null;
+    const _ctVals = _doneCT.map(t => cycleDays(t));
+    const p50CT = _ctVals.length ? percentile(_ctVals, 50) : 0, p85CT = _ctVals.length ? percentile(_ctVals, 85) : 0;
+    const f1 = n => String(Math.round(n * 10) / 10).replace('.', ',');
+    const effTone = flowEff == null ? '' : flowEff >= 40 ? 'is-good' : flowEff >= 25 ? 'is-ok' : 'is-low';
+    // Frise PROPORTIONNELLE (attente | cycle) : l'ancien schéma donnait la même largeur à 48 j d'attente
+    // et 8 j de cycle — le déséquilibre, qui est le message, ne se voyait pas.
+    const waitPct = avgLT > 0 ? Math.max(6, Math.min(94, (avgWait / avgLT) * 100)) : 50;
 
     el.innerHTML = `
+        <div class="pi-card pi-card--flat">
+            <div class="pi-card-head">
+                <span class="pi-card-ico" aria-hidden="true">📊</span>
+                <div class="pi-card-title"><b>Indicateurs de flux</b>
+                    <small>Lead / Cycle time, temps par colonne et âge du WIP — ${piNum ? `périmètre engagé du PI #${piNum} (reports compris)` : 'historique de l\'équipe'} · jours ouvrés</small></div>
+            </div>
+        </div>
         <div class="pi-indicators">
-            <div class="card">
+            <div class="card pi-lct">
                 <div class="card-header">
-                    <span class="card-title">Lead time &amp; Cycle time ${helpIconHtml({ key: 'lct', label: 'Comprendre lead time vs cycle time' })}</span>
-                    <span class="card-subtitle">${_doneCT.length} ticket${_doneCT.length !== 1 ? 's' : ''} terminé${_doneCT.length !== 1 ? 's' : ''}</span>
+                    <span class="card-title">⏱ Lead time &amp; Cycle time ${helpIconHtml({ key: 'lct', label: 'Comprendre lead time vs cycle time' })}</span>
+                    <span class="card-subtitle">${_doneCT.length} ticket${_doneCT.length !== 1 ? 's' : ''} terminé${_doneCT.length !== 1 ? 's' : ''} sur le PI</span>
                 </div>
-                <!-- Schéma : Créé → (attente) → Démarré → (cycle time) → Terminé ; Lead time = total -->
-                <div class="lct-schema">
-                    <div class="lct-flow">
-                        <span class="lct-node"><span class="lct-node-ico">📥</span><small>Créé</small></span>
-                        <span class="lct-seg lct-seg--wait"><span class="lct-seg-lbl">Attente</span><span class="lct-seg-val">${avgWait} j</span></span>
-                        <span class="lct-node"><span class="lct-node-ico">▶️</span><small>Démarré</small></span>
-                        <span class="lct-seg lct-seg--cycle"><span class="lct-seg-lbl">Cycle time</span><span class="lct-seg-val">${avgCT} j</span></span>
-                        <span class="lct-node"><span class="lct-node-ico">✅</span><small>Terminé</small></span>
+                ${_doneCT.length ? `
+                <div class="pi-lct-kpis">
+                    <div class="pi-lct-kpi"><span class="pi-lct-kpi-lbl">📥 Lead time moyen</span><span class="pi-lct-kpi-val">${f1(avgLT)}<small> j</small></span><span class="pi-lct-kpi-sub">de la création à la livraison</span></div>
+                    <div class="pi-lct-kpi pi-lct-kpi--cycle"><span class="pi-lct-kpi-lbl">🛠 Cycle time</span><span class="pi-lct-kpi-val">${f1(avgCT)}<small> j</small></span><span class="pi-lct-kpi-sub">médiane ${f1(p50CT)} j · P85 ${f1(p85CT)} j</span></div>
+                    <div class="pi-lct-kpi pi-lct-kpi--wait"><span class="pi-lct-kpi-lbl">⏸ Attente moyenne</span><span class="pi-lct-kpi-val">${f1(avgWait)}<small> j</small></span><span class="pi-lct-kpi-sub">avant d'être démarré</span></div>
+                    ${flowEff != null ? `<div class="pi-lct-kpi pi-lct-kpi--eff ${effTone}" title="Flow efficiency = cycle time ÷ lead time : part du lead time passée à travailler le ticket (le reste = attente en file). Repère : ~15 % courant, 40 % et plus = bon.">
+                        <span class="pi-lct-kpi-lbl">⚡ Flow efficiency</span><span class="pi-lct-kpi-val">${flowEff}<small> %</small></span>
+                        <span class="pi-lct-gauge"><i style="width:${Math.min(100, flowEff)}%"></i><b style="left:40%" title="Repère 40 %"></b></span></div>` : ''}
+                </div>
+                <div class="pi-lct-track" aria-label="Lead time moyen ${f1(avgLT)} jours : ${f1(avgWait)} d'attente puis ${f1(avgCT)} de cycle">
+                    <div class="pi-lct-ends"><span>📥 Créé</span><span>▶️ Démarré</span><span>✅ Livré</span></div>
+                    <div class="pi-lct-bar">
+                        <span class="pi-lct-seg pi-lct-seg--wait" style="flex-basis:${waitPct}%">⏸ Attente ${f1(avgWait)} j</span>
+                        <span class="pi-lct-seg pi-lct-seg--cycle" style="flex-basis:${100 - waitPct}%">🛠 ${f1(avgCT)} j</span>
                     </div>
-                    <div class="lct-lead"><span class="lct-lead-lbl">⟵ Lead time moyen · <strong>${avgLT} j</strong> ⟶</span></div>
-                    ${flowEff != null ? `<div class="lct-floweff" title="Flow efficiency = cycle time / lead time. Part du lead time réellement passée à travailler le ticket (le reste = attente en file). Repère : ~15% courant, 40%+ bon.">
-                        <span class="lct-floweff-lbl">⚡ Flow efficiency</span>
-                        <span class="lct-floweff-bar"><span class="lct-floweff-fill ${flowEff >= 40 ? 'is-good' : flowEff >= 25 ? 'is-ok' : 'is-low'}" style="width:${Math.min(100, flowEff)}%"></span></span>
-                        <span class="lct-floweff-val">${flowEff}%</span>
-                    </div>` : ''}
-                </div>
-                <div class="chart-container chart-h-md"><canvas id="pi-chart-cycletime"></canvas></div>
+                    <div class="pi-lct-lead">⟵ Lead time moyen <b>${f1(avgLT)} j</b> ⟶</div>
+                </div>` : `<p class="pi-lct-empty">Aucun ticket terminé avec des dates de cycle sur ce périmètre.</p>`}
+                <div class="chart-container pi-lct-chart"><canvas id="pi-chart-cycletime"></canvas></div>
             </div>
             ${stageFlowCardHtml(_flow, { scopeLabel: piNum ? `PI #${piNum} · périmètre engagé` : 'historique équipe' })}
             ${agingWipCardHtml(_flow)}
@@ -835,20 +850,25 @@ export function renderObjectives(el, { objectives, piInfo, teams, teamObjects, i
             <span class="pi-obj-gauge-pct" style="color:${globalCol}">${globalDone}/${globalTotal} · ${globalPct}%</span>
         </div>` : ''}
         ${_commitmentPanelHtml(_commit, _baselineRaw, _canCapture)}
-        <div class="pi-obj-toolbar">
-            ${!showAll
-                ? `<span class="chip" style="background:var(--primary-bg);color:var(--primary)">${esc(team)}</span>`
-                : `<span class="text-sm text-muted">Toutes les équipes</span>`}
-            ${isEditable ? `<button class="btn btn-primary btn-sm" id="pi-obj-save">Enregistrer</button>` : ''}
+        <div class="pi-card">
+            <div class="pi-card-head">
+                <span class="pi-card-ico" aria-hidden="true">🎯</span>
+                <div class="pi-card-title"><b>Objectifs du PI${piNum ? ` #${piNum}` : ''}</b>
+                    <small>${!showAll ? `Équipe ${esc(team)}` : 'Toutes les équipes'}${globalTotal ? ` · ${globalDone}/${globalTotal} atteint${globalDone > 1 ? 's' : ''}` : ''}${isEditable ? '' : ' · lecture seule'}</small></div>
+                <div class="pi-card-actions">
+                    ${!showAll ? `<span class="chip" style="background:var(--primary-bg);color:var(--primary)">${esc(team)}</span>` : ''}
+                    ${isEditable ? `<button class="btn btn-primary btn-sm" id="pi-obj-save">Enregistrer</button>` : ''}
+                </div>
+            </div>
+            <div class="pi-card-body">
+                <div id="pi-obj-list">
+                    ${listHtml()}
+                </div>
+                ${isEditable ? `<div class="pi-obj-add-row mt-3">
+                    <button class="btn btn-secondary btn-sm" id="pi-obj-add">+ Ajouter un objectif</button>
+                </div>` : ''}
+            </div>
         </div>
-
-        <div id="pi-obj-list">
-            ${listHtml()}
-        </div>
-
-        ${isEditable ? `<div class="pi-obj-add-row mt-3">
-            <button class="btn btn-secondary btn-sm" id="pi-obj-add">+ Ajouter un objectif</button>
-        </div>` : ''}
     `;
 
     // ── Déverrouillage PI passé ───────────────────────────────────────────────
@@ -1137,7 +1157,14 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
     };
 
     // Construit le HTML par équipe avec ligne de coupure dans la liste
-    let html = '<div class="feature-list2">';
+    const _nTeams = byTeam.size ?? [...byTeam].length;
+    let html = `<div class="pi-card">
+        <div class="pi-card-head">
+            <span class="pi-card-ico" aria-hidden="true">📦</span>
+            <div class="pi-card-title"><b>Features du PI</b>
+                <small>${featureList.length} feature${featureList.length > 1 ? 's' : ''} · ${_nTeams} équipe${_nTeams > 1 ? 's' : ''} — triées par rang JIRA ; la ligne de coupure marque la capacité de l'équipe</small></div>
+        </div>
+        <div class="pi-card-body"><div class="feature-list2">`;
     for (const [teamName, tFeatures] of byTeam) {
         const cap = capByTeam[teamName];
         const tObj = store.get('teamObjects')?.find(o => o.name === teamName);
@@ -1231,7 +1258,7 @@ function renderFeatures(el, { featureList, capByTeam = {} }) {
 
         html += '</div>';
     }
-    html += '</div>';
+    html += '</div></div></div>';   // .feature-list2, .pi-card-body, .pi-card
 
     el.innerHTML = html;
     el.querySelectorAll('.feature-row2, .feat-child-row').forEach(row => {
@@ -2234,9 +2261,11 @@ function renderTeams(el, { teamCap }) {
             </div>
             <div class="pit-pts">
                 <span class="pit-pct" style="color:${p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--primary)' : 'var(--warning)'}">${p}%</span>
-                <span class="pit-pts-txt"><b>${t.donePts}</b> / ${t.pts} pts livrés</span>
+                <span class="pit-pts-txt">des points livrés</span>
             </div>
+            <div class="pit-lbl" title="Points des tickets terminés ÷ points de tous les tickets de l'équipe sur le PI">📈 Avancement en points <span>${t.donePts} / ${t.pts} pts</span></div>
             <div class="progress progress-thin"><div class="progress-bar ${progressColor(p)}" style="width:${p}%"></div></div>
+            <div class="pit-lbl" title="Chaque segment = part des tickets de l'équipe dans ce statut">🎫 Tickets par statut <span>${total} ticket${total > 1 ? 's' : ''}</span></div>
             <div class="pit-status" aria-label="Répartition des statuts">${bar || '<span class="pit-status-empty"></span>'}</div>
             <div class="pit-legend">
                 ${ST.filter(s => t.statusCounts?.[s]).map(s => `<span><i style="background:${ST_CLR[s]}"></i>${esc(STATUS_LABELS[s] || s)} ${t.statusCounts[s]}</span>`).join('') || '<span class="text-muted">Aucun ticket sur ce PI</span>'}

@@ -23,7 +23,7 @@ import {
     extractSprintLabel, resolvePiObjectives, breathIdxOf, sprintNamesOf, getStatusLabel,
 } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
-import { B, E, SB, CS } from './reports-fmt.js';
+import { B, E, SB, CS, TK } from './reports-fmt.js';
 
 const ST_ICON = { done: '✓', inprog: '●', review: '◑', test: '◕', blocked: '✗', todo: '○' };
 const OBJ_ICON = { done: '✅', inprog: '🔄', todo: '⬜', blocked: '🚫' };
@@ -352,7 +352,7 @@ function slackReport(ctx) {
             r += `${E(icon)} ${B(name)} <span class="s-muted">(${grp.done}/${grp.items.length} · ${grp.donePts}/${grp.pts} pts)</span>\n`;
             for (const t of grp.items) {
                 const pts = t.points ? ` <span class="s-muted">[${t.points} pts]</span>` : '';
-                r += `${E(s.doneIds.has(t.id) ? '✅' : '⬜')} ${esc(t.title || t.key || '?')}${pts}\n`;
+                r += `${E(s.doneIds.has(t.id) ? '✅' : '⬜')} ${TK(t, ctx.jiraUrl)}${esc(t.title || t.key || '?')}${pts}\n`;
             }
         }
     }

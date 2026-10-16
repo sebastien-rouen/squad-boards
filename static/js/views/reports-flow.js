@@ -25,7 +25,7 @@ import { WIP_STATUSES } from '../config.js';
 import { isPastPi } from '../business_rules.js';
 import { slaModel } from '../components/sla_review_card.js';
 import { store } from '../state.js';
-import { B, E, SB, CS } from './reports-fmt.js';
+import { B, E, SB, CS, TK } from './reports-fmt.js';
 import { jiraMs, inWindow, ageDays, windowLabel, num, idleReason } from './reports-scope.js';
 
 const DAY_MS = 86_400_000;
@@ -224,11 +224,11 @@ function slackReport(ctx) {
     r += '\n';
     if (n.aging.length) {
         r += `\n${E('🐢')} ${B('Ça traîne')}\n`;
-        for (const a of n.aging.slice(0, MAX_AGING)) r += `• ${esc(a.t.title)} <span class="s-muted">${num(a.age)} j · ${esc(a.stage)}</span>\n`;
+        for (const a of n.aging.slice(0, MAX_AGING)) r += `• ${TK(a.t, ctx.jiraUrl)}${esc(a.t.title)} <span class="s-muted">${num(a.age)} j · ${esc(a.stage)}</span>\n`;
     }
     if (n.blocked.length) {
         r += `\n${E('🚫')} ${B('Bloqués')} ${SB(n.blocked.length, 'red')}\n`;
-        for (const b of n.blocked) r += `• ${esc(b.t.title)}${b.t.leader ? ` <span class="s-muted">${esc(b.t.leader)}</span>` : ''}\n`;
+        for (const b of n.blocked) r += `• ${TK(b.t, ctx.jiraUrl)}${esc(b.t.title)}${b.t.leader ? ` <span class="s-muted">${esc(b.t.leader)}</span>` : ''}\n`;
     }
     return r;
 }

@@ -5,7 +5,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, sprintScope, sprintStartsOf, carriedOverTo, extractSprintLabel, workdaysLeft } from '../utils.js';
+import { esc, filterByTeam, sumBy, pct, groupBy, fmtDate, toast, getCurrentPi, isBufferItem, sprintScope, sprintStartsOf, carriedOverTo, extractSprintLabel, workdaysLeft, copySlack } from '../utils.js';
 import { detectSprintsPerPI } from '../utils/pi-weeks.js';
 import { STATUS_LABELS, TYPE_LABELS } from '../config.js';
 import { renderPIVelocityChart, renderStatusChart, renderTypeChart, renderBurndown, renderBurnup, renderCycleTime, renderWIPAge } from '../components/charts.js';
@@ -18,7 +18,7 @@ import { ROADMAP_GENERATOR, piBurnupHtml, mountPiBurnup } from './reports-roadma
 import { reportWindows, reportSprint } from './reports-scope.js';
 import { TEAMS_GENERATOR } from './reports-teams.js';
 import { makeFullGenerator } from './reports-full.js';
-import { B, E, SB, CS } from './reports-fmt.js';
+import { B, E, SB, CS, TK, previewToMrkdwn } from './reports-fmt.js';
 import { meteoSummary } from '../components/meteo_report.js';
 import { meteoContext } from '../components/meteo_matrix.js';
 import { mountTrainMatrix } from '../components/train_matrix.js';
@@ -134,6 +134,7 @@ export function renderReports(container) {
     // `sprint` = sprint affiché (nom, dates, objectif DE L'ÉQUIPE) lu par la section Sprint ;
     // `sprintInfo` reste le sprint global JIRA (PI courant, roster…), à ne pas remplacer.
     const ctx = { tickets: displayTickets, teamTickets: tickets, features, sprintInfo, sprint: _sprint, teams, team, piInfo,
+                  jiraUrl: store.get('jiraUrl') || '',   // liens des numéros de tickets (format Slack, `TK`)
                   absences, support, statusCounts, total, done, totalPts, donePts,
                   displayPiNum, isCurrentPi: _isCurrentPi, meteo: _meteo,
                   // Période (sprint affiché, sinon PI) et bornes du PI des sections Flow, Support,
@@ -453,7 +454,13 @@ export function renderReports(container) {
             const el = container.querySelector(`[data-content="${btn.dataset.section}"]`);
             if (!el) return;
             try {
-                await navigator.clipboard.writeText(el.dataset.plain || el.textContent);
+                // Slack : l'aperçu est traduit en mrkdwn puis copié en texte enrichi (gras, liens) + brut —
+                // son `textContent` perdait gras et adresses des liens. Texte / Confluence : inchangés.
+                if (_format === 'slack') {
+                    if (!await copySlack(previewToMrkdwn(el.innerHTML), 'Section copiée')) throw new Error('copie');
+                } else {
+                    await navigator.clipboard.writeText(el.dataset.plain || el.textContent);
+                }
                 btn.innerHTML = '<svg class="icon icon-sm"><use href="#i-check"/></svg>';
                 setTimeout(() => { btn.innerHTML = '<svg class="icon icon-sm"><use href="#i-copy"/></svg>'; }, 1500);
             } catch {}
@@ -1248,7 +1255,7 @@ const GENERATORS = {
                 items.forEach(t => {
                     const ic  = _stIcon[t.status] || '⬜';
                     const pts = t.points ? ` <span class="s-muted">[${t.points} pts]</span>` : '';
-                    r += `${E(ic)} ${esc(t.title)}${pts}\n`;
+                    r += `${E(ic)} ${TK(t, ctx.jiraUrl)}${esc(t.title)}${pts}\n`;
                 });
                 return r;
             }
@@ -1265,7 +1272,7 @@ const GENERATORS = {
             r += `${E('📊')} ${B('Tickets')} : ${done}/${total} ${SB(ticketPct + '%', _clr(ticketPct))}\n`;
             r += `${E('💎')} ${B('Points')}  : ${donePts}/${totalPts} ${SB(ptsPct + '%', _clr(ptsPct))}\n`;
             const blocked = tickets.filter(t => t.status === 'blocked');
-            if (blocked.length) r += `${E('🚫')} ${B('Bloqués')} : ${SB(blocked.length, 'red')} - ${blocked.map(t => esc(t.title)).join(', ')}\n`;
+            if (blocked.length) r += `${E('🚫')} ${B('Bloqués')} : ${SB(blocked.length, 'red')} - ${blocked.map(t => `${TK(t, ctx.jiraUrl)}${esc(t.title)}`).join(', ')}\n`;
             r += _tgSlack(stories, '📝', 'User Stories');
             r += _tgSlack(buffers, '🔄', 'Buffer');
             r += _tgSlack(bugs,    '🐛', 'Bugs');

@@ -166,12 +166,14 @@ export function toCompleteSlack(team, items) {
     const groups = [...byWho].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'fr'));
     const L = [
         `📝 *Affinage ${team} — ${items.length} ticket${items.length > 1 ? 's' : ''} à compléter avant la séance*`,
-        'Merci de compléter la description / les critères d\'acceptation de vos tickets 🙏 — on pourra les estimer sereinement.',
+        'Merci de compléter vos tickets (description, critères d\'acceptation, feature parente, porteur) 🙏 — on pourra les estimer sereinement.',
     ];
     for (const [who, list] of groups) {
         L.push('', `*${who}* (${list.length})`);
         for (const it of list) {
-            const what = it.status === 'empty' ? '📝 sans description' : '⚠️ sans critères d\'acceptation';
+            // `missing` (3.243.0) = points de contrôle manquants du badge ✨ ; repli : état des critères seul
+            const what = it.missing?.length ? `manque : ${it.missing.map(c => `${c.icon} ${c.label.toLowerCase()}`).join(', ')}`
+                : it.status === 'empty' ? '📝 sans description' : '⚠️ sans critères d\'acceptation';
             L.push(`• ${link(it.t)} ${short(it.t.title)} — ${what}${it.group === 'sprint' ? ' · 🏃 sprint en cours' : ''}`);
         }
     }

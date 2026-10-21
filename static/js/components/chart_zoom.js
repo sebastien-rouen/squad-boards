@@ -440,6 +440,8 @@ function _renderCurrent() {
     const old = wrap.querySelector('canvas');
     if (old && window.Chart?.getChart) window.Chart.getChart(old)?.destroy();
     wrap.innerHTML = `<canvas id="${_ZOOM_CANVAS_ID}"></canvas>`;
+    wrap.classList.remove('chart-rows', 'chart-rows-zoom');   // posées par le graphique précédent (_fitRows)
+    wrap.style.removeProperty('--rows');
     rerenderChart(sourceId, _ZOOM_CANVAS_ID, _opts);
 
     _overlay.querySelector('#chart-zoom-title').textContent = meta.title || 'Graphique';

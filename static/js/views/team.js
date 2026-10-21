@@ -11,7 +11,7 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, toast, hashColor, initials, effectiveRosterForPi, teamNameMatches, confirmDanger, copySlack, promptModal, extractTeam, getCurrentPi, diagramFrameHtml, fileExt, ZOOMABLE_IMAGE_EXT } from '../utils.js';
+import { esc, toast, hashColor, initials, effectiveRosterForPi, teamNameMatches, confirmDanger, copySlack, promptModal, extractTeam, getCurrentPi, diagramFrameHtml, fileExt, ZOOMABLE_IMAGE_EXT, scrollToEl } from '../utils.js';
 import { openMemberCard } from './atlas.js';
 import { mountTeamCalendar } from '../components/team_calendar.js';
 import { mountTeamTimeline } from '../components/team_timeline.js';
@@ -275,7 +275,7 @@ function _bindIdentityForm(container, team) {
 
 function _bindBanner(container) {
     container.querySelector('#btn-goto-workshops')?.addEventListener('click', () => {
-        container.querySelector('#team-workshops-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        scrollToEl(container.querySelector('#team-workshops-section'));
     });
 }
 
@@ -588,7 +588,7 @@ function _renderFieldEditorRow(f, i) {
                 ${['textarea', 'text', 'select', 'scale'].map(t => `<option value="${t}"${t === f.type ? ' selected' : ''}>${t}</option>`).join('')}
             </select>
             <input class="input" placeholder="options (séparées par ,)" data-fld="options" value="${esc((f.options || []).join(', '))}">
-            <button type="button" class="btn-icon admin-remove-field" data-idx="${i}"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+            <button type="button" class="btn-icon admin-remove-field" data-idx="${i}" aria-label="Retirer ce champ"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
         </div>
     `;
 }

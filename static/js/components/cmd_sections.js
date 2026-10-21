@@ -17,7 +17,7 @@
  */
 
 import { store } from '../state.js';
-import { toast } from '../utils.js';
+import { toast, scrollToEl } from '../utils.js';
 import { NAV_ITEMS } from '../config.js';
 
 const VIEW_LABELS = Object.fromEntries(NAV_ITEMS.map(n => [n.id, n.label]));
@@ -210,7 +210,7 @@ function _scrollTo(el) {
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const tall = el.getBoundingClientRect().height > window.innerHeight * 0.8;
     el.classList.add('cmd-section-flash');
-    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: tall ? 'start' : 'center' });
+    scrollToEl(el, { block: tall ? 'start' : 'center', smooth: !reduce });
     setTimeout(() => el.classList.remove('cmd-section-flash'), FLASH_MS);
 }
 

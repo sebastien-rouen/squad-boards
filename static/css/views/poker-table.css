@@ -1,0 +1,260 @@
+/* ══ Planning Poker — habillage « table de jeu » (3.240.0) ═══════════════════════════════════════
+   Chargé APRÈS poker.css : ne fait que re-thémer la popin (modal.js, `_openPokerModal`).
+   • Tapis vert feutré, liseré cuir + filet doré, lumière chaude venue du haut (le salon reste sombre).
+   • Les variables de thème (--surface, --text, --border, --primary…) sont REDÉFINIES sur `.poker-modal` :
+     tout ce qui est dedans (boutons, champ prénom, tableau des références) passe en couleurs « tapis »
+     sans règle dédiée. Le tapis est le même en thème clair et sombre.
+   • Cartes de vote = vraies cartes (face ivoire, index de coin) mais NEUTRES : une seule encre, la
+     couleur (♠ ♥ ♣ ♦) tourne avec le rang, jamais avec la valeur — ne pas orienter le vote.
+   • Participants = jetons ; « Valeur à enregistrer » = jetons de casino teintés par palier (le vote
+     est révélé, la couleur ne biaise plus rien).
+   ⚠️ La popin se re-rend toutes les 3 s : une animation liée à une classe PERMANENTE (phase…) se
+   rejouerait. Les effets ponctuels passent par `.poker-reveal-in` (fenêtre de révélation) ; seules
+   la respiration de la lumière (sur l'overlay, jamais re-rendu) et l'attente sont en boucle, lentes. */
+
+.poker-overlay {
+    background:
+        radial-gradient(ellipse 70% 55% at 50% 38%, rgba(16, 70, 42, .55), transparent 70%),
+        rgba(4, 10, 7, .78);
+    backdrop-filter: blur(5px) saturate(.8);
+}
+/* Halo de la suspension au-dessus de la table : respiration très lente, à peine perceptible */
+.poker-overlay::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 46% 40% at 50% 8%, rgba(255, 226, 160, .16), transparent 70%);
+    animation: pk-breathe 9s ease-in-out infinite;
+}
+@keyframes pk-breathe { 50% { opacity: .55; } }
+
+.poker-modal {
+    /* Palette du tapis */
+    --felt: #0e5a36;
+    --felt-deep: #073a22;
+    --gold: #f2c14e;
+    --gold-deep: #c8912a;
+    --ink: #1c2430;
+    /* Thème de l'application, redéfini pour l'intérieur de la popin */
+    --surface: #0b4a2c;
+    --surface-alt: rgba(0, 0, 0, .2);
+    --surface-hover: rgba(255, 255, 255, .07);
+    --bg: rgba(0, 0, 0, .2);
+    --bg-alt: rgba(0, 0, 0, .28);
+    --text: #f1faf4;
+    --text-secondary: rgba(236, 250, 241, .84);
+    --text-muted: rgba(214, 240, 224, .7);
+    --border: rgba(255, 255, 255, .14);
+    --border-hover: rgba(255, 255, 255, .3);
+    --primary: var(--gold);
+    --primary-hover: #ffd36e;
+    --border-focus: var(--gold);
+
+    width: min(1060px, calc(96vw - 42px)); max-height: 94vh; min-height: min(680px, 88vh);
+    color: var(--text);
+    border-radius: 26px;
+    background:
+        radial-gradient(ellipse 80% 55% at 50% -8%, rgba(255, 236, 180, .2), transparent 62%),     /* lumière */
+        radial-gradient(ellipse 120% 90% at 50% 45%, transparent 55%, rgba(0, 0, 0, .42)),        /* vignettage */
+        repeating-linear-gradient(45deg, rgba(255, 255, 255, .012) 0 2px, transparent 2px 5px),   /* trame du feutre */
+        radial-gradient(ellipse at 50% 40%, var(--felt), var(--felt-deep));
+    box-shadow:
+        0 0 0 7px #3a2416,                        /* bordure cuir */
+        0 0 0 8px rgba(242, 193, 78, .55),        /* filet doré */
+        0 0 0 14px #24160d,
+        inset 0 2px 18px rgba(0, 0, 0, .45),
+        0 40px 90px rgba(0, 0, 0, .65);
+    transition: transform .2s, width .28s cubic-bezier(.22, 1, .36, 1);
+    scrollbar-color: rgba(255, 255, 255, .25) transparent;
+}
+/* Volet Description ouvert sur grand écran : la table cède la place au volet */
+@media (min-width: 1181px) {
+    .poker-stage:has(.poker-desc.is-open) .poker-modal { width: min(1060px, calc(96vw - 420px)); }
+}
+.poker-stage { max-width: 98vw; max-height: 94vh; gap: 22px; }
+.poker-desc { max-height: 94vh; border-radius: 18px; box-shadow: 0 0 0 1px rgba(242, 193, 78, .35), 0 30px 70px rgba(0, 0, 0, .55); }
+/* Onglet replié = tranche de bois, comme le rail de la table ; le panneau ouvert garde le thème (lecture) */
+.poker-desc-tab { background: linear-gradient(90deg, #3a2416, #24160d); color: rgba(242, 193, 78, .9); }
+.poker-desc-tab:hover { background: linear-gradient(90deg, #4a2e1b, #2e1c10); color: #ffd56b; }
+
+/* Boutons sur le tapis : primaire doré à encre sombre (le blanc sur or serait illisible) */
+.poker-modal .btn-primary { background: linear-gradient(180deg, #ffd56b, var(--gold-deep)); border-color: #e0a93a; color: #2a1a05; text-shadow: 0 1px 0 rgba(255, 255, 255, .35); box-shadow: 0 4px 14px rgba(242, 193, 78, .28); }
+.poker-modal .btn-primary:hover { filter: brightness(1.06); }
+.poker-modal .btn-primary:disabled { filter: grayscale(.6) brightness(.8); box-shadow: none; }
+.poker-modal .btn-secondary { background: rgba(0, 0, 0, .22); color: var(--text); border-color: var(--border); }
+.poker-modal .btn-secondary:hover { background: rgba(0, 0, 0, .32); border-color: var(--border-hover); }
+.poker-modal .input { background: rgba(0, 0, 0, .28); color: var(--text); border-color: rgba(255, 255, 255, .22); }
+.poker-modal .input::placeholder { color: var(--text-muted); }
+
+/* En-tête : plaque de la table */
+.poker-hdr { padding: 18px 22px 14px; border-bottom-color: rgba(242, 193, 78, .22); }
+.poker-hdr-icon { font-size: 32px; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .45)); }
+.poker-ticket-ref { color: var(--gold); font-family: var(--font-mono); letter-spacing: .04em; }
+.poker-ticket-title { font-size: 16px; max-width: min(620px, 60vw); text-shadow: 0 1px 2px rgba(0, 0, 0, .35); }
+.poker-identity-bar { padding: 10px 22px; background: rgba(0, 0, 0, .18); border-bottom-color: rgba(255, 255, 255, .08); }
+
+/* Corps : la zone de jeu respire davantage */
+.poker-body { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+.poker-vote-section { padding: 26px 26px 22px; gap: 18px; border-right-color: rgba(255, 255, 255, .08); }
+.poker-results-section { padding: 22px 24px; gap: 16px; }
+.poker-vote-label, .poker-voters-label { color: rgba(242, 193, 78, .85); letter-spacing: .12em; }
+.poker-voters-count { background: var(--gold); color: #2a1a05; }
+
+/* ── Cartes : face ivoire, index en coin, encre unique ─────────────────────────────────────── */
+.poker-cards { gap: 10px; padding: 14px 4px 6px; justify-content: center; }
+.poker-card {
+    max-width: 78px; border-radius: 11px;
+    border: 1px solid rgba(0, 0, 0, .25);
+    background: linear-gradient(160deg, #fffdf6 0%, #f4eedd 100%);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .6) inset, 0 6px 14px rgba(0, 0, 0, .35), 0 1px 2px rgba(0, 0, 0, .3);
+}
+/* Liseré intérieur, comme une carte imprimée */
+.poker-card::before { content: ''; position: absolute; inset: 5px; border-radius: 7px; border: 1px solid rgba(28, 36, 48, .12); pointer-events: none; }
+.poker-card-val { font-size: clamp(18px, 3.4vw, 30px); color: var(--ink); font-family: Georgia, 'Times New Roman', serif; }
+.poker-card-pip {
+    position: absolute; top: 6px; left: 7px;
+    display: flex; flex-direction: column; align-items: center; line-height: .95;
+    font-size: 11px; font-weight: var(--fw-bold); color: var(--ink); font-family: Georgia, serif;
+}
+.poker-card-pip i { font-style: normal; font-size: 10px; opacity: .8; }
+.poker-card-pip--end { top: auto; left: auto; bottom: 6px; right: 7px; transform: rotate(180deg); }
+.poker-card:hover:not([disabled]) { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(242, 193, 78, .55), 0 16px 26px rgba(0, 0, 0, .45); }
+.poker-card--selected, .poker-card--pending {
+    background: linear-gradient(160deg, #fffaf0, #f7e9c4); border-color: var(--gold);
+    box-shadow: 0 0 0 3px var(--gold), 0 0 26px rgba(242, 193, 78, .65), 0 16px 28px rgba(0, 0, 0, .5);
+}
+.poker-card--selected .poker-card-val, .poker-card--pending .poker-card-val { color: var(--ink); }
+.poker-card-check {
+    bottom: auto; top: -9px; right: -9px; width: 20px; height: 20px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 11px; font-weight: var(--fw-bold);
+    color: #2a1a05; background: var(--gold); box-shadow: 0 2px 6px rgba(0, 0, 0, .4);
+}
+/* Votes révélés : cartes posées, retournées face cachée (dos à motif) */
+.poker-card--disabled { opacity: 1; background: repeating-linear-gradient(45deg, #7f1d1d 0 4px, #991b1b 4px 8px); border-color: #fff; box-shadow: inset 0 0 0 3px #fff, 0 4px 10px rgba(0, 0, 0, .35); }
+.poker-card--disabled > * { visibility: hidden; }
+.poker-card--disabled::before { border-color: rgba(255, 255, 255, .5); }
+
+/* Progression : rail doré */
+.poker-progress-bar-wrap { height: 6px; background: rgba(0, 0, 0, .3); }
+.poker-progress-bar { background: linear-gradient(90deg, var(--gold-deep), var(--gold)); box-shadow: 0 0 10px rgba(242, 193, 78, .5); }
+.poker-actions-row { justify-content: center; }
+.poker-actions-row .btn { min-width: 150px; justify-content: center; }
+
+/* ── Participants = jetons ─────────────────────────────────────────────────────────────────── */
+.poker-avatars { gap: 16px 14px; }
+.poker-voter-avatar {
+    width: 54px; height: 54px; position: relative;
+    border: 4px dashed rgba(255, 255, 255, .85);     /* tranche du jeton */
+    box-shadow: inset 0 0 0 4px rgba(0, 0, 0, .18), inset 0 0 0 5px rgba(255, 255, 255, .35), 0 5px 10px rgba(0, 0, 0, .45);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+}
+.poker-voter--me .poker-voter-avatar { border-color: var(--gold); box-shadow: inset 0 0 0 4px rgba(0, 0, 0, .18), 0 0 0 3px rgba(242, 193, 78, .35), 0 0 18px rgba(242, 193, 78, .45); }
+.poker-voter-val { font-size: 20px; }
+.poker-voter-name { font-size: 11px; max-width: 64px; color: var(--text-secondary); }
+.poker-voter-waiting { animation-duration: 2.4s; }
+
+/* ── Résultats ─────────────────────────────────────────────────────────────────────────────── */
+.poker-stats { background: rgba(0, 0, 0, .25); border: 1px solid rgba(242, 193, 78, .2); border-radius: 14px; padding: 12px; }
+.poker-stat-val { font-size: 24px; }
+.poker-stat--low { color: #86efac; }
+.poker-stat--high { color: #fca5a5; }
+.poker-stat--warn { color: #fcd34d; }
+.poker-stat-block--warn { background: rgba(252, 211, 77, .12); }
+.poker-distrib-bar-wrap { background: rgba(0, 0, 0, .3); height: 10px; }
+.poker-distrib-bar { background: linear-gradient(90deg, rgba(255, 255, 255, .35), rgba(255, 255, 255, .6)); }
+.poker-distrib-row--nearest .poker-distrib-bar { background: linear-gradient(90deg, var(--gold-deep), var(--gold)); box-shadow: 0 0 10px rgba(242, 193, 78, .45); }
+.poker-distrib-lbl { font-size: 12.5px; }
+.poker-stats.poker-reveal-in { animation-name: poker-rise, pk-glow; animation-duration: .4s, 1.6s; }
+@keyframes pk-glow { 30% { box-shadow: 0 0 0 1px var(--gold), 0 0 34px rgba(242, 193, 78, .55); } }
+
+/* ── Pied : rail de la table, jetons de casino ─────────────────────────────────────────────── */
+.poker-footer {
+    position: relative; overflow: hidden;
+    padding: 16px 22px; border-radius: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, .3), rgba(0, 0, 0, .18));
+    border-top: 1px solid rgba(242, 193, 78, .3);
+}
+/* Reflet doré qui balaie le rail à la révélation (fenêtre `.poker-reveal-in` seulement) */
+.poker-footer.poker-reveal-in::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(100deg, transparent 30%, rgba(255, 228, 150, .28) 50%, transparent 70%);
+    transform: translateX(-100%);
+    animation: pk-sweep 1.4s ease-out forwards; animation-delay: var(--reveal-delay, 0ms);
+}
+@keyframes pk-sweep { to { transform: translateX(100%); } }
+.poker-save-label { color: rgba(242, 193, 78, .85); letter-spacing: .12em; }
+.poker-save-pick { gap: 10px; }
+.poker-save-chip {
+    max-width: 54px; height: auto; aspect-ratio: 1; border-radius: 50%;
+    color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+    background: radial-gradient(circle, var(--ptc) 0 54%, color-mix(in srgb, var(--ptc) 70%, #000) 56% 100%);
+    border: 4px dashed rgba(255, 255, 255, .8);
+    box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .15), 0 4px 10px rgba(0, 0, 0, .45);
+}
+.poker-save-chip:hover { transform: translateY(-3px) rotate(-8deg); border-color: #fff; }
+.poker-save-chip-n { color: #fff; opacity: .9; }
+.poker-save-chip.is-nearest { border-style: dashed; border-color: var(--gold); }
+.poker-save-chip.is-on {
+    color: #fff; border-color: var(--gold); border-style: solid;
+    background: radial-gradient(circle, var(--ptc) 0 54%, color-mix(in srgb, var(--ptc) 70%, #000) 56% 100%);
+    box-shadow: 0 0 0 3px rgba(242, 193, 78, .55), 0 0 22px rgba(242, 193, 78, .5), 0 8px 16px rgba(0, 0, 0, .5);
+    transform: translateY(-4px) scale(1.06);
+}
+.poker-save-chip-star { color: var(--gold); text-shadow: 0 1px 2px rgba(0, 0, 0, .6); }
+.poker-save-hint b { color: var(--gold); }
+.poker-save-warn { color: #fcd34d; }
+
+/* Références : tableau posé sur le tapis */
+.poker-refs { border-top-color: rgba(255, 255, 255, .1); background: rgba(0, 0, 0, .12); border-radius: 0 0 26px 26px; }
+.poker-refs-table td { border-top-color: rgba(255, 255, 255, .07); }
+
+/* Boutons d'en-tête sur le tapis */
+.poker-sound-btn, .poker-share-btn { background: rgba(0, 0, 0, .2); border-color: var(--border); color: var(--text-secondary); }
+.poker-modal .btn-icon { color: var(--text-secondary); }
+.poker-modal .btn-icon:hover { color: var(--text); background: var(--surface-hover); }
+
+/* Écran étroit (volet superposé, poker.css) : l'onglet Description passe À CÔTÉ de la table — il en
+   recouvrait le bord droit (cartes, jetons, boutons « Choisir »). */
+@media (max-width: 1180px) {
+    .poker-stage { margin-right: 40px; }
+    .poker-modal { width: min(1060px, calc(100vw - 64px)); }
+    .poker-desc { right: -38px; top: 70px; }
+}
+@media (max-width: 720px) {
+    .poker-hdr { flex-wrap: wrap; row-gap: 10px; }
+    .poker-hdr-right { width: 100%; justify-content: flex-end; }
+    .poker-ticket-title { max-width: none; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 14.5px; }
+    .poker-save-pick { gap: 4px; }
+    .poker-save-actions { flex-direction: column; }
+    .poker-refs-table th { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .poker-save-chip { border-width: 3px; }
+    .poker-modal { border-radius: 18px; min-height: 0; box-shadow: 0 0 0 4px #3a2416, 0 0 0 5px rgba(242, 193, 78, .55), 0 30px 60px rgba(0, 0, 0, .6); }
+    .poker-body { grid-template-columns: 1fr; }
+    .poker-vote-section { padding: 18px 14px; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+    .poker-results-section { padding: 16px 14px; }
+    .poker-cards { gap: 6px; }
+    .poker-card-pip { font-size: 9px; top: 4px; left: 5px; }
+    .poker-card-pip--end { display: none; }
+    .poker-hdr, .poker-identity-bar, .poker-footer { padding-left: 14px; padding-right: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .poker-overlay::before, .poker-footer.poker-reveal-in::after, .poker-voter-waiting { animation: none; }
+    .poker-stats.poker-reveal-in { animation: none; }
+    .poker-save-chip:hover, .poker-save-chip.is-on { transform: none; }
+}
+
+/* ── 🪙 Le jeton part au pot (components/poker_chip_fly.js, 3.241.0) ─────────────────────────────
+   Clone posé sur body (hors de la popin, qui se re-rend) : couleurs en dur, --gold n'y existe pas. */
+.pk-fly {
+    position: fixed; z-index: 11600; margin: 0; pointer-events: none; transform-origin: 50% 50%;
+    border-color: #f2c14e !important; border-style: solid !important;
+    box-shadow: 0 0 0 3px rgba(242, 193, 78, .55), 0 0 30px rgba(242, 193, 78, .65), 0 14px 26px rgba(0, 0, 0, .55) !important;
+}
+.pk-fly .poker-save-chip-star { display: none; }
+.pk-fly-ring {
+    position: fixed; z-index: 11590; width: 90px; height: 90px; border-radius: 50%; pointer-events: none;
+    border: 3px solid #f2c14e; box-shadow: 0 0 24px rgba(242, 193, 78, .7), inset 0 0 18px rgba(242, 193, 78, .45);
+}
+.pk-fly-tag {
+    position: fixed; z-index: 11610; pointer-events: none; white-space: nowrap;
+    padding: 3px 12px; border-radius: 999px; font-size: 15px; font-weight: 800; letter-spacing: .02em;
+    color: #2a1a05; background: linear-gradient(180deg, #ffd56b, #c8912a); box-shadow: 0 6px 16px rgba(0, 0, 0, .45);
+}

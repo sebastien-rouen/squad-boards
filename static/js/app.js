@@ -27,6 +27,8 @@ import { initTooltips } from './components/tooltip.js';
 import { initShortcutsModal } from './components/shortcuts_modal.js';
 import { initHelpPopovers, openLearnMode } from './components/help_popover.js';
 import { initOfflineBanner } from './components/offline_banner.js';
+import { boardLoaderHtml, updateBoardLoader } from './components/board_loader.js';
+import { initPanelToggle } from './components/panel_toggle.js';
 import { toggleFavoritesDropdown } from './components/favorites.js';
 import { initTeamSwitcher, openTeamSwitcher } from './components/team_switcher.js';
 // sprint_tickets_modal.js (Review/Demo) est chargé à la demande — wrappers lazy plus bas
@@ -591,7 +593,7 @@ async function handleJiraImport(mode = 14) {
             : excluded.join(', ');
         const choice = await choiceModal(
             'Synchronisation JIRA',
-            `Vous avez retiré ${excluded.length} équipe(s) / ligne(s) produit :\n${liste}.\n\n`
+            `Vous avez retiré ${excluded.length} ${excluded.length > 1 ? 'équipes' : 'équipe'} / ${excluded.length > 1 ? 'lignes' : 'ligne'} produit :\n${liste}.\n\n`
             + (isFull
                 ? 'La sync complète efface puis ré-importe tout. Que faire de ces retraits ?'
                 : 'Que faire de ces retraits ?'),
@@ -624,8 +626,8 @@ async function handleJiraImport(mode = 14) {
     const btn = document.getElementById('btn-sync');
     btn?.classList.add('syncing');
 
-    // Skeleton sur la vue courante pendant la sync (feedback immédiat)
-    _showSyncSkeleton(isFull);
+    // Écran d'attente sur la vue courante pendant la sync (feedback immédiat)
+    _showLoader(isFull ? 'full' : 'sync');
 
     try {
         const result = await importFromJira(isFull ? { overwrite } : { sinceDays: mode, overwrite });
@@ -657,38 +659,16 @@ async function handleJiraImport(mode = 14) {
     }
 }
 
-/** Affiche un skeleton sur la vue courante pendant la sync JIRA — feedback immédiat
- *  pour éviter "écran figé". Remplacé automatiquement par le re-render au succès. */
-function _showSyncSkeleton(isFull, { title, sub } = {}) {
-    if (!content) return;
-    const blocks = isFull ? 8 : 4;
-    const label = title || (isFull ? 'Synchronisation complète en cours…' : 'Synchronisation rapide en cours…');
-    const subLabel = sub || 'Le contenu se rafraîchira automatiquement à la fin.';
-    content.innerHTML = `
-        <div class="sync-skeleton" role="status" aria-live="polite">
-            <div class="sync-skeleton-hdr">
-                <div class="sync-skeleton-spinner"></div>
-                <div>
-                    <div class="sync-skeleton-title">${label}</div>
-                    <div class="sync-skeleton-sub">${subLabel}</div>
-                </div>
-            </div>
-            <div class="sync-skeleton-grid">
-                ${Array.from({ length: blocks }, () => `
-                    <div class="sync-skeleton-card">
-                        <div class="skel skel-line skel-w-30"></div>
-                        <div class="skel skel-line skel-w-80"></div>
-                        <div class="skel skel-line skel-w-60"></div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>`;
+/** Écran d'attente sur la vue courante (chargement initial, synchro JIRA) — feedback immédiat
+ *  pour éviter « écran figé ». Remplacé automatiquement par le re-render au succès. */
+function _showLoader(mode, opts = {}) {
+    if (content) content.innerHTML = boardLoaderHtml({ mode, ...opts });
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
-    // Skeleton immédiat : l'écran n'est plus vide pendant le chargement initial des données
-    _showSyncSkeleton(false, { title: 'Chargement du board…', sub: 'Récupération des données locales.' });
+    // Écran d'attente immédiat : l'écran n'est plus vide pendant le chargement initial des données
+    _showLoader('load');
     initSidebar();
     initTopbar();
     initModal();
@@ -700,11 +680,19 @@ async function init() {
     // Mode apprentissage : toutes les explications des « ? » d'un coup (pied de sidebar, Ctrl+K).
     document.getElementById('btn-learn')?.addEventListener('click', () => openLearnMode());
     initOfflineBanner();
+    initPanelToggle();
     initChartZoom();
     initChartCopy();
     initDiagramZoom();
     window.__squadBoard = window.__squadBoard || {};
     window.__squadBoard.openTeamSwitcher = openTeamSwitcher;
+
+    // Écran d'attente d'une synchro : pourcentage et étape réels, mis à jour en place
+    const _loaderProgress = () => updateBoardLoader(content, {
+        pct: store.get('syncProgress'), label: store.get('syncLabel'), detail: store.get('syncDetail'),
+    });
+    store.on('syncProgress', _loaderProgress);
+    store.on('syncDetail', _loaderProgress);
 
     // Theme listener (indépendant des données)
     store.on('theme', () => setTimeout(renderView, 50));
@@ -789,6 +777,8 @@ async function init() {
             if (store.get('view') !== 'sprint') store.set('view', 'sprint');
         }
         // more-daily : géré par topbar.js (goDaily)
+        // Relais mobile : la tuile « Semaine » (masquée ≤ 640 px) — même action que son clic.
+        if (item.id === 'more-week') document.getElementById('btn-cal-sync')?.click();
     });
 
     // "Mes tickets" toggle — filtre global par leader === currentUser

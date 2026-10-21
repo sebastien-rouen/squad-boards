@@ -10,7 +10,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, deriveMembersFromAbsences, initials, hashColor, confirmDanger, toast } from '../utils.js';
+import { esc, deriveMembersFromAbsences, initials, hashColor, confirmDanger, toast, scrollToEl } from '../utils.js';
 import * as api from '../api.js';
 import { mountSkillHistory } from '../components/atlas_history.js';
 
@@ -208,21 +208,21 @@ function _renderMap(el) {
                         placeholder="🔍 Qui sait faire…?" value="${esc(_skillSearch)}" autocomplete="off"
                         title="Chercher une compétence — highlight des membres niveau ≥ 2">
                     ${_skillSearch ? `<span class="atlas-skill-hit-count">${hitCount} pers.</span>` : ''}
-                    ${_skillSearch ? `<button class="btn-icon atlas-skill-clear" id="atlas-skill-clear" title="Effacer la recherche">✕</button>` : ''}
+                    ${_skillSearch ? `<button aria-label="Effacer la recherche" class="btn-icon atlas-skill-clear" id="atlas-skill-clear" title="Effacer la recherche">✕</button>` : ''}
                 </div>
                 <div class="atlas-map-zoom">
-                    <button class="btn-icon" id="atlas-zoom-out" title="Dézoomer"><svg class="icon icon-sm"><use href="#i-minus"/></svg></button>
-                    <button class="btn-icon" id="atlas-zoom-reset" title="Vue programme"><svg class="icon icon-sm"><use href="#i-grid"/></svg></button>
-                    <button class="btn-icon" id="atlas-tour" title="Visite guidée automatique (onboarding)"><svg class="icon icon-sm"><use href="#i-play"/></svg></button>
-                    <button class="btn-icon" id="atlas-export-png" title="Exporter la carte en image (PNG)"><svg class="icon icon-sm"><use href="#i-download"/></svg></button>
-                    <button class="btn-icon" id="atlas-present" title="Mode présentation / onboarding (plein écran)"><svg class="icon icon-sm"><use href="#i-maximize"/></svg></button>
-                    <button class="btn-icon${_simMode ? ' is-active' : ''}" id="atlas-sim-toggle" title="${_simMode ? 'Quitter la simulation de staffing' : 'Simuler un transfert de membre (drag & drop)'}">🔄</button>
-                    <button class="btn-icon" id="atlas-compare" title="Comparer des équipes côte à côte (Skills Matrix + radars)">⚖️</button>
+                    <button aria-label="Dézoomer" class="btn-icon" id="atlas-zoom-out" title="Dézoomer"><svg class="icon icon-sm"><use href="#i-minus"/></svg></button>
+                    <button aria-label="Vue programme" class="btn-icon" id="atlas-zoom-reset" title="Vue programme"><svg class="icon icon-sm"><use href="#i-grid"/></svg></button>
+                    <button aria-label="Visite guidée automatique (onboarding)" class="btn-icon" id="atlas-tour" title="Visite guidée automatique (onboarding)"><svg class="icon icon-sm"><use href="#i-play"/></svg></button>
+                    <button aria-label="Exporter la carte en image (PNG)" class="btn-icon" id="atlas-export-png" title="Exporter la carte en image (PNG)"><svg class="icon icon-sm"><use href="#i-download"/></svg></button>
+                    <button aria-label="Mode présentation / onboarding (plein écran)" class="btn-icon" id="atlas-present" title="Mode présentation / onboarding (plein écran)"><svg class="icon icon-sm"><use href="#i-maximize"/></svg></button>
+                    <button aria-label="${_simMode ? 'Quitter la simulation de staffing' : 'Simuler un transfert de membre (drag & drop)'}" class="btn-icon${_simMode ? ' is-active' : ''}" id="atlas-sim-toggle" title="${_simMode ? 'Quitter la simulation de staffing' : 'Simuler un transfert de membre (drag & drop)'}">🔄</button>
+                    <button aria-label="Comparer des équipes côte à côte (Skills Matrix + radars)" class="btn-icon" id="atlas-compare" title="Comparer des équipes côte à côte (Skills Matrix + radars)">⚖️</button>
                 </div>
             </div>
             ${_simMode && _simMoves.size ? `<div class="atlas-sim-banner">
                 <span class="atlas-sim-icon">🔄</span>
-                <span class="atlas-sim-label">Simulation staffing — ${_simMoves.size} déplacement(s)</span>
+                <span class="atlas-sim-label">Simulation staffing — ${_simMoves.size} ${_simMoves.size > 1 ? 'déplacements' : 'déplacement'}</span>
                 <span class="atlas-sim-moves">${[..._simMoves.entries()].map(([m, t]) => `<span class="atlas-sim-move">${esc(m)} → ${esc(t)}</span>`).join('')}</span>
                 <button class="btn btn-sm btn-secondary" id="atlas-sim-cancel">Annuler</button>
             </div>` : ''}
@@ -296,7 +296,7 @@ function _openCompareModal() {
         <div class="atlas-compare-modal">
             <div class="atlas-mobility-hdr">
                 <h3>⚖️ Comparer des équipes</h3>
-                <button class="btn-icon" id="atlas-cmp-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                <button class="btn-icon" id="atlas-cmp-close" aria-label="Fermer"><svg class="icon"><use href="#i-x"/></svg></button>
             </div>
             <div class="atlas-cmp-selectors">
                 ${[0, 1, 2].map(i => `
@@ -786,7 +786,7 @@ function _buildTourSteps(nodes) {
     steps.push({
         zoom: { level: 0, groupId: null, team: null },
         title: '🏛️ Vue d\'ensemble du programme',
-        text: `${nodes.length} ligne(s) produit · ${totalTeams} équipe(s) · ${totalPeople} personnes.`,
+        text: `${nodes.length} ${nodes.length > 1 ? 'lignes' : 'ligne'} produit · ${totalTeams} ${totalTeams > 1 ? 'équipes' : 'équipe'} · ${totalPeople} personnes.`,
     });
     // 2. Chaque groupe (base)
     for (const g of nodes) {
@@ -794,7 +794,7 @@ function _buildTourSteps(nodes) {
         steps.push({
             zoom: { level: 1, groupId: g.id, team: null },
             title: `📦 ${g.name}`,
-            text: `${g.teams.length} équipe(s) · ${people} personnes.`,
+            text: `${g.teams.length} ${g.teams.length > 1 ? 'équipes' : 'équipe'} · ${people} personnes.`,
             color: g.color,
         });
         // 3. Chaque équipe du groupe (niveau membres)
@@ -805,7 +805,7 @@ function _buildTourSteps(nodes) {
             steps.push({
                 zoom: { level: 2, groupId: g.id, team: t.name },
                 title: `👥 ${t.name}`,
-                text: `${t.members.length} membre(s)${appNames.length ? ` · appétences : ${appNames.join(', ')}` : ''}.`,
+                text: `${t.members.length} ${t.members.length > 1 ? 'membres' : 'membre'}${appNames.length ? ` · appétences : ${appNames.join(', ')}` : ''}.`,
                 color: t.color,
             });
         }
@@ -829,10 +829,10 @@ function _startTour(el, nodes) {
         </div>
         <div class="atlas-tour-progress"><div class="atlas-tour-bar" id="atlas-tour-bar"></div></div>
         <div class="atlas-tour-btns">
-            <button class="btn-icon" id="atlas-tour-prev" title="Précédent">‹</button>
-            <button class="btn-icon" id="atlas-tour-pause" title="Pause/Reprendre">⏸</button>
-            <button class="btn-icon" id="atlas-tour-next" title="Suivant">›</button>
-            <button class="btn-icon" id="atlas-tour-stop" title="Arrêter (Échap)">✕</button>
+            <button aria-label="Précédent" class="btn-icon" id="atlas-tour-prev" title="Précédent">‹</button>
+            <button aria-label="Pause/Reprendre" class="btn-icon" id="atlas-tour-pause" title="Pause/Reprendre">⏸</button>
+            <button aria-label="Suivant" class="btn-icon" id="atlas-tour-next" title="Suivant">›</button>
+            <button aria-label="Arrêter (Échap)" class="btn-icon" id="atlas-tour-stop" title="Arrêter (Échap)">✕</button>
         </div>`;
     el.querySelector('.atlas-map')?.appendChild(ctl);
 
@@ -948,13 +948,13 @@ function _openMemberCard(name) {
                         <span class="atlas-mc-sub">${esc(member.team || '—')}${member.role ? ' · ' + esc(member.role) : ''}</span>
                     </div>
                 </div>
-                <button class="btn-icon" id="atlas-mc-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                <button class="btn-icon" id="atlas-mc-close" aria-label="Fermer"><svg class="icon"><use href="#i-x"/></svg></button>
             </div>
             <div class="atlas-mc-body">
                 <div class="atlas-mc-radar-wrap">
                     ${evaluated.length >= 3
                         ? `<canvas id="atlas-mc-radar" width="320" height="320"></canvas>`
-                        : `<div class="atlas-empty-sm">Au moins 3 compétences évaluées sont nécessaires pour le radar.<br>${evaluated.length} évaluée(s).</div>`}
+                        : `<div class="atlas-empty-sm">Au moins 3 compétences évaluées sont nécessaires pour le radar.<br>${evaluated.length} ${evaluated.length > 1 ? 'évaluées' : 'évaluée'}.</div>`}
                 </div>
                 <div class="atlas-mc-side">
                     <div class="atlas-mc-block">
@@ -1125,7 +1125,7 @@ function _openTeamSkillPicker(el, teamName, skills) {
                 <div style="display:flex;gap:8px;align-items:center">
                     <button class="btn btn-sm btn-secondary" id="atlas-tsp-all">Tout cocher</button>
                     <button class="btn btn-sm btn-secondary" id="atlas-tsp-none">Tout décocher</button>
-                    <button class="btn-icon" id="atlas-tsp-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                    <button class="btn-icon" id="atlas-tsp-close" aria-label="Fermer"><svg class="icon"><use href="#i-x"/></svg></button>
                 </div>
             </div>
             <div class="atlas-tsp-body">
@@ -1308,7 +1308,7 @@ function _renderMatrix(el) {
                         <input type="checkbox" id="atlas-hide-empty" ${_matrixHideEmpty ? 'checked' : ''}> non-évalués
                     </label>
                 </div>
-                <span class="atlas-matrix-count">${shownCount === entityCount ? `${entityCount}` : `${shownCount}/${entityCount}`} ${scope === 'team' ? 'équipe(s)' : 'pers.'} · ${fSkills.length} comp.</span>
+                <span class="atlas-matrix-count">${shownCount === entityCount ? `${entityCount}` : `${shownCount}/${entityCount}`} ${scope === 'team' ? (shownCount > 1 ? 'équipes' : 'équipe') : 'pers.'} · ${fSkills.length} comp.</span>
                 <div class="atlas-matrix-actions">
                     <button class="btn btn-secondary btn-sm" id="atlas-suggest-btn" title="Suggérer qui affecter selon les compétences et la disponibilité">🧭 Affectation</button>
                     ${teamHasFilter ? `<button class="btn btn-sm ${teamSkillsActive ? 'btn-primary' : 'btn-secondary'}" id="atlas-tsp-btn" title="Sélectionner les compétences visibles pour cette équipe">
@@ -1376,7 +1376,7 @@ function _renderMatrix(el) {
     // Scroll vers le membre ciblé si on vient de la carte
     if (_matrixFocus && scope === 'member') {
         const row = el.querySelector(`tr[data-ent="${CSS.escape(_matrixFocus)}"]`);
-        if (row) { row.classList.add('atlas-row-focus'); row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        if (row) { row.classList.add('atlas-row-focus'); scrollToEl(row, { block: 'center' }); }
         _matrixFocus = null;
     }
 }
@@ -1420,7 +1420,7 @@ function _matrixCoverageRowHtml(entities, skills, appetences, cats, scope) {
             const c = cov(s);
             const pct = Math.round((c.avg / 4) * 100);
             const warn = c.n === 0 || (scope === 'member' && c.n < 2); // lacune potentielle
-            return `<td class="atlas-cov-cell${warn ? ' atlas-cov-warn' : ''}" title="${c.n} évalué(s) · moyenne ${c.avg.toFixed(1)}/4">
+            return `<td class="atlas-cov-cell${warn ? ' atlas-cov-warn' : ''}" title="${c.n} ${c.n > 1 ? 'évalués' : 'évalué'} · moyenne ${c.avg.toFixed(1)}/4">
                 <span class="atlas-cov-bar"><span class="atlas-cov-fill" style="width:${pct}%;background:${_levelMeta(Math.round(c.avg)).color}"></span></span>
                 <span class="atlas-cov-n">${c.n || '·'}</span>
             </td>`;
@@ -1914,7 +1914,7 @@ function _openMobilityModal() {
         <div class="atlas-mobility-modal">
             <div class="atlas-mobility-hdr">
                 <h3>📋 Suivi de mobilité & trajectoires</h3>
-                <button class="btn-icon" id="atlas-mob-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                <button class="btn-icon" id="atlas-mob-close" aria-label="Fermer"><svg class="icon"><use href="#i-x"/></svg></button>
             </div>
             <div class="atlas-mobility-body">
                 <table class="atlas-mob-table">
@@ -1940,7 +1940,7 @@ function _openMobilityModal() {
                                         const g = _memberGlobalLevel(m.name);
                                         if (!g.n) return '';
                                         const diff = (d.currentLevel || 0) !== g.avg;
-                                        return `<button type="button" class="atlas-mob-derive${diff ? ' atlas-mob-derive--diff' : ''}" data-member="${esc(m.name)}" data-derived="${g.avg}" title="Niveau dérivé de ${g.n} compétence(s) — moyenne ${g.avg}/4, max ${g.max}/4. Cliquer pour reprendre.">≈${g.avg}</button>`;
+                                        return `<button type="button" class="atlas-mob-derive${diff ? ' atlas-mob-derive--diff' : ''}" data-member="${esc(m.name)}" data-derived="${g.avg}" title="Niveau dérivé de ${g.n} ${g.n > 1 ? 'compétences' : 'compétence'} — moyenne ${g.avg}/4, max ${g.max}/4. Cliquer pour reprendre.">≈${g.avg}</button>`;
                                     })()}
                                 </td>
                                 <td>${sel('potential', POT, d.potential, 'atlas-mob-pot')}</td>
@@ -1955,7 +1955,7 @@ function _openMobilityModal() {
             </div>
             <div class="atlas-mobility-foot">
                 ${orphans.length
-                    ? `<span class="atlas-mob-orphans" title="${esc(orphans.map(o => o.memberName).join(', '))}">⚠ ${orphans.length} ligne(s) orpheline(s) (membre absent du CSV RH) <button class="btn btn-ghost btn-xs" id="atlas-mob-clean">Nettoyer</button></span>`
+                    ? `<span class="atlas-mob-orphans" title="${esc(orphans.map(o => o.memberName).join(', '))}">⚠ ${orphans.length} ${orphans.length > 1 ? 'lignes' : 'ligne'} ${orphans.length > 1 ? 'orphelines' : 'orpheline'} (membre absent du CSV RH) <button class="btn btn-ghost btn-xs" id="atlas-mob-clean">Nettoyer</button></span>`
                     : `<span class="text-xs text-muted">Modifications enregistrées automatiquement.</span>`}
                 <button class="btn btn-secondary btn-sm" id="atlas-mob-export">⬇ Exporter CSV</button>
             </div>
@@ -1969,11 +1969,11 @@ function _openMobilityModal() {
 
     // Nettoyage des lignes orphelines
     overlay.querySelector('#atlas-mob-clean')?.addEventListener('click', async () => {
-        if (!(await confirmDanger(`Supprimer ${orphans.length} ligne(s)`, `Suppression de ${orphans.length} ligne(s) de mobilité dont le membre n'existe plus ?\n\n${orphans.map(o => '· ' + o.memberName).join('\n')}`, { confirmLabel: 'Supprimer' }))) return;
+        if (!(await confirmDanger(`Supprimer ${orphans.length} ${orphans.length > 1 ? 'lignes' : 'ligne'}`, `Suppression de ${orphans.length} ${orphans.length > 1 ? 'lignes' : 'ligne'} de mobilité dont le membre n'existe plus ?\n\n${orphans.map(o => '· ' + o.memberName).join('\n')}`, { confirmLabel: 'Supprimer' }))) return;
         try {
             await Promise.all(orphans.filter(o => o.id).map(o => api.deleteMobility(o.id)));
             store.set('mobility', mobility.filter(m => !orphans.includes(m)));
-            toast(`${orphans.length} ligne(s) orpheline(s) supprimée(s)`, 'success');
+            toast(`${orphans.length} ${orphans.length > 1 ? 'lignes' : 'ligne'} ${orphans.length > 1 ? 'orphelines' : 'orpheline'} ${orphans.length > 1 ? 'supprimées' : 'supprimée'}`, 'success');
             close();
         } catch (err) { toast('Erreur lors du nettoyage', 'error'); }
     });
@@ -2235,7 +2235,7 @@ function _openCatalogModal(matrixEl) {
         <div class="atlas-catalog-modal">
             <div class="atlas-mobility-hdr">
                 <h3>⚙️ Catalogue — compétences & appétences</h3>
-                <button class="btn-icon" id="atlas-cat-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                <button class="btn-icon" id="atlas-cat-close" aria-label="Fermer"><svg class="icon"><use href="#i-x"/></svg></button>
             </div>
             <div class="atlas-catalog-body">
                 <div class="atlas-catalog-col" id="atlas-cat-skills"></div>
@@ -2310,11 +2310,11 @@ function _openCatalogModal(matrixEl) {
             status.className = 'atlas-cat-import-status atlas-cat-import-status--red';
             btn.disabled = true;
         } else if (!result.ok) {
-            status.innerHTML = `● ${result.items.length} entrée(s) valides (lignes ignorées)`;
+            status.innerHTML = `● ${result.items.length} ${result.items.length > 1 ? 'entrées' : 'entrée'} valides (lignes ignorées)`;
             status.className = 'atlas-cat-import-status atlas-cat-import-status--orange';
             btn.disabled = false;
         } else {
-            status.innerHTML = `● ${result.items.length} entrée(s) prêtes`;
+            status.innerHTML = `● ${result.items.length} ${result.items.length > 1 ? 'entrées' : 'entrée'} prêtes`;
             status.className = 'atlas-cat-import-status atlas-cat-import-status--green';
             btn.disabled = false;
         }
@@ -2351,7 +2351,7 @@ function _openCatalogModal(matrixEl) {
             store.set(isSkill ? 'skills' : 'appetences', created);
             _renderCatalogList(overlay, kind);
             ta.value = '';
-            status.innerHTML = `● ${toCreate.length} entrée(s) importées`;
+            status.innerHTML = `● ${toCreate.length} ${toCreate.length > 1 ? 'entrées' : 'entrée'} importées`;
             status.className = 'atlas-cat-import-status atlas-cat-import-status--green';
             btn.textContent = 'Importer';
             btn.disabled = true;
@@ -2382,7 +2382,7 @@ function _renderCatalogList(overlay, kind) {
                             <span class="atlas-cat-drag" title="Glisser pour réordonner">⠿</span>
                             <span class="atlas-cat-dot" style="background:${i.color}"></span>
                             <span class="atlas-cat-item-name">${esc(i.name)}</span>
-                            <button class="atlas-cat-del btn-icon btn-icon-sm" data-id="${esc(i.id)}" title="Supprimer"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+                            <button aria-label="Supprimer" class="atlas-cat-del btn-icon btn-icon-sm" data-id="${esc(i.id)}" title="Supprimer"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
                         </div>`).join('')}
                 </div>`).join('')}
         </div>
@@ -2508,7 +2508,7 @@ function _openSkillUpModal(scopeKey, team, skillId) {
         <div class="atlas-action-modal">
             <div class="atlas-mobility-hdr">
                 <h3>🚀 Ticket de montée en compétence</h3>
-                <button class="btn-icon" id="atlas-su-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                <button class="btn-icon" id="atlas-su-close" aria-label="Fermer"><svg class="icon"><use href="#i-x"/></svg></button>
             </div>
             <form class="atlas-action-body" id="atlas-su-form">
                 <p class="atlas-action-ctx">
@@ -2594,7 +2594,7 @@ function _openSuggestModal() {
         <div class="atlas-action-modal">
             <div class="atlas-mobility-hdr">
                 <h3>🧭 Qui affecter ?</h3>
-                <button class="btn-icon" id="atlas-sg-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                <button class="btn-icon" id="atlas-sg-close" aria-label="Fermer"><svg class="icon"><use href="#i-x"/></svg></button>
             </div>
             <div class="atlas-action-body">
                 <label class="atlas-field"><span>Compétence requise</span>

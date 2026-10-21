@@ -206,12 +206,12 @@
     border-radius: 99px; overflow: hidden; min-width: 50px;
 }
 .pi-obj-prog-bar span { display: block; height: 100%; border-radius: 99px; transition: width 0.3s; }
-.pi-obj-prog-val { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.pi-obj-prog-val { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
 
 /* Barre compacte dans l'en-tête de groupe (#5) */
 .pi-obj-team-prog { display: flex; align-items: center; gap: 5px; margin-left: auto; }
 .pi-obj-prog-bar--sm { min-width: 36px; height: 4px; }
-.pi-obj-prog-val--sm { font-size: 10px; color: var(--text-muted); }
+.pi-obj-prog-val--sm { font-size: 11px; color: var(--text-muted); }
 
 /* Header groupe objectifs enrichi */
 .pi-obj-group-header { display: flex; align-items: center; gap: 8px; }

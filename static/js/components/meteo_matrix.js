@@ -16,7 +16,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, engagedInSprint, sprintStartsOf, isInSprint, engagedInPi, countBlocked, teamCapacity, rosterCtx, wipThreshold, countWip, weatherOf, weatherRel, weatherChurn, churnTrend, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds, meteoScopeThresholds, scopeStability } from '../utils.js';
+import { esc, pct as pctOf, sumBy, getSprintForTeam, extractPiNum, engagedInSprint, sprintStartsOf, isInSprint, engagedInPi, countBlocked, teamCapacity, rosterCtx, wipThreshold, countWip, weatherOf, weatherRel, weatherChurn, churnTrend, worstLevel, elapsedPct, METEO_GLYPH, METEO_LABEL, METEO_DOMAINS, meteoThresholds, meteoScopeThresholds, scopeStability, scrollToEl } from '../utils.js';
 import { ANOMALY_RULES, healthScore } from '../business_rules.js';
 import { slaModel } from './sla_review_card.js';
 import { helpIconHtml } from './help_popover.js';
@@ -310,6 +310,6 @@ export function bindMeteoMatrix(container) {
         });
     });
     container.querySelectorAll('.meteo-pill[data-scroll]').forEach(btn => {
-        btn.addEventListener('click', () => container.querySelector(btn.dataset.scroll)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        btn.addEventListener('click', () => scrollToEl(container.querySelector(btn.dataset.scroll)));
     });
 }

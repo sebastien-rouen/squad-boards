@@ -9,7 +9,7 @@ import {
     getSupportWeekMode, supportWorkingDays, supportDaysForMember, friendlyDateField,
     wireFriendlyDates, fmtDateFriendly, getCurrentPi, choiceModal,
     exportChoiceModal, arrayToCsv, diagramFrameHtml, teamNameMatches,
-    ioTabModal, confirmDanger,
+    ioTabModal, confirmDanger, scrollToEl,
 } from '../utils.js';
 import { piCfgKey, loadPiCfg, savePiCfg } from '../utils/pi-config.js';
 // Import/export de données et parsing du CSV Congés — extraits en modules dédiés
@@ -160,7 +160,7 @@ export function renderSettings(container) {
                                 <input type="color" value="${esc(g.color || '#64748b')}" class="input-color-swatch grp-color-input" data-gid="${esc(g.id)}" title="Couleur du groupe">
                                 <input type="text" class="grp-name-input" value="${esc(g.name)}" data-gid="${esc(g.id)}" data-orig="${esc(g.name)}" title="Cliquer pour renommer — Entrée ou perte de focus pour sauvegarder">
                                 <span class="grp-count text-xs text-muted">${n} équipe${n !== 1 ? 's' : ''}</span>
-                                <button class="btn-icon btn-del-group" data-id="${esc(g.id)}" title="Supprimer ce groupe" style="margin-left:auto">
+                                <button aria-label="Supprimer ce groupe" class="btn-icon btn-del-group" data-id="${esc(g.id)}" title="Supprimer ce groupe" style="margin-left:auto">
                                     <svg class="icon icon-sm text-danger"><use href="#i-x"/></svg>
                                 </button>
                             </div>
@@ -205,7 +205,7 @@ export function renderSettings(container) {
                             <input type="color" value="${t.color || '#3b82f6'}" data-team-id="${esc(t.id)}" class="input-color-swatch">
                             <span class="item-name">${esc(t.name)}</span>
                             <span class="item-meta">${tickets.filter(x => x.team === t.name).length}</span>
-                            <button class="btn-icon btn-del-team" data-id="${esc(t.id)}" data-name="${esc(t.name)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
+                            <button aria-label="Supprimer" class="btn-icon btn-del-team" data-id="${esc(t.id)}" data-name="${esc(t.name)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
                         </div>
                     `).join('')}
                 </div>
@@ -289,7 +289,7 @@ export function renderSettings(container) {
                             ${m.entity ? `<span class="item-meta item-entity">${esc(m.entity)}</span>` : '<span class="item-meta text-muted">-</span>'}
                             <span class="member-abs-strip" title="${memberAbs.tooltip}">${memberAbs.stripHtml}</span>
                             <div class="item-actions">
-                                <button class="btn-icon btn-del-member" data-id="${esc(m.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
+                                <button aria-label="Supprimer" class="btn-icon btn-del-member" data-id="${esc(m.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
                             </div>
                         </div>`;
                     }).join('')}
@@ -396,7 +396,7 @@ export function renderSettings(container) {
                                             <td>${fmtDate(a.endDate)}</td>
                                             <td><span class="chip chip-abs-${esc(a.type)}">${esc(a.type)}</span></td>
                                             <td class="abs-td-days">${a.days}j</td>
-                                            <td><button class="btn-icon btn-del-abs" data-id="${esc(a.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button></td>
+                                            <td><button aria-label="Supprimer" class="btn-icon btn-del-abs" data-id="${esc(a.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button></td>
                                         </tr>`).join('')}
                                     </tbody>
                                 </table>
@@ -527,7 +527,7 @@ export function renderSettings(container) {
                                 ${teamsStr ? `<span class="item-meta">${teamsStr}</span>` : ''}`}
                             </div>
                             <div class="item-actions">
-                                <button class="btn-icon btn-del-event" data-id="${esc(ev.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
+                                <button aria-label="Supprimer" class="btn-icon btn-del-event" data-id="${esc(ev.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
                             </div>
                         </div>`;
                     };
@@ -1002,9 +1002,9 @@ export function renderSettings(container) {
                                 ${teamsChip}
                                 <span class="item-meta text-muted">${c.lastFetched ? 'Sync : ' + new Date(c.lastFetched).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Jamais synchronisé'}</span>
                                 <div class="item-actions">
-                                    <button class="btn-icon btn-cal-edit" data-id="${esc(c.id)}" title="Modifier">✏️</button>
+                                    <button aria-label="Modifier" class="btn-icon btn-cal-edit" data-id="${esc(c.id)}" title="Modifier">✏️</button>
                                     <button class="btn btn-sm btn-secondary btn-cal-refresh" data-id="${esc(c.id)}" title="Synchroniser">🔄</button>
-                                    <button class="btn-icon btn-del-cal" data-id="${esc(c.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
+                                    <button aria-label="Supprimer" class="btn-icon btn-del-cal" data-id="${esc(c.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
                                 </div>
                             </div>`;
                         }).join('')}
@@ -1184,14 +1184,14 @@ export function renderSettings(container) {
         if (!chips.length) return;
         const toCreate = [...chips].map(c => ({ project: c.dataset.project, teams: c.dataset.teams.split(',').filter(Boolean) }));
         const names = toCreate.map(x => `${x.project} (${x.teams.join(', ')})`).join('\n');
-        if (!(await confirmDanger('Créer groupes', `Créer ${toCreate.length} groupe(s) :\n${names}`, { confirmLabel: 'Créer' }))) return;
+        if (!(await confirmDanger('Créer groupes', `Créer ${toCreate.length} ${toCreate.length > 1 ? 'groupes' : 'groupe'} :\n${names}`, { confirmLabel: 'Créer' }))) return;
         const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
         try {
             for (let i = 0; i < toCreate.length; i++) {
                 const { project, teams: groupTeams } = toCreate[i];
                 await api.createGroup({ name: project, teams: groupTeams, color: colors[i % colors.length] });
             }
-            toast(`${toCreate.length} groupe(s) créé(s)`, 'success');
+            toast(`${toCreate.length} ${toCreate.length > 1 ? 'groupes' : 'groupe'} ${toCreate.length > 1 ? 'créés' : 'créé'}`, 'success');
             await reloadAndRender(container);
         } catch (e) { toast(e.message, 'error'); }
     });
@@ -1513,7 +1513,7 @@ export function renderSettings(container) {
         }).join('');
 
         const conflictNote = conflictTeams.length
-            ? '<span class="obj-preview-conflict-note">⚠ ' + conflictTeams.length + ' équipe(s) avec objectifs existants</span>'
+            ? '<span class="obj-preview-conflict-note">⚠ ' + conflictTeams.length + (conflictTeams.length > 1 ? ' équipes' : ' équipe') + ' avec objectifs existants</span>'
             : '';
 
         if (box) {
@@ -1557,7 +1557,7 @@ export function renderSettings(container) {
             const allConflict = Object.keys(importedByTeam).length === conflictTeams.length;
             const choice = await confirmDanger(
                 'Conflits d\'objectifs',
-                conflictTeams.length + ' équipe(s) ont déjà des objectifs pour PI ' + piNum + ' :\n' + conflictDetails + '\n\n'
+                conflictTeams.length + (conflictTeams.length > 1 ? ' équipes ont' : ' équipe a') + ' déjà des objectifs pour PI ' + piNum + ' :\n' + conflictDetails + '\n\n'
                 + 'Remplacer → Remplacer leurs objectifs existants\n'
                 + 'Annuler → ' + (allConflict ? 'Annuler l\'import' : 'Ignorer ces équipes (n\'importer que les nouvelles)'),
                 { confirmLabel: 'Remplacer', danger: false }
@@ -1569,7 +1569,7 @@ export function renderSettings(container) {
             }
         } else {
             const teamList = Object.keys(importedByTeam).join(', ');
-            if (!(await confirmDanger('Importer objectifs', 'Importer ' + parsed.length + ' objectif(s) pour PI ' + piNum + ' ?\n' + Object.keys(importedByTeam).length + ' équipe(s) : ' + teamList, { confirmLabel: 'Importer', danger: false }))) return;
+            if (!(await confirmDanger('Importer objectifs', 'Importer ' + parsed.length + (parsed.length > 1 ? ' objectifs' : ' objectif') + ' pour PI ' + piNum + ' ?\n' + Object.keys(importedByTeam).length + (Object.keys(importedByTeam).length > 1 ? ' équipes : ' : ' équipe : ') + teamList, { confirmLabel: 'Importer', danger: false }))) return;
         }
 
         let finalObjs;
@@ -1719,10 +1719,10 @@ export function renderSettings(container) {
                         </tr>`).join('')}</tbody>
                     </table>
                 </details>` : '';
-            w.push(`<strong>${parsed.ignoredCells} cellule(s) ignorée(s)</strong>${ex ? ` (${ex})` : ''} — le format attend un nombre de jours : <code>1</code>, <code>0.5</code>. Une cellule contenant un code d'absence n'est pas comptée.${detail}`);
+            w.push(`<strong>${parsed.ignoredCells} ${parsed.ignoredCells > 1 ? 'cellules' : 'cellule'} ${parsed.ignoredCells > 1 ? 'ignorées' : 'ignorée'}</strong>${ex ? ` (${ex})` : ''} — le format attend un nombre de jours : <code>1</code>, <code>0.5</code>. Une cellule contenant un code d'absence n'est pas comptée.${detail}`);
         }
         if (parsed.skippedRows) {
-            w.push(`<strong>${parsed.skippedRows} ligne(s) sans nom</strong> ignorée(s).`);
+            w.push(`<strong>${parsed.skippedRows} ${parsed.skippedRows > 1 ? 'lignes' : 'ligne'} sans nom</strong> ${parsed.skippedRows > 1 ? 'ignorées' : 'ignorée'}.`);
         }
         return w.length
             ? `<div class="abs-csv-warn">⚠️ ${w.join('<br>')}</div>`
@@ -1807,7 +1807,7 @@ export function renderSettings(container) {
             box.innerHTML = `
                 <div class="abs-csv-preview-hdr">
                     <span class="abs-csv-preview-badge">Format ${mode}</span>
-                    <span>${absencesPayload.length} absence(s) · ${membersForPi.length} membre(s) → snapshot <strong>PI ${esc(pi)}</strong></span>
+                    <span>${absencesPayload.length} ${absencesPayload.length > 1 ? 'absences' : 'absence'} · ${membersForPi.length} ${membersForPi.length > 1 ? 'membres' : 'membre'} → snapshot <strong>PI ${esc(pi)}</strong></span>
                 </div>
                 ${datesBlock}
                 <div class="abs-csv-preview-teams">${teams.slice(0, 10).map(t => `<span class="abs-csv-preview-team">${esc(t)}</span>`).join('')}${teams.length > 10 ? `<span class="text-muted text-xs">+${teams.length - 10}</span>` : ''}</div>
@@ -1891,7 +1891,7 @@ export function renderSettings(container) {
         const transverseCount = absencesPayload.filter(p => _isTransverseTeam(p.team)).length;
         const teamsDetected = [...new Set(absencesPayload.map(p => p.team).filter(Boolean))];
         const xtraInfo = transverseCount
-            ? `\n\n${transverseCount} absence(s) sur des équipes transverses (Team X / TRV / …) — enregistrées telles quelles.`
+            ? `\n\n${transverseCount} ${transverseCount > 1 ? 'absences' : 'absence'} sur des équipes transverses (Team X / TRV / …) — enregistrées telles quelles.`
             : '';
         const teamsLine = teamsDetected.length ? `\nÉquipes : ${teamsDetected.slice(0, 8).join(', ')}${teamsDetected.length > 8 ? '…' : ''}` : '';
         const piLine = piTarget ? `\n👥 Snapshot membres → PI ${piTarget} (${snapshotMembers.length} membres)` : '\n⚠ Aucun PI cible — pas de snapshot membres.';
@@ -1933,9 +1933,9 @@ export function renderSettings(container) {
         }
         const choice = await choiceModal(
             'Importer les absences',
-            `Format : ${mode} · ${absencesPayload.length} absence(s) à importer.${teamsLine}${piLine}${datesLine}${pipLine}${xtraInfo}\n\n`
+            `Format : ${mode} · ${absencesPayload.length} ${absencesPayload.length > 1 ? 'absences' : 'absence'} à importer.${teamsLine}${piLine}${datesLine}${pipLine}${xtraInfo}\n\n`
             + `• Ajouter : conserve l'existant, ignore les doublons (même nom + jour).\n`
-            + `• Écraser ${periodLabel}${rangeTxt} : supprime d'abord les ${overlapCount} absence(s) qui CHEVAUCHENT cette période — y compris la part d'un congé qui déborderait avant ou après — puis importe ce que contient le fichier.`,
+            + `• Écraser ${periodLabel}${rangeTxt} : supprime d'abord les ${overlapCount} ${overlapCount > 1 ? 'absences' : 'absence'} qui CHEVAUCHENT cette période — y compris la part d'un congé qui déborderait avant ou après — puis importe ce que contient le fichier.`,
             choices,
         );
         if (!choice) return;
@@ -1963,10 +1963,10 @@ export function renderSettings(container) {
                 if (pipDates.length) patch.pipDates = pipDates;
                 savePiCfg(piTarget, patch);   // fusion : ne touche pas aux valeurs saisies à la main
             }
-            const parts = [`${res.created} absence(s) ajoutée(s)`];
-            if (res.updated) parts.push(`${res.updated} mise(s) à jour`);
-            if (res.deleted) parts.push(`${res.deleted} écrasée(s)`);
-            if (res.skipped) parts.push(`${res.skipped} inchangée(s)`);
+            const parts = [`${res.created} ${res.created > 1 ? 'absences' : 'absence'} ${res.created > 1 ? 'ajoutées' : 'ajoutée'}`];
+            if (res.updated) parts.push(`${res.updated} ${res.updated > 1 ? 'mises' : 'mise'} à jour`);
+            if (res.deleted) parts.push(`${res.deleted} ${res.deleted > 1 ? 'écrasées' : 'écrasée'}`);
+            if (res.skipped) parts.push(`${res.skipped} ${res.skipped > 1 ? 'inchangées' : 'inchangée'}`);
             if (memSync) parts.push(`${memSync.created || 0} créés, ${memSync.updated || 0} maj`);
             if (piTarget) parts.push(`snapshot PI ${piTarget}`);
             if (piTarget && piStartReal) parts.push(`dates PI`);
@@ -1979,7 +1979,7 @@ export function renderSettings(container) {
                 const ex = res.overlaps.slice(0, 3)
                     .map(o => `${o.memberName} (${o.existant} ↔ ${o.importe})`).join(', ');
                 const reste = res.overlaps.length > 3 ? ` +${res.overlaps.length - 3}` : '';
-                toast(`⚠️ ${res.overlaps.length} chevauchement(s) : ${ex}${reste}. Ces jours sont comptés deux fois — relancez avec « Écraser la période » pour repartir propre.`,
+                toast(`⚠️ ${res.overlaps.length} ${res.overlaps.length > 1 ? 'chevauchements' : 'chevauchement'} : ${ex}${reste}. Ces jours sont comptés deux fois — relancez avec « Écraser la période » pour repartir propre.`,
                     'warning', 9000);
             }
             await reloadAndRender(container);
@@ -2482,12 +2482,12 @@ export function renderSettings(container) {
             if (unresolved.length) {
                 results.push({
                     status: 'error', lineIdx, lineNo,
-                    message: `Membre(s) inconnu(s) : ${unresolved.map(u => u.nameRaw).join(', ')}`,
+                    message: `${unresolved.length > 1 ? 'Membres inconnus' : 'Membre inconnu'} : ${unresolved.map(u => u.nameRaw).join(', ')}`,
                     unresolved,
                 });
                 return;
             }
-            if (badDays.length) { results.push({ status: 'error', lineIdx, lineNo, message: `Jour(s) invalide(s) (attendu Lu/Ma/Me/Je/Ve) : ${badDays.join(', ')}` }); return; }
+            if (badDays.length) { results.push({ status: 'error', lineIdx, lineNo, message: `${badDays.length > 1 ? 'Jours invalides' : 'Jour invalide'} (attendu Lu/Ma/Me/Je/Ve) : ${badDays.join(', ')}` }); return; }
             if (!week) {
                 // Diagnostic : la semaine valide la plus proche aide à repérer un décalage systématique
                 // (mauvais PI, jour/mois inversés, export d'une autre équipe…) plutôt qu'un message muet.
@@ -2695,7 +2695,7 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
                         }
                     }
                 }
-                toast(`Rotation écrasée — ${created} créée(s), ${updated} mise(s) à jour, ${cleared} vidée(s)${deleted ? `, ${deleted} orpheline(s) supprimée(s)` : ''}`, 'success');
+                toast(`Rotation écrasée — ${created} ${created > 1 ? 'créées' : 'créée'}, ${updated} ${updated > 1 ? 'mises' : 'mise'} à jour, ${cleared} ${cleared > 1 ? 'vidées' : 'vidée'}${deleted ? `, ${deleted} ${deleted > 1 ? 'orphelines' : 'orpheline'} ${deleted > 1 ? 'supprimées' : 'supprimée'}` : ''}`, 'success');
                 close();
                 await _rotRefreshPanels(container);
             } catch (e) { toast(e.message, 'error'); }
@@ -3441,7 +3441,7 @@ Phoenix;2026-06-29;Dave:Me,Je,Ve|Eve</pre>
             if (!panel) return;
             // L'arrivée se fait sous la nav sticky sans recouvrement : c'est le
             // `scroll-padding-top` du scrollport qui s'en charge (cf. _publishTabsHeight).
-            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            scrollToEl(panel);   // scroll-padding-top du scrollport respecté (utils/scroll.js)
             // Halo bref : sur une page à N équipes, un scroll silencieux ne dit pas où l'on
             // a atterri. Retiré à la fin de l'animation CSS, jamais persistant.
             panel.classList.add('rot-panel--targeted');

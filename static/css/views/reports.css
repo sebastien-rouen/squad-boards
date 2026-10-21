@@ -7,13 +7,13 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-3);
-    padding: var(--sp-3) var(--sp-6);
-    margin: calc(-1 * var(--sp-6));
+    padding: var(--sp-3) var(--content-pad, var(--sp-6));
+    margin: calc(-1 * var(--content-pad, var(--sp-6)));
     margin-bottom: var(--sp-4);
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     position: sticky;
-    top: calc(-1 * var(--sp-6));
+    top: calc(-1 * var(--content-pad, var(--sp-6)));
     z-index: 10;
     flex-wrap: wrap;
     box-shadow: 0 2px 8px rgb(0 0 0 / 0.07);
@@ -31,7 +31,7 @@
 }
 .rpt-ctrl-count { color: var(--text-muted); }
 .rpt-ctrl-date  { color: var(--text-muted); }
-.rpt-ctrl-sep   { color: var(--border); font-size: 10px; }
+.rpt-ctrl-sep   { color: var(--border); font-size: 11px; }
 
 /* ── Layout : timeline / sommaire latéral + colonne des sections ──────────── */
 .reports-layout {
@@ -201,7 +201,7 @@
     transform: rotate(180deg);
 }
 .report-section-badge {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     padding: 2px 8px;
     border-radius: 9999px;
@@ -249,7 +249,7 @@
     margin-top: var(--sp-1);
 }
 .vel-history-summary {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     cursor: pointer;
     padding: var(--sp-2) var(--sp-4);
@@ -276,7 +276,7 @@
     background: var(--surface-alt, var(--surface-hover));
 }
 .vel-history-row--header {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     padding-bottom: 4px;
     border-bottom: 1px solid var(--border);
@@ -290,7 +290,7 @@
     background: color-mix(in srgb, var(--warning) 8%, var(--surface));
 }
 .vel-sprint-lbl {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     color: var(--text-secondary);
     display: flex; align-items: center; gap: 3px;
@@ -305,7 +305,7 @@
 .vel-input {
     width: 100%;
     padding: 2px 4px;
-    font-size: 10px;
+    font-size: 11px;
     border: 1px solid var(--border);
     border-radius: var(--r-sm);
     background: var(--surface);
@@ -534,7 +534,7 @@
 .rpt-ti--done .rpt-ti-title { text-decoration: line-through; color: var(--text-muted); }
 .rpt-ti-pts { font-size: var(--fs-xs); color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .rpt-ti-badge {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     padding: 2px 6px;
     border-radius: var(--r-sm);

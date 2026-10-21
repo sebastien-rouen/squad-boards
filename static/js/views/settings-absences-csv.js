@@ -211,7 +211,7 @@ function _memberAbsenceInfo(memberName, absences) {
         const cls = absent ? 'member-abs-day member-abs-day--off' : (isWeekend ? 'member-abs-day member-abs-day--we' : 'member-abs-day');
         stripHtml += `<span class="${cls}" title="${_fmtDDMM(iso)}${absent ? ' · congé' : ''}"></span>`;
     }
-    const tooltip = `${my.length} absence(s) au total · ${totalAbsentInWindow}j sur les 30 prochains jours` + (next ? ` · prochain : ${_fmtDDMM(next.startDate)}` : '');
+    const tooltip = `${my.length} ${my.length > 1 ? 'absences' : 'absence'} au total · ${totalAbsentInWindow}j sur les 30 prochains jours` + (next ? ` · prochain : ${_fmtDDMM(next.startDate)}` : '');
 
     return {
         todayCount,
@@ -275,7 +275,7 @@ function diagnosePivotCsv(raw) {
         indice: 'Le format attendu est jj/mm (ex. 03/04), avec des barres obliques. Un remplacement « - » → « / » dans l\'en-tête suffit.',
     };
     if (bonnes > 0) return {
-        titre: `Seulement ${bonnes} colonne(s) de date reconnue(s) dans l'en-tête.`,
+        titre: `Seulement ${bonnes} ${bonnes > 1 ? 'colonnes' : 'colonne'} de date ${bonnes > 1 ? 'reconnues' : 'reconnue'} dans l'en-tête.`,
         indice: 'Il en faut au moins 3 pour que le format pivot soit détecté — vérifiez que la ligne d\'en-tête est bien la PREMIÈRE ligne collée.',
     };
     return {

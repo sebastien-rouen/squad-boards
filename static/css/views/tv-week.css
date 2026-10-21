@@ -12,7 +12,14 @@
 .tvw-ev.is-common > span:last-child { color: var(--text-secondary); }
 .tvw-ev.is-prod { --c: var(--danger); background: var(--danger-bg); }
 .tvw-ev.is-off { --c: var(--n-off, var(--danger)); background: color-mix(in srgb, var(--c) 8%, var(--bg)); font-size: var(--fs-xs); }
-.tvw-ev time { margin-right: 2px; font-variant-numeric: tabular-nums; font-weight: var(--fw-bold); color: var(--text); }
+/* Trois colonnes : icône · heure · titre — les heures s'alignent d'une ligne à l'autre, un titre long repart
+   sous son propre texte (pas sous l'icône). Sans heure (absences, début / fin de sprint), le texte prend la
+   place de l'heure. Largeur de l'heure FIXE (« 16h30 » en gras, chiffres tabulaires). */
+.tvw-day li { grid-template-columns: 1.35em 3.3em minmax(0, 1fr); column-gap: 4px; }
+.tvw-day li > span:first-child { justify-self: center; }
+.tvw-day li > span:last-child { grid-column: 2 / -1; }
+.tvw-day li > time + span:last-child { grid-column: 3; }   /* plus précis que span:last-child ci-dessus */
+.tvw-ev time { font-variant-numeric: tabular-nums; font-weight: var(--fw-bold); color: var(--text); white-space: nowrap; }
 .tvw-scope { margin-left: 2px; opacity: .8; }
 
 /* ── Évènement de plusieurs jours : bandeau au-dessus des colonnes, comme un sprint ── */
@@ -109,3 +116,12 @@
 .tv-alert-paged { flex: 1; min-height: 0; }
 #tv-root .tv-paged .tv-alert-list { overflow: hidden; padding-right: 0; }
 .tv-alert-team[hidden] { display: none; }
+
+/* Créneaux alignés d'une journée à l'autre (3.234.0, tv-week.js `alignSlots`) : un `li.tvw-slot` par créneau de
+   la semaine, sa hauteur égalisée en JS sur les 7 colonnes. Le créneau n'est PAS un évènement : on neutralise
+   le style de ligne (grille, fond, liseré, marges) ; ses évènements gardent le leur. */
+.tv-week .tvw-day ul > li.tvw-slot { display: block; padding: 0; border: 0; border-radius: 0; background: none; }
+.tv-week .tvw-day li.tvw-slot > ul { display: flex; flex-direction: column; gap: inherit; padding: 0; }
+/* Créneau vide : un trait pointillé à peine visible, pour suivre la ligne de l'œil sans charger l'écran */
+.tv-week .tvw-day li.tvw-slot.is-empty { background: linear-gradient(var(--border), var(--border)) center / 60% 1px no-repeat; opacity: .35; }
+.tv-week[data-align="0"] .tvw-day li.tvw-slot.is-empty { display: none; }   /* compact : pas de créneau vide */

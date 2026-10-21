@@ -321,7 +321,7 @@ export function renderReports(container) {
                         ${s.title}${urgentBadge}${noExportBadge}
                     </span>
                     <div class="report-section-actions">
-                        ${!s.noExport ? `<button class="btn btn-secondary btn-sm btn-copy-section" data-section="${s.id}" title="Copier"><svg class="icon icon-sm"><use href="#i-copy"/></svg></button>` : ''}
+                        ${!s.noExport ? `<button class="btn btn-secondary btn-sm btn-copy-section" data-section="${s.id}" title="Copier" aria-label="Copier la section ${esc(s.label || s.id)}"><svg class="icon icon-sm"><use href="#i-copy"/></svg></button>` : ''}
                         <svg class="icon icon-sm report-section-chevron"><use href="#i-chevron-down"/></svg>
                     </div>
                 </div>

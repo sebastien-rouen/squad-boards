@@ -2,6 +2,7 @@
  * Backlog view — filtres, regroupement sprint/PI, sélection multi-tickets,
  * déplacement en masse, drag & drop, séparateur tickets périmés.
  */
+import { scrollToEl } from '../utils.js';
 import { store }                                          from '../state.js';
 import * as api                                           from '../api.js';
 import { esc, fmtRelative, hashColor, initials,
@@ -887,7 +888,7 @@ function _wireEvents(container, filters, bulk, allSprints, allPIs, ticketGroups,
             coll.delete(gid);
             saveCollapsed(coll);
         }
-        tbody.querySelector('.bl-group-hdr-cell')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        scrollToEl(tbody.querySelector('.bl-group-hdr-cell'));
     });
 
     // Column sort — 1er clic = asc, 2e = desc, 3e = reset

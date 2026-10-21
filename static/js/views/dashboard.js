@@ -19,11 +19,34 @@ import { forecastCardHtml } from '../components/forecast_card.js';
 import { meteoMatrixHtml, meteoPillsHtml, meteoContext, bindMeteoMatrix } from '../components/meteo_matrix.js';
 import { meteoPlanHtml, bindMeteoPlan } from '../components/meteo_plan.js';
 import { meteoFicheHtml, bindMeteoFiche } from '../components/meteo_fiche.js';
+import { mountPageToc } from '../components/page_toc.js';
+import { bindCollapsibles } from '../components/collapsible.js';
+import { stuckCardHtml } from '../components/stuck_card.js';
 import { endOfPiHtml, recentlyClosedHtml } from '../components/meteo_endpi.js';
 import { firstLaunchHtml, bindFirstLaunch } from '../components/first_launch.js';
 import { piProgressModel, piProgressHtml, bindPiProgress } from '../components/pi_progress.js';
 import { piStageFlowModel, piFlowRowsHtml, bindPiFlowRows, bufferTest, lineProductScope } from '../components/pi_stage_flow.js';
 import { piBounds } from '../utils/pi-weeks.js';
+
+/** Sections du sommaire du Dashboard, dans l'ordre de la page (sélecteurs = blocs racines de la vue). */
+const _DASH_TOC = [
+    { sel: '.meteo-card, .meteo-pills', icon: '🌤️', label: 'Météo' },
+    { sel: '.meteo-plan', icon: '☀️', label: 'Plan d\'action' },
+    { sel: '.meteo-endpi', icon: '🏁', label: 'Fin de PI' },
+    { sel: '.goals-band', icon: '🎯', label: 'Cap' },
+    { sel: '.meteo-fiche', icon: '😊', label: 'Mood & effectif' },
+    { sel: '.sprint-header--timeline', icon: '🏃', label: 'Sprint' },
+    { sel: '.dashboard-metrics', icon: '📊', label: 'Indicateurs' },
+    { sel: '.dash-streams > .dash-stream:nth-child(1)', icon: '🚀', label: 'Pilotage & flux' },
+    { sel: '.dash-streams > .dash-stream:nth-child(2)', icon: '👥', label: 'Équipe & risques' },
+];
+
+/** Sections repliables du Dashboard (en-tête qui reçoit le bouton ▾, corps masqué). */
+const _DASH_COLLAPSIBLE = [
+    { key: 'pi-sprints', sel: '.pi-sprints-strip', head: '.pi-sprints-strip-head', body: '.pi-sprints-strip-cards', label: 'Sprints du PI' },
+    { key: 'stream-flow', sel: '.dash-streams > .dash-stream:nth-child(1)', head: '.dash-stream-hd', body: '.dash-stream-cards', label: 'Pilotage & flux' },
+    { key: 'stream-team', sel: '.dash-streams > .dash-stream:nth-child(2)', head: '.dash-stream-hd', body: '.dash-stream-cards', label: 'Équipe & risques' },
+];
 
 export function renderDashboard(container) {
     const team = store.get('team');
@@ -225,8 +248,7 @@ export function renderDashboard(container) {
         .filter(t => t.status !== 'done')
         .map(t => ({ t, stag: _stagDays(t) }))
         .filter(({ t, stag }) => t.status === 'blocked' || (stag != null && stag >= STALE_DAYS))
-        .sort((a, b) => (b.stag ?? 0) - (a.stag ?? 0))
-        .slice(0, 12);
+        .sort((a, b) => (b.stag ?? 0) - (a.stag ?? 0));   // tous : la carte gère l'aperçu (« Voir les N autres »)
 
     // ── Avancement du PI (tête du flux « Équipe & risques ») : tickets ENGAGÉS dans le PI affiché ──
     const _pipModel = piProgressModel({
@@ -325,8 +347,8 @@ export function renderDashboard(container) {
             <div class="gb-stats">
                 <span class="gb-stat" title="Story points livrés / total"><strong>${donePts}</strong><span class="sep">/</span>${totalPts} <small>pts</small></span>
                 ${_sg.deltaTxt ? `<span class="gb-stat gb-stat--${_sg.delta >= 0 ? 'ahead' : 'behind'}" title="Écart entre l'avancement points et le temps écoulé">${_sg.deltaTxt}</span>` : ''}
-                ${moodSt ? `<span class="gb-stat gb-stat--vote" title="Mood Meter — ${moodSt.count} vote(s)" style="border-color:${_vColor(moodSt.avg)}">🎭 ${_face(moodSt.avg)} <strong>${moodSt.avg}</strong><small>/5</small></span>` : ''}
-                ${fistSt ? `<span class="gb-stat gb-stat--vote" title="Fist of Five — ${fistSt.count} vote(s)" style="border-color:${_vColor(fistSt.avg)}">✊ <strong>${fistSt.avg}</strong><small>/5</small></span>` : ''}
+                ${moodSt ? `<span class="gb-stat gb-stat--vote" title="Mood Meter — ${moodSt.count} ${moodSt.count > 1 ? 'votes' : 'vote'}" style="border-color:${_vColor(moodSt.avg)}">🎭 ${_face(moodSt.avg)} <strong>${moodSt.avg}</strong><small>/5</small></span>` : ''}
+                ${fistSt ? `<span class="gb-stat gb-stat--vote" title="Fist of Five — ${fistSt.count} ${fistSt.count > 1 ? 'votes' : 'vote'}" style="border-color:${_vColor(fistSt.avg)}">✊ <strong>${fistSt.avg}</strong><small>/5</small></span>` : ''}
             </div>
             <div class="gb-body">
                 ${_sg.goal ? `<p class="gb-goal-text">${esc(_sg.goal)}</p>` : `<p class="gb-goal-empty">Aucun objectif de sprint défini pour cette itération.</p>`}
@@ -542,14 +564,17 @@ export function renderDashboard(container) {
 
         <!-- Météo des équipes (PI courant) : matrice équipes × domaines quand plusieurs équipes sont
              affichées, rangée de pastilles quand une seule — composant meteo_matrix.js -->
+        <!-- Fiche d'UNE équipe : « Cap de l'équipe » passe AU-DESSUS de « 😊 Mood & confiance » (3.235.0) — le cap
+             se lit avant l'humeur. Plusieurs équipes (matrice, sans fiche) : le cap garde sa place, plus bas. -->
         ${isCurrentPi && teams.length > 1 ? meteoMatrixHtml(teams, meteoContext(displayPiNum), teamObjects, { groups: groupId ? [] : groups })
-            : isCurrentPi && teams.length === 1 ? meteoPillsHtml(teams[0], meteoContext(displayPiNum), teamObjects) + meteoPlanHtml(teams[0], meteoContext(displayPiNum)) + meteoFicheHtml(teams[0], meteoContext(displayPiNum)) : ''}
+            : isCurrentPi && teams.length === 1 ? meteoPillsHtml(teams[0], meteoContext(displayPiNum), teamObjects) + meteoPlanHtml(teams[0], meteoContext(displayPiNum)) + _goalsBandHtml + meteoFicheHtml(teams[0], meteoContext(displayPiNum)) : ''}
 
         <!-- Fin de PI : bandeau + checklist du PI Planning, seulement sur le dernier sprint du PI -->
         ${isCurrentPi ? endOfPiHtml({ teams, sprintInfoAll, piNum: displayPiNum, piInfo, absences: store.get('absences') || [], support: store.get('support') || [] }) : ''}
 
-        <!-- Bande "Cap de l'équipe" : Objectif de sprint ⟷ Objectifs du PI (au-dessus du bandeau) -->
-        ${_goalsBandHtml}
+        <!-- Bande "Cap de l'équipe" : Objectif de sprint ⟷ Objectifs du PI (au-dessus du bandeau) — sauf si déjà
+             posée au-dessus de la fiche équipe -->
+        ${isCurrentPi && teams.length === 1 ? '' : _goalsBandHtml}
 
         ${(sprintInfo && piOffset === 0) ? (() => {
             // Calcul positionnel du sprint : où en est-on dans la durée ?
@@ -786,6 +811,7 @@ export function renderDashboard(container) {
 
         <section class="dash-stream">
             <header class="dash-stream-hd"><h2>👥 Équipe &amp; risques</h2><span class="dash-stream-sub">santé &amp; signaux</span></header>
+        <div class="dash-stream-cards"><!-- conteneur des cartes : repliable (collapsible.js), comme le 1er flux -->
 
         ${piProgressHtml(_pipModel, { statesHtml: _psrHtml })}
 
@@ -794,37 +820,12 @@ export function renderDashboard(container) {
         <!-- SLA Review : respect du seuil de cycle time -->
         ${slaReviewCardHtml(tickets)}
 
-        <!-- Tickets bloqués ou stagnants (même état depuis longtemps) -->
-        <div class="card mt-4">
-            <div class="card-header">
-                <span class="card-title">Tickets bloqués ou stagnants ${helpIconHtml({ key: 'stuck', label: 'Comprendre bloqués et stagnants' })}</span>
-                <span class="card-subtitle">bloqués, ou sans mouvement depuis ≥
-                    <input type="number" id="stuck-stale-days" class="inline-num-edit" min="1" max="365" step="1"
-                        value="${STALE_DAYS}" title="Seuil de stagnation (jours) — modifiable" aria-label="Seuil de stagnation en jours"> j</span>
-            </div>
-            <div class="stuck-list">
-                ${stuckTickets.length ? stuckTickets.map(({ t, stag }) => {
-                    const _STL = { todo: 'À faire', inprog: 'En cours', review: 'Revue', test: 'Test', blocked: 'Bloqué', done: 'Terminé' };
-                    const ageCls = stag == null ? '' : stag >= 14 ? 'is-danger' : stag >= STALE_DAYS ? 'is-warn' : '';
-                    const ageTxt = stag == null ? '—' : `${stag} j`;
-                    const ageTip = stag == null
-                        ? 'Ancienneté inconnue (pas de date de mise en cours)'
-                        : `En l'état depuis ${stag} jour${stag > 1 ? 's' : ''}`;
-                    return `
-                    <button class="stuck-row" data-ticket="${esc(t.id)}" title="Ouvrir ${esc(t.id)} — ${esc(t.jiraStatus || _STL[t.status] || t.status)}">
-                        <span class="stuck-dot" style="background:var(--status-${esc(t.status)}, var(--text-muted))"></span>
-                        <span class="stuck-id">${esc(t.id)}</span>
-                        <span class="stuck-title">${esc(t.title || '')}</span>
-                        <span class="stuck-state stuck-state--${esc(t.status)}">${esc(t.jiraStatus || _STL[t.status] || t.status)}</span>
-                        <span class="stuck-lead${t.leader ? '' : ' stuck-lead--none'}">${esc(t.leader || 'Non assigné')}</span>
-                        <span class="stuck-age ${ageCls}" title="${esc(ageTip)}">${ageTxt}</span>
-                    </button>`;
-                }).join('') : '<p class="text-muted text-sm" style="padding:var(--sp-3)">Aucun ticket bloqué ou stagnant 🎉</p>'}
-            </div>
-        </div>
+        <!-- Tickets bloqués ou stagnants (même état depuis longtemps) — components/stuck_card.js -->
+        ${stuckCardHtml({ items: stuckTickets, staleDays: STALE_DAYS })}
 
         <!-- Recent Activity (composant partagé) -->
         ${renderActivityCard(tickets, { max: 15, scope: 'dashboard' })}
+        </div>
         </section>
         </div>
     `;
@@ -847,6 +848,11 @@ export function renderDashboard(container) {
         bindMeteoPlan(container);
         bindMeteoFiche(container, () => meteoContext(displayPiNum));
         bindFirstLaunch(container);
+        // Sommaire collant (3.236.0) : seules les sections présentes sont proposées (cf. page_toc.js).
+        mountPageToc(container, _DASH_TOC);
+        // Sections repliables (3.237.0), état retenu à part pour « toutes les équipes » et pour une équipe.
+        const _team = store.get('team');
+        bindCollapsibles(container, { storageKey: 'sb-dash-collapsed', scope: _team && _team !== 'all' && !store.get('group') ? 'team' : 'all', items: _DASH_COLLAPSIBLE });
     });
 
     // Liste "bloqués / stagnants" → ouvre le ticket au clic
@@ -1089,7 +1095,9 @@ function _renderPiSprintsStrip(sprintInfoAll, currentSprint, team, allTickets, d
             </div>`;
         }).join('');
         const ticketsHtml = ts2.length
-            ? `<details class="pi-sprint-card-tickets"${(st === 'future' || st === 'active' || slippedCount) ? ' open' : ''}>
+            // Plusieurs équipes (vue « toutes ») : listes FERMÉES — ouvertes, elles cumulaient les tickets de 13 équipes
+            // (bloc Sprint de 16 872 px ≈ 19 écrans, 3.236.0). Compteur et « ⚠ glissés » restent dans le résumé.
+            ? `<details class="pi-sprint-card-tickets"${!(team && team !== 'all') ? '' : (st === 'future' || st === 'active' || slippedCount) ? ' open' : ''}>
                 <summary>Tickets <span class="pi-sprint-card-tickets-count">(${ts2.length})</span>${slippedCount ? ` <span class="pi-sprint-card-slip-count">⚠ ${slippedCount} glissé${slippedCount > 1 ? 's' : ''}</span>` : ''}</summary>
                 ${groupsHtml}
             </details>`

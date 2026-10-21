@@ -1,0 +1,42 @@
+/* Sommaire collant d'une page longue (components/page_toc.js, 3.236.0) — Dashboard.
+   Collé en haut du scrollport `.content` (même technique que les onglets de Paramètres : marges négatives =
+   `--content-pad`). Une ligne qui défile horizontalement si elle ne tient pas (mobile). */
+.ptoc {
+    position: sticky; top: calc(-1 * var(--content-pad, var(--sp-6))); z-index: 9;
+    display: flex; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: none;
+    margin: calc(-1 * var(--content-pad, var(--sp-6))) calc(-1 * var(--content-pad, var(--sp-6))) var(--sp-4);
+    padding: var(--sp-2) var(--content-pad, var(--sp-6));
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+}
+.ptoc::-webkit-scrollbar { display: none; }
+.ptoc-lbl { flex-shrink: 0; font-size: 11px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-right: 2px; }
+.ptoc-chip {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; min-height: 30px;
+    padding: 4px 12px; border-radius: var(--r-full); font: inherit; font-size: 12.5px; font-weight: var(--fw-medium);
+    color: var(--text-secondary); background: var(--bg); border: 1px solid var(--border); cursor: pointer; white-space: nowrap;
+    transition: background var(--tr-fast), color var(--tr-fast), border-color var(--tr-fast);
+}
+.ptoc-chip:hover { color: var(--text); border-color: var(--border-hover); }
+.ptoc-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.ptoc-chip.is-on { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, transparent); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }
+/* La barre collante ne doit pas masquer le haut de la section atteinte */
+.ptoc-target { scroll-margin-top: 60px; }
+.ptoc-flash { animation: ptoc-flash 1.2s ease-out; }
+@keyframes ptoc-flash { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 50%, transparent); } to { box-shadow: 0 0 0 12px transparent; } }
+@media (prefers-reduced-motion: reduce) { .ptoc-flash { animation: none; } }
+@media (pointer: coarse) { .ptoc-chip { min-height: 36px; } }
+
+/* Sections repliables (components/collapsible.js, 3.237.0) — bouton ▾ en fin d'en-tête */
+.coll-btn {
+    margin-left: auto; flex-shrink: 0; display: inline-grid; place-items: center; width: 28px; height: 28px;
+    border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer;
+}
+.coll-btn:hover { color: var(--text); border-color: var(--border-hover); }
+.coll-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.coll-btn svg { transition: transform var(--tr-base, .2s); }
+.is-collapsed .coll-btn svg { transform: rotate(-90deg); }
+.is-collapsed { opacity: .85; }
+.coll-body[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { .coll-btn svg { transition: none; } }

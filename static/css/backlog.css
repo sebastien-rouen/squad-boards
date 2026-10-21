@@ -68,7 +68,7 @@
     min-width: 16px; height: 16px; padding: 0 3px;
     background: var(--primary); color: #fff;
     border-radius: var(--r-full);
-    font-size: 10px; font-weight: var(--fw-bold); line-height: 1;
+    font-size: 11px; font-weight: var(--fw-bold); line-height: 1;
 }
 
 /* Mini-tag affiché sur le bouton pour montrer les valeurs sélectionnées */
@@ -77,7 +77,7 @@
     padding: 1px 7px;
     background: color-mix(in srgb, var(--primary) 15%, transparent);
     border-radius: var(--r-full);
-    font-size: 10px; font-weight: var(--fw-semibold);
+    font-size: 11px; font-weight: var(--fw-semibold);
     color: var(--primary);
     max-width: 80px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -278,7 +278,7 @@
     background: color-mix(in srgb, var(--primary) 9%, var(--bg));
     border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
     border-radius: var(--r-full);
-    font-size: 10px; font-weight: var(--fw-medium);
+    font-size: 11px; font-weight: var(--fw-medium);
     color: color-mix(in srgb, var(--primary) 80%, var(--text));
     white-space: nowrap; font-variant-numeric: tabular-nums;
     letter-spacing: .01em;
@@ -344,7 +344,7 @@
     font-size: 13px; color: var(--text-muted); font-weight: var(--fw-semibold);
 }
 .bl-goal-label {
-    font-size: 10px; font-weight: var(--fw-semibold);
+    font-size: 11px; font-weight: var(--fw-semibold);
     color: var(--text-muted); text-transform: uppercase; letter-spacing: .07em;
     white-space: nowrap; user-select: none;
 }

@@ -322,7 +322,7 @@ function _openImportModal(container, onImported = null) {
                     <span class="export-choice-label">${esc(c.label)}</span>
                 </div>`).join('')}
             </div>` : `<div class="import-preview-warn import-preview-warn--danger">Aucune catégorie reconnue — vérifiez le format (modèle ci-dessus) ou le nom des fichiers .csv.</div>`}
-            ${unknownKeys.length ? `<div class="import-preview-warn">⚠️ Clé(s)/fichier(s) ignoré(s) (non reconnu(s)) : ${unknownKeys.map(esc).join(', ')}</div>` : ''}
+            ${unknownKeys.length ? `<div class="import-preview-warn">⚠️ ${unknownKeys.length > 1 ? 'Clés / fichiers ignorés (non reconnus)' : 'Clé / fichier ignoré (non reconnu)'} : ${unknownKeys.map(esc).join(', ')}</div>` : ''}
             ${recognized.length ? `
             <div class="export-choice-formats">
                 <span class="export-choice-formats-lbl">Mode</span>

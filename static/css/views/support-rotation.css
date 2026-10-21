@@ -446,7 +446,7 @@
 }
 .abs-csv-preview-hdr { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); }
 .abs-csv-preview-badge {
-    font-size: 10px; font-weight: var(--fw-semibold);
+    font-size: 11px; font-weight: var(--fw-semibold);
     background: var(--primary); color: #fff;
     border-radius: 999px; padding: 1px 8px; text-transform: uppercase;
 }
@@ -459,7 +459,7 @@
 }
 .abs-csv-preview-teams, .abs-csv-preview-members { display: flex; flex-wrap: wrap; gap: 4px; }
 .abs-csv-preview-team {
-    font-size: 10px; color: var(--text-muted);
+    font-size: 11px; color: var(--text-muted);
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 999px; padding: 1px 7px;
 }

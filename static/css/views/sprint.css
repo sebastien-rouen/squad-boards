@@ -4,7 +4,7 @@
    ══════════════════════════════════════════════════════════════════════════════ */
 /* Sprint header + filters */
 .sprint-sticky {
-    margin: calc(-1 * var(--sp-6)) calc(-1 * var(--sp-6)) var(--sp-4);
+    margin: calc(-1 * var(--content-pad, var(--sp-6))) calc(-1 * var(--content-pad, var(--sp-6))) var(--sp-4);
     padding: var(--sp-3) var(--sp-6) 0;
     background: var(--bg);
     box-shadow: var(--shadow-xs);
@@ -150,7 +150,7 @@
 }
 .sprint-stat-chip strong { font-size: 14px; font-weight: var(--fw-bold); }
 .sprint-stat-chip .sep   { color: var(--text-muted); margin: 0 1px; }
-.sprint-stat-chip small  { color: var(--text-muted); margin-left: 2px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+.sprint-stat-chip small  { color: var(--text-muted); margin-left: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
 .sprint-stat-chip.sprint-delta--ahead {
     background: color-mix(in srgb, var(--success) 12%, transparent);
     color: var(--success-text);
@@ -244,7 +244,7 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    font-size: 10px;
+    font-size: 11px;
     padding: 1px 6px;
     border-radius: 999px;
     border: 1px solid var(--border);
@@ -764,7 +764,7 @@
     justify-content: space-between;
 }
 .rtc-key {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-mono);
     color: var(--text-muted);
 }
@@ -817,7 +817,7 @@
     flex-shrink: 0;
 }
 .rtc-who {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-secondary);
     flex: 1;
     white-space: nowrap;
@@ -956,7 +956,7 @@
 }
 .support-banner-dates {
     flex-shrink: 0;
-    font-size: 10.5px;
+    font-size: 11px;
     color: var(--text-muted);
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -1187,3 +1187,12 @@
 .kanban-metric .metric-label { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: var(--fw-semibold); }
 .kanban-metric .metric-value { font-size: var(--fs-xl); font-weight: var(--fw-bold); }
 
+
+/* Kanban : colonnes bornées (views/kanban.js, 3.237.0) — « Afficher les N autres », « Voir les N plus anciens » */
+.kb-more {
+    display: block; width: 100%; margin-top: var(--sp-2); padding: var(--sp-2);
+    font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--primary);
+    background: var(--bg); border: 1px dashed var(--border); border-radius: var(--r-md); cursor: pointer;
+}
+.kb-more:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+.kb-more small { display: block; font-size: var(--fs-xs); font-weight: var(--fw-regular, 400); color: var(--text-muted); }

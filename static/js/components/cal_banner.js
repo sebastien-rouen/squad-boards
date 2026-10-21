@@ -276,7 +276,13 @@ export function renderCalBanner(wrap) {
         : '';
 
     // ── Rendu plié : les 2 prochains créneaux + les absents, côte à côte (compact) ──────
-    const collapsed = localStorage.getItem(_CAL_BANNER_COLLAPSED_KEY) === '1';
+    // Vue globale (toutes les équipes / une ligne produit) : clé À PART, REPLIÉE PAR DÉFAUT (3.238.0) — dépliée, la
+    // journée de 13 équipes (~40 créneaux) prenait les deux tiers de l'écran et écrasait la page. Vue équipe :
+    // clé historique, dépliée par défaut. Déplier l'une ne touche pas l'autre.
+    const _global = (store.get('team') || 'all') === 'all' || !!store.get('group');
+    const _ckey = _global ? `${_CAL_BANNER_COLLAPSED_KEY}-all` : _CAL_BANNER_COLLAPSED_KEY;
+    const _cval = localStorage.getItem(_ckey);
+    const collapsed = _global ? _cval !== '0' : _cval === '1';
     const nowTs = Date.now();
     const upcomingEvs = regularEvs
         .filter(ev => new Date(ev.end).getTime() >= nowTs)
@@ -296,7 +302,7 @@ export function renderCalBanner(wrap) {
             <div class="cal-banner-events cal-banner-events--rows">
                 ${collapsed ? collapsedHtml : `${offLine}${regularLine}${emptyMsg}`}
             </div>
-            <button class="btn-icon cal-banner-collapse-btn" id="cal-banner-collapse-btn"
+            <button aria-label="${collapsed ? 'Déplier le bandeau (toute la journée)' : 'Replier le bandeau (résumé compact)'}" class="btn-icon cal-banner-collapse-btn" id="cal-banner-collapse-btn"
                     title="${collapsed ? 'Déplier le bandeau (toute la journée)' : 'Replier le bandeau (résumé compact)'}"
                     aria-expanded="${collapsed ? 'false' : 'true'}">
                 <svg class="icon icon-sm cal-banner-collapse-icon${collapsed ? '' : ' cal-banner-collapse-icon--open'}"><use href="#i-chevron-down"/></svg>
@@ -304,7 +310,7 @@ export function renderCalBanner(wrap) {
         </div>`;
 
     wrap.querySelector('#cal-banner-collapse-btn')?.addEventListener('click', () => {
-        localStorage.setItem(_CAL_BANNER_COLLAPSED_KEY, collapsed ? '0' : '1');
+        localStorage.setItem(_ckey, collapsed ? '0' : '1');
         renderCalBanner(wrap);
     });
     // Chips liés à un event précis (data-ev-idx posé par _chip) → ouvrent la semaine en surlignant
@@ -811,18 +817,18 @@ function _renderWeekContent(allEvents, weekOffset, highlightEv, teamSelection = 
             </div>
             <div class="cal-week-hdr-actions">
                 <div class="cal-week-nav" role="group" aria-label="Navigation semaine">
-                    <button class="btn-icon cal-week-nav-btn" id="cal-week-prev" title="Semaine précédente (←)">‹</button>
-                    <button class="btn-icon cal-week-nav-today${weekOffset === 0 ? ' cal-week-nav-today--current' : ''}" id="cal-week-today" title="Aujourd'hui (T)" ${weekOffset === 0 ? 'disabled' : ''}>•</button>
-                    <button class="btn-icon cal-week-nav-btn" id="cal-week-next" title="Semaine suivante (→)">›</button>
+                    <button aria-label="Semaine précédente (←)" class="btn-icon cal-week-nav-btn" id="cal-week-prev" title="Semaine précédente (←)">‹</button>
+                    <button aria-label="Aujourd'hui (T)" class="btn-icon cal-week-nav-today${weekOffset === 0 ? ' cal-week-nav-today--current' : ''}" id="cal-week-today" title="Aujourd'hui (T)" ${weekOffset === 0 ? 'disabled' : ''}>•</button>
+                    <button aria-label="Semaine suivante (→)" class="btn-icon cal-week-nav-btn" id="cal-week-next" title="Semaine suivante (→)">›</button>
                 </div>
-                <button class="btn-icon" id="cal-week-copy" data-week-offset="${weekOffset}" title="Copier la semaine (Slack)">📋</button>
-                <button class="btn-icon cal-week-toggle-btn${showPmSplit ? ' is-active' : ''}" id="cal-week-pm-split" title="Séparer matin / après-midi (14h)">🌗${showPmSplit ? '<sup class="cal-toggle-check">✓</sup>' : ''}</button>
-                <button class="btn-icon cal-week-toggle-btn${showCompact ? ' is-active' : ''}" id="cal-week-compact" title="Mode compact — titres seulement (survol pour détails)">≡${showCompact ? '<sup class="cal-toggle-check">✓</sup>' : ''}</button>
+                <button aria-label="Copier la semaine (Slack)" class="btn-icon" id="cal-week-copy" data-week-offset="${weekOffset}" title="Copier la semaine (Slack)">📋</button>
+                <button aria-label="Séparer matin / après-midi (14h)" class="btn-icon cal-week-toggle-btn${showPmSplit ? ' is-active' : ''}" id="cal-week-pm-split" title="Séparer matin / après-midi (14h)">🌗${showPmSplit ? '<sup class="cal-toggle-check">✓</sup>' : ''}</button>
+                <button aria-label="Mode compact — titres seulement (survol pour détails)" class="btn-icon cal-week-toggle-btn${showCompact ? ' is-active' : ''}" id="cal-week-compact" title="Mode compact — titres seulement (survol pour détails)">≡${showCompact ? '<sup class="cal-toggle-check">✓</sup>' : ''}</button>
                 ${_renderTeamPickerToggle(teamSelection)}
-                <button class="btn-icon" id="cal-week-sync" title="${esc(syncTip)}">
+                <button aria-label="${esc(syncTip)}" class="btn-icon" id="cal-week-sync" title="${esc(syncTip)}">
                     <svg class="icon"><use href="#i-sync"/></svg>
                 </button>
-                <button class="btn-icon" id="cal-week-close" title="Fermer (Échap)"><svg class="icon"><use href="#i-x"/></svg></button>
+                <button aria-label="Fermer (Échap)" class="btn-icon" id="cal-week-close" title="Fermer (Échap)"><svg class="icon"><use href="#i-x"/></svg></button>
             </div>
         </div>
         ${_renderSprintBar(mon, sun)}
@@ -857,7 +863,7 @@ function _renderTeamPickerToggle(teamSelection) {
     const activeCls = n > 0 ? ' is-active' : '';
     return `
         <div class="cal-week-team-picker-wrap">
-            <button class="btn-icon cal-week-team-toggle${activeCls}" id="cal-week-team-toggle"
+            <button aria-label="Filtrer par équipe(s)" class="btn-icon cal-week-team-toggle${activeCls}" id="cal-week-team-toggle"
                     title="Filtrer par équipe(s)" aria-haspopup="true" aria-expanded="false">
                 <span class="cal-week-team-toggle-icon">👥</span>
                 <span class="cal-week-team-toggle-lbl">${esc(labelTxt)}</span>

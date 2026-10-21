@@ -157,7 +157,7 @@
     white-space: nowrap;
 }
 .agenda-role {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     background: var(--border);
     border-radius: 9999px;
@@ -293,7 +293,7 @@
 
 /* Guest team label in member row */
 .agenda-guest-team {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     margin-left: var(--sp-1);
     opacity: 0.8;
@@ -363,7 +363,7 @@
     gap: 4px;
 }
 .agenda-support-seg-range {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     color: #b45309;
     text-transform: uppercase;
@@ -433,7 +433,7 @@
 .agenda-ac-name { flex: 1; font-weight: var(--fw-medium); color: var(--text); }
 .agenda-ac-team { font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
 .agenda-ac-entity {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     background: var(--border);
     border-radius: 9999px;
@@ -442,7 +442,7 @@
 
 /* Entity badge in member row */
 .agenda-entity-badge {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     background: var(--surface-alt, #f1f5f9);
     border: 1px solid var(--border);
@@ -477,7 +477,7 @@
 .agenda-off-icon { flex-shrink: 0; }
 .agenda-off-copy-btn {
     padding: 1px 4px;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.4;
     border-radius: 3px;
     border: 1px solid rgba(254,215,170,0.25);
@@ -510,7 +510,7 @@
     border: 1px solid #fb923c;
     border-radius: var(--r-full);
     padding: 2px 9px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     margin: 2px 2px 0 0;
     white-space: nowrap;
@@ -652,7 +652,7 @@
     /* En-têtes de jour compacts (libellé conservé, plus petit) */
     .agenda-day-col {
         min-width: 46px; padding: var(--sp-2) 2px;
-        font-size: 10px; line-height: 1.15; white-space: normal;
+        font-size: 11px; line-height: 1.15; white-space: normal;
     }
     .agenda-cell { padding: 4px 2px; min-width: 46px; }
     .agenda-pill {

@@ -32,7 +32,7 @@
 /* Un pool n'est « actif » qu'une fois son tirage enregistre : l'etat se lit dans l'en-tete
    plutot que dans une case a cocher, qui laissait croire qu'il fallait l'armer pour tirer. */
 .rot-pool-state {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     text-transform: uppercase;
     letter-spacing: .03em;
@@ -129,7 +129,7 @@
 .rot-pool-merge-select {
     flex: 1 1 auto;
     min-width: 0;
-    font-size: 10px;
+    font-size: 11px;
     padding: 1px var(--sp-2);
     color: var(--text-muted);
 }
@@ -151,7 +151,7 @@
     white-space: nowrap;
     font-weight: var(--fw-medium);
 }
-.rot-pool-role-supply { color: var(--text-muted); font-size: 10px; white-space: nowrap; }
+.rot-pool-role-supply { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
 .rot-pool-role-input { padding: 2px var(--sp-2); text-align: center; font-size: var(--fs-xs); }
 
 .rot-pool-warn {
@@ -196,7 +196,7 @@
 .rot-pool-cell.is-short { background: color-mix(in srgb, var(--warning) 10%, transparent); }
 .rot-pool-cell--extra { min-width: 0; }
 .rot-pool-hole { color: var(--text-muted); }
-.rot-pool-miss { display: block; margin-top: 2px; font-size: 10px; color: var(--amber-text, #b45309); }
+.rot-pool-miss { display: block; margin-top: 2px; font-size: 11px; color: var(--amber-text, #b45309); }
 
 .rot-pool-chip {
     display: inline-block;
@@ -226,7 +226,7 @@
     display: inline-block;
     margin-right: var(--sp-2);
     padding: 0 6px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     color: var(--purple-text, #6b21a8);
     background: color-mix(in srgb, var(--type-support, #8b5cf6) 14%, transparent);
@@ -311,7 +311,7 @@
     margin-bottom: 1px;
 }
 .rot-pool-table--postes tr.is-team-start > * { border-top: 2px solid var(--border-hover); }
-.rot-pool-slot-th { font-size: 10px; font-weight: var(--fw-medium); color: var(--text-muted); }
+.rot-pool-slot-th { font-size: 11px; font-weight: var(--fw-medium); color: var(--text-muted); }
 .rot-pool-slot { min-width: 34px; color: var(--border-hover); }
 .rot-pool-slot.is-on { color: var(--primary); font-size: 14px; line-height: 1; }
 .rot-pool-slot.is-short { color: var(--amber-text, #b45309); background: color-mix(in srgb, var(--warning) 12%, transparent); }
@@ -320,14 +320,14 @@
 /* Jamais tiré sur tout le PI : à remarquer, pas à cacher. */
 .rot-pool-table--postes tr.is-idle .rot-pool-person-name { color: var(--text-muted); }
 .rot-pool-table--postes tr.is-outsider { opacity: .85; }
-.rot-pool-cover td, .rot-pool-cover th { background: var(--bg); font-size: 10px; }
+.rot-pool-cover td, .rot-pool-cover th { background: var(--bg); font-size: 11px; }
 
 /* ── Equite de la charge sur un poste ────────────────────────────────────────
    Un ecart de 1 est inevitable (les creneaux ne tombent pas juste sur l'effectif) : le
    badge reste neutre. Au-dela il informe sans crier — un 0 s'explique souvent par des
    conges, pas par un tirage injuste. */
 .rot-pool-equity {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     padding: 1px 8px;
     border-radius: var(--r-full);

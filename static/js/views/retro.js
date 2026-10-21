@@ -269,7 +269,7 @@ function _retroCard(item) {
             <div class="ticket-card-bottom">
                 <span class="text-xs text-muted">${esc(item.owner || '-')}</span>
                 <span class="text-xs text-muted">${esc(item.team || '-')}</span>
-                <button class="btn-icon retro-del" data-id="${esc(item.id)}"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
+                <button class="btn-icon retro-del" data-id="${esc(item.id)}" aria-label="Supprimer cette carte"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
             </div>
         </div>
     `;

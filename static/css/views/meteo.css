@@ -79,11 +79,14 @@
 }
 .meteo-glyph { display: block; font-size: var(--fs-xl); }
 .meteo-val { display: block; font-size: var(--fs-base); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; color: var(--text); }
-.meteo-sub { display: block; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.meteo-sub { display: block; font-size: 11px; color: var(--text-muted); white-space: nowrap; }
 
 /* Texte réservé aux lecteurs d'écran (le glyphe seul n'a pas de sens vocalisé). */
 .meteo-sr {
     position: absolute;
+    /* Ancré en haut : sans parent positionné, sa position « naturelle » (en bas du tableau d'effectif) rallongeait
+       le DOCUMENT jusqu'à 1 312 px pour 900 — un scrollIntoView faisait alors glisser toute l'application. */
+    top: 0; left: 0;
     width: 1px; height: 1px;
     padding: 0; margin: -1px;
     overflow: hidden;
@@ -115,7 +118,9 @@
     grid-template-areas: "glyph lbl" "glyph val";
     column-gap: var(--sp-2);
     align-items: center;
-    min-width: 132px;
+    /* 118 et non 132 : en 1440 px, « Attention » + 6 pastilles demandaient 957 px pour 912 → « Périmètre » seule
+       sur une 2ᵉ ligne. Mesuré : aucun contenu de pastille ne déborde à 118 px (3.236.0). */
+    min-width: 118px;
     min-height: 48px;
     padding: var(--sp-1) var(--sp-3);
     border-radius: var(--r-lg);
@@ -204,8 +209,8 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 .meteo-trend-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: var(--sp-1) 0; border-radius: var(--r-md); font-variant-numeric: tabular-nums; }
 .meteo-trend-cell.is-active { background: color-mix(in srgb, var(--primary) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent); }
 .meteo-trend-cell b { font-size: var(--fs-base); }
-.meteo-trend-cell i { font-size: 10px; font-style: normal; color: var(--text-secondary); }
-.meteo-trend-cell small { font-size: 10px; color: var(--text-muted); }
+.meteo-trend-cell i { font-size: 11px; font-style: normal; color: var(--text-secondary); }
+.meteo-trend-cell small { font-size: 11px; color: var(--text-muted); }
 .meteo-trend-cell .is-good { color: var(--success-text); }
 .meteo-trend-cell .is-ok { color: var(--amber-text); }
 .meteo-trend-cell .is-bad { color: var(--status-blocked-text); }
@@ -231,7 +236,7 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 .meteo-roster-pts {
     margin-left: auto; padding: 0 6px; border-radius: 999px; align-self: center;
     background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--primary);
-    font-size: 10.5px; font-weight: var(--fw-semibold); line-height: 16px;
+    font-size: 11px; font-weight: var(--fw-semibold); line-height: 16px;
 }
 .meteo-roster-table tfoot td { border-top: 1px solid var(--border); border-bottom: 0; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-secondary); padding-top: var(--sp-2); }
 .meteo-roster-table tfoot td:first-child { display: table-cell; }
@@ -241,7 +246,7 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 .meteo-roster-nav { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); padding: 0 var(--sp-4) var(--sp-2); }
 .meteo-roster-it { display: inline-flex; align-items: baseline; gap: var(--sp-1); min-width: 9em; justify-content: center; font-variant-numeric: tabular-nums; }
 .meteo-roster-it small { font-size: var(--fs-xs); color: var(--text-muted); }
-.meteo-roster-tag { font-style: normal; font-size: 10px; padding: 0 var(--sp-1); border-radius: var(--r-sm, 4px); background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+.meteo-roster-tag { font-style: normal; font-size: 11px; padding: 0 var(--sp-1); border-radius: var(--r-sm, 4px); background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
 
 /* Bande de présence de l'itération (meteo_fiche.js) : cases de LARGEUR FIXE, posées AVANT le texte
    de la prochaine absence — les bandes s'alignent d'un membre à l'autre. */
@@ -294,7 +299,7 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
     text-align: center;
 }
 .meteo-fc-col header { display: flex; flex-direction: column; align-items: center; }
-.meteo-fc-col header small { font-size: 10px; font-weight: var(--fw-semibold); letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.meteo-fc-col header small { font-size: 11px; font-weight: var(--fw-semibold); letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
 .meteo-fc-col header b { font-size: var(--fs-lg); font-weight: var(--fw-bold); }
 .meteo-fc-col .meteo-glyph { font-size: var(--fs-3xl); }
 .meteo-fc-val { font-size: var(--fs-xl); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
@@ -390,7 +395,7 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 /* ── Aide « ? » : la formule et la source de chaque domaine ── */
 .meteo-help-table { width: 100%; margin-top: var(--sp-2); border-collapse: collapse; font-size: var(--fs-xs); }
 .meteo-help-table th, .meteo-help-table td { padding: 4px var(--sp-2); text-align: left; vertical-align: top; border-top: 1px solid var(--border); }
-.meteo-help-table thead th { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border-top: 0; }
+.meteo-help-table thead th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border-top: 0; }
 .meteo-help-table tbody th { white-space: nowrap; font-weight: var(--fw-semibold); }
 .meteo-help-table tbody th small { display: block; font-weight: var(--fw-normal); color: var(--text-muted); }
 .meteo-help-table td { color: var(--text-secondary); }
@@ -440,5 +445,5 @@ a.meteo-pill:focus-visible { outline: 2px solid var(--border-focus); outline-off
 
 /* 📐 Périmètre : domaine INDICATIF (hors du niveau de l'équipe) — en-tête marqué, colonne
    légèrement atténuée pour ne pas se lire comme les domaines qui décident de la couleur. */
-.meteo-th-ind { display: block; font-size: 10px; font-weight: var(--fw-normal); color: var(--text-muted); text-transform: none; letter-spacing: 0; }
+.meteo-th-ind { display: block; font-size: 11px; font-weight: var(--fw-normal); color: var(--text-muted); text-transform: none; letter-spacing: 0; }
 .meteo-cell[data-meteo-dom="scope"] { opacity: .85; }

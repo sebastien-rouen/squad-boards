@@ -99,7 +99,7 @@ export function statusOverrideHtml() {
     _work = overrideRules();
     _note = '';
     const custom = isCustomOverride();
-    const defaults = STATUS_OVERRIDE_TARGETS.map(t => `${t.label} : ${STATUS_OVERRIDE_DEFAULTS[t.key].statuses.length} statut(s)`).join(' · ');
+    const defaults = STATUS_OVERRIDE_TARGETS.map(t => `${t.label} : ${STATUS_OVERRIDE_DEFAULTS[t.key].statuses.length} ${STATUS_OVERRIDE_DEFAULTS[t.key].statuses.length > 1 ? 'statuts' : 'statut'}`).join(' · ');
     return `
         <div class="sync-cfg-block mt-4 dov" id="dov">
             <div class="sync-cfg-title">🎯 Statuts forcés dans une colonne <span class="dov-badge${custom ? ' is-custom' : ''}">${custom ? 'Réglage enregistré' : 'Valeurs par défaut'}</span></div>

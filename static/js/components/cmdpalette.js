@@ -4,7 +4,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, toast, getSprintForTeam } from '../utils.js';
+import { esc, toast, getSprintForTeam, recentTicketIds } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS, NAV_ITEMS } from '../config.js';
 import { SECTIONS, getSection, gotoSection, sectionsOfView, sectionLink } from './cmd_sections.js';
 
@@ -127,6 +127,7 @@ const _VIEW_META = {
     atlas:     { icon: '🧭', keywords: 'atlas compétences skills appétences mobilité staffing' },
     agenda:    { icon: '📆', keywords: 'agenda semaine absences congés calendrier' },
     settings:  { icon: '⚙️', keywords: 'paramètres settings configuration admin' },
+    refinement: { icon: '🃏', keywords: 'affinage refinement poker estimation cadrage' },
 };
 const VIEWS = NAV_ITEMS.map(n => ({
     id: n.id, label: n.label,
@@ -339,6 +340,20 @@ function _renderEmpty() {
             </div>`
         ).join('');
     }
+    // Tickets récemment ouverts (3.237.0) — on revient souvent au ticket qu'on vient de quitter.
+    const _all = [...(store.get('tickets') || []), ...(store.get('epics') || []), ...(store.get('features') || [])];
+    const _recent = recentTicketIds().map(id => _all.find(t => t.id === id)).filter(Boolean).slice(0, 5);
+    if (_recent.length) {
+        html += `<div class="cmd-group-label">🎫 Tickets récents</div>`;
+        html += _recent.map(t =>
+            `<div class="cmd-item" data-group="ticket" data-id="${esc(t.id)}" tabindex="-1">
+                <span class="cmd-item-icon">🎫</span>
+                <span class="cmd-item-title"><code class="cmd-recent-id">${esc(t.id)}</code> ${esc(t.title || '')}</span>
+            </div>`).join('');
+    }
+    // Vues en pastilles (3.237.0) — au doigt, le menu ☰ est replié : la palette sert de navigation.
+    html += `<div class="cmd-group-label">🧭 Aller à</div><div class="cmd-views">${VIEWS.map(v =>
+        `<button type="button" class="cmd-item cmd-view-chip" data-group="view" data-id="${esc(v.id)}" tabindex="-1"><span aria-hidden="true">${v.icon}</span> ${esc(v.label)}</button>`).join('')}</div>`;
     // Blocs de la page en cours — l'usage le plus courant est de sauter dans la vue
     // qu'on a déjà sous les yeux ; les autres vues restent accessibles à la frappe.
     const _curSections = sectionsOfView(store.get('view')).slice(0, EMPTY_SECTIONS);

@@ -175,11 +175,11 @@ function lanes(st, c, target) {
     // MEP ou incidents vus à l'échelle du train : pas de lien MEP → incident (équipes différentes)
     const follow = mepFollowUps(c, st.scope === 'train' || c.trainLanes?.has('production') || c.trainLanes?.has('livraison') ? 'train' : 'team');
     const clashOf = days => [...new Set(days)].flatMap(d => (prodOps.get(d) || []).map(title => ({ day: d, title })));
-    const clashTip = cl => cl.length ? ` · ⚠️ ${cl.length} opération(s) en production le même jour` : '';
+    const clashTip = cl => cl.length ? ` · ⚠️ ${cl.length} ${cl.length > 1 ? 'opérations' : 'opération'} en production le même jour` : '';
     if (on('production')) {
         const dots = cluster(c.incidents, A, B, 1.8).map(g => { const items = g.items.flatMap(x => x.items), n = items.length, clash = clashOf(items.map(i => i.day));
             const afterMep = items.filter(i => follow.byIncident.has(i.id)).map(i => ({ ...i, mep: follow.byIncident.get(i.id) }));
-            return `<button class="tll-inc${clash.length ? ' is-clash' : ''}" style="left:${g.x}%;--n:${Math.min(n, 8)}" ${target({ kind: 'incidents', cat: 'production', items, clash, afterMep, title: `${n} incident${n > 1 ? 's' : ''} de production`, when: when(g) })} title="${esc(`${n} incident(s) — ${when(g)}${clashTip(clash)}`)}">${n > 1 ? n : ''}</button>`; }).join('');
+            return `<button class="tll-inc${clash.length ? ' is-clash' : ''}" style="left:${g.x}%;--n:${Math.min(n, 8)}" ${target({ kind: 'incidents', cat: 'production', items, clash, afterMep, title: `${n} incident${n > 1 ? 's' : ''} de production`, when: when(g) })} title="${esc(`${n} ${n > 1 ? 'incidents' : 'incident'} — ${when(g)}${clashTip(clash)}`)}" aria-label="${esc(`${n} ${n > 1 ? 'incidents' : 'incident'} de production — ${when(g)}`)}">${n > 1 ? n : ''}</button>`; }).join('');
         const fx = c.facts.filter(f => f.type === 'incident').map(f => fact(target, f, A, B)).join('');
         out.push(lane(st, 'production', dots + fx || empty('Aucun incident de production sur la période')));
     }
@@ -188,7 +188,7 @@ function lanes(st, c, target) {
             // Un incident suivant plusieurs MEP du groupe : rattaché à la PLUS PROCHE (J+0 plutôt que J+1)
             const followed = [...g.items.flatMap(r => (follow.byRelease.get(r.day) || []).map(i => ({ ...i, mep: r.day })))
                 .reduce((m, i) => (!m.has(i.id) || i.mep > m.get(i.id).mep ? m.set(i.id, i) : m), new Map()).values()];
-            return `<button class="tll-rel${clash.length ? ' is-clash' : ''}${followed.length ? ' is-followed' : ''}" style="left:${g.x}%" ${target({ kind: 'releases', cat: 'livraison', items, clash, followed, title: `Mises en production — ${items.length} créneau${items.length > 1 ? 'x' : ''}`, when: when(g) })} title="${esc(`${items.length} MEP · ${when(g)}${clashTip(clash)}${followed.length ? ` · 🚨 ${followed.length} incident(s) dans les 48 h` : ''}`)}">◆${items.length > 1 ? `<small>${items.length}</small>` : ''}</button>`; }).join('');
+            return `<button class="tll-rel${clash.length ? ' is-clash' : ''}${followed.length ? ' is-followed' : ''}" style="left:${g.x}%" ${target({ kind: 'releases', cat: 'livraison', items, clash, followed, title: `Mises en production — ${items.length} créneau${items.length > 1 ? 'x' : ''}`, when: when(g) })} title="${esc(`${items.length} MEP · ${when(g)}${clashTip(clash)}${followed.length ? ` · 🚨 ${followed.length} ${followed.length > 1 ? 'incidents' : 'incident'} dans les 48 h` : ''}`)}">◆${items.length > 1 ? `<small>${items.length}</small>` : ''}</button>`; }).join('');
         out.push(lane(st, 'livraison', dia || icsEmpty(c, B, 'Aucune MEP sur la période')));
     }
     if (on('operations')) {
@@ -208,7 +208,7 @@ function lanes(st, c, target) {
                 const n = items.length, prod = items.filter(o => o.prod).length;
                 if (oneRow) row = 0.5;
                 const when = `semaine du ${fmt(w)}`;
-                return `<button class="tll-ops${prod ? ' is-prod' : ''}" style="left:${x}%;--row:${row}" ${target({ kind: 'ops', cat: 'operations', items, title: `${n} ${n > 1 ? 'opérations' : 'opération'}${prod ? ` dont ${prod} en production` : ''}`, when: `Semaine du ${fmtY(w)}` })} title="${esc(`${n} opération(s)${prod ? `, ${prod} en production` : ''} — ${when}`)}">${n > 1 ? n : '⚙'}</button>`;
+                return `<button class="tll-ops${prod ? ' is-prod' : ''}" style="left:${x}%;--row:${row}" ${target({ kind: 'ops', cat: 'operations', items, title: `${n} ${n > 1 ? 'opérations' : 'opération'}${prod ? ` dont ${prod} en production` : ''}`, when: `Semaine du ${fmtY(w)}` })} title="${esc(`${n} ${n > 1 ? 'opérations' : 'opération'}${prod ? `, ${prod} en production` : ''} — ${when}`)}">${n > 1 ? n : '⚙'}</button>`;
             }).join('');
         out.push(lane(st, 'operations', ops || icsEmpty(c, B, st.sources?.has('ops') === false ? 'Source « Opérations » masquée (Sources d’agenda)' : 'Aucune opération planifiée sur la période')));
     }
@@ -225,7 +225,7 @@ function lanes(st, c, target) {
             const n = k => g.items.filter(m => k.includes(m.kind)).length;
             const [i, o, v] = [n(['in']), n(['out']), n(['move-in', 'move-out'])];
             return `<button class="tll-mgroup" style="left:${g.x}%;--row:${g.row}" ${target({ kind: 'moves', cat: 'equipe', moves: g.items, title: `${g.items.length} mouvement${g.items.length > 1 ? 's' : ''}`, when: when(g) })}
-                title="${esc(`${when(g)} : ${i} arrivée(s), ${o} départ(s), ${v} mobilité(s)`)}">${i ? `<b class="is-in">▲ ${i}</b>` : ''}${o ? `<b class="is-out">▼ ${o}</b>` : ''}${v ? `<b class="is-move">⇄ ${v}</b>` : ''}</button>`;
+                title="${esc(`${when(g)} : ${i} ${i > 1 ? 'arrivées' : 'arrivée'}, ${o} ${o > 1 ? 'départs' : 'départ'}, ${v} ${v > 1 ? 'mobilités' : 'mobilité'}`)}">${i ? `<b class="is-in">▲ ${i}</b>` : ''}${o ? `<b class="is-out">▼ ${o}</b>` : ''}${v ? `<b class="is-move">⇄ ${v}</b>` : ''}</button>`;
         }).join('');
         out.push(lane(st, 'equipe', mk, 'tll-lane--tall'));
     } else if (on('equipe')) {
@@ -258,7 +258,7 @@ function lanes(st, c, target) {
             // Point rouge : au moins une tâche du suivi traîne depuis 3 semaines ou plus
             const stale = w.tasks.filter(k => k.streak >= STALE_WEEKS);
             return `<button class="tll-sup${stale.length ? ' is-stale' : ''}" style="${span(A, B, w.week, addDays(w.week, 5))};--h:${Math.round(n / max * 100)}" ${target({ kind: 'support', cat: 'charge', week: w, title: `Support — ${n} élément${n > 1 ? 's' : ''}`, when: `Semaine du ${fmtY(w.week)}` })}
-                title="${esc(`Semaine du ${fmtY(w.week)} : ${w.tickets.length - brd} demande(s) Support, ${brd} check-list(s) on/offboarding, ${w.tasks.length} tâche(s) du suivi${w.tasks.some(k => k.streak > 1) ? ` dont ${w.tasks.filter(k => k.streak > 1).length} reportée(s)` : ''}${stale.length ? ` — ⚠️ ${stale.length} depuis ${STALE_WEEKS} semaines ou plus` : ''}`)}"><small>${stale.length ? '<i class="tll-sup-dot" aria-hidden="true"></i>' : ''}${n}</small><span class="tll-sup-bar"><i class="tll-sup-tasks" style="flex:${w.tasks.length}"></i><b class="tll-sup-brd" style="flex:${brd}"></b><b class="tll-sup-tix" style="flex:${w.tickets.length - brd}"></b></span></button>`;
+                title="${esc(`Semaine du ${fmtY(w.week)} : ${w.tickets.length - brd} ${w.tickets.length - brd > 1 ? 'demandes' : 'demande'} Support, ${brd} check-${brd > 1 ? 'lists' : 'list'} on/offboarding, ${w.tasks.length} ${w.tasks.length > 1 ? 'tâches' : 'tâche'} du suivi${w.tasks.some(k => k.streak > 1) ? ` dont ${w.tasks.filter(k => k.streak > 1).length} ${w.tasks.filter(k => k.streak > 1).length > 1 ? 'reportées' : 'reportée'}` : ''}${stale.length ? ` — ⚠️ ${stale.length} depuis ${STALE_WEEKS} semaines ou plus` : ''}`)}"><small>${stale.length ? '<i class="tll-sup-dot" aria-hidden="true"></i>' : ''}${n}</small><span class="tll-sup-bar"><i class="tll-sup-tasks" style="flex:${w.tasks.length}"></i><b class="tll-sup-brd" style="flex:${brd}"></b><b class="tll-sup-tix" style="flex:${w.tickets.length - brd}"></b></span></button>`;
         }).join('');
         out.push(lane(st, 'charge', bars || empty('Aucun ticket Support sur la période')));
     }

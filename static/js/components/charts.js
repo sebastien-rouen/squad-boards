@@ -740,6 +740,7 @@ function _ctSubtitle({ shown, base, sortBy, opts, avgCT, p50ct, p85ct, waitShare
 export function renderCycleTime(canvasId, tickets, opts = {}) {
     _register(canvasId, 'cycletime', 'Cycle Time & Lead Time', renderCycleTime, [tickets, opts]);
     const c = ctx(canvasId); if (!c || !window.Chart) return; kill(canvasId);
+    c.canvas.parentElement?.classList.remove('chart-rows', 'chart-rows-zoom');   // hauteur par lignes : barres / frise seulement (le nuage la retire)
     _clearEmptyOverlay(c.canvas);
 
     const zoomed = _isZoom(canvasId);
@@ -823,7 +824,9 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
     // Clé + titre (tronqué proprement) — le ticket se reconnaît sans survol. Compact : titre plus court,
     // la carte du Dashboard est étroite ; agrandi : icône du type en plus et titre plus long.
     const labels  = done.map(t => {
-        const ti = String(t.title || '').trim(), max = zoomed ? 42 : 28;
+        // Compact : 16 car. — à 28, « GCOM-4335 · Gestion démarches : Passage… » était coupé à GAUCHE dans la carte
+        // demi-largeur du Dashboard (la clé disparaissait). Titre entier au survol et en zoom.
+        const ti = String(t.title || '').trim(), max = zoomed ? 42 : 16;
         const short = ti.length > max ? `${ti.slice(0, max - 1).trim()}…` : ti;
         return `${zoomed ? `${TYPE_ICONS[t.type] || '•'} ` : ''}${t.id}${short ? ` · ${short}` : ''}`;
     });
@@ -905,6 +908,10 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
         })),
     });
 
+    // Hauteur = nombre de lignes (3.237.0) : 15 tickets dans 220 px donnaient ~9 px par ligne, libellés chevauchés.
+    // Variable CSS + classe (base-utilities.css `.chart-rows`) — retirées au rendu suivant d'un autre mode.
+    _fitRows(c, done.length, zoomed);
+
     _charts.set(canvasId, new Chart(c, {
         type: 'bar',
         plugins: [refLinesPlugin, valuesPlugin],
@@ -958,7 +965,7 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
                 y: {
                     stacked: true,
                     // Tous les tickets nommés (jamais sautés), police selon le nombre de lignes.
-                    ticks: { autoSkip: false, color: muted, font: { size: _rowFontSize(done.length, zoomed ? 12 : 9) } },
+                    ticks: { autoSkip: false, color: muted, font: { size: zoomed ? 12 : _rowFontSize(done.length, 11) } },
                     grid: { color: border },
                 },
             },
@@ -1107,10 +1114,24 @@ function _timelinePlugin({ xMin, xMax, marks = [], today = false, afterRows }) {
  * surestimée) — 7 tickets tracés pour 5 titres affichés. La police rétrécit avec le nombre de lignes.
  */
 const _rowFontSize = (n, base = 12) => (n > 30 ? 9 : n > 22 ? 10 : n > 15 ? 11 : base);
-const _rowsAxis = (n, { color, base = 12 } = {}) => ({
-    ticks: { autoSkip: false, ...(color ? { color } : {}), font: { size: _rowFontSize(n, base) } },
+const _rowsAxis = (n, { color, base = 12, fixed = false } = {}) => ({
+    // `fixed` : la hauteur suit déjà le nombre de lignes (`_fitRows`) — inutile de rétrécir la police.
+    ticks: { autoSkip: false, ...(color ? { color } : {}), font: { size: fixed ? base : _rowFontSize(n, base) } },
     grid: { display: false },
 });
+
+/**
+ * Hauteur du graphique = nombre de lignes (3.237.0 compact, 3.239.0 agrandi). Compact : `.chart-rows` (18 px / ligne,
+ * base-utilities.css) ; agrandi : `.chart-rows-zoom` (24 px / ligne, chart-zoom.css — la popin défile). Sans ça,
+ * 31 tickets tenaient dans 504 px : < 10 px par ligne, libellés, durées et noms empilés.
+ */
+function _fitRows(c, n, zoomed) {
+    const box = c?.canvas?.parentElement;
+    if (!box) return;
+    box.classList.toggle('chart-rows', !zoomed);
+    box.classList.toggle('chart-rows-zoom', !!zoomed);
+    box.style.setProperty('--rows', n);
+}
 
 /** Libellé de ligne : (⚠ / 🚫) icône du type, clé, titre tronqué proprement. */
 const _rowLabel = (t, warn = false) => {
@@ -1235,6 +1256,7 @@ function _renderCycleTimeline(canvasId, c, base, p) {
         })),
     });
 
+    _fitRows(c, rows.length, true);   // frise = agrandi seulement
     _charts.set(canvasId, new Chart(c, {
         type: 'bar',
         plugins: [_timelinePlugin({ xMin, xMax, marks, afterRows })],
@@ -1257,7 +1279,7 @@ function _renderCycleTimeline(canvasId, c, base, p) {
             onHover(event, elements) { event.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
             scales: {
                 x: _dateAxis(c, xMin, xMax, { muted, border }),
-                y: _rowsAxis(rows.length, { color: css('--text') || '#0f172a' }),
+                y: _rowsAxis(rows.length, { color: css('--text') || '#0f172a', fixed: true }),
             },
             plugins: {
                 ...baseOpts().plugins,
@@ -1355,6 +1377,7 @@ function _renderWipTimeline(canvasId, c, wip, p) {
         })),
     });
 
+    _fitRows(c, rows.length, true);   // frise = agrandi seulement
     _charts.set(canvasId, new Chart(c, {
         type: 'bar',
         plugins: [_timelinePlugin({ xMin, xMax, marks, today: true, afterRows })],
@@ -1378,7 +1401,7 @@ function _renderWipTimeline(canvasId, c, wip, p) {
             onHover(event, elements) { event.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
             scales: {
                 x: _dateAxis(c, xMin, xMax, { muted, border, reserved: 530 }),
-                y: _rowsAxis(rows.length, { color: css('--text') || '#0f172a' }),
+                y: _rowsAxis(rows.length, { color: css('--text') || '#0f172a', fixed: true }),
             },
             plugins: {
                 ...baseOpts().plugins,

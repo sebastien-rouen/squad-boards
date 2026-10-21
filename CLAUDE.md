@@ -359,6 +359,30 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `--stg-tabs-h` est mesurée (`_publishTabsHeight` + `ResizeObserver`, la nav wrappe selon la
   largeur) et posée sur `container`, qui **est** `#content` (`renderer(content)` dans app.js) :
   sur un descendant, le scrollport n'en hériterait pas.
+- **Écran d'attente** (3.231.0) : UNIQUEMENT `boardLoaderHtml({ mode: 'load'|'sync'|'full' })`
+  ([board_loader.js](static/js/components/board_loader.js), CSS `css/board-loader.css` lié après les base-*) via
+  `_showLoader` (app.js) — plus de skeleton. Animation 100 % CSS : n'y ajouter aucun timer JS (rien ne le libérerait).
+- **Marge du contenu = `--content-pad`** (3.236.0, posée sur `.content` à chaque palier) : toute barre collée aux bords
+  retranche `calc(-1 * var(--content-pad))`, JAMAIS `--sp-6` en dur (débordait sur mobile). `.content` est en
+  `overflow-x: hidden` : un contenu large doit avoir SON conteneur qui défile.
+- **Défilement programmé** (3.236.0 / 3.237.0) : UNIQUEMENT `scrollToEl(el, { block })` / `scrollWithin(container, el)`
+  ([utils/scroll.js](static/js/utils/scroll.js), via le barrel) — jamais `scrollIntoView` (sauf `block: 'nearest'`), qui
+  fait aussi défiler le document : si la page dépasse d'un pixel (élément `absolute` sans ancêtre positionné, cf.
+  `.meteo-sr`), toute l'application glisse et la barre du haut disparaît.
+- **Kanban borné** (3.237.0) : « Terminé » = clos depuis `DONE_DAYS` (14) jours, colonnes à `COL_PREVIEW` (40) cartes —
+  affichage seulement, les compteurs restent les vrais totaux. Sections repliables : `bindCollapsibles` (collapsible.js),
+  le corps reçoit `.coll-body` (sinon `[hidden]` est écrasé par un `display: grid/flex`).
+- **Préfixes de classes** : vérifier qu'un préfixe est LIBRE avant de l'utiliser (`bl-` = Backlog ; l'écran
+  d'attente a dû passer en `ldr-`). Cibles tactiles : liste dans base-utilities.css (`pointer: coarse`) — une classe
+  ajoutée ne doit pas déjà utiliser `::after` ni `position: absolute`.
+- **Graphiques par ticket** (3.239.0) : hauteur = nombre de lignes via `_fitRows(c, n, zoomed)` (charts.js) — compact
+  `.chart-rows` (18 px), agrandi `.chart-rows-zoom` (24 px, la popin défile). Tout nouveau graphique « une ligne par
+  ticket » doit l'appeler ; `chart_zoom._renderCurrent` retire ces classes entre deux graphiques.
+- **Cartes Dashboard** : « bloqués / stagnants » = `stuckCardHtml` (stuck_card.js, lignes `.stuck-row` + `data-ticket`
+  gardées pour le clic) ; prévision = forecast_card.js (`monteCarloForecast`, `deliverableBy`). Styles :
+  css/views/dashboard-cards.css (après dashboard.css).
+- **Sommaire de page** : `mountPageToc(container, entries)` (page_toc.js) — rappeler après CHAQUE rendu ; entrées du
+  Dashboard = `_DASH_TOC` (dashboard.js), sélecteurs des blocs racines.
 - **Navigation** : `NAV_ITEMS` ([config.js](static/js/config.js)) = source unique (sidebar, Ctrl+K, titres).
   Sections : `main` (Pilotage, raccourcis 1-8), `team` (repliable), `footer` (Paramètres, raccourci `,`).
 - **Blocs de la palette Ctrl+K** (3.142.0) : catalogue unique
@@ -638,6 +662,35 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Page Affinage : 📝 = description vide (tous types), ⚠️ = STORY sans critère d'acceptation repéré
   (`acceptanceStatus`, même repérage que le volet ; une tâche sans critère est normale) + filtre « à compléter ».
   « 📋 Copier pour Slack » = `toCompleteSlack` (refinement_recap.js) : regroupé par RAPPORTEUR, sprint en cours signalé.
+  Fil « Par où commencer ? » (3.231.0) = `components/refinement_steps.js`, relit les chiffres de `_html` (jamais de
+  recalcul) ; clic → `_goStep` (état de la section puis défilement).
+  Mise en page (3.240.0) : fil COLLANT (hauteur mesurée → `--rf-sticky` sur `.rf`, décalage de `_goStep` et des
+  collants dessous : colonne séance, en-tête du cadrage déplié — d'où `.rf-cad { overflow: clip }`, jamais `hidden`).
+  Lignes cliquables = `data-rf-row` (+ `tabindex`), traitées EN DERNIER dans `container.onclick` après tous les
+  boutons. Cadrage : `_st.cadOpen` null = automatique (déplié et remonté seulement si la file est vide).
+  Poker « table de jeu » = css/views/poker-table.css (variables de thème redéfinies sur `.poker-modal`) — un effet
+  ponctuel passe par `.poker-reveal-in`, jamais par une classe de phase (re-rendu toutes les 3 s).
+  File par sprint (3.241.0) : ordre de proximité = UNIQUEMENT `sprintProximity` (estimation-queue.js), appliqué
+  DANS `estimationQueue` (option `teamSprints`, passée par l'Affinage ET `_nextToEstimate`) — ne pas retrier ailleurs.
+  Jeton du Poker = `flyPokerChip` (poker_chip_fly.js, clone sur body). Guide « Prêt à estimer ? » de la fiche =
+  `mountReadyGuide(bodyEl(), ticket)` (ticket_ready.js), appelé à CHAQUE rendu d'`openTicketModal` ; la description
+  s'édite EN PLACE (pas de re-rendu) → le guide se réévalue sur `store.on('tickets')`. Un nouveau point de contrôle
+  s'ajoute à `_CHECKS` (sélecteur du champ + action qui ouvre son éditeur).
+  Badge ✨ de la file = `readyChecks(t, acc)` (même calcul que la bande, estimation exclue) ; `armReadyGuide(id)` avant
+  `openTicketModal` = guide lancé d'office (étape « Compléter » ou clic sur le badge). Tuiles `.mdl-props` et cartes
+  `.mdl-people` (3.242.0) : css/views/modal-tiles.css (couleur `--tile` / `--role`, sélecteurs à 3 classes pour
+  gagner sur les bordures de grille de modal-detail.css) ; cellules Personnes repérées par `data-role`.
+  « À compléter » de l'Affinage (compteur, filtre, étape, copie Slack, tri « moins prêts », badge) = UNIQUEMENT
+  `_readyOf(t)` (refinement.js) — ne plus tester `_acceptance` seul pour ça (3.243.0). Préférences de la file :
+  `sb-refinement-sort` (rank | ready), `sb-refinement-density` (compact) ; survol du badge = calque `.rf-pop`.
+  Groupes repliables (3.244.0) : `_groupOpen(g, near)` — choix par équipe `sb-refinement-groups` (clé = NOM du sprint,
+  pas `s0…`, qui bouge), défaut : clos + backlog repliés s'il existe un sprint en cours / à venir.
+  Volet 🧭 Cadrage (3.230.0) = UNIQUEMENT `cadrageModel` (utils/cadrage.js), rendu `components/refinement_cadrage.js` :
+  cible `Cadrage_PI<PI de l'équipe + 1>` + `Cadrage_PI<PI en cours>` encore ouverts ; ⚠️ PAS de filtre `t.team` (les
+  cadrages vivent chez « ERPC - Team Transverse ») mais SA- / PO- / PM-<périmètre> + contributeur (membre du roster
+  via `findPerson`, étiquette métier, ou équipe). Périmètre = `CADRAGE_PERIMETERS` (config.js) > ligne produit.
+  Contributeurs JIRA : champ détecté par `detectContributorsField` (sync-parse.js), à ajouter à toute NOUVELLE
+  liste `fields` d'une passe tickets via `contributorsFieldParam()` (sinon `[]` silencieux).
   Récap de séance à partager = `components/refinement_recap.js` : UN modèle (`refinementRecapModel`) → Slack
   (mrkdwn), Teams / mail (HTML à styles EN LIGNE, `text/html` + `text/plain`), CSV — ne pas dupliquer un chiffre.
   ⚠️ Front servi frais (`NoCacheStaticFiles`) mais routes Python figées au lancement : un serveur sans `--reload`
@@ -701,6 +754,14 @@ python main.py          # http://localhost:3001  — Swagger /docs
   (`rollDays` → `data-dens`), et en dernier recours la réduction d'une carte trop haute (`_fitItems`).
 - **Effectif d'une équipe** (3.199.2) : `teamCapacity(…, at, rosterCtx(piInfo, sprintInfo))` = roster du
   PI courant ; sans ce 5ᵉ argument, l'historique des congés (partis compris : Fuego 21 au lieu de 14).
+- **TV, effet télé d'époque** (3.232.0) : calque `#tv-crt` (tv.js) + `css/views/tv-retro.css`, réglage `retroEnabled()`
+  (tv-settings.js, `sb-tv-retro` : '0' / 'medium' / absent = léger ; `retroLevel()` → `data-level` ; URL `retro:leger|moyen|non`).
+  Changement de chaîne = classe `is-zap` sur `#tv-screen`, posée par `show()` SEULEMENT si l'écran change (`_st.lastScreen`).
+  TV « La semaine » : ligne d'évènement = grille icône · `<time>` · texte (tv-week.css) — garder `<time>` HORS du span texte.
+  Créneaux alignés (3.234.0) : `li.tvw-slot[data-slot=HH]` par tranche d'une heure, hauteurs égalisées par `alignSlots`
+  (en-têtes compris) À CHAQUE palier de `fit()` ; ⚠️ zoom de dernier recours IDENTIQUE pour toutes les journées tant
+  qu'aligné (≥ `ALIGN_MIN_ZOOM`), sinon `data-align="0"` (listes compactes, zoom par journée). z-index 6 : au-dessus des écrans, SOUS `.tv-detail` (7). ⚠️ Rester
+  DISCRET et sans scintillement rapide (rien sous la seconde) : c'est un écran mural regardé toute la journée.
 - **TV, thème et nuit** (3.196.0) : thème de l'écran (⚙, sombre par défaut) posé sur `<html>` le
   temps de la TV et RESTAURÉ dans `_cleanup` ; la nuit pose `data-theme="dark"` sur `#tv-root` +
   palette `.tv.is-night` (plus aucun `filter`). Série « zéro blocker » : `sb-tv-blocker-seen`

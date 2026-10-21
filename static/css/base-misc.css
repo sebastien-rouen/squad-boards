@@ -21,15 +21,32 @@
     .topbar-center .search-trigger__kbd { display: none; }
     .topbar-center .search-trigger { max-width: max-content; flex: 0 0 auto; padding: var(--sp-1) var(--sp-2); }
     #board-mode-host, #pi-selector-host { display: none; }
-    .content { padding: var(--sp-4); }
+    .content { --content-pad: var(--sp-4); }
     .btn-label { display: none; }
     /* Kebab + Favoris/Mes tickets : déjà gérés en base (visibles à toutes les tailles) */
 }
 
+/* Entrées du menu ⋮ qui doublent un bouton de la barre : visibles seulement quand ce bouton est masqué (≤ 640 px). */
+@media (min-width: 641px) { #more-tv, #more-week { display: none; } }
+
 @media (max-width: 640px) {
     .topbar-right { gap: var(--sp-2); }
+    /* Barre du haut tenue dans 390 px (3.236.0) : elle en mesurait 578 — synchro JIRA et menu ⋮ étaient HORS
+       écran, donc injoignables. Daily et TV passent dans le menu ⋮ (#more-daily, #more-tv), « + Nouveau »
+       devient « + », la tuile calendrier passe aussi dans le menu ⋮. Le menu n'affiche ces entrées qu'ici. */
+    #btn-daily, #btn-tv { display: none; }
+    .btn-create-label { display: none; }
+    #btn-cal-sync { display: none !important; }   /* « 🗓️ Semaine » passe dans le menu ⋮ (#more-week) */
+    /* Fil d'Ariane : seule la VUE reste (« Dashboard ») — compressé, il ne montrait plus qu'une lettre. L'équipe
+       se lit dans la vue et le sélecteur d'équipe ; le sprint, dans le contenu. */
+    .topbar-title { font-size: var(--fs-base); min-width: 0; }
+    .topbar-left { flex: 1 1 auto; gap: var(--sp-2); }
+    .topbar-title .bc-seg--view { min-width: 0; max-width: 100%; padding: 2px 4px; }
+    .topbar-title .bc-seg--view span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar-center { flex: 0 0 auto; }   /* la loupe seule : la place libre revient au titre */
+    .topbar-title .bc-sep, .topbar-title .bc-seg:not(.bc-seg--view), .topbar-title .bc-seg--view .bc-icon { display: none; }
     .select { min-width: 100px; font-size: var(--fs-xs); }
-    .content { padding: var(--sp-3); }
+    .content { --content-pad: var(--sp-3); }
 }
 
 /* ── Cibles tactiles — écrans sans survol (mobile/tablette) : on remonte les

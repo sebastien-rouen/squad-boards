@@ -231,7 +231,7 @@ function _rotWirePanelEvents(container) {
             `Début du PI : ${_rotFmtShort(piStartDate(store.get('sprintInfo'), piNum))} → ${_rotFmtShort(cfg.startDateFromCsv)}`,
             cfg.sprintsPerPIFromCsv ? `Itérations : ${cfg.sprintsPerPIFromCsv}` : '',
             impactees.length
-                ? `⚠ ${impactees.length} semaine(s) déjà remplie(s) ne seront plus alignées sur la grille — relancer un Shuffle après recalage (rien n'est supprimé).`
+                ? `⚠ ${impactees.length} ${impactees.length > 1 ? 'semaines' : 'semaine'} déjà ${impactees.length > 1 ? 'remplies' : 'remplie'} ne seront plus alignées sur la grille — relancer un Shuffle après recalage (rien n'est supprimé).`
                 : 'Aucune rotation enregistrée sur ce PI : recalage sans effet de bord.',
         ].filter(Boolean).join('\n');
         if (!(await confirmDanger(`Recaler le PI ${piNum} sur les Congés`, lignes,

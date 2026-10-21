@@ -21,7 +21,7 @@
     padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg);
 }
 .rf-kpi-val { font-size: 20px; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; color: var(--text); }
-.rf-kpi-lbl { font-size: 10.5px; color: var(--text-muted); text-align: center; }
+.rf-kpi-lbl { font-size: 11px; color: var(--text-muted); text-align: center; }
 .rf-kpi--ok .rf-kpi-val { color: var(--success); }
 .rf-kpi--warn { border-color: color-mix(in srgb, var(--warning) 45%, transparent); background: color-mix(in srgb, var(--warning) 8%, var(--surface)); }
 .rf-kpi--warn .rf-kpi-val { color: var(--warning); }
@@ -42,18 +42,22 @@
     font-size: 12.5px;
 }
 .rf-row + .rf-row, .rf-done + .rf-done { border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
-.rf-row:hover { background: var(--surface-hover); }
+/* Ligne entière cliquable (→ modale du ticket) ; les boutons internes gardent leur action */
+.rf-row, .rf-done { cursor: pointer; transition: background var(--tr-fast), box-shadow var(--tr-fast); }
+.rf-row:hover, .rf-done:hover { background: var(--surface-hover); box-shadow: inset 3px 0 0 var(--primary); }
+.rf-row:focus-visible, .rf-done:focus-visible, .rf-cad-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.rf-row:hover .rf-title, .rf-done:hover .rf-title { color: var(--primary); }
 .rf-row:first-child .rf-rank { background: var(--primary); color: #fff; }
-.rf-rank { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: var(--fw-bold); background: var(--bg-alt); color: var(--text-secondary); }
+.rf-rank { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: var(--fw-bold); background: var(--bg-alt); color: var(--text-secondary); }
 .rf-id { flex-shrink: 0; font: inherit; font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-semibold); color: var(--primary); background: none; border: 0; padding: 0; cursor: pointer; }
 .rf-id:hover { text-decoration: underline; }
 .rf-title { flex: 1 1 auto; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 .rf-meta { flex-shrink: 1; min-width: 0; overflow: hidden; display: inline-flex; align-items: center; gap: 6px; }
 .rf-meta > * { flex-shrink: 0; }
 .rf-meta > .rf-sprint { flex-shrink: 1; min-width: 40px; }
-.rf-sprint { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; color: var(--text-muted); }
-.rf-age { font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.rf-live { padding: 0 6px; border-radius: var(--r-full); font-size: 10.5px; font-weight: var(--fw-semibold); background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); animation: rf-live 2s ease-in-out infinite; }
+.rf-sprint { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-muted); }
+.rf-age { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.rf-live { padding: 0 6px; border-radius: var(--r-full); font-size: 11px; font-weight: var(--fw-semibold); background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); animation: rf-live 2s ease-in-out infinite; }
 @keyframes rf-live { 50% { opacity: .55; } }
 /* Prêt à estimer ? (critères d'acceptation repérés, desc_sections.js) */
 .rf-warn { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 18px; border-radius: var(--r-full); font-size: 11px; cursor: help; background: color-mix(in srgb, var(--warning) 16%, transparent); }
@@ -81,7 +85,7 @@
 .rf-done-time { flex-shrink: 0; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .rf-done-votes { flex-shrink: 0; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .rf-done .mdl-points { font-size: 12px; padding: 1px 7px; cursor: default; flex-shrink: 0; }
-.rf-flag { flex-shrink: 0; font-size: 10.5px; font-weight: var(--fw-semibold); color: var(--warning); }
+.rf-flag { flex-shrink: 0; font-size: 11px; font-weight: var(--fw-semibold); color: var(--warning); }
 .rf-flag--ok { color: var(--success); }
 .rf-done-dur { flex-shrink: 0; min-width: 52px; text-align: right; font-size: 11px; color: var(--text-muted); }
 
@@ -102,11 +106,405 @@
 }
 
 @media (max-width: 1100px) {
-    .rf-cols { grid-template-columns: 1fr; }
+    /* minmax(0, 1fr) et non 1fr (= minmax(auto, 1fr)) : sinon la colonne prend la largeur des lignes de la
+       file (titres sur une ligne) — +670 px sur mobile avant 3.236.0. */
+    .rf-cols { grid-template-columns: minmax(0, 1fr); }
 }
+.rf-cols > * { min-width: 0; }
 @media (max-width: 720px) {
     .rf-hero { grid-template-columns: 1fr; }
     .rf-kpis { grid-template-columns: repeat(2, 1fr); }
     .rf-meta .badge-prio, .rf-age, .rf-sprint { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .rf-live { animation: none; } }
+
+/* ── 🧭 Cadrage (components/refinement_cadrage.js) ─────────────────────────────────────────────
+   Accent VIOLET = teinte de l'état « 01.SCOPING / Cadrage » (utils/jira-stages.js) : se distingue
+   d'un coup d'œil de la file d'estimation (bleu primaire). */
+.rf-cad {
+    --cad: #7c3aed;
+    --cad-soft: color-mix(in srgb, var(--cad) 10%, var(--surface));
+    /* clip et non hidden : hidden ferait de la carte un conteneur de défilement et casserait l'en-tête collant */
+    position: relative; overflow: clip; padding: 0;
+    border-color: color-mix(in srgb, var(--cad) 35%, var(--border));
+    background: linear-gradient(180deg, var(--cad-soft), var(--surface) 140px);
+}
+[data-theme="dark"] .rf-cad { --cad: #a78bfa; }
+.rf-cad::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: linear-gradient(180deg, var(--cad), color-mix(in srgb, var(--cad) 30%, transparent)); }
+.rf-cad-head {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-3) var(--sp-4); align-items: center;
+    padding: var(--sp-4) var(--sp-4) var(--sp-4) calc(var(--sp-4) + 4px); cursor: pointer;
+    transition: background var(--tr-fast);
+}
+.rf-cad-head:hover { background: color-mix(in srgb, var(--cad) 6%, transparent); }
+/* Déplié : l'en-tête suit le défilement sous le fil d'étapes (on garde l'anneau et le bouton replier sous la main) */
+.rf-cad.is-open .rf-cad-head {
+    position: sticky; top: calc(var(--rf-sticky, 60px) - var(--content-pad, var(--sp-6))); z-index: 4;
+    background: color-mix(in srgb, var(--cad-soft) 94%, transparent); backdrop-filter: blur(6px);
+    border-bottom: 1px solid color-mix(in srgb, var(--cad) 22%, var(--border));
+    margin-bottom: var(--sp-3);
+}
+.rf-cad:not(.is-open) .rf-cad-ring { transform: scale(.86); }
+.rf-cad-peek { display: block; margin-top: 4px; font-weight: var(--fw-semibold); color: var(--cad); }
+.rf-cad-head:hover .rf-cad-peek { text-decoration: underline; }
+.rf-cad-ring {
+    --p: 0; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
+    background: conic-gradient(var(--cad) calc(var(--p) * 1%), color-mix(in srgb, var(--cad) 14%, var(--bg-alt)) 0);
+}
+.rf-cad-ring b { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface); font-size: 14px; color: var(--cad); font-variant-numeric: tabular-nums; }
+.rf-cad-ring small { font-size: 9px; margin-left: 1px; }
+.rf-cad-title { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 16px; font-weight: var(--fw-bold); }
+.rf-cad-tag { padding: 2px 10px; border-radius: var(--r-full); background: var(--cad); color: #fff; font-size: 12px; letter-spacing: .02em; }
+[data-theme="dark"] .rf-cad-tag { color: #1e1b4b; }
+.rf-cad-scope { padding: 1px 8px; border-radius: var(--r-full); font-size: 11px; font-weight: var(--fw-semibold); font-family: var(--font-mono); color: var(--cad); border: 1px solid color-mix(in srgb, var(--cad) 45%, transparent); }
+.rf-cad-sub { margin: 4px 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.rf-cad-sub code { font-size: 11px; padding: 1px 5px; border-radius: 4px; background: var(--bg-alt); color: var(--text-secondary); }
+.rf-cad-kpis { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.rf-cad-kpi { padding: 4px 10px; border-radius: var(--r-md); font-size: 12px; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); }
+.rf-cad-kpi b { color: var(--text); font-variant-numeric: tabular-nums; }
+.rf-cad-kpi--warn { border-color: color-mix(in srgb, var(--warning) 45%, transparent); }
+.rf-cad-kpi--warn b { color: var(--warning); }
+.rf-cad-toggle svg { transition: transform var(--tr-slow); transform: rotate(-90deg); }
+.rf-cad.is-open .rf-cad-toggle svg { transform: none; }
+
+/* Trois regards : SA / PO-PM / contributeur — chacun sa nuance, même famille */
+.rf-cad-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); padding: 0 var(--sp-4) var(--sp-4) calc(var(--sp-4) + 4px); }
+.rf-cad-cols > .empty-state { grid-column: 1 / -1; }
+.rf-cad-col { --role: var(--cad); min-width: 0; padding: var(--sp-3); border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--role); }
+.rf-cad-col[data-role="po"] { --role: #db2777; }
+.rf-cad-col[data-role="contrib"] { --role: #0d9488; }
+[data-theme="dark"] .rf-cad-col[data-role="po"] { --role: #f472b6; }
+[data-theme="dark"] .rf-cad-col[data-role="contrib"] { --role: #2dd4bf; }
+.rf-cad-col-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 13px; font-weight: var(--fw-bold); color: var(--text); }
+.rf-cad-col-icon { width: 28px; height: 28px; flex-shrink: 0; display: grid; place-items: center; border-radius: var(--r-md); background: color-mix(in srgb, var(--role) 15%, transparent); font-size: 15px; }
+.rf-cad-col-name { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.rf-cad-col-name small { font-size: 11px; font-weight: var(--fw-semibold); font-family: var(--font-mono); color: var(--role); }
+.rf-cad-col-count { padding: 1px 8px; border-radius: var(--r-full); font-size: 11px; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--role) 14%, transparent); color: var(--role); }
+.rf-cad-bar { display: block; height: 4px; margin-bottom: 10px; border-radius: 999px; background: var(--bg-alt); overflow: hidden; }
+.rf-cad-bar i { --p: 0%; display: block; height: 100%; width: var(--p); border-radius: inherit; background: var(--role); transition: width .4s ease; }
+.rf-cad-empty { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); text-align: center; }
+
+/* Carte d'un ticket de cadrage */
+.rf-cad-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.rf-cad-item { cursor: pointer; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: var(--r-md); background: var(--bg); border: 1px solid var(--border); border-left: 3px solid color-mix(in srgb, var(--role) 55%, transparent); transition: border-color var(--tr-slow), transform var(--tr-slow); }
+.rf-cad-item:hover { border-color: color-mix(in srgb, var(--role) 55%, var(--border)); transform: translateY(-1px); }
+.rf-cad-item[data-s="blocked"] { border-left-color: var(--danger); }
+.rf-cad-item.is-done { opacity: .6; border-left-color: var(--success); }
+.rf-cad-item.is-done .rf-cad-item-title { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent); }
+.rf-cad-item-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rf-cad-status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-muted); }
+.rf-cad-item[data-s="inprog"] .rf-cad-status, .rf-cad-item[data-s="review"] .rf-cad-status { color: var(--primary); font-weight: var(--fw-semibold); }
+.rf-cad-item[data-s="blocked"] .rf-cad-status { color: var(--danger); font-weight: var(--fw-semibold); }
+.rf-cad-item .mdl-points { font-size: 11px; padding: 0 6px; cursor: default; flex-shrink: 0; }
+.rf-cad-nopts { flex-shrink: 0; padding: 0 6px; border-radius: var(--r-full); font-size: 11px; font-weight: var(--fw-semibold); color: var(--warning); border: 1px dashed color-mix(in srgb, var(--warning) 55%, transparent); }
+.rf-cad-late { flex-shrink: 0; padding: 0 6px; border-radius: var(--r-full); font-size: 11px; font-weight: var(--fw-bold); color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.rf-cad-kpi--late { border-color: color-mix(in srgb, var(--warning) 45%, transparent); }
+.rf-cad-kpi--late b { color: var(--warning); }
+.rf-cad-item-title { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Personnes, ordre JIRA : contributeurs, porteur, rapporteur — membres de l'équipe surlignés */
+.rf-cad-people { display: flex; flex-wrap: wrap; gap: 4px; }
+.rf-cad-person { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: var(--r-full); font-size: 11px; color: var(--text-secondary); background: var(--bg-alt); border: 1px solid transparent; }
+.rf-cad-person--contrib::before { content: '🤝'; }
+.rf-cad-person--leader::before { content: '👤'; }
+.rf-cad-person--reporter::before { content: '✍️'; }
+.rf-cad-person--reporter { color: var(--text-muted); }
+.rf-cad-person--none { font-style: italic; color: var(--warning); background: none; border: 1px dashed color-mix(in srgb, var(--warning) 50%, transparent); }
+.rf-cad-person.is-mine { color: var(--text); font-weight: var(--fw-semibold); border-color: color-mix(in srgb, var(--role) 55%, transparent); background: color-mix(in srgb, var(--role) 12%, var(--bg-alt)); }
+.rf-cad-item-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.rf-cad-item-foot .chip-label { font-size: 11px; }
+.rf-cad-go { margin-left: auto; padding: 2px 8px; font-size: 11px; opacity: .8; }
+.rf-cad-item:hover .rf-cad-go { opacity: 1; }
+
+@media (max-width: 1100px) { .rf-cad-cols { grid-template-columns: 1fr; } }
+@media (max-width: 720px) {
+    .rf-cad-head { grid-template-columns: auto minmax(0, 1fr); }
+    .rf-cad-kpis { grid-column: 1 / -1; justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { .rf-cad-item, .rf-cad-toggle svg, .rf-cad-bar i { transition: none; } }
+
+/* ── Fil « Par où commencer ? » (components/refinement_steps.js) — discret : pas de carte, une ligne ── */
+/* Collé en haut du scrollport `.content` (technique de .ptoc / onglets de Paramètres : marges négatives =
+   `--content-pad`). Fond « verre » ; sa hauteur est mesurée par la vue (`--rf-sticky` sur .rf) pour décaler
+   ce qui colle dessous. */
+.rf-steps {
+    position: sticky; top: calc(-1 * var(--content-pad, var(--sp-6))); z-index: 9;
+    display: flex; align-items: center; gap: var(--sp-3); min-width: 0;
+    margin: calc(-1 * var(--content-pad, var(--sp-6))) calc(-1 * var(--content-pad, var(--sp-6))) 0;
+    padding: 8px var(--content-pad, var(--sp-6));
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(10px) saturate(1.2);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 6px 18px -14px rgba(0, 0, 0, .45);
+}
+/* Barre de progression des étapes, en pied du fil (verte jusqu'à l'étape en cours) */
+.rf-steps::after {
+    content: ''; position: absolute; left: 0; bottom: -1px; height: 2px;
+    width: var(--rf-steps-p, 0%); background: linear-gradient(90deg, var(--success), var(--primary));
+    transition: width .5s ease;
+}
+.rf-steps-title { flex-shrink: 0; font-size: 11px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.rf-steps-list {
+    flex: 1; min-width: 0; margin: 0; padding: 2px; list-style: none;
+    display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 6px;
+}
+.rf-step { position: relative; min-width: 0; }
+/* Trait de liaison entre deux étapes : plein quand l'étape est faite */
+.rf-step + .rf-step::before {
+    content: ''; position: absolute; top: 50%; left: -6px; width: 6px; height: 2px;
+    background: var(--border);
+}
+.rf-step.is-done + .rf-step::before { background: var(--success); }
+.rf-step-btn {
+    width: 100%; height: 100%; display: flex; align-items: center; gap: 8px; min-width: 0;
+    padding: 6px 10px; border-radius: var(--r-md); text-align: left; font: inherit; cursor: pointer;
+    background: transparent; border: 1px solid transparent; color: var(--text-secondary);
+    transition: background var(--tr-slow), border-color var(--tr-slow);
+}
+.rf-step-btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border); }
+.rf-step-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.rf-step-btn:disabled { cursor: default; }
+.rf-step-dot {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 11px; font-weight: var(--fw-bold); background: var(--bg-alt); color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+.rf-step-body { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.rf-step-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: var(--fw-semibold); color: var(--text); white-space: nowrap; }
+.rf-step-text { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-step-now {
+    font-style: normal; font-size: 9.5px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .04em;
+    padding: 0 6px; border-radius: var(--r-full); color: #fff; background: var(--primary);
+}
+/* États : fait (vert, atténué) · à traiter (accent, halo) · à venir · plus tard (grisé) */
+.rf-step.is-done .rf-step-dot { background: var(--success); border-color: var(--success); color: #fff; }
+.rf-step.is-done .rf-step-label { color: var(--text-secondary); }
+.rf-step.is-current .rf-step-btn { background: color-mix(in srgb, var(--primary) 8%, var(--surface)); border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
+.rf-step.is-current .rf-step-dot { background: var(--primary); border-color: var(--primary); color: #fff; animation: rf-step-pulse 2.4s ease-out infinite; }
+@keyframes rf-step-pulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent); }
+    70%, 100% { box-shadow: 0 0 0 7px transparent; }
+}
+.rf-step.is-later { opacity: .55; }
+/* Ouverte aujourd'hui mais pas finie : pastille cerclée, mention « vu » */
+.rf-step.is-visited .rf-step-dot { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--bg-alt)); }
+.rf-step-seen { font-style: normal; font-size: 9.5px; font-weight: var(--fw-semibold); padding: 0 5px; border-radius: var(--r-full); color: var(--text-muted); border: 1px solid var(--border); }
+/* Section atteinte par le fil : bref halo pour situer l'œil */
+.rf-flash { animation: rf-flash 1.2s ease-out; }
+@keyframes rf-flash {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 50%, transparent); }
+    100% { box-shadow: 0 0 0 12px transparent; }
+}
+.rf-queue, .rf-cad, .rf-recap { scroll-margin-top: var(--sp-4); }
+
+/* Colonne « Estimés aujourd'hui » collante à côté de la longue file (grand écran) : la liste défile seule */
+@media (min-width: 1101px) {
+    .rf-session {
+        position: sticky; top: calc(var(--rf-sticky, 60px) - var(--content-pad, var(--sp-6)) + var(--sp-3));
+        display: flex; flex-direction: column;
+        max-height: calc(100dvh - var(--rf-sticky, 60px) - 120px);
+    }
+    .rf-session > .card-header { flex-shrink: 0; }
+    .rf-done-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+}
+
+@media (max-width: 900px) {
+    .rf-steps { flex-direction: column; align-items: stretch; gap: 4px; padding-top: 6px; padding-bottom: 6px; }
+    .rf-steps-title { display: none; }   /* collant : chaque pixel compte, les étapes numérotées se suffisent */
+    /* Mobile : défilement horizontal, une étape ≈ 70 % de l'écran, l'étape en cours reste lisible */
+    .rf-steps-list { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 4px; }
+    .rf-steps-list::-webkit-scrollbar { display: none; }
+    .rf-step { flex: 0 0 min(70%, 240px); scroll-snap-align: start; }
+}
+@media (prefers-reduced-motion: reduce) { .rf-step.is-current .rf-step-dot, .rf-flash { animation: none; } }
+
+/* ── File : navigation par sprint, du plus proche au plus loin (3.241.0) ─────────────────────────────
+   Puces collées sous le fil d'étapes pendant qu'on parcourt la file ; chaque groupe est titré par son état. */
+.rf-qnav {
+    position: sticky; top: calc(var(--rf-sticky, 60px) - var(--content-pad, var(--sp-6))); z-index: 3;
+    display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+    margin: 0 calc(-1 * var(--sp-4)) var(--sp-3); padding: 8px var(--sp-4);
+    background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+}
+.rf-qnav::-webkit-scrollbar { display: none; }
+.rf-qnav-chip {
+    --c: var(--text-muted);
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; min-height: 28px;
+    padding: 2px 4px 2px 10px; border-radius: var(--r-full); font: inherit; font-size: 12px; font-weight: var(--fw-semibold);
+    color: var(--text-secondary); background: var(--bg); border: 1px solid var(--border); cursor: pointer;
+    transition: border-color var(--tr-fast), color var(--tr-fast), transform var(--tr-fast);
+}
+.rf-qnav-chip b { min-width: 20px; padding: 0 6px; border-radius: var(--r-full); font-size: 11px; text-align: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.rf-qnav-chip:hover { color: var(--text); border-color: var(--c); transform: translateY(-1px); }
+.rf-qnav-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.rf-qnav-chip--sprint, .rf-qnav-chip--active { --c: var(--primary); }
+.rf-qnav-chip--future { --c: var(--info, #0891b2); }
+.rf-qnav-chip--closed { --c: var(--warning); }
+/* Groupe : le titre porte l'état (en cours / démarre le… / clos / sans sprint) */
+.rf-group { scroll-margin-top: 60px; }
+.rf-group-title { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text-secondary); }
+.rf-gt-state {
+    padding: 1px 8px; border-radius: var(--r-full); font-size: 10.5px; font-weight: var(--fw-bold);
+    text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); background: var(--bg-alt);
+}
+.rf-gt-state--active { color: #fff; background: var(--primary); }
+.rf-gt-state--future { color: var(--info, #0891b2); background: color-mix(in srgb, var(--info, #0891b2) 12%, transparent); }
+.rf-gt-state--closed { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.rf-group--sprint .rf-list, .rf-group--active .rf-list { border-left: 2px solid color-mix(in srgb, var(--primary) 40%, transparent); padding-left: 4px; }
+
+/* Badge ✨ « prêt à estimer » (même calcul que la bande de la fiche, ticket_ready.js) — clic = fiche + guide */
+.rf-ready {
+    --c: var(--warning);
+    display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; height: 20px; border-radius: var(--r-full);
+    font-size: 11px; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer;
+    color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 35%, transparent);
+    transition: transform var(--tr-fast), background var(--tr-fast);
+}
+.rf-ready i { font-style: normal; font-size: 10px; letter-spacing: 1px; }
+.rf-ready:hover { transform: scale(1.06); background: color-mix(in srgb, var(--c) 20%, transparent); }
+.rf-ready--crit { --c: var(--danger); }
+.rf-ready--ok { --c: var(--success); cursor: default; }
+.rf-ready--ok:hover { transform: none; }
+
+/* ── Outils de la file : tri + densité (3.243.0) ──────────────────────────────────────────────── */
+.rf-qtools { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+.rf-seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: var(--r-full); background: var(--bg-alt); border: 1px solid var(--border); }
+.rf-seg-lbl { padding: 0 6px 0 8px; font-size: 10.5px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.rf-seg-btn {
+    min-height: 26px; padding: 2px 11px; border-radius: var(--r-full); border: 0; cursor: pointer;
+    font: inherit; font-size: 12px; font-weight: var(--fw-semibold); color: var(--text-secondary); background: transparent;
+    transition: background var(--tr-fast), color var(--tr-fast), box-shadow var(--tr-fast);
+}
+.rf-seg-btn:hover { color: var(--text); }
+.rf-seg-btn.is-on { color: var(--primary); background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.rf-seg-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* Détail du badge ✨ au survol : calque unique, position fixe (la ligne est en overflow hidden) */
+.rf-pop {
+    position: fixed; z-index: 60; width: 230px; pointer-events: none;
+    display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--r-lg);
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .22); animation: rf-pop-in .16s ease-out;
+}
+.rf-pop[hidden] { display: none; }
+@keyframes rf-pop-in { from { opacity: 0; transform: translateY(4px); } }
+.rf-pop-title { font-size: 12.5px; }
+.rf-pop-bar { height: 5px; border-radius: 999px; background: var(--bg-alt); overflow: hidden; }
+.rf-pop-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--warning), var(--success)); }
+.rf-pop-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.rf-pop-list li { display: flex; align-items: center; gap: 7px; color: var(--text); }
+.rf-pop-list li > span { width: 18px; text-align: center; }
+.rf-pop-list li.is-done { color: var(--text-muted); }
+.rf-pop-list li.is-done > span { color: var(--success); font-weight: var(--fw-bold); }
+.rf-pop-hint { font-size: 11px; color: var(--primary); font-weight: var(--fw-semibold); }
+.rf-ready-n { white-space: nowrap; }
+
+/* ── Mode compact : ~40 % de lignes en plus à l'écran ─────────────────────────────────────────── */
+.rf--dense .rf-row, .rf--dense .rf-done { padding: 2px 6px; gap: 6px; font-size: 12px; min-height: 30px; }
+.rf--dense .rf-rank { width: 18px; height: 18px; font-size: 10px; }
+.rf--dense .rf-go { padding: 1px 7px; }
+.rf--dense .rf-go-lbl, .rf--dense .rf-ready-n, .rf--dense .rf-age { display: none; }
+.rf--dense .rf-ready { padding: 0 5px; height: 18px; }
+.rf--dense .rf-meta .badge-prio { font-size: 0; gap: 0; padding: 2px 4px; }
+.rf--dense .rf-row .badge-type { transform: scale(.9); transform-origin: left center; }
+.rf--dense .rf-group + .rf-group { margin-top: var(--sp-2); }
+.rf--dense .rf-group-title { margin-bottom: 2px; }
+.rf--dense .rf-hero { padding-top: 12px; padding-bottom: 12px; }
+.rf--dense .rf-hero-sub { display: none; }
+.rf--dense .rf-kpi { padding: 6px 10px; }
+.rf--dense .rf-kpi-val { font-size: 17px; }
+@media (max-width: 720px) {
+    /* La place va au badge ✨ (rogné sinon) : le type se lit déjà dans la fiche */
+    .rf-row > .badge-type { display: none; }
+    .rf-meta { flex-shrink: 0; }
+}
+
+/* ── 3.244.0 : en-tête sur une ligne, groupes repliables, porteur, survol du titre, séance vide compacte ── */
+/* En-tête : titre · chiffres clés en ligne · bouton Démarrer (≈ 150 px gagnés) */
+.rf-hero { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding-top: 12px; padding-bottom: 12px; }
+.rf-hero-title { font-size: 16px; white-space: nowrap; }
+.rf-kline { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.rf-k {
+    display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 10px; border-radius: var(--r-full);
+    font-size: 12px; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); white-space: nowrap;
+}
+.rf-k b { font-size: 13.5px; color: var(--text); font-variant-numeric: tabular-nums; }
+.rf-k--ok b { color: var(--success); }
+.rf-k--warn { border-color: color-mix(in srgb, var(--warning) 45%, transparent); }
+.rf-k--warn b { color: var(--warning); }
+.rf-k--prog { align-items: center; }
+.rf-k--prog .rf-progress-bar { flex: none; width: 70px; height: 6px; }
+.rf-hero .rf-start { margin-left: auto; padding: 7px 14px; font-size: 13px; }
+
+/* Fil collant : bouton « ▶ Poker » toujours sous la main */
+.rf-steps-start { flex-shrink: 0; white-space: nowrap; }
+@media (max-width: 900px) { .rf-steps-start { display: none; } }
+
+/* Porteur dans la ligne : initiales, ou 👤 en pointillés s'il manque */
+.rf-av {
+    width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; flex-shrink: 0;
+    font-size: 9px; font-weight: var(--fw-bold); color: #fff; background: var(--av, var(--text-muted)); letter-spacing: -.02em;
+}
+.rf-av--none { background: none; color: var(--warning); font-size: 10px; border: 1px dashed color-mix(in srgb, var(--warning) 60%, transparent); }
+
+/* Groupes repliables : le titre est le bouton */
+.rf-group-title { margin: 0 0 6px; }
+.rf-group-tog {
+    display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; max-width: 100%;
+    padding: 3px 8px 3px 4px; margin-left: -4px; border: 0; border-radius: var(--r-md); cursor: pointer;
+    font: inherit; color: inherit; background: none; text-align: left;
+    transition: background var(--tr-fast);
+}
+.rf-group-tog:hover { background: var(--surface-hover); }
+.rf-group-tog:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.rf-group-chev { flex-shrink: 0; color: var(--text-muted); transition: transform var(--tr-fast); }
+.rf-group.is-collapsed .rf-group-chev { transform: rotate(-90deg); }
+.rf-group.is-collapsed { opacity: .8; }
+.rf-group.is-collapsed .rf-group-title { margin-bottom: 0; }
+.rf-group-peek { font-size: 11px; font-weight: var(--fw-semibold); color: var(--text-muted); }
+.rf-qnav-chip.is-folded { opacity: .65; border-style: dashed; }
+
+/* Titre tronqué : détail au survol (même calque que le badge ✨) */
+.rf-pop--title { width: min(380px, calc(100vw - 16px)); }
+.rf-pop-id { font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-semibold); color: var(--primary); }
+.rf-pop-full { font-size: 13px; line-height: 1.4; }
+.rf-pop-meta { font-size: 11.5px; color: var(--text-muted); }
+
+/* Séance pas commencée : une ligne, pas une grande carte vide */
+.rf-session-empty { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border-radius: var(--r-md); font-size: 12.5px; color: var(--text-muted); background: var(--bg); border: 1px dashed var(--border); }
+.rf-session-empty > span:first-child { font-size: 20px; }
+.rf-session-empty b { color: var(--text-secondary); }
+
+/* Cadrage replié : mini-barres SA / PO-PM / contributeur dans le bandeau */
+.rf-cad-minis { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rf-cad-mini {
+    --role: var(--cad);
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--r-full);
+    font-size: 11.5px; color: var(--text-secondary); background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--role) 30%, var(--border));
+}
+.rf-cad-mini[data-role="po"] { --role: #db2777; }
+.rf-cad-mini[data-role="contrib"] { --role: #0d9488; }
+[data-theme="dark"] .rf-cad-mini[data-role="po"] { --role: #f472b6; }
+[data-theme="dark"] .rf-cad-mini[data-role="contrib"] { --role: #2dd4bf; }
+.rf-cad-mini b { color: var(--role); font-variant-numeric: tabular-nums; }
+.rf-cad-mini-bar { width: 44px; height: 4px; border-radius: 999px; background: var(--bg-alt); overflow: hidden; }
+.rf-cad-mini-bar i { --p: 0%; display: block; height: 100%; width: var(--p); background: var(--role); border-radius: inherit; }
+
+@media (max-width: 720px) {
+    .rf-hero-title { white-space: normal; flex-basis: 100%; }
+    .rf-hero .rf-start { margin-left: 0; width: 100%; justify-content: center; }
+    .rf-av { display: none; }
+}
+/* Porteur absent : déjà signalé par le badge ✨ (👤), pas de second repère dans la ligne */
+.rf-av--none { display: none; }
+.rf-session .card-title, .rf-session .card-subtitle { white-space: nowrap; }
+/* Fil plus étroit (bouton ▶ Poker) : l'étape en cours se lit déjà à son halo, la pastille « à traiter » s'efface */
+@media (max-width: 1500px) { .rf-step-now { display: none; } }
+@media (max-width: 720px) {
+    /* Mobile : bouton 🃏 et badge ✨ en icônes seules, le titre récupère la place */
+    .rf-go-lbl, .rf-ready-n { display: none; }
+    .rf-go { padding: 3px 8px; }
+}

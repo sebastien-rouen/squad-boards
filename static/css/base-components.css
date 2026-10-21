@@ -8,9 +8,18 @@
     overflow: hidden;
 }
 .content {
+    /* Marge intérieure = UNE variable (3.236.0) : les barres collées aux bords (Paramètres, Rapports, Board)
+       la retranchent par `calc(-1 * var(--content-pad))` — avec `--sp-6` en dur, elles débordaient de 24 px
+       sur mobile, où la marge tombe à --sp-4 / --sp-3. */
+    --content-pad: var(--sp-6);
     flex: 1;
     overflow-y: auto;
-    padding: var(--sp-6);
+    /* Jamais de défilement horizontal de la page (3.236.0) : un contenu large a SON conteneur qui défile
+       (rails, tableaux, frise Roadmap). Vérifié sur toutes les vues, 390 px et 1440 px : rien n'en dépendait.
+       Coupait les 12 px que Chrome ajoute à droite des barres collées aux bords (marge intérieure de fin du
+       scrollport ajoutée APRÈS un enfant qui s'étend dans le padding). */
+    overflow-x: hidden;
+    padding: var(--content-pad);
     min-width: 0;
 }
 .info-panel {
@@ -591,7 +600,7 @@
 }
 .ts-sec {
     padding: 8px 16px 4px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     color: var(--text-muted);
     text-transform: uppercase;
@@ -622,7 +631,7 @@
     height: 28px;
     border-radius: 6px;
     color: #fff;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-shadow: 0 1px 0 rgb(0 0 0 / 0.18);
@@ -633,7 +642,7 @@
     font-size: 14px;
 }
 .ts-opt-name { font-size: 13.5px; color: var(--text); font-weight: 500; }
-.ts-opt-hint { font-size: 10.5px; color: var(--text-muted); }
+.ts-opt-hint { font-size: 11px; color: var(--text-muted); }
 .ts-opt--group .ts-opt-swatch { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px currentColor; }
 .ts-empty {
     padding: 24px 16px;
@@ -648,7 +657,7 @@
     padding: 8px 16px;
     border-top: 1px solid var(--border);
     background: var(--surface-2);
-    font-size: 10.5px;
+    font-size: 11px;
     color: var(--text-muted);
 }
 .ts-foot kbd {
@@ -672,3 +681,24 @@
     color: var(--primary) !important;
 }
 
+
+/* Panneau de droite sur le DASHBOARD (3.236.0) : Sprint, Features et Objectifs PI y figurent déjà (frise du sprint,
+   « Cap de l'équipe », « Avancement du PI ») — ils sont masqués ici pour ne pas lire trois fois le même chiffre.
+   Restent : Alertes (périmètre sprint), Votes (la saisie), Buffer, Cérémonies, Support. `data-view` posé par infopanel.js. */
+.info-panel[data-view="dashboard"] :is([data-panel-id="sprint"], [data-panel-id="features"], [data-panel-id="objectives"]) { display: none; }
+
+/* Poignée de repli du panneau de droite (components/panel_toggle.js, 3.237.0) : une fine bande entre le contenu et
+   le panneau, chevron au centre. Absente ≤ 1200 px (le panneau y est déjà masqué) et en mode TV. */
+.info-panel-toggle {
+    flex: 0 0 14px; display: grid; place-items: center; padding: 0; cursor: pointer;
+    border: 0; border-left: 1px solid var(--border); background: var(--bg); color: var(--text-muted);
+    transition: background var(--tr-fast), color var(--tr-fast);
+}
+.info-panel-toggle:hover { background: var(--surface-hover); color: var(--text); }
+.info-panel-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.info-panel-toggle svg { transform: rotate(-90deg); transition: transform var(--tr-base, .2s); }   /* › = replier */
+.content-layout.is-panel-closed .info-panel-toggle svg { transform: rotate(90deg); }              /* ‹ = déplier */
+.content-layout.is-panel-closed .info-panel { display: none; }
+@media (max-width: 1200px) { .info-panel-toggle { display: none; } }
+body.tv-mode .info-panel, body.tv-mode .info-panel-toggle { display: none; }   /* la TV prend tout l'écran */
+@media (prefers-reduced-motion: reduce) { .info-panel-toggle svg { transition: none; } }

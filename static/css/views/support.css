@@ -6,7 +6,7 @@
     margin-left: auto;
     background: var(--danger);
     color: #fff;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-bold);
     line-height: 1;
     padding: 2px 5px;
@@ -145,7 +145,7 @@
     flex-wrap: wrap;
     gap: 10px;
     padding: 6px 10px 4px;
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     border-top: 1px dashed var(--border);
     margin-top: 4px;
@@ -193,7 +193,7 @@
     font-size: 12px;
 }
 .health-history-kpi strong { font-size: 14px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
-.health-history-kpi small { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.health-history-kpi small { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .health-history-kpi.is-up { background: color-mix(in srgb, var(--success) 12%, transparent); border-color: color-mix(in srgb, var(--success) 35%, var(--border)); }
 .health-history-kpi.is-up strong { color: var(--success); }
 .health-history-kpi.is-down { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); }
@@ -236,7 +236,7 @@
 }
 .this-week-day-lbl { font-size: 11px; color: var(--text-muted); text-transform: capitalize; font-weight: 600; }
 .this-week-day-val { font-size: 24px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; }
-.this-week-day-sub { font-size: 10px; color: var(--text-muted); }
+.this-week-day-sub { font-size: 11px; color: var(--text-muted); }
 
 /* ── Dashboard : strip "Sprints du PI" sous le sprint-header ───────────── */
 .pi-sprints-strip {
@@ -287,7 +287,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -326,7 +326,7 @@
     text-overflow: ellipsis;
 }
 .pi-sprint-card-dates {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
 }
 .pi-sprint-card-goal {
@@ -368,7 +368,7 @@
     padding-top: 4px;
 }
 .pi-sprint-card-tickets > summary {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     color: var(--text-muted);
     cursor: pointer;
@@ -389,7 +389,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-2);
-    font-size: 10px;
+    font-size: 11px;
     margin-bottom: 2px;
 }
 .pi-sprint-card-group-label { font-weight: var(--fw-semibold); color: var(--text); }
@@ -405,7 +405,7 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    font-size: 10px;
+    font-size: 11px;
     padding: 2px 4px;
     border-radius: var(--r-sm);
     cursor: pointer;
@@ -432,7 +432,7 @@
 .pi-sprint-card-ticket--slipped { background: color-mix(in srgb, var(--warning) 10%, transparent); }
 .pi-sprint-card-ticket-slip {
     flex-shrink: 0;
-    font-size: 9px;
+    font-size: 11px;   /* « ↪ 31.4 » : information utile, lisible (9 px avant 3.236.0) */
     color: var(--warning);
     white-space: nowrap;
     overflow: hidden;
@@ -461,7 +461,7 @@
     padding: 1px 6px;
     margin-left: var(--sp-2);
     border-radius: var(--r-sm);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
 }
 .member-abs-chip--today {
@@ -821,8 +821,8 @@
 }
 
 /* ── Support : timeline PI + génération ─────────────────────────────────── */
-.sup-tl-hdr { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-bottom: var(--sp-2); }
-.sup-tl-hdr-actions { display: flex; gap: var(--sp-2); }
+.sup-tl-hdr { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.sup-tl-hdr-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }   /* mobile : passe à la ligne au lieu de déborder */
 .sup-tl-panel {
     background: var(--surface);
     border: 1px solid var(--border);

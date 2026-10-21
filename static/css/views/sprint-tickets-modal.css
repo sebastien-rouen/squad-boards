@@ -35,7 +35,7 @@
     font-weight: var(--fw-semibold);
 }
 .sb-modal-dl .sb-dl-label {
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 0.04em;
 }
 .sb-modal-dl:hover { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
@@ -462,7 +462,7 @@
     line-height: 1.1;
 }
 .demo-vel-kpi-lbl {
-    font-size: 10px;
+    font-size: 11px;
     color: #94a3b8;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -553,7 +553,7 @@
     margin-top: 10px;
     padding-top: 8px;
     border-top: 1px solid rgba(255,255,255,0.06);
-    font-size: 10px;
+    font-size: 11px;
     color: #94a3b8;
 }
 .demo-vel-legend-item {
@@ -876,7 +876,7 @@
 }
 .demo-vote-mini-wrap:hover .demo-vote-mini { opacity: 0.85; }
 .demo-vote-mini-c { font-size: 9px; color: #f1f5f9; font-weight: 700; line-height: 1; height: 10px; font-variant-numeric: tabular-nums; }
-.demo-vote-mini-n { font-size: 10px; color: #94a3b8; margin-top: 2px; line-height: 1; }
+.demo-vote-mini-n { font-size: 11px; color: #94a3b8; margin-top: 2px; line-height: 1; }
 .demo-wins-grid {
     flex: 1;
     overflow-y: auto;
@@ -1008,7 +1008,7 @@
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 999px;
     color: #94a3b8;
-    font-size: 10px;                                  /* avant: 11px */
+    font-size: 11px;                                  /* avant: 11px */
     line-height: 1.25;
     cursor: pointer;
     transition: all var(--tr-fast, 0.15s);
@@ -1168,7 +1168,7 @@
     color: color-mix(in srgb, #8b5cf6 80%, transparent);
 }
 .sb-stat-lbl {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -1186,7 +1186,7 @@
     margin-left: 2px;
 }
 .sb-stat-sub {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
 }
 
@@ -1311,7 +1311,7 @@
     border-radius: 50%;
     background: var(--surface-2);
     border: 1px solid var(--border);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     color: var(--text-secondary);
 }
@@ -1322,7 +1322,7 @@
     border-radius: 999px;
     background: var(--surface-2);
     border: 1px solid var(--border);
-    font-size: 10px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.03em;
     color: var(--text-muted);
@@ -1366,7 +1366,7 @@
     align-items: center;
     padding: 1px 7px;
     border-radius: 999px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     text-transform: uppercase;
     letter-spacing: 0.03em;

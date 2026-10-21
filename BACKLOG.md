@@ -1,6 +1,6 @@
-# BACKLOG — Squad Board
+# BACKLOG — squad-boards
 
-> Dernière mise à jour : 2026-10-14
+> Dernière mise à jour : 2026-10-21 (#A1 soldé en 3.238.0 — renouveler le jeton JIRA)
 >
 > Ce fichier ne contient que **ce qui reste à faire**. Les items soldés sont
 > dans [`docs/BACKLOG-ARCHIVE.md`](docs/BACKLOG-ARCHIVE.md) ; leur récit complet
@@ -12,12 +12,25 @@
 
 ## 🔥 Todo (prêt à coder)
 
-- [~] **#13 — Confidence vote → tendance (début vs fin de PI)** — **partiel depuis 3.154.0** : la fiche équipe (Dashboard filtré) trace la tendance Mood & ✊ **sprint par sprint** sans nouvelle table ([meteo_fiche.js](static/js/components/meteo_fiche.js)). Reste la version *par objectif* avec phase `start|end` (stockage `type=confidence` + champ phase) — utile seulement si la tendance par sprint ne suffit pas à l'usage.
-- [ ] **Tolérance de démarrage réglable** (`METEO_START_TOLERANCE`, 15 %) et bandes relatives (`METEO_REL_BAND`) dans Paramètres → Météo — seulement si une équipe se plaint d'un 🌧️ en J2 ; aujourd'hui constantes de `utils/meteo.js`.
-- [ ] **Page 403 explicite — à appliquer** : le bloc est prêt dans [docs/nginx-403.md](docs/nginx-403.md) (Nginx Proxy Manager → hôte → *Advanced*). Geste d'infra, hors du site (préparé en 3.197.0).
-- [ ] **Vérifier sur le serveur** ce qui a été ajouté le 2026-10-03 — le banc local simule l'API : `curl -s https://squad-boards-drafts.bastou.dev/api/config/export | head -c 300`, une vraie sauvegarde / restauration (Paramètres → Données → 💾), un changement de niveau Atlas puis `GET /api/skill-history`, et le bandeau « données obsolètes » après une synchro (auteur affiché).
-- [ ] **Dette : fichiers de plus de 800 lignes** — settings.js (3 687), atlas.js (2 711), charts.js (1 398), reports.js (1 416), atlas.css (1 243), sprint.css (1 189), app.js (915). Découper par blocs consécutifs, preuve `cmp` (méthode de settings.css en 3.197.0), un fichier par session.
-- [ ] 💡 **États vides restants** → `emptyStateHtml` (Rapports : Sprint et PI Planning — Flow, Support, Roadmap, Burnup faits en 3.212.0 ; PI, Roadmap, Support, Atlas `atlas-empty-sm`…), au fil des retouches de ces vues.
+### 🚨 Audit du 2026-10-21 — top 5 par impact
+
+- [ ] **🔴 #A2 — API sans authentification, exposée sur `0.0.0.0:3010`** — aucune route protégée : `POST /api/import` (mode remplacer) efface la base, `/api/export` livre absences RH et membres, `/docs` (Swagger) ouvert. Lancé sous PM2 avec `reload=True` (mode dev, 2 processus). **À faire** : écouter sur `127.0.0.1` derrière Nginx, raccorder le SSO `auth` BastaVerse (skill `/auth-sso`) ou au minimum une clé, fermer `/docs`, retirer `reload` en exploitation. — *2026-10-21*
+- [ ] **🟠 #A3 — `/api/all` : 17,6 Mo non compressés à chaque ouverture** (1,7 s en local, rédhibitoire en mobile). `GZipMiddleware` absent (une ligne, gain attendu ×6-8). 62 % du poids des tickets = `description` + `comments` + `recentChanges`, rarement affichés → les charger à l'ouverture d'un ticket. ⚠️ Golden test `/api/all` + aller-retour `_ticket_dict` ↔ `import_all` (cf. CLAUDE.md). — *2026-10-21*
+- [ ] **🟠 #A4 — Backend : validation des entrées et journalisation** — 0 modèle Pydantic, 48 corps `await request.json()` lus bruts ; `crud.py:52-55` fait `setattr` de toute clé reçue (y compris `id`, `created_at`). Aucun journal applicatif ; 20 `except` muets + 12 `except Exception`. **À faire** : modèles d'entrée sur les routes d'écriture, `logging` à la place des silences. — *2026-10-21*
+- [ ] **🟡 #A5 — Petits correctifs de cohérence** — (a) thème **clair** par défaut (`state.js:52`, `<html data-theme="light">`) ≠ règle BastaVerse n° 7 (sombre) ; (c) ports incohérents dans la doc (CLAUDE.md 3001, README / docs 3000, réel 3010) et « 161 tests » annoncés pour 406 ; (d) 7 `data/*.bak.db` (~110 Mo) à archiver ; (f) titres JIRA non échappés dans la copie HTML de `pi.js:1122-1127` (`<` / `&` cassent le collage). — *2026-10-21*
+
+### Suite
+
+- [ ] **#13 — Confidence vote → tendance (début vs fin de PI)** — **partiel depuis 3.154.0** : la fiche équipe (Dashboard filtré) trace la tendance Mood & ✊ **sprint par sprint** sans nouvelle table ([meteo_fiche.js](static/js/components/meteo_fiche.js)). Reste la version *par objectif* avec phase `start|end` (stockage `type=confidence` + champ phase) — utile seulement si la tendance par sprint ne suffit pas à l'usage. — *2026-10-18*
+- [ ] **Tolérance de démarrage réglable** (`METEO_START_TOLERANCE`, 15 %) et bandes relatives (`METEO_REL_BAND`) dans Paramètres → Météo — seulement si une équipe se plaint d'un 🌧️ en J2 ; aujourd'hui constantes de `utils/meteo.js`. — *2026-10-18*
+- [ ] **Page 403 explicite — à appliquer** : le bloc est prêt dans [docs/nginx-403.md](docs/nginx-403.md) (Nginx Proxy Manager → hôte → *Advanced*). Geste d'infra, hors du site (préparé en 3.197.0). — *2026-10-18*
+- [ ] **Vérifier sur le serveur** ce qui a été ajouté le 2026-10-03 — le banc local simule l'API : `curl -s https://squad-boards-drafts.bastou.dev/api/config/export | head -c 300`, une vraie sauvegarde / restauration (Paramètres → Données → 💾), un changement de niveau Atlas puis `GET /api/skill-history`, et le bandeau « données obsolètes » après une synchro (auteur affiché). — *2026-10-18*
+- [ ] **Dette : fichiers de plus de 800 lignes — 25 fichiers au 2026-10-21** — les plus gros : settings.js (3 691), pi.js (3 232), modal.js (2 967), atlas.js (2 711), sprint_tickets_modal.js (2 638), charts.js (2 262), calendar-banner.css (1 759), dashboard.css (1 664), cal_banner.js (1 644), health.js (1 624), utils.js (1 382, « barrel » qui porte encore du code), sync.js (1 130), app.js (905). Découper par blocs consécutifs, preuve `cmp` (méthode de settings.css en 3.197.0), un fichier par session. — *2026-10-18, chiffres 2026-10-21*
+- [ ] 💡 **États vides restants** → `emptyStateHtml` (Rapports : Sprint et PI Planning — Flow, Support, Roadmap, Burnup faits en 3.212.0 ; PI, Roadmap, Support, Atlas `atlas-empty-sm`…), au fil des retouches de ces vues. — *2026-10-18*
+
+## 💡 Idées (à affiner)
+
+## 🧊 Someday/Maybe
 
 ---
 

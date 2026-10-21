@@ -5,10 +5,12 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, toastUndo, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, priorityBadge, priorityKey, PRIORITY_META, trapFocus, cycleDays, leadDays, wipAgeDays, workdaysBetween, workdaysLeft, pointsTone, teamPointsMedian, estimationQueue, labelChipHtml, labelColor, findPerson, todayIsoLocal, getSprintForTeam, emptyStateHtml } from '../utils.js';
+import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, toastUndo, parseWikiMarkup, copyToClipboard, confirmDanger, fieldLabelFr, promptModal, typeBadge, statusBadge, priorityBadge, priorityKey, PRIORITY_META, trapFocus, cycleDays, leadDays, wipAgeDays, workdaysBetween, workdaysLeft, pointsTone, teamPointsMedian, estimationQueue, labelChipHtml, labelColor, findPerson, todayIsoLocal, getSprintForTeam, emptyStateHtml, scrollToEl, rememberTicket } from '../utils.js';
 import { ticketFlowModel, ticketFlowHtml, bindTicketFlow } from './ticket_flow.js';
 import { presenceStripHtml, sprintWorkDays, nextAbsence } from './meteo_fiche.js';
 import { pokerSoundOn, setPokerSound, playPokerSound } from './poker_sound.js';
+import { flyPokerChip } from './poker_chip_fly.js';
+import { mountReadyGuide } from './ticket_ready.js';
 import { descSections, descSectionsHtml } from './desc_sections.js';
 import { STATUS_LABELS, STATUS_ORDER, TYPE_LABELS, TYPE_ICONS } from '../config.js';
 
@@ -850,6 +852,7 @@ export function openTicketModal(ticketId) {
     const features = store.get('features') || [];
     const all = [...tickets, ...epics, ...features];
     const ticket = all.find(t => t.id === ticketId);
+    if (ticket) rememberTicket(ticketId);   // palette Ctrl+K : « 🎫 Tickets récents »
     if (!ticket) return;
 
     // Track navigation context
@@ -915,17 +918,17 @@ export function openTicketModal(ticketId) {
         <aside class="mdl-aside" aria-label="Personnes et activité">
         <!-- Personnes : une rangée de trois cellules (labels et historique de sprint = bas de l'en-tête) -->
         <section class="mdl-panel mdl-people" aria-label="Personnes">
-            <div class="mdl-field">
+            <div class="mdl-field" data-role="leader">
                 <span class="mdl-field-label">Leader</span>
                 <span class="mdl-field-value editable-field" data-field="leader" data-value="${esc(leader || '')}">${personChip(leader, 'leader')}</span>
                 ${_presenceOf(leader, ticket).html}
             </div>
-            <div class="mdl-field">
+            <div class="mdl-field" data-role="reporter">
                 <span class="mdl-field-label">Rapporteur</span>
                 <span class="mdl-field-value editable-field" data-field="reporter" data-value="${esc(reporter || '')}">${personChip(reporter)}</span>
                 ${_presenceOf(reporter, ticket).html}
             </div>
-            <div class="mdl-field">
+            <div class="mdl-field" data-role="contrib">
                 <span class="mdl-field-label">Contributeurs</span>
                 <span class="mdl-field-value flex-wrap" id="contrib-inline-wrap">
                     ${contributors.map(c => {
@@ -943,7 +946,7 @@ export function openTicketModal(ticketId) {
         <div class="mdl-desc-wrap" id="desc-wrap">
             <div class="mdl-desc-header">
                 <span class="mdl-section-label">Description</span>
-                <button type="button" class="btn-icon mdl-desc-edit-btn" id="desc-edit-btn" title="Modifier la description">
+                <button aria-label="Modifier la description" type="button" class="btn-icon mdl-desc-edit-btn" id="desc-edit-btn" title="Modifier la description">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
             </div>
@@ -1024,7 +1027,7 @@ export function openTicketModal(ticketId) {
                             <div class="comment-header">
                                 <span class="comment-author">${esc(c.author)}</span>
                                 <span class="comment-date">${fmtRelative(c.date)}</span>
-                                <button class="btn-icon comment-delete" data-comment-id="${esc(c.id)}" title="Supprimer"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+                                <button aria-label="Supprimer" class="btn-icon comment-delete" data-comment-id="${esc(c.id)}" title="Supprimer"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
                             </div>
                             <div class="comment-body adf-body">${_renderCommentBody(c.body)}</div>
                         </div>
@@ -1160,7 +1163,7 @@ export function openTicketModal(ticketId) {
         if (commentList) {
             const details = commentList.closest('details') || commentList.querySelector('details');
             if (details) details.open = true;
-            commentList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            scrollToEl(commentList);   // défile la modale seule (utils/scroll.js)
         }
     });
 
@@ -1207,6 +1210,7 @@ export function openTicketModal(ticketId) {
     // le corps — binder sur #modal (ancêtre commun titre+corps) au lieu de bodyEl() seul,
     // sinon son clic ne déclenche jamais le picker (footgun : "je ne vois pas pour modifier le type").
     _bindInlineEditors(document.getElementById('modal') || bodyEl(), ticket);
+    mountReadyGuide(bodyEl(), ticket);   // ✨ « Prêt à estimer ? » : champs requis + guide animé (ticket_ready.js)
 
     // Prev/Next buttons
     document.getElementById('mdl-prev')?.addEventListener('click', () => {
@@ -1596,6 +1600,9 @@ function _bindInlineEditors(container, ticket) {
 // ══════════════════════════════════════════════════════════════════════════════
 const POKER_FIB  = [1, 2, 3, 5, 8, 13, 21, '?'];
 const POKER_FIBS = [1, 2, 3, 5, 8, 13, 21];
+// Couleurs des cartes : décor CYCLIQUE par rang, d'une seule encre (poker-table.css) — aucun lien avec la valeur,
+// les cartes de vote restent neutres.
+const _POKER_SUITS = ['♠', '♥', '♣', '♦'];
 
 /** Échelle « animale » des tailles : un repère ludique qui parle à tout le monde. */
 const POKER_ANIMALS = { 1: '🐭', 2: '🐇', 3: '🦊', 5: '🐶', 8: '🐴', 13: '🐘', 21: '🐋' };
@@ -1679,7 +1686,7 @@ const _initials = (name) => name.trim().split(/\s+/).map(w => w[0]?.toUpperCase(
 /** Tickets à estimer APRÈS celui-ci : file partagée avec la page « Séance d'affinage »
  *  (`estimationQueue`, utils/estimation-queue.js), son sprint en tête. Relue à chaque clic. */
 const _nextToEstimate = ticket =>
-    estimationQueue(store.get('tickets') || [], ticket.team, { sprintName: ticket.sprintName, exclude: ticket.id }).map(x => x.t);
+    estimationQueue(store.get('tickets') || [], ticket.team, { sprintName: ticket.sprintName, exclude: ticket.id, teamSprints: store.get('sprintInfo')?.teamSprints }).map(x => x.t);
 
 /** Historique des tours de Poker CONCLUS d'un ticket (section de la modale, chargée à la demande). */
 function _pokerRoundsHtml(rounds) {
@@ -1842,7 +1849,7 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
                         <svg class="icon icon-sm"><use href="#i-copy"/></svg>
                         Partager
                     </button>
-                    <button class="btn-icon" id="poker-close"><svg class="icon"><use href="#i-x"/></svg></button>
+                    <button class="btn-icon" id="poker-close" aria-label="Fermer le Poker"><svg class="icon"><use href="#i-x"/></svg></button>
                 </div>
             </div>
 
@@ -1880,7 +1887,9 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
                             return `<button type="button" class="poker-card${isSelected ? ' poker-card--selected' : ''}${disabled ? ' poker-card--disabled' : ''}${locked ? ' poker-card--locked' : ''}${pop ? ' poker-card--pop' : ''}"
                                         data-val="${v}" style="--i:${i}" ${disabled ? 'disabled' : ''}${locked ? ' aria-disabled="true"' : ''}
                                         title="${locked ? 'Indiquez d\'abord votre prénom pour voter' : disabled ? 'Votes révélés — « Nouveau tour » pour revoter' : `${v} SP${v === '?' ? ' — valeur inconnue' : ''}`}">
+                                <span class="poker-card-pip" aria-hidden="true">${v}<i>${_POKER_SUITS[i % 4]}</i></span>
                                 <span class="poker-card-val">${v}</span>
+                                <span class="poker-card-pip poker-card-pip--end" aria-hidden="true">${v}<i>${_POKER_SUITS[i % 4]}</i></span>
                                 ${isSelected ? '<span class="poker-card-check">✓</span>' : ''}
                             </button>`;
                         }).join('')}
@@ -2208,6 +2217,7 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
             if (!POKER_FIBS.includes(pts)) return;
             const btn = ov.querySelector(goNext ? '#poker-save-next' : '#poker-save');
             ov.querySelectorAll('#poker-save, #poker-save-next').forEach(b => { b.disabled = true; });
+            flyPokerChip(ov, pts);   // le jeton part au pot DÈS le clic (clone sur body : survit à la suite)
             try {
                 const cast = votes.filter(v => v.val !== null).map(v => ({ voter: v.name, value: String(v.val) }));
                 await api.savePokerRound(ticket.id, { value: pts, votes: cast, author: myName, team: ticket.team || '' })
@@ -2222,7 +2232,7 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
                 setTimeout(() => {
                     if (nx) goTo(nx.id);
                     else { close(); openTicketModal(ticket.id); }
-                }, 600);
+                }, 900);   // laisse le jeton se poser au centre de la table
             } catch (e) {
                 toast(e.message, 'error');
                 ov.querySelectorAll('#poker-save, #poker-save-next').forEach(b => { b.disabled = false; });
@@ -2815,7 +2825,7 @@ function _renderChildrenSidebar(feature) {
     const total = childEpics.length + childTickets.length;
     // Sur une feature, on affiche TOUJOURS le bouton/sidebar même si 0 enfant —
     // permet à l'utilisateur de confirmer qu'il n'y a rien (au lieu de chercher).
-    console.info(`[ChildrenSidebar] Feature ${feature.id} : ${childEpics.length} epic(s) + ${childTickets.length} ticket(s) (via epic: ${ticketsViaEpic.length}, direct: ${ticketsDirect.length})`);
+    console.info(`[ChildrenSidebar] Feature ${feature.id} : ${childEpics.length} ${childEpics.length > 1 ? 'epics' : 'epic'} + ${childTickets.length} ${childTickets.length > 1 ? 'tickets' : 'ticket'} (via epic: ${ticketsViaEpic.length}, direct: ${ticketsDirect.length})`);
 
     // Toggle button injecté dans le titre (avant le bouton next)
     const titleH2 = document.getElementById('modal-title');
@@ -2937,7 +2947,7 @@ function _renderChildrenSidebar(feature) {
         // Mets à jour le compteur dans le header de la sidebar
         const hdrTitle = side.querySelector('.mdl-cs-hdr-title');
         if (hdrTitle) hdrTitle.innerHTML = `🌿 Enfants <small>(${newTotal})</small>`;
-        console.info(`[ChildrenSidebar] Feature ${feature.id} : +${remoteOnly.length} ticket(s) récupérés depuis JIRA (non en base locale)`);
+        console.info(`[ChildrenSidebar] Feature ${feature.id} : +${remoteOnly.length} ${remoteOnly.length > 1 ? 'tickets' : 'ticket'} récupérés depuis JIRA (non en base locale)`);
     });
 }
 

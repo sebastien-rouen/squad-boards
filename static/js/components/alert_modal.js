@@ -19,7 +19,8 @@ import { ANOMALY_BY_KEY } from '../business_rules.js';
  * Ouvre la modal pour une alerte donnée. Met à jour le hash de l'URL.
  *
  * @param {string} actionable    Identifiant (cf. _ACTIONABLES)
- * @param {object} opts          { updateHash: bool (defaut true) }
+ * @param {object} opts          { updateHash: bool (defaut true), ticketIds: string[] (restreint la liste à ces
+ *                               tickets — ceux comptés par l'appelant), scopeLabel: string (affiché au titre) }
  */
 export function openAlertModal(actionable, opts = {}) {
     const meta = ANOMALY_BY_KEY[actionable];
@@ -36,7 +37,8 @@ export function openAlertModal(actionable, opts = {}) {
         ? new Date(String(sprintInfo.startDate).slice(0, 10)).getTime() : 0;
 
     // Tickets dans le périmètre (équipe courante ou toutes)
-    const scopeTickets = allTickets.filter(t => !teamFilter || t.team === team);
+    const only = Array.isArray(opts.ticketIds) ? new Set(opts.ticketIds) : null;
+    const scopeTickets = allTickets.filter(t => (!teamFilter || t.team === team) && (!only || only.has(t.id)));
 
     // ── Capacité / WIP par équipe (membres présents, congés du jour déduits) ──
     // On évalue chaque équipe du périmètre : son WIP dépasse-t-il son seuil de capacité ?
@@ -112,7 +114,7 @@ function _renderModalHtml(actionable, meta, tickets, extra = {}) {
             <div class="modal-header alert-modal-header">
                 <h2 id="alert-modal-title">
                     <span class="alert-modal-icon">${meta.icon}</span>
-                    <span class="truncate">${esc(meta.title)}</span>
+                    <span class="truncate">${esc(meta.title)}${opts.scopeLabel ? ` <small class="alert-modal-scope">· ${esc(opts.scopeLabel)}</small>` : ''}</span>
                     <span class="alert-modal-count">${tickets.length}</span>
                 </h2>
                 <div class="alert-modal-actions">
@@ -302,7 +304,7 @@ function _updateSaveButton(overlay, dirty) {
     btn.disabled = total === 0;
     const counter = btn.querySelector('.alert-modal-dirty');
     if (counter) counter.textContent = total;
-    btn.title = total === 0 ? 'Aucune modification' : `${total} modification(s) à enregistrer`;
+    btn.title = total === 0 ? 'Aucune modification' : `${total} ${total > 1 ? 'modifications' : 'modification'} à enregistrer`;
 }
 
 async function _saveDirty(overlay, dirty) {
@@ -320,7 +322,7 @@ async function _saveDirty(overlay, dirty) {
     const koCount = results.length - okCount;
 
     if (koCount === 0) {
-        toast(`${okCount} ticket(s) mis à jour`, 'success');
+        toast(`${okCount} ${okCount > 1 ? 'tickets' : 'ticket'} mis à jour`, 'success');
         // Recharge les tickets globaux (les nouvelles valeurs apparaissent dans la liste)
         try {
             const fresh = await api.getTickets();

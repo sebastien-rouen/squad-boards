@@ -536,7 +536,7 @@ export function piFlowRowsHtml(m, { title, highlight = '', href = '', copyLabel 
             if (!v) return '';
             const w = r.total > 0 ? v / r.total * 100 : 0;
             return `<button type="button" class="psr-seg" style="width:${w}%;background:${s.color};color:${_ink(s.color)}" data-psr-key="${s.key}" data-psr-team="${esc(r.label)}"
-                title="${esc(s.label)} : ${_fmt(v)} pts (${Math.round(w)} %) — cliquer pour la liste">${w >= 9 ? _fmt(v) : ''}</button>`;
+                aria-label="${esc(r.label)} — ${esc(s.label)} : ${_fmt(v)} pts" title="${esc(s.label)} : ${_fmt(v)} pts (${Math.round(w)} %) — cliquer pour la liste">${w >= 9 ? _fmt(v) : ''}</button>`;
         }).join('');
         return `<div class="psr-row${highlight && teamNameMatches(r.label, highlight) ? ' is-current' : ''}">
             <span class="psr-name" title="${esc(r.label)} · ${_fmt(r.total)} pts">${esc(r.label)} <small>${_fmt(r.total)}</small></span>

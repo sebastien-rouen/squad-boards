@@ -280,7 +280,7 @@ export function renderPI(container) {
     container.innerHTML = `
         <div class="pi-header">
             <h2>${esc(piLabel)}${!isCurrentPi ? ` <span class="chip chip-pi" style="font-size:12px;vertical-align:middle">PI#${piNum}</span>` : ''}</h2>
-            <button class="btn-icon pi-present-btn" id="pi-present-btn" title="Mode présentation (plein écran)"><svg class="icon"><use href="#i-maximize"/></svg></button>
+            <button aria-label="Mode présentation (plein écran)" class="btn-icon pi-present-btn" id="pi-present-btn" title="Mode présentation (plein écran)"><svg class="icon"><use href="#i-maximize"/></svg></button>
         </div>
 
         <!-- PI Metrics -->
@@ -730,8 +730,8 @@ function _commitmentPanelHtml(commit, baseline, canCapture) {
         <div class="pi-commit-stats">
             <span class="pi-commit-stat"><strong>${c.engagedPts}</strong> engagés</span>
             <span class="pi-commit-stat pi-commit-stat--ok"><strong>${c.deliveredPts}</strong> livrés</span>
-            ${c.addedPts ? `<span class="pi-commit-stat pi-commit-stat--add" title="${c.addedCount} feature(s) ajoutée(s) après la baseline">+${c.addedPts} ajoutés (${c.addedCount})</span>` : ''}
-            ${c.removedPts ? `<span class="pi-commit-stat pi-commit-stat--rm" title="${c.removedCount} feature(s) retirée(s) depuis la baseline">−${c.removedPts} retirés (${c.removedCount})</span>` : ''}
+            ${c.addedPts ? `<span class="pi-commit-stat pi-commit-stat--add" title="${c.addedCount} ${c.addedCount > 1 ? 'features' : 'feature'} ${c.addedCount > 1 ? 'ajoutées' : 'ajoutée'} après la baseline">+${c.addedPts} ajoutés (${c.addedCount})</span>` : ''}
+            ${c.removedPts ? `<span class="pi-commit-stat pi-commit-stat--rm" title="${c.removedCount} ${c.removedCount > 1 ? 'features' : 'feature'} ${c.removedCount > 1 ? 'retirées' : 'retirée'} depuis la baseline">−${c.removedPts} retirés (${c.removedCount})</span>` : ''}
             <span class="pi-commit-saydo" style="color:${sayDoCol}" title="Say/Do = SP livrés ÷ SP engagés">Say/Do ${c.sayDo == null ? '—' : c.sayDo + '%'}</span>
         </div>
     </div>`;
@@ -851,7 +851,7 @@ export function renderObjectives(el, { objectives, piInfo, teams, teamObjects, i
                 ).join('')}
             </select>
             ${progHtml}
-            <button class="btn-icon pi-obj-del" title="Supprimer">
+            <button aria-label="Supprimer" class="btn-icon pi-obj-del" title="Supprimer">
                 <svg class="icon icon-sm text-danger"><use href="#i-x"/></svg>
             </button>
         </div>`;
@@ -973,7 +973,7 @@ export function renderObjectives(el, { objectives, piInfo, teams, teamObjects, i
             bv:        parseInt(row.querySelector('.pi-obj-bv')?.value) || 0,
             committed: row.querySelector('.pi-obj-committed')?.checked || false,
         })).filter(o => o.text);
-        const msg = successMsg || `${editedObjs.length} objectif(s) enregistré(s)`;
+        const msg = successMsg || `${editedObjs.length} ${editedObjs.length > 1 ? 'objectifs' : 'objectif'} ${editedObjs.length > 1 ? 'enregistrés' : 'enregistré'}`;
 
         if (isCurrentPi) {
             // PI courant → sauvegarde via API.
@@ -2328,7 +2328,7 @@ function renderTeams(el, { teamCap }) {
             <div class="pit-head">
                 <span class="pit-dot"></span>
                 <span class="pit-name">${esc(t.name)}</span>
-                ${t.blocked ? `<span class="pit-blocked" title="${t.blocked} ticket(s) bloqué(s)">🚫 ${t.blocked}</span>` : ''}
+                ${t.blocked ? `<span class="pit-blocked" title="${t.blocked} ${t.blocked > 1 ? 'tickets' : 'ticket'} ${t.blocked > 1 ? 'bloqués' : 'bloqué'}">🚫 ${t.blocked}</span>` : ''}
             </div>
             <div class="pit-pts">
                 <span class="pit-pct" style="color:${p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--primary)' : 'var(--warning)'}">${p}%</span>
@@ -2905,7 +2905,7 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
                 </div>
                 <div class="vp-actions">
                     <button class="btn btn-secondary btn-xs btn-copy-vote-slack" title="Copier l'invitation au vote pour Slack">📋 Copier Slack</button>
-                    <button class="btn btn-icon btn-xs btn-vote-help" title="À quoi sert ce vote ?">❓</button>
+                    <button aria-label="À quoi sert ce vote ?" class="btn btn-icon btn-xs btn-vote-help" title="À quoi sert ce vote ?">❓</button>
                 </div>
             </div>
             <div class="vp-ctx">
@@ -3064,9 +3064,9 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
                 );
                 if (!toDelete.length) { toast('Aucun vote à supprimer', 'info'); return; }
                 const label = sprint ? `${teamName} / ${sprint}` : teamName;
-                if (!(await confirmDanger('Supprimer les votes', `Supprimer ${toDelete.length} vote(s) pour ${label} ?`, { confirmLabel: 'Supprimer' }))) return;
+                if (!(await confirmDanger('Supprimer les votes', `Supprimer ${toDelete.length} ${toDelete.length > 1 ? 'votes' : 'vote'} pour ${label} ?`, { confirmLabel: 'Supprimer' }))) return;
                 await Promise.all(toDelete.map(v => api.deleteMood(v.id)));
-                toast(`${toDelete.length} vote(s) supprimé(s)`, 'success');
+                toast(`${toDelete.length} ${toDelete.length > 1 ? 'votes' : 'vote'} ${toDelete.length > 1 ? 'supprimés' : 'supprimé'}`, 'success');
                 refreshResults();
                 _syncGlobalVoteStore(type);
             });

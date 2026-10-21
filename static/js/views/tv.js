@@ -21,7 +21,7 @@ import { esc, getCurrentPi, sumBy, sprintScope, sprintStartsOf, METEO_GLYPH, MET
 import { ANOMALY_BY_KEY, isPastPi } from '../business_rules.js';
 import { meteoMatrixHtml, meteoContext, computeTeamMeteo } from '../components/meteo_matrix.js';
 import { meteoPlanHtml } from '../components/meteo_plan.js';
-import { screenSeconds, pageSeconds, nightEnabled, tvTheme, settingsHtml, wireSettings, applyUrlSettings } from './tv-settings.js';
+import { screenSeconds, pageSeconds, nightEnabled, tvTheme, retroEnabled, retroLevel, settingsHtml, wireSettings, applyUrlSettings } from './tv-settings.js';
 import { tkAttrs, pagedHtml, dayKey, screenPresence, screenZeroBlocker, noteBlockersSeen, presenceEventHtml } from './tv-screens.js';
 import { screenWeek, rollDays, weekDayHtml, weekCalEventHtml, weekOffHtml } from './tv-week.js';
 import { meteoDetailHtml } from './tv-meteo-detail.js';
@@ -405,6 +405,7 @@ export function renderTv(container) {
         <main class="tv-screen" id="tv-screen" aria-live="polite"></main>
         <div class="tv-cheers" id="tv-cheers" aria-live="polite" hidden></div>
         <div class="tv-detail" id="tv-detail" hidden></div>
+        <div class="tv-crt" id="tv-crt" aria-hidden="true" data-level="${retroLevel()}"${retroEnabled() ? '' : ' hidden'}><i class="tv-crt-grain"></i><i class="tv-crt-tear"></i></div>
         <footer class="tv-foot"><kbd>←</kbd><kbd>→</kbd> écran · <kbd>Espace</kbd> pause · <kbd>F</kbd> plein écran · <kbd>Échap</kbd> quitter${locked ? ` · écran figé : <b>${esc(locked)}</b>` : ''}</footer>
     </div>`;
 
@@ -462,6 +463,12 @@ export function renderTv(container) {
         if (s.id !== 'alerte') _st.alertTeam = null;   // le filtre d'équipe ne survit pas à l'écran d'alerte
         if (s.id !== 'sprint') _st.sprintTeam = null;  // ni le zoom sur une équipe à « Sprint en cours »
         if (s.id !== 'semaine') _st.weekOffset = 0;    // ni une autre semaine que la courante
+        // « Changement de chaîne » (tv-retro.css) : seulement quand l'ÉCRAN change — pas au rafraîchissement du
+        // même écran (réglages, semaine ‹ ›). Classe relancée par reflow, aucun timer ; inerte sans effet télé.
+        if (s.id !== _st.lastScreen && _st.lastScreen && retroEnabled()) {
+            const scr = $('tv-screen'); scr.classList.remove('is-zap'); void scr.offsetWidth; scr.classList.add('is-zap');
+        }
+        _st.lastScreen = s.id;
         $('tv-screen').innerHTML = s.id === 'alerte' ? (live.length ? _screenAlert(blockers, teamObjects, _st.alertTeam) : emptyStateHtml({ size: 'tv', tone: 'ok', icon: '✅', title: 'Aucun blocker de plus de 48 h' }))
             : s.id === 'meteo' ? _screenMeteo(args)
             : s.id === 'sprint' ? screenSprint(args, _st.sprintTeam)
@@ -539,7 +546,7 @@ export function renderTv(container) {
     // PUIS, la popin déjà fermée, le panneau de détail derrière — et un 2e Échap quittait la TV.
     document.addEventListener('keydown', _st.onKey, true);
     // Réglages ⚙ : appliqués tout de suite (durées relues à chaque écran, mode nuit au prochain cycle).
-    const settings = wireSettings($('tv-root'), () => { _applyTheme(); show(_st.idx); });
+    const settings = wireSettings($('tv-root'), () => { _applyTheme(); const crt = $('tv-crt'); crt.hidden = !retroEnabled(); crt.dataset.level = retroLevel(); show(_st.idx); });
     $('tv-exit').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen?.(); store.set('view', 'dashboard'); });
     $('tv-fs').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
     $('tv-root').addEventListener('mouseenter', () => pause(true));

@@ -6,6 +6,17 @@
 
 ## 📦 Historique livré (archives)
 <details>
+<summary>🚨 AUDIT 2026-10-21 — sécurité et ergonomie (items livrés)</summary>
+
+- [x] **#A1 — Fuite du jeton JIRA par le proxy** *(v3.238.0)* — URL du navigateur différente du `.env` ⇒ identifiants du
+  navigateur obligatoires, HTTPS + hôte Atlassian / `JIRA_ALLOWED_HOSTS`. Attaque rejouée : 400, rien reçu. ⚠️ Reste à
+  **renouveler le jeton JIRA** côté Atlassian (il a pu fuiter avant le correctif).
+- [x] **#A5b — `#info-panel` masqué en mode TV** *(v3.237.0)* — + poignée de repli sur desktop.
+- [x] **#A5e — boutons icône sans nom accessible** *(v3.237.0)* — 47 → 0.
+- [x] **Ergonomie 1 à 7 puis 1 à 7** *(v3.236.0, v3.237.0)* — mobile sans débordement, chiffres cohérents, sommaire et
+  sections repliables du Dashboard, lisibilité, cibles tactiles, accords, Kanban borné, palette, panneau repliable.
+</details>
+<details>
 <summary>💡 PISTES D'AMÉLIORATION — PI Planning & Atlas (discutées 2026-06-04) — toutes livrées en 3.13.0</summary>
 ### 🧭 Navigation rapide
 ### 📊 Lisibilité PI Planning

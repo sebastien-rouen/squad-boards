@@ -315,6 +315,9 @@
 .tls-card:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 .tls-card.is-manual { border-style: dashed; border-left-style: solid; }
 .tls-title { font-size: var(--fs-sm); color: var(--text); }
+/* Éléments de grille du récit : bornés à leur colonne, un mot long passe à la ligne (débordait de 48 px sur mobile). */
+.tls-month, .tls-entry, .tls-card, .tls-list { min-width: 0; }
+.tls-card { overflow-wrap: anywhere; }
 .tls-sub { font-size: var(--fs-xs); color: var(--text-muted); }
 .tls-list { margin: 2px 0 0; padding-left: 1.1em; font-size: var(--fs-xs); color: var(--text-secondary); display: grid; gap: 2px; }
 .tls-more { list-style: none; margin-left: -1.1em; color: var(--text-muted); }

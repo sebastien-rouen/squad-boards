@@ -44,7 +44,7 @@ export function meteoPlanHtml(team, ctx, { names = false } = {}) {
     <section class="card meteo-plan meteo-plan--${r.level}" aria-labelledby="meteo-plan-title">
         <div class="card-header">
             <span class="card-title" id="meteo-plan-title"><span aria-hidden="true">${METEO_GLYPH[r.level]}</span> ${esc(lead)} — ${esc(team)}</span>
-            <span class="card-subtitle">${esc(METEO_LABEL[r.level])} · ${total} anomalie${total > 1 ? 's' : ''} · cliquer une ligne ouvre les tickets</span>
+            <span class="card-subtitle">${esc(METEO_LABEL[r.level])} · ${total} anomalie${total > 1 ? 's' : ''} sur tous les tickets actifs de l'équipe · cliquer une ligne ouvre les tickets</span>
         </div>
         <ol class="meteo-plan-list">
             ${rows.map(a => `

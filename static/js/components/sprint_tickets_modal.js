@@ -2575,8 +2575,8 @@ ${allActionRetro.length ? `
 <h2>⚠️ Points d'attention pour la rétro</h2>
 ${blocked.length > 0 || scopeCreep.length >= 2
     ? `<div class="attention">
-        ${blocked.length > 0 ? `<p><strong>${blocked.length} blocker(s)</strong> non résolu(s) — analyser les causes racines.</p>` : ''}
-        ${scopeCreep.length >= 2 ? `<p><strong>Périmètre élargi :</strong> ${scopeCreep.length} ticket(s) ajouté(s) après le début — discuter du processus de priorisation.</p>` : ''}
+        ${blocked.length > 0 ? `<p><strong>${blocked.length} ${blocked.length > 1 ? 'blockers' : 'blocker'}</strong> non ${blocked.length > 1 ? 'résolus' : 'résolu'} — analyser les causes racines.</p>` : ''}
+        ${scopeCreep.length >= 2 ? `<p><strong>Périmètre élargi :</strong> ${scopeCreep.length} ${scopeCreep.length > 1 ? 'tickets' : 'ticket'} ${scopeCreep.length > 1 ? 'ajoutés' : 'ajouté'} après le début — discuter du processus de priorisation.</p>` : ''}
     </div>`
     : '<div class="attention attention--ok"><strong>👍 Sprint propre :</strong> pas de blocker non résolu ni d\'ajout significatif après début.</div>'}
 

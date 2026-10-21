@@ -12,6 +12,19 @@ import { renderActivityCard, bindActivityClicks } from '../components/activity.j
 
 let _chartsCollapsed = localStorage.getItem('sb-kanban-charts-collapsed') === 'true';
 
+// Colonnes bornées (3.237.0) : le Kanban rendait TOUS les tickets de l'équipe — Fuego : 539 « Terminé » (dont 15
+// sur 14 jours) + 118 « À faire » → 78 écrans de haut en desktop, 100 en mobile. « Terminé » = clos depuis
+// DONE_DAYS jours (le reste à la demande), toute colonne = COL_PREVIEW cartes puis « Afficher les N autres ».
+// État d'affichage seulement (le temps de la session de la vue), jamais un filtre des compteurs.
+const DONE_DAYS = 14;
+const COL_PREVIEW = 40;
+let _doneAll = false;
+const _expanded = new Set();
+const _doneRecent = t => {
+    const d = Date.parse(t.resolvedDate || t.updatedAt || '');
+    return Number.isFinite(d) && Date.now() - d <= DONE_DAYS * 86400000;
+};
+
 /** Infobulle d'en-tête : statuts JIRA des tickets de la colonne (ceux amenés par la règle marqués 🎯). */
 function _colTip(status, items) {
     const tip = columnStatusesTip(STATUS_LABELS[status], items.map(t => t.jiraStatus), store.get('team'));
@@ -75,7 +88,7 @@ export function renderKanban(container) {
     container.innerHTML = `
         <div class="view-search-bar">
             <input type="search" id="kanban-search" class="input view-search-input" placeholder="🔍 Recherche : clé, titre, leader, label…" value="${esc(sessionStorage.getItem('kanban-search') || '')}" autocomplete="off">
-            ${searchQ ? `<button class="btn-icon view-search-clear" id="kanban-search-clear" title="Effacer"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>` : ''}
+            ${searchQ ? `<button aria-label="Effacer" class="btn-icon view-search-clear" id="kanban-search-clear" title="Effacer"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>` : ''}
             ${searchQ ? `<span class="view-search-count">${tickets.length} résultat${tickets.length > 1 ? 's' : ''}</span>` : ''}
         </div>
         <!-- Kanban Metrics -->
@@ -116,6 +129,10 @@ export function renderKanban(container) {
         <div class="board" id="kanban-board">
             ${STATUS_ORDER.map(status => {
                 const items = byStatus[status];
+                const recent = status === 'done' && !_doneAll && !searchQ ? items.filter(_doneRecent) : items;
+                const olderDone = items.length - recent.length;
+                const limit = _expanded.has(status) ? Infinity : COL_PREVIEW;
+                const shown = recent.slice(0, limit);
                 const colPts = sumBy(items, t => t.points);
                 const wip = WIP_LIMITS[status];
                 const exceeded = wip > 0 && items.length > wip;
@@ -128,11 +145,14 @@ export function renderKanban(container) {
                             </span>
                         </div>
                         <div class="column-cards">
-                            ${items.length ? items.map(t => renderCard(t)).join('') : `
+                            ${shown.length ? shown.map(t => renderCard(t)).join('') : `
                                 <div class="empty-state empty-column">
-                                    <p class="text-xs text-muted">Vide</p>
+                                    <p class="text-xs text-muted">${olderDone ? `Rien de clos depuis ${DONE_DAYS} jours` : 'Vide'}</p>
                                 </div>
                             `}
+                            ${recent.length > shown.length ? `<button type="button" class="kb-more" data-kb-more="${status}">Afficher les ${recent.length - shown.length} autres</button>` : ''}
+                            ${olderDone ? `<button type="button" class="kb-more kb-more--done" data-kb-done-all>Voir les ${olderDone} plus anciens <small>(clos il y a plus de ${DONE_DAYS} jours)</small></button>` : ''}
+                            ${status === 'done' && _doneAll && !searchQ ? `<button type="button" class="kb-more kb-more--done" data-kb-done-recent>Ne garder que les ${DONE_DAYS} derniers jours</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -170,6 +190,13 @@ export function renderKanban(container) {
         renderKanban(container);
     });
     bindCardClicks(container);
+
+    container.querySelector('#kanban-board')?.addEventListener('click', e => {
+        const more = e.target.closest('[data-kb-more]');
+        if (more) { _expanded.add(more.dataset.kbMore); renderKanban(container); return; }
+        if (e.target.closest('[data-kb-done-all]')) { _doneAll = true; renderKanban(container); return; }
+        if (e.target.closest('[data-kb-done-recent]')) { _doneAll = false; _expanded.delete('done'); renderKanban(container); }
+    });
 
     container.querySelector('#kanban-charts-section')?.addEventListener('toggle', e => {
         _chartsCollapsed = !e.target.open;

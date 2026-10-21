@@ -240,3 +240,13 @@ export function syncSetting(name) {
     // défaut que si la saisie est absente ou illisible, pas si elle vaut zéro.
     return (raw !== '' && !isNaN(n) && n >= 0) ? n : SYNC_DEFAULTS[name];
 }
+
+/**
+ * Périmètre de CADRAGE d'une équipe (page Affinage, utils/cadrage.js) — `product` = suffixe des
+ * étiquettes de rôle (`SA-<product>`, `PO-<product>`, `PM-<product>`), `tags` = étiquettes métier qui
+ * concernent l'équipe en tant que contributrice. Équipe absente → ligne produit de son groupe
+ * (Juke → GEX). Fuego (équipe Ops de la ligne GCOM) porte l'infrastructure, pas GCOM.
+ */
+export const CADRAGE_PERIMETERS = Object.freeze({
+    Fuego: { product: 'INFRA', tags: ['OPS'] },
+});

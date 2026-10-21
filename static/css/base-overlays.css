@@ -1,59 +1,7 @@
 /* base-overlays.css — morceau 3/6 de l'ancien base.css (découpé en 3.178.0, ordre de cascade INCHANGÉ).
-   Contenu : skeletons, fil d'Ariane, favoris, sparklines, toasts, confirmations, import, boutons divers, tables, progression, état vide.
+   Contenu : fil d'Ariane, favoris, sparklines, toasts, confirmations, import, boutons divers, tables, progression, état vide.
    Liés dans index.html juste après tokens.css, dans l'ordre ; base.css les @importe pour les maquettes. */
-/* ══════════════════════════════════════════════════════════════════════════════
-   Skeleton loaders — affichés pendant les longues syncs JIRA
-   ══════════════════════════════════════════════════════════════════════════════ */
-.sync-skeleton { padding: var(--sp-4); }
-.sync-skeleton-hdr {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-3);
-    padding: var(--sp-3) var(--sp-4);
-    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--surface)), var(--surface));
-    border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-    margin-bottom: var(--sp-4);
-}
-.sync-skeleton-spinner {
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    border: 3px solid color-mix(in srgb, var(--primary) 22%, transparent);
-    border-top-color: var(--primary);
-    animation: sync-skel-spin 0.8s linear infinite;
-    flex-shrink: 0;
-}
-@keyframes sync-skel-spin { to { transform: rotate(360deg); } }
-.sync-skeleton-title { font-size: 14px; font-weight: 600; color: var(--text); }
-.sync-skeleton-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-.sync-skeleton-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: var(--sp-3);
-}
-.sync-skeleton-card {
-    padding: var(--sp-3) var(--sp-4);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-.skel {
-    background: linear-gradient(90deg,
-        color-mix(in srgb, var(--text-muted) 10%, transparent) 25%,
-        color-mix(in srgb, var(--text-muted) 18%, transparent) 50%,
-        color-mix(in srgb, var(--text-muted) 10%, transparent) 75%);
-    background-size: 200% 100%;
-    animation: skel-shimmer 1.4s ease-in-out infinite;
-    border-radius: 3px;
-}
-@keyframes skel-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-.skel-line { height: 10px; }
-.skel-w-30 { width: 30%; }
-.skel-w-60 { width: 60%; }
-.skel-w-80 { width: 80%; }
+/* Écran de chargement / synchro : css/board-loader.css (3.231.0, remplace les skeletons). */
 
 /* ══════════════════════════════════════════════════════════════════════════════
    Breadcrumb topbar
@@ -207,7 +155,7 @@
     align-items: center;
     padding: 1px 6px;
     border-radius: 999px;
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 700;
     margin-left: 6px;
     font-variant-numeric: tabular-nums;
@@ -481,7 +429,7 @@
 }
 .import-dropzone-icon { font-size: 24px; line-height: 1; }
 .import-dropzone-text { font-size: var(--fs-sm); color: var(--text-muted); }
-.import-dropzone-hint { font-size: 10.5px; color: var(--text-muted); opacity: 0.75; }
+.import-dropzone-hint { font-size: 11px; color: var(--text-muted); opacity: 0.75; }
 .import-preview-file {
     margin-top: var(--sp-3);
     font-size: var(--fs-sm);
@@ -568,7 +516,7 @@
     border-right: 1px solid var(--border);
 }
 .btn-split-main small {
-    font-size: 10px;
+    font-size: 11px;
     opacity: 0.7;
     margin-left: 2px;
     font-weight: var(--fw-normal);

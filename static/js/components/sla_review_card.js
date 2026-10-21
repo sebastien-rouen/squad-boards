@@ -109,7 +109,7 @@ export function slaReviewCardHtml(tickets) {
                 <span class="sla-bar-fill sla-bar-fill--${rag}" style="width:${m.pct}%"></span>
                 <span class="sla-bar-goal" style="left:85%"></span>
             </div>
-            <div class="sla-scope" title="Périmètre mesuré : ${m.done.length} ticket(s) terminé(s) du ${scopeTxt} sur ${m.allDoneCount} au total dans l'historique">📐 Mesuré sur <strong>${scopeTxt}</strong> · ${m.done.length}/${m.allDoneCount} tickets terminés</div>
+            <div class="sla-scope" title="Périmètre mesuré : ${m.done.length} ${m.done.length > 1 ? 'tickets' : 'ticket'} ${m.done.length > 1 ? 'terminés' : 'terminé'} du ${scopeTxt} sur ${m.allDoneCount} au total dans l'historique">📐 Mesuré sur <strong>${scopeTxt}</strong> · ${m.done.length}/${m.allDoneCount} tickets terminés</div>
             <div class="sla-meta">
                 <span><strong>${m.conform}/${m.done.length}</strong> tickets ≤ ${targetTxt} j</span>
                 <span>P50 <strong>${_fmt(m.p50)} j</strong> · P85 <strong>${_fmt(m.p85)} j</strong></span>

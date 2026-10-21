@@ -271,6 +271,10 @@ body.chart-zoom-lock { overflow: hidden; }
     min-height: 0;
 }
 .chart-zoom-main .chart-zoom-canvas-wrap { min-width: 0; }
+/* Graphique par ticket (frise / barres, charts.js `_fitRows`) : 24 px par ligne au lieu d'une hauteur fixe — la zone
+   défile si besoin (31 tickets dans 504 px empilaient libellés, durées et noms, 3.239.0). */
+.chart-zoom-main { overflow-y: auto; }
+.chart-zoom-canvas-wrap.chart-rows-zoom { height: calc(var(--rows, 10) * 24px + 170px); min-height: min(56vh, 560px); }
 .chart-zoom-dialog:has(.chart-zoom-explain:not([hidden])) { width: min(1460px, 97vw); }
 .chart-zoom-explain {
     flex: 0 0 360px;

@@ -156,7 +156,14 @@
 .tvw-day header em { flex-basis: 100%; font-style: normal; font-size: var(--fs-xs); color: var(--amber-text); text-transform: none; }
 .tvw-day.is-today { border: 2px solid var(--primary); }
 .tvw-day.is-today header { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); }
-.tvw-day.is-today header span::after { content: ' · aujourd\'hui'; color: var(--primary); font-weight: var(--fw-semibold); text-transform: none; }
+/* « aujourd'hui » en pastille APRÈS le numéro : l'en-tête garde une seule ligne, comme les autres jours */
+.tvw-day.is-today header { flex-wrap: nowrap; }
+.tvw-day.is-today header span { color: var(--primary); font-weight: var(--fw-semibold); }
+.tvw-day.is-today header b::after {
+    content: 'aujourd\'hui'; margin-left: 6px; padding: 1px 7px; border-radius: var(--r-full); vertical-align: middle;
+    font-size: var(--fs-xs); font-weight: var(--fw-semibold); text-transform: none; white-space: nowrap;
+    background: var(--primary); color: #fff;
+}
 .tvw-day.is-weekend { background: var(--bg); }
 .tvw-day.is-weekend header b { font-size: var(--fs-xl); }
 .tvw-day.is-holiday header { background: color-mix(in srgb, var(--warning) 10%, var(--surface)); }

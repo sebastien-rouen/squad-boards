@@ -1,0 +1,93 @@
+/* ✨ « Prêt à estimer ? » — guide animé de la fiche ticket (components/ticket_ready.js, 3.241.0)
+   Bande en tête de fiche · halo sur le champ (.dor-spot) · calque fixe flèche + bulle (.dor-layer) · étincelles. */
+
+.dor-bar {
+    --dor: var(--primary);
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px 14px;
+    margin-bottom: var(--sp-3); padding: 10px 14px; border-radius: var(--r-lg);
+    background:
+        linear-gradient(110deg, color-mix(in srgb, var(--dor) 10%, var(--surface)), color-mix(in srgb, #a855f7 8%, var(--surface)));
+    border: 1px solid color-mix(in srgb, var(--dor) 30%, var(--border));
+    position: relative; overflow: hidden;
+}
+/* Reflet qui traverse la bande de temps en temps (lent, discret) */
+.dor-bar::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(100deg, transparent 35%, color-mix(in srgb, #fff 22%, transparent) 50%, transparent 65%);
+    transform: translateX(-100%); animation: dor-sheen 7s ease-in-out 1.2s infinite;
+}
+@keyframes dor-sheen { 0%, 70% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.dor-bar.is-ready { --dor: var(--success); }
+.dor-ring {
+    --p: 0; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+    background: conic-gradient(var(--dor) calc(var(--p) * 1%), color-mix(in srgb, var(--dor) 14%, var(--bg-alt)) 0);
+    transition: background .4s;
+}
+.dor-ring b { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); font-size: 12px; color: var(--dor); font-variant-numeric: tabular-nums; }
+.dor-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.dor-title { font-size: 13px; font-weight: var(--fw-bold); color: var(--text); }
+.dor-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.dor-chip {
+    display: inline-flex; align-items: center; gap: 5px; min-height: 26px;
+    padding: 2px 10px; border-radius: var(--r-full); font: inherit; font-size: 12px; font-weight: var(--fw-semibold); cursor: pointer;
+    color: var(--text); background: var(--surface);
+    border: 1px dashed color-mix(in srgb, var(--warning) 70%, transparent);
+    transition: transform var(--tr-fast), border-color var(--tr-fast), background var(--tr-fast);
+}
+.dor-chip:hover:not(:disabled) { transform: translateY(-1px); border-style: solid; border-color: var(--dor); }
+.dor-chip:focus-visible { outline: 2px solid var(--dor); outline-offset: 2px; }
+.dor-chip.is-on { border-style: solid; border-color: var(--dor); background: color-mix(in srgb, var(--dor) 14%, var(--surface)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dor) 18%, transparent); }
+.dor-chip.is-done { cursor: default; color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 10%, var(--surface)); animation: dor-pop .45s cubic-bezier(.34, 1.56, .64, 1); }
+.dor-chip.is-done > span { font-weight: var(--fw-bold); }
+@keyframes dor-pop { 40% { transform: scale(1.12); } }
+.dor-go { white-space: nowrap; }
+
+/* ── Champ mis en lumière : double halo qui pulse + liseré qui tourne ─────────────────────────── */
+.dor-spot {
+    position: relative; z-index: 1; border-radius: var(--r-md); cursor: pointer;
+    outline: 2px solid var(--primary); outline-offset: 4px;
+    animation: dor-halo 1.8s ease-out infinite;
+}
+@keyframes dor-halo {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent), 0 0 0 0 color-mix(in srgb, #a855f7 35%, transparent); outline-color: var(--primary); }
+    60%  { box-shadow: 0 0 0 10px transparent, 0 0 0 18px transparent; outline-color: #a855f7; }
+    100% { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent; outline-color: var(--primary); }
+}
+
+/* ── Calque fixe : flèche qui rebondit + bulle ────────────────────────────────────────────────── */
+.dor-layer { position: fixed; inset: 0; z-index: 11200; pointer-events: none; }
+.dor-layer[hidden] { display: none; }
+.dor-arrow {
+    position: fixed; width: 32px; height: 40px; color: var(--primary);
+    filter: drop-shadow(0 3px 6px color-mix(in srgb, var(--primary) 50%, transparent));
+    animation: dor-bounce 1s cubic-bezier(.5, 0, .5, 1) infinite alternate;
+}
+@keyframes dor-bounce { from { transform: translateY(-8px); } to { transform: translateY(2px); } }
+.dor-tip {
+    position: fixed; width: min(320px, calc(100vw - 24px)); pointer-events: auto;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 12px 14px; border-radius: var(--r-lg);
+    background: var(--surface); color: var(--text);
+    border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border));
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .28), 0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
+    animation: dor-tip-in .35s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes dor-tip-in { from { opacity: 0; transform: translateY(8px) scale(.96); } }
+.dor-tip-step { font-size: 10.5px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .06em; color: var(--primary); }
+.dor-tip-title { font-size: 14px; }
+.dor-tip-txt { margin: 0 0 6px; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
+.dor-tip-acts { display: flex; align-items: center; gap: 6px; }
+.dor-tip-x { margin-left: auto; font-size: 18px; line-height: 1; }
+
+/* Étincelles (puce cochée) */
+.dor-spark { position: fixed; z-index: 11210; width: 7px; height: 7px; border-radius: 50%; pointer-events: none; background: var(--success); }
+.dor-spark--1 { background: var(--primary); width: 5px; height: 5px; }
+.dor-spark--2 { background: #f2c14e; border-radius: 1px; }
+
+@media (max-width: 600px) {
+    .dor-bar { grid-template-columns: auto minmax(0, 1fr); }
+    .dor-go { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dor-bar::after, .dor-spot, .dor-arrow, .dor-tip, .dor-chip.is-done { animation: none; }
+}

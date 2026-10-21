@@ -1,0 +1,148 @@
+/* Écran d'attente du board — chargement initial et synchro JIRA (components/board_loader.js, 3.231.0).
+   Remplace les skeletons. 100 % CSS : une carte voyage À faire → En cours → Fait sur un mini-board.
+   Lié dans index.html APRÈS les six feuilles base-* (aucune ne le surcharge). */
+
+.ldr {
+    --ldr-todo: var(--text-muted);
+    --ldr-wip: var(--primary);
+    --ldr-done: var(--success);
+    --ldr-cycle: 3.6s;
+    min-height: min(72vh, 600px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--sp-2); padding: var(--sp-6) var(--sp-4); text-align: center;
+    /* Apparition différée : un chargement rapide ne clignote pas */
+    animation: ldr-in .4s ease .15s both;
+}
+.ldr[data-mode="full"] { --ldr-cycle: 4.4s; }
+@keyframes ldr-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── La scène ─────────────────────────────────────────────────────────────── */
+.ldr-scene { position: relative; width: 238px; height: 132px; margin-bottom: var(--sp-3); }
+.ldr-glow {
+    position: absolute; inset: -30px -40px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 22%, transparent), transparent);
+    filter: blur(6px); animation: ldr-breathe calc(var(--ldr-cycle) * 1.5) ease-in-out infinite;
+}
+@keyframes ldr-breathe { 50% { opacity: .55; transform: scale(.92); } }
+.ldr-board {
+    position: relative; height: 100%;
+    display: grid; grid-template-columns: repeat(3, 66px); gap: 10px; padding: 10px;
+    border-radius: 16px; background: color-mix(in srgb, var(--surface) 88%, transparent);
+    border: 1px solid var(--border);
+    box-shadow: 0 12px 32px -14px color-mix(in srgb, var(--primary) 45%, transparent), 0 1px 0 color-mix(in srgb, #fff 6%, transparent) inset;
+}
+.ldr-col { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 10px; background: var(--bg-alt); }
+.ldr-col i { display: block; border-radius: 5px; }
+.ldr-head { height: 6px; width: 60%; background: color-mix(in srgb, var(--ldr-c) 60%, transparent); }
+.ldr-col--todo { --ldr-c: var(--ldr-todo); }
+.ldr-col--wip  { --ldr-c: var(--ldr-wip); }
+.ldr-col--done { --ldr-c: var(--ldr-done); }
+.ldr-card {
+    height: 20px; background: color-mix(in srgb, var(--ldr-c) 16%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--ldr-c) 25%, transparent);
+    animation: ldr-idle calc(var(--ldr-cycle) * 1.2) ease-in-out infinite;
+}
+.ldr-card--s { height: 14px; width: 75%; animation-delay: -1.1s; }
+.ldr-col--wip .ldr-card { animation-delay: -.6s; }
+.ldr-col--done .ldr-card { animation-delay: -1.7s; }
+@keyframes ldr-idle { 50% { opacity: .55; } }
+
+/* La carte qui voyage : 3 arrêts (16 + 76 px par colonne), soulevée entre deux, couleur de la colonne */
+.ldr-runner {
+    position: absolute; top: 34px; left: 16px; width: 54px; height: 24px; border-radius: 6px;
+    display: grid; place-items: center;
+    background: var(--surface); border: 1.5px solid var(--ldr-todo);
+    box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--text) 40%, transparent);
+    animation: ldr-travel var(--ldr-cycle) cubic-bezier(.65, 0, .35, 1) infinite;
+}
+.ldr-runner i { position: absolute; left: 7px; right: 14px; top: 8px; height: 3px; border-radius: 2px; background: currentColor; opacity: .5; box-shadow: 0 5px 0 currentColor; color: var(--ldr-todo); animation: ldr-ink var(--ldr-cycle) step-end infinite; }
+.ldr-runner b {
+    position: absolute; right: -7px; top: -7px; width: 16px; height: 16px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 10px; color: #fff; background: var(--ldr-done);
+    transform: scale(0); animation: ldr-check var(--ldr-cycle) ease infinite;
+}
+@keyframes ldr-travel {
+    0%       { transform: translate(0, 0) rotate(0); border-color: var(--ldr-todo); opacity: 0; }
+    6%, 22%  { transform: translate(0, 0) rotate(0); border-color: var(--ldr-todo); opacity: 1; }
+    32%      { transform: translate(38px, -12px) rotate(-4deg); }
+    42%, 58% { transform: translate(76px, 0) rotate(0); border-color: var(--ldr-wip); }
+    68%      { transform: translate(114px, -12px) rotate(4deg); }
+    78%, 92% { transform: translate(152px, 0) rotate(0); border-color: var(--ldr-done); opacity: 1; }
+    100%     { transform: translate(152px, 6px); border-color: var(--ldr-done); opacity: 0; }
+}
+@keyframes ldr-ink { 0% { color: var(--ldr-todo); } 42% { color: var(--ldr-wip); } 78% { color: var(--ldr-done); } }
+@keyframes ldr-check {
+    0%, 76% { transform: scale(0); }
+    82%     { transform: scale(1.25); }
+    88%, 94% { transform: scale(1); }
+    100%    { transform: scale(0); }
+}
+
+/* Étincelles autour du board */
+.ldr-spark { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--ldr-c, var(--primary)); opacity: 0; animation: ldr-spark calc(var(--ldr-cycle) * 1.3) ease-out infinite; }
+.ldr-spark--1 { top: -6px; left: 18%; --ldr-c: var(--ldr-wip); }
+.ldr-spark--2 { top: 30%; right: -10px; --ldr-c: var(--ldr-done); animation-delay: 1.2s; }
+.ldr-spark--3 { bottom: -8px; left: 58%; --ldr-c: #a78bfa; animation-delay: 2.3s; }
+@keyframes ldr-spark { 0% { opacity: 0; transform: scale(.3); } 20% { opacity: .9; transform: scale(1); } 60%, 100% { opacity: 0; transform: translateY(-14px) scale(.4); } }
+
+/* ── Textes ───────────────────────────────────────────────────────────────── */
+.ldr-title { margin: 0; display: inline-flex; align-items: baseline; font-size: clamp(16px, 2.2vw, 19px); font-weight: var(--fw-bold); color: var(--text); }
+.ldr-dots { display: inline-flex; gap: 3px; margin-left: 4px; }
+.ldr-dots i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: ldr-dot 1.2s ease-in-out infinite; }
+.ldr-dots i:nth-child(2) { animation-delay: .15s; }
+.ldr-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes ldr-dot { 0%, 60%, 100% { transform: none; opacity: .35; } 30% { transform: translateY(-4px); opacity: 1; } }
+.ldr-sub { margin: 0; max-width: 34ch; font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* Barre indéterminée : un reflet qui glisse, aux couleurs du voyage */
+.ldr-bar { position: relative; width: min(220px, 70vw); height: 4px; margin-top: var(--sp-2); border-radius: 999px; overflow: hidden; background: var(--bg-alt); }
+.ldr-bar i {
+    position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: inherit;
+    background: linear-gradient(90deg, transparent, var(--ldr-wip), var(--ldr-done), transparent);
+    animation: ldr-slide 1.6s cubic-bezier(.45, 0, .25, 1) infinite;
+}
+@keyframes ldr-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+/* Synchro JIRA : barre en % réel (updateBoardLoader) + étape en cours */
+.ldr-bar.is-determinate i {
+    width: var(--p, 0%); animation: none; transform: none;   /* --p posé sur .ldr-bar (hérité) */
+    background: linear-gradient(90deg, var(--ldr-wip), var(--ldr-done));
+    transition: width .5s ease;
+}
+.ldr-bar.is-determinate i::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
+    animation: ldr-shine 1.6s ease-in-out infinite;
+}
+@keyframes ldr-shine { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.ldr-step { margin: 2px 0 0; min-height: 1.4em; max-width: min(460px, 90vw); display: flex; align-items: baseline; justify-content: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+.ldr-step:empty, .ldr-pct:empty { display: none; }
+.ldr-pct { font-variant-numeric: tabular-nums; color: var(--text); }
+.ldr-step-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Astuces : quatre phrases empilées, chacune 4 s à l'écran */
+.ldr-tips { position: relative; width: min(420px, 90vw); height: 2.8em; margin: var(--sp-3) 0 0; font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
+.ldr-tips span { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; animation: ldr-tip 16s ease infinite; }
+.ldr-tips span:nth-child(2) { animation-delay: 4s; }
+.ldr-tips span:nth-child(3) { animation-delay: 8s; }
+.ldr-tips span:nth-child(4) { animation-delay: 12s; }
+@keyframes ldr-tip {
+    0%        { opacity: 0; transform: translateY(6px); }
+    4%, 22%   { opacity: 1; transform: none; }
+    26%, 100% { opacity: 0; transform: translateY(-6px); }
+}
+
+/* Petits écrans : la scène rétrécit, le reste suit */
+@media (max-width: 480px) {
+    .ldr { min-height: 60vh; }
+    .ldr-scene { transform: scale(.88); margin-bottom: 0; }
+}
+
+/* Mouvement réduit : scène figée (carte posée en « En cours »), une seule astuce */
+@media (prefers-reduced-motion: reduce) {
+    .ldr, .ldr-glow, .ldr-card, .ldr-spark, .ldr-dots i, .ldr-runner, .ldr-runner i, .ldr-runner b { animation: none; }
+    .ldr-runner { transform: translateX(76px); border-color: var(--ldr-wip); }
+    .ldr-runner i { color: var(--ldr-wip); }
+    .ldr-bar i { animation-duration: 3s; }
+    .ldr-tips span, .ldr-bar.is-determinate i::after { animation: none; }
+    .ldr-tips span:first-child { opacity: 1; }
+}

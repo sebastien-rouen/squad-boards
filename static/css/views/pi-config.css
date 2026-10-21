@@ -72,7 +72,7 @@
     opacity: .95;
 }
 .pi-cfg-meta {
-    font-size: 10.5px;
+    font-size: 11px;
     opacity: .65;
     white-space: nowrap;
 }
@@ -256,7 +256,7 @@
 .pi-cfg-field--wide { flex: 1 1 280px; }
 .pi-cfg-field--full { flex: 1 1 100%; }
 .pi-cfg-label {
-    font-size: 10px; font-weight: var(--fw-semibold);
+    font-size: 11px; font-weight: var(--fw-semibold);
     color: var(--text-muted); white-space: nowrap;
     display: flex; align-items: center; gap: 3px;
     text-transform: uppercase; letter-spacing: .03em;
@@ -341,7 +341,7 @@
 .pi-cfg-input-wrap .pi-cfg-input { padding-right: 28px; }
 .pi-cfg-unit {
     position: absolute; right: 8px;
-    font-size: 10px; color: var(--text-muted); font-weight: var(--fw-semibold);
+    font-size: 11px; color: var(--text-muted); font-weight: var(--fw-semibold);
     pointer-events: none;
 }
 
@@ -395,7 +395,7 @@
     border-radius: var(--r-full);
 }
 .sprint-nested-pct {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--primary);
     font-weight: var(--fw-semibold);
     flex-shrink: 0;

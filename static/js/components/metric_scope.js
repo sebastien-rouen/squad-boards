@@ -33,7 +33,7 @@ export function metricScopeHtml({ scope, measured = 0, total = 0, unit = 'ticket
         ? ` · <span class="metric-scope-excl" title="Exclus du calcul${excludedReason ? ' : ' + esc(excludedReason) : ''}">${excluded} exclu${excluded > 1 ? 's' : ''}${excludedReason ? ` (${esc(excludedReason)})` : ''}</span>`
         : '';
     const title = `Mesuré sur ${measured}/${total} ${esc(unit)}${scope ? ' — ' + esc(scope) : ''}`
-        + (excluded > 0 ? ` — ${excluded} exclu(s)${excludedReason ? ' : ' + esc(excludedReason) : ''}` : '')
+        + (excluded > 0 ? ` — ${excluded} ${excluded > 1 ? 'exclus' : 'exclu'}${excludedReason ? ' : ' + esc(excludedReason) : ''}` : '')
         + ` — couverture ${cov}%`;
     return `<div class="metric-scope metric-scope--${lvl}" title="${title}">`
         + `${icon} Mesuré sur ${scopeTxt ? scopeTxt + ' · ' : ''}<strong>${measured}/${total}</strong> ${esc(unit)}${exclTxt}`

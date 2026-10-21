@@ -267,7 +267,7 @@
 .cal-chip-time {
     color: var(--cal-color, var(--primary));
     font-weight: var(--fw-bold);
-    font-size: 10px;
+    font-size: 11px;
     flex-shrink: 0;
     letter-spacing: 0.02em;
 }
@@ -279,7 +279,7 @@
 }
 .cal-chip-team {
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 11px;
     flex-shrink: 0;
     padding-left: 3px;
     border-left: 1px solid var(--border);
@@ -354,7 +354,7 @@
     flex-wrap: wrap;
 }
 .cal-week-offset-chip {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -472,7 +472,7 @@
     border-radius: 3px;
 }
 .cal-week-team-popover-hdr {
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: var(--fw-bold);
     color: var(--text-muted);
     text-transform: uppercase;
@@ -518,7 +518,7 @@
 /* Segments de support (repris de la page Agenda) : palette par binôme + label de plage (Lun–Mer) */
 .cal-support-seg { display: inline-flex; align-items: center; gap: 4px; }
 .cal-support-seg-range {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     color: var(--seg-range-color, #b45309);
     text-transform: uppercase;
@@ -582,7 +582,7 @@
     border: 1px solid color-mix(in srgb, var(--sprint-color) 30%, transparent);
     font-weight: var(--fw-semibold);
     text-transform: uppercase;
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 0.04em;
 }
 .cal-week-sprint-goal {
@@ -600,7 +600,7 @@
 }
 /* Badge état du sprint (clos / actif / à venir) */
 .cal-week-sprint-state {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -649,7 +649,7 @@
     color: var(--text);
 }
 .cal-sprint-col-goal {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -713,7 +713,7 @@
 .cal-week-sprint-scale {
     position: relative;
     height: 13px;
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     letter-spacing: 0.02em;
     font-variant-numeric: tabular-nums;
@@ -897,7 +897,7 @@
     padding: 0 var(--sp-2);
     margin: 4px 0;
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     letter-spacing: .04em;
     text-transform: uppercase;
@@ -1050,9 +1050,9 @@
 }
 .cal-ev-popup-btn--visio:hover { background: color-mix(in srgb, #2563eb 16%, var(--surface)); }
 /* Durée en muted dans la ligne heure */
-.cal-ev-popup-dur { color: var(--text-muted); font-weight: normal; font-size: 10px; }
+.cal-ev-popup-dur { color: var(--text-muted); font-weight: normal; font-size: 11px; }
 /* Muted inline */
-.cal-ev-popup-muted { color: var(--text-muted); font-size: 10px; }
+.cal-ev-popup-muted { color: var(--text-muted); font-size: 11px; }
 /* Location wrap */
 .cal-ev-popup-loc { word-break: break-word; }
 /* Cérémonie Scrum */
@@ -1067,7 +1067,7 @@
     gap: 4px;
 }
 .cal-ev-popup-section-hdr {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-bold);
     letter-spacing: .04em;
     text-transform: uppercase;
@@ -1107,7 +1107,7 @@
 }
 /* Icône visio dans la carte (petit badge discret) */
 .cal-ev-visio-badge {
-    font-size: 10px;
+    font-size: 11px;
     opacity: .65;
     margin-left: 2px;
     cursor: default;
@@ -1306,7 +1306,7 @@
     opacity: 1;
 }
 .cal-ev-holiday-badge {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     color: #b91c1c;
     background: #fee2e2;
@@ -1330,7 +1330,7 @@
     border-radius: 0 var(--r-sm) var(--r-sm) 0;
 }
 .cal-ev-off-chip {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-medium);
     color: #9a3412;
     background: #ffedd5;
@@ -1383,7 +1383,7 @@
 /* Lien dans un event */
 .cal-ev-link {
     color: var(--primary);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-medium);
     text-decoration: none;
     display: inline-flex;
@@ -1424,7 +1424,7 @@
     gap: 4px;
     flex-wrap: wrap;          /* permet au badge cérémonie de passer dessous si étroit */
     row-gap: 3px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-bold);
     color: var(--text-muted);
     letter-spacing: 0.03em;
@@ -1434,7 +1434,7 @@
 /* L'horaire seul reste nowrap pour ne pas casser "10h00 – 10h30" */
 .cal-ev-time > :first-child { white-space: nowrap; }
 .cal-ev-dur {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: normal;
     color: var(--text-muted);
     opacity: 0.7;
@@ -1608,7 +1608,7 @@
 .cal-ev-meta {
     color: var(--text-muted);
     margin-top: 3px;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.5;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1748,7 +1748,7 @@
 }
 .cal-rpt-ev-meta {
     color: var(--text-muted);
-    font-size: 10px;
+    font-size: 11px;
 }
 .cal-rpt-ev-none {
     font-size: var(--fs-xs);

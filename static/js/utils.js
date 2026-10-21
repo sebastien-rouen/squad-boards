@@ -21,6 +21,9 @@ export * from './utils/points.js';         // taille d'un ticket (paliers Fibona
 export * from './utils/blocked.js';        // périodes de blocage (drapeau OU statut bloqué)
 export * from './utils/person-name.js';    // même personne JIRA « Prénom Nom » ↔ RH « NOM, Prénom »
 export * from './utils/estimation-queue.js'; // file des tickets à estimer (séance d'affinage, Poker « Suivant »)
+export * from './utils/cadrage.js';
+export * from './utils/scroll.js';
+export * from './utils/recent-tickets.js'; // tickets récemment ouverts (palette Ctrl+K à vide), 3.237.0         // défilement programmé sans scrollIntoView (scrollWithin, scrollToEl), 3.237.0         // tickets de cadrage d'une équipe (SA / PO-PM / contributeur), page Affinage
 export * from './utils/vote-kinds.js';     // échelles Mood / Fist of Five (Santé, info-panel)
 export * from './utils/jira-stages.js';    // états du rapport JIRA du train (00.TODO → 05.DEVELOPMENT_DONE), 3.225.0
 export * from './utils/rich-copy.js';      // mrkdwn → HTML enrichi + texte brut (copies Slack), 3.227.0

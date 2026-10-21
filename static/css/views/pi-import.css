@@ -101,7 +101,7 @@
     color: var(--text-muted); font-size: 10px;
 }
 .obj-conflict-chip {
-    font-size: 10px; font-weight: var(--fw-semibold);
+    font-size: 11px; font-weight: var(--fw-semibold);
     background: color-mix(in srgb, var(--warning, #f59e0b) 14%, transparent);
     color: color-mix(in srgb, var(--warning, #f59e0b) 80%, var(--text));
     border: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 32%, transparent);
@@ -122,7 +122,7 @@
     padding: 1px 4px; flex-shrink: 0;
 }
 .obj-preview-committed {
-    font-size: 10px; color: var(--text-muted);
+    font-size: 11px; color: var(--text-muted);
     flex-shrink: 0;
 }
 .obj-preview-committed.is-committed { color: color-mix(in srgb, var(--success, var(--status-done)) 70%, var(--text)); }

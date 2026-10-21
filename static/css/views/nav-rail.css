@@ -4,6 +4,11 @@
 
 .nav-rail-wrap {
     position: relative;
+    /* Dans un parent flex / grille (bandeau « Support aujourd'hui » du Dashboard…), un élément vaut
+       `min-width: auto` = la largeur de TOUT son contenu : le rail s'étalait (+383 px sur mobile, 3.236.0)
+       au lieu de défiler. Le borner à son parent rend le défilement au rail. */
+    min-width: 0;
+    max-width: 100%;
 }
 
 .nav-rail {

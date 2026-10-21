@@ -56,7 +56,7 @@
 .pical-sprint-hdr.current { background: var(--primary-bg); color: var(--primary); border-bottom-color: var(--primary); }
 .pical-sprint-hdr.done    { background: var(--success-bg, #dcfce7); color: var(--success); }
 .pical-sprint-hdr.ip      { background: #fef9c3; color: var(--warning); }
-.pical-sprint-hdr small   { font-size: 10px; font-weight: normal; color: var(--text-muted); }
+.pical-sprint-hdr small   { font-size: 11px; font-weight: normal; color: var(--text-muted); }
 
 .pical-today-row { display: flex; min-height: 16px; }
 .pical-today-track { flex: 1; position: relative; }
@@ -71,7 +71,7 @@
     position: absolute;
     top: 0;
     left: 4px;
-    font-size: 10px;
+    font-size: 11px;
     color: var(--danger);
     white-space: nowrap;
     font-weight: var(--fw-semibold);
@@ -104,7 +104,7 @@
     align-items: center;
     gap: 3px;
     padding: 0 8px 0 6px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     white-space: nowrap;
     border-radius: var(--r-sm);
@@ -124,7 +124,7 @@
 
 /* Event tooltip content styles (rendered inside the shared floating tip element) */
 .pical-ev-tt-head  { font-weight: var(--fw-semibold); font-size: var(--fs-sm); margin-bottom: 4px; }
-.pical-ev-tt-dates { color: var(--text-muted); font-size: 10px; }
+.pical-ev-tt-dates { color: var(--text-muted); font-size: 11px; }
 .pical-ev-tt-desc  { color: var(--text); font-size: var(--fs-xs); line-height: 1.4; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
 
 .pical-milestone-pin {
@@ -171,7 +171,7 @@
 
 /* Label équipe avec badge objectifs */
 .pical-row-label-team { flex-direction: column; align-items: flex-start; gap: 2px; }
-.pical-obj-badge { font-size: 10px; font-weight: var(--fw-semibold); white-space: nowrap; line-height: 1; }
+.pical-obj-badge { font-size: 11px; font-weight: var(--fw-semibold); white-space: nowrap; line-height: 1; }
 
 /* Bandes d'absences — avec initiales et stacking par lane */
 .pical-abs-strip {
@@ -270,7 +270,7 @@
     letter-spacing: -0.5px;
 }
 .pical-display-chip {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     padding: 2px 9px;
     border-radius: 999px;

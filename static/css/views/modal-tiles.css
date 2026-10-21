@@ -1,0 +1,118 @@
+/* Fiche ticket — tuiles de propriétés (.mdl-props) et cartes Personnes (.mdl-people) restylées (3.242.0).
+   Chargé APRÈS modal-detail.css (déjà > 800 lignes) : ne fait que surcharger l'apparence, le balisage est celui
+   de `_ticketHeadHtml` / `openTicketModal` (modal.js).
+   Grammaire commune : une carte arrondie par information, teintée par SA couleur (`--tile`) — liseré en tête,
+   léger dégradé, libellé à pastille ; au survol, la carte se soulève et prend sa couleur. Sélecteurs à 3 classes :
+   ils doivent gagner sur les bordures « grille » de modal-detail.css (y compris celles du palier ≤ 720 px). */
+
+/* ── Tuiles de propriétés ─────────────────────────────────────────────────────────────────────── */
+.mdl-head .mdl-props {
+    gap: 8px; padding: 10px; background: var(--bg);
+    /* Estimation élargie : pastille + bouton Poker côte à côte (le Statut n'a plus besoin de 1.7fr, les cartes ont leur marge) */
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, .9fr) minmax(0, 1.3fr) minmax(0, 1.4fr) minmax(0, 1.1fr);
+}
+.mdl-head .mdl-prop--points .mdl-prop-value { flex-wrap: wrap; row-gap: 4px; }
+.mdl-head .mdl-props > .mdl-prop {
+    --tile: var(--text-muted);
+    border: 1px solid color-mix(in srgb, var(--tile) 24%, var(--border));
+    border-radius: 12px;
+    padding: 12px 14px 13px;
+    background:
+        radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--tile) 11%, transparent), transparent 60%),
+        var(--surface);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+    overflow: hidden;
+    transition: transform var(--tr-fast), box-shadow var(--tr-fast), border-color var(--tr-fast), background var(--tr-fast);
+}
+/* Liseré de couleur en tête de tuile */
+.mdl-head .mdl-props > .mdl-prop::before {
+    content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
+    background: linear-gradient(90deg, var(--tile), color-mix(in srgb, var(--tile) 25%, transparent));
+}
+.mdl-head .mdl-props > .mdl-prop:is(.mdl-prop--link, .mdl-prop--edit, .mdl-prop--more):hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--tile) 55%, var(--border));
+    background:
+        radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--tile) 17%, transparent), transparent 65%),
+        var(--surface);
+    box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--tile) 55%, transparent);
+}
+.mdl-head .mdl-prop-label { display: flex; align-items: center; gap: 6px; color: color-mix(in srgb, var(--tile) 55%, var(--text-muted)); }
+.mdl-head .mdl-prop-label::before {
+    content: ''; flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--tile); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tile) 18%, transparent);
+}
+.mdl-head .mdl-prop-value { font-size: 14px; min-height: 26px; }
+.mdl-head .mdl-props > .mdl-prop--more.is-open { box-shadow: inset 0 -2px 0 var(--tile); }
+
+/* Une couleur par information */
+#modal[data-status="inprog"]  .mdl-prop--status { --tile: var(--status-inprog); }
+#modal[data-status="review"]  .mdl-prop--status { --tile: var(--status-review); }
+#modal[data-status="test"]    .mdl-prop--status { --tile: var(--status-test); }
+#modal[data-status="blocked"] .mdl-prop--status { --tile: var(--status-blocked); }
+#modal[data-status="done"]    .mdl-prop--status { --tile: var(--status-done); }
+.mdl-head .mdl-props > .mdl-prop[data-field="priority"] { --tile: var(--warning); }
+.mdl-head .mdl-props > .mdl-prop[data-field="priority"][data-value="critical"] { --tile: var(--danger); }
+.mdl-head .mdl-props > .mdl-prop[data-field="priority"][data-value="high"] { --tile: #f97316; }
+.mdl-head .mdl-props > .mdl-prop[data-field="priority"][data-value="low"] { --tile: var(--status-test); }
+.mdl-head .mdl-props > .mdl-prop--points { --tile: var(--type-epic); }
+.mdl-head .mdl-props > .mdl-prop--sprint { --tile: var(--primary); }
+.mdl-head .mdl-props > .mdl-prop--more { --tile: var(--status-test); }
+/* Pas encore estimé : tuile en pointillés ambrés — l'information manquante se voit */
+.mdl-head .mdl-props > .mdl-prop--points:has(.pts-tone--none) { --tile: var(--warning); border-style: dashed; }
+.mdl-head .mdl-prop--points .mdl-points { font-size: 19px; padding: 4px 11px; }
+.mdl-head .mdl-poker-btn { padding: 3px 9px; background: color-mix(in srgb, var(--type-epic) 8%, var(--surface)); }
+.mdl-head .mdl-poker-btn:hover { transform: rotate(-4deg); }
+/* Sprint : la frise d'échéance épouse l'arrondi */
+.mdl-head .mdl-prop-track { left: 14px; right: 14px; bottom: 6px; height: 4px; }
+
+/* ── Personnes : trois cartes, une couleur par rôle ───────────────────────────────────────────── */
+.mdl-layout .mdl-people {
+    gap: 8px; padding: 0;
+    background: none; border: 0; box-shadow: none;
+}
+.mdl-layout .mdl-people > .mdl-field {
+    --role: var(--primary);
+    position: relative; gap: 6px; padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--role) 22%, var(--border));
+    border-radius: 12px;
+    background:
+        radial-gradient(120% 100% at 100% 0%, color-mix(in srgb, var(--role) 10%, transparent), transparent 60%),
+        var(--surface);
+    transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
+}
+.mdl-layout .mdl-people > .mdl-field + .mdl-field { border-left: 1px solid color-mix(in srgb, var(--role) 22%, var(--border)); border-top: 1px solid color-mix(in srgb, var(--role) 22%, var(--border)); padding-top: 12px; }
+.mdl-layout .mdl-people > .mdl-field:hover { border-color: color-mix(in srgb, var(--role) 50%, var(--border)); box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--role) 60%, transparent); }
+.mdl-people > .mdl-field[data-role="reporter"] { --role: var(--status-test); }
+.mdl-people > .mdl-field[data-role="contrib"]  { --role: var(--type-epic); }
+.mdl-people .mdl-field-label { display: flex; align-items: center; gap: 6px; color: color-mix(in srgb, var(--role) 60%, var(--text-muted)); }
+.mdl-people .mdl-field-label::before {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center;
+    font-size: 12px; background: color-mix(in srgb, var(--role) 14%, transparent);
+}
+.mdl-people > .mdl-field[data-role="leader"]   .mdl-field-label::before { content: '👤'; }
+.mdl-people > .mdl-field[data-role="reporter"] .mdl-field-label::before { content: '✍️'; }
+.mdl-people > .mdl-field[data-role="contrib"]  .mdl-field-label::before { content: '🤝'; }
+.mdl-layout .mdl-people .mdl-field-value { font-size: 13.5px; font-weight: var(--fw-semibold); min-height: 30px; }
+.mdl-layout .mdl-people .mdl-field-value.editable-field:hover { background: color-mix(in srgb, var(--role) 9%, transparent); }
+.mdl-layout .mdl-people .mdl-field-value .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px color-mix(in srgb, var(--role) 55%, transparent); }
+/* Personne absente : une invitation franche à assigner */
+.mdl-people .mdl-field-value .mdl-empty {
+    padding: 3px 10px; border-radius: var(--r-full); font-style: normal; font-weight: var(--fw-semibold);
+    color: var(--role); border: 1px dashed color-mix(in srgb, var(--role) 55%, transparent);
+}
+.mdl-people .contrib-add-btn { border-radius: var(--r-full); border-color: color-mix(in srgb, var(--role) 45%, transparent); color: var(--role); }
+.mdl-people .chip { background: color-mix(in srgb, var(--role) 9%, var(--surface)); border-color: color-mix(in srgb, var(--role) 25%, transparent); }
+
+/* Pleine page : cartes empilées dans la colonne d'activité */
+.modal--fullscreen .mdl-layout .mdl-people { grid-template-columns: 1fr; }
+.modal--fullscreen .mdl-layout .mdl-people > .mdl-field { padding: 12px 14px; }
+
+@media (max-width: 720px) {
+    .mdl-head .mdl-props { gap: 6px; padding: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mdl-layout .mdl-people { grid-template-columns: 1fr; row-gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mdl-head .mdl-props > .mdl-prop, .mdl-head .mdl-poker-btn { transition: none; }
+    .mdl-head .mdl-props > .mdl-prop:hover, .mdl-head .mdl-poker-btn:hover { transform: none; }
+}

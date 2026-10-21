@@ -8,6 +8,7 @@ import { esc, pct, progressColor, filterByTeam, sumBy, computeVelocityHistory, g
 import { STATUS_LABELS } from '../config.js';
 import { loadReminders, REMINDER_DEFS } from '../reminders.js';
 import { openAlertModal } from './alert_modal.js';
+import { ANOMALY_BY_KEY } from '../business_rules.js';
 import { panelVotesHtml, bindPanelVotes } from './panel_votes.js';
 // sprint.js est chargé à la demande (lazy loading des vues) — cf. handler "Aller au Daily"
 
@@ -327,6 +328,7 @@ export function updateInfoPanel() {
 
     // ── Alertes proactives (au-dessus des Statuts) ─────────────────────────
     const proactiveAlerts = getSprintAlerts(tickets, sprintInfo).filter(a => a.type !== 'success');
+    _alertIds = Object.fromEntries(proactiveAlerts.filter(a => a.actionable && a.ids).map(a => [a.actionable, a.ids]));
     if (proactiveAlerts.length) {
         // Tri par sévérité : danger > warning > info
         const sevOrder = { danger: 0, warning: 1, info: 2 };
@@ -460,7 +462,7 @@ export function updateInfoPanel() {
             const objClr    = objPct >= 80 ? 'var(--status-done)' : objPct >= 40 ? 'var(--status-inprog)' : 'var(--status-todo)';
 
             html += `
-            <div class="panel-card">
+            <div class="panel-card" data-panel-id="objectives">
                 <div class="panel-card-header">
                     <div class="panel-title">🎯 Objectifs PI</div>
                     <a class="panel-link-sm" href="${objHref}" title="Gérer les objectifs">Gérer →</a>
@@ -515,6 +517,7 @@ export function updateInfoPanel() {
     }
 
     el.innerHTML = html;
+    el.dataset.view = view || '';   // le CSS masque les cartes que la vue affiche déjà (base-components.css)
     _attachPanelEvents(el);
     // Après un vote : le panneau ET les vues qui affichent ces votes (météo Mood du Dashboard, colonnes
     // Mood / Confiance de la Santé), sinon elles restent sur l'ancienne moyenne jusqu'au prochain rendu.
@@ -524,12 +527,16 @@ export function updateInfoPanel() {
     } });
 }
 
+let _alertIds = {};   // actionable → ids des tickets comptés par l'alerte (sprint en cours), pour la modale
+
 function _attachPanelEvents(el) {
     // Alertes proactives cliquables → ouvre la modal d'action
     el.querySelectorAll('[data-alert-action]').forEach(row => {
         row.addEventListener('click', () => {
             const actionable = row.dataset.alertAction;
-            if (actionable) openAlertModal(actionable);
+            // Même périmètre que le chiffre annoncé (sprint en cours) — sans `ticketIds`, la modale listait
+            // TOUS les tickets de l'équipe : « 16 sans assigné·e » ouvrait une liste de 129.
+            if (actionable) openAlertModal(actionable, { ticketIds: _alertIds[actionable], scopeLabel: 'sprint en cours' });
         });
     });
 
@@ -639,8 +646,8 @@ export function getSprintAlerts(tickets, sprintInfo) {
         const blockedPct = Math.round((blocked / total) * 100);
         alerts.push({
             type: blockedPct > 20 ? 'danger' : 'warning',
-            text: `${blocked} ticket(s) bloqué(s) (${blockedPct}%)`,
-            actionable: 'blocked',
+            text: `${blocked} ${blocked > 1 ? 'tickets' : 'ticket'} ${blocked > 1 ? 'bloqués' : 'bloqué'} dans le sprint (${blockedPct}%)`,
+            actionable: 'blocked', ids: tickets.filter(t => t.status === 'blocked').map(t => t.id),
         });
     }
 
@@ -655,8 +662,8 @@ export function getSprintAlerts(tickets, sprintInfo) {
         const daysOldest = Math.floor((now - new Date(oldest.updatedAt).getTime()) / (86400 * 1000));
         alerts.push({
             type: 'danger',
-            text: `${oldBlockers.length} blocker(s) sans mouvement > 48h (le plus ancien : ${daysOldest}j)`,
-            actionable: 'oldBlockers',
+            text: `${oldBlockers.length} ${oldBlockers.length > 1 ? 'blockers' : 'blocker'} sans mouvement > 48h (le plus ancien : ${daysOldest}j)`,
+            actionable: 'oldBlockers', ids: oldBlockers.map(t => t.id),
         });
     }
 
@@ -669,34 +676,32 @@ export function getSprintAlerts(tickets, sprintInfo) {
         alerts.push({ type: 'warning', actionable: 'wip', text: `WIP élevé : ${inprog} en cours pour ${_cap.available} présent${_cap.available > 1 ? 's' : ''} (seuil ${_wipMax})` });
 
     // Tickets stagnants : en cours/review/test depuis plus de 5 jours sans update
-    const stale = tickets.filter(t =>
-        ['inprog', 'review', 'test'].includes(t.status) && t.updatedAt &&
-        (now - new Date(t.updatedAt).getTime()) > 5 * 86400 * 1000
-    );
+    // Règles PARTAGÉES avec le plan d'action et la modale (business_rules.js) — une seule définition.
+    const stale = tickets.filter(t => ANOMALY_BY_KEY.stale.match(t));
     if (stale.length > 0)
         alerts.push({
             type: 'warning',
-            text: `${stale.length} ticket(s) en cours stagnant(s) (>5j sans update)`,
-            actionable: 'stale',
+            text: `${stale.length} ${stale.length > 1 ? 'tickets' : 'ticket'} en cours ${stale.length > 1 ? 'stagnants' : 'stagnant'} dans le sprint (> 5 j sans mise à jour)`,
+            actionable: 'stale', ids: stale.map(t => t.id),
         });
 
     // Tickets sans assignee (hors done) — risque de "personne ne prend"
-    const unassigned = tickets.filter(t =>
-        t.status !== 'done' && !(t.leader || t.assignee)
-    );
+    const unassigned = tickets.filter(t => ANOMALY_BY_KEY.unassigned.match(t));
     if (unassigned.length >= 3)
         alerts.push({
             type: 'info',
-            text: `${unassigned.length} ticket(s) sans assigné·e`,
-            actionable: 'unassigned',
+            text: `${unassigned.length} ${unassigned.length > 1 ? 'tickets' : 'ticket'} sans assigné·e dans le sprint`,
+            actionable: 'unassigned', ids: unassigned.map(t => t.id),
         });
 
-    const noPoints = tickets.filter(t => !t.points && t.status !== 'done').length;
+    // ⚠️ Avant 3.236.0 : sans exclure les ActionRetro, contrairement à la règle partagée.
+    const noPointsList = tickets.filter(t => ANOMALY_BY_KEY.noPoints.match(t));
+    const noPoints = noPointsList.length;
     if (noPoints > 3)
         alerts.push({
             type: 'info',
-            text: `${noPoints} tickets sans estimation`,
-            actionable: 'noPoints',
+            text: `${noPoints} tickets sans estimation dans le sprint`,
+            actionable: 'noPoints', ids: noPointsList.map(t => t.id),
         });
 
     if (sprintInfo?.startDate) {
@@ -707,7 +712,7 @@ export function getSprintAlerts(tickets, sprintInfo) {
             const detail = addedPts > 0 ? ` (+${addedPts} pts)` : '';
             alerts.push({
                 type: addedPts >= 8 ? 'danger' : 'warning',
-                text: `Périmètre élargi : ${added.length} ticket(s) ajouté(s) après début${detail}`,
+                text: `Périmètre élargi : ${added.length} ${added.length > 1 ? 'tickets' : 'ticket'} ${added.length > 1 ? 'ajoutés' : 'ajouté'} après début${detail}`,
                 actionable: 'scopeCreep',
             });
         }

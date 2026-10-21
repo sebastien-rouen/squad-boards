@@ -527,7 +527,7 @@ function _renderPiTimeline(teamFilter, teams, teamObjects, support, absences, me
                 ${viewToggle}
                 ${hiddenPastCount > 0 || showPast ? `
                 <button class="btn btn-sm btn-ghost sup-show-past-btn${showPast ? ' is-on' : ''}" id="sup-toggle-past"
-                        title="${showPast ? 'Masquer les semaines passées' : `Afficher les ${hiddenPastCount} semaine(s) passée(s)`}">
+                        title="${showPast ? 'Masquer les semaines passées' : `Afficher les ${hiddenPastCount} ${hiddenPastCount > 1 ? 'semaines' : 'semaine'} ${hiddenPastCount > 1 ? 'passées' : 'passée'}`}">
                     ${showPast ? '👁️‍🗨️ Masquer le passé' : `🕰️ Afficher passé (${hiddenPastCount})`}
                 </button>` : ''}
             </div>
@@ -684,7 +684,7 @@ function _wirePiTimeline(container) {
             `Générer la rotation du PI ${_targetPi} ?`,
             `Équipe ${team} — les ${weeks.length} semaines du PI seront retirées au sort.\n`
             + `Les semaines passées et celles verrouillées 🔒 sont préservées.`
-            + (_alreadyFilled ? `\n\n⚠ ${_alreadyFilled} semaine(s) déjà remplie(s) seront réécrites.` : ''),
+            + (_alreadyFilled ? `\n\n⚠ ${_alreadyFilled} ${_alreadyFilled > 1 ? 'semaines' : 'semaine'} déjà ${_alreadyFilled > 1 ? 'remplies' : 'remplie'} seront réécrites.` : ''),
             { confirmLabel: '🎲 Générer', cancelLabel: 'Annuler', danger: !!_alreadyFilled },
         );
         if (!_ok) return;

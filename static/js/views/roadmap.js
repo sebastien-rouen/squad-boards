@@ -809,7 +809,7 @@ function _currentPiSectionHtml(featureData, noEpicTickets, noPointsTickets, noPr
                 </div>
                 <span class="text-xs${f.pts ? ' text-muted' : ' missing-pts-inline'}" title="${f.pts ? '' : 'Story points manquants sur cette feature'}">${f.donePts}/${f.pts} pts</span>
                 <span class="feature-team">${esc(f.team || '-')}</span>
-                ${_depOut[f.id] ? `<span class="dep-badge" title="Dépend de ${_depOut[f.id]} autre(s) feature(s) (liens JIRA bloquants)">⇒ ${_depOut[f.id]}</span>` : ''}
+                ${_depOut[f.id] ? `<span class="dep-badge" title="Dépend de ${_depOut[f.id]} ${_depOut[f.id] > 1 ? 'autres features' : 'autre feature'} (liens JIRA bloquants)">⇒ ${_depOut[f.id]}</span>` : ''}
             </div>`).join('')
         : '<div class="empty-state"><p>Aucune feature</p></div>';
 

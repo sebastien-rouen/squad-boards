@@ -167,17 +167,17 @@
 .mc-tt-ticket-row:hover { background: var(--hover-bg, rgba(0,0,0,.05)); }
 .mc-tt-jira {
     font-family: var(--font-mono, monospace);
-    font-size: 10px;
+    font-size: 11px;
     color: var(--primary);
     text-decoration: none;
     margin: 0 3px 0 2px;
     opacity: .8;
 }
 .mc-tt-jira:hover { opacity: 1; text-decoration: underline; }
-.mc-tt-pts-unit { font-size: 10px; font-weight: 400; color: var(--text-muted); }
+.mc-tt-pts-unit { font-size: 11px; font-weight: 400; color: var(--text-muted); }
 .mc-tt-key {
     font-family: var(--font-mono, monospace);
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     margin: 0 3px 0 2px;
 }
@@ -501,7 +501,7 @@
 .pi-obj-attain-item--editable [data-obj-edit-bv]:hover { box-shadow: 0 0 0 1px var(--border); }
 .pi-obj-attain-item--editable [data-obj-edit-bv]:focus { outline: none; box-shadow: 0 0 0 2px var(--primary); }
 .pi-obj-attain-team {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -520,7 +520,7 @@
 button.pi-obj-kind { cursor: pointer; }
 button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .pi-obj-attain-bv {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     color: var(--text-muted);
     padding: 2px 7px;
@@ -586,7 +586,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     gap: var(--sp-2);
 }
 .team-card-progress-label {
-    font-size: 10px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-muted);
@@ -699,7 +699,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     border-radius: 999px;
     background: var(--surface-2);
     border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: var(--fw-medium);
     color: var(--text-secondary);
     line-height: 1.4;
@@ -742,10 +742,10 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     border-style: dashed;
 }
 /* Valeur statut → réutilise les couleurs des badges status existants */
-.act-value--status { border: none; padding: 1px 8px; font-size: 10.5px; font-weight: var(--fw-semibold); }
+.act-value--status { border: none; padding: 1px 8px; font-size: 11px; font-weight: var(--fw-semibold); }
 
 /* Valeur priorité — couleur par niveau */
-.act-value--priority { font-size: 10.5px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.03em; }
+.act-value--priority { font-size: 11px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.03em; }
 .act-value--prio-highest, .act-value--prio-blocker { background: color-mix(in srgb, var(--danger) 14%, transparent); border-color: color-mix(in srgb, var(--danger) 35%, transparent); color: var(--danger); }
 .act-value--prio-high    { background: color-mix(in srgb, var(--warning) 14%, transparent); border-color: color-mix(in srgb, var(--warning) 35%, transparent); color: var(--amber-text); }
 .act-value--prio-low, .act-value--prio-lowest { background: color-mix(in srgb, var(--info) 8%, transparent); border-color: color-mix(in srgb, var(--info) 22%, transparent); color: var(--text-secondary); }
@@ -763,7 +763,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2);
 }
 .act-window-lbl {
-    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
     color: var(--text-muted); padding: 0 6px 0 8px;
 }
 .act-window-btn {
@@ -797,7 +797,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 }
 .act-filter-label {
     flex-shrink: 0;
-    font-size: 10px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-muted);
@@ -817,7 +817,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     border-radius: 999px;
     background: var(--surface-2);
     border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: var(--fw-medium);
     color: var(--text-secondary);
     cursor: pointer;
@@ -870,7 +870,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     position: sticky; top: 0; z-index: 1;
     margin-top: var(--sp-2); padding: 4px 0 2px;
     background: var(--surface);
-    font-size: 10.5px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.05em;
+    font-size: 11px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.05em;
     color: var(--text-muted); border-bottom: 1px solid var(--border);
 }
 .act-day:first-child { margin-top: 0; }
@@ -988,7 +988,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .stage-flow-count { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px; }
 /* Sélecteur de période (Sprint / PI / PI précédent) + écart à la référence dans chaque segment */
 .stage-flow-toolbar { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin: 0 0 var(--sp-3); }
-.stage-flow-toolbar-lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.stage-flow-toolbar-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
 .stage-flow-scopes {
     display: inline-flex; gap: 2px; padding: 2px;
     border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2);
@@ -1006,7 +1006,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .stage-flow-scope:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .stage-flow-delta {
     margin-top: 4px; padding: 1px 7px; border-radius: 999px;
-    font-size: 10.5px; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; white-space: nowrap;
+    font-size: 11px; font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; white-space: nowrap;
     background: var(--surface); border: 1px solid var(--border); color: var(--text-muted);
 }
 .stage-flow-delta small { font-weight: var(--fw-medium); opacity: .8; }
@@ -1175,7 +1175,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
     min-width: 0;
 }
 .stuck-state {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     padding: 2px 9px;
     border-radius: 999px;
@@ -1565,7 +1565,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .pip-copy-n {
     display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 16px; padding: 0 5px;
     border-radius: 999px; background: color-mix(in srgb, var(--status-inprog) 18%, transparent); color: var(--status-inprog);
-    font-size: 10px; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums;
+    font-size: 11px; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums;
 }
 .pip-main { display: flex; align-items: center; gap: var(--sp-3); }
 .pip-pct {
@@ -1583,7 +1583,7 @@ button.pi-obj-kind:hover { box-shadow: 0 0 0 2px var(--primary); }
 .pip-seg {
     appearance: none; border: 0; padding: 0; cursor: pointer; font-family: inherit;
     display: flex; align-items: center; justify-content: center; min-width: 3px;
-    font-size: 10.5px; font-weight: var(--fw-bold); color: #fff; font-variant-numeric: tabular-nums;
+    font-size: 11px; font-weight: var(--fw-bold); color: #fff; font-variant-numeric: tabular-nums;
     transition: width .4s ease;
 }
 .pip-seg:first-child { border-top-left-radius: 999px; border-bottom-left-radius: 999px; }
@@ -1621,7 +1621,7 @@ button.pip-lg.is-active { background: var(--surface-2); border-color: color-mix(
 .psr-name { font-size: 12px; font-weight: var(--fw-semibold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .psr-name small { font-weight: normal; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .psr-bar { position: relative; display: flex; height: 20px; border-radius: 5px; overflow: hidden; background: var(--bg-alt); }
-.psr-seg { border: 0; padding: 0; min-width: 2px; cursor: pointer; font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.psr-seg { border: 0; padding: 0; min-width: 2px; cursor: pointer; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .psr-seg + .psr-seg { box-shadow: inset 1px 0 0 var(--surface); }
 .psr-seg:hover { filter: brightness(1.08); }
 .psr-seg.is-active { box-shadow: inset 0 0 0 2px var(--surface), inset 0 0 0 3.5px var(--text); }
@@ -1629,7 +1629,7 @@ button.pip-lg.is-active { background: var(--surface-2); border-color: color-mix(
 .psr-now { position: absolute; top: -2px; bottom: -2px; width: 0; border-left: 2px dashed #EF4444; pointer-events: none; }
 .psr-done { font-size: 11.5px; font-weight: 700; color: var(--success); font-variant-numeric: tabular-nums; min-width: 48px; text-align: right; }
 .psr-done.is-late { color: var(--danger); }
-.psr-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 10.5px; color: var(--text-secondary); }
+.psr-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; color: var(--text-secondary); }
 .psr-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 .psr .psf-list { margin-top: var(--sp-1); }
 .psr .psf-list .stuck-row { grid-template-columns: auto auto minmax(0, 1fr) auto auto auto; }

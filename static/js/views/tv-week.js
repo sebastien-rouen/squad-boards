@@ -63,12 +63,13 @@ function boundsOf(bands, d, single, full = false) {
     ]);
 }
 
-/** Évènement d'agenda : couleur de sa nature (`data-k`, palette de team-calendar.css), heure, et pour un
+/** Évènement d'agenda : couleur de sa nature (`data-k`, palette de team-calendar.css), heure dans SA colonne
+ *  (`<time>` entre l'icône et le texte : les heures s'alignent d'une ligne à l'autre, tv-week.css), et pour un
  *  agenda commun l'icône de sa portée. Cliquable → détail (`data-cal-ev` = index dans `_weekCal`). */
 const calItemHtml = e => {
     const sc = CAL_SCOPES[e.scope] || { icon: '📅', label: '' };
     return `<li class="tvw-ev ${e.scope === 'team' ? 'is-team' : 'is-common'}${e.prod ? ' is-prod' : ''}" data-k="${esc(e.kind)}" data-scope="${esc(e.scope)}" data-cal-ev="${e.cal}" tabindex="0" role="button" aria-label="${esc(`${e.title} — ${sc.label} — voir le détail`)}">`
-        + `<span aria-hidden="true">${e.ico}</span><span>${e.time ? `<time>${esc(e.time)}</time> ` : ''}${esc(e.txt)}${e.scope !== 'team' ? ` <small class="tvw-scope" title="${esc(`Agenda commun · ${sc.label} · ${e.calName}`)}">${sc.icon}</small>` : ''}</span></li>`;
+        + `<span aria-hidden="true">${e.ico}</span>${e.time ? `<time>${esc(e.time)}</time>` : ''}<span>${esc(e.txt)}${e.scope !== 'team' ? ` <small class="tvw-scope" title="${esc(`Agenda commun · ${sc.label} · ${e.calName}`)}">${sc.icon}</small>` : ''}</span></li>`;
 };
 const itemHtml = e => (e.cal !== undefined ? calItemHtml(e)
     : e.offDay ? `<li class="tvw-ev is-off" data-k="off" data-cal-off="${e.offDay}" tabindex="0" role="button" aria-label="${esc(e.txt)} — voir le détail"><span aria-hidden="true">🏖️</span><span>${esc(e.txt)}</span></li>`
@@ -164,14 +165,29 @@ export function screenWeek({ teams }, offset = 0) {
         </div>`;
     }).join('');
 
+    // Créneaux de la SEMAINE (3.234.0) : « sans heure » en tête, puis une tranche d'UNE HEURE par heure occupée
+    // un jour au moins (comme la grille d'un agenda ; l'heure exacte reste sur chaque ligne). Chaque journée les
+    // rend TOUS (vides compris) ; `alignSlots` égalise ensuite leur hauteur d'une colonne à l'autre → le Daily
+    // tombe à la même hauteur tous les jours. À la minute près (09h30 ≠ 09h45), la semaine de Fuego comptait
+    // 11 créneaux et devait être réduite à 59 % pour tenir : illisible à trois mètres.
+    const listOf = d => [...boundsOf(bands, d, single), ...(byDay.get(d) || [])];
+    const slotOf = e => (e.sort || '').slice(0, 2);   // '' = sans heure, sinon « 09 »
+    const slots = [...new Set(days.flatMap(d => listOf(d).map(slotOf)))].sort();
+    const slotsHtml = list => slots.map(k => {
+        const items = list.filter(e => slotOf(e) === k);
+        return items.length
+            ? `<li class="tvw-slot" data-slot="${esc(k)}"><ul>${items.map(itemHtml).join('')}</ul></li>`
+            : `<li class="tvw-slot is-empty" data-slot="${esc(k)}" aria-hidden="true"></li>`;
+    }).join('');
+
     const dayHtml = d => {
-        const list = [...boundsOf(bands, d, single), ...(byDay.get(d) || [])];
+        const list = listOf(d);
         const wd = atNoon(d).getDay(), hol = holidayName(d);
         const lbl = atNoon(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
         // Jour cliquable (souris, ou Entrée sur l'en-tête) → son détail complet dans le panneau.
         return `<section class="tvw-day${d === today ? ' is-today' : ''}${wd % 6 === 0 ? ' is-weekend' : ''}${d > today ? ' is-future' : ''}${hol ? ' is-holiday' : ''}" data-week-day="${d}">
             <header tabindex="0" role="button" data-week-day="${d}" aria-label="Détail du ${esc(lbl)}${list.length ? ` — ${list.length} évènement${list.length > 1 ? 's' : ''}` : ''}"><span>${DOW[wd]}</span><b>${+d.slice(8)}</b>${list.length ? `<small>${list.length}</small>` : ''}${hol ? `<em>🎌 ${esc(hol)}</em>` : ''}</header>
-            <div class="tvw-list"><ul>${list.map(itemHtml).join('')}</ul></div>
+            <div class="tvw-list"><ul>${slotsHtml(list)}</ul></div>
         </section>`;
     };
     // Évènements de plusieurs jours : bandeaux cliquables, couleur de leur nature, liseré de leur portée.
@@ -230,10 +246,31 @@ export function weekDayHtml(teams, d) {
  * glissaient, et le bas d'une journée n'était jamais lisible d'un coup d'œil). Après le rendu, la
  * densité monte d'un cran (`data-dens` 0 → 3 : police et marges réduites, une ligne par évènement,
  * bandeau de chiffres puis légende masqués) jusqu'à ce qu'aucune journée ne déborde ; en dernier
- * recours, la seule journée encore trop pleine est réduite à sa hauteur (`zoom`) — rien n'est caché.
+ * recours, TOUTES les journées sont réduites du même facteur (`zoom`, sinon les créneaux ne s'alignent
+ * plus) tant qu'il reste ≥ ALIGN_MIN_ZOOM ; au-delà, retour aux listes compactes (`data-align="0"`, un zoom
+ * par journée si besoin) — rien n'est caché. Les créneaux sont réalignés à chaque palier.
  * Refait si l'écran change de taille (plein écran, autre palier de zoom TV).
  */
 let _fitObs = null;
+
+/** Zoom minimal accepté pour garder les créneaux alignés — en dessous, on revient aux listes compactes. */
+const ALIGN_MIN_ZOOM = 0.85;
+
+/** Égalise la hauteur de chaque créneau sur les 7 jours (hauteur du plus haut) — alignement des horaires. */
+function alignSlots(week) {
+    // Les en-têtes d'abord : sans pastille de compteur (week-end vide) ou avec un férié (ligne 🎌 en plus),
+    // un en-tête n'a pas la même hauteur et décalerait tous les créneaux de sa colonne.
+    const heads = [...week.querySelectorAll('.tvw-days .tvw-day > header')];
+    heads.forEach(h => { h.style.minHeight = ''; });
+    const hMax = Math.max(0, ...heads.map(h => h.offsetHeight));
+    heads.forEach(h => { h.style.minHeight = `${hMax}px`; });
+    const cells = [...week.querySelectorAll('.tvw-days .tvw-slot')];
+    cells.forEach(c => { c.style.minHeight = ''; });
+    const max = new Map();
+    cells.forEach(c => max.set(c.dataset.slot, Math.max(max.get(c.dataset.slot) || 0, c.offsetHeight)));
+    cells.forEach(c => { c.style.minHeight = `${max.get(c.dataset.slot)}px`; });
+}
+
 export function rollDays(root) {
     const week = root.querySelector('.tv-week');
     _fitObs?.disconnect();
@@ -242,10 +279,21 @@ export function rollDays(root) {
         const lists = [...week.querySelectorAll('.tvw-list')];
         lists.forEach(b => { b.firstElementChild.style.zoom = ''; });
         const over = () => lists.some(b => b.firstElementChild.scrollHeight > b.clientHeight + 1);
+        const ratio = () => Math.min(...lists.map(b => b.clientHeight / b.firstElementChild.scrollHeight));
+        // 1. Créneaux ALIGNÉS : chaque palier de densité change la hauteur des lignes → réaligner avant de mesurer.
+        week.dataset.align = '1';
+        for (const lvl of ['0', '1', '2', '3']) { week.dataset.dens = lvl; alignSlots(week); if (!over()) return; }
+        // …encore trop haut : un MÊME zoom pour toutes les journées garde l'alignement, s'il reste lisible.
+        const r = ratio();
+        if (r >= ALIGN_MIN_ZOOM) { lists.forEach(b => { b.firstElementChild.style.zoom = (r * 0.98).toFixed(3); }); return; }
+        // 2. Sinon, la lisibilité l'emporte : listes compactes (créneaux vides masqués), comme avant 3.234.0 —
+        //    1600×900 : aligné = 73 %, compact = 93 % ; une TV 1920×1080 tient alignée sans zoom.
+        week.dataset.align = '0';
+        week.querySelectorAll('.tvw-slot, .tvw-day > header').forEach(c => { c.style.minHeight = ''; });
         for (const lvl of ['0', '1', '2', '3']) { week.dataset.dens = lvl; if (!over()) return; }
         lists.forEach(b => {
-            const ul = b.firstElementChild, r = b.clientHeight / ul.scrollHeight;
-            if (r < 1) ul.style.zoom = Math.max(0.4, r * 0.98).toFixed(3);
+            const ul = b.firstElementChild, k = b.clientHeight / ul.scrollHeight;
+            if (k < 1) ul.style.zoom = Math.max(0.4, k * 0.98).toFixed(3);
         });
     };
     fit();

@@ -1,7 +1,8 @@
 /**
  * Synchro JIRA — conversion d'un ticket et helpers (extrait de sync.js, 3.178.0, déplacé tel quel) :
  * colonne de board → statut, `transformIssue`, historique récent, ADF → HTML, sprint / PI / équipe,
- * pagination /search/jql. Aucun état : fonctions pures ou appels API.
+ * pagination /search/jql. Fonctions pures ou appels API — seul état : l'id du champ « Contributeurs »,
+ * posé une fois par la détection des champs (`setContributorsField`).
  */
 
 import * as api from './api.js';
@@ -20,6 +21,36 @@ export function _mapColToInternal(colName) {
     if (/backlog/i.test(c))                                                   return 'todo';
     if (/todo|[àa] faire|open|ready|estimer|affinage|pret|prêt/i.test(c))    return 'todo';
     return null;
+}
+
+// ── Champ « Contributeurs » (multi-personnes) ─────────────────────────────────
+// JIRA n'assigne qu'une personne : l'équipe ajoute des volontaires dans un champ personnalisé
+// « Contributeur(s) » pour éviter qu'un porteur soit seul (SPOF). Son id varie d'une instance à
+// l'autre → détecté par son NOM, surchargeable par `sb-sync-contributorsField` (id ou nom exact).
+let _contributorsField = null;
+
+/** Id du champ Contributeurs parmi `GET /rest/api/3/field`, ou null. */
+export function detectContributorsField(fields, override = null) {
+    const custom = (fields || []).filter(f => f.custom);
+    if (override) {
+        const hit = custom.find(f => f.id === override || f.name === override || f.clauseNames?.includes(override));
+        return hit?.id || (/^customfield_\d+$/.test(override) ? override : null);
+    }
+    // Un sélecteur de personnes en priorité (schema array/user), sinon le premier nom qui correspond.
+    const named = custom.filter(f => /contribut/i.test(f.name || ''));
+    return (named.find(f => f.schema?.type === 'array' && f.schema?.items === 'user') || named[0])?.id || null;
+}
+export const setContributorsField = id => { _contributorsField = id || null; };
+/** Suffixe à ajouter à une liste `fields` JIRA (« ,customfield_X » ou ''). */
+export const contributorsFieldParam = () => (_contributorsField ? `,${_contributorsField}` : '');
+
+/** Noms affichés (JIRA) des contributeurs d'un ticket — utilisateurs, ou texte libre séparé par , ; */
+function _contributors(f) {
+    const v = _contributorsField ? f[_contributorsField] : null;
+    if (!v) return [];
+    const list = Array.isArray(v) ? v : [v];
+    return [...new Set(list.flatMap(x => (typeof x === 'string' ? x.split(/[,;]/) : [x?.displayName || x?.name || x?.value || '']))
+        .map(n => String(n).trim()).filter(Boolean))];
 }
 
 // ── Transform JIRA issue ──────────────────────────────────────────────────────
@@ -165,7 +196,7 @@ export function transformIssue(issue, teamName, sprint, storyPointsField, boardS
         team,   // cf. plus haut : Team[Team] > board > sprint > 'Autre'
         leader: f.assignee?.displayName || null,
         reporter: f.reporter?.displayName || null,
-        contributors: [],
+        contributors: _contributors(f),
         points,
         priority: f.priority?.name?.toLowerCase() || 'medium',
         sprint: sprint?.id || null,

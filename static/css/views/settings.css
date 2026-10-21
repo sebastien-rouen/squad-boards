@@ -31,14 +31,14 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     margin-bottom: var(--sp-4);
-    margin-top: calc(-1 * var(--sp-6));
-    margin-left: calc(-1 * var(--sp-6));
-    margin-right: calc(-1 * var(--sp-6));
+    margin-top: calc(-1 * var(--content-pad, var(--sp-6)));
+    margin-left: calc(-1 * var(--content-pad, var(--sp-6)));
+    margin-right: calc(-1 * var(--content-pad, var(--sp-6)));
     position: sticky;
-    top: calc(-1 * var(--sp-6));
+    top: calc(-1 * var(--content-pad, var(--sp-6)));
     z-index: 10;
     box-shadow: 0 2px 6px rgb(0 0 0 / 4%);
-    width: calc(100% + 2 * var(--sp-6));
+    width: calc(100% + 2 * var(--content-pad, var(--sp-6)));
     max-width: none;
 }
 
@@ -66,11 +66,11 @@
    Depuis le passage en rail (3.146.0) cette hauteur est quasi constante — la barre ne
    wrappe plus — mais la mesure reste : elle suit encore le zoom, la taille de police et
    les préférences système. Le repli 56 px correspond au rail sur une ligne ;
-   `- var(--sp-6)` retranche la part qui colle hors écran (`top: calc(-1 * var(--sp-6))`).
+   `- var(--content-pad)` retranche la part qui colle hors écran (`top: calc(-1 * var(--content-pad))`).
    ⚠️ La mesure porte sur le WRAPPER, pas sur la barre : c'est lui qui porte le padding
    et le bord, donc la hauteur réellement recouvrante. */
 .content:has(.settings-tabs) {
-    scroll-padding-top: calc(var(--stg-tabs-h, 56px) - var(--sp-6) + var(--sp-3));
+    scroll-padding-top: calc(var(--stg-tabs-h, 56px) - var(--content-pad, var(--sp-6)) + var(--sp-3));
 }
 /* Groupes de tabs */
 .stg-tab-group {
@@ -307,14 +307,14 @@
 .pa-count--todo { color: var(--warning); font-weight: var(--fw-semibold); }
 .pa-help { margin: 0 0 var(--sp-3); font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; }
 .pa-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
-.pa-table th { text-align: left; font-size: 10px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); padding: 4px 8px; }
+.pa-table th { text-align: left; font-size: 11px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); padding: 4px 8px; }
 .pa-table td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: middle; }
 .pa-table .pa-select { width: 100%; max-width: 320px; }
 .pa-actions { white-space: nowrap; text-align: right; }
 .pa-actions .btn + .btn { margin-left: 4px; }
 .pa-empty { margin: 0; font-size: var(--fs-sm); color: var(--success); }
 .pa-saved { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: var(--sp-3); }
-.pa-saved-title { width: 100%; font-size: 10px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.pa-saved-title { width: 100%; font-size: 11px; font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
 .pa-chip { gap: 5px; }
 .pa-chip--none { opacity: 0.7; }
 @media (max-width: 720px) {
@@ -366,7 +366,7 @@
 .abs-td-name { font-weight: var(--fw-medium); }
 .abs-td-days { font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .abs-entity-chip {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     background: var(--surface-alt, #f1f5f9);
     border: 1px solid var(--border);
@@ -591,7 +591,7 @@
     font-variant-numeric: tabular-nums;
 }
 .data-stat-lbl {
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -634,7 +634,7 @@
     align-items: center;
     gap: 4px;
     margin-top: var(--sp-2);
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: var(--fw-semibold);
     color: var(--warning);
     background: var(--warning-bg);

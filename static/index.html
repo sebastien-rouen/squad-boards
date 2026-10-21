@@ -13,15 +13,18 @@
     <link rel="stylesheet" href="/css/base-utilities.css">
     <link rel="stylesheet" href="/css/base-palette.css">
     <link rel="stylesheet" href="/css/base-misc.css">
+    <link rel="stylesheet" href="/css/board-loader.css">
     <link rel="stylesheet" href="/css/topbar-fit.css">
     <!-- views.css éclaté par vue/composant — ORDRE = ordre de cascade (ne pas réordonner) -->
     <link rel="stylesheet" href="/css/views/health.css">
     <link rel="stylesheet" href="/css/views/health-coverage.css">
     <link rel="stylesheet" href="/css/views/dashboard.css">
+    <link rel="stylesheet" href="/css/views/dashboard-cards.css">
     <link rel="stylesheet" href="/css/views/meteo.css">
     <link rel="stylesheet" href="/css/views/tv.css">
     <link rel="stylesheet" href="/css/views/tv-screens.css">
     <link rel="stylesheet" href="/css/views/tv-week.css">
+    <link rel="stylesheet" href="/css/views/tv-retro.css">
     <link rel="stylesheet" href="/css/views/help.css">
     <link rel="stylesheet" href="/css/views/sprint.css">
     <link rel="stylesheet" href="/css/views/board-rule.css">
@@ -36,6 +39,8 @@
     <link rel="stylesheet" href="/css/views/settings-jira.css">
     <link rel="stylesheet" href="/css/views/forms.css">
     <link rel="stylesheet" href="/css/views/modal-detail.css">
+    <link rel="stylesheet" href="/css/views/ticket-ready.css">
+    <link rel="stylesheet" href="/css/views/modal-tiles.css">
     <link rel="stylesheet" href="/css/views/calendar-banner.css">
     <link rel="stylesheet" href="/css/views/print.css">
     <link rel="stylesheet" href="/css/views/pi-config.css">
@@ -51,6 +56,7 @@
     <link rel="stylesheet" href="/css/views/roadmap.css">
     <link rel="stylesheet" href="/css/views/agenda.css">
     <link rel="stylesheet" href="/css/views/poker.css">
+    <link rel="stylesheet" href="/css/views/poker-table.css">
     <link rel="stylesheet" href="/css/atlas.css">
     <link rel="stylesheet" href="/css/views/atlas-history.css">
     <link rel="stylesheet" href="/css/backlog.css">
@@ -61,6 +67,7 @@
     <link rel="stylesheet" href="/css/views/train-matrix.css">
     <link rel="stylesheet" href="/css/views/cmd-section.css">
     <link rel="stylesheet" href="/css/views/refinement.css">
+    <link rel="stylesheet" href="/css/views/page-toc.css">
     <!-- En DERNIER : .nav-rail passe la barre en flex-wrap:nowrap, et les feuilles de
          vue posent flex-wrap:wrap sur la meme barre avec la MEME specificite. A specificite
          egale, c est l ordre de chargement qui tranche - place avant, le composant perdait
@@ -166,8 +173,8 @@
                     <span class="btn-label">Mes tickets</span>
                 </button>
                 <button id="btn-favorites" class="btn-icon btn-fav" data-tooltip="Vues favorites (★)" aria-label="Favoris">★</button>
-                <button id="btn-create" class="btn btn-primary" data-tooltip="Nouveau ticket (N)">
-                    + Nouveau
+                <button id="btn-create" class="btn btn-primary" data-tooltip="Nouveau ticket (N)" aria-label="Nouveau ticket">
+                    <span aria-hidden="true">+</span><span class="btn-create-label"> Nouveau</span>
                 </button>
                 <button id="btn-cal-sync" class="cal-banner-week-btn cal-sync-badge" data-tooltip="Semaine — vue détaillée" aria-label="Voir la semaine" hidden>
                     <span class="cal-mini" aria-hidden="true">
@@ -204,6 +211,8 @@
                     </button>
                     <div id="topbar-more-menu" class="sync-menu topbar-more-menu" hidden>
                         <button class="sync-menu-item" id="more-daily">▶&nbsp; Aller au Daily</button>
+                        <button class="sync-menu-item" id="more-tv">📺&nbsp; Mode TV</button>
+                        <button class="sync-menu-item" id="more-week">🗓️&nbsp; Semaine (agenda)</button>
                         <button class="sync-menu-item" id="more-board-mode">⇄&nbsp; Basculer Scrum / Kanban</button>
                         <button class="sync-menu-item" id="more-favorites">★&nbsp; Favoris</button>
                         <button class="sync-menu-item" id="more-my-tickets">◉&nbsp; Mes tickets</button>
@@ -246,6 +255,9 @@
         <div id="global-filter-banner" class="global-filter-banner" hidden></div>
         <div class="content-layout">
             <div id="content" class="content"></div>
+            <button type="button" id="info-panel-toggle" class="info-panel-toggle" aria-controls="info-panel" aria-expanded="true" aria-label="Replier le panneau latéral" data-tooltip="Replier le panneau latéral">
+                <svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+            </button>
             <aside id="info-panel" class="info-panel"></aside>
         </div>
     </main>

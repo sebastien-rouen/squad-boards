@@ -38,8 +38,8 @@ function cell(team, w, d) {
     const tip = [`${team} · semaine du ${fmtY(w)}`,
         d.pct !== null ? `${100 - d.pct} % présents` : 'présence inconnue',
         d.sup && `🛎️ ${d.sup} support${d.stale ? ` (⏳ ${d.stale} traîne)` : ''}`,
-        d.inc && `🚨 ${d.inc} incident(s) prod`, d.mep && `🚀 ${d.mep} jour(s) de MEP`,
-        d.inn && `▲ ${d.inn} arrivée(s)`, d.out && `▼ ${d.out} départ(s)`].filter(Boolean).join('\n');
+        d.inc && `🚨 ${d.inc} ${d.inc > 1 ? 'incidents' : 'incident'} prod`, d.mep && `🚀 ${d.mep} ${d.mep > 1 ? 'jours' : 'jour'} de MEP`,
+        d.inn && `▲ ${d.inn} ${d.inn > 1 ? 'arrivées' : 'arrivée'}`, d.out && `▼ ${d.out} ${d.out > 1 ? 'départs' : 'départ'}`].filter(Boolean).join('\n');
     return `<button type="button" class="tm-cell${d.stale ? ' is-stale' : ''}" data-l="${presenceLevel(d.pct) || 'none'}" data-team="${esc(team)}" data-week="${w}" title="${esc(tip)}" aria-label="${esc(tip.replace(/\n/g, ', '))}">
         ${d.sup ? `<b>${d.sup}</b>` : ''}${d.inc ? '<i class="tm-inc"></i>' : ''}${d.mep ? '<i class="tm-mep">◆</i>' : ''}${d.inn || d.out ? `<i class="tm-move">${d.inn ? '▲' : ''}${d.out ? '▼' : ''}</i>` : ''}
     </button>`;

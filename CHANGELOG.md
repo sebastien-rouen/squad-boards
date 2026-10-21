@@ -1,3 +1,321 @@
+## [3.244.0] - 2026-10-21
+
+### Affinage plus compact et plus lisible
+
+- **En-tête sur une ligne** : titre · pastilles « 68 à estimer · 3 estimés aujourd'hui · < 1 min / ticket · 0 désaccord
+  fort · Sprint ▬ 3/4 » · « ▶ Démarrer le Poker » (la consigne passe en infobulle). 90 px au lieu d'environ 240.
+- **« ▶ Poker » au bout du fil collant** (grand écran) : on peut démarrer depuis n'importe où dans la page. Sous
+  1 500 px, la pastille « à traiter » de l'étape s'efface (le halo suffit) pour laisser la place.
+- **Groupes de sprint repliables** (clic sur le titre, chevron) : sprints CLOS et Backlog repliés par défaut dès qu'un
+  sprint en cours / à venir existe ; replié, le titre montre « ✨ N à compléter ». La puce d'un groupe replié (en
+  pointillés) le déplie puis y amène. Choix mémorisé par équipe (`sb-refinement-groups`, clé = nom du sprint).
+- **Titre complet au survol** d'un titre tronqué (même calque que le détail ✨) : n° du ticket, titre entier, sprint,
+  ancienneté en jours ouvrés, rapporteur.
+- **Porteur dans la ligne** : initiales sur pastille de couleur (absent : déjà signalé par 👤 dans le badge ✨).
+- **Séance pas commencée** : une ligne en pointillés au lieu d'une grande carte vide.
+- **Cadrage replié** : mini-barres SA · PO / PM · Contributeur (prêts / total) directement dans le bandeau.
+- Mobile : bouton 🃏 et badge ✨ en icônes seules, en-tête en pastilles sur plusieurs lignes.
+
+## [3.243.0] - 2026-10-21
+
+### Affinage : « à compléter » aligné sur le badge ✨, tri « moins prêts d'abord » avec détail au survol, mode compact
+
+- **« ⚠️ N à compléter » = badge ✨** : compteur, filtre, étape « 📝 Compléter » et « 📋 Copier pour Slack » comptent
+  désormais la MÊME chose que le badge (description, critères d'acceptation pour une story, feature parente, porteur)
+  via `_readyOf` (refinement.js, cache par ticket sur `readyChecks`). Le message Slack détaille ce qui manque par
+  ticket (« manque : 📝 description, 👤 porteur »).
+- **Tri de la file** (segmenté « 🔢 Rang | ✨ Moins prêts d'abord », `sb-refinement-sort`) : par défaut le rang (ordre
+  du « ⏭ Suivant » du Poker) ; sinon, DANS chaque sprint (l'ordre des sprints ne bouge pas), part remplie croissante,
+  puis le plus de manques, puis le rang. Le n° affiché reste le rang de la file.
+- **Détail au survol du badge ✨** : bulle (calque unique `.rf-pop`, position fixe — la ligne est en overflow hidden)
+  avec la jauge, chaque point de contrôle coché ou non, et « Clic : fiche + guide ».
+- **Mode compact** (« ☰ Confort | ≡ Compact », `sb-refinement-density`) : lignes de 30 px, bouton 🃏 seul, badge ✨ en
+  icônes, priorité en barres seules, âge masqué, en-tête de séance resserré — les titres gagnent la place libérée.
+- Mobile : le badge de type des lignes est masqué pour ne plus rogner le badge ✨.
+
+## [3.242.0] - 2026-10-21
+
+### Fiche ticket : tuiles et cartes Personnes restylées · Affinage : badge ✨ « prêt à estimer » et guide automatique
+
+- **Tuiles de propriétés** (`.mdl-props`, nouvelle feuille `css/views/modal-tiles.css` après modal-detail.css, qui
+  dépasse déjà 800 lignes) : une carte arrondie par information, teintée par SA couleur (`--tile`) — liseré en tête,
+  léger dégradé, libellé à pastille. Statut = couleur du statut (`#modal[data-status]`), priorité = critique rouge /
+  haute orange / moyenne ambre / basse cyan, estimation = violet (pointillés ambrés tant que non estimé), sprint =
+  primaire, flux = cyan. Au survol, la tuile se soulève et prend sa couleur. Colonnes rééquilibrées : la tuile
+  Estimation garde pastille + bouton Poker côte à côte.
+- **Personnes** : trois cartes teintées par rôle (👤 Leader bleu, ✍️ Rapporteur cyan, 🤝 Contributeurs violet,
+  `data-role` sur chaque cellule), avatar cerclé de la couleur du rôle, « + Assigner » / « + Ajouter » en pastilles
+  en pointillés. Pleine page : cartes empilées ; mobile : une colonne.
+- **Badge ✨ sur chaque ligne de la file** (remplace 📝 / ⚠️) : « ✨ 1/3 📝👤 » = points remplis sur ceux à remplir
+  (description, critères pour une story, feature parente, porteur ; estimation exclue) et icônes de ce qui manque.
+  MÊME calcul que la bande de la fiche (`readyChecks`, ticket_ready.js). Rouge sans description, ambre sinon,
+  « ✓ prêt » en vert.
+- **Guide lancé d'office** (`armReadyGuide`) quand on ouvre un ticket depuis l'étape « 📝 Compléter » (filtre
+  « à compléter ») ou par un clic sur son badge ✨ : la fiche s'ouvre directement sur le premier champ à remplir.
+  Un clic ailleurs sur la ligne ouvre la fiche sans guide.
+
+## [3.241.0] - 2026-10-21
+
+### Affinage : file rangée par sprint · Poker : le jeton part au pot · Fiche ticket : guide « Prêt à estimer ? »
+
+- **📋 File d'attente rangée du plus proche au plus loin** : sprint en cours, puis CHAQUE autre sprint dans l'ordre
+  de proximité (`sprintProximity`, utils/estimation-queue.js : actif → à venir par date de début → sans date mais
+  numéro « NN.N » postérieur → clos du plus récent au plus ancien), puis backlog. L'ordre est celui de
+  `estimationQueue` (option `teamSprints`) : le « ⏭ Suivant » du Poker suit la même séquence. Chaque groupe est
+  titré par son état (EN COURS · DÉMARRE LE 1 NOV. · À VENIR · CLOS LE … · SANS SPRINT). Barre de puces collante
+  (« ▶ 31.4 · 31.5 · 32.1 · … · Backlog ») avec le nombre de tickets : un clic amène au groupe.
+- **🪙 Le jeton part au pot** (`components/poker_chip_fly.js`) : à l'enregistrement, le jeton choisi quitte le rail
+  en arc (deux tours de toupie) jusqu'au centre de la table, s'y pose avec une onde dorée et « N pts ». Clone posé
+  sur body (survit au re-rendu et au passage au ticket suivant), retiré à la fin ; lancé dès le clic. Fermeture /
+  passage au suivant à 900 ms (au lieu de 600) pour le voir se poser.
+- **✨ « Prêt à estimer ? » dans la fiche ticket** (`components/ticket_ready.js` + `css/views/ticket-ready.css`) :
+  bande en tête avec anneau de progression et une puce par point à remplir — 📝 description, ✅ critères
+  d'acceptation (STORY seulement, même repérage que l'Affinage), 🧩 feature parente, 👤 porteur, 🃏 estimation.
+  « ▶ Guide-moi » (ou clic sur une puce) : halo animé sur le champ, flèche qui rebondit, bulle « Étape 1 / 3 »
+  avec « ✏️ Remplir » (ouvre l'éditeur du champ ; pour les critères, insère un modèle « Étant donné / quand /
+  alors » prêt à compléter) et « Passer → ». Champ rempli → puce cochée avec étincelles, étape suivante ;
+  tout est prêt → « 🎉 Prêt à estimer ! ». Masqué pour un ticket terminé, une epic ou une feature, et pour un
+  ticket déjà complet. Respecte `prefers-reduced-motion`.
+
+## [3.240.0] - 2026-10-21
+
+### Affinage : fil collant, lignes cliquables, cadrage replié intelligemment — Poker en « table de jeu »
+
+- **Fil « Par où commencer ? » collant** en haut de la page (fond verre, ombre légère) : il reste la navigation
+  pendant tout le défilement. Liseré de progression en pied (part des étapes faites). Sur mobile, le titre est masqué
+  pour économiser la hauteur. Sa hauteur est mesurée (`--rf-sticky` sur `.rf`) pour décaler ce qui colle dessous.
+- **« ✅ Estimés aujourd'hui » collant** à côté de la longue file (≥ 1101 px) : la liste défile seule, la séance reste
+  sous les yeux pendant qu'on parcourt les 70 tickets.
+- **Lignes entièrement cliquables** (file, estimés du jour, cartes de cadrage) → modale du ticket ; les boutons
+  internes (🃏 Estimer, Macro-estimer…) gardent leur action. Clavier : Tab puis Entrée / Espace. Survol = liseré
+  primaire + titre coloré.
+- **🧭 Cadrage replié par défaut tant qu'il reste à estimer** (son en-tête garde anneau, compteurs et un lien
+  « ▸ Voir les N tickets ») ; file vide → déplié ET remonté au-dessus de la file. Le choix explicite (chevron, clic
+  sur l'en-tête, étape « Cadrer ») est mémorisé et prime (`sb-refinement-cadrage` : absent = automatique).
+  Déplié, son en-tête colle sous le fil (`overflow: clip` au lieu de `hidden`, qui cassait le collant).
+- **Poker « table de jeu »** (nouvelle feuille `css/views/poker-table.css`, après poker.css) : popin agrandie
+  (1 060 px au lieu de 700), tapis vert feutré, bordure cuir + filet doré, lumière chaude qui respire lentement
+  au-dessus de la table. Cartes ivoire à index de coin (♠ ♥ ♣ ♦ cycliques, une seule encre : les cartes restent
+  NEUTRES), dos rouge une fois les votes révélés ; participants en jetons ; « Valeur à enregistrer » en jetons de
+  casino teintés par palier ; reflet doré qui balaie le rail à la révélation (fenêtre `.poker-reveal-in` seulement,
+  pour ne pas rejouer au re-rendu de 3 s). Thème obtenu en REDÉFINISSANT les variables (`--surface`, `--text`,
+  `--primary`…) sur `.poker-modal`. Respecte `prefers-reduced-motion`.
+- **Onglet « Description » du Poker à côté de la table** sous 1 180 px : il recouvrait le bord droit (cartes, jetons,
+  boutons « Choisir »). Mobile : en-tête du Poker sur deux lignes, actions empilées.
+
+## [3.239.0] - 2026-10-21
+
+### Dashboard : graphique agrandi lisible, carte « bloqués / stagnants » restylée, prévision Monte-Carlo détaillée
+
+- **« Cycle Time & Lead Time » agrandi** (bouton ⤢) : le correctif 3.237.0 ne valait que pour la carte. En popin, 31
+  tickets tenaient dans 504 px (< 10 px par ligne, police 9 px) : libellés, durées et noms empilés. Désormais
+  `_fitRows` (charts.js) donne 24 px par ligne en agrandi (`.chart-rows-zoom`, chart-zoom.css — la popin défile),
+  police fixe 12 px, pour la **Frise** et les **Barres** du Cycle Time ET la frise de l'**Aging WIP**. Le Nuage et les
+  autres graphiques gardent leur hauteur ; la classe est remise à zéro à chaque changement de graphique.
+- **« 🧊 Tickets bloqués ou stagnants »** (nouveau `components/stuck_card.js`, styles `css/views/dashboard-cards.css`) :
+  synthèse en pastilles (bloqués · stagnants · depuis ≥ 14 j), deux groupes 🚫 Bloqués puis 🐌 Stagnants, lignes sur
+  deux niveaux (clé + titre ; statut JIRA · porteur avec avatar ou « Non assigné »), âge à droite avec une jauge
+  relative au plus ancien, liseré rouge / ambre selon la gravité, 8 lignes par groupe puis « Voir les N autres »
+  (avant : 12 lignes au total, coupées sans le dire). État vide = `emptyStateHtml` (plus de style en ligne).
+- **« 🔮 Prévision de fin »** (forecast_card.js) — détails ajoutés :
+  - **débit nécessaire** pour tenir l'échéance (« il faudrait 12,3 tickets / sem. — 1,9× le débit habituel ») ;
+  - **livrable d'ici l'échéance** au rythme habituel — quasi sûr (85 %), probable (50 %) — et **combien reporter ou
+    retirer** pour tenir (nouvelle simulation `deliverableBy`, même bootstrap) ;
+  - **frise** aujourd'hui → échéance → P50 / P85 / P95, plage P50–P85 en bande, dates en légende ;
+  - graphique de débit : **ligne de médiane** + légende (min, médiane, max, nombre de tirages).
+
+## [3.238.0] - 2026-10-21
+
+### Sécurité : le proxy JIRA ne livre plus le jeton du `.env` · bandeau calendrier replié en vue globale
+
+- **🔴 Fuite du jeton JIRA corrigée** (`app/routers/jira.py`, `_resolve_target`) : l'URL pouvait venir de l'en-tête
+  `X-Jira-Url` et les identifiants du `.env` — n'importe qui atteignant le port recevait `Authorization: Basic
+  <utilisateur:jeton>` sur le serveur de son choix, et pouvait écrire dans JIRA (PUT / POST). Désormais une URL du
+  navigateur DIFFÉRENTE de `JIRA_URL` exige les identifiants du navigateur (jamais ceux du `.env`), HTTPS et un hôte
+  `*.atlassian.net`, celui du `.env` ou listé dans `JIRA_ALLOWED_HOSTS` (nouveau, `app/config.py`) — plus de requête
+  du serveur vers le réseau interne. Sans en-tête d'URL, ou la même que le `.env` : inchangé. Rejoué sur une copie
+  avec de faux secrets et un écouteur local : 4 attaques → 400, rien reçu ; usage normal intact.
+  ⚠️ **Renouveler le jeton JIRA** (Atlassian → Compte → Sécurité → Jetons d'API) : il a pu fuiter avant ce correctif.
+- **Bandeau calendrier en vue globale** (toutes les équipes / ligne produit) : **replié par défaut** (« Prochains
+  créneaux » + « Absents » sur une ligne) — déplié, la journée de 13 équipes (~40 créneaux) prenait les deux tiers de
+  l'écran. Clé à part (`sb-cal-banner-collapsed-all`) : la vue d'une équipe garde son réglage, déplié par défaut.
+
+## [3.237.0] - 2026-10-21
+
+### Ergonomie (2) : Kanban borné, sections repliables, défilement sûr, graphique lisible, panneau repliable, palette, accessibilité
+
+- **Kanban** (`views/kanban.js`) : il rendait TOUS les tickets de l'équipe — Fuego : 539 « Terminé » (dont 15 sur 14 jours)
+  + 118 « À faire » → **78 écrans de haut en desktop, 100 en mobile → 7 et 14**. « Terminé » = clos depuis 14 jours
+  (« Voir les 524 plus anciens » / « Ne garder que les 14 derniers jours »), chaque colonne = 40 cartes puis « Afficher
+  les N autres ». Compteurs d'en-tête inchangés (vrais totaux) ; une recherche montre toujours tout.
+- **Dashboard, sections repliables** (`components/collapsible.js`) : « Sprints du PI », « 🚀 Pilotage & flux »,
+  « 👥 Équipe & risques » — bouton ▾ dans l'en-tête, état retenu À PART pour « toutes les équipes » et pour une équipe
+  (`sb-dash-collapsed`). Vue globale repliée : 14 993 → 3 636 px. Le 2ᵉ flux n'avait pas de conteneur de cartes
+  (`.dash-stream-cards` ajouté, même espacement).
+- **Défilement programmé sûr partout** : `scrollWithin` / `scrollToEl` (nouveau `utils/scroll.js`, via le barrel) —
+  défile le seul conteneur de la cible, respecte `scroll-padding-top` / `scroll-margin-top`, alignement haut ou centre.
+  Remplace les 7 `scrollIntoView` restants (Paramètres, Backlog, Atlas, Équipe, palette Ctrl+K, matrice météo, modale
+  ticket). Les 17 `block: 'nearest'` (listes au clavier) restent.
+- **« Lead time & Cycle time »** (charts.js, mode barres) : hauteur = nombre de lignes (`.chart-rows`, `--rows` ×
+  18 px + 110 ; 15 tickets dans 220 px donnaient ~9 px par ligne, libellés chevauchés), police 9 → 11 px, titre compact
+  28 → 16 car. (la clé du ticket était coupée à gauche dans la carte demi-largeur).
+- **Panneau de droite repliable** (`components/panel_toggle.js`) : poignée verticale entre le contenu et le panneau
+  (> 1200 px), état retenu (`sb-info-panel-closed`) — rend 260 px au contenu. **Masqué en mode TV** : la TV prend
+  tout l'écran, et la semaine alignée tient désormais aussi en 1600 × 900 (zoom 91 %).
+- **Palette Ctrl+K à vide** : « 🎫 Tickets récents » (5 derniers ouverts, `utils/recent-tickets.js`, alimenté par
+  `openTicketModal`) et « 🧭 Aller à » (toutes les vues en pastilles — au doigt, le menu ☰ est replié). Icône 🃏 pour
+  Affinage (📐 par défaut avant).
+- **Accessibilité** : 47 boutons icône sans nom accessible → 0 (37 reprennent leur `title` / infobulle, 10 nommés à
+  la main : « Fermer », « Supprimer cette carte », « Retirer ce champ »).
+
+## [3.236.0] - 2026-10-21
+
+### Ergonomie : mobile sans débordement, chiffres cohérents, sommaire du Dashboard, lisibilité, cibles tactiles, accords
+
+Mesures faites dans Chromium sur 17 vues, en 390 px (mobile) et 1440 px — avant → après.
+
+- **Mobile : plus aucun débordement horizontal** (Affinage +670 px, Dashboard +371, Équipe +36, Paramètres +24,
+  Rapports +12 → 0). Causes : éléments de grille / flex sans `min-width: 0` (rail « Support aujourd'hui »,
+  colonnes de l'Affinage `1fr` → `minmax(0, 1fr)`, récit de la frise) et barres collées aux bords qui retranchaient
+  `--sp-6` en dur → **variable unique `--content-pad`** posée sur `.content` à chaque palier. `.content` ne défile
+  plus horizontalement (`overflow-x: hidden` ; vérifié : aucune vue n'en dépendait).
+- **Barre du haut en mobile** : elle mesurait 578 px pour 390 — **synchro JIRA et menu ⋮ étaient hors écran**.
+  ≤ 640 px : Daily, TV et la tuile « Semaine » passent dans le menu ⋮ (`#more-tv`, `#more-week`, masqués au-delà),
+  « + Nouveau » devient « + », le fil d'Ariane ne garde que la vue (avec ellipse).
+- **Chiffres contradictoires** : le panneau Alertes annonçait « 16 sans assigné·e » quand le plan d'action en
+  comptait 129 (sprint en cours ≠ tous les tickets actifs, sans le dire). Le panneau dit désormais « dans le
+  sprint », réutilise les règles PARTAGÉES de `business_rules.js` (« sans estimation » ne retirait pas les
+  ActionRetro) et ouvre la modale sur **les mêmes tickets** (`openAlertModal(k, { ticketIds, scopeLabel })` —
+  avant : « 16 » ouvrait une liste de 129). Le plan d'action précise « sur tous les tickets actifs de l'équipe ».
+- **Pages longues — sommaire du Dashboard** (`components/page_toc.js`, `css/views/page-toc.css`) : barre collante
+  « Aller à » (Météo, Plan d'action, Fin de PI, Cap, Mood & effectif, Sprint, Indicateurs, Pilotage & flux, Équipe &
+  risques — seulement les sections présentes), section lue allumée au défilement (IntersectionObserver). Vue
+  « toutes les équipes » : listes de tickets des cartes de sprint **fermées par défaut** (bloc Sprint 16 872 →
+  4 037 px).
+- **Correctif de fond — l'application glissait vers le haut** : le document faisait 1 312 px pour 900, rallongé par
+  `caption.meteo-sr` (texte lecteur d'écran en `position: absolute` sans ancêtre positionné). Tout `scrollIntoView`
+  faisait alors défiler la coquille (barre du haut cachée, bande blanche en bas). `.meteo-sr` ancré en haut ; le
+  sommaire et l'Affinage défilent par `scrollWithin(container, el)` (le seul `#content`).
+- **Doublons** : sur le Dashboard, le panneau de droite masque Sprint, Features et Objectifs PI (déjà dans la frise,
+  « Cap de l'équipe », « Avancement du PI ») ; restent Alertes, Votes, Buffer, Cérémonies, Support.
+- **Lisibilité** : 280 tailles de 10 / 10,5 px → 11 px (32 feuilles ; exclus : initiales d'avatars, compteurs en
+  pastille, flèches, `kbd`, TV, grilles horaires calendrier / frise). Texte < 11 px : Dashboard 656 → 124 éléments,
+  Rapports 426 → 72. Étiquette « ↪ 31.4 » des cartes de sprint 9 → 11 px. Pastilles météo : `min-width` 132 →
+  118 px (« Périmètre » ne passe plus seule à la ligne en 1440 px).
+- **Cibles tactiles** (`pointer: coarse` seulement, sans changer le visuel) : zone cliquable élargie par `::after` sur
+  18 petits contrôles, cases du Backlog 18 → 24 px (WCAG 2.2 AA), champs de saisie ≥ 32 px. Cibles < 24 px :
+  Backlog 711 → 0, Affinage 95 → 0, Paramètres 47 → 0, Équipe 41 → 0, Dashboard 48 → 4 (segments proportionnels).
+- **Accords** : fini les « ticket(s) bloqué(s) » — 113 messages accordés par une transformation contrôlée
+  (`${n} mot(s)` → `${n > 1 ? 'mots' : 'mot'}`, 0 et 1 au singulier), 11 autres à la main (concaténations).
+- **Collision de classes corrigée** : l'écran d'attente (3.231.0) utilisait le préfixe `bl-`, déjà celui du
+  Backlog — ses styles s'appliquaient aux titres de groupe du Backlog (`bl-title`). Renommé `ldr-`.
+
+## [3.235.0] - 2026-10-21
+
+### Dashboard : « Cap de l'équipe » au-dessus de « 😊 Mood & confiance »
+
+- **Dashboard filtré sur une équipe** : la bande « Cap de l'équipe » (objectif de sprint ⟷ objectifs du PI) passe
+  juste au-dessus de la fiche équipe (« 😊 Mood & confiance » + effectif) — le cap se lit avant l'humeur. Ordre :
+  pastilles météo → plan « Ce qui ferait revenir le soleil » → Cap de l'équipe → Mood & confiance. Vue
+  multi-équipes (matrice, sans fiche) : inchangée.
+- **BACKLOG.md** : top 5 de l'audit du 2026-10-21 (#A1 → #A5), item « fichiers de plus de 800 lignes » remis à
+  jour (25 fichiers).
+
+## [3.234.0] - 2026-10-21
+
+### TV « La semaine » : créneaux alignés d'un jour à l'autre · Météo du train tient en largeur
+
+- **Écran « 🗞️ La semaine en bref »** : les évènements sont rangés par **tranche d'une heure** (plus une tranche
+  « sans heure » en tête : absences, début / fin de sprint), et chaque tranche a la même hauteur sur les 7 jours
+  — le Daily tombe à la même hauteur tous les jours, comme dans un agenda. L'heure exacte reste sur chaque ligne
+  (09h30 et 09h45 partagent la tranche « 9h »). Créneau vide = trait pointillé à peine visible. Les en-têtes de
+  jour sont égalisés aussi (week-end sans compteur, jour férié). Vérifié : écart ≤ 1 px entre les colonnes.
+- **Lisibilité d'abord** : l'alignement coûte de la hauteur. Il est gardé tant que la semaine tient avec un zoom
+  ≥ 85 % (`ALIGN_MIN_ZOOM`), sinon retour aux listes compactes d'avant (`data-align="0"`). Fuego, semaine du
+  19 octobre : 1920×1080 = aligné sans zoom ; 1600×900 = compact (aligné y aurait demandé 73 %). À la minute
+  près (09h30 ≠ 09h45), il fallait 59 % : d'où les tranches d'une heure.
+- **Écran « 🌤️ Météo du train »** : la colonne 📐 Périmètre sortait de l'écran en 1600×900 (tableau de 1 078 px
+  pour 949), masquée sans barre — contraire à la règle « tout tient à l'écran ». Sur la TV, sous-lignes et
+  en-têtes passent à la ligne, cellules sans largeur minimale ; le nom d'équipe reste entier (la pastille ⚠
+  passe dessous). Le Dashboard garde sa matrice qui défile.
+
+## [3.233.0] - 2026-10-21
+
+### TV « La semaine » : horaires alignés · effet télé : changement de chaîne et intensité
+
+- **Écran « 🗞️ La semaine en bref »** (`#tv/<équipe>/semaine`) : chaque évènement est une grille à trois colonnes
+  — icône · heure · titre. Les heures s'alignent d'une ligne à l'autre (largeur fixe, chiffres tabulaires) et un
+  titre long repart sous son propre texte au lieu de passer sous l'icône. Sans heure (absences, début / fin de
+  sprint), le texte prend la place de l'heure. L'en-tête du jour courant tient sur une ligne : « Mer. 21
+  `aujourd'hui` » (pastille) au lieu de « Mer. · aujourd'hui » puis le numéro en dessous.
+- **Changement de chaîne** : quand la TV passe à l'écran suivant, l'image se tasse un instant puis se rouvre
+  (0,45 s, sans flash) — seulement au changement d'écran, jamais au rafraîchissement du même ; inerte sans
+  effet télé ou avec `prefers-reduced-motion`. Les mesures de pagination (offset / client) n'en sont pas affectées.
+- **Intensité de l'effet télé** : ⚙ « Effet télé d'époque » devient un choix Léger (défaut) / Moyen / Désactivé
+  (`sb-tv-retro`, URL `~tv=retro:leger|moyen|non`). Moyen = lignes, vignette et grain plus marqués, pour un grand
+  écran vu de loin.
+
+## [3.232.0] - 2026-10-21
+
+### Mode TV : effet « télé d'époque » · synchro JIRA en % réel · fil d'Affinage qui se souvient
+
+- **Mode TV** (`#tv`, `#tv/<équipe>`) : calque discret façon tube cathodique — allumage « trait lumineux qui
+  s'ouvre », fines lignes de balayage, vignette, grain léger, bande lumineuse qui roule lentement (9 s) et une
+  hachure pâle qui traverse l'écran toutes les ~13 s. Lisibilité préservée : effets adoucis en thème clair,
+  renforcés la nuit, AUCUN scintillement rapide (photosensibilité), scène figée avec `prefers-reduced-motion`.
+  Calque fixe sans clic, sous la fiche détail. Désactivable dans ⚙ « Effet télé d'époque » (`sb-tv-retro`) ou
+  par l'URL `~tv=retro:non` (`css/views/tv-retro.css`).
+- **Écran de synchro JIRA** : la barre affiche le pourcentage RÉEL et l'étape en cours (« 62 % · Sprints PI
+  nommés… · 412 uniques »), mis à jour en place depuis `syncProgress` / `syncLabel` / `syncDetail`
+  (`updateBoardLoader`, board_loader.js). Le chargement initial garde la barre indéterminée.
+- **Fil « Par où commencer ? »** (Affinage) : les étapes ouvertes dans la journée sont mémorisées par équipe
+  (`sb-refinement-steps`, remis à zéro le lendemain) et marquées « vu » ; l'étape « à traiter » passe à la
+  suivante non encore ouverte — avant, « Compléter » restait en tête tant qu'un ticket manquait de description.
+
+## [3.231.0] - 2026-10-21
+
+### Affinage : fil « Par où commencer ? » · nouvel écran de chargement animé
+
+- **Page 🃏 Affinage** : un sommaire discret en tête de page guide la séance en quatre étapes — 📝 Compléter
+  (tickets sans description ou critères), 🃏 Estimer (file du Poker), 🧭 Cadrer le prochain PI, 📤 Partager.
+  L'étape à traiter est mise en avant (« à traiter », pastille qui pulse), une étape à 0 est cochée ✓. Un clic
+  met la section dans le bon état (filtre « à compléter », volet Cadrage déplié, récap ouvert) puis y fait
+  défiler avec un bref halo. Mobile : défilement horizontal des étapes. Aucun chiffre recalculé : le fil relit
+  ceux de la page (`components/refinement_steps.js`).
+- **Écran de chargement / synchro JIRA** (`components/board_loader.js`, `css/board-loader.css`) : fini les
+  skeletons. Un mini-board où une carte voyage À faire → En cours → Fait (✓ à l'arrivée), halo, étincelles,
+  barre indéterminée et astuces qui défilent (raccourcis au chargement, fonctionnement de la synchro pendant
+  un import). 100 % CSS (aucun timer à libérer), apparition différée de 150 ms (pas de clignotement sur un
+  chargement rapide), thèmes clair et sombre, mobile, `prefers-reduced-motion` respecté (scène figée).
+  Les règles `.sync-skeleton` / `.skel` sont retirées de `base-overlays.css` ; `app.js` passe par `_showLoader`.
+
+## [3.230.0] - 2026-10-20
+
+### Affinage : volet « 🧭 Cadrage » du prochain PI, vu en SA, en PO / PM et en contributeur
+
+- **Page 🃏 Affinage** (`#refinement/<équipe>`) : nouveau volet sous la file d'estimation, qui liste les
+  tickets étiquetés `Cadrage_PI<prochain PI>` (en 31.4 : `Cadrage_PI32`) pour les préparer en amont — prêts
+  et macro-estimés avant le PI Planning. S'y ajoutent les `Cadrage_PI<PI en cours>` encore ouverts (repère
+  « ↩ PI 31 »). Fuego, PI 32 : 56 tickets dont 28 du PI 31.
+- **Trois colonnes** : 🏛 SA (`SA-<périmètre>`), 🎯 PO / PM (`PO-` / `PM-<périmètre>`), 🤝 contributeur
+  (un membre de l'équipe porteur ou contributeur, étiquette métier de l'équipe, ou ticket rangé dans
+  l'équipe). Un ticket concerné par plusieurs rôles apparaît dans chaque colonne. Périmètre =
+  `CADRAGE_PERIMETERS` (config.js, Fuego → INFRA + OPS), sinon la ligne produit de l'équipe (Juke → GEX).
+- **Cartes** : statut JIRA, macro-estimation (« ? pts » sinon, bouton 🃏 Macro-estimer), personnes dans
+  l'ordre JIRA (contributeurs, porteur, rapporteur — membres de l'équipe surlignés), rôles des autres
+  périmètres qui co-cadrent (SA-GEX, PM-GDC…), 📝 / ⚠️ comme la file. Anneau d'avancement, compteurs, volet
+  repliable (`sb-refinement-cadrage`), « Masquer les prêts », 6 cartes par colonne puis « Afficher les N autres ».
+  Accent violet (teinte de l'état 01.SCOPING) pour le distinguer de la file d'estimation.
+- **PI de référence = sprint actif de l'ÉQUIPE** (`getSprintForTeam`) : le sprint global est celui d'une autre
+  équipe, qui peut avoir changé de PI avant elle.
+- **Synchro JIRA : le champ « Contributeurs » est enfin importé** — `contributors` valait `[]` sur les
+  4 883 tickets en base. Détecté par son nom (sélecteur de personnes en priorité), surchargeable par
+  `localStorage sb-sync-contributorsField` (id ou nom exact) ; demandé par les passes sprint actif, sprints
+  clos, sprints futurs, PI nommés et enfants de features. ⚠️ Les sprints clos archivés gardent `[]` jusqu'à
+  « Tout réimporter depuis JIRA ».
+- Fichiers : `utils/cadrage.js` (modèle, via le barrel), `components/refinement_cadrage.js` (rendu),
+  `views/refinement.js`, `css/views/refinement.css`, `sync-parse.js`, `sync.js`, `config.js`.
+
 ## [3.229.0] - 2026-10-17
 
 ### Rapports : la copie au format Confluence garde titres, tableaux, statuts et liens

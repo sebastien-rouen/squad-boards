@@ -372,7 +372,7 @@ export function poolRecapHtml(ctx) {
     const total = wanted.reduce((s, [, n]) => s + n, 0);
 
     const warn = shortfalls.length
-        ? `<p class="rot-pool-warn">⚠️ ${shortfalls.length} créneau(x) non pourvu(s) — vivier trop court sur : ${[...new Set(shortfalls.map(s => s.role))].map(esc).join(', ')}. Le manque n'est jamais comblé par un autre poste.</p>`
+        ? `<p class="rot-pool-warn">⚠️ ${shortfalls.length} créneau(x) non ${shortfalls.length > 1 ? 'pourvus' : 'pourvu'} — vivier trop court sur : ${[...new Set(shortfalls.map(s => s.role))].map(esc).join(', ')}. Le manque n'est jamais comblé par un autre poste.</p>`
         : '';
 
     const viewBtns = Object.entries(POOL_VIEWS).map(([k, v]) =>

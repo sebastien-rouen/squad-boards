@@ -93,6 +93,16 @@ body.tv-mode .content { padding: 0; overflow: hidden; }
 .tv-meteo .meteo-sub { font-size: var(--fs-xs); }
 .tv-meteo .meteo-matrix tbody th { font-size: var(--fs-lg); }
 .tv-meteo .meteo-cell { padding: var(--sp-3) var(--sp-2); }
+/* Tout tient en LARGEUR (règle de la TV : ni défilement ni texte coupé) — 3.234.0. Dans le Dashboard la
+   matrice défile (`.meteo-wrap`, overflow auto) ; ici, sur 1600×900, la colonne 📐 Périmètre sortait de
+   l'écran, masquée sans barre. Sous-lignes et nom d'équipe passent à la ligne, colonnes réparties. */
+.tv-meteo .meteo-wrap { overflow-x: visible; }
+.tv-meteo .meteo-cell { min-width: 0; }
+.tv-meteo .meteo-sub { white-space: normal; overflow-wrap: anywhere; }
+/* En-têtes de colonne : à la ligne entre les mots. Nom d'équipe : JAMAIS coupé (« F/U/E/G/O » sinon) — c'est
+   la pastille ⚠ qui passe dessous quand la colonne est étroite. */
+.tv-meteo .meteo-matrix thead th { white-space: normal; }
+.tv-meteo .meteo-team { flex-wrap: wrap; row-gap: 4px; }
 
 /* Réglages ⚙ (tv-settings.js) : panneau ancré sous le bouton, en haut à droite */
 .tv-top { position: relative; }

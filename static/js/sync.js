@@ -8,7 +8,7 @@ import * as api from './api.js';
 import { extractTeam, extractSprintLabel, toast } from './utils.js';
 import { SYNC_CONFIG, SYNC_DEFAULTS, syncSetting } from './config.js';
 import { getExcludedTeams, hideProgress, makeIncidents, setProgress, showProgress } from './sync-report.js';
-import { _mapColToInternal, transformIssue, parseADF, _extractTeamName, _paginateJql, _normalizeTeamName } from './sync-parse.js';
+import { detectContributorsField, setContributorsField, contributorsFieldParam, _mapColToInternal, transformIssue, parseADF, _extractTeamName, _paginateJql, _normalizeTeamName } from './sync-parse.js';
 import { forceColumns } from './utils/status-override.js';
 // API publique inchangée (app.js, topbar, Paramètres, tests) : ré-exports
 export { makeIncidents, getExcludedTeams, addExcludedTeam, removeExcludedTeam, clearExcludedTeams, dismissSyncReport } from './sync-report.js';
@@ -35,7 +35,7 @@ export async function importFromJira(options = {}) {
         : new Set(getExcludedTeams().map(t => t.toLowerCase()));
 
     showProgress();
-    setProgress(2, sinceDays ? `Sync rapide (${sinceDays}j)...` : 'Sync complète…', `${projects.length} projet(s)`);
+    setProgress(2, sinceDays ? `Sync rapide (${sinceDays}j)...` : 'Sync complète…', `${projects.length} ${projects.length > 1 ? 'projets' : 'projet'}`);
 
     let resultat = null;
     try {
@@ -149,7 +149,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
     // Une équipe est exclue si son nom (insensible à la casse) figure dans la liste des retraits.
     const isExcludedTeam = name => excludedTeams.size > 0 && excludedTeams.has(String(name || '').toLowerCase());
     if (excludedTeams.size) {
-        console.log(`[Squad-Board] ${excludedTeams.size} équipe(s) retirée(s) ignorée(s) : ${[...excludedTeams].join(', ')}`);
+        console.log(`[Squad-Board] ${excludedTeams.size} ${excludedTeams.size > 1 ? 'équipes' : 'équipe'} ${excludedTeams.size > 1 ? 'retirées' : 'retirée'} ${excludedTeams.size > 1 ? 'ignorées' : 'ignorée'} : ${[...excludedTeams].join(', ')}`);
     }
     // Clause à appendre aux JQL pour ne récupérer que les issues modifiées récemment
     const updClause = quickMode ? ` AND updated >= -${sinceDays}d` : '';
@@ -235,6 +235,13 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
         } else {
             console.log(`[Squad-Board] Team field utilise: ${teamFieldId}`);
         }
+
+        // Champ « Contributeurs » (volontaires aux côtés du porteur — page Affinage, cadrage)
+        const contribOverride = (localStorage.getItem('sb-sync-contributorsField') || '').trim() || null;
+        const contribField = detectContributorsField(fields, contribOverride);
+        setContributorsField(contribField);
+        if (contribField) console.log(`[Squad-Board] Champ Contributeurs: ${contribField} ("${_fieldIndex.get(contribField) || '?'}")`);
+        else console.warn('[Squad-Board] Champ Contributeurs non detecte — surcharge possible : localStorage sb-sync-contributorsField');
 
         // Auto-detect dedicated PI Sprint custom field (common in SAFe JIRA setups)
         if (!piSprintField) {
@@ -523,7 +530,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
                         maxResults: Math.min(200, maxIssues - issueStart),
                         startAt: issueStart,
                         expand: 'changelog',
-                        fields: `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,flagged,updated,created,comment,description,issuelinks`,
+                        fields: `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,flagged,updated,created,comment,description,issuelinks${contributorsFieldParam()}`,
                     }
                 );
                 const issues = resp.issues || [];
@@ -568,7 +575,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
                         const r = await api.jiraGet(`rest/agile/1.0/sprint/${cs.id}/issue`, {
                             maxResults: 100, startAt: cStart,
                             expand: 'changelog',
-                            fields: `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,flagged,updated,created`,
+                            fields: `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,flagged,updated,created${contributorsFieldParam()}`,
                         });
                         const issues = r?.issues || [];
                         recus += issues.length;
@@ -590,7 +597,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
             }
             if (skippedByArchive) {
                 setProgress(pct, `Board ${bi + 1}/${totalBoards}: ${teamName}`,
-                    `${skippedByArchive} sprint(s) clos déjà en base — non retéléchargés`);
+                    `${skippedByArchive} ${skippedByArchive > 1 ? 'sprints' : 'sprint'} clos déjà en base — non retéléchargés`);
             }
         }
     }
@@ -606,7 +613,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
                 const futureJql = `project IN (${projects.join(',')}) AND sprint in futureSprints() AND issuetype NOT IN (Feature, "Fonctionnalite", Epic)${updClause} ORDER BY updated DESC`;
                 const FUTURE_PAGE = 100;
                 let nextPiAdded = 0;
-                const futFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,${sprintFieldId}` +
+                const futFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,${sprintFieldId}${contributorsFieldParam()}` +
                     (teamFieldId ? `,${teamFieldId}` : '');
                 const seenKeys = await _paginateJql({
                     jql: futureJql,
@@ -644,7 +651,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
     let _epicRankCursor = 0;
 
     // 4. Fetch features via JQL (paginated)
-    setProgress(72, 'Recuperation des features...', `JQL sur ${projects.length} projet(s)`);
+    setProgress(72, 'Recuperation des features...', `JQL sur ${projects.length} ${projects.length > 1 ? 'projets' : 'projet'}`);
     let _featureDiagSample = null;    // first raw issue processed
     let _nullPiRawSample = null;       // first raw issue whose transformed result has null piSprint
     let _richRawSample = null;         // first raw issue with non-null custom fields (best for team field discovery)
@@ -660,7 +667,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
             pageSize: 100,
             cap: maxFeaturesPerJql,
             onPage: (issues, total) => {
-                setProgress(72, `Features ${total}...`, `${projects.length} projet(s)`);
+                setProgress(72, `Features ${total}...`, `${projects.length} ${projects.length > 1 ? 'projets' : 'projet'}`);
                 for (const issue of issues) {
                     const existing = allFeatures.find(f => f.id === issue.key);
                     if (existing) {
@@ -746,7 +753,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
     }
 
     // 5. Fetch epics via JQL (paginated)
-    setProgress(78, 'Recuperation des epics...', `JQL sur ${projects.length} projet(s)`);
+    setProgress(78, 'Recuperation des epics...', `JQL sur ${projects.length} ${projects.length > 1 ? 'projets' : 'projet'}`);
     try {
         const epicExtraFields = [sprintFieldId, 'fixVersions'];
         if (piSprintField) epicExtraFields.push(piSprintField);
@@ -759,7 +766,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
             pageSize: 100,
             cap: maxFeaturesPerJql,
             onPage: (issues, total) => {
-                setProgress(78, `Epics ${total}...`, `${projects.length} projet(s)`);
+                setProgress(78, `Epics ${total}...`, `${projects.length} ${projects.length > 1 ? 'projets' : 'projet'}`);
                 for (const issue of issues) {
                     const existing = allEpics.find(e => e.id === issue.key);
                     if (existing) {
@@ -801,7 +808,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
             setProgress(81, 'Sprints PI nommes...', piNames.join(', '));
             try {
                 const added = { features: 0, epics: 0, tickets: 0 };
-                const piFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,fixVersions,${sprintFieldId}` +
+                const piFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,fixVersions,${sprintFieldId}${contributorsFieldParam()}` +
                     (teamFieldId ? `,${teamFieldId}` : '') + (piSprintField ? `,${piSprintField}` : '');
                 const seen = await _paginateJql({
                     jql: piSprintJql,
@@ -856,7 +863,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
 
             if (piFeatures.length) {
                 const FEAT_CHILD_BATCH = 50;
-                const childFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,${sprintFieldId}` +
+                const childFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,${sprintFieldId}${contributorsFieldParam()}` +
                     (teamFieldId ? `,${teamFieldId}` : '') + (piSprintField ? `,${piSprintField}` : '');
                 let childrenAdded = 0;
                 for (let i = 0; i < piFeatures.length; i += FEAT_CHILD_BATCH) {

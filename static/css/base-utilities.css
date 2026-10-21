@@ -58,6 +58,10 @@
 /* Chart container heights */
 .chart-h-sm { height: 200px; }
 .chart-h-md { height: 220px; }
+/* Graphique à barres horizontales dont la hauteur suit le nombre de lignes (charts.js, `--rows` posé au rendu) :
+   18 px par ligne + axes et légende — les libellés de ticket ne se chevauchent plus (3.237.0). */
+.chart-container.chart-rows { height: calc(var(--rows, 8) * 18px + 110px); max-height: none; }
+.chart-container.chart-rows canvas { max-height: none; }   /* reports.css plafonne tous les graphiques à 300 px */
 
 /* Chart empty message */
 .chart-empty { padding: 40px 0; text-align: center; }
@@ -94,7 +98,7 @@
 .chip-gap     { gap: 4px; }
 
 /* Contributor remove button */
-.contrib-remove-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 10px; padding: 0; line-height: 1; }
+.contrib-remove-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 11px; padding: 0; line-height: 1; }
 .contrib-remove-btn:hover { color: var(--danger); }
 
 /* Assignee avatar variants */
@@ -201,7 +205,7 @@
 /* Additional utility classes */
 .stale-banner-actions { display: flex; gap: var(--sp-2); }
 .sb-tooltip-id { min-width: 60px; }
-.sb-tooltip-extra { padding: 2px 0; font-size: 10px; }
+.sb-tooltip-extra { padding: 2px 0; font-size: 11px; }
 .panel-card-alert { border: 1px solid var(--danger-border); background: var(--danger-bg); }
 
 /* Liste d'alertes proactives — une ligne par alerte avec icône + texte */
@@ -274,6 +278,8 @@
     transition: opacity 0.2s ease;
 }
 .alert-modal-overlay.visible { opacity: 1; }
+/* Périmètre de la liste quand l'appelant l'a restreinte (ex. « · sprint en cours » depuis le panneau Alertes) */
+.alert-modal-scope { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text-muted); }
 .alert-modal {
     max-width: 900px;
     transform: translateY(-8px);
@@ -316,7 +322,7 @@
     border-radius: 999px;
     background: rgba(255,255,255,0.3);
     color: inherit;
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: var(--fw-bold);
     margin-left: 4px;
     font-variant-numeric: tabular-nums;
@@ -431,7 +437,7 @@
     background: var(--surface-2);
     padding: 10px 12px;
     text-align: left;
-    font-size: 10.5px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-muted);
@@ -539,6 +545,31 @@
     background: color-mix(in srgb, var(--primary) 14%, transparent);
 }
 .alert-ac-name { color: var(--text); font-weight: 500; }
-.alert-ac-team { color: var(--text-muted); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+.alert-ac-team { color: var(--text-muted); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
 .max-w-xs { max-width: 300px; }
 
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Cibles tactiles (3.236.0) — au DOIGT seulement (`pointer: coarse`), sans rien changer au visuel ni à la
+   mise en page : un ::after invisible élargit la zone cliquable de ces petits contrôles (12 à 20 px de
+   haut mesurés en 390 px). Les cases du Backlog (13 → 18 px, 680 par page) passent à 24 px (minimum WCAG 2.2 AA).
+   ⚠️ Classe ajoutée ici = vérifier qu'elle n'utilise PAS déjà ::after ni `position: absolute`.
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+    .rf-id, .tls-person-link, .card-help-btn, .bl-stale-toggle, .grp-chip-move, .grp-chip-rm,
+    .psr-seg, .act-window-btn, .act-filter-chip, .pi-obj-kind, .stage-flow-scope, .pip-seg, .pip-lg,
+    .stg-tab, .bc-seg, .rf-fix-copy, .rf-fix-toggle, .tl-moves-toggle, .psr-more {
+        position: relative;
+    }
+    .rf-id::after, .tls-person-link::after, .card-help-btn::after, .bl-stale-toggle::after,
+    .grp-chip-move::after, .grp-chip-rm::after, .psr-seg::after, .act-window-btn::after,
+    .act-filter-chip::after, .pi-obj-kind::after, .stage-flow-scope::after, .pip-seg::after,
+    .pip-lg::after, .stg-tab::after, .bc-seg::after, .rf-fix-copy::after, .rf-fix-toggle::after,
+    .tl-moves-toggle::after, .psr-more::after {
+        content: ''; position: absolute; inset: -8px -4px;   /* +16 px de haut, +8 px de large */
+    }
+    input.bl-check { width: 24px; height: 24px; }
+    /* Champs de saisie : 20-22 px de haut mesurés (listes de Paramètres → Groupes, sélecteurs d'Équipe, édition
+       en ligne d'un nombre) — 32 px au doigt. */
+    #content select, #content input[type="text"], #content input[type="number"], #content input:not([type]) { min-height: 32px; }   /* input. : passe devant backlog.css, chargé après */
+}

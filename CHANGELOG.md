@@ -1,3 +1,26 @@
+## [3.245.0] - 2026-10-22
+
+### Performances : une actualisation passe de 158 requêtes / 17 Mo à 9 requêtes / quelques Ko
+
+Mesuré sur le Dashboard (Chromium, banc local) :
+
+| | Avant | Après |
+|---|---|---|
+| 1ʳᵉ ouverture | 158 requêtes · 20,3 Mo · 5,6 s | 158 requêtes · 3,7 Mo · 2,4 s |
+| Actualisation | 158 requêtes · 17,2 Mo | **9 requêtes · 8 Ko** |
+
+- **Fichiers JS / CSS versionnés et mis en cache** (`app/static_assets.py`) : `index.html` est servi réécrit, ses liens
+  deviennent `/v/<version>/js/…` et `/v/<version>/css/…` ; les imports relatifs des modules héritent du préfixe. Ces
+  URL sont `immutable` (un an) : une actualisation ne redemande plus aucun des ~150 fichiers (avant : 150
+  revalidations 304 en cascade). La version est l'empreinte des fichiers de `js/` et `css/` : modifier un fichier
+  change la version, le front reste servi frais sans redémarrage. Images, polices, tests et mockups restent revalidés.
+- **`/api/all` en cache serveur avec ETag** (`app/boot_cache.py`) : le corps est encodé une seule fois par état de la
+  base (compteur de commits + date du fichier SQLite) et compressé une seule fois. Rien n'a changé → **304 en 1 ms**,
+  sans lecture en base ; sinon, la réponse est servie depuis le cache.
+- **Encodage direct** : `json.dumps` au lieu de `jsonable_encoder` (0,4 s au lieu de 1,2 s sur 17 Mo), octets identiques
+  à l'ancienne réponse (vérifié par comparaison binaire).
+- **Compression gzip** (`GZipMiddleware`, niveau 5) : `/api/all` 17,6 Mo → 2,85 Mo, JS 1,8 Mo → 0,6 Mo, CSS 1,2 Mo → 0,3 Mo.
+
 ## [3.244.0] - 2026-10-21
 
 ### Affinage plus compact et plus lisible

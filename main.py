@@ -8,8 +8,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from starlette.responses import Response
+from starlette.middleware.gzip import GZipMiddleware
 from sqlmodel import SQLModel
 
 import app.models  # noqa: F401 — enregistre toutes les tables sur SQLModel.metadata
@@ -17,6 +16,7 @@ from app import http_client
 from app.config import STATIC_DIR
 from app.db import engine
 from app.migrations import run_migrations
+from app.static_assets import NoCacheStaticFiles, VersionedStaticFiles, index_response
 from app.seed import seed_atlas_catalog, seed_workshop_templates
 from app.routers import (
     teams, groups, epics, members, absences, support, agile,
@@ -59,19 +59,18 @@ for _r in (
     app.include_router(_r)
 
 
+# ── Compression ───────────────────────────────────────────────────────────────
+# JS / CSS / JSON en gzip (×4 à ×6 de moins sur le réseau). `/api/all` arrive déjà compressé
+# depuis son cache (Content-Encoding posé) : le middleware le laisse passer tel quel.
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
+
+
 # ── Static Files ──────────────────────────────────────────────────────────────
-class NoCacheStaticFiles(StaticFiles):
-    """Sert les assets avec `Cache-Control: no-cache` afin que le navigateur
-    revalide systématiquement (les imports ES modules n'ont pas de cache-busting
-    `?v=` ; sans ça le front sert un module obsolète après une modif). Léger : la
-    revalidation reste un 304 via ETag/Last-Modified tant que le fichier ne change pas.
-    """
-    def file_response(self, *args, **kwargs) -> Response:
-        resp = super().file_response(*args, **kwargs)
-        resp.headers["Cache-Control"] = "no-cache"
-        return resp
-
-
+# Page d'accueil réécrite (liens /v/<version>/…) + assets versionnés en cache longue durée,
+# le reste (images, polices, tests, mockups) revalidé à chaque fois. Cf. app/static_assets.py.
+app.add_api_route("/", index_response, methods=["GET"], include_in_schema=False)
+app.add_api_route("/index.html", index_response, methods=["GET"], include_in_schema=False)
+app.mount("/v/{ver}", VersionedStaticFiles(directory=str(STATIC_DIR)), name="static-versioned")
 app.mount("/", NoCacheStaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 
 

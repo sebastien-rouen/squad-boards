@@ -693,7 +693,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   liste `fields` d'une passe tickets via `contributorsFieldParam()` (sinon `[]` silencieux).
   Récap de séance à partager = `components/refinement_recap.js` : UN modèle (`refinementRecapModel`) → Slack
   (mrkdwn), Teams / mail (HTML à styles EN LIGNE, `text/html` + `text/plain`), CSV — ne pas dupliquer un chiffre.
-  ⚠️ Front servi frais (`NoCacheStaticFiles`) mais routes Python figées au lancement : un serveur sans `--reload`
+  ⚠️ Front servi frais (assets versionnés, cf. « Performances ») mais routes Python figées au lancement : un serveur sans `--reload`
   sert la nouvelle page avec l'ANCIENNE API (404 / 405). Ces vues le signalent (« redémarrez le serveur ») au
   lieu de se taire — garder ce réflexe pour toute route nouvelle appelée par le front.
   Congés d'une personne dans la modale = `presenceStripHtml` + `nextAbsence` (meteo_fiche.js, même bande que le
@@ -766,6 +766,16 @@ python main.py          # http://localhost:3001  — Swagger /docs
   temps de la TV et RESTAURÉ dans `_cleanup` ; la nuit pose `data-theme="dark"` sur `#tv-root` +
   palette `.tv.is-night` (plus aucun `filter`). Série « zéro blocker » : `sb-tv-blocker-seen`
   = `{ équipe: ISO }`, PAR équipe.
+
+- **Performances, cache et compression** (3.245.0) : JS / CSS servis sous `/v/<version>/` (`app/static_assets.py`,
+  `immutable`), version = empreinte des fichiers de `js/` + `css/`, recalculée au plus toutes les secondes ; `index.html`
+  réécrit à la volée. ⚠️ JAMAIS d'import de module par chemin ABSOLU (`import('/js/x.js')`) ni de `<script>` / `<link>`
+  vers `/js/` ou `/css/` hors d'`index.html` : chargé hors version, le module existerait deux fois (état séparé). Un
+  lien ajouté à `index.html` en `href="/css/…"` / `src="/js/…"` est versionné automatiquement.
+  `/api/all` = `app/boot_cache.py` : corps + gzip mis en cache par état de la base, ETag → 304 sans lecture. ⚠️ Son
+  contenu ne doit dépendre QUE de la base (aucune date du jour), sinon l'ajouter à `_state()`. Encodé par `json.dumps`
+  direct : les serializers ne doivent rendre que des types JSON natifs (pas de `datetime` brut). `GZipMiddleware` dans
+  `main.py` pour le reste.
 
 ## Tests (`npm test`)
 

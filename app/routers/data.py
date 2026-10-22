@@ -14,6 +14,7 @@ from sqlmodel import Session, select, func
 
 from app.common import _gen_id, _now, slugify, clean_workshop_fields
 from app.config import JIRA_URL, JIRA_USER, JIRA_TOKEN, JIRA_PROJECT
+from app import boot_cache
 from app.db import get_session
 from app.services.ics import expand_calendar_events
 from app.models import (
@@ -126,10 +127,27 @@ async def export_zip(request: Request, session: Session = Depends(get_session)):
 
 
 @router.get("/api/all")
-def get_all_data(session: Session = Depends(get_session)):
+def get_all_data(request: Request, session: Session = Depends(get_session)):
     """Single endpoint for boot load — replaces 17 parallel HTTP calls in loadAllData().
     Atlas data (skills/appetences/memberSkills/memberAppetences/mobility) is excluded
-    and still loaded lazily in the background."""
+    and still loaded lazily in the background.
+
+    Servi depuis `boot_cache` : 304 si l'ETag du navigateur est encore bon (aucune lecture
+    en base), sinon le corps encodé une fois par état de la base, en gzip si accepté."""
+    headers = {"Cache-Control": "no-cache", "Vary": "Accept-Encoding"}
+    etag = boot_cache.current_etag()
+    if etag and etag in request.headers.get("if-none-match", ""):
+        return Response(status_code=304, headers={**headers, "ETag": etag})
+    body = boot_cache.get_body(lambda: _all_payload(session))
+    headers["ETag"] = body["etag"]
+    if "gzip" in request.headers.get("accept-encoding", ""):
+        headers["Content-Encoding"] = "gzip"
+        return Response(body["gz"], media_type="application/json", headers=headers)
+    return Response(body["raw"], media_type="application/json", headers=headers)
+
+
+def _all_payload(session: Session) -> dict:
+    """Contenu de `/api/all` (contrat camelCase des serializers, couvert par le golden test)."""
     cals = session.exec(select(TeamCalendar)).all()
     return {
         "tickets":       [_ticket_dict(t) for t in session.exec(select(Ticket)).all()],

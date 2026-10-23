@@ -84,7 +84,7 @@ export function rotationSectionHtml(ctx) {
 
 /** Câblage de la Rotation : grille, pool, affectation rapide, tirage de groupe. */
 export function wireRotationSection(container, ctx) {
-    const { support, selGroup, teams, rotMembers } = ctx;
+    const { rotMembers } = ctx;
     // ── Rotation grid - délégué à _rotWirePanelEvents ────────────────────────
     _rotWirePanelEvents(container);
     // Barre d'outils (« Congés seuls ») : hors de #rot-panels, donc câblée à part — les
@@ -158,7 +158,7 @@ export function wireRotationSection(container, ctx) {
                                .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
 
         const today = new Date().toISOString().slice(0, 10);
-        const _fmtD = iso => { const [y,m,d] = iso.split('-'); const mn = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc']; return `${parseInt(d)} ${mn[parseInt(m)-1]}`; };
+        const _fmtD = iso => { const [, m, d] = iso.split('-'); const mn = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc']; return `${parseInt(d)} ${mn[parseInt(m)-1]}`; };
         sel.disabled = false;
         sel.innerHTML = `<option value="">— choisir une semaine —</option>` + uniqueWeeks.map(w => {
             const isPast = w.weekEnd < today;
@@ -179,7 +179,7 @@ export function wireRotationSection(container, ctx) {
         const opt = e.target.selectedOptions[0];
         const datesEl = container.querySelector('#sup-dates');
         if (!opt?.value) { if (datesEl) datesEl.textContent = '—'; return; }
-        const _fmtD = iso => { const [y,m,d] = iso.split('-'); return `${parseInt(d)}/${m}`; };
+        const _fmtD = iso => { const [, m, d] = iso.split('-'); return `${parseInt(d)}/${m}`; };
         if (datesEl) datesEl.textContent = `${_fmtD(opt.value)} → ${_fmtD(opt.dataset.end)}`;
     });
 

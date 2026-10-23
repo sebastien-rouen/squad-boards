@@ -4,7 +4,7 @@
  * Extrait de pi.js (3.258.0), code déplacé à l'identique. N'importe jamais pi.js (pas de cycle).
  */
 import { store } from '../state.js';
-import { esc, pct, progressColor, sumBy, toast, isBufferItem } from '../utils.js';
+import { esc, progressColor, sumBy, isBufferItem } from '../utils.js';
 import { STATUS_LABELS } from '../config.js';
 
 // ── Features tab ──────────────────────────────────────────────────────────────

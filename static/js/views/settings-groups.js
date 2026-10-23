@@ -22,7 +22,7 @@ export function groupsSectionHtml(ctx) {
                     const projects = Object.entries(jiraProjectTeams);
                     if (!projects.length) return '';
                     const existingTeamSets = groups.map(g => new Set((g.teams || []).map(t => t.toLowerCase())));
-                    const missing = projects.filter(([pk, teams]) => {
+                    const missing = projects.filter(([, teams]) => {
                         const teamsLower = teams.map(t => t.toLowerCase());
                         return !existingTeamSets.some(s => teamsLower.every(t => s.has(t)));
                     });
@@ -85,7 +85,6 @@ export function groupsSectionHtml(ctx) {
 
 /** Câblage de la section Groupes. */
 export function wireGroupsSection(container, ctx) {
-    const { groups } = ctx;
     // ── Groups — création depuis projets JIRA ─────────────────────────────────
     container.querySelector('#btn-create-groups-from-jira')?.addEventListener('click', async () => {
         const chips = container.querySelectorAll('.jira-project-chip');

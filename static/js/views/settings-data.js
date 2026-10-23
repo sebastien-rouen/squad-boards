@@ -50,7 +50,7 @@ export function dataSectionHtml(ctx) {
 }
 
 /** Section « À propos ». */
-export function aboutSectionHtml(ctx) {
+export function aboutSectionHtml(_ctx) {
     return `
         <!-- ═══ About ═══ -->
         <div class="settings-section">
@@ -81,7 +81,6 @@ export function aboutSectionHtml(ctx) {
 
 /** Câblage des Données : export, import, purge, jeu de démo. */
 export function wireDataSection(container, ctx) {
-    const { tickets, members, absences } = ctx;
     // ── Data ──────────────────────────────────────────────────────────────────
     container.querySelector('#btn-export')?.addEventListener('click', async () => {
         const counts = _exportCategoryCounts();

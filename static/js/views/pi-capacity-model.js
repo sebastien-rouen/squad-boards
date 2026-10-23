@@ -4,7 +4,7 @@
  * Extrait de pi.js (3.258.0), code déplacé à l'identique. N'importe jamais pi.js (pas de cycle).
  */
 import { store } from '../state.js';
-import { pct, sumBy, roleCapacityPct, breathIdxByPi, isBreathSprint, sprintRealizedVelocity } from '../utils.js';
+import { sumBy, roleCapacityPct, breathIdxByPi, isBreathSprint, sprintRealizedVelocity } from '../utils.js';
 
 // ── Capacity tab ──────────────────────────────────────────────────────────────
 
@@ -17,7 +17,6 @@ const CAP_EXCLUDED_ROLES_DEFAULT = [
 ];
 export const CAP_HISTORY_MODE_KEY  = 'cap-history-mode';   // 'pi' | 'sprint'
 export const CAP_HISTORY_COUNT_KEY = 'cap-history-count';  // number
-const CAP_ROLE_PCT_KEY      = 'cap-role-pct';       // { role: pct 0-100 }
 
 export function _capGetExcludedRoles() {
     try {

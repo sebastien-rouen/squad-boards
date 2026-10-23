@@ -39,7 +39,6 @@ export function sprintPiSectionHtml(ctx) {
     })();
     const sprintsCnt  = Math.max(_detectedCnt, _cfgLocal?.sprintsPerPI || piInfo?.sprintsPerPI || 5);
     const sprintDur   = piInfo?.sprintDuration || 14;
-    const velTarget   = piInfo?.velocityTarget || '';
     const totalDays   = sprintsCnt * sprintDur;
 
     // Détection du sprint courant depuis le nom (ex : "29.3" → index 2)

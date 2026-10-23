@@ -87,7 +87,7 @@ export function calendarsSectionHtml(ctx) {
 
 /** Câblage des calendriers ICS. */
 export function wireCalendarsSection(container, ctx) {
-    const { calendars, teamNames } = ctx;
+    const { teamNames } = ctx;
     // ── Calendriers ICS ───────────────────────────────────────────────────────
     // Picker équipes en pills (mono ou multi-sélection — CSV en sortie via getter)
     const _wireTeamsPicker = (root, currentCsv = '') => {

@@ -86,7 +86,7 @@ async function _syncGlobalVoteStore(type) {
     } catch { /* best-effort — la vue locale reste correcte via refreshResults() */ }
 }
 
-async function renderVotingPanel(el, type, title, teams, scale, objectives = []) {
+async function renderVotingPanel(el, type, title, teams, scale) {
     // ── Config centralisée Sprint + PI (voir <!-- ═══ Sprint + PI Config ═══ -->) ──
     const sprintInfo    = store.get('sprintInfo');
     const piInfo        = store.get('piInfo');
@@ -180,7 +180,6 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
         });
     }
 
-    let lastResults = null;
 
     // Rafraîchit uniquement la zone résultats selon le sprint sélectionné
     async function refreshResults() {
@@ -206,8 +205,6 @@ async function renderVotingPanel(el, type, title, teams, scale, objectives = [])
         const globalAvg   = globalVotes
             ? Math.round(filtered.reduce((s, v) => s + v.value, 0) / globalVotes * 10) / 10
             : 0;
-
-        lastResults = { teamAvgs, globalVotes, globalAvg, sprint };
 
         const resultsEl = el.querySelector('#vote-results');
         if (!resultsEl) return;

@@ -5,7 +5,7 @@
  */
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, pct, toast, resolvePiObjectives, computeCommitment, confirmDanger } from '../utils.js';
+import { esc, toast, resolvePiObjectives, computeCommitment, confirmDanger } from '../utils.js';
 
 // ── Verrou d'édition des objectifs d'un PI passé ─────────────────────────────
 let _objUnlocked  = false; // déverrouillage manuel des objectifs sur PI passé

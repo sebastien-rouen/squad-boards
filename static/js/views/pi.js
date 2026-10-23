@@ -6,7 +6,7 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, filterByTeam, sumBy, deriveMembersFromAbsences, rollupStatus, belongedToPi, isBufferItem, sprintRealizedVelocity, computeVelocityBreakdown, isAbandoned, engagedInPi, cycleDays, leadDays } from '../utils.js';
+import { esc, pct, filterByTeam, sumBy, deriveMembersFromAbsences, rollupStatus, belongedToPi, isBufferItem, computeVelocityBreakdown, isAbandoned, engagedInPi, cycleDays, leadDays } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { piBounds } from '../utils/pi-weeks.js';
 import { renderPICalendar } from './picalendar.js';
@@ -60,11 +60,7 @@ export function renderPI(container) {
     };
     // Tickets du PI = `engagedInPi`, MÊME source que le Dashboard et la Météo, alignée sur le rapport JIRA
     // du train (3.224.0) : présents dans un sprint du PI (reports à la clôture compris), sans les retirés ni
-    // les « Clos sans suite ». L'ancien filtre (sprint ACTUEL, `piSprint`, étiquettes) perdait les reportés
-    // d'un PI passé et ajoutait des tickets seulement étiquetés. Il ne sert plus qu'à la vélocité réalisée
-    // (`piTicketsAll`), qui garde sa mesure.
-    const _ticketInPiAll = (t) => _inPi(t.piSprint) || _inPi(t.sprintName) ||
-        (t.labels || []).some(l => _inPi(l));
+    // les « Clos sans suite ».
     const _ticketInPi = (t) => engagedInPi(t, piNum);
     const _featureInPi = (f) => _inPi(f.piSprint) || _inPi(f.sprintName) ||
         (f.labels || []).some(l => _inPi(l));
@@ -73,7 +69,6 @@ export function renderPI(container) {
     const allTeamTickets   = filterByTeam(store.get('tickets') || [], team);
     const allTeamFeatures  = filterByTeam(store.get('features') || [], team);
     const tickets  = piTag ? allTeamTickets.filter(_ticketInPi)  : allTeamTickets.filter(t => !isAbandoned(t));
-    const piTicketsAll = piTag ? allTeamTickets.filter(_ticketInPiAll) : allTeamTickets;
     // Périmètre des mesures de DURÉE (card « Temps par colonne ») : `belongedToPi`, retirés compris —
     // un ticket travaillé puis sorti du PI a bien passé ce temps dans les colonnes. Les compteurs
     // gardent `tickets` (périmètre aligné sur JIRA).
@@ -105,7 +100,7 @@ export function renderPI(container) {
 
     // Buffer & Velocity metrics — source unique computeVelocityBreakdown / isBufferItem
     const bufTickets = tickets.filter(isBufferItem);
-    const { totalPts, donePts, bufferPts: bufPts, bufferDonePts: bufDonePts,
+    const { bufferPts: bufPts, bufferDonePts: bufDonePts,
             featurePts: velPts, featureDonePts: velDonePts } = computeVelocityBreakdown(tickets);
     const velRatio   = velPts ? pct(velDonePts, velPts) : 0;
     const bufRatio   = bufPts ? pct(bufDonePts, bufPts) : 0;
@@ -182,23 +177,10 @@ export function renderPI(container) {
     });
 
     // Capacité nette estimée par équipe sur le PI entier (pour la ligne séparatrice dans Features)
-    const sprintInfo2  = store.get('sprintInfo');
-    // Vélocité réalisée de chaque sprint : `sprintRealizedVelocity`, même mesure que Santé.
-    const allTeamSprints = (sprintInfo2?.teamSprints || []).map(s => _withRealizedVelocity(s, piTicketsAll));
-    const rolePctMap   = _capGetRolePct();
-    const excludedRolesForCap = _capGetExcludedRoles();
-    const historyMode2 = _capGetHistoryMode();
-    const historyCount2 = _capGetHistoryCount();
     // Config locale du PI affiché (stockée par settings.js)
     const _piCfgLocal2 = (() => { try { return JSON.parse(localStorage.getItem(`pi-cfg-${piNum}`) || 'null'); } catch { return null; } })();
-    const sprintDur2   = _piCfgLocal2?.sprintDuration || piInfo?.sprintDuration || 14;
-    const sprintCnt2   = _piCfgLocal2?.sprintsPerPI   || piInfo?.sprintsPerPI   || 5;
     const absenceTeamNames2 = new Set(absences.map(a => a.team));
     const _absAlias2 = tn => absenceTeamNames2.has(tn) ? tn : (absenceTeamNames2.has('Team ' + tn) ? 'Team ' + tn : tn);
-    const piStartDate2 = piOffset === 0
-        ? (_piCfgLocal2?.startDate || piInfo?.startDate || null)
-        : (_piCfgLocal2?.startDate || null);
-    const sprintWindows2 = _capSprintWindows({ ...piInfo, number: piNum, sprintsPerPI: sprintCnt2, sprintDuration: sprintDur2, startDate: piStartDate2 }, allTeamSprints);
 
     const _computeCapByTeam = () => {
         const _rolePctMap   = _capGetRolePct();

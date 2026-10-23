@@ -141,7 +141,7 @@ export function absencesSectionHtml(ctx) {
 
 /** Câblage des Absences : saisie, filtre, aperçu et import CSV. */
 export function wireAbsencesSection(container, ctx) {
-    const { absences, members, piInfo } = ctx;
+    const { members, piInfo } = ctx;
     // ── Absences ──────────────────────────────────────────────────────────────
     container.querySelector('#btn-add-abs')?.addEventListener('click', async () => {
         const memberName = container.querySelector('#abs-member')?.value;

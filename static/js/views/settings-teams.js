@@ -81,7 +81,7 @@ export function teamsSectionHtml(ctx) {
 
 /** Câblage de la section Équipes et de l'import des objectifs. */
 export function wireTeamsSection(container, ctx) {
-    const { teams, sprintInfo, piInfo } = ctx;
+    const { sprintInfo, piInfo } = ctx;
     // ── Teams ─────────────────────────────────────────────────────────────────
     container.querySelector('#btn-add-team')?.addEventListener('click', async () => {
         const name = container.querySelector('#new-team-name')?.value.trim();

@@ -4,7 +4,7 @@
  * Extrait de pi.js (3.258.0), code déplacé à l'identique. N'importe jamais pi.js (pas de cycle).
  */
 import { store } from '../state.js';
-import { esc, pct, sumBy, deriveMembersFromAbsences, sprintRealizedVelocity } from '../utils.js';
+import { esc, sumBy, deriveMembersFromAbsences } from '../utils.js';
 import { TEAM_COLORS } from '../config.js';
 import { _extractPi } from './pi-burnup.js';
 import { CAP_EXCLUDED_ROLES_KEY, CAP_HISTORY_COUNT_KEY, CAP_HISTORY_MODE_KEY, _capAbsDaysInWindow, _capAvgVelocity, _capGetExcludedRoles, _capGetHistoryCount, _capGetHistoryMode, _capGetRolePct, _capMemberAvail, _capNominalWorkdays, _capPiFromSprint, _capRolePct, _capSprintIdx, _capSprintWindows, _withRealizedVelocity, _workdays } from './pi-capacity-model.js';
@@ -194,14 +194,10 @@ export function renderCapacity(el, { piInfo, absences, teams, teamObjects, _comp
         ? `${historyCount} PI précédent${historyCount > 1 ? 's' : ''}`
         : `${historyCount} dernier${historyCount > 1 ? 's' : ''} sprint${historyCount > 1 ? 's' : ''}`;
 
-    const hasWindows   = !!sprintWindows;
     // Détermine la source des fenêtres (pour le badge info dans le bandeau)
     const windowSource = !sprintWindows ? 'none'
         : piInfo?.startDate ? 'config'
         : 'jira';
-    // Compte les sprints avec fenêtre connue vs manquants
-    const knownWindows  = sprintWindows ? sprintWindows.filter(Boolean).length : 0;
-    const totalSprints  = sprintCount;
     // Détecte si la vélocité historique vient des tickets (pas de Greenhopper JIRA)
     const velFromTickets = allTeamSprints.some(s => s._velFromTickets);
 
@@ -407,7 +403,6 @@ export function renderCapacity(el, { piInfo, absences, teams, teamObjects, _comp
                             const isDone = s.realState === 'closed' || (s.realVel != null && s.realState !== 'active');
                             const isActive = s.realState === 'active';
                             const barW = Math.min(100, s.availPct);
-                            const netPct = s.spEst > 0 ? Math.round((s.spNet / s.spEst) * 100) : 80;
                             return `
                             <div class="picap-sprint${isDone ? ' picap-sprint--done' : isActive ? ' picap-sprint--active' : ''}${s.isIP ? ' picap-sprint--ip' : ''}">
                                 <div class="picap-sprint-hdr">

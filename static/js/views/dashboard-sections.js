@@ -136,7 +136,7 @@ export function sprintTimelineHtml(m) {
             ` : ''}
             ${_sprintEvents.length ? `<span class="sprint-progress-events">${_sprintEvents.map(ev => {
                 const icon = _EV_ICONS[ev.type] || 'ℹ️';
-                const _fmtD = iso => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}`; };
+                const _fmtD = iso => { if (!iso) return ''; const [, m, d] = iso.split('-'); return `${d}/${m}`; };
                 const dateStr = ev.endDate && ev.endDate !== ev.startDate ? `${_fmtD(ev.startDate)} → ${_fmtD(ev.endDate)}` : _fmtD(ev.startDate);
                 const tip = [ev.title, dateStr, ev.description].filter(Boolean).join(' · ');
                 return `<span class="sprint-ev-chip sprint-ev-chip--${ev.type || 'other'}" title="${esc(tip)}">${icon} ${esc(ev.title)}</span>`;

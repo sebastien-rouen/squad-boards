@@ -97,6 +97,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
   (snapshot `piMembers[<PI>]`, repli absences) + `teamNameMatches`. `deriveMembersFromAbsences()`
   seul = TOUT l'historique : il garde les partis (COLSENET, parti après le PI 29, restait dans
   `/#team/Gabbiano` jusqu'en 3.165.4). `store.get('members')` brut = autocomplete/recherche seulement.
+- **Page Health = modèle + blocs** (3.261.0) : `healthModel()` (health-model.js, phases périmètre → vélocité →
+  anomalies → historique → métadonnées de sprint par équipe `_teamSprintMeta`) ; blocs dans health-sections.js et
+  health-capacity-card.js ; modale de sprint dans health-sprint-modal.js. État partagé page ↔ modale
+  (`_sprintMetaStore`, `_healthCtx`) dans health-shared.js, posé par `renderHealth` — jamais par le modèle.
 - **Anomalies Health** : règle dupliquée dans [health.js](static/js/views/health.js) (`ANOMALIES[].match`) ET [alert_modal.js](static/js/components/alert_modal.js) (`_ACTIONABLES[].filter`) — **modifier les 2**.
 - **Statut `done`** exclu par défaut des anomalies actives ; lire le responsable via `t.leader || t.assignee` (legacy).
 - **Modèles** : `__table_args__ = {"extend_existing": True}` (hot reload).
@@ -157,7 +161,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   abandonnés (`isAbandoned`, « Clos sans suite »). Source UNIQUE du Dashboard (Avancement du PI), de la
   page PI (`_ticketInPi`), de la Météo, des prévisions, du Burnup du rapport et de la TV — vérifié au point
   près contre le tableau JIRA du PI 31. ⚠️ Ne pas y remettre les retraits : ils vivent dans Health
-  (`engagedInSprint`). La vélocité de la page PI garde l'ancien filtre (`_ticketInPiAll`).
+  (`engagedInSprint`). La vélocité de l'onglet Capacité vient des sprints de l'équipe passés à `_withRealizedVelocity` (pi-capacity-model.js) — l'ancien filtre `_ticketInPiAll`, devenu sans lecteur, est retiré (3.261.0).
   (`belongedToPi` seul = mesures de DURÉE uniquement). Le **réalisé**
   (`done`, `bufDone`, vélocité, `_sprintStats`) exige `isInSprint()` **en plus** du statut
   `done` — sinon un sprint est crédité de travail fini après sa clôture.

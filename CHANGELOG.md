@@ -1,3 +1,23 @@
+## [3.261.0] - 2026-10-24
+
+### Health découpé (1 624 → 134 lignes) · modale d'alerte réparée · code mort retiré
+
+**🩺 Health = modèle + blocs** (refonte sans changement visible : HTML comparé dans Chromium à l'ancien rendu,
+4 contextes — identique ; modale de sprint, sélecteur de vélocité, cartes d'anomalie vérifiés desktop + mobile)
+- `health-model.js` : `healthModel()` en phases (périmètre, vélocité, anomalies et score, historique, métadonnées
+  de sprint) ; le corps de la boucle par équipe devient `_teamSprintMeta` (148 lignes).
+- `health-sections.js` (en-tête, vélocité, cartes d'anomalie, matrice), `health-capacity-card.js` (Capacité
+  prévisionnelle), `health-sprint-modal.js` (modale « Sprints du PI », déplacée à l'identique), `health-shared.js`
+  (état page ↔ modale). `health.js` ne garde que la coquille ; `reopenSprintModalFromHash` reste ré-exporté.
+
+**🐛 Modale d'alerte** (`components/alert_modal.js`) : depuis la 3.244.0, cliquer une carte d'anomalie de Health
+levait `opts is not defined` (`_renderModalHtml` lisait `opts.scopeLabel` sans le recevoir) — passé par `extra`.
+
+**🧹 Code mort** : ESLint (désormais installé en dev) ne signale plus rien dans les modules découpés depuis la
+3.257.0. Retirés : imports et déstructurations inutiles laissés par les outils de découpage, et des calculs morts
+d'origine (`renderPI` : fenêtres de sprint et réglages de capacité recalculés sans lecteur, `_ticketInPiAll` ;
+`pi-capacity`, `pi-votes`, Paramètres : variables jamais lues).
+
 ## [3.260.0] - 2026-10-24
 
 ### Maquettes : quatre directions pour refaire l'Atlas (`static/mockups/atlas/`)

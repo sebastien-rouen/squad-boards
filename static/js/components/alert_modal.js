@@ -61,7 +61,7 @@ export function openAlertModal(actionable, opts = {}) {
     const overlay = document.createElement('div');
     overlay.id = 'alert-modal-overlay';
     overlay.className = 'modal-overlay alert-modal-overlay';
-    overlay.innerHTML = _renderModalHtml(actionable, meta, tickets, { wipDetails });
+    overlay.innerHTML = _renderModalHtml(actionable, meta, tickets, { wipDetails, scopeLabel: opts.scopeLabel });
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visible'));
     _releaseTrap = trapFocus(overlay.querySelector('.alert-modal') || overlay);
@@ -114,7 +114,7 @@ function _renderModalHtml(actionable, meta, tickets, extra = {}) {
             <div class="modal-header alert-modal-header">
                 <h2 id="alert-modal-title">
                     <span class="alert-modal-icon">${meta.icon}</span>
-                    <span class="truncate">${esc(meta.title)}${opts.scopeLabel ? ` <small class="alert-modal-scope">· ${esc(opts.scopeLabel)}</small>` : ''}</span>
+                    <span class="truncate">${esc(meta.title)}${extra.scopeLabel ? ` <small class="alert-modal-scope">· ${esc(extra.scopeLabel)}</small>` : ''}</span>
                     <span class="alert-modal-count">${tickets.length}</span>
                 </h2>
                 <div class="alert-modal-actions">

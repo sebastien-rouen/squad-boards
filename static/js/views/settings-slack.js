@@ -6,7 +6,7 @@ import { esc, toast } from '../utils.js';
 import * as api from '../api.js';
 
 /** Section « Slack (optionnel) ». */
-export function slackSectionHtml(ctx) {
+export function slackSectionHtml(_ctx) {
     return `
         <!-- ═══ Slack ═══ -->
         <div class="settings-section">

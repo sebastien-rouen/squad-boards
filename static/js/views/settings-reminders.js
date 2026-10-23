@@ -7,7 +7,7 @@ import { loadReminders, REMINDER_DEFS, saveReminders as _saveReminders } from '.
 import { esc, toast } from '../utils.js';
 
 /** Section « Rappels & Cérémonies ». */
-export function remindersSectionHtml(ctx) {
+export function remindersSectionHtml(_ctx) {
     const reminders = loadReminders();
     return `
 <div class="settings-section collapsed">
@@ -56,7 +56,7 @@ export function remindersSectionHtml(ctx) {
 }
 
 /** Câblage des rappels et du seuil Backlog. */
-export function wireRemindersSection(container, ctx) {
+export function wireRemindersSection(container, _ctx) {
     // ── Reminders ─────────────────────────────────────────────────────────────
     container.querySelectorAll('.reminder-toggle').forEach(toggle => {
         toggle.addEventListener('change', () => {

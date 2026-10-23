@@ -182,7 +182,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   souvent d'un autre PI. `carriedOverTo()` donne la destination (chip `↪ 30.2`).
   ⚠️ **`t.allSprints` n'est produit NULLE PART** (ni base, ni sync) : tout
   `Array.isArray(t.allSprints) && …` est mort. Restent tels quels dans `infopanel.js`,
-  `retro.js`, `dashboard.js` (`_scopeTickets`) et `stage_flow_card.js` — ils visent le sprint
+  `retro.js`, `dashboard-model.js` (`_scopeTickets`) et `stage_flow_card.js` — ils visent le sprint
   actif, sans report possible.
 - **Base capacité PI à venir** (3.141.16) : [utils/capacity-base.js](static/js/utils/capacity-base.js)
   — `vélocité moyenne/sprint des 2 derniers PI × nb sprints × (1 − taux d'absence)`. Calculée
@@ -394,6 +394,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Graphiques par ticket** (3.239.0) : hauteur = nombre de lignes via `_fitRows(c, n, zoomed)` (charts.js) — compact
   `.chart-rows` (18 px), agrandi `.chart-rows-zoom` (24 px, la popin défile). Tout nouveau graphique « une ligne par
   ticket » doit l'appeler ; `chart_zoom._renderCurrent` retire ces classes entre deux graphiques.
+- **Dashboard = modèle + blocs** (3.259.0) : `dashboardModel()` (dashboard-model.js) calcule tout UNE fois, en
+  phases (`_scopeModel` → `_flowModel` → `_signalsModel`, chacune lit les sorties des précédentes) ; blocs
+  `xxxHtml(m)` dans dashboard-sections.js / dashboard-goals.js / dashboard-pi-strip.js ; `m.rerender()` re-rend.
+  ⚠️ Un chiffre nouveau se calcule dans le modèle, jamais dans un bloc (sinon deux blocs divergent).
 - **Cartes Dashboard** : « bloqués / stagnants » = `stuckCardHtml` (stuck_card.js, lignes `.stuck-row` + `data-ticket`
   gardées pour le clic) ; prévision = forecast_card.js (`monteCarloForecast`, `deliverableBy`). Styles :
   css/views/dashboard-cards.css (après dashboard.css).

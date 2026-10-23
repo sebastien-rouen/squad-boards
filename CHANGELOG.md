@@ -1,3 +1,21 @@
+## [3.259.0] - 2026-10-24
+
+### Dashboard : `renderDashboard` découpé (912 → 30 lignes) — modèle calculé une fois, blocs séparés
+
+Refonte SANS changement visible : HTML comparé dans Chromium entre l'ancien et le nouveau code (toutes équipes, Fuego,
+un groupe, PI précédent ; jusqu'à 977 Ko) — identique, hasard de la prévision Monte-Carlo figé pour la comparaison.
+Graphiques, sommaire, sélecteur de vélocité, seuil de stagnation et édition d'un objectif vérifiés (desktop + mobile).
+
+**🧱 Modèle + blocs** (`static/js/views/`)
+- `dashboard-model.js` : `dashboardModel()` en trois phases courtes (périmètre → flux → signaux) ; chaque phase ne
+  renvoie que ce qui est lu ailleurs (calculé par l'outil de découpage, aucune valeur orpheline).
+- `dashboard-sections.js` : support du jour, frise du sprint, bandeau d'un autre PI, indicateurs, deux flux, cartes Équipes.
+- `dashboard-goals.js` : « Cap de l'équipe » + édition en place des objectifs (`bindObjectivesEdit`).
+- `dashboard-pi-strip.js` : rangée « Sprints du PI » (`piSprintsStripHtml`, ex-`_renderPiSprintsStrip`).
+- `dashboard.js` (160 lignes) : assemblage et câblage. `dashboard.js` passe sous les 800 lignes (1 129 avant).
+
+**🧹 Code mort retiré** : bloc « Cette semaine » (`wkDays`, calculé mais jamais affiché) et features filtrées inutilisées.
+
 ## [3.258.0] - 2026-10-24
 
 ### Page PI : `pi.js` découpé par onglet (3 232 → 707 lignes) · contrôle de taille

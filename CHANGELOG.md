@@ -1,3 +1,20 @@
+## [3.251.0] - 2026-10-23
+
+### Contributeurs = observateurs (watchers) JIRA
+
+- L'instance n'a pas de champ « Contributeur(s) » : les **observateurs** d'un ticket en tiennent lieu, partout où les
+  contributeurs servent (popin + bande de présence, filtre contributeur du 🧭 Cadrage, panneau ↻ JIRA).
+- Contributeurs = observateurs **moins** porteur, rapporteur (abonnés d'office par JIRA), comptes techniques et
+  comptes désactivés.
+- Coût maîtrisé : les passes demandent `watches` (nombre d'observateurs, sans appel en plus) ; la liste
+  (`/issue/{clé}/watchers`, un appel par ticket) n'est relue que pour les tickets OUVERTS suivis par quelqu'un
+  d'autre que porteur / rapporteur — 6 appels en parallèle, plafond 800 (les plus récents d'abord).
+  Un ticket terminé ou non relu garde sa valeur en base ; un échec ne vide jamais les contributeurs (incident remonté).
+- Bouton ↻ JIRA de la popin : relit aussi les observateurs du ticket.
+- Désactivé d'office dès qu'un vrai champ Contributeurs est détecté (ou forcé par `sb-sync-contributorsField`).
+- 📁 `static/js/sync-watchers.js` (nouveau), `sync-parse.js` (`contributorsFromWatchers`, `,watches` dans
+  `contributorsFieldParam`, `_watchCount`), `sync.js` (étape 7.c), `components/jira_ticket_sync.js`
+
 ## [3.250.0] - 2026-10-23
 
 ### Synchro JIRA : descriptions manquantes · Support : copie Slack de la ligne et toutes les lignes produit

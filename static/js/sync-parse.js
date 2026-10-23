@@ -41,8 +41,15 @@ export function detectContributorsField(fields, override = null) {
     return (named.find(f => f.schema?.type === 'array' && f.schema?.items === 'user') || named[0])?.id || null;
 }
 export const setContributorsField = id => { _contributorsField = id || null; };
-/** Suffixe à ajouter à une liste `fields` JIRA (« ,customfield_X » ou ''). */
-export const contributorsFieldParam = () => (_contributorsField ? `,${_contributorsField}` : '');
+/**
+ * Sans champ « Contributeurs » dans l'instance (cas de l'ERPC), ce sont les WATCHERS (observateurs) du ticket
+ * qui en tiennent lieu (3.251.0, sync-watchers.js). La liste n'existe qu'à l'unité
+ * (`/issue/{clé}/watchers`) ; les passes demandent donc `watches` (= `watchCount`, gratuit) pour ne
+ * relire que les tickets ouverts réellement suivis.
+ */
+export const contributorsFromWatchers = () => !_contributorsField;
+/** Suffixe à ajouter à une liste `fields` JIRA (« ,customfield_X », sinon « ,watches »). */
+export const contributorsFieldParam = () => (_contributorsField ? `,${_contributorsField}` : ',watches');
 
 /** Noms affichés (JIRA) des contributeurs d'un ticket — utilisateurs, ou texte libre séparé par , ; */
 function _contributors(f) {
@@ -197,6 +204,8 @@ export function transformIssue(issue, teamName, sprint, storyPointsField, boardS
         leader: f.assignee?.displayName || null,
         reporter: f.reporter?.displayName || null,
         contributors: _contributors(f),
+        // Nombre d'observateurs (champ `watches`) — clé TECHNIQUE retirée avant l'import (sync-watchers.js)
+        ...(f.watches ? { _watchCount: Number(f.watches.watchCount) || 0 } : {}),
         points,
         priority: f.priority?.name?.toLowerCase() || 'medium',
         sprint: sprint?.id || null,

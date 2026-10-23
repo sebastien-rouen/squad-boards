@@ -10,6 +10,7 @@ import { SYNC_CONFIG, SYNC_DEFAULTS, syncSetting } from './config.js';
 import { getExcludedTeams, hideProgress, makeIncidents, setProgress, showProgress } from './sync-report.js';
 import { detectContributorsField, setContributorsField, contributorsFieldParam, _mapColToInternal, transformIssue, parseADF, _extractTeamName, _paginateJql, _normalizeTeamName } from './sync-parse.js';
 import { forceColumns } from './utils/status-override.js';
+import { fillContributorsFromWatchers } from './sync-watchers.js';
 // API publique inchangée (app.js, topbar, Paramètres, tests) : ré-exports
 export { makeIncidents, getExcludedTeams, addExcludedTeam, removeExcludedTeam, clearExcludedTeams, dismissSyncReport } from './sync-report.js';
 
@@ -241,7 +242,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
         const contribField = detectContributorsField(fields, contribOverride);
         setContributorsField(contribField);
         if (contribField) console.log(`[Squad-Board] Champ Contributeurs: ${contribField} ("${_fieldIndex.get(contribField) || '?'}")`);
-        else console.warn('[Squad-Board] Champ Contributeurs non detecte — surcharge possible : localStorage sb-sync-contributorsField');
+        else console.log('[Squad-Board] Pas de champ Contributeurs — contributeurs = observateurs JIRA (sync-watchers.js) ; surcharge : localStorage sb-sync-contributorsField');
 
         // Auto-detect dedicated PI Sprint custom field (common in SAFe JIRA setups)
         if (!piSprintField) {
@@ -1065,6 +1066,14 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
             console.warn(`[Squad-Board] Description ADF de ${t.id} indisponible, wiki markup conservé :`, e?.message || e);
         }
     }
+
+    // 7.c Contributeurs = observateurs JIRA quand l'instance n'a pas de champ Contributeurs (sync-watchers.js) :
+    // relus pour les seuls tickets ouverts suivis par d'autres que porteur / rapporteur ; retire `_watchCount`.
+    await fillContributorsFromWatchers({ tickets: allTickets, features: allFeatures, epics: allEpics }, {
+        prevTickets: store.get('tickets') || [],
+        onProgress: (n, tot) => setProgress(88, 'Contributeurs (observateurs JIRA)...', `${n}/${tot}`),
+        incidents,
+    });
 
     // 8. Import into database
     setProgress(90, 'Sauvegarde en base...', `${allTickets.length} tickets (dont amelioration), ${allFeatures.length} features, ${allEpics.length} epics`);

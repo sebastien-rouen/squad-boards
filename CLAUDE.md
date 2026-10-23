@@ -708,6 +708,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
   via `findPerson`, étiquette métier, ou équipe). Périmètre = `CADRAGE_PERIMETERS` (config.js) > ligne produit.
   Contributeurs JIRA : champ détecté par `detectContributorsField` (sync-parse.js), à ajouter à toute NOUVELLE
   liste `fields` d'une passe tickets via `contributorsFieldParam()` (sinon `[]` silencieux).
+  Sans ce champ (cas de l'ERPC, 3.251.0) : contributeurs = OBSERVATEURS JIRA (`sync-watchers.js`) — la même
+  `contributorsFieldParam()` demande alors `watches` (nombre) ; seuls les tickets OUVERTS suivis au-delà de
+  porteur + rapporteur sont relus (`/issue/{clé}/watchers`). Clé technique `_watchCount` retirée avant l'import.
   Récap de séance à partager = `components/refinement_recap.js` : UN modèle (`refinementRecapModel`) → Slack
   (mrkdwn), Teams / mail (HTML à styles EN LIGNE, `text/html` + `text/plain`), CSV — ne pas dupliquer un chiffre.
   ⚠️ Front servi frais (assets versionnés, cf. « Performances ») mais routes Python figées au lancement : un serveur sans `--reload`

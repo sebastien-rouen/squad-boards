@@ -65,7 +65,15 @@ async function fetchRemote(local) {
     // L'id de sprint ne vient que de l'API Agile : gardé tant que le nom n'a pas changé.
     r.sprint = (r.sprintName || null) === (local.sprintName || null) ? (local.sprint ?? null) : null;
     delete r._jiraStatus;
+    delete r._watchCount;
     if (local.type !== 'epic') delete r.feature;
+    // Sans champ Contributeurs dans l'instance : contributeurs = observateurs (3.251.0, même règle que la synchro)
+    if (_parse.contributorsFromWatchers() && local.type !== 'feature' && local.type !== 'epic') {
+        try {
+            const w = await import('../sync-watchers.js');
+            r.contributors = w.watchersToContributors(await w.fetchWatchers(local.id), r);
+        } catch { r.contributors = local.contributors || []; }   // panne ≠ « personne »
+    }
     return r;
 }
 

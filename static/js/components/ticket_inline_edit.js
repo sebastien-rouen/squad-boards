@@ -236,6 +236,19 @@ export function _bindInlineEditors(container, ticket) {
                     chip.className = 'chip chip-gap';
                     chip.innerHTML = `${avatar(name, false, 18)} ${esc(name)} <button type="button" class="contrib-rm" data-name="${esc(name)}" title="Retirer">×</button>`;
                     contribWrap.insertBefore(chip, addBtn);
+                    // Mini-loader à la place de sa future bande de congés : enregistrement + rechargement du store
+                    // prennent 1 à 2 s avant le re-rendu (qui le remplace).
+                    const field = contribWrap.closest('.mdl-field');
+                    let list = field?.querySelector('.mdl-contrib-pres-list');
+                    if (field && !list) { list = document.createElement('div'); list.className = 'mdl-contrib-pres-list'; field.appendChild(list); }
+                    if (list) {
+                        const row = document.createElement('div');
+                        row.className = 'mdl-contrib-pres mdl-contrib-pres--loading';
+                        row.setAttribute('role', 'status');
+                        const first = name.includes(',') ? name.split(',')[1].trim().split(/\s+/)[0] : name.split(/\s+/)[0];
+                        row.innerHTML = `<span class="mdl-contrib-pres-name">${esc(first)}</span><span class="mdl-pres-loader" aria-hidden="true"><i></i><i></i><i></i></span><span class="mdl-pres-loading-txt">congés…</span>`;
+                        list.appendChild(row);
+                    }
                     await saveC();
                     // Re-rendu de la popin : la bande de congés du nouveau contributeur (et son 🌴) apparaît.
                     // Pas de réouverture automatique : elle ré-affichait aussitôt toute la liste (≈ 220 noms) —

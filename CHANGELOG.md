@@ -1,3 +1,21 @@
+## [3.256.0] - 2026-10-23
+
+### Popin ticket : commentaires avant l'historique, restylés · mini-loader des congés d'un contributeur
+
+**💬 Commentaires** (`modal.js`, nouveau `css/views/ticket-comments.css`, préfixe `cmt-`)
+- Placés AVANT l'historique (la conversation d'abord) ; en pleine page ils étaient déjà en tête.
+- Titre repliable assorti à l'historique : « 💬 Commentaires », compteur, fraîcheur (« dernier il y a 2 j »).
+- Fil en bulles teintées par auteur (couleur de l'avatar), avatar cerclé, date complète au survol, corps plus lisible
+  (12,5 px, images bornées), état vide explicite.
+- Zone de saisie unifiée (focus coloré) et **Ctrl / ⌘ + Entrée** pour envoyer.
+- ⚠️ Préfixe `tc-` d'abord choisi : déjà pris par la carte « Agenda de l'équipe » (team-calendar.css, `.tc-head` y pose
+  un padding) → renommé `cmt-`.
+
+**⏳ Contributeur ajouté** (`ticket_inline_edit.js`, `modal-tiles.css`) : un mini-loader « Prénom ▮▮▮ congés… » occupe
+la place de sa bande de présence pendant l'enregistrement et le rechargement (1 à 2 s), remplacé au re-rendu.
+
+**🏷️ Tag** `v3.255.0` posé et poussé.
+
 ## [3.255.0] - 2026-10-23
 
 ### Popin ticket : ajouter un contributeur affiche aussitôt ses congés

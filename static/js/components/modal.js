@@ -320,33 +320,42 @@ export function openTicketModal(ticketId) {
             <summary class="text-xs font-semibold text-muted mb-2">🃏 Estimations en équipe (<span data-pr-count>0</span>)</summary>
             <div class="mdl-pr-list"></div>
         </details>
+        <!-- Commentaires (3.256.0) : AVANT l'historique — la conversation d'abord. Fil en bulles teintées par auteur,
+             compteur + fraîcheur dans le titre, Ctrl+Entrée pour envoyer. Styles : css/views/ticket-comments.css -->
+        <details open class="mb-4 mdl-comments cmt">
+            <summary class="cmt-sum">
+                <span class="cmt-sum-title">💬 Commentaires</span>
+                <span class="cmt-sum-n">${comments.length}</span>
+                ${comments.length ? `<span class="cmt-sum-hint">dernier ${/\d{2}\/\d{2}/.test(fmtRelative(comments[comments.length - 1].date)) ? 'le ' : ''}${esc(fmtRelative(comments[comments.length - 1].date))}</span>` : ''}
+            </summary>
+            <div class="comment-list cmt-list" id="comment-list">
+                ${comments.length ? comments.map(c => `
+                    <div class="comment-item cmt-item" style="--a:${hashColor(c.author)}">
+                        <span class="comment-avatar cmt-avatar" style="background:${hashColor(c.author)}" aria-hidden="true">${esc(initials(c.author))}</span>
+                        <div class="comment-content cmt-bubble">
+                            <div class="comment-header cmt-head">
+                                <span class="comment-author cmt-author">${esc(c.author)}</span>
+                                <time class="comment-date cmt-date" title="${esc(_fmtHistDate(c.date))}">${fmtRelative(c.date)}</time>
+                                <button aria-label="Supprimer le commentaire" class="btn-icon comment-delete cmt-del" data-comment-id="${esc(c.id)}" title="Supprimer"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+                            </div>
+                            <div class="comment-body adf-body cmt-body">${_renderCommentBody(c.body)}</div>
+                        </div>
+                    </div>
+                `).join('') : '<p class="cmt-empty">💬 Aucun commentaire pour l’instant — lance la discussion ci-dessous.</p>'}
+            </div>
+            <div class="comment-form cmt-form">
+                <textarea class="input cmt-input" id="comment-text" placeholder="Écrire un commentaire…" rows="2" aria-label="Nouveau commentaire"></textarea>
+                <div class="cmt-form-bar">
+                    <span class="cmt-kbd" aria-hidden="true"><kbd>Ctrl</kbd> + <kbd>Entrée</kbd></span>
+                    <button class="btn btn-primary btn-sm" id="btn-add-comment">Envoyer</button>
+                </div>
+            </div>
+        </details>
+
         <!-- Historique : frise colorée par jour / auteur / catégorie (ticket_history.js) — pleine page : déplié et
              COMPLET ; en modale : les 12 plus récents -->
         ${ticketHistoryHtml(ticket, { full: isFull })}
 
-        <!-- Comments -->
-        <details open class="mb-4 mdl-comments">
-            <summary class="text-xs font-semibold text-muted mb-2">Commentaires (${comments.length})</summary>
-            <div class="comment-list" id="comment-list">
-                ${comments.length ? comments.map(c => `
-                    <div class="comment-item">
-                        <span class="comment-avatar" style="background:${hashColor(c.author)}">${esc(initials(c.author))}</span>
-                        <div class="comment-content">
-                            <div class="comment-header">
-                                <span class="comment-author">${esc(c.author)}</span>
-                                <span class="comment-date">${fmtRelative(c.date)}</span>
-                                <button aria-label="Supprimer" class="btn-icon comment-delete" data-comment-id="${esc(c.id)}" title="Supprimer"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
-                            </div>
-                            <div class="comment-body adf-body">${_renderCommentBody(c.body)}</div>
-                        </div>
-                    </div>
-                `).join('') : '<p class="text-muted text-sm">Aucun commentaire</p>'}
-            </div>
-            <div class="comment-form">
-                <textarea class="input" id="comment-text" placeholder="Ajouter un commentaire..." rows="2"></textarea>
-                <button class="btn btn-primary btn-sm self-end" id="btn-add-comment">Envoyer</button>
-            </div>
-        </details>
 
         </div>
         </div>
@@ -363,6 +372,10 @@ export function openTicketModal(ticketId) {
     _renderChildrenSidebar(ticket);
 
     // ── Wire events ───────────────────────────────────────────────────────────
+    // Ctrl / ⌘ + Entrée = Envoyer
+    bodyEl().querySelector('#comment-text')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); bodyEl().querySelector('#btn-add-comment')?.click(); }
+    });
     bodyEl().querySelector('#btn-add-comment')?.addEventListener('click', async () => {
         const text = bodyEl().querySelector('#comment-text')?.value?.trim();
         if (!text) return;

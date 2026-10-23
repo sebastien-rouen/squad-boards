@@ -1,0 +1,66 @@
+/* 💬 Commentaires de la popin ticket (modal.js, 3.256.0) — fil en bulles teintées par auteur (`--a`, couleur de
+   l'avatar). Portée `.cmt` : les classes historiques `.comment-*` (forms.css) restent intactes ailleurs.
+   Thème sombre par défaut : fonds en color-mix sur var(--surface). */
+
+/* ── Titre repliable (même grammaire que l'historique) ──────────────────────────────────────────── */
+.cmt-sum {
+    list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; margin-bottom: 8px; border-radius: var(--r-md);
+    background: linear-gradient(90deg, color-mix(in srgb, #0ea5e9 14%, var(--surface)), color-mix(in srgb, #14b8a6 8%, var(--surface)) 60%, transparent);
+}
+.cmt-sum::-webkit-details-marker { display: none; }
+.cmt-sum::after { content: '▸'; margin-left: auto; color: var(--text-muted); font-size: 11px; transition: transform .15s ease; }
+.cmt[open] > .cmt-sum::after { transform: rotate(90deg); }
+.cmt-sum:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cmt-sum-title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-primary); }
+.cmt-sum-n {
+    min-width: 22px; height: 20px; padding: 0 7px; border-radius: var(--r-full);
+    display: inline-grid; place-items: center; font-size: 11px; font-weight: var(--fw-bold);
+    background: #0ea5e9; color: #fff; font-variant-numeric: tabular-nums;
+}
+.cmt-sum-hint { font-size: 11px; color: var(--text-muted); }
+
+/* ── Fil ───────────────────────────────────────────────────────────────────────────────────────── */
+.cmt .cmt-list { gap: 10px; }
+.cmt .cmt-item { border-bottom: 0; padding: 0; gap: 8px; align-items: flex-start; }
+.cmt .cmt-avatar {
+    width: 28px; height: 28px; font-size: 10.5px; margin-top: 2px;
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px color-mix(in srgb, var(--a) 45%, transparent);
+}
+.cmt .cmt-bubble {
+    position: relative; padding: 7px 10px 8px; border-radius: 4px 12px 12px 12px;
+    background: color-mix(in srgb, var(--a) 8%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--a) 22%, var(--border));
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.cmt .cmt-item:hover .cmt-bubble { border-color: color-mix(in srgb, var(--a) 45%, var(--border)); box-shadow: 0 2px 8px color-mix(in srgb, var(--a) 12%, transparent); }
+.cmt .cmt-head { margin-bottom: 4px; gap: 8px; }
+.cmt .cmt-author { font-size: 12px; color: color-mix(in srgb, var(--a) 70%, var(--text-primary)); }
+.cmt .cmt-date { font-size: 11px; font-variant-numeric: tabular-nums; }
+.cmt .cmt-body { font-size: 12.5px; line-height: 1.6; color: var(--text-primary); overflow-wrap: anywhere; }
+.cmt .cmt-body img { max-width: 100%; height: auto; border-radius: var(--r-md); }
+.cmt .cmt-body blockquote { border-left-color: color-mix(in srgb, var(--a) 50%, var(--border)); }
+.cmt .cmt-del { width: 22px; height: 22px; }
+
+.cmt-empty {
+    margin: 0; padding: 14px; text-align: center; font-size: 12px; color: var(--text-muted);
+    border: 1px dashed var(--border); border-radius: var(--r-md);
+}
+
+/* ── Saisie ───────────────────────────────────────────────────────────────────────────────────── */
+.cmt .cmt-form {
+    flex-direction: column; gap: 6px; margin-top: 12px; padding: 8px;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+.cmt .cmt-form:focus-within { border-color: #0ea5e9; box-shadow: 0 0 0 3px color-mix(in srgb, #0ea5e9 18%, transparent); }
+.cmt .cmt-input { border: 0; background: transparent; resize: vertical; min-height: 44px; padding: 4px 6px; box-shadow: none; }
+.cmt .cmt-input:focus { outline: none; box-shadow: none; }
+.cmt-form-bar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.cmt-kbd { font-size: 10.5px; color: var(--text-muted); }
+.cmt-kbd kbd {
+    font: inherit; font-size: 10px; padding: 0 5px; border-radius: 4px;
+    border: 1px solid var(--border); background: var(--surface-hover);
+}
+@media (pointer: coarse) { .cmt-kbd { display: none; } }
+@media (prefers-reduced-motion: reduce) { .cmt-sum::after, .cmt .cmt-bubble, .cmt .cmt-form { transition: none; } }

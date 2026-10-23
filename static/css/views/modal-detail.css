@@ -234,9 +234,9 @@
 .mdl-layout .mdl-people    { order: 1; }
 .mdl-layout .mdl-desc-wrap { order: 2; }
 .mdl-layout .mdl-links     { order: 3; }
-.mdl-layout .mdl-poker-rounds { order: 4; }   /* même rang que l'historique : l'ordre DOM le place avant */
-.mdl-layout .mdl-history   { order: 4; }
-.mdl-layout .mdl-comments  { order: 5; }
+.mdl-layout .mdl-poker-rounds { order: 4; }   /* même rang que les commentaires : l'ordre DOM le place avant */
+.mdl-layout .mdl-comments  { order: 4; }      /* 3.256.0 : commentaires AVANT l'historique */
+.mdl-layout .mdl-history   { order: 5; }
 
 /* `.modal { max-height: 85vh }` est déclaré APRÈS `.modal--fullscreen` (base-components.css) et
    l'écrasait : la « pleine page » s'arrêtait à 85 % de la hauteur. Spécificité doublée ici. */

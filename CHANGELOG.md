@@ -14,6 +14,11 @@
 **⏳ Contributeur ajouté** (`ticket_inline_edit.js`, `modal-tiles.css`) : un mini-loader « Prénom ▮▮▮ congés… » occupe
 la place de sa bande de présence pendant l'enregistrement et le rechargement (1 à 2 s), remplacé au re-rendu.
 
+**👤 Leader / Rapporteur, même principe** (`ticket_inline_edit.js`) : au choix d'une personne, le sélecteur et sa liste
+se ferment, la nouvelle personne s'affiche aussitôt et un mini-loader « congés de Prénom… » remplace la bande de
+présence jusqu'au re-rendu. Correctif au passage : le `blur` du sélecteur rappelait `onCancel` APRÈS le choix et
+ré-affichait l'ancienne personne pendant l'enregistrement (garde `committed`).
+
 **🏷️ Tag** `v3.255.0` posé et poussé.
 
 ## [3.255.0] - 2026-10-23

@@ -22,6 +22,22 @@ function _flashSaved(el) {
     setTimeout(() => el?.classList.remove('mdl-field-saved'), 900);
 }
 
+/** Prénom d'un nom JIRA « Prénom Nom » ou RH « NOM, Prénom ». */
+const _first = n => { const s = String(n || ''); const i = s.indexOf(','); return (i >= 0 ? s.slice(i + 1) : s).trim().split(/\s+/)[0] || s; };
+
+/**
+ * Mini-loader « Prénom ▮▮▮ congés… » (3.256.0) : occupe la place d'une bande de présence pendant l'enregistrement
+ * + le rechargement du store (1 à 2 s), avant le re-rendu de la popin qui le remplace. Classe `mdl-contrib-pres` pour
+ * la ligne d'un contributeur, `mdl-presence` pour la cellule Leader / Rapporteur (même gabarit que la bande).
+ */
+function _presenceLoaderEl(name, cls) {
+    const row = document.createElement('div');
+    row.className = `${cls} mdl-contrib-pres--loading`;
+    row.setAttribute('role', 'status');
+    row.innerHTML = `${cls === 'mdl-contrib-pres' ? `<span class="mdl-contrib-pres-name">${esc(_first(name))}</span>` : ''}<span class="mdl-pres-loader" aria-hidden="true"><i></i><i></i><i></i></span><span class="mdl-pres-loading-txt">congés${cls === 'mdl-contrib-pres' ? '' : ` de ${esc(_first(name))}`}…</span>`;
+    return row;
+}
+
 export function _bindInlineEditors(container, ticket) {
     const apiSave = async (fields, flashEl) => {
         const fn = ticket.type === 'feature' ? api.updateFeature : ticket.type === 'epic' ? api.updateEpic : api.updateTicket;
@@ -146,12 +162,22 @@ export function _bindInlineEditors(container, ticket) {
                 const current = el.dataset.value || '';
                 const allNames = getMemberNames();
                 const fieldEl = el.closest('.mdl-field');
+                let committed = false;   // le blur du sélecteur rappelle onCancel APRÈS un choix : il ne doit rien restaurer
                 const onCommit = async (name) => {
+                    committed = true;
                     cleanup();
+                    // Retour immédiat (3.256.0) : sélecteur + liste fermés, nouvelle personne affichée, mini-loader à la
+                    // place de la bande de congés jusqu'au re-rendu (avant : la liste restait ouverte 1 à 2 s).
+                    el.innerHTML = name ? `<span class="inline-flex-center">${avatar(name, field === 'leader', 22)} <span>${esc(name)}</span></span>` : orig;
+                    const pres = fieldEl?.querySelector('.mdl-presence');
+                    if (name && fieldEl) {
+                        const loader = _presenceLoaderEl(name, 'mdl-presence');
+                        if (pres) pres.replaceWith(loader); else fieldEl.appendChild(loader);
+                    }
                     try { await apiSave({ [field]: name || null }, fieldEl); openTicketModal(ticket.id); }
-                    catch (err) { toast(err.message, 'error'); el.innerHTML = orig; }
+                    catch (err) { toast(err.message, 'error'); el.innerHTML = orig; openTicketModal(ticket.id); }
                 };
-                const onCancel = () => { cleanup(); el.innerHTML = orig; };
+                const onCancel = () => { cleanup(); if (!committed) el.innerHTML = orig; };
                 const { wrap, input } = _makePersonPicker(allNames, current, onCommit, onCancel);
                 el.innerHTML = '';
                 el.appendChild(wrap);
@@ -241,14 +267,7 @@ export function _bindInlineEditors(container, ticket) {
                     const field = contribWrap.closest('.mdl-field');
                     let list = field?.querySelector('.mdl-contrib-pres-list');
                     if (field && !list) { list = document.createElement('div'); list.className = 'mdl-contrib-pres-list'; field.appendChild(list); }
-                    if (list) {
-                        const row = document.createElement('div');
-                        row.className = 'mdl-contrib-pres mdl-contrib-pres--loading';
-                        row.setAttribute('role', 'status');
-                        const first = name.includes(',') ? name.split(',')[1].trim().split(/\s+/)[0] : name.split(/\s+/)[0];
-                        row.innerHTML = `<span class="mdl-contrib-pres-name">${esc(first)}</span><span class="mdl-pres-loader" aria-hidden="true"><i></i><i></i><i></i></span><span class="mdl-pres-loading-txt">congés…</span>`;
-                        list.appendChild(row);
-                    }
+                    if (list) list.appendChild(_presenceLoaderEl(name, 'mdl-contrib-pres'));
                     await saveC();
                     // Re-rendu de la popin : la bande de congés du nouveau contributeur (et son 🌴) apparaît.
                     // Pas de réouverture automatique : elle ré-affichait aussitôt toute la liste (≈ 220 noms) —

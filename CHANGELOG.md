@@ -1,3 +1,26 @@
+## [3.252.0] - 2026-10-23
+
+### Popin : historique en frise colorée · Board : badge 👀 · sync.js découpé
+
+**🕘 Historique d'un ticket, restylé** (`components/ticket_history.js`, `css/views/ticket-history.css`)
+- Frise verticale groupée par JOUR (« Aujourd'hui », « Hier », « lundi 19 octobre »), du plus récent au plus ancien ;
+  une entrée par auteur consécutif (avatar coloré, heure + relatif), une carte par changement, colorée par catégorie :
+  🔄 statut · 🏃 sprint · 🎯 points · 👤 personnes · 🚩 blocage · ⚡ priorité · 🏷️ étiquettes · 📝 texte ·
+  🧬 rattachement · 🔗 liens · ↕️ rang · 📅 dates.
+- Valeurs lisibles : statut en pastilles de la couleur du statut, points avec ▲/▼, **sprint réduit à l'écart**
+  (« + 31.4 · − 31.3 » — JIRA stocke la liste cumulée), « 🚩 bloqué / ✓ blocage levé », étiquettes ajoutées / retirées,
+  anciens textes barrés et tronqués (complet au survol).
+- Filtres par catégorie avec compteurs (à partir de 2 catégories), lecture seule. Modale : 12 plus récents + « … et N
+  plus anciens » ; pleine page : complet, déplié. `_renderTicketHistory` (modal.js) supprimé.
+
+**👀 Badge sur les cartes du Board** (`components/card.js`) : nombre de personnes qui suivent le ticket en plus du
+porteur (contributeurs = observateurs JIRA, 3.251.0), liste au survol ; pastille violette à partir de 3 (« très suivi »).
+
+**✂️ sync.js découpé** (1 145 → 612 lignes, comportement inchangé, 406 tests verts) :
+- `sync-fields.js` — détection des champs JIRA (`detectSyncFields`) ;
+- `sync-archive.js` — archive des sprints clos + mémoire des sprints vides (ré-exportés par sync.js) ;
+- `sync-passes.js` — passes JQL 3b → 6.5, une fonction par passe sur un contexte partagé `ctx` (`ctx.rank` = rang JIRA).
+
 ## [3.251.0] - 2026-10-23
 
 ### Contributeurs = observateurs (watchers) JIRA

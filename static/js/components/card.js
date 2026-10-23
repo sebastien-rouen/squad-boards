@@ -130,6 +130,7 @@ export function renderCard(ticket, { ageRefs } = {}) {
                 <div class="ticket-meta">
                     ${_staleBadge(ticket)}
                     ${(ticket.comments?.length) ? `<span class="ticket-comment-count">💬${ticket.comments.length}</span>` : ''}
+                    ${contributors.length ? `<span class="ticket-watch-count${contributors.length >= 3 ? ' is-hot' : ''}" title="Suivi par ${contributors.length} personne${contributors.length > 1 ? 's' : ''} en plus du porteur (observateurs JIRA) : ${esc(contributors.join(', '))}">👀${contributors.length}</span>` : ''}
                     ${ticket.points ? `<span class="badge badge-points">${ticket.points} pts</span>` : ''}
                     ${ticket.flagged ? '<svg class="icon icon-sm text-danger"><use href="#i-alert"/></svg>' : ''}
                 </div>

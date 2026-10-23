@@ -6,13 +6,20 @@
 import { store } from './state.js';
 import * as api from './api.js';
 import { extractTeam, extractSprintLabel, toast } from './utils.js';
-import { SYNC_CONFIG, SYNC_DEFAULTS, syncSetting } from './config.js';
+import { SYNC_DEFAULTS, syncSetting } from './config.js';
 import { getExcludedTeams, hideProgress, makeIncidents, setProgress, showProgress } from './sync-report.js';
-import { detectContributorsField, setContributorsField, contributorsFieldParam, _mapColToInternal, transformIssue, parseADF, _extractTeamName, _paginateJql, _normalizeTeamName } from './sync-parse.js';
+import { contributorsFieldParam, _mapColToInternal, transformIssue, parseADF } from './sync-parse.js';
 import { forceColumns } from './utils/status-override.js';
 import { fillContributorsFromWatchers } from './sync-watchers.js';
+import { detectSyncFields } from './sync-fields.js';
+import { _buildClosedArchive, _loadEmptyClosed, _saveEmptyClosed } from './sync-archive.js';
+import {
+    fetchNextPiFutureTickets, fetchFeatures, fetchEpics, fetchPiNamedSprints, fetchFeatureChildren,
+    fetchImprovementTickets, fetchBufferHistory,
+} from './sync-passes.js';
 // API publique inchangée (app.js, topbar, Paramètres, tests) : ré-exports
 export { makeIncidents, getExcludedTeams, addExcludedTeam, removeExcludedTeam, clearExcludedTeams, dismissSyncReport } from './sync-report.js';
+export { clearEmptyClosedMemory, _buildClosedArchive } from './sync-archive.js';
 
 /**
  * Import data from JIRA into the local database.
@@ -53,98 +60,6 @@ export async function importFromJira(options = {}) {
     }
 }
 
-/**
- * Archive des sprints clos — ce qu'une sync complète n'a pas besoin de re-télécharger.
- *
- * La sync complète est en mode `replace` : elle efface puis ré-importe. L'historique ne
- * s'accumule donc JAMAIS, et élargir la fenêtre se repaie intégralement à chaque fois —
- * `closedTicketSprints` coûtant un appel par sprint ET par board, une profondeur d'un an
- * sur quatorze boards fait ~364 appels avec changelog, à chaque sync complète.
- *
- * Or un sprint CLOS ne bouge plus : son périmètre, ses points et ses dates sont figés. On
- * relit donc ses tickets depuis la base et on les réinjecte dans le payload, au lieu de les
- * redemander à JIRA. Seule la première sync après un élargissement paie le prix.
- *
- * ⚠️ Repose sur l'aller-retour exact entre `_ticket_dict` (serializers.py) et le contrat lu
- * par `import_all` (data.py) : les objets du store repartent tels quels. Y compris
- * `createdAt` — sans le correctif 3.143.1 qui le persiste, chaque archivage aurait re-daté
- * les tickets à l'heure de la sync, exactement le bug qu'on venait de corriger.
- *
- * ⚠️ Contrepartie assumée : une correction faite dans JIRA sur un sprint déjà clos (points
- * réajustés, statut rectifié) ne redescendra plus. C'est pourquoi le réglage est
- * désactivable, et pourquoi « Tout réimporter depuis JIRA » le contourne.
- *
- * Exportée pour les tests — comme `makeIncidents`, sa logique se vérifie sans lancer d'import.
- *
- * @param {boolean} enabled  false → archive vide, comportement d'origine
- * @param {(name:string)=>boolean} isExcludedTeam
- */
-const EMPTY_CLOSED_KEY = 'sb-sync-emptyClosed';
-const EMPTY_CLOSED_MAX = 800;   // borne : ~40 boards × 20 sprints vides, largement au-delà du parc
-
-/**
- * Sprints clos constatés SANS AUCUN TICKET — la moitié manquante de l'archive.
- *
- * `_buildClosedArchive` ne peut retenir qu'un sprint qui a laissé des tickets en base. Un
- * sprint clos réellement vide n'y entre donc jamais et se fait réinterroger à chaque sync,
- * pour rien. Mesuré le 25/08/2026 : 85 des 254 sprints de la fenêtre (33 %) — c'est-à-dire
- * la TOTALITÉ des appels que l'archive laissait passer.
- *
- * ⚠️ On ne mémorise QUE sur un appel RÉUSSI renvoyant zéro issue. Un 401 ou un timeout rend
- * aussi « aucun ticket » : le confondre avec un sprint vide graverait une panne passagère
- * dans la mémoire, et le sprint ne serait plus jamais redemandé.
- *
- * Même contrepartie que l'archive — un sprint clos qu'on rattacherait plus tard à un ticket
- * dans JIRA resterait invisible — donc même interrupteur (`archiveClosed`) et même
- * contournement (« Tout réimporter depuis JIRA », qui purge la liste).
- */
-function _loadEmptyClosed(enabled) {
-    if (!enabled) return new Set();
-    try { return new Set(JSON.parse(localStorage.getItem(EMPTY_CLOSED_KEY) || '[]')); }
-    catch { return new Set(); }
-}
-
-function _saveEmptyClosed(ids) {
-    try {
-        // Les plus récemment constatés en dernier : c'est le début qu'on sacrifie si ça déborde.
-        const list = [...ids].slice(-EMPTY_CLOSED_MAX);
-        localStorage.setItem(EMPTY_CLOSED_KEY, JSON.stringify(list));
-    } catch { /* quota localStorage : la mémoire est un confort, pas une dépendance */ }
-}
-
-/** Purge la mémoire des sprints vides — appelée par « Tout réimporter depuis JIRA ». */
-export function clearEmptyClosedMemory() {
-    try { localStorage.removeItem(EMPTY_CLOSED_KEY); } catch { /* ignore */ }
-}
-
-export function _buildClosedArchive(enabled, isExcludedTeam) {
-    const vide = { bySprintId: new Map(), sprintCount: 0, ticketCount: 0 };
-    if (!enabled) return vide;
-    const prev = store.get('tickets') || [];
-    if (!prev.length) return vide;
-    // Un sprint n'est archivable que s'il est CLOS : un sprint actif ou futur bouge encore.
-    const closedIds = new Set(
-        (store.get('sprintInfo')?.teamSprints || [])
-            .filter(s => s.state === 'closed' && s.jiraId && !isExcludedTeam(s.team))
-            .map(s => String(s.jiraId))
-    );
-    if (!closedIds.size) return vide;
-    const bySprintId = new Map();
-    let ticketCount = 0;
-    for (const t of prev) {
-        // Features et epics ont leurs propres passes JQL, qui tournent de toute façon :
-        // les archiver les ferait exister en double.
-        if (t.type === 'feature' || t.type === 'epic') continue;
-        if (isExcludedTeam(t.team)) continue;
-        const sid = String(t.sprint || '');
-        if (!sid || !closedIds.has(sid)) continue;
-        if (!bySprintId.has(sid)) bySprintId.set(sid, []);
-        bySprintId.get(sid).push(t);
-        ticketCount++;
-    }
-    return { bySprintId, sprintCount: bySprintId.size, ticketCount };
-}
-
 async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), archiveOn = false) {
     const quickMode = sinceDays != null;
     // Une équipe est exclue si son nom (insensible à la casse) figure dans la liste des retraits.
@@ -163,99 +78,10 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
     };
     const maxFeaturesPerJql = _readCap('sb-sync-maxFeatures');
     const maxBoards         = _readCap('sb-sync-maxBoards');
-    const piSprintFieldOverride = (localStorage.getItem('sb-sync-piSprintField') || '').trim() || null;
-    const sprintFieldOverride   = (localStorage.getItem('sb-sync-sprintField')   || '').trim() || null;
-    const teamFieldOverride     = (localStorage.getItem('sb-sync-teamField')     || '').trim() || null;
 
-    // 1. Discover story points field, sprint field, team field, and PI Sprint custom field
+    // 1. Champs JIRA (story points, sprint, équipe, PI, contributeurs) — sync-fields.js
     setProgress(5, 'Detection des champs JIRA...');
-    let storyPointsField = 'story_points';
-    let sprintFieldId    = sprintFieldOverride || SYNC_CONFIG.sprintField;
-    let piSprintField    = piSprintFieldOverride;
-    let teamFieldId      = teamFieldOverride;  // "Team[Team]" field — direct team assignment on Features
-    let _fieldIndex      = new Map(); // id → name, for diagnostic
-    try {
-        const fields = await api.jiraGet('rest/api/3/field');
-        for (const f of fields) if (f.id && f.name) _fieldIndex.set(f.id, f.name);
-        const spField = fields.find(f => f.name?.toLowerCase().includes('story point') && f.custom);
-        if (spField) storyPointsField = spField.id;
-        // Auto-detect sprint field by exact name "Sprint" (ID varies: 10020, 10021…)
-        if (!sprintFieldOverride) {
-            const sf = fields.find(f => f.custom && f.name?.toLowerCase() === 'sprint');
-            if (sf) {
-                sprintFieldId = sf.id;
-                console.log(`[Squad-Board] Sprint field auto-detecte: "${sf.name}" (${sprintFieldId})`);
-            }
-        } else if (!/^customfield_\d+$/.test(sprintFieldId)) {
-            // Override is a JQL clause name (e.g. "Sprint") — resolve to customfield ID
-            const resolved = fields.find(f =>
-                f.clauseNames?.includes(sprintFieldId) || f.name?.toLowerCase() === sprintFieldId.toLowerCase()
-            );
-            if (resolved) {
-                console.log(`[Squad-Board] Sprint field "${sprintFieldId}" resolu → ${resolved.id} ("${resolved.name}")`);
-                sprintFieldId = resolved.id;
-            } else {
-                console.warn(`[Squad-Board] Sprint field "${sprintFieldId}" non trouve dans la liste des champs JIRA — utilise tel quel.`);
-            }
-        } else {
-            console.log(`[Squad-Board] Sprint field (override): ${sprintFieldId}`);
-        }
-        // Auto-detect "Team[Team]" field (Atlassian Teams integration)
-        // Always log team-field candidates so user can find the right customfield ID
-        const teamCandidates = fields.filter(f =>
-            f.custom && (
-                f.schema?.type === 'team' ||
-                (f.schema?.custom || '').toLowerCase().includes('team') ||
-                /team|equipe|squad/i.test(f.name || '')
-            )
-        );
-        if (teamCandidates.length) {
-            console.log('[Squad-Board] Champs Team candidats (copier l\'ID dans Parametres → Plugin JIRA → Champ Equipe):');
-            console.table(teamCandidates.map(f => ({ id: f.id, name: f.name, type: f.schema?.type || '?' })));
-        }
-        // If the override looks like a JQL clause name (e.g. "Team[Team]"), resolve to customfield ID
-        if (teamFieldId && !/^customfield_\d+$/.test(teamFieldId)) {
-            const resolved = fields.find(f =>
-                f.clauseNames?.includes(teamFieldId) || f.name === teamFieldId
-            );
-            if (resolved) {
-                console.log(`[Squad-Board] Team field "${teamFieldId}" resolu → ${resolved.id} ("${resolved.name}")`);
-                teamFieldId = resolved.id;
-            } else {
-                console.warn(`[Squad-Board] Team field "${teamFieldId}" non trouve dans la liste des champs JIRA — voir tableau ci-dessus.`);
-            }
-        }
-        if (!teamFieldId) {
-            const tf = teamCandidates[0] || null;
-            if (tf) {
-                teamFieldId = tf.id;
-                console.log(`[Squad-Board] Team field auto-detecte: "${tf.name}" (${teamFieldId})`);
-            } else {
-                console.warn('[Squad-Board] Team field non detecte — configurez-le dans Parametres → Plugin JIRA → Champ Equipe (ex: "Team[Team]").');
-            }
-        } else {
-            console.log(`[Squad-Board] Team field utilise: ${teamFieldId}`);
-        }
-
-        // Champ « Contributeurs » (volontaires aux côtés du porteur — page Affinage, cadrage)
-        const contribOverride = (localStorage.getItem('sb-sync-contributorsField') || '').trim() || null;
-        const contribField = detectContributorsField(fields, contribOverride);
-        setContributorsField(contribField);
-        if (contribField) console.log(`[Squad-Board] Champ Contributeurs: ${contribField} ("${_fieldIndex.get(contribField) || '?'}")`);
-        else console.log('[Squad-Board] Pas de champ Contributeurs — contributeurs = observateurs JIRA (sync-watchers.js) ; surcharge : localStorage sb-sync-contributorsField');
-
-        // Auto-detect dedicated PI Sprint custom field (common in SAFe JIRA setups)
-        if (!piSprintField) {
-            const PI_FIELD_RE = /\bpi\b[\s_-]*(sprint|planning|increment|it[eé]ration)|program[\s_-]*increment|art[\s_-]*sprint/i;
-            const piField = fields.find(f => f.custom && PI_FIELD_RE.test(f.name || ''));
-            if (piField) {
-                piSprintField = piField.id;
-                console.log(`[Squad-Board] PI Sprint field auto-detecte: "${piField.name}" (${piSprintField})`);
-            }
-        } else {
-            console.log(`[Squad-Board] PI Sprint field (override Settings): ${piSprintField}`);
-        }
-    } catch { /* use defaults */ }
+    const { storyPointsField, sprintFieldId, piSprintField, teamFieldId, fieldIndex: _fieldIndex } = await detectSyncFields();
 
     // Échecs partiels : collectés plutôt qu'avalés (voir makeIncidents).
     const incidents = makeIncidents();
@@ -605,383 +431,24 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
         }
     }
 
-    // 3b. Fetch next-PI tickets from future sprints (pour la vue Roadmap PI suivant)
-    if (sprintInfo) {
-        const piMatch = sprintInfo.name.match(/(\d+)\.\d+/) || sprintInfo.name.match(/PI\s*#?\s*(\d+)/i);
-        if (piMatch) {
-            const nextPI = parseInt(piMatch[1]) + 1;
-            const nextPiTag = `PI#${nextPI}`;
-            setProgress(68, `Tickets PI${nextPI} (sprints futurs)...`, 'Sprints suivants');
-            try {
-                const futureJql = `project IN (${projects.join(',')}) AND sprint in futureSprints() AND issuetype NOT IN (Feature, "Fonctionnalite", Epic)${updClause} ORDER BY updated DESC`;
-                const FUTURE_PAGE = 100;
-                let nextPiAdded = 0;
-                // `description,comment,issuelinks` (3.248.0) : sans eux, les tickets du PI suivant (cadrage compris) arrivaient
-                // VIDES — l'Affinage les signalait « 📝 sans description » alors que JIRA en avait une.
-                const futFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,description,comment,issuelinks,${sprintFieldId}${contributorsFieldParam()}` +
-                    (teamFieldId ? `,${teamFieldId}` : '');
-                const seenKeys = await _paginateJql({
-                    jql: futureJql,
-                    fields: futFields,
-                    expand: 'changelog',
-                    pageSize: FUTURE_PAGE,
-                    cap: maxFeaturesPerJql,
-                    onPage: (issues, total) => {
-                        for (const issue of issues) {
-                            const ticket = transformIssue(issue, null, null, storyPointsField, null, sprintFieldId, null, teamFieldId);
-                            ticket.team = _normalizeTeamName(ticket.team, knownBoardTeams);
-                            if (ticket.piSprint === nextPiTag && !allTickets.find(t => t.id === issue.key)) {
-                                allTickets.push(ticket);
-                                nextPiAdded++;
-                            }
-                        }
-                        setProgress(68, `Tickets PI${nextPI} (sprints futurs)...`, `${total} scannés, ${nextPiAdded} pour ${nextPiTag}`);
-                    },
-                });
-                console.log(`[Squad-Board] Sprints futurs: ${seenKeys.size} tickets uniques scannes — ${nextPiAdded} ajoutes pour ${nextPiTag}`);
-            } catch (e) {
-                console.warn('Next PI future sprints fetch:', e.message);
-                incidents.add('tickets des sprints futurs (PI suivant)', e);
-            }
-        }
-    }
-
+    // 3b → 6.5 : passes JQL (sprints futurs, features, epics, sprints PI nommés, enfants de features,
+    // améliorations, buffer historique) — sync-passes.js, contexte partagé `ctx` (tableaux mutés en place)
     const jqlProject = projects.length > 1
         ? `project IN (${projects.join(',')})`
         : `project=${projects[0]}`;
-
-    // Compteurs de rang : assignent l'ordre JIRA (depuis "ORDER BY Rank ASC") aux features/epics
-    // afin de préserver la priorité backlog dans la roadmap.
-    let _featureRankCursor = 0;
-    let _epicRankCursor = 0;
-
-    // 4. Fetch features via JQL (paginated)
-    setProgress(72, 'Recuperation des features...', `JQL sur ${projects.length} ${projects.length > 1 ? 'projets' : 'projet'}`);
-    let _featureDiagSample = null;    // first raw issue processed
-    let _nullPiRawSample = null;       // first raw issue whose transformed result has null piSprint
-    let _richRawSample = null;         // first raw issue with non-null custom fields (best for team field discovery)
-    try {
-        const extraFields = [sprintFieldId, 'fixVersions'];
-        if (piSprintField) extraFields.push(piSprintField);
-        if (teamFieldId)   extraFields.push(teamFieldId);
-        const featureFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,description,${extraFields.join(',')}`;
-        const featureJql = `${jqlProject} AND issuetype IN (Feature, "Fonctionnalite")${updClause} ORDER BY rank ASC`;
-        const featSeen = await _paginateJql({
-            jql: featureJql,
-            fields: featureFields,
-            pageSize: 100,
-            cap: maxFeaturesPerJql,
-            onPage: (issues, total) => {
-                setProgress(72, `Features ${total}...`, `${projects.length} ${projects.length > 1 ? 'projets' : 'projet'}`);
-                for (const issue of issues) {
-                    const existing = allFeatures.find(f => f.id === issue.key);
-                    if (existing) {
-                        existing.rank = _featureRankCursor++;  // rank-up une feature déjà importée (passe per-board)
-                        // Re-évalue le team via Team[Team] (plus précis que le board name pour les
-                        // features planifiées sur un board cross-team, ex: "PI Board Features ERPC")
-                        const _fromField = teamFieldId ? _extractTeamName(issue.fields?.[teamFieldId]) : null;
-                        if (_fromField) {
-                            existing.team = _normalizeTeamName(_fromField, knownBoardTeams);
-                        }
-                    } else {
-                        const transformed = transformIssue(issue, null, null, storyPointsField, null, sprintFieldId, piSprintField || null, teamFieldId);
-                        transformed.team = _normalizeTeamName(transformed.team, knownBoardTeams);
-                        transformed.rank = _featureRankCursor++;  // ordre JIRA backlog (ORDER BY Rank ASC)
-                        allFeatures.push(transformed);
-                        if (!_featureDiagSample) _featureDiagSample = issue;
-                        if (!_nullPiRawSample && !transformed.piSprint) _nullPiRawSample = issue;
-                        if (!_richRawSample) {
-                            const hasCustom = Object.keys(issue.fields || {}).some(k => k.startsWith('customfield_') && issue.fields[k] != null);
-                            if (hasCustom) _richRawSample = issue;
-                        }
-                    }
-                }
-            },
-        });
-        const featStart = featSeen.size;
-        // Diagnostic : prefer rich sample (has custom fields) to reveal Team/PI field IDs
-        const diagSample = _richRawSample || _nullPiRawSample || _featureDiagSample;
-        if (diagSample) {
-            const f = diagSample.fields || {};
-            const nullPiCount = allFeatures.filter(x => !x.piSprint).length;
-            console.group('[Squad-Board] Features JQL diagnostic — ' + (nullPiCount > 0 ? `echantillon null piSprint: ${diagSample.key}` : diagSample.key));
-            const nullTeamCount = allFeatures.filter(x => !x.team || x.team === 'Autre').length;
-            const capLabel = maxFeaturesPerJql === Infinity ? 'illimite' : maxFeaturesPerJql;
-            const featsWithPts = allFeatures.filter(x => (x.points || 0) > 0).length;
-            console.log(`Features JQL scannees: ${featStart} | importees: ${allFeatures.length} (cap: ${capLabel}) | null piSprint: ${nullPiCount} | sans equipe: ${nullTeamCount} | avec Story Points: ${featsWithPts}`);
-            console.log('Cle:', diagSample.key, '| Titre:', f.summary);
-            console.log('Type JIRA:', f.issuetype?.name);
-            console.log('Labels:', JSON.stringify(f.labels));
-            console.log('Parent:', f.parent?.key, '-', f.parent?.fields?.summary);
-            console.log('fixVersions:', JSON.stringify(f.fixVersions));
-            console.log(`${sprintFieldId} (sprint):`, JSON.stringify(f[sprintFieldId]));
-            if (teamFieldId) console.log(`${teamFieldId} (team):`, JSON.stringify(f[teamFieldId]));
-            else             console.log('Team field: non configure — ajouter dans Parametres → Plugin JIRA');
-            if (piSprintField) console.log(`${piSprintField} (PI custom):`, JSON.stringify(f[piSprintField]));
-            // Cross-reference field IDs with names from /field API
-            const nonNull = Object.entries(f)
-                .filter(([k, v]) => k.startsWith('customfield_') && v !== null && v !== undefined)
-                .map(([k, v]) => ({
-                    id: k,
-                    name: _fieldIndex.get(k) || '?',
-                    value: typeof v === 'object' ? JSON.stringify(v).slice(0, 100) : String(v).slice(0, 100),
-                }));
-            if (nonNull.length) { console.log('Champs custom non-null:'); console.table(nonNull); }
-            else console.log('Champs custom non-null: aucun');
-            console.groupEnd();
-
-            // Coverage diagnostic — helps spot projects/teams/PIs missing features
-            const byProject = allFeatures.reduce((acc, x) => {
-                const p = (x.id || '').split('-')[0] || '?';
-                acc[p] = (acc[p] || 0) + 1; return acc;
-            }, {});
-            const byPi = allFeatures.reduce((acc, x) => {
-                const k = x.piSprint || '— null';
-                acc[k] = (acc[k] || 0) + 1; return acc;
-            }, {});
-            const byTeam = allFeatures.reduce((acc, x) => {
-                const k = x.team || '— null';
-                acc[k] = (acc[k] || 0) + 1; return acc;
-            }, {});
-            console.log('[Squad-Board] Features — par projet:');
-            console.table(Object.entries(byProject).sort((a, b) => b[1] - a[1]).map(([p, n]) => ({ project: p, count: n })));
-            console.log('[Squad-Board] Features — par PI:');
-            console.table(Object.entries(byPi).sort().map(([p, n]) => ({ PI: p, count: n })));
-            console.log('[Squad-Board] Features — par equipe (apres normalisation):');
-            console.table(Object.entries(byTeam).sort((a, b) => b[1] - a[1]).map(([t, n]) => ({ team: t, count: n })));
-        } else {
-            console.warn('[Squad-Board] Features JQL: 0 features retournees. Verifier le nom du type JIRA.');
-        }
-    } catch (e) {
-        console.warn('[Squad-Board] Features JQL error:', e.message);
-        incidents.add('features (requête JQL)', e);
-    }
-
-    // 5. Fetch epics via JQL (paginated)
-    setProgress(78, 'Recuperation des epics...', `JQL sur ${projects.length} ${projects.length > 1 ? 'projets' : 'projet'}`);
-    try {
-        const epicExtraFields = [sprintFieldId, 'fixVersions'];
-        if (piSprintField) epicExtraFields.push(piSprintField);
-        if (teamFieldId)   epicExtraFields.push(teamFieldId);
-        const epicFields = `summary,status,issuetype,assignee,priority,labels,${storyPointsField},parent,updated,created,description,${epicExtraFields.join(',')}`;
-        const epicJql = `${jqlProject} AND issuetype=Epic${updClause} ORDER BY rank ASC`;
-        await _paginateJql({
-            jql: epicJql,
-            fields: epicFields,
-            pageSize: 100,
-            cap: maxFeaturesPerJql,
-            onPage: (issues, total) => {
-                setProgress(78, `Epics ${total}...`, `${projects.length} ${projects.length > 1 ? 'projets' : 'projet'}`);
-                for (const issue of issues) {
-                    const existing = allEpics.find(e => e.id === issue.key);
-                    if (existing) {
-                        existing.rank = _epicRankCursor++;
-                    } else {
-                        const transformed = transformIssue(issue, null, null, storyPointsField, null, sprintFieldId, piSprintField || null, teamFieldId);
-                        transformed.team = _normalizeTeamName(transformed.team, knownBoardTeams);
-                        transformed.rank = _epicRankCursor++;
-                        allEpics.push(transformed);
-                    }
-                }
-            },
-        });
-        // Diagnostic — verify epic→feature linkage (used for PI inheritance in roadmap)
-        const epicsWithFeature = allEpics.filter(e => e.feature).length;
-        const epicByProject = allEpics.reduce((acc, e) => {
-            const p = (e.id || '').split('-')[0] || '?';
-            acc[p] = (acc[p] || 0) + 1; return acc;
-        }, {});
-        console.log(`[Squad-Board] Epics: ${allEpics.length} importes | ${epicsWithFeature} lies a une feature (${Math.round(epicsWithFeature * 100 / Math.max(1, allEpics.length))}%)`);
-        console.table(Object.entries(epicByProject).sort((a, b) => b[1] - a[1]).map(([p, n]) => ({ project: p, count: n })));
-    } catch (e) {
-        console.warn('[Squad-Board] Epics fetch:', e?.message || e);
-        incidents.add('epics', e);
-    }
-
-    // 5b. PI-named-sprint pass — runs AFTER features/epics JQL so the standard rank order wins.
-    // Catches projects (e.g. GCOM) that plan via sprints literally named "PI30" / "PI#30".
-    // Items already in allFeatures/allEpics are skipped (rank preserved from earlier passes).
-    if (sprintInfo) {
-        const _m = sprintInfo.name.match(/(\d+)\.\d+/) || sprintInfo.name.match(/PI\s*#?\s*(\d+)/i);
-        if (_m) {
-            const cur = parseInt(_m[1]);
-            const piNames = [];
-            for (let i = cur - 1; i <= cur + 2; i++) {
-                if (i > 0) piNames.push(`PI${i}`, `PI#${i}`);
-            }
-            const piSprintJql = `${jqlProject} AND Sprint in (${piNames.map(n => `"${n}"`).join(',')})${updClause} ORDER BY Rank ASC`;
-            setProgress(81, 'Sprints PI nommes...', piNames.join(', '));
-            try {
-                const added = { features: 0, epics: 0, tickets: 0 };
-                const piFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,description,comment,issuelinks,fixVersions,${sprintFieldId}${contributorsFieldParam()}` +
-                    (teamFieldId ? `,${teamFieldId}` : '') + (piSprintField ? `,${piSprintField}` : '');
-                const seen = await _paginateJql({
-                    jql: piSprintJql,
-                    fields: piFields,
-                    expand: 'changelog',
-                    pageSize: 100,
-                    cap: maxFeaturesPerJql,
-                    onPage: (issues, total) => {
-                        for (const issue of issues) {
-                            const tr = transformIssue(issue, null, null, storyPointsField, null, sprintFieldId, piSprintField || null, teamFieldId);
-                            tr.team = _normalizeTeamName(tr.team, knownBoardTeams);
-                            if (tr.type === 'feature') {
-                                if (!allFeatures.find(f => f.id === issue.key)) {
-                                    tr.rank = _featureRankCursor++;
-                                    allFeatures.push(tr); added.features++;
-                                }
-                            } else if (tr.type === 'epic') {
-                                if (!allEpics.find(e => e.id === issue.key)) {
-                                    tr.rank = _epicRankCursor++;
-                                    allEpics.push(tr); added.epics++;
-                                }
-                            } else {
-                                if (!allTickets.find(t => t.id === issue.key)) { allTickets.push(tr); added.tickets++; }
-                            }
-                        }
-                        setProgress(81, 'Sprints PI nommes...', `${total} uniques · +${added.features}f +${added.epics}e +${added.tickets}t`);
-                    },
-                });
-                console.log(`[Squad-Board] Sprints PI nommes (${piNames.join(', ')}): ${seen.size} uniques scannes — +${added.features} features, +${added.epics} epics, +${added.tickets} tickets`);
-            } catch (e) {
-                console.warn('[Squad-Board] PI-named sprint fetch:', e?.message || e);
-                incidents.add('sprints de cadrage (PI nommés)', e);
-            }
-        }
-    }
-
-    // 5c. Children of PI-current + PI-next features — Stories/Tasks linked via parent=
-    //     pour la projection et l'estimation PI+1. Ciblé sur PI courant + PI suivant uniquement
-    //     pour éviter d'importer l'historique complet de tous les PIs passés.
-    if (allFeatures.length && sprintInfo) {
-        const piMatch = sprintInfo.name.match(/(\d+)\.\d+/) || sprintInfo.name.match(/PI\s*#?\s*(\d+)/i);
-        if (piMatch) {
-            const curPi  = parseInt(piMatch[1]);
-            const nextPi = curPi + 1;
-            const nextPi2 = curPi + 2;
-            // Tags acceptés : "PI#30", "PI30", "30.x" (piSprint de la feature)
-            const _matchesPi = (f, piNum) => {
-                const ps = (f.piSprint || '').toUpperCase();
-                return ps === `PI#${piNum}` || ps === `PI${piNum}` || ps.startsWith(`${piNum}.`);
-            };
-            const piFeatures = allFeatures.filter(f => _matchesPi(f, curPi) || _matchesPi(f, nextPi) || _matchesPi(f, nextPi2));
-
-            if (piFeatures.length) {
-                const FEAT_CHILD_BATCH = 50;
-                // description / comment / issuelinks (3.249.0) : cette passe rapatrie les tickets d'une feature hors des
-                // sprints déjà lus (backlog, cadrage : TRV-6276) — sans eux ils arrivaient sans description.
-                const childFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,description,comment,issuelinks,${sprintFieldId}${contributorsFieldParam()}` +
-                    (teamFieldId ? `,${teamFieldId}` : '') + (piSprintField ? `,${piSprintField}` : '');
-                let childrenAdded = 0;
-                for (let i = 0; i < piFeatures.length; i += FEAT_CHILD_BATCH) {
-                    const ids = piFeatures.slice(i, i + FEAT_CHILD_BATCH).map(f => f.id).join(',');
-                    setProgress(82, `Enfants features PI${curPi}+PI${nextPi}+PI${nextPi2}...`,
-                        `batch ${Math.floor(i / FEAT_CHILD_BATCH) + 1}/${Math.ceil(piFeatures.length / FEAT_CHILD_BATCH)}`);
-                    try {
-                        await _paginateJql({
-                            // ⚡ Quick mode : seuls les enfants modifiés récemment (updClause) sont rapatriés.
-                            jql: `parent IN (${ids}) AND issuetype NOT IN (Feature, "Fonctionnalite", Epic)${updClause} ORDER BY updated DESC`,
-                            fields: childFields,
-                            pageSize: 100,
-                            cap: maxFeaturesPerJql,
-                            onPage: (issues) => {
-                                for (const issue of issues) {
-                                    if (allTickets.find(t => t.id === issue.key)) continue;
-                                    const tr = transformIssue(issue, null, null, storyPointsField, null, sprintFieldId, piSprintField || null, teamFieldId);
-                                    tr.team = _normalizeTeamName(tr.team, knownBoardTeams);
-                                    allTickets.push(tr);
-                                    childrenAdded++;
-                                }
-                            },
-                        });
-                    } catch (e) {
-                        console.warn('[Squad-Board] Feature children fetch batch:', e?.message || e);
-                        incidents.add('tickets rattachés à une feature', e);
-                    }
-                }
-                console.log(`[Squad-Board] Enfants features PI${curPi}+PI${nextPi}+PI${nextPi2}: +${childrenAdded} tickets (${piFeatures.length} features ciblées)`);
-            }
-        }
-    }
-
-    // 6. Fetch amelioration tickets (retro, post-mortem, CoP, adapt - cross-sprint)
-    setProgress(83, 'Tickets amelioration continue...', 'retro / postmortem / cop / adapt');
-    const AMEL_LABELS = [
-        'Retro', 'Rétro', 'retro', 'rétro', 'ActionRetro', 'actionretro',
-        'RetroFonc', 'retroffonc', 'retro-tech',
-        'Amelioration', 'Amélioration', 'amelioration',
-        'postmortem', 'Postmortem',
-        'Adapt', 'adapt',
-        'COP', 'CoP', 'cop', 'cop-dev', 'CoP-methodo', 'cop-methodo', 'CoP-méthodo',
-        'methodo', 'Methodo',
-    ];
-    try {
-        const amelJql = `${jqlProject} AND labels in (${AMEL_LABELS.map(l => `"${l}"`).join(',')}) AND (statusCategory != Done OR updated >= "-30d") ORDER BY updated DESC`;
-        // ⚠ JIRA Cloud /search/jql ne renvoie PAS le champ `description` même quand on le demande
-        // explicitement dans `fields` (limitation API). Pour les tickets ActionRetro/Postmortem où
-        // la description porte tout le contexte de l'item rétro, on utilise `*all` pour avoir tous
-        // les champs incluant la description. Payload plus lourd mais volume faible (~50 tickets max).
-        const amelFields = '*all';
-        await _paginateJql({
-            jql: amelJql,
-            fields: amelFields,
-            pageSize: 100,
-            cap: maxFeaturesPerJql,
-            onPage: (issues) => {
-                for (const issue of issues) {
-                    if (!allTickets.find(t => t.id === issue.key) && !allFeatures.find(f => f.id === issue.key)) {
-                        const ticket = transformIssue(issue, null, null, storyPointsField, null, sprintFieldId, null, teamFieldId);
-                        ticket.team = _normalizeTeamName(ticket.team, knownBoardTeams);
-                        allTickets.push(ticket);
-                    }
-                }
-            },
-        });
-    } catch (e) {
-        console.warn('Amelioration fetch:', e.message);
-        incidents.add('améliorations', e);
-    }
-
-    // 6.5 Buffer historique : récupère tous les tickets `labels = Buffer` et
-    // agrège leurs Story Points par sprint clos (dernier sprint clos de chaque ticket).
-    // Évite de devoir charger TOUS les tickets des sprints clos juste pour avoir le buffer.
-    // ⚡ Quick mode : sauté (scan potentiellement coûteux de tous les tickets Buffer ;
-    //    les bufferPoints des sprints clos sont préservés en DB via le merge des teamSprints).
-    const bufferBySprintId = new Map();  // sprintId → total points buffer
-    if (!quickMode) try {
-        setProgress(86, 'Buffer historique...', 'tickets label=Buffer');
-        const bufFields = `summary,status,${storyPointsField},${sprintFieldId}`;
-        const seenBuf = await _paginateJql({
-            jql: `${jqlProject} AND labels = "Buffer" ORDER BY updated DESC`,
-            fields: bufFields,
-            pageSize: 100,
-            cap: 5000,
-            onPage: (issues) => {
-                for (const issue of issues) {
-                    const f = issue.fields || {};
-                    const pts = f[storyPointsField] || 0;
-                    if (!pts) continue;
-                    const sprintField = f[sprintFieldId];
-                    const sprints = Array.isArray(sprintField) ? sprintField : (sprintField ? [sprintField] : []);
-                    // Garde le DERNIER sprint clos (par endDate) — un ticket multi-sprint
-                    // est compté dans le sprint où il a finalement été livré.
-                    let last = null;
-                    for (const s of sprints) {
-                        if (!s || s.state !== 'closed') continue;
-                        if (!last || (s.endDate || '') > (last.endDate || '')) last = s;
-                    }
-                    if (last?.id) {
-                        const sid = String(last.id);
-                        bufferBySprintId.set(sid, (bufferBySprintId.get(sid) || 0) + pts);
-                    }
-                }
-            },
-        });
-        console.log(`[Squad-Board] Buffer historique : ${seenBuf.size} tickets label=Buffer scannés → ${bufferBySprintId.size} sprints renseignés`);
-    } catch (e) {
-        console.warn('[Squad-Board] Buffer historique : échec', e.message);
-        incidents.add('buffer historique', e);
-    }
+    const ctx = {
+        projects, jqlProject, updClause, quickMode, maxFeaturesPerJql, sprintInfo, knownBoardTeams,
+        storyPointsField, sprintFieldId, piSprintField, teamFieldId, fieldIndex: _fieldIndex,
+        allTickets, allFeatures, allEpics, incidents,
+        rank: { feature: 0, epic: 0 },   // ordre JIRA (« ORDER BY Rank ASC ») des features / epics, partagé entre passes
+    };
+    await fetchNextPiFutureTickets(ctx);
+    await fetchFeatures(ctx);
+    await fetchEpics(ctx);
+    await fetchPiNamedSprints(ctx);
+    await fetchFeatureChildren(ctx);
+    await fetchImprovementTickets(ctx);
+    const bufferBySprintId = await fetchBufferHistory(ctx);
 
     // 6.9 Réinjection de l'archive — les sprints clos non retéléchargés.
     // ⚠️ Doit passer AVANT le filet d'exclusion (étape 7) et avant l'import (étape 8), sinon

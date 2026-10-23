@@ -599,3 +599,11 @@ textarea.input {
 .metric-scope--low  { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
 .metric-scope--low strong { color: var(--danger); }
 .metric-scope-excl { text-decoration: underline dotted; text-underline-offset: 2px; cursor: help; }
+
+/* 👀 Observateurs d'un ticket (contributeurs = watchers JIRA, card.js — 3.252.0). Ici : sprint.css > 800 lignes.
+   Discret comme 💬 ; « très suivi » (≥ 3) ressort en pastille violette. */
+.ticket-watch-count { display: inline-flex; align-items: center; gap: 2px; font-size: 0.6rem; color: var(--text-muted); }
+.ticket-watch-count.is-hot {
+    padding: 0 5px; border-radius: var(--r-full); font-weight: var(--fw-bold);
+    color: #7c3aed; background: color-mix(in srgb, #8b5cf6 16%, var(--surface));
+}

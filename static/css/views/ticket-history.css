@@ -1,0 +1,140 @@
+/* 🕘 Historique d'un ticket — frise colorée de la popin (components/ticket_history.js, 3.252.0).
+   Couleur de catégorie portée par `--c` (inline), statut par `--st`. Thème sombre par défaut : tous les fonds
+   sont des color-mix sur var(--surface), aucun fond clair codé en dur. */
+
+.th { --th-rail: color-mix(in srgb, var(--text-muted) 25%, transparent); }
+.th [hidden] { display: none !important; }
+
+/* ── Titre repliable ───────────────────────────────────────────────────────────────────────────── */
+.th-sum {
+    list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; margin-bottom: 8px; border-radius: var(--r-md);
+    background: linear-gradient(90deg, color-mix(in srgb, #8b5cf6 14%, var(--surface)), color-mix(in srgb, #3b82f6 8%, var(--surface)) 60%, transparent);
+}
+.th-sum::-webkit-details-marker { display: none; }
+.th-sum::after { content: '▸'; margin-left: auto; color: var(--text-muted); font-size: 11px; transition: transform .15s ease; }
+.th[open] > .th-sum::after { transform: rotate(90deg); }
+.th-sum:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.th-sum-title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-primary); }
+.th-sum-n {
+    min-width: 22px; height: 20px; padding: 0 7px; border-radius: var(--r-full);
+    display: inline-grid; place-items: center; font-size: 11px; font-weight: var(--fw-bold);
+    background: #8b5cf6; color: #fff; font-variant-numeric: tabular-nums;
+}
+.th-sum-hint { font-size: 11px; color: var(--text-muted); }
+
+/* ── Filtres par catégorie ────────────────────────────────────────────────────────────────────── */
+.th-filters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.th-filter {
+    display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 4px 0 8px;
+    border-radius: var(--r-full); font: inherit; font-size: 11px; font-weight: var(--fw-semibold); cursor: pointer;
+    color: var(--text-secondary);
+    background: color-mix(in srgb, var(--c) 10%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--c) 35%, transparent);
+    transition: background .15s ease, transform .1s ease;
+}
+.th-filter b {
+    min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-full);
+    display: inline-grid; place-items: center; font-size: 10px; background: var(--c); color: #fff;
+}
+.th-filter:hover { background: color-mix(in srgb, var(--c) 20%, var(--surface)); }
+.th-filter:active { transform: scale(.96); }
+.th-filter:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+.th-filter[aria-pressed="true"] { background: var(--c); color: #fff; border-color: var(--c); }
+.th-filter[aria-pressed="true"] b { background: #fff; color: var(--c); }
+
+/* ── Frise ─────────────────────────────────────────────────────────────────────────────────────── */
+.th-days, .th-entries { list-style: none; margin: 0; padding: 0; }
+.th-day + .th-day { margin-top: 10px; }
+.th-day-hdr {
+    display: inline-block; margin: 0 0 6px;
+    padding: 2px 10px; border-radius: var(--r-full);
+    font-size: 10.5px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .05em;
+    color: var(--text-secondary); background: var(--surface);
+    border: 1px solid var(--border);
+}
+.th-day-hdr::first-letter { text-transform: uppercase; }
+.th-entries { position: relative; padding-left: 20px; }
+.th-entries::before {                     /* rail vertical */
+    content: ''; position: absolute; left: 6px; top: 6px; bottom: 6px; width: 2px; border-radius: 2px;
+    background: var(--th-rail);
+}
+.th-entry { position: relative; padding: 2px 0 8px; }
+.th-dot {
+    position: absolute; left: -19px; top: 7px; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--c); box-shadow: 0 0 0 3px var(--surface), 0 0 0 4px color-mix(in srgb, var(--c) 45%, transparent);
+}
+.th-entry-hdr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 12px; }
+.th-av {
+    width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; flex-shrink: 0;
+    font-size: 8.5px; font-weight: var(--fw-bold); color: #fff;
+}
+.th-av--author { width: 20px; height: 20px; font-size: 9px; }
+.th-author { color: var(--text-primary); }
+.th-time { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.th-count {
+    font-size: 10px; font-weight: var(--fw-semibold); padding: 1px 6px; border-radius: var(--r-full);
+    color: var(--text-secondary); background: var(--surface-hover);
+}
+
+/* Carte d'un changement : bord gauche + fond teintés par la catégorie */
+.th-changes { display: flex; flex-direction: column; gap: 4px; }
+.th-change {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+    padding: 5px 8px; border-radius: var(--r-md);
+    border-left: 3px solid var(--c);
+    background: color-mix(in srgb, var(--c) 7%, var(--surface));
+    font-size: 11.5px; min-width: 0;
+}
+.th-field { display: inline-flex; align-items: center; gap: 5px; font-weight: var(--fw-semibold); color: var(--c); white-space: nowrap; }
+.th-ico { font-size: 12px; }
+.th-vals { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; color: var(--text-primary); }
+.th-arrow { color: var(--text-muted); }
+.th-val { min-width: 0; overflow-wrap: anywhere; }
+.th-val.is-old { color: var(--text-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent); }
+.th-val.is-empty { color: var(--text-muted); font-style: italic; }
+
+/* Statut : pastilles couleur du statut interne */
+.th-status {
+    display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: var(--r-full);
+    font-size: 11px; font-weight: var(--fw-semibold); color: var(--st);
+    background: color-mix(in srgb, var(--st) 14%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--st) 40%, transparent);
+}
+.th-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--st); }
+
+/* Points */
+.th-num {
+    min-width: 22px; padding: 0 6px; border-radius: var(--r-sm, 4px); text-align: center;
+    font-weight: var(--fw-bold); font-variant-numeric: tabular-nums;
+    background: var(--surface-hover); color: var(--text-muted);
+}
+.th-num.is-to { background: color-mix(in srgb, #f59e0b 20%, var(--surface)); color: #d97706; }
+.th-trend { font-size: 10.5px; font-weight: var(--fw-bold); }
+.th-trend.is-up { color: #ea580c; }
+.th-trend.is-down { color: #059669; }
+
+/* Sprint / étiquettes : écart seulement */
+.th-spr, .th-tag {
+    padding: 1px 8px; border-radius: var(--r-full); font-size: 11px; font-weight: var(--fw-semibold);
+    border: 1px solid transparent; white-space: nowrap;
+}
+.th-spr.is-add, .th-tag.is-add { color: var(--c); background: color-mix(in srgb, var(--c) 15%, var(--surface)); border-color: color-mix(in srgb, var(--c) 40%, transparent); }
+.th-spr.is-rm, .th-tag.is-rm { color: var(--text-muted); background: var(--surface-hover); text-decoration: line-through; }
+
+/* Blocage */
+.th-flag { font-weight: var(--fw-bold); font-size: 11px; padding: 1px 8px; border-radius: var(--r-full); }
+.th-flag.is-on { color: #fff; background: #ef4444; }
+.th-flag.is-off { color: #059669; background: color-mix(in srgb, #10b981 15%, var(--surface)); }
+
+/* Personnes */
+.th-who { display: inline-flex; align-items: center; gap: 5px; }
+
+.th-more { margin: 4px 0 0 20px; font-size: 11px; color: var(--text-muted); font-style: italic; }
+
+/* Pleine page : la frise a de la place → cartes sur une ligne, plus aérées */
+.modal--fullscreen .th-change { font-size: 12px; padding: 6px 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .th-sum::after, .th-filter { transition: none; }
+}

@@ -27,8 +27,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `css/base-{shell,components,overlays,utilities,palette,misc}.css`, liées DANS CET ORDRE par `index.html`.
   Ajouter une règle dans le morceau de sa section (en-tête de chaque fichier) ; ne rien écrire dans
   `base.css`, ne pas réordonner les liens (cascade).
-- **Synchro JIRA** : `sync.js` (orchestration, `_doImport`) + `sync-parse.js` (ticket, ADF, sprint / PI /
-  équipe, pagination) + `sync-report.js` (échecs partiels, équipes retirées, progression). Les tickets du
+- **Synchro JIRA** : `sync.js` (orchestration, `_doImport` : boards, sprints actif / clos, import) + `sync-parse.js` (ticket, ADF, sprint / PI /
+  équipe, pagination) + `sync-report.js` (échecs partiels, équipes retirées, progression) + (3.252.0) `sync-fields.js`
+  (champs JIRA), `sync-archive.js` (archive des sprints clos), `sync-passes.js` (passes JQL 3b → 6.5 sur un `ctx`
+  partagé — tableaux mutés en place, ORDRE d'appel significatif) + `sync-watchers.js` (contributeurs = observateurs). Les tickets du
   sprint actif arrivent en WIKI MARKUP (API Agile) → `utils/wiki.js`, pas `parseADF`.
 - **Mapping snake/camel** : back en `snake_case`, contrat front en `camelCase` (via `serializers.py`).
 - **PI courant** : UNIQUEMENT `getCurrentPi({sprintInfo, piInfo})` ([utils.js](static/js/utils.js)) — ne jamais réimplémenter la regex (bugs historiques).
@@ -727,6 +729,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Démos vidéo** (3.248.0) : `docs/demo/` est servi tel quel sous `/demo/` (`DEMO_DIR`, `main.py`) — lecteur, MP4,
   scénarios JSON et `*.meta.json` générés par `tools/demo-video/record.mjs` (racine du monorepo, agent `demo-video`).
   Ne rien éditer à la main dans ce dossier à part les `*.json` de scénario ; ne jamais monter `docs/` entier.
+- **Historique d'un ticket** (3.252.0) : UNIQUEMENT `ticketHistoryHtml` / `bindTicketHistory` (components/ticket_history.js) ;
+  catégorie d'un champ = `catOf` (`_BY_FIELD`) — un champ JIRA nouveau tombe en « Autres », l'ajouter là.
 - **Modale ticket en PLEINE PAGE** : le bouton re-rend la modale (`openTicketModal`) dans une vue détaillée —
   voyage ouvert, description à gauche, activité à droite (personnes, commentaires, historique COMPLET).
   Corps = `.mdl-layout` > `.mdl-aside` / `.mdl-main` / `.mdl-aside-tail` : en modale normale ces trois

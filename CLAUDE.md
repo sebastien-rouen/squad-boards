@@ -112,6 +112,11 @@ python main.py          # http://localhost:3001  — Swagger /docs
   La saisie « Sprint & PI » pose `manual.<champ>` et prime ; l'import Congés n'écrit que
   `startDateFromCsv` / `sprintsPerPIFromCsv` et ne remplit les clés effectives que si elles
   sont vides.
+- **Paramètres = une coquille + un module par section** (3.257.0) : `settings.js` lit le store UNE fois
+  (`_settingsCtx`), assemble et câble. Contrat de chaque `settings-<section>.js` : `<section>SectionHtml(ctx)` +
+  `wire<Section>Section(container, ctx)`, rechargement par `ctx.reload()` / `ctx.rerender()` — ⚠️ un module de
+  section n'importe JAMAIS settings.js (cycle). Nouvelle section = nouveau module, ajouté dans l'assemblage (ordre =
+  ordre des onglets) ET, si besoin, dans `TAB_GROUPS`. Jours ouvrés d'un sprint = `piWorkdays` (fériés de holidays.js).
 - **settings.js éclaté** (3.141.8) : `settings-rotation.js` (grille/shuffle) et ses trois
   satellites (3.162.0) `settings-rotation-weeks.js` (semaines d'un PI, dates, absences),
   `-display.js` (pliage, PI épinglé, « Congés seuls » — que du localStorage) et

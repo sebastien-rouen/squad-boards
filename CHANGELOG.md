@@ -1,3 +1,28 @@
+## [3.257.0] - 2026-10-23
+
+### Paramètres : `settings.js` découpé par section (3 689 → 376 lignes)
+
+Refonte SANS changement visible : le HTML rendu est identique à l'octet près (vérifié dans Chromium, toutes équipes /
+une équipe / un groupe), les 15 onglets, ciblages par hash et actions testés, écritures simulées.
+
+**🧱 Un module par section, un seul contrat** (`static/js/views/`)
+- `<section>SectionHtml(ctx)` pour le rendu, `wire<Section>Section(container, ctx)` pour le câblage — comme
+  `settings-jira.js` / `settings-meteo.js`. `ctx` = instantané du store lu UNE fois (`_settingsCtx`) +
+  `ctx.reload()` (tout recharger) / `ctx.rerender()` : aucun module n'importe settings.js (pas de cycle).
+- Nouveaux modules : `settings-groups.js`, `-teams.js` (+ import des objectifs de PI), `-members.js` (+ capacité par
+  rôle), `-absences.js`, `-events.js`, `-support.js`, `-support-io.js`, `-sprint-pi-html.js`, `-sprint-pi.js`,
+  `-reminders.js`, `-calendars.js`, `-slack.js`, `-data.js` (Données + À propos). Le plus gros : 572 lignes.
+- `settings.js` ne garde que la coquille : contexte, assemblage (l'ordre fait l'ordre des onglets), câblage,
+  ciblage d'arrivée (`_applyIncomingTarget`), onglets, rechargement.
+
+**🧹 Doublons retirés au passage**
+- Jours ouvrés des pastilles de sprint : `piWorkdays` s'appuie sur `utils/workdays.js` + `utils/holidays.js` (source
+  unique des fériés) au lieu d'un second calcul de Pâques recopié dans la vue.
+- Lecture de `pi-cfg-<N>` par `loadPiCfg` (plus de `JSON.parse(localStorage…)` à la main ni d'alias `_piCfgLoad`).
+- Préremplissage des filtres Membres / Absences : la valeur est posée puis l'évènement `input` déclenché — même
+  chemin que la saisie, plus de second filtrage recopié.
+- Variables jamais lues retirées (`jiraConfigured`, `jiraEnv`, `jiraCreds`).
+
 ## [3.256.0] - 2026-10-23
 
 ### Popin ticket : commentaires avant l'historique, restylés · mini-loader des congés d'un contributeur

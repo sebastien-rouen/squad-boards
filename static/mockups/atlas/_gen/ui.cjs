@@ -78,7 +78,7 @@ const appRail = () => `<nav class="rail"><span class="rail__logo">⚡</span>${[[
 
 /** Coquille desktop : rail | principal (barre + corps) | panneau latéral optionnel. */
 const desk = ({ mod = '', top, body, side = '' }) =>
-    `<div class="desk desk--atlas${mod ? ' desk--' + mod : ''}${side ? '' : ' desk--noside'}">${appRail()}<div class="desk__main"><div class="desk__top">${top}</div><div class="desk__body">${body}</div></div>${side ? `<aside class="desk__side">${side}</aside>` : ''}</div>`;
+    `<div class="desk${mod ? ' desk--' + mod : ''}${side ? '' : ' desk--noside'}">${appRail()}<div class="desk__main"><div class="desk__top">${top}</div><div class="desk__body">${body}</div></div>${side ? `<aside class="desk__side">${side}</aside>` : ''}</div>`;
 
 const deskTop = (title, on, extra = '') =>
     `<h1>🧬 Atlas <small>${title}</small></h1>${tabs(['🗺️ Carte', '🎯 Matrice', '📊 Tableau de bord', '🧭 Mobilité', '⚙️ Catalogue'], on)}<span class="spacer"></span>${extra}`;

@@ -1,0 +1,101 @@
+/* ========================================
+   DIRECTION C — 🧑‍🤝‍🧑 PROFILS
+   Parti pris : les personnes d'abord. Sombre chaud, corail et ambre, grandes
+   cartes arrondies ; les compétences sont un attribut des gens, pas l'inverse.
+   ======================================== */
+
+body, .screen {
+  --bg-primary: #15110e;
+  --bg-surface: #1f1914;
+  --bg-surface-alt: #2a221b;
+  --text-primary: #f6efe8;
+  --text-secondary: #c2b3a5;
+  --text-muted: #85766a;
+  --accent-primary: #fb923c;
+  --accent-secondary: #f472b6;
+}
+
+.card, .sig, .mob, .kpi { border-radius: 20px; }
+.btn--primary { background: linear-gradient(135deg, #fb923c, #f472b6); }
+.av { box-shadow: inset 0 0 0 2.5px color-mix(in srgb, var(--c) 80%, transparent), 0 4px 14px rgba(0, 0, 0, 0.35); }
+
+/* ── Carte de profil ─ */
+.pc-groups { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
+.pc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pc {
+  position: relative; display: flex; flex-direction: column; gap: 8px; padding: 12px;
+  border-radius: 20px; background: linear-gradient(165deg, color-mix(in srgb, var(--c) 9%, var(--ui-surface)), var(--ui-surface) 55%);
+  border: 1px solid var(--ui-border);
+}
+.pc--sel { border-color: var(--ui-accent); box-shadow: 0 0 0 1px var(--ui-accent), 0 10px 28px rgba(251, 146, 60, 0.18); }
+.pc--away { border-style: dashed; }
+.pc--ghost { opacity: 0.35; border: 1.5px dashed var(--ui-danger); background: transparent; }
+.pc--moved { border-color: var(--ui-warn); box-shadow: 0 0 0 1px var(--ui-warn); }
+.pc__top { display: flex; align-items: center; gap: 10px; }
+.pc__id { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.pc__id b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc__id span { font-size: 11.5px; color: var(--ui-text-3); }
+.pc__skills { display: flex; flex-wrap: wrap; gap: 4px; }
+.pc__sk { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 2px; border-radius: 999px; background: var(--ui-surface-alt); font-size: 11.5px; font-weight: 600; }
+.pc__sk .lvl { min-width: 20px; height: 20px; border-radius: 999px; font-size: 11px; }
+.pc__foot { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; }
+.pc__want { display: inline-flex; align-items: center; gap: 6px; color: var(--ap-forte); font-weight: 700; }
+.pc__want--none { color: var(--ui-text-3); font-weight: 500; }
+.pc__next { color: var(--ui-text-2); }
+.screen .pc { padding: 14px; }
+.chips-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.gap-tag { margin-left: 8px; color: var(--ui-danger); letter-spacing: 0; text-transform: none; font-weight: 700; }
+
+/* Préparation d'entretien */
+.prep { padding: 10px 12px; border-radius: 14px; background: var(--ui-surface-alt); font-size: 12.5px; gap: 6px; }
+
+/* ── Équipe en visages ─ */
+.team-hero { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border-radius: 22px; background: linear-gradient(120deg, color-mix(in srgb, var(--c) 18%, var(--ui-surface)), var(--ui-surface)); border: 1px solid var(--ui-border); }
+.faces { display: flex; }
+.faces .av + .av { margin-left: -10px; }
+.faces--sm { flex-wrap: wrap; gap: 6px; }
+.faces--sm .av + .av { margin-left: 0; }
+.face-team { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 18px; background: var(--ui-surface); border-left: 4px solid var(--c); }
+.want-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 10px 0 4px; border-radius: 999px; background: color-mix(in srgb, var(--ap-forte) 14%, var(--ui-surface-alt)); font-size: 12px; font-weight: 600; }
+
+/* Barres de compétences d'une personne (matrice mobile) */
+.c-0 { background: transparent; }
+.c-1 { background: var(--lvl-1); }
+.c-2 { background: var(--lvl-2); }
+.c-3 { background: var(--lvl-3); }
+.c-4 { background: var(--lvl-4); }
+.skbar { display: grid; grid-template-columns: 92px 1fr auto auto; align-items: center; gap: 8px; min-height: 40px; font-size: 13px; font-weight: 600; }
+.skbar__track { height: 10px; border-radius: 999px; background: var(--ui-surface-alt); overflow: hidden; }
+.skbar__track i { display: block; height: 100%; border-radius: inherit; }
+
+/* ── Atelier : colonnes d'équipes ─ */
+.ws { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; overflow: hidden; }
+.ws-col { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 22px; background: color-mix(in srgb, var(--c) 6%, transparent); border: 1px solid var(--ui-border); overflow: hidden; }
+.ws-col header { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.ws-col header .up { color: var(--ui-ok); font-weight: 800; }
+.ws-col .pc { padding: 9px 12px; gap: 5px; }
+.ws-col .pc__foot { display: none; }
+
+/* ── Pont de tokens ─ */
+body, .screen {
+  --ui-font: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ui-bg: var(--bg-primary);
+  --ui-surface: var(--bg-surface);
+  --ui-surface-alt: var(--bg-surface-alt);
+  --ui-text: var(--text-primary);
+  --ui-text-2: var(--text-secondary);
+  --ui-text-3: var(--text-muted);
+  --ui-accent: var(--accent-primary);
+  --ui-accent-2: var(--accent-secondary);
+  --ui-on-accent: #1f0d02;
+  --ui-ok: #86efac;
+  --ui-warn: #fcd34d;
+  --ui-danger: #fb7185;
+  --ui-radius: 22px;
+  --ui-radius-sm: 14px;
+  --ui-border: rgba(246, 239, 232, 0.1);
+}
+
+/* Atelier : cartes compactes (avatar moyen) pour tenir six personnes par colonne */
+.ws-col .av--lg { width: 38px; height: 38px; font-size: 13px; }
+.ws-col .pc { padding: 7px 10px; }

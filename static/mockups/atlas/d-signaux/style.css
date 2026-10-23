@@ -1,0 +1,92 @@
+/* ========================================
+   DIRECTION D — 🚨 SIGNAUX
+   Parti pris : l'action d'abord. Ardoise sobre, un accent indigo pour AGIR ;
+   le rouge, l'ambre et le vert sont réservés à la gravité des signaux.
+   ======================================== */
+
+body, .screen {
+  --bg-primary: #0c0f14;
+  --bg-surface: #141922;
+  --bg-surface-alt: #1c2330;
+  --text-primary: #e9edf5;
+  --text-secondary: #9ba6b9;
+  --text-muted: #5f6a7d;
+  --accent-primary: #818cf8;
+  --accent-secondary: #c084fc;
+}
+
+.sig { border-radius: 12px; }
+.sig--danger { background: linear-gradient(90deg, color-mix(in srgb, var(--ui-danger) 9%, var(--ui-surface)), var(--ui-surface) 40%); }
+.chip em { font-style: normal; opacity: 0.7; margin-left: 2px; }
+.since { font-size: 11.5px; color: var(--ui-text-3); }
+.chips-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.kpis--4 { grid-template-columns: repeat(4, 1fr); }
+.screen .kpis--4 { grid-template-columns: repeat(2, 1fr); }
+
+/* ── Boîte de réception ─ */
+.inbox { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+.desk .sig__acts .btn { min-height: 30px; }
+
+/* ── Panneau : couverture et actions ─ */
+.cov { display: grid; grid-template-columns: 12px 64px 1fr 40px; align-items: center; gap: 8px; min-height: 30px; font-size: 12.5px; }
+.cov small { text-align: right; font-weight: 800; color: var(--ui-text-2); }
+.mini-bar { width: 54px; }
+
+/* ── Registre des risques ─ */
+.reg-wrap { flex: 1 1 auto; min-height: 0; overflow: hidden; border-radius: 12px; border: 1px solid var(--ui-border); background: var(--ui-surface); }
+.reg { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.reg th { height: 36px; padding: 0 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ui-text-3); background: var(--ui-surface-alt); }
+.reg td { height: 52px; padding: 0 12px; border-top: 1px solid var(--ui-border); vertical-align: middle; }
+.reg td b { display: block; font-size: 13px; }
+.reg td small { font-size: 11px; }
+.reg tr { box-shadow: inset 3px 0 0 transparent; }
+.reg--danger { box-shadow: inset 3px 0 0 var(--ui-danger) !important; }
+.reg--warn { box-shadow: inset 3px 0 0 var(--ui-warn) !important; }
+.reg .trend { font-size: 16px; font-weight: 800; }
+.faces-xs { display: inline-flex; }
+.faces-xs .av + .av { margin-left: -6px; }
+.tag { display: inline-block; margin-right: 4px; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; color: var(--ui-text); background: color-mix(in srgb, var(--c) 22%, transparent); }
+.regc { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: var(--ui-surface); border: 1px solid var(--ui-border); }
+.regc--danger { border-left: 4px solid var(--ui-danger); }
+.regc--warn { border-left: 4px solid var(--ui-warn); }
+
+/* Tendance par PI */
+.pi-bars { display: flex; align-items: flex-end; gap: 14px; height: 130px; padding: 8px 4px 0; }
+.pi-bar { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pi-bar span { width: 100%; max-width: 38px; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, var(--ui-danger), color-mix(in srgb, var(--ui-danger) 40%, transparent)); }
+.pi-bar small { font-size: 11px; }
+.pi-bar b { font-size: 13px; }
+
+/* ── Atelier : options ─ */
+.opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.opt { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: var(--ui-surface); border: 1px solid var(--ui-border); }
+.opt--on { border-color: var(--ui-accent); box-shadow: 0 0 0 1px var(--ui-accent); }
+.opt--best { border-color: var(--ui-ok); box-shadow: 0 0 0 1px var(--ui-ok), 0 10px 26px rgba(74, 222, 128, 0.12); }
+.opt dl { display: grid; grid-template-columns: 64px 1fr; gap: 6px 10px; margin: 0; font-size: 12.5px; }
+.opt dt { color: var(--ui-text-3); font-weight: 700; }
+.opt dd { margin: 0; color: var(--ui-text-2); }
+.opt .btn { align-self: flex-start; }
+.plan { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.plan__col { display: flex; flex-direction: column; gap: 6px; }
+.plan__col h4 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ui-text-3); }
+.plan__item { padding: 8px 10px; border-radius: 8px; background: var(--ui-surface-alt); border-left: 3px solid var(--s); font-size: 12px; font-weight: 600; }
+
+/* ── Pont de tokens ─ */
+body, .screen {
+  --ui-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ui-bg: var(--bg-primary);
+  --ui-surface: var(--bg-surface);
+  --ui-surface-alt: var(--bg-surface-alt);
+  --ui-text: var(--text-primary);
+  --ui-text-2: var(--text-secondary);
+  --ui-text-3: var(--text-muted);
+  --ui-accent: var(--accent-primary);
+  --ui-accent-2: var(--accent-secondary);
+  --ui-on-accent: #0b0d24;
+  --ui-ok: #4ade80;
+  --ui-warn: #fbbf24;
+  --ui-danger: #f87171;
+  --ui-radius: 14px;
+  --ui-radius-sm: 10px;
+  --ui-border: rgba(233, 237, 245, 0.09);
+}

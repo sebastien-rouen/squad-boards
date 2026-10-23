@@ -1,0 +1,53 @@
+/* ========================================
+   ATLAS — BLOCS MÉTIER COMMUNS (common.cjs)
+   Signaux, fiche membre, candidats, atelier de simulation, mobilité.
+   Sur les tokens `--ui-*` : chaque direction les habille sans les réécrire.
+   ======================================== */
+
+/* ── Signal (risque / opportunité) ─ */
+.sig { --s: var(--ui-text-3); display: flex; gap: 10px; padding: 12px; border-radius: var(--ui-radius-sm); background: var(--ui-surface); border: 1px solid var(--ui-border); border-left: 4px solid var(--s); }
+.sig--danger { --s: var(--ui-danger); }
+.sig--warn { --s: var(--ui-warn); }
+.sig--info { --s: var(--ui-accent-2); }
+.sig--ok { --s: var(--ui-ok); }
+.sig__icon { font-size: 20px; line-height: 1.2; }
+.sig__main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sig__main b { font-size: 13.5px; }
+.sig__main > span { font-size: 12.5px; color: var(--ui-text-2); }
+.sig__acts { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── Fiche membre ─ */
+.mfiche { display: flex; flex-direction: column; gap: 14px; }
+.mfiche--wide { display: grid; grid-template-columns: 300px 1fr; gap: 22px; }
+.mfiche__head { display: flex; gap: 14px; align-items: center; }
+.mfiche__name { font-size: 18px; }
+.mfiche__radar { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; }
+.mfiche__radar small, .traj__radar small { font-size: 11px; text-align: center; }
+
+/* ── Candidats (« Qui affecter ? ») ─ */
+.cand__rank { width: 22px; text-align: center; font-weight: 800; color: var(--ui-text-3); font-variant-numeric: tabular-nums; }
+.cand:first-of-type .cand__rank { color: var(--ui-accent); }
+.grip { color: var(--ui-text-3); cursor: grab; letter-spacing: -2px; padding: 0 4px; }
+
+/* ── Atelier de staffing ─ */
+.sim { display: flex; flex-direction: column; gap: 12px; }
+.sim__move { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: var(--ui-radius-sm); background: color-mix(in srgb, var(--ui-accent) 10%, var(--ui-surface)); border: 1px dashed color-mix(in srgb, var(--ui-accent) 60%, transparent); }
+.sim__rows { display: flex; flex-direction: column; }
+.delta { font-weight: 800; font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--ui-text-2); white-space: nowrap; }
+.delta--up { color: var(--ui-ok); }
+.delta--down { color: var(--ui-danger); }
+.delta--warn { color: var(--ui-warn); }
+.simbar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--ui-radius-sm); background: color-mix(in srgb, var(--ui-danger) 10%, var(--ui-surface)); border: 1px solid color-mix(in srgb, var(--ui-danger) 40%, transparent); font-size: 12.5px; flex-wrap: wrap; }
+.simbar span { color: var(--ui-text-2); }
+
+/* ── Mobilité ─ */
+.mob { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--ui-radius-sm); background: var(--ui-surface); border: 1px solid var(--ui-border); }
+.mob__who { gap: 0; min-width: 0; }
+.mob__who small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.traj { display: flex; flex-direction: column; gap: 14px; }
+.traj--wide { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
+.traj__radar { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.callout { padding: 10px 12px; border-radius: var(--ui-radius-sm); background: color-mix(in srgb, var(--ui-warn) 10%, var(--ui-surface)); border: 1px solid color-mix(in srgb, var(--ui-warn) 35%, transparent); font-size: 12.5px; color: var(--ui-text-2); }
+.kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; min-height: 0; }
+.kanban__col { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: var(--ui-radius); background: color-mix(in srgb, var(--ui-surface) 60%, transparent); border: 1px solid var(--ui-border); }
+.kanban__col h4 { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ui-text-3); }

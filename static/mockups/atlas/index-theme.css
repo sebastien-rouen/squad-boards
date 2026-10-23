@@ -1,0 +1,46 @@
+/* ========================================
+   INDEX — surcharges propres à cette galerie (jamais dans _shared/index.css)
+   ======================================== */
+
+:root {
+  --ix-bg: #0b0f1a;
+  --ix-surface: #121828;
+  --ix-surface-alt: #1a2236;
+  --ix-text: #e8edf7;
+  --ix-text-2: #98a3ba;
+  --ix-text-3: #5e6880;
+  --ix-accent: #67e8f9;
+  --ix-accent-2: #4ade80;
+  --ix-warn: #fbbf24;
+  --ix-border: rgba(232, 237, 247, 0.09);
+}
+
+/* Les liens de la carte prennent toute la largeur, en pied de carte */
+.ix-grid { grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); }
+
+.ix-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+}
+
+.ix-card > .ix-links {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ix-border);
+}
+
+.ix-preview { width: 140px; height: 272px; }
+.ix-preview iframe { transform: scale(0.359); }
+
+.ix-tag { display: inline-block; margin-bottom: 8px; padding: 3px 9px; border-radius: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.ix-tag--a-constellation { background: rgba(103, 232, 249, 0.14); color: #67e8f9; }
+.ix-tag--b-matrice { background: rgba(74, 222, 128, 0.14); color: #4ade80; }
+.ix-tag--c-profils { background: rgba(251, 146, 60, 0.16); color: #fdba74; }
+.ix-tag--d-signaux { background: rgba(251, 113, 133, 0.16); color: #fb7185; }
+
+.ix-table td.is-plus { color: var(--ix-accent-2); }
+.ix-table td.is-minus { color: var(--ix-warn); }

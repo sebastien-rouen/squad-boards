@@ -1,0 +1,108 @@
+/* ========================================
+   DIRECTION B — 🟩 MATRICE
+   Parti pris : le diagnostic d'abord. Graphite, chiffres à chasse fixe, une
+   heatmap dense qui tient sans défiler ; les cases parlent (requise, envie, trou).
+   ======================================== */
+
+body, .screen {
+  --bg-primary: #0e1012;
+  --bg-surface: #16191c;
+  --bg-surface-alt: #1f2327;
+  --text-primary: #e7ebee;
+  --text-secondary: #9aa4ad;
+  --text-muted: #626b74;
+  --accent-primary: #4ade80;
+  --accent-secondary: #a78bfa;
+}
+
+.kpi__v, .hm, .histo, .delta { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+.card, .kpi, .sig, .mob { border-radius: 8px; }
+.btn { border-radius: 6px; }
+
+/* ── Couleurs de niveau en case (fond atténué, chiffre lisible) ─ */
+.c-0 { background: transparent; }
+.c-1 { background: color-mix(in srgb, var(--lvl-1) 30%, transparent); }
+.c-2 { background: color-mix(in srgb, var(--lvl-2) 38%, transparent); }
+.c-3 { background: color-mix(in srgb, var(--lvl-3) 45%, transparent); }
+.c-4 { background: color-mix(in srgb, var(--lvl-4) 60%, transparent); }
+
+/* ── Heatmap ─ */
+.hm-wrap { flex: 1 1 auto; min-height: 0; overflow: hidden; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-surface); }
+.hm { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 11.5px; }
+.hm thead .hm__who { width: 190px; }
+.hm--teams thead .hm__who { width: 150px; }
+.hm--teams thead th:last-child { width: 70px; }
+.hm th, .hm td { padding: 0; height: 22px; text-align: center; border-bottom: 1px solid rgba(231, 235, 238, 0.04); }
+.hm thead th { position: sticky; top: 0; z-index: 2; height: 34px; background: var(--ui-surface-alt); color: var(--ui-text-2); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 800; }
+.hm__sk.is-focus { color: var(--ui-accent); box-shadow: inset 0 -2px 0 var(--ui-accent); }
+.hm__who { text-align: left; padding: 0 10px; white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 600; color: var(--ui-text); }
+.hm tbody .hm__who { display: flex; align-items: center; gap: 6px; height: 22px; font-size: 12px; }
+.hm__who em { font-style: normal; font-size: 11px; }
+.hm__who .chip { min-height: 18px; padding: 0 6px; font-size: 10px; }
+.hm__team th { height: 24px; padding: 0 10px; text-align: left; background: color-mix(in srgb, var(--c) 10%, var(--ui-surface)); border-left: 3px solid var(--c); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; font-weight: 800; }
+.hm__team small { font-weight: 600; margin-left: 6px; }
+.hm__c { position: relative; font-weight: 800; color: var(--ui-text); border-left: 1px solid rgba(231, 235, 238, 0.04); }
+.hm__c.is-req { box-shadow: inset 0 0 0 1px rgba(231, 235, 238, 0.3); border-radius: 4px; }
+.hm__c.is-gap { box-shadow: inset 0 0 0 2px var(--ui-danger); background: color-mix(in srgb, var(--ui-danger) 18%, transparent); }
+.hm__c.is-focus { outline: 1px solid color-mix(in srgb, var(--ui-accent) 35%, transparent); outline-offset: -1px; }
+.hm__ap { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--ap-forte); }
+.hm tfoot th, .hm tfoot td { height: 28px; background: var(--ui-surface-alt); font-weight: 800; color: var(--ui-text-2); }
+.hm__n.is-thin { color: var(--ui-warn); }
+.hm__n.is-bus { color: var(--ui-danger); background: color-mix(in srgb, var(--ui-danger) 14%, var(--ui-surface-alt)); }
+.hm__row.is-ghost { opacity: 0.35; background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(251, 113, 133, 0.12) 6px 12px); }
+.hm__row.is-moved { background: color-mix(in srgb, var(--ui-warn) 12%, transparent); box-shadow: inset 3px 0 0 var(--ui-warn); }
+.hm-wrap--compact .hm th, .hm-wrap--compact .hm td { height: 18px; }
+.hm-wrap--compact .hm tbody .hm__who { height: 18px; }
+.hm-wrap--compact .hm__team th { height: 19px; }
+.hm--m { table-layout: auto; }
+.hm--teams th, .hm--teams td { height: 40px; }
+.hm--teams tbody .hm__who { height: 40px; font-size: 13px; }
+
+.hm-legend { display: inline-flex; align-items: center; gap: 4px; }
+.hm-legend .lvl { min-width: 20px; height: 20px; font-size: 11px; }
+.hm-legend .hm__ap { position: static; margin-left: 8px; }
+.hm-req { display: inline-block; width: 16px; height: 16px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(231, 235, 238, 0.3); margin-left: 8px; }
+
+/* Grille mobile : une équipe, première colonne collante, défilement horizontal */
+.hm-scroll { overflow-x: auto; margin: 0 -14px; padding: 0 14px; scrollbar-width: none; }
+.hm--m { width: auto; }
+.hm--m th, .hm--m td { min-width: 44px; height: 40px; font-size: 13px; }
+.hm--m tbody .hm__who { position: sticky; left: 0; z-index: 1; height: 40px; background: var(--ui-surface); min-width: 92px; }
+.hm--m thead .hm__who { position: sticky; left: 0; z-index: 3; }
+.hm--m .hm__sk span { display: block; width: 44px; overflow: hidden; text-overflow: ellipsis; font-size: 10px; }
+
+/* ── Histogramme et cartes de compétence (mobile) ─ */
+.histo { display: flex; height: 18px; border-radius: 4px; overflow: hidden; background: var(--ui-surface-alt); }
+.histo i { display: grid; place-items: center; font-style: normal; font-size: 10.5px; font-weight: 800; color: var(--ui-text); }
+.histo-lg .histo { height: 26px; }
+.skc { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 8px; background: var(--ui-surface); border: 1px solid var(--ui-border); }
+.skc--bus { border-color: color-mix(in srgb, var(--ui-danger) 45%, transparent); }
+.skc--open { box-shadow: 0 0 0 1px var(--ui-accent); }
+.skc__head { display: flex; align-items: center; gap: 8px; }
+.skc__head b { font-size: 14px; }
+.skc__people { display: flex; flex-wrap: wrap; gap: 6px; }
+.pchip { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 4px 0 4px; border-radius: 999px; background: var(--ui-surface-alt); font-size: 12.5px; font-weight: 600; }
+.pchip .lvl { min-width: 22px; height: 22px; border-radius: 999px; }
+.strip { display: flex; gap: 2px; }
+.strip i { width: 8px; height: 22px; border-radius: 2px; }
+.kpis--5 { grid-template-columns: repeat(5, 1fr); }
+
+/* ── Pont de tokens ─ */
+body, .screen {
+  --ui-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ui-bg: var(--bg-primary);
+  --ui-surface: var(--bg-surface);
+  --ui-surface-alt: var(--bg-surface-alt);
+  --ui-text: var(--text-primary);
+  --ui-text-2: var(--text-secondary);
+  --ui-text-3: var(--text-muted);
+  --ui-accent: var(--accent-primary);
+  --ui-accent-2: var(--accent-secondary);
+  --ui-on-accent: #04170b;
+  --ui-ok: #4ade80;
+  --ui-warn: #fbbf24;
+  --ui-danger: #f87171;
+  --ui-radius: 10px;
+  --ui-radius-sm: 6px;
+  --ui-border: rgba(231, 235, 238, 0.09);
+}

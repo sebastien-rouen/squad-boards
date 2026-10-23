@@ -1,3 +1,17 @@
+## [3.260.0] - 2026-10-24
+
+### Maquettes : quatre directions pour refaire l'Atlas (`static/mockups/atlas/`)
+
+Galerie statique, aucune ligne du site touchée — à ouvrir sur `/mockups/atlas/`.
+
+- **🌌 Constellation** (l'organisation d'abord : carte orbitale, la recherche allume les sachants), **🟩 Matrice**
+  (le diagnostic d'abord : heatmap 26 × 10, bus factor), **🧑‍🤝‍🧑 Profils** (les personnes d'abord : cartes de profil,
+  entretiens), **🚨 Signaux** (l'action d'abord : risques triés, options comparées, plan d'action).
+- 5 pages par direction (écran principal, sections, modales, atelier de staffing, mobilité), desktop 1280 et mobile
+  390 sur la même page, commutateur mémorisé, navigateur 🧭 entre directions ; index avec tableau de choix.
+- Générateur versionné `_gen/` (données fictives, composants communs, une direction par module) + `verifier.cjs`
+  (balises, liens, classes page par page, variables orphelines, @media) — vert sur les 21 pages.
+
 ## [3.259.0] - 2026-10-24
 
 ### Dashboard : `renderDashboard` découpé (912 → 30 lignes) — modèle calculé une fois, blocs séparés

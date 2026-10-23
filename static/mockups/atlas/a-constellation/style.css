@@ -1,0 +1,117 @@
+/* ========================================
+   DIRECTION A — 🌌 CONSTELLATION
+   Parti pris : l'organisation d'abord. Nuit profonde, halos lumineux, la carte
+   orbitale est l'écran : les sachants s'allument, les trous se voient en rouge.
+   ======================================== */
+
+body, .screen {
+  --bg-primary: #070b18;
+  --bg-surface: #0e1428;
+  --bg-surface-alt: #172040;
+  --text-primary: #eef2ff;
+  --text-secondary: #a5b0d6;
+  --text-muted: #67729b;
+  --accent-primary: #67e8f9;
+  --accent-secondary: #c084fc;
+}
+
+/* Fond étoilé discret (dégradés, aucune image) */
+.desk--constellation .desk__body,
+.screen .app__body {
+  background:
+    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.35), transparent 60%),
+    radial-gradient(1px 1px at 72% 34%, rgba(255, 255, 255, 0.25), transparent 60%),
+    radial-gradient(1.5px 1.5px at 38% 78%, rgba(255, 255, 255, 0.3), transparent 60%),
+    radial-gradient(1px 1px at 88% 82%, rgba(255, 255, 255, 0.25), transparent 60%),
+    radial-gradient(ellipse at 50% 40%, rgba(103, 232, 249, 0.06), transparent 65%);
+}
+
+.card, .sig, .mob, .kpi { background: color-mix(in srgb, var(--ui-surface) 88%, transparent); backdrop-filter: blur(6px); }
+.btn--primary { box-shadow: 0 0 18px color-mix(in srgb, var(--ui-accent) 45%, transparent); }
+
+/* ── Carte orbitale ─ */
+.orbit-frame { position: relative; flex: 1 1 auto; min-height: 0; }
+.orbit-frame--m { flex: 0 0 auto; height: 300px; margin: 0 -14px; }
+.orbit-frame--zoom .orbit { transform: scale(1.7) translate(16%, 10%); }
+.orbit { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+.orbit__ring { fill: none; stroke: rgba(165, 176, 214, 0.14); stroke-dasharray: 2 6; }
+.orbit__ring--in { stroke-dasharray: none; stroke: rgba(165, 176, 214, 0.07); }
+.orbit__sector { fill: color-mix(in srgb, var(--c) 7%, transparent); stroke: color-mix(in srgb, var(--c) 22%, transparent); }
+.orbit__line { fill: var(--c); font-size: 13px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; text-anchor: middle; }
+.orbit__core { fill: #0f1a3a; stroke: var(--ui-accent); stroke-width: 2; filter: drop-shadow(0 0 14px rgba(103, 232, 249, 0.5)); }
+.orbit__corelbl { fill: var(--ui-text-2); font-size: 11px; font-weight: 700; text-anchor: middle; }
+.orbit__corelbl--b { fill: var(--ui-text); font-size: 14px; font-weight: 800; }
+.orbit__link { stroke: rgba(165, 176, 214, 0.18); stroke-width: 1; }
+.orbit__tie { stroke: color-mix(in srgb, var(--c) 30%, transparent); stroke-width: 1; }
+.orbit__body { fill: color-mix(in srgb, var(--c) 22%, #0b1226); stroke: var(--c); stroke-width: 2; }
+.orbit__team.is-sel .orbit__body { stroke-width: 3.5; filter: drop-shadow(0 0 16px var(--c)); }
+.orbit__gap { fill: none; stroke: var(--ui-danger); stroke-width: 2; stroke-dasharray: 5 4; }
+.orbit__teamlbl { fill: var(--ui-text); font-size: 13px; font-weight: 800; text-anchor: middle; }
+.orbit__teamsub { fill: var(--ui-text-2); font-size: 10.5px; font-weight: 700; text-anchor: middle; }
+.orbit__member { stroke: #070b18; stroke-width: 2; fill: rgba(165, 176, 214, 0.25); }
+.orbit__member.m-lvl-0 { fill: rgba(165, 176, 214, 0.14); }
+.orbit__member.m-lvl-1 { fill: var(--lvl-1); opacity: 0.55; }
+.orbit__member.m-lvl-2 { fill: var(--lvl-2); }
+.orbit__member.m-lvl-3 { fill: var(--lvl-3); }
+.orbit__member.m-lvl-4 { fill: var(--lvl-4); }
+.orbit__member.is-hit { filter: drop-shadow(0 0 8px currentColor); stroke: #fff; stroke-width: 1.5; }
+.orbit__member.is-ghost { fill: transparent; stroke: var(--ui-danger); stroke-dasharray: 3 3; }
+.orbit__tag { fill: var(--ui-text); font-size: 11px; font-weight: 800; text-anchor: middle; paint-order: stroke; stroke: #070b18; stroke-width: 3px; }
+.orbit__move { fill: none; stroke: var(--ui-danger); stroke-width: 2.5; stroke-dasharray: 7 5; }
+
+.orbit-legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 12px; }
+.orbit-legend small { color: var(--ui-text-2); }
+.legend-gap { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 2px dashed var(--ui-danger); }
+
+/* ── Ciel des compétences : une rangée de points par compétence ─ */
+.sky { display: grid; grid-template-columns: 100px 1fr auto; align-items: center; gap: 10px; min-height: 34px; border-bottom: 1px solid var(--ui-border); }
+.sky:last-child { border-bottom: 0; }
+.sky b { font-size: 12.5px; }
+.sky small { font-size: 11px; white-space: nowrap; }
+.sky__dots { display: flex; gap: 4px; flex-wrap: wrap; }
+.sky__dot { width: 11px; height: 11px; border-radius: 50%; background: var(--lvl-0); }
+.sky__dot.m-lvl-1 { background: var(--lvl-1); opacity: 0.6; }
+.sky__dot.m-lvl-2 { background: var(--lvl-2); }
+.sky__dot.m-lvl-3 { background: var(--lvl-3); }
+.sky__dot.m-lvl-4 { background: var(--lvl-4); box-shadow: 0 0 8px var(--lvl-4); }
+.screen .sky { grid-template-columns: 84px 1fr; }
+.screen .sky small { grid-column: 2; margin-top: -6px; }
+
+/* ── Anneaux de couverture ─ */
+.cring-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.cring-grid--m { grid-template-columns: repeat(3, 1fr); }
+.cring { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 6px; border-radius: var(--ui-radius); background: color-mix(in srgb, var(--ui-surface) 80%, transparent); border: 1px solid var(--ui-border); text-align: center; }
+.cring svg { width: 64px; height: 64px; transform: rotate(-90deg); }
+.cring__bg { fill: none; stroke: var(--ui-surface-alt); stroke-width: 6; }
+.cring__val { fill: none; stroke: var(--c); stroke-width: 6; stroke-linecap: round; filter: drop-shadow(0 0 6px var(--c)); }
+.cring b { position: absolute; top: 34px; font-size: 13px; }
+.cring span { font-size: 12.5px; font-weight: 800; }
+.cring small { font-size: 11px; color: var(--ui-danger); }
+.cring--gap { border-color: color-mix(in srgb, var(--ui-danger) 45%, transparent); }
+
+/* ── Pont de tokens ─ */
+body, .screen {
+  --ui-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ui-bg: var(--bg-primary);
+  --ui-surface: var(--bg-surface);
+  --ui-surface-alt: var(--bg-surface-alt);
+  --ui-text: var(--text-primary);
+  --ui-text-2: var(--text-secondary);
+  --ui-text-3: var(--text-muted);
+  --ui-accent: var(--accent-primary);
+  --ui-accent-2: var(--accent-secondary);
+  --ui-on-accent: #04121a;
+  --ui-ok: #4ade80;
+  --ui-warn: #fbbf24;
+  --ui-danger: #fb7185;
+  --ui-radius: 18px;
+  --ui-radius-sm: 12px;
+  --ui-border: rgba(165, 176, 214, 0.13);
+}
+
+/* Carte dans un écran de 390 px : libellés agrandis (le viewBox est réduit d'un tiers) */
+.orbit-frame--m .orbit__teamlbl { font-size: 17px; }
+.orbit-frame--m .orbit__teamsub { display: none; }
+.orbit-frame--m .orbit__corelbl { font-size: 13px; }
+.orbit-frame--m .orbit__corelbl--b { font-size: 16px; }

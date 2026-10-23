@@ -1,3 +1,22 @@
+## [3.254.0] - 2026-10-23
+
+### Découpage : cal_banner.js et sprint_tickets_modal.js sous les 800 lignes
+
+**📅 `cal_banner.js`** (1 669 → 506 lignes) : `cal_week_modal.js` (modale semaine, 539), `cal_week_tools.js` (sélecteur
+d'équipes, messages Slack, câblage, 284), `cal_popups.js` (détail d'évènement, infobulles compacte / Scrum / description, 375).
+Les écouteurs globaux de `cal_popups.js` sont posés au chargement : le module est importé d'office par `cal_banner.js`.
+
+**📊 `sprint_tickets_modal.js`** (2 638 → 731 lignes) : `sprint_reports.js` (burndown intégré, rapports texte / Markdown /
+HTML, 411), `sprint_demo.js` (mode Démo, 462), `sprint_review.js` (Sprint Review, 732) et `sprint_review_css.js` (feuille
+de style du document ouvert dans un nouvel onglet — 342 lignes de CSS qui faisaient de `_buildSprintReviewHtml` une
+fonction de 940 lignes ; une seule variable, la couleur d'état).
+
+- Code déplacé à l'identique par un découpeur générique avec analyse des dépendances (refus si une variable mutable est
+  modifiée hors de son module). API publique inchangée.
+- Vérifié dans Chromium (écritures API bloquées) : bandeau, modale semaine (navigation, compact, équipes, détail,
+  infobulle Scrum, copies Slack jour / semaine) ; modale sprint (tickets, burndown, copie, .md, .html, Sprint Review en
+  onglet avec ses 160 règles CSS, mode Démo) — aucune erreur. 406 tests verts.
+
 ## [3.253.0] - 2026-10-23
 
 ### modal.js découpé · Historique : pastilles de sprint cliquables

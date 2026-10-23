@@ -732,6 +732,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Historique d'un ticket** (3.252.0) : UNIQUEMENT `ticketHistoryHtml` / `bindTicketHistory` (components/ticket_history.js) ;
   catégorie d'un champ = `catOf` (`_BY_FIELD`) — un champ JIRA nouveau tombe en « Autres », l'ajouter là.
   Pastille de sprint = bouton → `openSprintTicketsModal` (popin ticket fermée d'abord : pas de fenêtres empilées).
+- **Modale sprint découpée** (3.254.0) : `sprint_tickets_modal.js` (ouverture, liste, JIRA à la demande) + `sprint_reports.js`,
+  `sprint_demo.js`, `sprint_review.js`, `sprint_review_css.js` (style du document en nouvel onglet : il ne peut pas lier les CSS).
 - **Popin ticket découpée** (3.253.0) : `modal.js` = ouverture, corps, navigation, fermeture ; `ticket_head.js` (en-tête,
   tuiles, présence), `ticket_inline_edit.js` (édition en place), `ticket_pickers.js` (sélecteurs, `makePersonPicker`),
   `ticket_desc.js` (description + rendu des commentaires), `poker_modal.js` (Poker), `ticket_forms.js` (création /
@@ -823,6 +825,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Bandeau calendrier, vue globale** (3.246.0) : absents = `offSummaryHtml` (components/cal_banner_off.js), styles
   et rendus replié / déplié de la vue globale dans css/views/cal-banner-compact.css (après calendar-banner.css,
   > 800 lignes). Classes d'état posées sur `.cal-banner` : `cal-banner--global`, `is-collapsed`.
+  Découpé en 3.254.0 : `cal_week_modal.js` (modale semaine), `cal_week_tools.js` (équipes, Slack, câblage), `cal_popups.js`
+  (calques — écouteurs globaux posés au CHARGEMENT, d'où l'import nu dans cal_banner.js : ne pas le retirer).
   Dailys regroupés par créneau (déplié, vue globale, 3.247.0) : `groupDailies` (components/cal_banner_dailies.js), nature
   « daily » via `calNatureWithRules` ; état ouvert en mémoire de session seulement.
 

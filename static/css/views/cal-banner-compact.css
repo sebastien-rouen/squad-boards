@@ -89,3 +89,24 @@
     .cal-banner--global:not(.is-collapsed) .cal-banner-events--rows { max-height: 34vh; }
     .cal-banner--global:not(.is-collapsed) .cal-banner-half-chips { grid-template-columns: 1fr; }
 }
+
+/* ── Dailys groupés par créneau (déplié, vue globale — cal_banner_dailies.js, 3.247.0) ───────────── */
+.cal-chip--daily-group {
+    --cal-color: var(--primary);
+    font: inherit; font-size: var(--fs-xs); text-align: left; color: inherit;
+    border-left-style: double; border-left-width: 4px;
+    background: color-mix(in srgb, var(--primary) 9%, var(--surface));
+}
+.cal-chip--daily-group:hover { background: color-mix(in srgb, var(--primary) 16%, var(--surface)); }
+.cal-chip--daily-group:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cal-chip--daily-group.is-open { background: color-mix(in srgb, var(--primary) 18%, var(--surface)); box-shadow: inset 0 -2px 0 var(--primary); }
+.cal-dg-teams { display: inline-flex; gap: 2px; min-width: 0; overflow: hidden; margin-left: auto; }
+.cal-dg-team {
+    flex-shrink: 0; height: 15px; padding: 0 4px; border-radius: var(--r-full);
+    display: inline-grid; place-items: center;
+    font-size: 9px; font-weight: var(--fw-bold); color: #fff; background: var(--cal-color);
+}
+.cal-dg-chev { color: var(--primary); font-size: 10px; flex-shrink: 0; }
+/* Dailys dépliés : rattachés visuellement à leur pastille de groupe */
+.cal-chip--in-group { margin-left: 10px; opacity: .92; }
+.cal-banner--global:not(.is-collapsed) .cal-banner-half-chips .cal-chip--in-group { margin-left: 0; border-left-style: dashed; }

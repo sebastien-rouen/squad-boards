@@ -49,18 +49,20 @@ export function cadragePerimeter(team, groups = []) {
  * @param {string[]} [p.roster]     noms (RH) des membres de l'équipe au PI
  * @param {object}   [p.aliases]    `piInfo.personAliases` (JIRA → RH)
  * @param {Function} [p.sameTeam]   `teamNameMatches`
+ * @param {number[]} [p.pis]        PI CHOISIS (3.247.0) : tickets portant une étiquette `Cadrage_PI<N>` de la liste,
+ *                                  tous statuts. Absent / vide = AUTOMATIQUE (PI suivant + PI en cours encore ouvert).
  */
-export function cadrageModel({ tickets, team, piNum, groups = [], roster = [], aliases = null, sameTeam = (a, b) => a === b }) {
+export function cadrageModel({ tickets, team, piNum, groups = [], roster = [], aliases = null, sameTeam = (a, b) => a === b, pis = null }) {
     const perimeter = cadragePerimeter(team, groups);
     const { product, tags } = perimeter;
     const isMember = name => !!(name && findPerson(name, roster, aliases));
+    const chosen = Array.isArray(pis) && pis.length ? [...new Set(pis.map(Number))].sort((a, b) => a - b) : null;
     const items = [];
+    const byPi = new Map();   // PI → { total, done, open } sur le périmètre (alimente le sélecteur de PI)
     for (const t of tickets || []) {
         if (!piNum || isAbandoned(t)) continue;
-        // Prochain PI (la cible) > PI en cours resté OUVERT (son cadrage n'est pas fini).
-        const pis = cadragePis(t);
-        const pi = pis.includes(piNum + 1) ? piNum + 1 : pis.includes(piNum) && t.status !== 'done' ? piNum : 0;
-        if (!pi) continue;
+        const tPis = cadragePis(t);
+        if (!tPis.length) continue;
         const labels = (t.labels || []).map(l => String(l).trim().toUpperCase());
         const members = [...(t.contributors || []), t.leader].filter(isMember);
         const roles = [];
@@ -68,6 +70,17 @@ export function cadrageModel({ tickets, team, piNum, groups = [], roster = [], a
         if (product && (labels.includes(`PO-${product}`) || labels.includes(`PM-${product}`))) roles.push('po');
         if (members.length || labels.some(l => tags.includes(l)) || sameTeam(t.team, team)) roles.push('contrib');
         if (!roles.length) continue;
+        const done = t.status === 'done';
+        for (const n of new Set(tPis)) {
+            const c = byPi.get(n) || { total: 0, done: 0, open: 0 };
+            c.total++; if (done) c.done++; else c.open++;
+            byPi.set(n, c);
+        }
+        // Choix explicite : le plus récent des PI choisis portés par le ticket. Automatique : prochain PI (la
+        // cible) > PI en cours resté OUVERT (son cadrage n'est pas fini).
+        const pi = chosen ? Math.max(0, ...tPis.filter(n => chosen.includes(n)))
+            : tPis.includes(piNum + 1) ? piNum + 1 : tPis.includes(piNum) && !done ? piNum : 0;
+        if (!pi) continue;
         items.push({ t, pi, roles, members: [...new Set(members)] });
     }
     // Le PI cible d'abord, puis à faire avant prêts (bloqué, en cours…) ; à égalité, priorité puis ancienneté.
@@ -79,8 +92,13 @@ export function cadrageModel({ tickets, team, piNum, groups = [], roster = [], a
         const list = items.filter(x => x.roles.includes(r.key));
         return { ...r, items: list, done: list.filter(x => x.t.status === 'done').length };
     });
+    // PI proposés au choix : ceux qui ont des tickets sur le périmètre, + le PI en cours et le suivant (toujours)
+    if (piNum) for (const n of [piNum, piNum + 1]) if (!byPi.has(n)) byPi.set(n, { total: 0, done: 0, open: 0 });
+    const available = [...byPi.entries()].sort((a, b) => a[0] - b[0])
+        .map(([pi, c]) => ({ pi, ...c, target: pi === piNum + 1, current: pi === piNum }));
     return {
         perimeter, piNum, targetPi: piNum + 1,
+        auto: !chosen, pis: chosen || [...new Set(items.map(x => x.pi))].sort((a, b) => a - b), available,
         openCurrent: items.filter(x => x.pi === piNum).length,
         total: items.length,
         done: items.filter(x => x.t.status === 'done').length,

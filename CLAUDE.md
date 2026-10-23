@@ -685,6 +685,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `sb-refinement-sort` (rank | ready), `sb-refinement-density` (compact) ; survol du badge = calque `.rf-pop`.
   Groupes repliables (3.244.0) : `_groupOpen(g, near)` — choix par équipe `sb-refinement-groups` (clé = NOM du sprint,
   pas `s0…`, qui bouge), défaut : clos + backlog repliés s'il existe un sprint en cours / à venir.
+  Choix des PI du Cadrage (3.247.0) : option `pis` de `cadrageModel` (null = automatique ; liste = étiquettes choisies,
+  tous statuts), `model.available` alimente le sélecteur, `_pickCadragePi` (refinement.js) part de ce qui est AFFICHÉ ;
+  mémorisé par équipe `sb-refinement-cadrage-pis`.
   Volet 🧭 Cadrage (3.230.0) = UNIQUEMENT `cadrageModel` (utils/cadrage.js), rendu `components/refinement_cadrage.js` :
   cible `Cadrage_PI<PI de l'équipe + 1>` + `Cadrage_PI<PI en cours>` encore ouverts ; ⚠️ PAS de filtre `t.team` (les
   cadrages vivent chez « ERPC - Team Transverse ») mais SA- / PO- / PM-<périmètre> + contributeur (membre du roster
@@ -783,6 +786,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Bandeau calendrier, vue globale** (3.246.0) : absents = `offSummaryHtml` (components/cal_banner_off.js), styles
   et rendus replié / déplié de la vue globale dans css/views/cal-banner-compact.css (après calendar-banner.css,
   > 800 lignes). Classes d'état posées sur `.cal-banner` : `cal-banner--global`, `is-collapsed`.
+  Dailys regroupés par créneau (déplié, vue globale, 3.247.0) : `groupDailies` (components/cal_banner_dailies.js), nature
+  « daily » via `calNatureWithRules` ; état ouvert en mémoire de session seulement.
 
 ## Tests (`npm test`)
 

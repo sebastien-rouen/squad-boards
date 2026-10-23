@@ -508,3 +508,75 @@
     .rf-go-lbl, .rf-ready-n { display: none; }
     .rf-go { padding: 3px 8px; }
 }
+
+/* ── 🧭 Cadrage : choix d'un ou plusieurs PI (3.247.0) ─────────────────────────────────────────── */
+/* Rangée pleine largeur sous l'en-tête (dans la colonne du titre, les puces s'entassaient) */
+.rf-cad-pis {
+    grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; cursor: default;
+    margin-top: calc(-1 * var(--sp-1)); padding-top: var(--sp-3);
+    border-top: 1px dashed color-mix(in srgb, var(--cad) 22%, var(--border));
+}
+.rf-cad-pis::before {
+    content: 'PI affichés'; font-size: 10.5px; font-weight: var(--fw-bold); text-transform: uppercase;
+    letter-spacing: .06em; color: color-mix(in srgb, var(--cad) 70%, var(--text-muted)); margin-right: 4px;
+}
+.rf-cad-pis-sep { width: 1px; height: 20px; background: color-mix(in srgb, var(--cad) 30%, var(--border)); margin: 0 2px; }
+.rf-cad-pi {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 30px;
+    padding: 3px 6px 3px 10px; border-radius: var(--r-full);
+    font: inherit; font-size: 12px; font-weight: var(--fw-semibold); cursor: pointer;
+    color: var(--text-secondary); background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--cad) 28%, var(--border));
+    transition: background var(--tr-fast), border-color var(--tr-fast), color var(--tr-fast), transform var(--tr-fast), box-shadow var(--tr-fast);
+}
+.rf-cad-pi:hover { transform: translateY(-1px); border-color: var(--cad); color: var(--text); }
+.rf-cad-pi:focus-visible { outline: 2px solid var(--cad); outline-offset: 2px; }
+.rf-cad-pi em { font-style: normal; font-size: 10px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .04em; color: var(--cad); }
+.rf-cad-pi b {
+    min-width: 22px; height: 20px; padding: 0 6px; border-radius: var(--r-full);
+    display: inline-grid; place-items: center; font-size: 11px; font-variant-numeric: tabular-nums;
+    background: color-mix(in srgb, var(--cad) 12%, var(--bg-alt)); color: var(--cad);
+}
+/* Case à cocher dessinée : vide → coche animée quand le PI est retenu */
+.rf-cad-pi-check {
+    width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; position: relative;
+    border: 1.5px solid color-mix(in srgb, var(--cad) 55%, var(--border));
+    transition: background var(--tr-fast), border-color var(--tr-fast);
+}
+.rf-cad-pi.is-on {
+    color: var(--text); border-color: var(--cad);
+    background: color-mix(in srgb, var(--cad) 14%, var(--surface));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--cad) 14%, transparent);
+}
+.rf-cad-pi.is-on .rf-cad-pi-check { background: var(--cad); border-color: var(--cad); }
+.rf-cad-pi.is-on .rf-cad-pi-check::after {
+    content: ''; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px;
+    border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+    animation: rf-cad-tick .22s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes rf-cad-tick { from { transform: rotate(45deg) scale(0); } }
+.rf-cad-pi.is-on b { background: var(--cad); color: #fff; }
+[data-theme="dark"] .rf-cad-pi.is-on b { color: #1e1b4b; }
+.rf-cad-pi.is-target:not(.is-on) { border-style: dashed; }
+.rf-cad-pi.is-empty:not(.is-on) { opacity: .6; }
+/* Auto : pastille à part, sans case */
+.rf-cad-pi--auto { padding-right: 12px; }
+.rf-cad-pi--auto.is-on { background: var(--cad); color: #fff; border-color: var(--cad); box-shadow: none; }
+[data-theme="dark"] .rf-cad-pi--auto.is-on { color: #1e1b4b; }
+/* PI d'une carte quand plusieurs PI sont affichés */
+.rf-cad-pi-tag {
+    padding: 0 7px; border-radius: var(--r-full); font-size: 10.5px; font-weight: var(--fw-bold);
+    color: var(--cad); border: 1px solid color-mix(in srgb, var(--cad) 40%, transparent);
+    background: color-mix(in srgb, var(--cad) 8%, transparent); font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+    .rf-cad-pis { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: calc(-1 * var(--sp-4)); padding: var(--sp-3) var(--sp-4) 4px 2px; }
+    .rf-cad-pis::before { flex-shrink: 0; }
+    .rf-cad-pis::-webkit-scrollbar { display: none; }
+    .rf-cad-pi { flex-shrink: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .rf-cad-pi { transition: none; }
+    .rf-cad-pi:hover { transform: none; }
+    .rf-cad-pi.is-on .rf-cad-pi-check::after { animation: none; }
+}

@@ -1,3 +1,20 @@
+## [3.247.0] - 2026-10-22
+
+### Affinage : choisir un ou plusieurs PI pour le Cadrage · bandeau : dailys regroupés par créneau
+
+**🧭 Cadrage — sélecteur de PI** (page Affinage)
+- Rangée « PI AFFICHÉS » sous l'en-tête du volet : **✨ Auto** + une puce par PI ayant des tickets de cadrage sur le
+  périmètre (le PI en cours et le suivant toujours proposés), avec repère **CIBLE** / **EN COURS** et nombre de tickets.
+  Case cochée animée, plusieurs PI à la fois.
+- **Auto** (défaut, inchangé) : PI suivant + cadrages du PI en cours encore ouverts. Choix manuel : tous les tickets
+  des étiquettes `Cadrage_PI<N>` choisies, tous statuts (« Masquer les prêts » reste disponible). Titre « PI 31 · 33 »,
+  repère « PI N » sur chaque carte quand plusieurs PI sont affichés. Tout décocher = retour à l'automatique.
+- Choix mémorisé par équipe (`sb-refinement-cadrage-pis`). Mobile : la rangée défile à l'horizontale.
+
+**📅 Bandeau calendrier déplié, vue globale**
+- Les dailys d'un même créneau deviennent une pastille « 🌅 09h30 · 6 dailys » + badges d'équipe (détail en infobulle) ;
+  un clic les déplie à sa suite, un second les replie. 11 dailys → 2 pastilles : 267 → 214 px sur desktop.
+
 ## [3.246.0] - 2026-10-22
 
 ### Menu mobile fiable · bandeau calendrier compact en vue « toutes les équipes »

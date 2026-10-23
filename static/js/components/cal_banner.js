@@ -8,6 +8,7 @@ import { esc, hashColor, toast, getSprintForTeam, getCurrentPi, extractTeam, rel
 import * as api from '../api.js';
 import { holidayName } from '../utils/holidays.js';
 import { offSummaryHtml } from './cal_banner_off.js';
+import { groupDailies, isDailyGroupOpen, toggleDailyGroup, dailyGroupChipHtml } from './cal_banner_dailies.js';
 
 // ── Jours fériés France : utils/holidays.js (source unique, partagée avec la frise de la page Équipe) ─
 const _getHoliday = holidayName;
@@ -264,7 +265,12 @@ export function renderCalBanner(wrap) {
         ? `<div class="cal-banner-line cal-banner-line--off${groupOff ? ' cal-banner-line--off-grouped' : ''}">${offChips}</div>`
         : '';
 
-    const _halfGroup = (evs, label) => _halfGroupHtml(label, evs.length ? evs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('') : '');
+    // Vue globale : les dailys d'un même créneau → une pastille dépliable (cal_banner_dailies.js, 3.247.0)
+    const _chipsOf = evs => !_global ? evs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')
+        : groupDailies(evs, store.get('calendarRules')).map(it => it.ev ? _chip(it.ev, todayEvs.indexOf(it.ev))
+            : dailyGroupChipHtml(it.key, it.evs, _teamColor)
+              + (isDailyGroupOpen(it.key) ? it.evs.map(ev => _chip(ev, todayEvs.indexOf(ev)).replace('class="cal-chip', 'class="cal-chip cal-chip--in-group')).join('') : '')).join('');
+    const _halfGroup = (evs, label) => _halfGroupHtml(label, evs.length ? _chipsOf(evs) : '');
 
     const regularLine = regularEvs.length
         ? (matinEvs.length && apremEvs.length
@@ -273,7 +279,7 @@ export function renderCalBanner(wrap) {
                    <span class="cal-banner-split-sep"></span>
                    ${_halfGroup(apremEvs, '☀️')}
                </div>`
-            : `<div class="cal-banner-line">${regularEvs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')}</div>`)
+            : `<div class="cal-banner-line">${_chipsOf(regularEvs)}</div>`)
         : '';
 
     const emptyMsg = !todayEvs.length
@@ -323,7 +329,12 @@ export function renderCalBanner(wrap) {
         const i = parseInt(chip.dataset.evIdx, 10);
         chip.addEventListener('click', () => _openWeekModal(filtered, todayEvs[i]));
     });
-    wrap.querySelectorAll('.cal-chip:not([data-ev-idx])').forEach(chip => {
+    wrap.querySelectorAll('[data-daily-group]').forEach(btn => btn.addEventListener('click', () => {
+        toggleDailyGroup(btn.dataset.dailyGroup);
+        renderCalBanner(wrap);
+        wrap.querySelector(`[data-daily-group="${CSS.escape(btn.dataset.dailyGroup)}"]`)?.focus();
+    }));
+    wrap.querySelectorAll('.cal-chip:not([data-ev-idx]):not([data-daily-group])').forEach(chip => {
         chip.addEventListener('click', () => _openWeekModal(filtered));
         // Synthèse des absents (role="button") : clavier aussi
         chip.addEventListener('keydown', e => {

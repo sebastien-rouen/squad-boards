@@ -219,7 +219,7 @@ function _cadrage(team, tickets) {
         .filter(m => teamNameMatches(m.team, team)).map(m => m.name);
     return cadrageModel({
         tickets, team, piNum, roster, groups: store.get('groups') || [],
-        aliases: piInfo?.personAliases || null, sameTeam: teamNameMatches,
+        aliases: piInfo?.personAliases || null, sameTeam: teamNameMatches, pis: _st?.cadPis,
     });
 }
 
@@ -400,6 +400,29 @@ function _openRow(row, viaBadge = false) {
     window.__squadBoard?.openTicketModal?.(row.dataset.rfRow);
 }
 
+/**
+ * Choix des PI du cadrage (3.247.0) : « auto » revient au mode automatique ; un numéro bascule ce PI dans la
+ * sélection, en partant de ce qui est AFFICHÉ (en automatique : la cible + le PI en cours s'il reste des ouverts).
+ * Sélection vide = retour à l'automatique. Mémorisé par équipe (`sb-refinement-cadrage-pis`).
+ */
+function _pickCadragePi(container, val) {
+    if (val === 'auto') _st.cadPis = null;
+    else {
+        const m = _cadrage(_st.team, store.get('tickets') || []);
+        const cur = new Set(m.auto ? [m.targetPi, ...m.pis] : m.pis);
+        const n = Number(val);
+        if (cur.has(n)) cur.delete(n); else cur.add(n);
+        _st.cadPis = cur.size ? [...cur].sort((a, b) => a - b) : null;
+    }
+    try {
+        const all = JSON.parse(localStorage.getItem('sb-refinement-cadrage-pis') || '{}') || {};
+        if (_st.cadPis) all[_st.team] = _st.cadPis; else delete all[_st.team];
+        localStorage.setItem('sb-refinement-cadrage-pis', JSON.stringify(all));
+    } catch { /* préférence perdue, sans gravité */ }
+    _paint(container);
+    container.querySelector(`[data-rf-cad-pi="${val}"]`)?.focus();
+}
+
 /** Déplie / replie le volet Cadrage ; le choix devient explicite et mémorisé (fin du mode automatique). */
 function _toggleCadrage(container) {
     _st.cadOpen = !container.querySelector('.rf-cad')?.classList.contains('is-open');
@@ -427,7 +450,10 @@ export async function renderRefinement(container) {
     let sort = 'rank', dense = false, groupOpen = {};   // préférences d'affichage de la file (confort d'écran seulement)
     try { sort = localStorage.getItem('sb-refinement-sort') === 'ready' ? 'ready' : 'rank'; dense = localStorage.getItem('sb-refinement-density') === 'compact';
         groupOpen = (JSON.parse(localStorage.getItem('sb-refinement-groups') || '{}') || {})[team] || {}; } catch { /* défauts */ }
-    _st = { team, rounds: [], sessions: {}, timer: null, unsubs: [], showAllBacklog: false, recapOpen: false, onlyMissing: false, cadOpen, cadHideDone: false, cadExpanded: new Set(), sort, dense, groupOpen };
+    let cadPis = null;   // PI du cadrage choisis pour cette équipe (null = automatique)
+    try { const v = (JSON.parse(localStorage.getItem('sb-refinement-cadrage-pis') || '{}') || {})[team];
+        if (Array.isArray(v) && v.length) cadPis = v.map(Number).filter(Number.isFinite); } catch { /* automatique */ }
+    _st = { team, rounds: [], sessions: {}, timer: null, unsubs: [], showAllBacklog: false, recapOpen: false, onlyMissing: false, cadOpen, cadHideDone: false, cadExpanded: new Set(), cadPis, sort, dense, groupOpen };
     _paint(container);
     await _load();
     _paint(container);
@@ -460,6 +486,8 @@ export async function renderRefinement(container) {
         if (e.target.closest('[data-rf-only-missing]') && _st) { _st.onlyMissing = !_st.onlyMissing; _paint(container); return; }
         if (e.target.closest('[data-rf-recap]') && _st) { _st.recapOpen = !_st.recapOpen; _paint(container); return; }
         if (e.target.closest('[data-rf-cad-toggle]') && _st) { _toggleCadrage(container); return; }
+        const cadPi = e.target.closest('[data-rf-cad-pi]');
+        if (cadPi && _st) { _pickCadragePi(container, cadPi.dataset.rfCadPi); return; }
         if (e.target.closest('[data-rf-cad-done]') && _st) { _st.cadHideDone = !_st.cadHideDone; _paint(container); return; }
         const step = e.target.closest('[data-rf-step]');
         if (step && _st) { _goStep(container, step.dataset.rfStep); return; }
@@ -478,7 +506,7 @@ export async function renderRefinement(container) {
         if (!_st || e.target.closest('button, a, input, select, summary, label')) return;
         const row = e.target.closest('[data-rf-row]');
         if (row) { _openRow(row, !!e.target.closest('.rf-ready:not(.rf-ready--ok)')); return; }
-        if (e.target.closest('.rf-cad-head')) _toggleCadrage(container);
+        if (e.target.closest('.rf-cad-head') && !e.target.closest('.rf-cad-pis')) _toggleCadrage(container);
     };
     // Survol / focus du badge ✨ → détail des points de contrôle (un seul calque, recréé au besoin après un repaint)
     const pop = () => container.querySelector('.rf-pop') || container.appendChild(Object.assign(document.createElement('div'), { className: 'rf-pop', role: 'tooltip', hidden: true }));

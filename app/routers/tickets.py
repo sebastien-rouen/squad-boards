@@ -10,6 +10,7 @@ from app.db import get_session
 from app.models import Ticket
 from app.serializers import _ticket_dict
 from app.crud import make_crud_router
+from app.routers.data import _iso_utc
 
 # get + delete via factory ; list (filtres) et update (tracking statut) custom.
 router = make_crud_router(
@@ -89,12 +90,20 @@ async def update_ticket(ticket_id: str, request: Request, session: Session = Dep
         "epic": "epic_id", "recentChanges": "recent_changes",
         "assignee": "leader", "jiraStatus": "jira_status",
         "stageDurations": "stage_durations",
+        # Rafraîchissement d'UN ticket depuis JIRA (popin, 3.247.0) : mêmes clés que `import_all`.
+        "startedDate": "started_date", "resolvedDate": "resolved_date",
+        "cycleTimeDays": "cycle_time_days", "leadTimeDays": "lead_time_days",
     }
+    # Dates JIRA normalisées en ISO UTC comme à l'import (tri par chaîne dans roadmap.js).
+    created = _iso_utc(body.pop("createdAt", None))
+    updated = _iso_utc(body.pop("updatedAt", None))
     for key, val in body.items():
         attr = field_map.get(key, key)
         if hasattr(t, attr):
             setattr(t, attr, val)
-    t.updated_at = _now()
+    if created:
+        t.created_at = created
+    t.updated_at = updated or _now()
     session.add(t)
     session.commit()
     session.refresh(t)

@@ -341,3 +341,6 @@ export const jiraGet = (path, params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/jira/${path}${qs ? '?' + qs : ''}`, { headers: jiraHeaders() });
 };
+/** Écriture vers JIRA via le proxy (PUT / POST) — synchro d'un ticket depuis sa popin (3.247.0). */
+export const jiraSend = (method, path, body) =>
+    request(`/jira/${path}`, { method, headers: jiraHeaders(), body: JSON.stringify(body) });

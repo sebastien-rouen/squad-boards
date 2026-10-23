@@ -6,6 +6,7 @@
     "brand": "Squad Board",
     "subtitle": "Le tableau de bord des équipes agiles, en un coup d'œil",
     "outro": {
+        "style": "cinema",
         "sub": "squad-boards.bastou.dev · open source, auto-hébergé"
     },
     "url": "http://127.0.0.1:3011/",
@@ -74,14 +75,14 @@
         {
             "spotlight": ".meteo-wrap",
             "label": "la météo de chaque équipe, d'un coup d'œil",
-            "wait": 500
+            "wait": 900
         },
         {
             "count": {
                 "sel": ".meteo-val",
                 "ms": 1300
             },
-            "wait": 2000
+            "wait": 3200
         },
         {
             "spotlight": ""
@@ -103,27 +104,21 @@
         {
             "title": "Le Board",
             "kicker": "01",
-            "sub": "Glisser une carte, c'est changer son statut",
-            "say": "Le Board : glisser une carte, c'est changer son statut."
+            "sub": "Le flux du sprint, colonne par colonne",
+            "say": "Le Board : le flux du sprint, colonne par colonne."
         },
         {
-            "caption": "Une carte glisse vers « En cours »",
+            "caption": "Scrum ou Kanban : les colonnes suivent le flux de l'équipe",
             "style": "pill",
             "voice": false,
             "wait": 300
         },
         {
-            "drag": {
-                "from": ".board-column:has(.col-todo) .ticket-card",
-                "to": ".board-column:has(.col-inprog) .column-cards"
-            },
-            "wait": 1000
-        },
-        {
-            "stamp": "→ En cours",
-            "tone": "info",
-            "at": ".board-column:has(.col-inprog) .column-header",
-            "wait": 1500
+            "pan": {
+                "to": ".board-column:has(.col-inprog)",
+                "scale": 1.22,
+                "ms": 2600
+            }
         },
         {
             "caption": "PI Planning : objectifs et features de chaque équipe du train",
@@ -149,21 +144,28 @@
             }
         },
         {
-            "caption": "Roadmap : la trajectoire des features sur plusieurs PI",
+            "caption": "Roadmap : glisser une feature, c'est la reprioriser",
             "style": "pill",
-            "say": "La Roadmap : la trajectoire des features sur plusieurs P I.",
+            "say": "La Roadmap : glisser une feature, c'est la reprioriser.",
             "wait": 300
         },
         {
             "goto": "#roadmap",
-            "wait": 400
+            "ready": "#feature-drag-list .feature-draggable",
+            "wait": 600
         },
         {
-            "pan": {
-                "drift": "in",
-                "scale": 1.06,
-                "ms": 2400
-            }
+            "drag": {
+                "from": "#feature-drag-list .feature-draggable",
+                "to": "#feature-drag-list .feature-draggable:nth-of-type(4)"
+            },
+            "wait": 900
+        },
+        {
+            "stamp": "✓ Réordonné",
+            "tone": "success",
+            "at": "#feature-drag-list .feature-draggable:nth-of-type(2)",
+            "wait": 2200
         },
         {
             "caption": "Santé : météo d'équipe, capacité, absences",
@@ -210,11 +212,16 @@
         },
         {
             "caption": "Un seul outil. Léger, auto-hébergé, en français.",
-            "style": "kinetic"
+            "style": "kinetic",
+            "wait": 5200
         },
         {
             "caption": ""
         }
     ],
-    "maxSeconds": 75
+    "maxSeconds": 120,
+    "intro": {
+        "style": "cinema",
+        "countdown": true
+    }
 }

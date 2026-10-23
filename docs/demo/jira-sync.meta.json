@@ -1,146 +1,145 @@
 {
   "name": "jira-sync",
-  "title": "Synchroniser un ticket avec JIRA depuis sa popin",
-  "description": "Le bouton ↻ compare le ticket local avec JIRA : on met à jour en local ou on pousse les modifications, sans quitter la fiche.",
+  "title": "Synchroniser un ticket avec JIRA depuis sa fiche",
+  "description": "Le bouton ↻ compare le ticket local avec JIRA, champ par champ, puis on pousse nos modifications ou on prend la version JIRA, sans quitter la fiche. Instance de démo, réponses JIRA simulées (fixtures/).",
   "audience": "public",
   "site": "squad-boards",
-  "url": "http://127.0.0.1:3010/",
+  "url": "http://127.0.0.1:3011/",
+  "publicUrl": "https://squad-boards.bastou.dev",
   "viewport": {
-    "width": 1280,
-    "height": 720
+    "width": 1920,
+    "height": 1080
   },
-  "durationS": 34.7,
-  "recordedAt": "2026-10-22T22:18:04.714Z",
+  "durationS": 41.6,
+  "recordedAt": "2026-10-23T22:37:38.640Z",
   "chapters": [
     {
-      "t": 3.03,
-      "text": "Le tableau de l'équipe, synchronisé avec JIRA"
+      "t": 2.97,
+      "text": "Un ticket local et son jumeau JIRA ont divergé"
     },
     {
-      "t": 5.384,
-      "text": "un ticket"
+      "t": 6.32,
+      "text": "Ouvrir la fiche"
     },
     {
-      "t": 7.41,
-      "text": "Ouvrir un ticket"
+      "t": 9.05,
+      "text": "Le bouton ↻ compare la fiche avec JIRA"
     },
     {
-      "t": 11.876999999999999,
-      "text": "Un bouton discret compare le ticket avec JIRA"
+      "t": 12.79,
+      "text": "Comparer avec JIRA"
     },
     {
-      "t": 13.354,
-      "text": "Comparer avec JIRA : mettre à jour ou pousser"
+      "t": 23.44,
+      "text": "Prendre JIRA, ou pousser nos modifications : au choix"
     },
     {
-      "t": 17.91,
-      "text": "statut, priorité, points… poussés vers JIRA"
+      "t": 27.23,
+      "text": "Pousser vers JIRA les champs cochés"
     },
     {
-      "t": 20.522,
-      "text": "Mettre à jour en local, ou pousser vers JIRA : au choix"
-    },
-    {
-      "t": 25.459,
-      "text": "Vue PI : toutes les équipes du train"
+      "t": 34.59,
+      "text": "Le ticket est aligné, sans quitter la fiche"
     }
   ],
   "files": {
-    "mp4": 585812,
-    "webp": 7071574,
-    "poster": 49824
+    "mp4": 1749471,
+    "webp": 0,
+    "poster": 45166
   },
-  "blur": [
-    ".ticket-title",
-    "#mdl-title-span",
-    ".mdl-crumb-title",
-    ".mdl-description",
-    ".ticket-assignee",
-    ".person-picker-name",
-    ".mdl-people",
-    ".pi-obj-ro-text",
-    ".pi-obj-text"
-  ],
+  "blur": [],
+  "fake": 0,
   "steps": [
     {
-      "goto": "#kanban"
+      "goto": "#kanban",
+      "wait": 300
     },
     {
-      "caption": "Le tableau de l'équipe, synchronisé avec JIRA"
+      "caption": "Un ticket local et son jumeau JIRA ont divergé",
+      "style": "kinetic"
     },
     {
-      "draw": {
-        "sel": ".ticket-card",
-        "shape": "circle",
-        "label": "un ticket",
-        "color": "#f59e0b"
-      },
-      "wait": 1600
+      "caption": "Ouvrir la fiche",
+      "wait": 300
     },
     {
-      "draw": ""
+      "click": ".board-column:has(.col-inprog) .ticket-card",
+      "wait": 1300
     },
     {
-      "caption": "Ouvrir un ticket"
-    },
-    {
-      "click": ".ticket-card",
-      "wait": 1400
-    },
-    {
-      "caption": "Un bouton discret compare le ticket avec JIRA",
+      "caption": "Le bouton ↻ compare la fiche avec JIRA",
+      "say": "Le bouton de synchronisation compare la fiche avec Jira.",
       "wait": 300
     },
     {
       "zoom": "#mdl-jira-sync",
-      "scale": 1.7,
-      "wait": 900
+      "scale": 1.6,
+      "wait": 800
     },
     {
       "highlight": "#mdl-jira-sync",
-      "tip": "Comparer avec JIRA : mettre à jour ou pousser",
-      "wait": 3000
+      "tip": "Comparer avec JIRA",
+      "wait": 1500
     },
     {
       "highlight": ""
     },
     {
       "zoom": "",
-      "wait": 900
+      "wait": 700
     },
     {
-      "draw": {
-        "sel": ".mdl-props",
-        "shape": "underline",
-        "label": "statut, priorité, points… poussés vers JIRA",
-        "color": "#16a34a"
-      },
-      "wait": 2600
+      "click": "#mdl-jira-sync",
+      "wait": 1800
     },
     {
-      "caption": "Mettre à jour en local, ou pousser vers JIRA : au choix"
+      "spotlight": "#mjs-panel",
+      "label": "ici · dans JIRA : les écarts, champ par champ",
+      "wait": 2800
     },
     {
-      "caption": ""
+      "spotlight": ""
     },
     {
-      "draw": ""
-    },
-    {
-      "press": "Escape",
-      "wait": 900
-    },
-    {
-      "caption": "Vue PI : toutes les équipes du train",
+      "caption": "Prendre JIRA, ou pousser nos modifications : au choix",
       "wait": 300
     },
     {
-      "goto": "#pi",
-      "wait": 2600
+      "highlight": "#mjs-push",
+      "tip": "Pousser vers JIRA les champs cochés",
+      "wait": 1600
+    },
+    {
+      "highlight": ""
+    },
+    {
+      "click": "#mjs-push",
+      "wait": 1800
+    },
+    {
+      "stamp": "✓ Poussé vers JIRA",
+      "tone": "success",
+      "pos": "top-right",
+      "wait": 400
+    },
+    {
+      "caption": "Le ticket est aligné, sans quitter la fiche",
+      "style": "kinetic"
+    },
+    {
+      "press": "Escape",
+      "wait": 700
     },
     {
       "caption": ""
     }
   ],
-  "scenario": "jira-sync.json"
+  "scenario": "jira-sync.json",
+  "voice": true,
+  "voiceLines": 7,
+  "fps": 30,
+  "capture": "screencast",
+  "transition": "zoom",
+  "cinema": {},
+  "anim": false
 }

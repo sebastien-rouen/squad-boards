@@ -1,129 +1,182 @@
 {
   "name": "alternative-jira",
   "title": "Une alternative open source à JIRA ?",
-  "description": "Ce que Squad Board fait sans JIRA : tickets, kanban, estimation en poker, affinage, rétrospectives et PI planning. JIRA devient optionnel : on synchronise si on en a un, on vit sans sinon.",
+  "description": "Ce que Squad Board fait sans JIRA, en vrai : créer un ticket, le compléter en place, l'estimer au Planning Poker, affiner le prochain sprint, tenir ses rétrospectives. JIRA devient optionnel. Instance de démo, données fictives.",
   "audience": "public",
   "site": "squad-boards",
-  "url": "http://127.0.0.1:3010/",
+  "url": "http://127.0.0.1:3011/",
+  "publicUrl": "https://squad-boards.bastou.dev",
   "viewport": {
-    "width": 1280,
-    "height": 720
+    "width": 1920,
+    "height": 1080
   },
-  "durationS": 39.2,
-  "recordedAt": "2026-10-22T22:20:50.881Z",
+  "durationS": 73.8,
+  "recordedAt": "2026-10-23T22:51:55.253Z",
   "chapters": [
     {
-      "t": 2.9959999999999996,
-      "text": "Un kanban complet : créer, déplacer, prioriser, sans JIRA"
+      "t": 2.98,
+      "text": "Pas de JIRA ? Pas grave. Le kanban est complet."
     },
     {
-      "t": 5.873999999999999,
-      "text": "Nouveau ticket en une touche (N)"
+      "t": 7,
+      "text": "Créer un ticket en une phrase"
     },
     {
-      "t": 8.704,
-      "text": "Chaque ticket a sa fiche : statut, priorité, estimation, porteur"
+      "t": 9.45,
+      "text": "Nouveau ticket (touche N)"
     },
     {
-      "t": 14.22,
-      "text": "tout se modifie en place"
+      "t": 24.64,
+      "text": "Chaque ticket a sa fiche : tout se modifie en place"
     },
     {
-      "t": 17.029999999999998,
-      "text": "Planning Poker intégré pour estimer en équipe"
+      "t": 30.15,
+      "text": "Planning Poker intégré : voter, révéler, converger"
     },
     {
-      "t": 18.514,
-      "text": "Voter, révéler, converger"
+      "t": 34.23,
+      "text": "Estimer en équipe"
     },
     {
-      "t": 23.159,
+      "t": 57.27,
       "text": "Affinage : préparer le prochain sprint, ticket par ticket"
     },
     {
-      "t": 27.323,
+      "t": 61.31,
       "text": "Rétrospectives et amélioration continue"
     },
     {
-      "t": 31.727,
-      "text": "Et si JIRA est là : on synchronise. Sinon, on vit très bien sans"
+      "t": 65.52,
+      "text": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans."
     }
   ],
   "files": {
-    "mp4": 716075,
-    "webp": 9544950,
-    "poster": 51468
+    "mp4": 3591715,
+    "webp": 0,
+    "poster": 46318
   },
-  "blur": [
-    ".mdl-description",
-    ".mdl-people"
-  ],
+  "blur": [],
+  "fake": 0,
   "steps": [
     {
-      "goto": "#kanban"
+      "goto": "#kanban/Vega",
+      "wait": 300
     },
     {
-      "caption": "Un kanban complet : créer, déplacer, prioriser, sans JIRA"
+      "caption": "Pas de JIRA ? Pas grave. Le kanban est complet.",
+      "style": "kinetic"
+    },
+    {
+      "caption": "Créer un ticket en une phrase",
+      "wait": 300
     },
     {
       "highlight": "#btn-create",
-      "tip": "Nouveau ticket en une touche (N)",
-      "wait": 2400
+      "tip": "Nouveau ticket (touche N)",
+      "wait": 1300
     },
     {
       "highlight": ""
     },
     {
-      "caption": "Chaque ticket a sa fiche : statut, priorité, estimation, porteur"
+      "click": "#btn-create",
+      "wait": 900
     },
     {
-      "click": ".ticket-card",
+      "type": {
+        "sel": "#create-form input[name=\"title\"]",
+        "text": "Alerte quand le stock passe sous 10",
+        "delay": 40
+      },
+      "wait": 500
+    },
+    {
+      "click": "#create-form button[type=\"submit\"]",
       "wait": 1400
     },
     {
-      "draw": {
-        "sel": ".mdl-props",
-        "shape": "box",
-        "label": "tout se modifie en place",
-        "color": "#2563eb"
-      },
-      "wait": 2400
+      "stamp": "✓ Créé",
+      "tone": "success",
+      "pos": "top-right",
+      "wait": 1500
     },
     {
-      "draw": ""
+      "caption": "Chaque ticket a sa fiche : tout se modifie en place",
+      "wait": 300
     },
     {
-      "caption": "Planning Poker intégré pour estimer en équipe",
+      "click": ".board-column:has(.col-todo) .ticket-card",
+      "wait": 1300
+    },
+    {
+      "spotlight": ".mdl-props",
+      "label": "statut, priorité, estimation, sprint, flux",
+      "wait": 2200
+    },
+    {
+      "spotlight": ""
+    },
+    {
+      "caption": "Planning Poker intégré : voter, révéler, converger",
       "wait": 300
     },
     {
       "zoom": "#mdl-poker-btn",
-      "scale": 1.6,
-      "wait": 800
+      "scale": 1.5,
+      "wait": 700
     },
     {
       "highlight": "#mdl-poker-btn",
-      "tip": "Voter, révéler, converger",
-      "wait": 2600
+      "tip": "Estimer en équipe",
+      "wait": 1100
     },
     {
       "highlight": ""
     },
     {
       "zoom": "",
-      "wait": 800
+      "wait": 600
+    },
+    {
+      "click": "#mdl-poker-btn",
+      "wait": 1500
+    },
+    {
+      "click": ".poker-card[data-val=\"5\"]",
+      "wait": 1000
+    },
+    {
+      "click": "#poker-reveal",
+      "wait": 1700
+    },
+    {
+      "stamp": "5 points",
+      "tone": "info",
+      "pos": "top-right",
+      "wait": 1000
     },
     {
       "press": "Escape",
-      "wait": 800
+      "wait": 600
+    },
+    {
+      "press": "Escape",
+      "wait": 700
     },
     {
       "caption": "Affinage : préparer le prochain sprint, ticket par ticket",
       "wait": 300
     },
     {
-      "goto": "#refinement",
-      "wait": 2600
+      "goto": "#refinement/Vega",
+      "wait": 600
+    },
+    {
+      "pan": {
+        "drift": "in",
+        "scale": 1.06,
+        "ms": 2200
+      }
     },
     {
       "caption": "Rétrospectives et amélioration continue",
@@ -131,14 +184,29 @@
     },
     {
       "goto": "#retro",
-      "wait": 2600
+      "wait": 600
     },
     {
-      "caption": "Et si JIRA est là : on synchronise. Sinon, on vit très bien sans"
+      "pan": {
+        "drift": "in",
+        "scale": 1.06,
+        "ms": 2200
+      }
+    },
+    {
+      "caption": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans.",
+      "style": "kinetic"
     },
     {
       "caption": ""
     }
   ],
-  "scenario": "alternative-jira.json"
+  "scenario": "alternative-jira.json",
+  "voice": true,
+  "voiceLines": 9,
+  "fps": 30,
+  "capture": "screencast",
+  "transition": "slide-left",
+  "cinema": {},
+  "anim": true
 }

@@ -9,8 +9,14 @@
     "publicUrl": "https://squad-boards.bastou.dev",
     "server": {
         "cwd": "squad-boards",
-        "cmd": ["python3", "main.py"],
-        "env": { "PORT": "3011", "SB_DB_PATH": "data/demo.db" },
+        "cmd": [
+            "python3",
+            "main.py"
+        ],
+        "env": {
+            "PORT": "3011",
+            "SB_DB_PATH": "data/demo.db"
+        },
         "readyUrl": "http://127.0.0.1:3011/",
         "dbFile": "data/demo.db"
     },
@@ -22,41 +28,154 @@
         "sb-jira-token": "demo-token-fictif"
     },
     "mocks": [
-        { "url": "**/jira/**", "status": 404, "body": { "errorMessages": ["Simulation : ressource non prévue"] } },
-        { "url": "**/jira/rest/api/3/field", "file": "fixtures/jira-field.json" },
-        { "url": "**/jira/rest/api/3/priority", "file": "fixtures/jira-priority.json" },
-        { "url": "**/jira/rest/api/3/user/assignable/search*", "body": [{ "accountId": "5f1a-demo-camille", "displayName": "Camille Simon" }] },
-        { "url": "**/jira/rest/api/3/issue/*", "method": "GET", "file": "fixtures/jira-issue.json", "delayMs": 700 },
-        { "url": "**/jira/rest/api/3/issue/*", "method": "PUT", "file": "fixtures/jira-ok.json", "status": 204, "delayMs": 500 },
-        { "url": "**/jira/rest/api/3/issue/*/transitions", "method": "GET", "file": "fixtures/jira-transitions.json" },
-        { "url": "**/jira/rest/api/3/issue/*/transitions", "method": "POST", "file": "fixtures/jira-ok.json", "status": 204 }
+        {
+            "url": "**/jira/**",
+            "status": 404,
+            "body": {
+                "errorMessages": [
+                    "Simulation : ressource non prévue"
+                ]
+            }
+        },
+        {
+            "url": "**/jira/rest/api/3/field",
+            "file": "fixtures/jira-field.json"
+        },
+        {
+            "url": "**/jira/rest/api/3/priority",
+            "file": "fixtures/jira-priority.json"
+        },
+        {
+            "url": "**/jira/rest/api/3/user/assignable/search*",
+            "body": [
+                {
+                    "accountId": "5f1a-demo-camille",
+                    "displayName": "Camille Simon"
+                }
+            ]
+        },
+        {
+            "url": "**/jira/rest/api/3/issue/*",
+            "method": "GET",
+            "file": "fixtures/jira-issue.json",
+            "delayMs": 700
+        },
+        {
+            "url": "**/jira/rest/api/3/issue/*",
+            "method": "PUT",
+            "file": "fixtures/jira-ok.json",
+            "status": 204,
+            "delayMs": 500
+        },
+        {
+            "url": "**/jira/rest/api/3/issue/*/transitions",
+            "method": "GET",
+            "file": "fixtures/jira-transitions.json"
+        },
+        {
+            "url": "**/jira/rest/api/3/issue/*/transitions",
+            "method": "POST",
+            "file": "fixtures/jira-ok.json",
+            "status": 204
+        }
     ],
     "ready": ".ticket-card",
     "transition": "zoom",
-    "voice": { "rate": 1.05 },
+    "voice": {
+        "rate": 1.05
+    },
     "prepare": [
-        { "goto": "#kanban", "ready": ".ticket-card", "wait": 400 }
+        {
+            "goto": "#kanban",
+            "ready": ".ticket-card",
+            "wait": 400
+        }
     ],
     "steps": [
-        { "goto": "#kanban", "wait": 300 },
-        { "caption": "Un ticket local et son jumeau JIRA ont divergé", "style": "kinetic" },
-        { "caption": "Ouvrir la fiche", "wait": 300 },
-        { "click": ".board-column:has(.col-inprog) .ticket-card", "wait": 1300 },
-        { "caption": "Le bouton ↻ compare la fiche avec JIRA", "say": "Le bouton de synchronisation compare la fiche avec Jira.", "wait": 300 },
-        { "zoom": "#mdl-jira-sync", "scale": 1.6, "wait": 800 },
-        { "highlight": "#mdl-jira-sync", "tip": "Comparer avec JIRA", "wait": 1500 },
-        { "highlight": "" },
-        { "zoom": "", "wait": 700 },
-        { "click": "#mdl-jira-sync", "wait": 1800 },
-        { "spotlight": "#mjs-panel", "label": "ici · dans JIRA : les écarts, champ par champ", "wait": 2800 },
-        { "spotlight": "" },
-        { "caption": "Prendre JIRA, ou pousser nos modifications : au choix", "wait": 300 },
-        { "highlight": "#mjs-push", "tip": "Pousser vers JIRA les champs cochés", "wait": 1600 },
-        { "highlight": "" },
-        { "click": "#mjs-push", "wait": 1800 },
-        { "stamp": "✓ Poussé vers JIRA", "tone": "success", "pos": "top-right", "wait": 400 },
-        { "caption": "Le ticket est aligné, sans quitter la fiche", "style": "kinetic" },
-        { "press": "Escape", "wait": 700 },
-        { "caption": "" }
-    ]
+        {
+            "goto": "#kanban",
+            "wait": 300
+        },
+        {
+            "caption": "Un ticket local et son jumeau JIRA ont divergé",
+            "style": "kinetic"
+        },
+        {
+            "caption": "Ouvrir la fiche",
+            "wait": 300
+        },
+        {
+            "click": ".board-column:has(.col-inprog) .ticket-card",
+            "wait": 1300
+        },
+        {
+            "caption": "Le bouton ↻ compare la fiche avec JIRA",
+            "say": "Le bouton de synchronisation compare la fiche avec Jira.",
+            "wait": 300
+        },
+        {
+            "zoom": "#mdl-jira-sync",
+            "scale": 1.6,
+            "wait": 800
+        },
+        {
+            "highlight": "#mdl-jira-sync",
+            "tip": "Comparer avec JIRA",
+            "wait": 2200
+        },
+        {
+            "highlight": ""
+        },
+        {
+            "zoom": "",
+            "wait": 700
+        },
+        {
+            "click": "#mdl-jira-sync",
+            "wait": 1800
+        },
+        {
+            "spotlight": "#mjs-panel",
+            "label": "ici · dans JIRA : les écarts, champ par champ",
+            "wait": 6000
+        },
+        {
+            "spotlight": ""
+        },
+        {
+            "caption": "Prendre JIRA, ou pousser nos modifications : au choix",
+            "wait": 300
+        },
+        {
+            "highlight": "#mjs-push",
+            "tip": "Pousser vers JIRA les champs cochés",
+            "wait": 2200
+        },
+        {
+            "highlight": ""
+        },
+        {
+            "click": "#mjs-push",
+            "wait": 1800
+        },
+        {
+            "stamp": "✓ Poussé vers JIRA",
+            "tone": "success",
+            "pos": "top-right",
+            "wait": 1200
+        },
+        {
+            "caption": "Le ticket est aligné, sans quitter la fiche",
+            "style": "kinetic",
+            "wait": 4200
+        },
+        {
+            "press": "Escape",
+            "wait": 700
+        },
+        {
+            "caption": ""
+        }
+    ],
+    "maxSeconds": 120
 }

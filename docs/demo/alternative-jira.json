@@ -5,57 +5,191 @@
     "audience": "public",
     "brand": "Squad Board",
     "subtitle": "Tout ce qui tourne sans JIRA : créer, estimer, affiner, améliorer",
-    "outro": { "sub": "open source · auto-hébergé · JIRA en option" },
+    "outro": {
+        "sub": "open source · auto-hébergé · JIRA en option"
+    },
     "url": "http://127.0.0.1:3011/",
     "publicUrl": "https://squad-boards.bastou.dev",
     "server": {
         "cwd": "squad-boards",
-        "cmd": ["python3", "main.py"],
-        "env": { "PORT": "3011", "SB_DB_PATH": "data/demo.db" },
+        "cmd": [
+            "python3",
+            "main.py"
+        ],
+        "env": {
+            "PORT": "3011",
+            "SB_DB_PATH": "data/demo.db"
+        },
         "readyUrl": "http://127.0.0.1:3011/",
         "dbFile": "data/demo.db"
     },
     "colorScheme": "light",
-    "localStorage": { "sb-theme": "light", "sb-team": "Alpha", "sb-poker-myname": "Camille" },
+    "localStorage": {
+        "sb-theme": "light",
+        "sb-team": "Vega",
+        "sb-poker-myname": "Camille"
+    },
     "ready": ".ticket-card",
     "transition": "slide-left",
     "anim": true,
-    "voice": { "rate": 1.05 },
+    "voice": {
+        "rate": 1.05
+    },
     "prepare": [
-        { "goto": "#kanban", "ready": ".ticket-card", "wait": 400 }
+        {
+            "goto": "#kanban/Vega",
+            "ready": ".ticket-card",
+            "wait": 400
+        }
     ],
     "steps": [
-        { "goto": "#kanban", "wait": 300 },
-        { "caption": "Pas de JIRA ? Pas grave. Le kanban est complet.", "style": "kinetic" },
-        { "caption": "Créer un ticket en une phrase", "wait": 300 },
-        { "highlight": "#btn-create", "tip": "Nouveau ticket (touche N)", "wait": 1300 },
-        { "highlight": "" },
-        { "click": "#btn-create", "wait": 900 },
-        { "type": { "sel": "#create-form input[name=\"title\"]", "text": "Alerte quand le stock passe sous 10", "delay": 40 }, "wait": 500 },
-        { "click": "#create-form button[type=\"submit\"]", "wait": 1400 },
-        { "stamp": "✓ Créé", "tone": "success", "pos": "top-right", "wait": 1500 },
-        { "caption": "Chaque ticket a sa fiche : tout se modifie en place", "wait": 300 },
-        { "click": ".board-column:has(.col-todo) .ticket-card", "wait": 1300 },
-        { "spotlight": ".mdl-props", "label": "statut, priorité, estimation, sprint, flux", "wait": 2600 },
-        { "spotlight": "" },
-        { "caption": "Planning Poker intégré : voter, révéler, converger", "wait": 300 },
-        { "zoom": "#mdl-poker-btn", "scale": 1.5, "wait": 700 },
-        { "highlight": "#mdl-poker-btn", "tip": "Estimer en équipe", "wait": 1100 },
-        { "highlight": "" },
-        { "zoom": "", "wait": 600 },
-        { "click": "#mdl-poker-btn", "wait": 1500 },
-        { "click": ".poker-card[data-val=\"5\"]", "wait": 1000 },
-        { "click": "#poker-reveal", "wait": 1700 },
-        { "stamp": "5 points", "tone": "info", "pos": "top-right", "wait": 1200 },
-        { "press": "Escape", "wait": 600 },
-        { "press": "Escape", "wait": 700 },
-        { "caption": "Affinage : préparer le prochain sprint, ticket par ticket", "wait": 300 },
-        { "goto": "#refinement/Alpha", "wait": 600 },
-        { "pan": { "drift": "in", "scale": 1.06, "ms": 2800 } },
-        { "caption": "Rétrospectives et amélioration continue", "wait": 300 },
-        { "goto": "#retro", "wait": 600 },
-        { "pan": { "drift": "in", "scale": 1.06, "ms": 2600 } },
-        { "caption": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans.", "style": "kinetic" },
-        { "caption": "" }
-    ]
+        {
+            "goto": "#kanban/Vega",
+            "wait": 300
+        },
+        {
+            "caption": "Pas de JIRA ? Pas grave. Le kanban est complet.",
+            "style": "kinetic",
+            "wait": 4200
+        },
+        {
+            "caption": "Créer un ticket en une phrase",
+            "wait": 300
+        },
+        {
+            "highlight": "#btn-create",
+            "tip": "Nouveau ticket (touche N)",
+            "wait": 2000
+        },
+        {
+            "highlight": ""
+        },
+        {
+            "click": "#btn-create",
+            "wait": 900
+        },
+        {
+            "type": {
+                "sel": "#create-form input[name=\"title\"]",
+                "text": "Alerte quand le stock passe sous 10",
+                "delay": 40
+            },
+            "wait": 500
+        },
+        {
+            "click": "#create-form button[type=\"submit\"]",
+            "wait": 1400
+        },
+        {
+            "stamp": "✓ Créé",
+            "tone": "success",
+            "pos": "top-right",
+            "wait": 2200
+        },
+        {
+            "caption": "Chaque ticket a sa fiche : tout se modifie en place",
+            "wait": 300
+        },
+        {
+            "click": ".board-column:has(.col-todo) .ticket-card",
+            "wait": 1300
+        },
+        {
+            "spotlight": ".mdl-props",
+            "label": "statut, priorité, estimation, sprint, flux",
+            "wait": 3600
+        },
+        {
+            "spotlight": ""
+        },
+        {
+            "caption": "Planning Poker intégré : voter, révéler, converger",
+            "wait": 300
+        },
+        {
+            "zoom": "#mdl-poker-btn",
+            "scale": 1.5,
+            "wait": 700
+        },
+        {
+            "highlight": "#mdl-poker-btn",
+            "tip": "Estimer en équipe",
+            "wait": 2000
+        },
+        {
+            "highlight": ""
+        },
+        {
+            "zoom": "",
+            "wait": 600
+        },
+        {
+            "click": "#mdl-poker-btn",
+            "wait": 1500
+        },
+        {
+            "click": ".poker-card[data-val=\"5\"]",
+            "wait": 1000
+        },
+        {
+            "click": "#poker-reveal",
+            "wait": 1700
+        },
+        {
+            "stamp": "5 points",
+            "tone": "info",
+            "pos": "top-right",
+            "wait": 2200
+        },
+        {
+            "press": "Escape",
+            "wait": 600
+        },
+        {
+            "press": "Escape",
+            "wait": 700
+        },
+        {
+            "caption": "Affinage : préparer le prochain sprint, ticket par ticket",
+            "wait": 300
+        },
+        {
+            "goto": "#refinement/Vega",
+            "wait": 600
+        },
+        {
+            "pan": {
+                "drift": "in",
+                "scale": 1.06,
+                "ms": 2200
+            }
+        },
+        {
+            "caption": "Rétrospectives et amélioration continue",
+            "wait": 300
+        },
+        {
+            "goto": "#retro",
+            "wait": 600
+        },
+        {
+            "pan": {
+                "drift": "in",
+                "scale": 1.06,
+                "ms": 2200
+            }
+        },
+        {
+            "caption": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans.",
+            "style": "kinetic",
+            "wait": 5600
+        },
+        {
+            "caption": ""
+        }
+    ],
+    "maxSeconds": 120,
+    "intro": {
+        "style": "cinema"
+    }
 }

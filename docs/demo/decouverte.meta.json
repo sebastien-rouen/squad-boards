@@ -10,62 +10,62 @@
     "width": 1920,
     "height": 1080
   },
-  "durationS": 62.4,
-  "recordedAt": "2026-10-23T22:36:08.023Z",
+  "durationS": 63.6,
+  "recordedAt": "2026-10-23T22:45:35.133Z",
   "chapters": [
     {
-      "t": 2.97,
+      "t": 2.98,
       "text": "Le tableau de bord des équipes agiles · Squad Board"
     },
     {
-      "t": 9.61,
+      "t": 9.56,
       "text": "Scrum Masters, PO, RTE : la journée commence ici"
     },
     {
-      "t": 17.83,
+      "t": 17.81,
       "text": "Le Board : le flux du sprint, colonne par colonne"
     },
     {
-      "t": 19.71,
+      "t": 19.66,
       "text": "01 · Le Board"
     },
     {
-      "t": 24.16,
-      "text": "Une carte glisse vers « En cours »"
+      "t": 24.03,
+      "text": "Scrum ou Kanban : les colonnes suivent le flux de l'équipe"
     },
     {
-      "t": 28.96,
+      "t": 27.26,
       "text": "PI Planning : objectifs et features de chaque équipe du train"
     },
     {
-      "t": 30.3,
+      "t": 28.5,
       "text": "02 · Planifier"
     },
     {
-      "t": 38.23,
-      "text": "Roadmap : la trajectoire des features sur plusieurs PI"
+      "t": 36.43,
+      "text": "Roadmap : glisser une feature, c'est la reprioriser"
     },
     {
-      "t": 42.03,
+      "t": 43.06,
       "text": "Santé : météo d'équipe, capacité, absences"
     },
     {
-      "t": 43.2,
+      "t": 44.31,
       "text": "03 · Piloter"
     },
     {
-      "t": 50.31,
+      "t": 51.43,
       "text": "Rapports : sprint, PI, flux, support… en un clic"
     },
     {
-      "t": 55.2,
+      "t": 56.35,
       "text": "Un seul outil. Léger, auto-hébergé, en français."
     }
   ],
   "files": {
-    "mp4": 2828331,
+    "mp4": 2989334,
     "webp": 0,
-    "poster": 8978
+    "poster": 11938
   },
   "blur": [],
   "fake": 0,
@@ -117,27 +117,21 @@
     {
       "title": "Le Board",
       "kicker": "01",
-      "sub": "Glisser une carte, c'est changer son statut",
-      "say": "Le Board : glisser une carte, c'est changer son statut."
+      "sub": "Le flux du sprint, colonne par colonne",
+      "say": "Le Board : le flux du sprint, colonne par colonne."
     },
     {
-      "caption": "Une carte glisse vers « En cours »",
+      "caption": "Scrum ou Kanban : les colonnes suivent le flux de l'équipe",
       "style": "pill",
       "voice": false,
       "wait": 300
     },
     {
-      "drag": {
-        "from": ".board-column:has(.col-todo) .ticket-card",
-        "to": ".board-column:has(.col-inprog) .column-cards"
-      },
-      "wait": 1000
-    },
-    {
-      "stamp": "→ En cours",
-      "tone": "info",
-      "at": ".board-column:has(.col-inprog) .column-header",
-      "wait": 1500
+      "pan": {
+        "to": ".board-column:has(.col-inprog)",
+        "scale": 1.22,
+        "ms": 2600
+      }
     },
     {
       "caption": "PI Planning : objectifs et features de chaque équipe du train",
@@ -163,21 +157,28 @@
       }
     },
     {
-      "caption": "Roadmap : la trajectoire des features sur plusieurs PI",
+      "caption": "Roadmap : glisser une feature, c'est la reprioriser",
       "style": "pill",
-      "say": "La Roadmap : la trajectoire des features sur plusieurs P I.",
+      "say": "La Roadmap : glisser une feature, c'est la reprioriser.",
       "wait": 300
     },
     {
       "goto": "#roadmap",
-      "wait": 400
+      "ready": "#feature-drag-list .feature-draggable",
+      "wait": 600
     },
     {
-      "pan": {
-        "drift": "in",
-        "scale": 1.06,
-        "ms": 2400
-      }
+      "drag": {
+        "from": "#feature-drag-list .feature-draggable",
+        "to": "#feature-drag-list .feature-draggable:nth-of-type(4)"
+      },
+      "wait": 900
+    },
+    {
+      "stamp": "✓ Réordonné",
+      "tone": "success",
+      "at": "#feature-drag-list .feature-draggable:nth-of-type(2)",
+      "wait": 1500
     },
     {
       "caption": "Santé : météo d'équipe, capacité, absences",

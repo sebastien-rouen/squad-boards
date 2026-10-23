@@ -1,0 +1,112 @@
+{
+    "name": "decouverte",
+    "title": "Squad Board, c'est quoi ?",
+    "description": "Un tableau de bord pour les équipes agiles : tickets, sprints, PI planning, roadmap, santé d'équipe et rapports, au même endroit. Pour les Scrum Masters, PO, RTE et les équipes.",
+    "audience": "public",
+    "brand": "Squad Board",
+    "intro": {
+        "sub": "Le tableau de bord des équipes agiles, en un coup d'œil"
+    },
+    "url": "http://127.0.0.1:3010/",
+    "publicUrl": "https://squad-boards.bastou.dev",
+    "viewport": {
+        "width": 1280,
+        "height": 720
+    },
+    "colorScheme": "light",
+    "localStorage": {
+        "sb-theme": "light"
+    },
+    "ready": ".sidebar",
+    "blur": [
+        ".ticket-title",
+        "#mdl-title-span",
+        ".mdl-crumb-title",
+        ".ticket-assignee .truncate",
+        ".person-picker-name",
+        ".pi-obj-ro-text",
+        ".pi-obj-text",
+        ".mdl-people",
+        ".db-oncall-chips",
+        ".rm-tl-card-title",
+        ".npi-feat-title",
+        ".npi-child-title",
+        ".rtc-title",
+        ".rtc-who",
+        ".feature-title"
+    ],
+    "steps": [
+        {
+            "goto": "#dashboard",
+            "wait": 1200
+        },
+        {
+            "caption": "Pour qui ? Scrum Masters, Product Owners, RTE… et l'équipe entière"
+        },
+        {
+            "caption": "Le Dashboard : le cap de l'équipe et ses indicateurs clés"
+        },
+        {
+            "draw": {
+                "sel": ".dashboard-metrics",
+                "shape": "box",
+                "label": "WIP, bloqués, débit, cycle time",
+                "color": "#2563eb"
+            },
+            "wait": 2600
+        },
+        {
+            "draw": ""
+        },
+        {
+            "caption": "Le Board : le flux du sprint, colonne par colonne",
+            "wait": 300
+        },
+        {
+            "goto": "#kanban",
+            "ready": ".ticket-card",
+            "wait": 2400
+        },
+        {
+            "caption": "Les tickets viennent de JIRA, ou se créent ici"
+        },
+        {
+            "caption": "PI Planning : objectifs et features de chaque équipe du train",
+            "wait": 300
+        },
+        {
+            "goto": "#pi",
+            "wait": 2600
+        },
+        {
+            "caption": "Roadmap : la trajectoire des features sur plusieurs PI",
+            "wait": 300
+        },
+        {
+            "goto": "#roadmap",
+            "wait": 2600
+        },
+        {
+            "caption": "Santé : météo d'équipe, capacité, absences",
+            "wait": 300
+        },
+        {
+            "goto": "#health",
+            "wait": 2600
+        },
+        {
+            "caption": "Rapports : sprint, PI, flux, support… prêts à partager",
+            "wait": 300
+        },
+        {
+            "goto": "#reports",
+            "wait": 2600
+        },
+        {
+            "caption": "Un seul outil, léger, auto-hébergé, en français"
+        },
+        {
+            "caption": ""
+        }
+    ]
+}

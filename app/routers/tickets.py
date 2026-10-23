@@ -90,7 +90,7 @@ async def update_ticket(ticket_id: str, request: Request, session: Session = Dep
         "epic": "epic_id", "recentChanges": "recent_changes",
         "assignee": "leader", "jiraStatus": "jira_status",
         "stageDurations": "stage_durations",
-        # Rafraîchissement d'UN ticket depuis JIRA (popin, 3.247.0) : mêmes clés que `import_all`.
+        # Rafraîchissement d'UN ticket depuis JIRA (popin, 3.248.0) : mêmes clés que `import_all`.
         "startedDate": "started_date", "resolvedDate": "resolved_date",
         "cycleTimeDays": "cycle_time_days", "leadTimeDays": "lead_time_days",
     }

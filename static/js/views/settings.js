@@ -456,10 +456,6 @@ export function renderSettings(container) {
                 </p>
                 <div class="flex gap-3 mb-2 items-center flex-wrap">
                     <div class="flex gap-2 items-center">
-                        <label class="text-xs text-muted">Année (format pivot) :</label>
-                        <input class="input" type="number" id="abs-csv-year" value="${new Date().getFullYear()}" min="2000" max="2100" style="width:90px">
-                    </div>
-                    <div class="flex gap-2 items-center">
                         <label class="text-xs text-muted" title="Les membres importés seront associés à ce PI (snapshot — gère le turnover)">PI cible 👥 :</label>
                         <input class="input" type="number" id="abs-csv-pi" placeholder="${(() => {
                             const m = String(sprintInfo?.name || '').match(/(\d+)\.\d+/); return m ? m[1] : (piInfo?.number || '');
@@ -1733,9 +1729,9 @@ export function renderSettings(container) {
     const _parseAbsCsv = () => {
         const raw = container.querySelector('#abs-csv-input')?.value.trim();
         if (!raw) return null;
-        const year = parseInt(container.querySelector('#abs-csv-year')?.value) || new Date().getFullYear();
         const pipDays = Math.max(0, parseInt(container.querySelector('#abs-csv-pip')?.value) ?? 2);
-        const pivot = _parsePivotAbsencesCsv(raw, year, pipDays);
+        // Année des colonnes dd/mm DÉDUITE (3.248.0) : au plus près d'aujourd'hui, +1 au passage décembre → janvier
+        const pivot = _parsePivotAbsencesCsv(raw, new Date(), pipDays);
         if (pivot) return {
             absencesPayload: pivot.absences, membersPayload: pivot.members, mode: 'pivot',
             piStartDate: pivot.piStartDate, piEndDate: pivot.piEndDate, dayCount: pivot.dayCount,
@@ -1800,7 +1796,9 @@ export function renderSettings(container) {
             ? ` <span class="text-muted">· PIP exclu : ${pipDates.map(_fmtShort).join(', ')}</span>`
             : '';
         const datesBlock = (piStartDate && piEndDate)
-            ? `<div class="abs-csv-preview-dates">📅 Dates PI déduites : <strong>${_fmtFr(piStartDate)}</strong> → <strong>${_fmtFr(piEndDate)}</strong> <span class="text-muted">(${dayCount} jours ouvrés)</span>${pipNote}</div>`
+            ? `<div class="abs-csv-preview-dates">📅 Dates PI déduites : <strong>${_fmtFr(piStartDate)}</strong> → <strong>${_fmtFr(piEndDate)}</strong> <span class="text-muted">(${dayCount} jours ouvrés)</span>${pipNote}${
+                piStartDate.slice(0, 4) !== (pipDates?.at(-1) || piEndDate).slice(0, 4)
+                    ? ` <span class="abs-csv-years" title="Années déduites des colonnes : l'année avance au passage décembre → janvier">🗓 à cheval sur ${piStartDate.slice(0, 4)} → ${(pipDates?.at(-1) || piEndDate).slice(0, 4)}</span>` : ''}</div>`
             : '';
         if (box) {
             box.hidden = false;

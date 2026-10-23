@@ -24,6 +24,7 @@ import {
     cadrageModel, scrollWithin, getCurrentPi, extractPiNum, effectiveRosterForPi, teamNameMatches,
 } from '../utils.js';
 import { refinementRecapModel, recapSlack, recapHtml, copyRecapRich, downloadRecapCsv, toCompleteSlack } from '../components/refinement_recap.js';
+import { setPokerPlaylist } from '../utils/poker-playlist.js';
 import { cadrageSectionHtml } from '../components/refinement_cadrage.js';
 import { refinementStepsHtml } from '../components/refinement_steps.js';
 import { acceptanceStatus } from '../components/desc_sections.js';
@@ -406,9 +407,10 @@ function _openRow(row, viaBadge = false) {
  * Sélection vide = retour à l'automatique. Mémorisé par équipe (`sb-refinement-cadrage-pis`).
  */
 function _pickCadragePi(container, val) {
+    const m = _cadrage(_st.team, store.get('tickets') || []);
     if (val === 'auto') _st.cadPis = null;
+    else if (val === 'pair') _st.cadPis = [m.piNum, m.targetPi];
     else {
-        const m = _cadrage(_st.team, store.get('tickets') || []);
         const cur = new Set(m.auto ? [m.targetPi, ...m.pis] : m.pis);
         const n = Number(val);
         if (cur.has(n)) cur.delete(n); else cur.add(n);
@@ -421,6 +423,15 @@ function _pickCadragePi(container, val) {
     } catch { /* préférence perdue, sans gravité */ }
     _paint(container);
     container.querySelector(`[data-rf-cad-pi="${val}"]`)?.focus();
+}
+
+/** 🃏 Série Poker sur les cadrages non macro-estimés des PI affichés (« ⏭ Suivant » n'enchaîne que sur eux). */
+function _playCadrage() {
+    const m = _cadrage(_st.team, store.get('tickets') || []);
+    const ids = m.items.filter(x => x.t.status !== 'done' && !(Number(x.t.points) > 0)).map(x => x.t.id);
+    if (!ids.length) return;
+    setPokerPlaylist({ label: `🧭 Cadrage PI ${(m.pis.length ? m.pis : [m.targetPi]).join(' · ')}`, ids });
+    _openPoker(ids[0]);
 }
 
 /** Déplie / replie le volet Cadrage ; le choix devient explicite et mémorisé (fin du mode automatique). */
@@ -488,6 +499,7 @@ export async function renderRefinement(container) {
         if (e.target.closest('[data-rf-cad-toggle]') && _st) { _toggleCadrage(container); return; }
         const cadPi = e.target.closest('[data-rf-cad-pi]');
         if (cadPi && _st) { _pickCadragePi(container, cadPi.dataset.rfCadPi); return; }
+        if (e.target.closest('[data-rf-cad-play]') && _st) { _playCadrage(); return; }
         if (e.target.closest('[data-rf-cad-done]') && _st) { _st.cadHideDone = !_st.cadHideDone; _paint(container); return; }
         const step = e.target.closest('[data-rf-step]');
         if (step && _st) { _goStep(container, step.dataset.rfStep); return; }

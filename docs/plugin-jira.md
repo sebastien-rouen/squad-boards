@@ -6,7 +6,7 @@
 
 ## 5 passes d'import paginées via le helper `_paginateJql`
 1. **Per-board active sprint** (`/rest/agile/1.0/sprint/{id}/issue`) — tickets du sprint actif de chaque board scrum
-2. **Future sprints** (`sprint in futureSprints() AND issuetype NOT IN (Feature, Fonctionnalite, Epic)`) — tickets PI suivant
+2. **Future sprints** (`sprint in futureSprints() AND issuetype NOT IN (Feature, Fonctionnalite, Epic)`) — tickets PI suivant — demande `description,comment,issuelinks` depuis 3.248.0 (avant : tickets importés sans description)
 3. **Features JQL** (`issuetype IN (Feature, "Fonctionnalite") ORDER BY rank ASC`) — features avec leur rang JIRA
 4. **Epics JQL** (`issuetype=Epic ORDER BY rank ASC`)
 5. **PI-named-sprint** (`Sprint in ("PI28","PI#28",...,"PI31","PI#31") ORDER BY Rank ASC`) — récupère les projets qui planifient via des sprints nommés directement `"PI30"` (cas GCOM). Tourne après features/epics JQL pour ne pas écraser le rank standard.
@@ -88,6 +88,18 @@ plus. Désactiver `sb-sync-archiveClosed`, ou passer par « Tout réimporter dep
 ⚠️ L'archive réinjecte les objets du store **tels quels** : elle dépend de l'aller-retour exact
 entre `_ticket_dict` et le contrat d'`import_all`. Une clé ajoutée d'un seul côté est perdue en
 silence.
+
+## Synchro d'un seul ticket depuis sa popin (3.248.0)
+
+Bouton ↻ à côté de la clé JIRA ([jira_ticket_sync.js](../static/js/components/jira_ticket_sync.js), import dynamique
+depuis modal.js). Même connexion et même détection de champs que la synchro (surcharges `sb-sync-*` puis
+auto-détection), même `transformIssue`. Deux gestes :
+- **⬇ Prendre JIRA** — réécrit le ticket local (`PUT /api/tickets/:id`), équipe conservée, statut interne recalculé
+  seulement si le libellé JIRA a changé.
+- **⬆ Pousser vers JIRA** — `PUT /rest/api/3/issue/<clé>` (titre, points, priorité, étiquettes, leader par `accountId`
+  via `/user/assignable/search`) puis `POST …/transitions` pour le statut. Jamais la description (ADF).
+
+Les `fields` demandés sont ceux de la passe « sprint actif » + `fixVersions` + les champs Sprint / PI détectés.
 
 ## Sync rapide vs complète
 - **Rapide** (`importFromJira({ sinceDays })`, mode `merge`) : ne touche que ce qu'elle rapatrie. Pour être rapide, elle **saute les passes historiques** (sprints clos + vélocité Greenhopper par board, tickets des sprints clos, scan `labels=Buffer`) et filtre les enfants de features sur `updated`. Les `teamSprints` collectés (actif + futurs) sont **fusionnés par `jiraId`** avec ceux déjà en base → l'historique de vélocité/buffer des sprints clos est préservé. Conséquence : la vélocité d'un sprint **récemment clôturé** n'est rafraîchie qu'à la sync complète.

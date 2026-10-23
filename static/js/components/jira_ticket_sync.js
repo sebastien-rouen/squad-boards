@@ -1,5 +1,5 @@
 /**
- * Synchro JIRA d'UN ticket depuis sa popin (3.247.0).
+ * Synchro JIRA d'UN ticket depuis sa popin (3.248.0).
  *
  * Bouton ↻ de la barre de titre → l'issue est relue dans JIRA (proxy `/jira/*`, mêmes
  * identifiants que la synchro) et transformée par `transformIssue` (sync-parse.js : UNE seule
@@ -9,6 +9,8 @@
  *   ⬆ « Pousser vers JIRA » — les champs cochés partent vers JIRA (titre, points, priorité,
  *      étiquettes, leader, statut par TRANSITION), puis le ticket est relu pour rester aligné.
  * Sans différence visible, le ticket est rafraîchi en silence (historique, durées, liens).
+ * Vaut pour les tickets, les FEATURES et les EPICS : seuls les champs que l'entité locale connaît
+ * (clés de son serializer) sont comparés et réécrits — rang et dépendances d'une feature restent locaux.
  *
  * ⚠️ Chargé en import DYNAMIQUE par modal.js (il tire sync-parse.js, 25 Ko) — ne pas l'importer
  * statiquement. ⚠️ La description n'est jamais poussée : JIRA attend de l'ADF, le local tient du HTML.
@@ -63,7 +65,7 @@ async function fetchRemote(local) {
     // L'id de sprint ne vient que de l'API Agile : gardé tant que le nom n'a pas changé.
     r.sprint = (r.sprintName || null) === (local.sprintName || null) ? (local.sprint ?? null) : null;
     delete r._jiraStatus;
-    delete r.feature;
+    if (local.type !== 'epic') delete r.feature;
     return r;
 }
 
@@ -97,15 +99,25 @@ const FIELDS = [
       diff: (l, r) => (l.comments || []).length !== (r.comments || []).length },
 ];
 
-const diffRows = (local, remote) => FIELDS.filter(f => f.diff(local, remote));
+/** Lignes applicables : le champ existe sur l'entité locale (feature / epic en ont moins qu'un ticket). */
+const diffRows = (local, remote) => FIELDS.filter(f => (f.key === 'status' || f.key in local) && f.diff(local, remote));
+
+const _kind = t => (t.type === 'feature' ? 'features' : t.type === 'epic' ? 'epics' : 'tickets');
+const _updater = t => (t.type === 'feature' ? api.updateFeature : t.type === 'epic' ? api.updateEpic : api.updateTicket);
 
 // ── Écritures ────────────────────────────────────────────────────────────────
-/** Réécrit le ticket local avec la version JIRA et le remplace dans le store. */
+/** Réécrit l'entité locale avec la version JIRA (clés qu'elle connaît) et la remplace dans le store. */
 async function applyRemote(local, remote) {
-    const payload = { ...remote };
-    delete payload.id;
-    const saved = await api.updateTicket(local.id, payload);
-    store.set('tickets', (store.get('tickets') || []).map(t => (t.id === local.id ? saved : t)));
+    const isTicket = _kind(local) === 'tickets';
+    const payload = {};
+    for (const key of Object.keys(local)) {
+        if (key === 'id' || key === 'assignee' || !(key in remote)) continue;
+        if (!isTicket && (key === 'type' || key === 'createdAt' || key === 'updatedAt')) continue;  // factory CRUD : dates non normalisées
+        payload[key] = remote[key];
+    }
+    const saved = await _updater(local)(local.id, payload);
+    const kind = _kind(local);
+    store.set(kind, (store.get(kind) || []).map(t => (t.id === local.id ? saved : t)));
     return saved;
 }
 
@@ -205,6 +217,11 @@ function _panelHtml(local, remote, rows, trans) {
         </footer>`;
 }
 
+/** Relecture SILENCIEUSE d'une entité (lot « Relire les descriptions manquantes », Paramètres → JIRA). */
+export async function refreshFromJira(local) {
+    return applyRemote(local, await fetchRemote(local));
+}
+
 /**
  * Point d'entrée (bouton ↻ de la popin). `host` = corps de la modale ; `onApplied()` est appelé
  * après toute écriture locale (la popin se re-rend).
@@ -264,9 +281,8 @@ export async function openJiraTicketSync(local, { host, onApplied }) {
             // Relecture : le ticket local repart de ce que JIRA a réellement enregistré.
             const fresh = await fetchRemote(local);
             await applyRemote(local, fresh);
-            const left = diffRows({ ...local, ...fresh }, fresh).length;
             if (warnings.length) toast(`Poussé vers JIRA, sauf : ${warnings.join(' ; ')}`, 'warning');
-            else toast(`${local.id} poussé vers JIRA${left ? '' : ' · ticket aligné'}`, 'success');
+            else toast(`${local.id} poussé vers JIRA · ticket aligné`, 'success');
             panel.remove();
             await onApplied?.();
         } catch (e) { toast(api.jiraErrorMessage(e, `la mise à jour de ${local.id}`), 'error'); busy(false); }

@@ -1,3 +1,87 @@
+## [3.248.0] - 2026-10-22
+
+### Import CSV des congés : plus d'« année pivot » (PI à cheval sur deux années) · Cadrage : série Poker et « Ce PI + suivant »
+
+**🎬 Documentation : démos vidéo (3 scénarios, thème clair)**
+- `docs/demo/decouverte.json` (« Squad Board, c'est quoi ? », 47 s : pour qui, Dashboard, Board, PI, Roadmap, Santé,
+  Rapports) et `alternative-jira.json` (« Une alternative open source à JIRA ? », 38 s : kanban, fiche, Poker, Affinage,
+  Rétro — textes factices `fake` à la place du flou). Habillage automatique : couverture travaillée (titre en dégradé, pastille, puces, miniature de la première vue dans
+  un cadre navigateur incliné avec l'adresse publique), fondu entre vues,
+  barre de progression avec chapitres, carton de fin « Merci ! » manuscrit + date ; curseur en flèche avec onde au
+  clic ; étape `zoom` (×1,6 autour d'un élément) ; flou doux 4 px ; sous-titres 0,3 s/mot minimum 2 s.
+- `docs/demo/jira-sync.json` → `jira-sync.mp4` (24 s, 0,3 Mo, 720p) + poster WebP : tableau, popin, bouton ↻ JIRA
+  (halo + bulle façon wizard « Prêt à estimer ? »), tracés qui se dessinent (cercle, soulignement + texte), vue PI.
+  Produit par `tools/demo-video/record.mjs` (agent `demo-video`, racine du monorepo) ; titres, descriptions et noms
+  floutés (`blur` du scénario). Relancer : `cd /sites/drafts && node tools/demo-video/record.mjs squad-boards/docs/demo/jira-sync.json`.
+- `docs/demo/index.html` : lecteur des démos du dossier (généré, modèle `tools/demo-video/player/`) — grille avec
+  poster, chapitres cliquables horodatés, barre par chapitre, ←/→/Espace, téléchargements, scénario pas à pas.
+  Lecteur : sélecteur de vignettes en haut, panneau latéral compact (chapitres avec état lu/en cours, méta, boutons bleus).
+  Vidéo : sous-titres 23 px ombrés, fondus 450 ms, zoom 900 ms, couverture à fond multicolore tramé, fin « Merci, merci de
+  votre attention. ». Page d'accueil « Comment c'est fait » : pipeline en 4 étapes, poids pour une minute (MP4 ≈ 0,8 Mo · WebP ≈ 13 Mo ·
+  GIF ≈ 25 Mo), floutage avec bascule net/flouté, technos. S'ouvre en `file://` depuis `Z:/drafts/squad-boards/docs/demo/`
+  ou **servi sous `/demo/`** (`DEMO_DIR` dans `app/config.py`, montage dans `main.py` — seul ce sous-dossier de `docs/`
+  est exposé) : `https://squad-boards-drafts.bastou.dev/demo/#jira-sync`. `demos.js`, `player.*`, `caveat-600.woff2`
+  (police manuscrite des tracés, OFL), `*.meta.json` sont régénérés à chaque enregistrement.
+
+**📥 Paramètres → Absences, import CSV pivot**
+- **Bug** : les colonnes `dd/mm` recevaient TOUTES l'année saisie. Un PI à cheval sur deux années (PI 32 :
+  30/11 → 15/01) avait ses jours de janvier datés de l'année précédente : PI déduit « du 02/01 au 31/12 », absences
+  de janvier presque un an trop tôt (agendas, capacité, plage écrasée à l'import).
+- **Le champ « Année (format pivot) » disparaît** : l'année se déduit. La 1ʳᵉ colonne prend l'année qui la place au
+  plus près d'aujourd'hui, puis l'année avance au passage décembre → janvier ; une année écrite dans l'en-tête
+  (`dd/mm/yyyy`) prime. L'aperçu signale « 🗓 à cheval sur 2026 → 2027 ».
+
+**🧭 Cadrage (page Affinage)**
+- Puce **📅 Ce PI + suivant** à côté de ✨ Auto : les deux PI en entier, prêts compris, en un clic.
+- **🃏 Macro-estimer les N** : ouvre le Poker sur le premier cadrage non estimé des PI affichés ; « ⏭ Suivant »
+  n'enchaîne alors QUE sur cette série (bandeau « 🧭 Cadrage PI 31 · 32 · 55 restants » sous le titre, ✕ pour revenir
+  à la file d'estimation). Liste de jeu = `utils/poker-playlist.js`, mémoire de session.
+
+## [3.248.0] - 2026-10-22
+
+### Popin ticket : bouton ↻ « Comparer avec JIRA » — mettre à jour depuis JIRA ou pousser vers JIRA
+
+**Synchro d'UN ticket depuis sa popin** ([jira_ticket_sync.js](static/js/components/jira_ticket_sync.js), chargé à la demande)
+- **Bouton ↻ discret** à côté de la clé JIRA (mêmes `copy-btn` que « copier le lien »), pour les tickets, les features et
+  les epics (seuls les champs que l'entité connaît sont comparés et réécrits — rang et dépendances restent locaux). Il relit l'issue dans JIRA avec les identifiants de la synchro (`/jira/rest/api/3/issue/<clé>`, changelog compris)
+  et la transforme par `transformIssue` — UNE seule lecture d'une issue dans l'app, pas de second parseur.
+- **Panneau de comparaison** en tête de la popin : une ligne par champ différent (titre, statut, points, leader, priorité,
+  étiquettes, rapporteur, sprint, parent, type, drapeau, contributeurs, description, nombre de commentaires), « Ici » face
+  à « Dans JIRA ». Sans différence visible, le ticket est rafraîchi en silence (historique, durées par colonne, liens,
+  dates de cycle) et un toast le dit.
+- **⬇ Prendre JIRA** : le ticket local est réécrit avec la version JIRA (`PUT /api/tickets/:id`), le store et la popin
+  se mettent à jour sans recharger toute la base.
+- **⬆ Pousser vers JIRA** : les champs cochés partent vers JIRA — titre, points (champ Story Points détecté comme à la
+  synchro), priorité (libellé exact, sinon même palier via `priorityKey`), étiquettes, leader (`accountId` cherché parmi
+  les assignables de l'issue : nom exact ou résultat unique, sinon signalé), statut par **transition** (liste des
+  transitions de l'issue, présélection de celle qui mène au statut local, modifiable). Le ticket est ensuite relu depuis
+  JIRA pour repartir de ce qui a réellement été enregistré. La description n'est jamais poussée (JIRA attend de l'ADF).
+- Règles de prudence : l'équipe locale est conservée (la synchro la déduit du board, introuvable depuis une issue seule) ;
+  le statut interne n'est recalculé que si le libellé JIRA a changé (pas de colonnes de board ici) ; l'id de sprint est
+  gardé tant que le nom du sprint n'a pas bougé (il ne vient que de l'API Agile).
+
+**Synchro : les tickets du PI suivant arrivaient sans description** ([sync.js](static/js/sync.js))
+- Les passes « sprints futurs » et « sprints PI nommés » ne demandaient pas `description`, `comment` ni `issuelinks` à
+  JIRA (seule la passe « sprint actif » le faisait) : tout ticket du PI 32 — cadrages compris — était importé vide, et
+  l'Affinage le signalait « 📝 sans description » à tort (constaté sur Fuego). Les trois champs sont désormais demandés ;
+  la passe epics demande aussi `description`. ⚠️ Une **synchro complète** (ou le bouton ↻ ticket par ticket) est
+  nécessaire pour rattraper l'existant : la sync rapide ne relit que les tickets modifiés sur sa fenêtre.
+
+**Paramètres → Plugin JIRA → Synchronisation : « Descriptions manquantes »** ([settings-jira.js](static/js/views/settings-jira.js))
+- Compte les tickets et features du PI courant et du suivant dont la description est vide, et les relit un à un depuis
+  JIRA (`refreshFromJira`, 3 appels en parallèle, progression en direct, échecs nommés). Rattrape l'existant sans
+  synchro complète ; une entité vide aussi dans JIRA est comptée à part.
+
+**Backend** ([tickets.py](app/routers/tickets.py)) : `PUT /api/tickets/:id` accepte désormais `startedDate`,
+`resolvedDate`, `cycleTimeDays`, `leadTimeDays` et normalise `createdAt` / `updatedAt` en ISO UTC comme l'import
+(`_iso_utc`) — un ticket rafraîchi garde la date de modification JIRA au lieu de l'heure du clic.
+
+**API front** ([api.js](static/js/api.js)) : `jiraSend(method, path, body)` — écriture PUT / POST via le proxy (qui les
+acceptait déjà pour la mise à jour de sprint).
+
+**CSS** : [modal-jira-sync.css](static/css/views/modal-jira-sync.css) (préfixe `mjs-`, mobile en grille deux colonnes,
+rotation du ↻ coupée en `prefers-reduced-motion`).
+
 ## [3.247.0] - 2026-10-22
 
 ### Affinage : choisir un ou plusieurs PI pour le Cadrage · bandeau : dailys regroupés par créneau

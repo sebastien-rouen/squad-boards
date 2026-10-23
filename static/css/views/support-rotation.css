@@ -457,6 +457,12 @@
     border: 1px solid color-mix(in srgb, var(--success) 25%, transparent);
     border-radius: var(--r-sm);
 }
+/* PI à cheval sur deux années (3.248.0) : l'année est déduite, on la montre pour vérification */
+.abs-csv-years {
+    display: inline-block; margin-left: 4px; padding: 0 8px; border-radius: var(--r-full);
+    font-weight: var(--fw-semibold); color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
 .abs-csv-preview-teams, .abs-csv-preview-members { display: flex; flex-wrap: wrap; gap: 4px; }
 .abs-csv-preview-team {
     font-size: 11px; color: var(--text-muted);

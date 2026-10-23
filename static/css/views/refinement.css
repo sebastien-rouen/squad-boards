@@ -563,6 +563,8 @@
 .rf-cad-pi--auto { padding-right: 12px; }
 .rf-cad-pi--auto.is-on { background: var(--cad); color: #fff; border-color: var(--cad); box-shadow: none; }
 [data-theme="dark"] .rf-cad-pi--auto.is-on { color: #1e1b4b; }
+/* Série Poker : bouton calé à droite de la rangée */
+.rf-cad-play { margin-left: auto; white-space: nowrap; }
 /* PI d'une carte quand plusieurs PI sont affichés */
 .rf-cad-pi-tag {
     padding: 0 7px; border-radius: var(--r-full); font-size: 10.5px; font-weight: var(--fw-bold);

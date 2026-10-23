@@ -21,7 +21,22 @@
 // avec l'entité — sans ça, l'entité du CSV était silencieusement perdue.
 //
 // Retourne null si le format ne ressemble pas à un pivot (→ fallback ligne).
-function _parsePivotAbsencesCsv(raw, year, pipDays = 2) {
+//
+// ANNÉE des colonnes `dd/mm` (3.248.0 — plus de saisie « année pivot ») : les colonnes sont chronologiques,
+// donc l'année AVANCE quand la date repasse en arrière (31/12 → 02/01) — un PI à cheval sur deux années
+// (PI 32 : novembre → janvier) n'a plus ses jours de janvier datés de l'année précédente. L'année de DÉPART
+// est celle qui place la 1re colonne au plus près de `ref` (aujourd'hui par défaut : on importe le PI en cours
+// ou le suivant). `ref` = nombre → année imposée pour la 1re colonne (tests, rétrocompatibilité). Une année
+// écrite dans l'en-tête (`dd/mm/yyyy`) prime et recale la suite.
+function _startYear(dd, mm, ref) {
+    if (typeof ref === 'number') return ref;
+    const r = ref instanceof Date ? ref : new Date(ref || Date.now());
+    const y0 = r.getFullYear();
+    return [y0 - 1, y0, y0 + 1].reduce((best, y) =>
+        Math.abs(new Date(y, mm - 1, dd) - r) < Math.abs(new Date(best, mm - 1, dd) - r) ? y : best, y0);
+}
+
+function _parsePivotAbsencesCsv(raw, ref = new Date(), pipDays = 2) {
     const lines = raw.split('\n').filter(l => l.trim());
     if (lines.length < 2) return null;
     const splitLine = (l) => l.split(/[\t;]/).map(c => c.trim());
@@ -29,13 +44,16 @@ function _parsePivotAbsencesCsv(raw, year, pipDays = 2) {
     // Cherche des colonnes date dd/mm (avec ou sans année) à partir de la 4e colonne
     const datePattern = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/;
     const dateCols = [];
+    let year = null, prev = 0;   // année courante de la série, et dernier « mmdd » vu (détection du passage d'année)
     for (let i = 3; i < header.length; i++) {
         const m = header[i].match(datePattern);
         if (m) {
-            const dd = m[1].padStart(2, '0');
-            const mm = m[2].padStart(2, '0');
-            const yy = m[3] ? (m[3].length === 2 ? 2000 + parseInt(m[3]) : parseInt(m[3])) : year;
-            dateCols.push({ idx: i, iso: `${yy}-${mm}-${dd}` });
+            const d = parseInt(m[1], 10), mo = parseInt(m[2], 10), md = mo * 100 + d;
+            if (m[3]) year = m[3].length === 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10);
+            else if (year == null) year = _startYear(d, mo, ref);
+            else if (md < prev) year++;   // 31/12 → 02/01 : nouvelle année
+            prev = md;
+            dateCols.push({ idx: i, iso: `${year}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}` });
         }
     }
     // Heuristique : il faut au moins 3 colonnes date pour considérer que c'est un pivot

@@ -1,0 +1,144 @@
+{
+  "name": "alternative-jira",
+  "title": "Une alternative open source à JIRA ?",
+  "description": "Ce que Squad Board fait sans JIRA : tickets, kanban, estimation en poker, affinage, rétrospectives et PI planning. JIRA devient optionnel : on synchronise si on en a un, on vit sans sinon.",
+  "audience": "public",
+  "site": "squad-boards",
+  "url": "http://127.0.0.1:3010/",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "durationS": 39.2,
+  "recordedAt": "2026-10-22T22:20:50.881Z",
+  "chapters": [
+    {
+      "t": 2.9959999999999996,
+      "text": "Un kanban complet : créer, déplacer, prioriser, sans JIRA"
+    },
+    {
+      "t": 5.873999999999999,
+      "text": "Nouveau ticket en une touche (N)"
+    },
+    {
+      "t": 8.704,
+      "text": "Chaque ticket a sa fiche : statut, priorité, estimation, porteur"
+    },
+    {
+      "t": 14.22,
+      "text": "tout se modifie en place"
+    },
+    {
+      "t": 17.029999999999998,
+      "text": "Planning Poker intégré pour estimer en équipe"
+    },
+    {
+      "t": 18.514,
+      "text": "Voter, révéler, converger"
+    },
+    {
+      "t": 23.159,
+      "text": "Affinage : préparer le prochain sprint, ticket par ticket"
+    },
+    {
+      "t": 27.323,
+      "text": "Rétrospectives et amélioration continue"
+    },
+    {
+      "t": 31.727,
+      "text": "Et si JIRA est là : on synchronise. Sinon, on vit très bien sans"
+    }
+  ],
+  "files": {
+    "mp4": 716075,
+    "webp": 9544950,
+    "poster": 51468
+  },
+  "blur": [
+    ".mdl-description",
+    ".mdl-people"
+  ],
+  "steps": [
+    {
+      "goto": "#kanban"
+    },
+    {
+      "caption": "Un kanban complet : créer, déplacer, prioriser, sans JIRA"
+    },
+    {
+      "highlight": "#btn-create",
+      "tip": "Nouveau ticket en une touche (N)",
+      "wait": 2400
+    },
+    {
+      "highlight": ""
+    },
+    {
+      "caption": "Chaque ticket a sa fiche : statut, priorité, estimation, porteur"
+    },
+    {
+      "click": ".ticket-card",
+      "wait": 1400
+    },
+    {
+      "draw": {
+        "sel": ".mdl-props",
+        "shape": "box",
+        "label": "tout se modifie en place",
+        "color": "#2563eb"
+      },
+      "wait": 2400
+    },
+    {
+      "draw": ""
+    },
+    {
+      "caption": "Planning Poker intégré pour estimer en équipe",
+      "wait": 300
+    },
+    {
+      "zoom": "#mdl-poker-btn",
+      "scale": 1.6,
+      "wait": 800
+    },
+    {
+      "highlight": "#mdl-poker-btn",
+      "tip": "Voter, révéler, converger",
+      "wait": 2600
+    },
+    {
+      "highlight": ""
+    },
+    {
+      "zoom": "",
+      "wait": 800
+    },
+    {
+      "press": "Escape",
+      "wait": 800
+    },
+    {
+      "caption": "Affinage : préparer le prochain sprint, ticket par ticket",
+      "wait": 300
+    },
+    {
+      "goto": "#refinement",
+      "wait": 2600
+    },
+    {
+      "caption": "Rétrospectives et amélioration continue",
+      "wait": 300
+    },
+    {
+      "goto": "#retro",
+      "wait": 2600
+    },
+    {
+      "caption": "Et si JIRA est là : on synchronise. Sinon, on vit très bien sans"
+    },
+    {
+      "caption": ""
+    }
+  ],
+  "scenario": "alternative-jira.json"
+}

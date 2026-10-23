@@ -613,7 +613,9 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
                 const futureJql = `project IN (${projects.join(',')}) AND sprint in futureSprints() AND issuetype NOT IN (Feature, "Fonctionnalite", Epic)${updClause} ORDER BY updated DESC`;
                 const FUTURE_PAGE = 100;
                 let nextPiAdded = 0;
-                const futFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,${sprintFieldId}${contributorsFieldParam()}` +
+                // `description,comment,issuelinks` (3.248.0) : sans eux, les tickets du PI suivant (cadrage compris) arrivaient
+                // VIDES — l'Affinage les signalait « 📝 sans description » alors que JIRA en avait une.
+                const futFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,description,comment,issuelinks,${sprintFieldId}${contributorsFieldParam()}` +
                     (teamFieldId ? `,${teamFieldId}` : '');
                 const seenKeys = await _paginateJql({
                     jql: futureJql,
@@ -758,7 +760,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
         const epicExtraFields = [sprintFieldId, 'fixVersions'];
         if (piSprintField) epicExtraFields.push(piSprintField);
         if (teamFieldId)   epicExtraFields.push(teamFieldId);
-        const epicFields = `summary,status,issuetype,assignee,priority,labels,${storyPointsField},parent,updated,created,${epicExtraFields.join(',')}`;
+        const epicFields = `summary,status,issuetype,assignee,priority,labels,${storyPointsField},parent,updated,created,description,${epicExtraFields.join(',')}`;
         const epicJql = `${jqlProject} AND issuetype=Epic${updClause} ORDER BY rank ASC`;
         await _paginateJql({
             jql: epicJql,
@@ -808,7 +810,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
             setProgress(81, 'Sprints PI nommes...', piNames.join(', '));
             try {
                 const added = { features: 0, epics: 0, tickets: 0 };
-                const piFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,fixVersions,${sprintFieldId}${contributorsFieldParam()}` +
+                const piFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,description,comment,issuelinks,fixVersions,${sprintFieldId}${contributorsFieldParam()}` +
                     (teamFieldId ? `,${teamFieldId}` : '') + (piSprintField ? `,${piSprintField}` : '');
                 const seen = await _paginateJql({
                     jql: piSprintJql,

@@ -1,0 +1,68 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Synchro JIRA d'un ticket depuis sa popin (3.248.0) — `jira_ticket_sync.js`
+   Préfixe `mjs-` (libre). Panneau inséré EN TÊTE du corps de la modale, hors
+   `.mdl-layout` : même place en modale et en pleine page.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Bouton ↻ de la barre de titre : rotation le temps de la lecture JIRA */
+.mdl-jira-sync.is-busy .icon { animation: mjs-spin 0.9s linear infinite; }
+@keyframes mjs-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .mdl-jira-sync.is-busy .icon { animation: none; opacity: 0.4; }
+}
+
+.mjs {
+    margin: 0 0 var(--sp-4, 16px);
+    padding: var(--sp-3, 12px) var(--sp-4, 16px);
+    border: 1px solid var(--primary);
+    border-radius: var(--r-md);
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+    font-size: 13px;
+}
+
+.mjs-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, 8px);
+    margin-bottom: var(--sp-2, 8px);
+}
+.mjs-title { font-weight: var(--fw-semibold, 600); }
+.mjs-meta { flex: 1; min-width: 0; color: var(--text-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mjs-close { font-size: 18px; line-height: 1; }
+
+.mjs-table { width: 100%; border-collapse: collapse; }
+.mjs-table th,
+.mjs-table td {
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+    border-top: 1px solid var(--border, rgba(128, 128, 128, 0.25));
+}
+.mjs-table thead th { border-top: 0; color: var(--text-muted); font-weight: var(--fw-semibold, 600); font-size: 12px; }
+.mjs-table tbody th { width: 110px; font-weight: var(--fw-semibold, 600); white-space: nowrap; }
+.mjs-local,
+.mjs-remote { width: 40%; overflow-wrap: anywhere; }
+.mjs-remote { color: var(--primary); }
+.mjs-push { width: 32px; text-align: center; }
+.mjs-push input { cursor: pointer; }
+.mjs-sub { margin-top: 4px; }
+.mjs-select { max-width: 100%; font-size: 12px; }
+
+.mjs-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, 8px);
+    margin-top: var(--sp-3, 12px);
+}
+.mjs-note { flex: 1; min-width: 0; }
+
+@media (max-width: 640px) {
+    .mjs-table thead { display: none; }
+    .mjs-table tr { display: grid; grid-template-columns: 1fr 32px; }
+    .mjs-table tbody th { grid-column: 1 / -1; border-top: 1px solid var(--border, rgba(128, 128, 128, 0.25)); width: auto; }
+    .mjs-table td { border-top: 0; }
+    .mjs-local::before { content: 'Ici · '; color: var(--text-muted); }
+    .mjs-remote::before { content: 'JIRA · '; color: var(--text-muted); }
+    .mjs-push { grid-row: 2 / span 2; align-self: center; }
+    .mjs-actions { flex-wrap: wrap; }
+}

@@ -99,6 +99,7 @@ export function cadrageModel({ tickets, team, piNum, groups = [], roster = [], a
     return {
         perimeter, piNum, targetPi: piNum + 1,
         auto: !chosen, pis: chosen || [...new Set(items.map(x => x.pi))].sort((a, b) => a - b), available,
+        items,   // tous rôles confondus, dans l'ordre d'affichage (série « Macro-estimer » du Poker)
         openCurrent: items.filter(x => x.pi === piNum).length,
         total: items.length,
         done: items.filter(x => x.t.status === 'done').length,

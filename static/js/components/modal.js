@@ -9,6 +9,7 @@ import { esc, fmtDate, fmtDateLong, fmtRelative, initials, hashColor, toast, toa
 import { ticketFlowModel, ticketFlowHtml, bindTicketFlow } from './ticket_flow.js';
 import { presenceStripHtml, sprintWorkDays, nextAbsence } from './meteo_fiche.js';
 import { pokerSoundOn, setPokerSound, playPokerSound } from './poker_sound.js';
+import { playlistFor, playlistNext, clearPokerPlaylist } from '../utils/poker-playlist.js';
 import { flyPokerChip } from './poker_chip_fly.js';
 import { mountReadyGuide } from './ticket_ready.js';
 import { descSections, descSectionsHtml } from './desc_sections.js';
@@ -880,6 +881,7 @@ export function openTicketModal(ticketId) {
     // par toutes les modales, les autres gardent l'en-tête d'origine.
     const _svgCopy = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
     const _svgLink = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>';
+    const _svgSync = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>';
     titleEl().innerHTML = `
         <span class="mdl-titlebar">
             <span class="mdl-titlebar-top">
@@ -896,6 +898,8 @@ export function openTicketModal(ticketId) {
                     <button class="copy-btn copy-btn--always" id="mdl-copy-key" data-copy-key="${esc(ticket.id)}" data-copy-title="${esc(ticket.title)}" title="Copier '${esc(ticket.id)} - ${esc(ticket.title)}'">${_svgCopy}</button>
                     <!-- E : copie URL JIRA -->
                     ${jiraLink ? `<button class="copy-btn copy-btn--always" id="mdl-copy-url" title="Copier le lien JIRA">${_svgLink}</button>` : ''}
+                    <!-- Synchro JIRA (3.248.0, jira_ticket_sync.js) : tickets, features et epics -->
+                    ${jiraLink ? `<button class="copy-btn copy-btn--always mdl-jira-sync" id="mdl-jira-sync" title="Comparer avec JIRA : mettre à jour ou pousser" aria-label="Synchroniser avec JIRA">${_svgSync}</button>` : ''}
                 </span>
                 <span class="mdl-titlebar-spacer"></span>
                 <!-- C : badge commentaires -->
@@ -1154,6 +1158,21 @@ export function openTicketModal(ticketId) {
     // E : copie URL JIRA
     document.getElementById('mdl-copy-url')?.addEventListener('click', () => {
         if (jiraLink) copyToClipboard(jiraLink, 'Lien JIRA copié');
+    });
+
+    // Synchro JIRA du ticket : module chargé à la demande (il tire sync-parse.js).
+    document.getElementById('mdl-jira-sync')?.addEventListener('click', async e => {
+        const btn = e.currentTarget;
+        btn.classList.add('is-busy');
+        btn.disabled = true;
+        try {
+            const { openJiraTicketSync } = await import('./jira_ticket_sync.js');
+            await openJiraTicketSync(ticket, {
+                host: bodyEl(),
+                onApplied: () => { openTicketModal(ticket.id); window.__squadBoard?.rerenderView?.(); },
+            });
+        } catch (err) { toast(err.message, 'error'); }
+        finally { btn.classList.remove('is-busy'); btn.disabled = false; }
     });
 
 
@@ -1685,8 +1704,9 @@ const _initials = (name) => name.trim().split(/\s+/).map(w => w[0]?.toUpperCase(
 // Adapte un vote serveur {voter,value,revealed} → forme front {name,val,me,revealed}.
 /** Tickets à estimer APRÈS celui-ci : file partagée avec la page « Séance d'affinage »
  *  (`estimationQueue`, utils/estimation-queue.js), son sprint en tête. Relue à chaque clic. */
-const _nextToEstimate = ticket =>
-    estimationQueue(store.get('tickets') || [], ticket.team, { sprintName: ticket.sprintName, exclude: ticket.id, teamSprints: store.get('sprintInfo')?.teamSprints }).map(x => x.t);
+const _nextToEstimate = ticket => playlistFor(ticket.id)
+    ? playlistNext(store.get('tickets') || [], ticket.id)   // liste de jeu (cadrage…) : elle seule, cf. utils/poker-playlist.js
+    : estimationQueue(store.get('tickets') || [], ticket.team, { sprintName: ticket.sprintName, exclude: ticket.id, teamSprints: store.get('sprintInfo')?.teamSprints }).map(x => x.t);
 
 /** Historique des tours de Poker CONCLUS d'un ticket (section de la modale, chargée à la demande). */
 function _pokerRoundsHtml(rounds) {
@@ -1839,6 +1859,9 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
                     <div>
                         <div class="poker-ticket-ref">${esc(ticket.id)}</div>
                         <div class="poker-ticket-title">${esc(ticket.title)}</div>
+                        ${playlistFor(ticket.id) ? `<div class="poker-playlist" title="« Suivant » n'enchaîne que sur cette série">
+                            <span>${esc(playlistFor(ticket.id).label)} · <b>${queue.length}</b> restant${queue.length > 1 ? 's' : ''} après celui-ci</span>
+                            <button type="button" class="poker-playlist-x" id="poker-playlist-x" aria-label="Quitter la série (revenir à la file d'estimation)" title="Quitter la série">✕</button></div>` : ''}
                     </div>
                 </div>
                 <div class="poker-hdr-right">
@@ -2191,6 +2214,7 @@ function _openPokerModal(ticket, apiSave, openTicketModal) {
             openTicketModal(id);
             requestAnimationFrame(() => document.getElementById('mdl-poker-btn')?.click());
         };
+        ov.querySelector('#poker-playlist-x')?.addEventListener('click', () => { clearPokerPlaylist(); render(); });
         ov.querySelector('#poker-next')?.addEventListener('click', () => {
             const nx = _nextToEstimate(ticket)[0];
             if (nx) goTo(nx.id);

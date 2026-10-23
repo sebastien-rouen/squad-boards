@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Démos vidéo</title>
+    <!-- Généré par tools/demo-video/record.mjs (modèle : tools/demo-video/player/) — s'ouvre en file:// ou servi (/demo/) -->
+    <link rel="stylesheet" href="player.css">
+</head>
+<body>
+    <header class="hd">
+        <div class="hd-row">
+            <h1 class="hd-title">🎬 Démos <span class="hd-site" id="hd-site"></span></h1>
+            <p class="hd-sub"><span id="hd-count"></span> · <kbd>←</kbd> <kbd>→</kbd> chapitres · <kbd>Espace</kbd> lecture · <a href="#how">comment c'est fait ↓</a></p>
+        </div>
+        <!-- Sélecteur : une vignette par démo -->
+        <nav class="picker" id="picker" aria-label="Choisir une démo"></nav>
+        <p class="empty" id="empty" hidden>Aucune démo ici : lance <code>node tools/demo-video/record.mjs &lt;scenario.json&gt;</code>.</p>
+    </header>
+
+    <main class="pl" id="player" hidden>
+        <section class="pl-stage">
+            <video id="pl-video" controls playsinline preload="metadata"></video>
+            <div class="pl-chapbar" id="pl-chapbar" aria-hidden="true"></div>
+        </section>
+        <aside class="pl-side">
+            <div class="pl-head">
+                <p class="pl-kicker" id="pl-kicker"></p>
+                <h2 class="pl-title" id="pl-title"></h2>
+                <p class="pl-desc" id="pl-desc"></p>
+            </div>
+            <section class="pl-block">
+                <h3 class="pl-block-title">Chapitres <span class="pl-count" id="pl-chapcount"></span></h3>
+                <ol class="chapters" id="pl-chapters" aria-label="Chapitres"></ol>
+            </section>
+            <section class="pl-block pl-block--meta">
+                <dl class="pl-meta" id="pl-meta"></dl>
+            </section>
+            <p class="pl-links" id="pl-links"></p>
+            <details class="pl-steps">
+                <summary>Scénario pas à pas</summary>
+                <ol id="pl-steps"></ol>
+                <p class="pl-cmd"><code id="pl-cmd"></code></p>
+            </details>
+        </aside>
+    </main>
+
+    <!-- ── Comment une démo est produite ── -->
+    <section class="how" id="how" aria-labelledby="how-title">
+        <h2 class="how-title" id="how-title">Comment c'est fait <span class="hand">en une minute, sans montage</span></h2>
+
+        <ol class="pipe">
+            <li class="pipe-step">
+                <span class="pipe-ico">📝</span>
+                <h3>Scénario JSON</h3>
+                <p>Une liste d'étapes lisible : aller à une vue, cliquer, sous-titrer, mettre en lumière, flouter. Versionné à côté de la vidéo.</p>
+                <code>{ "click": ".ticket-card" }</code>
+            </li>
+            <li class="pipe-step">
+                <span class="pipe-ico">🎭</span>
+                <h3>Playwright filme</h3>
+                <p>Chromium rejoue le scénario sur <b>drafts</b> et enregistre. Un calque injecté dessine le curseur, le halo, les bulles, les tracés à la main et les cartons.</p>
+                <code>recordVideo · 1280×720</code>
+            </li>
+            <li class="pipe-step">
+                <span class="pipe-ico">🎞️</span>
+                <h3>ffmpeg compresse</h3>
+                <p>H.264 crf 30, 24 images/s, démarrage rapide : une interface tient dans quelques centaines de Ko. Poster WebP en prime.</p>
+                <code>libx264 · libwebp</code>
+            </li>
+            <li class="pipe-step">
+                <span class="pipe-ico">🎬</span>
+                <h3>Ce lecteur</h3>
+                <p>Chapitres horodatés depuis les sous-titres, poids, scénario pas à pas. Aucun serveur requis : la page s'ouvre en double-clic.</p>
+                <code>demos.js · *.meta.json</code>
+            </li>
+        </ol>
+
+        <div class="how-grid">
+            <article class="how-card">
+                <h3>⚖️ Poids pour une minute</h3>
+                <p class="how-sub">Extrapolé depuis les démos de ce dossier · GIF estimé pour comparaison</p>
+                <ul class="bars" id="bars"></ul>
+                <p class="how-note">Le MP4 se lit partout (<code>&lt;video autoplay muted loop&gt;</code>). Le WebP animé n'a de sens que pour une boucle de 5 à 10 s. Le GIF, jamais.</p>
+            </article>
+
+            <article class="how-card">
+                <h3>🫥 Floutage ou textes factices</h3>
+                <p class="how-sub">Les sites drafts contiennent des données réelles : chaque scénario dit ce qu'il cache (<code>blur</code>), ce qu'il remplace (<code>fake</code>) et pour qui (<code>audience</code>).</p>
+                <div class="blur-demo" id="blur-demo" tabindex="0" role="button" aria-pressed="true" title="Cliquer pour comparer">
+                    <div class="fake-card">
+                        <div class="fake-top"><span class="fake-type">✨ STORY</span><span class="fake-id">GEX-11656</span></div>
+                        <div class="fake-title blurable">MACRO-US · Remplacer le F24 par des API</div>
+                        <div class="fake-foot"><span class="fake-av">AB</span><span class="fake-name blurable">Anna Bertrand</span><span class="fake-pts">21 pts</span></div>
+                    </div>
+                    <span class="blur-state" id="blur-state">flouté · cliquer pour voir net</span>
+                </div>
+                <dl class="blur-rules">
+                    <dt>Toujours</dt><dd>titres et descriptions JIRA, objectifs PI, noms, emails, adresses, secrets</dd>
+                    <dt>Jamais</dt><dd>identifiants de tickets, statuts, points, équipes, graphiques, libellés d'UI</dd>
+                </dl>
+            </article>
+
+            <article class="how-card">
+                <h3>🧰 Technos</h3>
+                <ul class="badges">
+                    <li>Playwright <small>storybook/node_modules</small></li>
+                    <li>Chromium <small>/usr/bin/chromium</small></li>
+                    <li>ffmpeg 7 <small>libx264 · libwebp</small></li>
+                    <li>Node 22 <small>script ES module</small></li>
+                    <li>Caveat <small>police manuscrite, OFL</small></li>
+                    <li>0 dépendance npm <small>rien à installer</small></li>
+                </ul>
+                <p class="how-note">Agent Claude <code>demo-video</code> : il écrit le scénario, filme, contrôle image par image et relance.</p>
+                <pre class="how-cmd"><code>cd /sites/drafts
+node tools/demo-video/record.mjs {site}/docs/demo/{feature}.json</code></pre>
+            </article>
+        </div>
+    </section>
+
+    <template id="tpl-pick">
+        <button type="button" class="pick">
+            <span class="pick-thumb"><img alt=""><span class="pick-dur"></span></span>
+            <span class="pick-body"><span class="pick-title"></span><span class="pick-meta"></span></span>
+        </button>
+    </template>
+
+    <script src="demos.js"></script>
+    <script src="player.js"></script>
+</body>
+</html>

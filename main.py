@@ -13,7 +13,7 @@ from sqlmodel import SQLModel
 
 import app.models  # noqa: F401 — enregistre toutes les tables sur SQLModel.metadata
 from app import http_client
-from app.config import STATIC_DIR
+from app.config import DEMO_DIR, STATIC_DIR
 from app.db import engine
 from app.migrations import run_migrations
 from app.static_assets import NoCacheStaticFiles, VersionedStaticFiles, index_response
@@ -71,6 +71,10 @@ app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 app.add_api_route("/", index_response, methods=["GET"], include_in_schema=False)
 app.add_api_route("/index.html", index_response, methods=["GET"], include_in_schema=False)
 app.mount("/v/{ver}", VersionedStaticFiles(directory=str(STATIC_DIR)), name="static-versioned")
+# Démos vidéo (3.248.0) : docs/demo/ (lecteur généré par tools/demo-video/record.mjs) servi tel quel sous /demo/
+# — lien partageable depuis l'aide du site. Seul ce sous-dossier de docs/ est exposé, jamais docs/ entier.
+if DEMO_DIR.is_dir():
+    app.mount("/demo", NoCacheStaticFiles(directory=str(DEMO_DIR), html=True), name="demo")
 app.mount("/", NoCacheStaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 
 

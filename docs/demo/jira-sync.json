@@ -1,0 +1,110 @@
+{
+    "name": "jira-sync",
+    "title": "Synchroniser un ticket avec JIRA depuis sa popin",
+    "description": "Le bouton ↻ compare le ticket local avec JIRA : on met à jour en local ou on pousse les modifications, sans quitter la fiche.",
+    "audience": "public",
+    "brand": "Squad Board",
+    "url": "http://127.0.0.1:3010/",
+    "publicUrl": "https://squad-boards.bastou.dev",
+    "viewport": {
+        "width": 1280,
+        "height": 720
+    },
+    "colorScheme": "light",
+    "localStorage": {
+        "sb-theme": "light"
+    },
+    "ready": ".ticket-card",
+    "blur": [
+        ".ticket-title",
+        "#mdl-title-span",
+        ".mdl-crumb-title",
+        ".mdl-description",
+        ".ticket-assignee",
+        ".person-picker-name",
+        ".mdl-people",
+        ".pi-obj-ro-text",
+        ".pi-obj-text"
+    ],
+    "steps": [
+        {
+            "goto": "#kanban"
+        },
+        {
+            "caption": "Le tableau de l'équipe, synchronisé avec JIRA"
+        },
+        {
+            "draw": {
+                "sel": ".ticket-card",
+                "shape": "circle",
+                "label": "un ticket",
+                "color": "#f59e0b"
+            },
+            "wait": 1600
+        },
+        {
+            "draw": ""
+        },
+        {
+            "caption": "Ouvrir un ticket"
+        },
+        {
+            "click": ".ticket-card",
+            "wait": 1400
+        },
+        {
+            "caption": "Un bouton discret compare le ticket avec JIRA",
+            "wait": 300
+        },
+        {
+            "zoom": "#mdl-jira-sync",
+            "scale": 1.7,
+            "wait": 900
+        },
+        {
+            "highlight": "#mdl-jira-sync",
+            "tip": "Comparer avec JIRA : mettre à jour ou pousser",
+            "wait": 3000
+        },
+        {
+            "highlight": ""
+        },
+        {
+            "zoom": "",
+            "wait": 900
+        },
+        {
+            "draw": {
+                "sel": ".mdl-props",
+                "shape": "underline",
+                "label": "statut, priorité, points… poussés vers JIRA",
+                "color": "#16a34a"
+            },
+            "wait": 2600
+        },
+        {
+            "caption": "Mettre à jour en local, ou pousser vers JIRA : au choix"
+        },
+        {
+            "caption": ""
+        },
+        {
+            "draw": ""
+        },
+        {
+            "press": "Escape",
+            "wait": 900
+        },
+        {
+            "caption": "Vue PI : toutes les équipes du train",
+            "wait": 300
+        },
+        {
+            "goto": "#pi",
+            "wait": 2600
+        },
+        {
+            "caption": ""
+        }
+    ]
+}

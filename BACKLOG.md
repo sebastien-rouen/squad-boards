@@ -30,6 +30,11 @@
 
 ## 💡 Idées (à affiner)
 
+- [ ] 🎙️ **Démos vidéo : voix off en français** générée à partir des sous-titres du scénario (`docs/demo/*.json`, agent
+  `demo-video`) — synthèse locale (Piper ou Coqui TTS sur le LXC, aucun service cloud), une piste par sous-titre calée
+  sur les chapitres de `*.meta.json`, mixage ffmpeg (`-i voix.wav -c:a aac -b:a 64k`). Garder le MP4 muet comme sortie
+  par défaut (lecture auto dans les pages), la version sonorisée en `*-voix.mp4`. Proposé le 2026-10-22.
+
 ## 🧊 Someday/Maybe
 
 ---

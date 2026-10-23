@@ -10,7 +10,7 @@
 import { store } from '../state.js';
 import { SYNC_DEFAULTS } from '../config.js';
 import * as api from '../api.js';
-import { esc, toast, emptyStateHtml } from '../utils.js';
+import { esc, toast, emptyStateHtml, getCurrentPi } from '../utils.js';
 import { getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
 import { statusOverrideHtml, wireStatusOverride } from './settings-status-override.js';
 
@@ -100,6 +100,42 @@ function _excludedHtml(ex) {
 }
 
 /** HTML de la section — à interpoler dans le template de renderSettings. */
+// Arguments explicites : sans eux, getCurrentPi lit `window.__squadBoard.store` (absent sous node --test).
+const _currentPi = () => getCurrentPi({ sprintInfo: store.get('sprintInfo'), piInfo: store.get('piInfo') });
+
+/** Tickets et features du PI courant et du suivant SANS description (relus un à un via jira_ticket_sync.js). */
+export function missingDescriptionItems() {
+    const cur = _currentPi();
+    if (!cur) return [];
+    const tags = new Set([`PI#${cur}`, `PI#${cur + 1}`]);
+    const empty = t => !String(t.description || '').trim();
+    return [...(store.get('tickets') || []), ...(store.get('features') || [])]
+        .filter(t => tags.has(t.piSprint) && empty(t));
+}
+
+function _missingDescHtml() {
+    const items = missingDescriptionItems();
+    const cur = _currentPi();
+    const n = items.length;
+    return `
+                <div class="sync-cfg-block mt-4" id="jira-missing-desc">
+                    <div class="sync-cfg-title">Descriptions manquantes</div>
+                    <div class="sync-cfg-hint">Avant la 3.248.0, les tickets des sprints à venir arrivaient <strong>sans description</strong>. Cette relecture interroge JIRA ticket par ticket (PI ${cur} et ${cur + 1}, tickets et features) et ne touche qu'aux entités dont la description est vide ici.</div>
+                    <div class="sync-cfg-row">
+                        <div class="sync-cfg-label">
+                            <span class="sync-cfg-icon">📝</span>
+                            <div>
+                                <div class="sync-cfg-name"><span id="jira-missing-count">${n}</span> ${n > 1 ? 'éléments' : 'élément'} sans description</div>
+                                <div class="sync-cfg-desc" id="jira-missing-progress" aria-live="polite">${n ? 'Un appel JIRA par élément, 3 en parallèle.' : 'Rien à relire.'}</div>
+                            </div>
+                        </div>
+                        <div class="sync-cfg-input-wrap">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-jira-missing-desc"${n ? '' : ' disabled'}>↻ Relire depuis JIRA</button>
+                        </div>
+                    </div>
+                </div>`;
+}
+
 export function jiraSectionHtml() {
     const jiraConfigured  = store.get('jiraConfigured');
     const project         = store.get('project');
@@ -318,6 +354,7 @@ export function jiraSectionHtml() {
                     </div>
                 </div>
                 ` : _needConnection('aux réglages de synchronisation')}
+                ${jiraConfigured ? _missingDescHtml() : ''}
                 </div>
 
                 <div class="jira-panel" id="jira-panel-teams" role="tabpanel" aria-labelledby="jira-tab-teams"${tab === 'teams' ? '' : ' hidden'}>
@@ -485,6 +522,42 @@ export function wireJiraSection(container, onReload = () => {}) {
         clearExcludedTeams();
         toast('Toutes les équipes masquées ont été restaurées', 'success');
         reloadAndRender();
+    });
+
+    // ── Descriptions manquantes — relecture ticket par ticket (3.248.0) ───────
+    container.querySelector('#btn-jira-missing-desc')?.addEventListener('click', async e => {
+        const btn = e.currentTarget;
+        const out = container.querySelector('#jira-missing-progress');
+        const items = missingDescriptionItems();
+        if (!items.length) return;
+        btn.disabled = true;
+        const { refreshFromJira } = await import('../components/jira_ticket_sync.js');
+        let done = 0, filled = 0;
+        const failures = [];
+        const say = txt => { if (out) out.textContent = txt; };
+        // Concurrence bornée à 3 (même prudence que les calendriers ICS, cf. cal_banner._refreshPooled).
+        const queue = [...items];
+        const worker = async () => {
+            for (let t = queue.shift(); t; t = queue.shift()) {
+                try {
+                    const saved = await refreshFromJira(t);
+                    if (String(saved?.description || '').trim()) filled++;
+                } catch (err) { failures.push(`${t.id} (${err?.status || err?.message || 'erreur'})`); }
+                done++;
+                say(`${done} / ${items.length} relus · ${filled} ${filled > 1 ? 'descriptions récupérées' : 'description récupérée'}`);
+            }
+        };
+        await Promise.all(Array.from({ length: Math.min(3, items.length) }, worker));
+        const still = items.length - filled - failures.length;
+        say(`Terminé : ${filled} ${filled > 1 ? 'descriptions récupérées' : 'description récupérée'}`
+            + (still ? `, ${still} vide${still > 1 ? 's' : ''} aussi dans JIRA` : '')
+            + (failures.length ? ` — échecs : ${failures.join(', ')}` : ''));
+        if (failures.length) toast(`${failures.length} ${failures.length > 1 ? 'éléments' : 'élément'} non relus — vérifier la connexion JIRA`, 'warning');
+        else toast(`${filled} ${filled > 1 ? 'descriptions récupérées' : 'description récupérée'} depuis JIRA`, 'success');
+        const count = container.querySelector('#jira-missing-count');
+        if (count) count.textContent = String(missingDescriptionItems().length);
+        btn.disabled = false;
+        window.__squadBoard?.rerenderView?.();
     });
 
 

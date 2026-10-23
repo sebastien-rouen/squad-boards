@@ -71,11 +71,17 @@ function _piPickerHtml(model) {
             data-rf-cad-pi="${a.pi}" aria-pressed="${pressed}" title="${esc(tip)}">
             <span class="rf-cad-pi-check" aria-hidden="true"></span>PI ${a.pi}${tag}<b>${a.total}</b></button>`;
     };
+    const pair = !model.auto && model.pis.length === 2 && model.pis[0] === model.piNum && model.pis[1] === model.targetPi;
+    const todo = model.items.filter(x => x.t.status !== 'done' && !(Number(x.t.points) > 0)).length;
     return `<div class="rf-cad-pis" role="group" aria-label="PI du cadrage — plusieurs choix possibles">
         <button type="button" class="rf-cad-pi rf-cad-pi--auto${model.auto ? ' is-on' : ''}" data-rf-cad-pi="auto" aria-pressed="${model.auto}"
             title="Automatique : le PI suivant (cible) + les cadrages du PI en cours encore ouverts">✨ Auto</button>
+        <button type="button" class="rf-cad-pi rf-cad-pi--auto${pair ? ' is-on' : ''}" data-rf-cad-pi="pair" aria-pressed="${pair}"
+            title="PI ${model.piNum} et PI ${model.targetPi} en entier, prêts compris">📅 Ce PI + suivant</button>
         <span class="rf-cad-pis-sep" aria-hidden="true"></span>
         ${model.available.map(chip).join('')}
+        ${todo ? `<button type="button" class="btn btn-primary btn-sm rf-cad-play" data-rf-cad-play
+            title="Ouvre le Poker sur le premier ; « ⏭ Suivant » n'enchaîne que sur ces ${todo} tickets">🃏 Macro-estimer les ${todo}</button>` : ''}
     </div>`;
 }
 

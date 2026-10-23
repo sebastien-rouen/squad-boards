@@ -11,6 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 STATIC_DIR = BASE_DIR / "static"
+DEMO_DIR = BASE_DIR / "docs" / "demo"   # démos vidéo servies sous /demo/ (main.py)
 DB_PATH = DATA_DIR / "board.db"
 UPLOADS_DIR = DATA_DIR / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)

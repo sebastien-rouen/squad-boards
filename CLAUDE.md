@@ -436,6 +436,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
   ⚠️ La suppression porte sur le **chevauchement** : un congé qui déborde de la fenêtre part
   en entier, part hors-PI comprise. Volontaire (le CSV pivot fait autorité sur ses jours),
   mais à dire dans l'UI — c'est fait dans le libellé du bouton « Écraser ».
+- **Année des colonnes `dd/mm` du CSV pivot** (3.248.0) : DÉDUITE par `_parsePivotAbsencesCsv(raw, ref, pipDays)` —
+  1ʳᵉ colonne au plus près de `ref` (aujourd'hui), +1 an quand la date repasse en arrière (31/12 → 02/01), année
+  écrite dans l'en-tête prioritaire. Plus de saisie d'année : ne pas la réintroduire (PI 32 à cheval sur deux années).
 - **Import CSV des absences** (3.147.0) : le parser REMONTE ce qu'il écarte
   (`ignoredCells`, `ignoredSamples`, `skippedRows`) et `diagnosePivotCsv()` explique un
   format non reconnu. ⚠️ Un export RH écrivant « CP »/« RTT » au lieu d'un nombre donnait un
@@ -676,6 +679,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `mountReadyGuide(bodyEl(), ticket)` (ticket_ready.js), appelé à CHAQUE rendu d'`openTicketModal` ; la description
   s'édite EN PLACE (pas de re-rendu) → le guide se réévalue sur `store.on('tickets')`. Un nouveau point de contrôle
   s'ajoute à `_CHECKS` (sélecteur du champ + action qui ouvre son éditeur).
+  Série Poker (3.248.0) = `utils/poker-playlist.js` : `setPokerPlaylist` puis ouverture du Poker ; `_nextToEstimate` (modal.js)
+  ne lit la série QUE si le ticket affiché en fait partie, sinon `estimationQueue`.
   Badge ✨ de la file = `readyChecks(t, acc)` (même calcul que la bande, estimation exclue) ; `armReadyGuide(id)` avant
   `openTicketModal` = guide lancé d'office (étape « Compléter » ou clic sur le badge). Tuiles `.mdl-props` et cartes
   `.mdl-people` (3.242.0) : css/views/modal-tiles.css (couleur `--tile` / `--role`, sélecteurs à 3 classes pour
@@ -701,6 +706,15 @@ python main.py          # http://localhost:3001  — Swagger /docs
   lieu de se taire — garder ce réflexe pour toute route nouvelle appelée par le front.
   Congés d'une personne dans la modale = `presenceStripHtml` + `nextAbsence` (meteo_fiche.js, même bande que le
   roster du Dashboard) sur l'itération en cours de l'équipe. Labels = `labelChipHtml` / `labelColor` (utils.js).
+- **Synchro JIRA d'UN ticket** (3.248.0, bouton ↻ de la popin) : UNIQUEMENT `components/jira_ticket_sync.js`
+  (import DYNAMIQUE depuis modal.js — il tire sync-parse.js) et `transformIssue` pour lire l'issue : ne pas
+  écrire un second parseur d'issue. Équipe locale conservée, statut interne recalculé seulement si le libellé JIRA a
+  changé, id de sprint gardé tant que le nom ne bouge pas. Push = `api.jiraSend` (titre, points, priorité, étiquettes,
+  leader par `accountId`, statut par TRANSITION) — jamais la description (ADF). `PUT /api/tickets/:id` accepte les
+  clés de cycle (`startedDate`…) et normalise `createdAt` / `updatedAt` via `_iso_utc`.
+- **Démos vidéo** (3.248.0) : `docs/demo/` est servi tel quel sous `/demo/` (`DEMO_DIR`, `main.py`) — lecteur, MP4,
+  scénarios JSON et `*.meta.json` générés par `tools/demo-video/record.mjs` (racine du monorepo, agent `demo-video`).
+  Ne rien éditer à la main dans ce dossier à part les `*.json` de scénario ; ne jamais monter `docs/` entier.
 - **Modale ticket en PLEINE PAGE** : le bouton re-rend la modale (`openTicketModal`) dans une vue détaillée —
   voyage ouvert, description à gauche, activité à droite (personnes, commentaires, historique COMPLET).
   Corps = `.mdl-layout` > `.mdl-aside` / `.mdl-main` / `.mdl-aside-tail` : en modale normale ces trois

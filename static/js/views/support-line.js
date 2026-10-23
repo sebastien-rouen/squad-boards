@@ -12,7 +12,9 @@
  *   - 👥 Par personne : une ligne par membre, y compris ceux à ZÉRO passage — c'est le vide
  *                       qui révèle un déséquilibre (même parti pris que la vue « par poste » du pool).
  *
- * Ligne produit retenue : celle de l'équipe filtrée, sinon le groupe du topbar ; aucune → rien.
+ * Ligne produit retenue : celle de l'équipe filtrée, sinon le groupe du topbar ; ni l'un ni l'autre →
+ * TOUTES les lignes, repliées (en-tête = couverture de la semaine), dépliage mémorisé (3.250.0).
+ * « 📋 Copier pour Slack » = support de la ligne CETTE semaine, une ligne par équipe (`copySlack`).
  * Semaines : `buildPiWeeks` (source unique) avec le mode de l'équipe filtrée (sinon du pool,
  * sinon de la 1ʳᵉ équipe). Les équipes sœurs peuvent avoir un autre mode : leur entrée est
  * retrouvée sur LEURS propres semaines (appariement exact `weekStart`/`weekEnd`, comme le
@@ -25,10 +27,10 @@ import { store } from '../state.js';
 import {
     esc, teamNameMatches, effectiveRosterForPi, getSupportWeekMode, isMemberSupportActive,
     supportWeekHead, supportWorkingDays, supportDaysForMember, supportAbsenceDays, isSupportAbsent,
-    getSupportPool, posteOfRole, remapQuotasToPostes, SUPPORT_ABSENT_MIN_DAYS, todayIsoLocal,
+    getSupportPool, posteOfRole, remapQuotasToPostes, SUPPORT_ABSENT_MIN_DAYS, todayIsoLocal, copySlack,
 } from '../utils.js';
 import { buildPiWeeks } from '../utils/pi-weeks.js';
-import { fmtMemberName, fmtShortDate } from './settings-rotation-pool-recap.js';
+import { fmtMemberName, fmtShortDate, slackName } from './settings-rotation-pool-recap.js';
 
 export const LINE_VIEWS = {
     teams:  { label: '📅 Par équipe',   hint: 'Qui tient le support de chaque équipe, semaine par semaine' },
@@ -77,7 +79,12 @@ function _model(group, team) {
     const pool = getSupportPool(group.id);
     const poolOn = pool.enabled && pool.teams.some(t => teams.includes(t));
     const mine = teams.includes(team) ? team : null;
-    const refMode = mine ? getSupportWeekMode(mine) : poolOn ? pool.weekMode : getSupportWeekMode(teams[0]);
+    // Semaines de référence : équipe filtrée > pool > équipe qui porte le PLUS de rotations — prendre la 1ʳᵉ
+    // équipe venue (souvent sans rotation, autre jour de bascule) décalait la semaine en cours des autres.
+    const support = store.get('support') || [];
+    const busiest = teams.map(t => [t, support.filter(s => teamNameMatches(s.team, t)).length])
+        .sort((a, b) => b[1] - a[1])[0][0];
+    const refMode = mine ? getSupportWeekMode(mine) : poolOn ? pool.weekMode : getSupportWeekMode(busiest);
     const { weeks, piNum } = buildPiWeeks({ piInfo, sprintInfo, piOffset, weekMode: refMode });
     if (!weeks?.length) return null;
 
@@ -100,7 +107,6 @@ function _model(group, team) {
         }
     }
     const personOf = new Map(people.map(p => [`${p.team}|${p.name}`, p]));
-    const support = store.get('support') || [];
 
     const rows = weeks.map(w => {
         const cells = teams.map(t => {
@@ -213,49 +219,165 @@ function _peopleTable(m, rows, today) {
     return `<table class="sl-table sl-table--people"><thead><tr><th class="sl-person">Membre</th>${head}<th class="sl-tot" title="Semaines de support sur le PI">Tot.</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
-/**
- * Section complète, ou '' sans ligne produit.
- * @param {string} team      équipe du topbar ('all' possible)
- * @param {boolean} showPast semaines passées affichées (même bascule que la timeline)
- */
-export function supportLineHtml(team, showPast = false) {
-    const group = _lineOf(team);
-    if (!group) return '';
-    const m = _model(group, team);
-    if (!m) return '';
-    const today = todayIsoLocal();
-    const view = _view();
-    // « Par personne » compte tout le PI (équité) ; les deux autres suivent la bascule du passé
-    const rows = (view === 'people' || showPast) ? m.rows : m.rows.filter(r => r.w.weekEnd >= today);
-    const cur = m.rows.find(r => r.w.weekStart <= today && r.w.weekEnd >= today);
-    const color = group.color || '#64748b';
+// ── Message Slack de la semaine ─────────────────────────────────────────────
 
-    const teamChips = m.teams.map(t => {
+const _dmy = iso => { const [y, mo, d] = String(iso || '').split('-'); return d ? `${d}/${mo}` : ''; };
+
+/**
+ * Support de la ligne CETTE semaine, prêt à coller : une ligne par équipe, jours partiels et
+ * absences précisés — une équipe sans personne est écrite « — » (c'est l'information).
+ * Rotation mutualisée active → une ligne de couverture par poste en plus (quotas rappelés).
+ */
+function _slackMessage(m) {
+    const today = todayIsoLocal();
+    const r = m.rows.find(x => x.w.weekStart <= today && x.w.weekEnd >= today);
+    if (!r) return '';
+    const who = p => `${slackName(p.name)}${p.days ? ` (${p.days})` : ''}${p.absent ? ' _(absent)_' : ''}`;
+    const lines = [`🛎️ *Support ${m.group.name} — semaine ${supportWeekHead(r.w).text} (${_dmy(r.w.weekStart)} → ${_dmy(r.w.weekEnd)})*`];
+    for (const c of r.cells) lines.push(`• *${c.team}* : ${c.on.length ? c.on.map(who).join(', ') : '—'}`);
+    if (m.poolOn && m.postes.length) {
+        lines.push('', '_⧉ Rotation mutualisée — couverture par poste :_');
+        for (const { poste, want } of m.postes) {
+            const n = r.all.filter(p => p.poste === poste).length;
+            lines.push(`• ${poste} : ${n}/${want}${n < want ? ' ⚠️' : ''}`);
+        }
+    }
+    return lines.join('\n');
+}
+
+// ── Rendu d'une ligne ───────────────────────────────────────────────────────
+
+/** Modèles rendus, par groupe — relus par le bouton « Copier » (aucun recalcul au clic). */
+const _rendered = new Map();
+
+const _OPEN_KEY = 'sup-line-open';
+function _openSet() {
+    try { return new Set(JSON.parse(localStorage.getItem(_OPEN_KEY) || '[]')); } catch { return new Set(); }
+}
+
+function _teamChips(m, cur) {
+    return m.teams.map(t => {
         const n = cur ? cur.cells.find(c => c.team === t).on.length : 0;
         return `<span class="sl-team${t === m.mine ? ' is-mine' : ''}${cur && !n ? ' is-uncovered' : ''}" style="--chip:${_teamColor(t)}"
             title="${esc(t)} — ${cur ? `${n} personne${n > 1 ? 's' : ''} au support cette semaine` : 'semaine hors PI affiché'}"><span class="sl-dot"></span>${esc(t)}${cur ? `<b>${n}</b>` : ''}</span>`;
     }).join('');
-    const quota = m.poolOn ? m.postes.map(p => `${p.want} ${p.poste}`).join(' + ') : '';
+}
+
+/** Corps commun : bascule de lecture, tableau, actions. */
+function _body(m, showPast) {
+    const today = todayIsoLocal();
+    const view = _view();
+    // « Par personne » compte tout le PI (équité) ; les deux autres suivent la bascule du passé
+    const rows = (view === 'people' || showPast) ? m.rows : m.rows.filter(r => r.w.weekEnd >= today);
     const views = Object.entries(LINE_VIEWS).map(([k, v]) =>
         `<button type="button" class="sup-view-btn${k === view ? ' is-active' : ''}" data-sl-view="${k}" title="${esc(v.hint)}" aria-pressed="${k === view}">${v.label}</button>`).join('');
     const table = view === 'postes' ? _postesTable(m, rows, today) : view === 'people' ? _peopleTable(m, rows, today) : _teamsTable(m, rows, today);
+    const canCopy = m.rows.some(r => r.w.weekStart <= today && r.w.weekEnd >= today);
+    return { views, table, actions: `<div class="sl-actions">
+            ${canCopy ? `<button type="button" class="btn btn-xs btn-secondary" data-sl-copy="${esc(m.group.id)}" title="Copier le support de la ligne cette semaine, une ligne par équipe">📋 Copier pour Slack</button>` : ''}
+            <a class="sl-edit text-xs" href="#settings/rotation">⚙ Éditer dans Paramètres → Rotation${m.poolOn ? ' (rotation mutualisée)' : ''}</a>
+        </div>` };
+}
 
-    return `<section class="pi-section mb-4 sl" style="--line-color:${color}" aria-label="Support de la ligne produit ${esc(group.name)}">
+function _poolBadge(m) {
+    if (!m.poolOn) return '';
+    const quota = m.postes.map(p => `${p.want} ${p.poste}`).join(' + ');
+    return `<span class="sl-pool" title="Astreinte mutualisée sur ${esc(m.pool.teams.join(', '))} — composition visée chaque semaine">⧉ Rotation mutualisée${quota ? ` · ${esc(quota)} /sem.` : ''}</span>`;
+}
+
+/** Ligne de l'équipe filtrée (ou du groupe du topbar) : section ouverte. */
+function _lineSection(m, showPast) {
+    const today = todayIsoLocal();
+    const cur = m.rows.find(r => r.w.weekStart <= today && r.w.weekEnd >= today);
+    const { views, table, actions } = _body(m, showPast);
+    return `<section class="pi-section mb-4 sl" style="--line-color:${m.group.color || '#64748b'}" aria-label="Support de la ligne produit ${esc(m.group.name)}">
         <div class="sl-hdr">
-            <h3 class="pi-section-title"><span class="sl-line-dot"></span>Ligne produit ${esc(group.name)} <span class="sl-sub">· support du PI ${m.piNum || '?'}</span></h3>
-            ${m.poolOn ? `<span class="sl-pool" title="Astreinte mutualisée sur ${esc(m.pool.teams.join(', '))} — composition visée chaque semaine">⧉ Rotation mutualisée${quota ? ` · ${esc(quota)} /sem.` : ''}</span>` : ''}
+            <h3 class="pi-section-title"><span class="sl-line-dot"></span>Ligne produit ${esc(m.group.name)} <span class="sl-sub">· support du PI ${m.piNum || '?'}</span></h3>
+            ${_poolBadge(m)}
             <div class="sup-view-toggle sl-views" role="group" aria-label="Lecture de la ligne produit">${views}</div>
         </div>
-        <div class="sl-teams">${cur ? `<span class="sl-now">Cette semaine · <b>${cur.all.length}</b> au support</span>` : ''}${teamChips}</div>
+        <div class="sl-teams">${cur ? `<span class="sl-now">Cette semaine · <b>${cur.all.length}</b> au support</span>` : ''}${_teamChips(m, cur)}</div>
         <div class="table-wrap sl-wrap">${table}</div>
-        <a class="sl-edit text-xs" href="#settings/rotation">⚙ Éditer dans Paramètres → Rotation${m.poolOn ? ' (rotation mutualisée)' : ''}</a>
+        ${actions}
     </section>`;
 }
 
-/** Bascule de lecture (re-rendu de la vue). */
+/**
+ * Toutes les lignes produit (ni équipe ni groupe choisis) : une ligne repliée par groupe,
+ * l'en-tête dit déjà l'essentiel (qui est couvert cette semaine) ; dépliage mémorisé.
+ */
+function _allLinesSection(models, showPast) {
+    const today = todayIsoLocal();
+    const open = _openSet();
+    const items = models.map(m => {
+        const cur = m.rows.find(r => r.w.weekStart <= today && r.w.weekEnd >= today);
+        const uncovered = cur ? cur.cells.filter(c => !c.on.length).length : 0;
+        const isOpen = open.has(m.group.id);
+        const { views, table, actions } = isOpen ? _body(m, showPast) : { views: '', table: '', actions: '' };
+        return `<details class="sl-line" style="--line-color:${m.group.color || '#64748b'}" data-sl-line="${esc(m.group.id)}"${isOpen ? ' open' : ''}>
+            <summary class="sl-line-sum">
+                <span class="sl-line-chev" aria-hidden="true">▸</span>
+                <span class="sl-line-dot"></span><strong class="sl-line-name">${esc(m.group.name)}</strong>
+                ${cur ? `<span class="sl-now"><b>${cur.all.length}</b> au support${uncovered ? ` · <span class="sl-unc">${uncovered} équipe${uncovered > 1 ? 's' : ''} sans personne</span>` : ''}</span>` : ''}
+                <span class="sl-teams sl-teams--inline">${_teamChips(m, cur)}</span>
+                ${_poolBadge(m)}
+            </summary>
+            ${isOpen ? `<div class="sl-line-body">
+                <div class="sup-view-toggle sl-views" role="group" aria-label="Lecture de la ligne produit">${views}</div>
+                <div class="table-wrap sl-wrap">${table}</div>
+                ${actions}
+            </div>` : ''}
+        </details>`;
+    }).join('');
+    return `<section class="pi-section mb-4 sl sl--all" aria-label="Support par ligne produit">
+        <div class="sl-hdr">
+            <h3 class="pi-section-title">🌳 Lignes produit <span class="sl-sub">· support du PI ${models[0].piNum || '?'}</span></h3>
+            <span class="text-xs text-muted">Déplie une ligne pour la voir par équipe, poste ou personne.</span>
+        </div>
+        ${items}
+    </section>`;
+}
+
+/**
+ * Section complète, ou '' sans ligne produit.
+ * Équipe filtrée → SA ligne ; groupe du topbar → ce groupe ; ni l'un ni l'autre → toutes, repliées.
+ * @param {string} team      équipe du topbar ('all' possible)
+ * @param {boolean} showPast semaines passées affichées (même bascule que la timeline)
+ */
+export function supportLineHtml(team, showPast = false) {
+    _rendered.clear();
+    const group = _lineOf(team);
+    if (group) {
+        const m = _model(group, team);
+        if (!m) return '';
+        _rendered.set(group.id, m);
+        return _lineSection(m, showPast);
+    }
+    if (team && team !== 'all') return '';   // équipe hors de toute ligne produit
+    const models = (store.get('groups') || []).map(g => _model(g, null)).filter(Boolean);
+    if (!models.length) return '';
+    for (const m of models) _rendered.set(m.group.id, m);
+    return _allLinesSection(models, showPast);
+}
+
+/** Bascule de lecture, dépliage (mémorisé) et copie Slack. */
 export function wireSupportLine(container, rerender) {
     container.querySelectorAll('[data-sl-view]').forEach(btn => btn.addEventListener('click', () => {
         try { localStorage.setItem(_VIEW_KEY, btn.dataset.slView); } catch { /* sans gravité */ }
+        rerender();
+    }));
+    container.querySelectorAll('[data-sl-copy]').forEach(btn => btn.addEventListener('click', () => {
+        const m = _rendered.get(btn.dataset.slCopy);
+        const md = m && _slackMessage(m);
+        if (md) copySlack(md, `Support ${m.group.name} copié`);
+    }));
+    // Le corps n'est rendu qu'ouvert (13 lignes × tableaux) : on mémorise puis on re-rend
+    container.querySelectorAll('details[data-sl-line]').forEach(d => d.addEventListener('toggle', () => {
+        const set = _openSet();
+        const id = d.dataset.slLine;
+        if (d.open === set.has(id)) return;
+        if (d.open) set.add(id); else set.delete(id);
+        try { localStorage.setItem(_OPEN_KEY, JSON.stringify([...set])); } catch { /* sans gravité */ }
         rerender();
     }));
 }

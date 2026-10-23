@@ -866,6 +866,8 @@ export function openTicketModal(ticketId) {
     const leader = ticket.leader || ticket.assignee;
     const reporter = ticket.reporter || null;
     const contributors = (ticket.contributors || []).filter(c => c && c !== leader);
+    // Présence calculée UNE fois par contributeur : chip (🌴 si absent) ET bande sous la liste
+    const contribPres = contributors.map(c => ({ c, pres: _presenceOf(c, ticket) }));
     const comments = ticket.comments || [];
     const links = ticket.links || [];
     const description = ticket.description || '';
@@ -935,12 +937,16 @@ export function openTicketModal(ticketId) {
             <div class="mdl-field" data-role="contrib">
                 <span class="mdl-field-label">Contributeurs</span>
                 <span class="mdl-field-value flex-wrap" id="contrib-inline-wrap">
-                    ${contributors.map(c => {
-                        const away = _presenceOf(c, ticket).absentNow;
+                    ${contribPres.map(({ c, pres }) => {
+                        const away = pres.absentNow;
                         return `<span class="chip chip-gap${away ? ' chip--away' : ''}"${away ? ` title="${esc(c)} est absent·e aujourd'hui"` : ''}>${avatar(c, false, 18)} ${esc(c)}${away ? ' 🌴' : ''} <button type="button" class="contrib-rm" data-name="${esc(c)}" title="Retirer">×</button></span>`;
                     }).join('')}
                     <button type="button" class="contrib-add-btn" id="contrib-add-btn" title="Ajouter un contributeur">+ Ajouter</button>
                 </span>
+                <!-- Présence de chaque contributeur (même bande que Leader / Rapporteur), hors du conteneur des chips :
+                     le câblage ajout / retrait lit les .contrib-rm de #contrib-inline-wrap -->
+                ${contribPres.length ? `<div class="mdl-contrib-pres-list">${contribPres.map(({ c, pres }) =>
+                    `<div class="mdl-contrib-pres" data-name="${esc(c)}"><span class="mdl-contrib-pres-name" title="${esc(c)}">${esc(c.split(/[\s,]+/)[0])}</span>${pres.html}</div>`).join('')}</div>` : ''}
             </div>
         </section>
 
@@ -1541,6 +1547,8 @@ function _bindInlineEditors(container, ticket) {
         contribWrap.addEventListener('click', async e => {
             const btn = e.target.closest('.contrib-rm'); if (!btn) return;
             btn.closest('.chip').remove();
+            // Sa bande de présence part avec lui
+            container.querySelectorAll('.mdl-contrib-pres').forEach(r => { if (r.dataset.name === btn.dataset.name) r.remove(); });
             await saveC();
         });
 

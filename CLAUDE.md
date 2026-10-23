@@ -350,6 +350,11 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Ligne = groupe contenant l'équipe filtrée, sinon groupe du topbar. Semaines = `buildPiWeeks` au mode de l'équipe
   filtrée ; une équipe sœur d'un autre mode est lue sur SES semaines (appariement exact), rattachées par le plus
   grand recouvrement. Postes = `posteOfRole` avec les `roleGroups` du pool du groupe ; quotas seulement si le pool est actif.
+  Sans équipe ni groupe : toutes les lignes repliées (`<details>`, corps rendu SEULEMENT ouvert), semaines au mode de
+  l'équipe la plus fournie en rotations. Copie Slack = `_slackMessage` (modèle déjà rendu, `_rendered`).
+- **Champs demandés à JIRA par passe** (3.250.0) : toute passe qui PRODUIT des tickets demande
+  `description,comment,issuelinks` (sprint actif, futurs, clos, PI nommés, enfants de features) — sinon le ticket
+  arrive vide en base et l'import écrase la description existante par `""` (TRV-6276).
 - **`bulk` support = purge puis insert** : `POST /api/support/bulk` supprime TOUTES les lignes
   de l'équipe avant d'insérer. Toute génération doit donc reporter les semaines hors de sa
   fenêtre via `carrySupportRowsOutside()` ([utils/support.js](static/js/utils/support.js)) —

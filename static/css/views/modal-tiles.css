@@ -116,3 +116,13 @@
     .mdl-head .mdl-props > .mdl-prop, .mdl-head .mdl-poker-btn { transition: none; }
     .mdl-head .mdl-props > .mdl-prop:hover, .mdl-head .mdl-poker-btn:hover { transform: none; }
 }
+
+/* Présence des contributeurs (3.250.0) : une ligne « Prénom + bande .mdl-presence » par personne, sous les chips.
+   Ici et pas dans modal-detail.css (> 800 lignes). */
+.mdl-contrib-pres-list { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; min-width: 0; }
+.mdl-contrib-pres { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mdl-contrib-pres-name {
+    flex: 0 0 auto; max-width: 9ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 10.5px; font-weight: var(--fw-semibold); color: var(--text-secondary);
+}
+.mdl-contrib-pres .mdl-presence { flex: 1 1 auto; }

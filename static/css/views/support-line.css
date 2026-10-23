@@ -99,3 +99,33 @@ tr.is-current > .sl-wk { box-shadow: inset 3px 0 0 var(--primary); }
     .sl-wk { min-width: 84px; }
     .sl-table th, .sl-table td { padding: 5px 6px; }
 }
+
+/* ── Actions (copie Slack, lien d'édition) ─────────────────────────────────────────────────────── */
+.sl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-top: var(--sp-2); }
+.sl-actions .sl-edit { margin-top: 0; }
+
+/* ── Toutes les lignes produit, repliées (3.250.0) ─────────────────────────────────────────────── */
+.sl--all { border-top: 0; }
+.sl-line {
+    border: 1px solid var(--border); border-left: 4px solid var(--line-color); border-radius: var(--r-md, 8px);
+    background: var(--surface); margin-bottom: var(--sp-2);
+}
+.sl-line-sum {
+    list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    padding: 8px 12px; border-radius: inherit;
+}
+.sl-line-sum::-webkit-details-marker { display: none; }
+.sl-line-sum:hover { background: color-mix(in srgb, var(--line-color) 6%, transparent); }
+.sl-line-sum:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.sl-line-chev { color: var(--text-muted); font-size: 11px; transition: transform .15s ease; }
+.sl-line[open] .sl-line-chev { transform: rotate(90deg); }
+.sl-line-name { font-size: var(--fs-sm); }
+.sl-line .sl-now { margin-right: 0; }
+.sl-unc { color: var(--danger); font-weight: var(--fw-semibold); }
+.sl-teams--inline { margin: 0 0 0 auto; }
+.sl-line-body { padding: 0 12px 12px; border-top: 1px solid var(--border); }
+.sl-line-body .sl-views { margin: var(--sp-2) 0; }
+@media (max-width: 640px) {
+    .sl-teams--inline { margin-left: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .sl-line-chev { transition: none; } }

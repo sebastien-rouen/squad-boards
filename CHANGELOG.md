@@ -1,3 +1,35 @@
+## [3.250.0] - 2026-10-23
+
+### Synchro JIRA : descriptions manquantes · Support : copie Slack de la ligne et toutes les lignes produit
+
+**🐛 Descriptions vides (ex. TRV-6276)**
+- Cause : deux passes de la synchro ne demandaient pas `description` (ni `comment`, `issuelinks`) à JIRA.
+  - La passe **« enfants de features »** rapatrie les tickets d'une feature restés hors des sprints déjà lus
+    (backlog, cadrage : TRV-6276, enfant de la feature TRV-6267) → 384 tickets ouverts sans description.
+  - La passe des **sprints clos** → tickets terminés sans description (référence du Poker, fiche, Rétro).
+- Les deux listes de champs demandent désormais `description,comment,issuelinks`.
+  ⚠️ Effet à la prochaine **synchro complète** : la synchro rapide ne relit que les tickets modifiés récemment, et
+  les sprints clos déjà en base sont archivés (« Tout réimporter depuis JIRA » pour les rafraîchir).
+- 📁 `static/js/sync.js`
+
+**🤝 Popin ticket : présence des contributeurs**
+- Sous les chips « Contributeurs », une ligne par personne : prénom + la même bande de congés `.mdl-presence` que
+  Leader / Rapporteur (itération en cours, prochain congé, « non trouvés » si non rapproché de l'import Congés).
+  Présence calculée une fois par contributeur (chip 🌴 et bande) ; la ligne disparaît avec le retrait du contributeur.
+- 📁 `static/js/components/modal.js`, `static/css/views/modal-tiles.css` (modal-detail.css > 800 lignes)
+
+**🧹 Données** : 257 absences supprimées (139 datées de janvier 2026 au lieu de 2027 par l'ancien import du PI 32,
+118 sans date lisible — import en format ligne du 09/10). Réimport manuel PI 29 → 32 prévu.
+
+**🌳 Support de la ligne produit (suite de 3.249.0)**
+- « 📋 Copier pour Slack » : support de la ligne cette semaine, une ligne par équipe (jours partiels, absents,
+  « — » pour une équipe sans personne) + couverture par poste si une rotation mutualisée est active.
+- Ni équipe ni groupe choisis : **toutes les lignes produit, repliées**. L'en-tête de chacune donne déjà la
+  couverture de la semaine (« 2 équipes sans personne » en rouge, compte par équipe) ; dépliage mémorisé (`sup-line-open`).
+- Semaines de référence sans équipe filtrée = mode de l'équipe qui porte le plus de rotations : la 1ʳᵉ équipe venue
+  (souvent sans rotation, autre jour de bascule) décalait la semaine en cours.
+- 📁 `static/js/views/support-line.js`, `static/css/views/support-line.css`
+
 ## [3.249.0] - 2026-10-23
 
 ### Support : la ligne produit de l'équipe, en trois lectures

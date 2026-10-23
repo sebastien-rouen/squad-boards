@@ -575,7 +575,9 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
                         const r = await api.jiraGet(`rest/agile/1.0/sprint/${cs.id}/issue`, {
                             maxResults: 100, startAt: cStart,
                             expand: 'changelog',
-                            fields: `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,flagged,updated,created${contributorsFieldParam()}`,
+                            // description / comment / issuelinks (3.249.0) : sans eux, les tickets des sprints clos arrivaient
+                            // VIDES en base (référence du Poker, fiche, Rétro) alors que JIRA en avait une.
+                            fields: `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,flagged,updated,created,description,comment,issuelinks${contributorsFieldParam()}`,
                         });
                         const issues = r?.issues || [];
                         recus += issues.length;
@@ -865,7 +867,9 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
 
             if (piFeatures.length) {
                 const FEAT_CHILD_BATCH = 50;
-                const childFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,${sprintFieldId}${contributorsFieldParam()}` +
+                // description / comment / issuelinks (3.249.0) : cette passe rapatrie les tickets d'une feature hors des
+                // sprints déjà lus (backlog, cadrage : TRV-6276) — sans eux ils arrivaient sans description.
+                const childFields = `summary,status,issuetype,assignee,reporter,priority,labels,${storyPointsField},parent,updated,created,description,comment,issuelinks,${sprintFieldId}${contributorsFieldParam()}` +
                     (teamFieldId ? `,${teamFieldId}` : '') + (piSprintField ? `,${piSprintField}` : '');
                 let childrenAdded = 0;
                 for (let i = 0; i < piFeatures.length; i += FEAT_CHILD_BATCH) {

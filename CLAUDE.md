@@ -346,6 +346,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
     congés — d'où un libellé factuel et trois niveaux, jamais d'alerte.
     CSS du pool dans [support-pool.css](static/css/views/support-pool.css), chargé APRÈS
     `support-rotation.css` : les surcharges de `.rot-count-pool` comptent sur cet ordre.
+- **Support de la ligne produit** (3.249.0, page Support) : `views/support-line.js` — lecture seule, état EN BASE.
+  Ligne = groupe contenant l'équipe filtrée, sinon groupe du topbar. Semaines = `buildPiWeeks` au mode de l'équipe
+  filtrée ; une équipe sœur d'un autre mode est lue sur SES semaines (appariement exact), rattachées par le plus
+  grand recouvrement. Postes = `posteOfRole` avec les `roleGroups` du pool du groupe ; quotas seulement si le pool est actif.
 - **`bulk` support = purge puis insert** : `POST /api/support/bulk` supprime TOUTES les lignes
   de l'équipe avant d'insérer. Toute génération doit donc reporter les semaines hors de sa
   fenêtre via `carrySupportRowsOutside()` ([utils/support.js](static/js/utils/support.js)) —

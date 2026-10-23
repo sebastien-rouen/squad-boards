@@ -18,6 +18,7 @@ import {
 import { buildPiWeeks } from '../utils/pi-weeks.js';
 import * as api from '../api.js';
 import { saveSupportWeekMode } from '../support-week-mode.js';
+import { supportLineHtml, wireSupportLine } from './support-line.js';
 
 function _fmtDay(iso) {
     if (!iso) return '';
@@ -228,6 +229,9 @@ export function renderSupport(container) {
                 : `<div class="empty-state"><p>🪂 Aucune rotation définie pour cette semaine. Génère depuis la timeline ci-dessous.</p></div>`}
         </div>
 
+        <!-- Support de la ligne produit (équipes sœurs, par équipe / poste / personne) -->
+        ${supportLineHtml(team, localStorage.getItem('sup-show-past') === 'true')}
+
         <!-- Timeline rotation PI + génération -->
         ${_renderPiTimeline(team, teams, teamObjects, support, store.get('absences') || [], store.get('members') || [], store.get('piInfo'), store.get('sprintInfo'))}
 
@@ -308,6 +312,8 @@ export function renderSupport(container) {
             if (typeof window.__squadBoard?.rerenderView === 'function') window.__squadBoard.rerenderView();
         });
     });
+
+    wireSupportLine(container, () => window.__squadBoard?.rerenderView?.());
 
     // Wiring boutons de génération de la timeline
     _wirePiTimeline(container);

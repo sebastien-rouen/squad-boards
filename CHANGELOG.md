@@ -1,3 +1,21 @@
+## [3.249.0] - 2026-10-23
+
+### Support : la ligne produit de l'équipe, en trois lectures
+
+**🌳 Nouvelle section « Ligne produit » (page Support)**
+- Sous « Rotation cette semaine », le support des équipes SŒURS de la ligne produit de l'équipe filtrée
+  (ou du groupe du topbar). Même grammaire que le récapitulatif ⧉ Rotation mutualisée, en lecture seule, sur l'état en base :
+  - 📅 **Par équipe** : semaines × équipes. Colonne de l'équipe filtrée surlignée, « — » orange sur une semaine sans
+    personne, et « aucune rotation » sous une équipe qui n'en a aucune sur le PI. Total de la ligne par semaine.
+  - 🧩 **Par poste** : semaines × postes (Dev + Tech Lead, PO…), avec pastilles d'équipe. Si une rotation mutualisée
+    est active, les quotas sont rappelés (×n, manque n/m) ; sinon, seuls les postes réellement mobilisés sont affichés.
+  - 👥 **Par personne** : tout le PI, une ligne par membre avec le nombre de passages. Les membres à 0 restent
+    visibles (c'est le vide qui révèle un déséquilibre) ; une équipe sans aucun passage tient en une ligne.
+- Pastilles d'équipe avec le compte de la semaine (rouge à 0). Bascule mémorisée (`sup-line-view`). Respecte
+  « Afficher passé », lien vers Paramètres → Rotation.
+- 📁 `static/js/views/support-line.js` (nouveau), `static/css/views/support-line.css` (nouveau, lié après support.css),
+  `views/support.js` (intégration).
+
 ## [3.248.0] - 2026-10-22
 
 ### Import CSV des congés : plus d'« année pivot » (PI à cheval sur deux années) · Cadrage : série Poker et « Ce PI + suivant »

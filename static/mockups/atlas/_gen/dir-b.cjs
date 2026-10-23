@@ -10,7 +10,7 @@ const PC = require('./pages-common.cjs');
 const { D, av, lvl, ap, chip, btn, esc, tc, teamDot, screen, topbar, tabbar, seg, sheet, desk, deskTop } = U;
 
 const dir = {
-    key: 'b-matrice', num: 2, name: 'Matrice', nextName: 'Profils', mod: '', icon: '🟩',
+    key: 'b-matrice', num: 2, name: 'Matrice', nextName: 'Profils', mod: '', icon: '🟩', retained: true,
     pitch: 'Le diagnostic d\'abord : toute la Skills Matrix sur un écran, compétences requises cerclées, bus factor en pied de colonne.',
     traits: ['Heatmap 26 × 10', 'Requises cerclées', 'Envie en ambre', 'Bus factor 🚌', 'Mobile par compétence'],
     plus: 'Densité et précision : tout se compare sans défiler ; la plus proche de l\'Atlas actuel (migration douce) et la plus simple à coder.',

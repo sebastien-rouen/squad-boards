@@ -7,9 +7,9 @@ const { PAGES } = require('./page.cjs');
 
 const ICON = { '01-atlas': '🏠', '02-sections': '📑', '03-modales': '🪟', '04-atelier': '⚡', '05-mobilite': '🧭' };
 
-const card = d => `<article class="ix-card">
+const card = d => `<article class="ix-card${d.retained ? ' ix-card--retenue' : ''}">
   <div class="ix-preview"><span class="ix-num">${d.num}</span><iframe src="${d.key}/01-atlas.html" title="Aperçu de la direction ${esc(d.name)}" loading="lazy" tabindex="-1"></iframe></div>
-  <div class="ix-body"><span class="ix-tag ix-tag--${d.key}">Direction ${d.num}</span><h3>${d.icon || ''} ${esc(d.name)}</h3><p>${d.pitch || ''}</p><div class="ix-traits">${(d.traits || []).map(t => `<span>${t}</span>`).join('')}</div></div>
+  <div class="ix-body"><span class="ix-tag ix-tag--${d.key}">Direction ${d.num}</span>${d.retained ? '<span class="ix-tag ix-tag--retenue">✓ Retenue</span>' : ''}<h3>${d.icon || ''} ${esc(d.name)}</h3><p>${d.pitch || ''}</p><div class="ix-traits">${(d.traits || []).map(t => `<span>${t}</span>`).join('')}</div></div>
   <div class="ix-links">${PAGES.map(([k, l]) => `<a href="${d.key}/${k}.html"><i>${ICON[k]}</i>${l}<em>${k === '01-atlas' ? 'pleine page + desktop' : 'mobile + desktop'}</em></a>`).join('')}</div>
 </article>`;
 
@@ -30,6 +30,7 @@ function index(dirs) {
     <h1>Atlas — quatre directions pour piloter les compétences</h1>
     <p>L'Atlas actuel empile une carte unFIX zoomable et une Skills Matrix, avec une douzaine de modales (comparaison, mobilité, catalogue, montée en compétence, « qui affecter ? »). Les quatre directions ci-dessous répondent au même cahier : <b>voir qui sait quoi</b>, <b>repérer les trous avant qu'ils coûtent</b>, <b>agir</b> (former, affecter, accompagner une mobilité). Même contenu partout — seul le parti pris change.</p>
     <p>Chaque direction est déclinée sur cinq pages : écran principal, sections, modales, atelier de staffing, mobilité. <b>Desktop par défaut</b> (bureau 1280 × 820 réduit), <b>mobile 390 × 760</b> via le commutateur 🖥️ / 📱 de la barre — choix mémorisé. Le panneau 🧭 en bas à droite bascule d'une direction à l'autre sur le même écran. Données fictives : 5 équipes, 26 personnes, 10 compétences.</p>
+    <p><b>Directions retenues le 2026-10-24 : 🌌 Constellation et 🟩 Matrice, ensemble.</b> Elles se complètent comme les deux onglets de l'Atlas actuel : la <b>Carte</b> prend la constellation (vue d'ensemble, recherche qui allume les sachants, trous en halo rouge, atelier de staffing sur la carte), la <b>Skills Matrix</b> prend la heatmap (diagnostic fin, compétences requises, bus factor ; liste par compétence sur mobile). Fiche membre, évaluation, mobilité et catalogue sont communs. Profils et Signaux restent consultables pour mémoire — les « signaux » nommés et la préparation d'entretien sont des pistes pour le tableau de bord et la fiche.</p>
     <div class="ix-stats"><div><b>${dirs.length}</b><span>Directions</span></div><div><b>${dirs.length * PAGES.length}</b><span>Pages</span></div><div><b>${dirs.length * 24}</b><span>Écrans</span></div><div><b>0</b><span>Ligne du site touchée</span></div></div>
   </header>
 

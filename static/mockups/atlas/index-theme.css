@@ -44,3 +44,7 @@
 
 .ix-table td.is-plus { color: var(--ix-accent-2); }
 .ix-table td.is-minus { color: var(--ix-warn); }
+
+/* Directions retenues */
+.ix-tag--retenue { margin-left: 6px; background: rgba(74, 222, 128, 0.14); color: #4ade80; }
+.ix-card--retenue { border-color: rgba(74, 222, 128, 0.45); }

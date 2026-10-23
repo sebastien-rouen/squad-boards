@@ -9,7 +9,7 @@ const PC = require('./pages-common.cjs');
 const { D, av, lvl, chip, btn, bar, radar, esc, tc, teamDot, screen, topbar, tabbar, seg, sheet, desk, deskTop } = U;
 
 const dir = {
-    key: 'a-constellation', num: 1, name: 'Constellation', nextName: 'Matrice', mod: 'constellation', icon: '🌌',
+    key: 'a-constellation', num: 1, name: 'Constellation', nextName: 'Matrice', mod: 'constellation', icon: '🌌', retained: true,
     pitch: 'L\'organisation d\'abord : une carte orbitale du train où les sachants s\'allument quand on cherche une compétence.',
     traits: ['Carte orbitale', 'Recherche qui allume', 'Halo rouge = trou', 'Ciel des compétences', 'Simulation sur la carte'],
     plus: 'Vision d\'ensemble immédiate et mémorable ; idéale pour présenter le train, l\'onboarding, une revue de PI. Le bus factor se VOIT (une seule lumière).',

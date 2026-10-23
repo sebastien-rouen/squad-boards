@@ -642,7 +642,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Priorité d'un ticket** : UNIQUEMENT `priorityKey()` / `priorityBadge()` ([utils/priority.js](static/js/utils/priority.js),
   via le barrel) — la base mélange libellés JIRA (« 2. haute ») et clés internes (`high`) ; un lookup exact
   sur les clés passait tout ticket synchronisé en « medium ». En-tête de la modale ticket = `_ticketHeadHtml`
-  (modal.js) ; style de sa barre de titre sous `#modal:has(.mdl-titlebar)` (#modal est partagé).
+  (ticket_head.js) ; style de sa barre de titre sous `#modal:has(.mdl-titlebar)` (#modal est partagé).
   Taille d'un ticket = `pointsTone()` (utils/points.js, paliers Fibonacci, classes `.pts-tone--*`).
   Périodes de blocage = `blockedIntervals()` (utils/blocked.js — `_blockedIntervals` de charts.js n'en est
   qu'un alias). La tuile Sprint EST l'éditeur du sprint (`#sprint-field`) ; les AUTRES sprints et les labels
@@ -654,7 +654,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   l'import), écrites UNIQUEMENT par `PUT /api/pi/person-alias` (fusion clé par clé), éditées dans Paramètres →
   Absences ([settings-person-aliases.js](static/js/views/settings-person-aliases.js)) — passer `personAliases`
   en 3ᵉ argument de `findPerson`, sinon elles sont ignorées. Comptes techniques : `isBotName`.
-  Poker : tickets de référence 1 → 21 = `_pokerReferences` (modal.js), calculés UNE fois à l'ouverture
+  Poker : tickets de référence 1 → 21 = `_pokerReferences` (poker_modal.js), calculés UNE fois à l'ouverture
   (recalculés après un choix) ; référence ÉPINGLÉE par l'équipe = `piconfig.poker_references`
   (`{ équipe: { "5": id } }`, `PUT /api/pi/poker-reference`, ticketId null = auto). Cartes de vote NEUTRES
   (aucune couleur de palier : ne pas orienter le vote). Animations : distribution au CHANGEMENT de phase
@@ -690,7 +690,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `mountReadyGuide(bodyEl(), ticket)` (ticket_ready.js), appelé à CHAQUE rendu d'`openTicketModal` ; la description
   s'édite EN PLACE (pas de re-rendu) → le guide se réévalue sur `store.on('tickets')`. Un nouveau point de contrôle
   s'ajoute à `_CHECKS` (sélecteur du champ + action qui ouvre son éditeur).
-  Série Poker (3.248.0) = `utils/poker-playlist.js` : `setPokerPlaylist` puis ouverture du Poker ; `_nextToEstimate` (modal.js)
+  Série Poker (3.248.0) = `utils/poker-playlist.js` : `setPokerPlaylist` puis ouverture du Poker ; `_nextToEstimate` (poker_modal.js)
   ne lit la série QUE si le ticket affiché en fait partie, sinon `estimationQueue`.
   Badge ✨ de la file = `readyChecks(t, acc)` (même calcul que la bande, estimation exclue) ; `armReadyGuide(id)` avant
   `openTicketModal` = guide lancé d'office (étape « Compléter » ou clic sur le badge). Tuiles `.mdl-props` et cartes
@@ -731,6 +731,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Ne rien éditer à la main dans ce dossier à part les `*.json` de scénario ; ne jamais monter `docs/` entier.
 - **Historique d'un ticket** (3.252.0) : UNIQUEMENT `ticketHistoryHtml` / `bindTicketHistory` (components/ticket_history.js) ;
   catégorie d'un champ = `catOf` (`_BY_FIELD`) — un champ JIRA nouveau tombe en « Autres », l'ajouter là.
+  Pastille de sprint = bouton → `openSprintTicketsModal` (popin ticket fermée d'abord : pas de fenêtres empilées).
+- **Popin ticket découpée** (3.253.0) : `modal.js` = ouverture, corps, navigation, fermeture ; `ticket_head.js` (en-tête,
+  tuiles, présence), `ticket_inline_edit.js` (édition en place), `ticket_pickers.js` (sélecteurs, `makePersonPicker`),
+  `ticket_desc.js` (description + rendu des commentaires), `poker_modal.js` (Poker), `ticket_forms.js` (création /
+  modification), `ticket_children.js` (volet enfants d'une feature). Imports CIRCULAIRES vers `./modal.js` assumés :
+  ⚠️ jamais utilisés au niveau racine d'un module (seulement dans des fonctions), sinon erreur TDZ au chargement.
+  `modal.js` ré-exporte `makePersonPicker`, `openCreateModal`, `openEditModal` (API publique inchangée).
 - **Modale ticket en PLEINE PAGE** : le bouton re-rend la modale (`openTicketModal`) dans une vue détaillée —
   voyage ouvert, description à gauche, activité à droite (personnes, commentaires, historique COMPLET).
   Corps = `.mdl-layout` > `.mdl-aside` / `.mdl-main` / `.mdl-aside-tail` : en modale normale ces trois

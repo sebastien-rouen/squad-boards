@@ -73,8 +73,10 @@ function _valueHtml(c, cat) {
         const lbl = n => extractSprintLabel(n) || n;
         const added = ta.filter(n => !fa.includes(n)), removed = fa.filter(n => !ta.includes(n));
         if (!added.length && !removed.length) return plain(to);
-        return [...added.map(n => `<span class="th-spr is-add" title="${esc(n)}">+ ${esc(lbl(n))}</span>`),
-                ...removed.map(n => `<span class="th-spr is-rm" title="${esc(n)}">− ${esc(lbl(n))}</span>`)].join('');
+        // Pastille = bouton : ouvre les tickets du sprint (sprint_tickets_modal.js, cf. bindTicketHistory)
+        const btn = (n, cls, sign) => `<button type="button" class="th-spr ${cls}" data-th-sprint="${esc(n)}"
+            title="${esc(n)} — voir les tickets du sprint">${sign} ${esc(lbl(n))}<span class="th-spr-go" aria-hidden="true">↗</span></button>`;
+        return [...added.map(n => btn(n, 'is-add', '+')), ...removed.map(n => btn(n, 'is-rm', '−'))].join('');
     }
     case 'flag':
         return to ? '<span class="th-flag is-on">🚩 bloqué</span>' : '<span class="th-flag is-off">✓ blocage levé</span>';
@@ -179,10 +181,29 @@ export function ticketHistoryHtml(ticket, { full = false, limit = 12 } = {}) {
     </details>`;
 }
 
-/** Filtres par catégorie : un clic isole la catégorie, un second rend tout (lecture seule, aucun re-rendu). */
+/**
+ * Ouvre la fenêtre « tickets du sprint » d'un sprint cité par l'historique. La popin ticket est fermée
+ * d'abord : deux fenêtres empilées (z-index distincts) se disputaient Échap et le focus.
+ * Sprint retrouvé dans `sprintInfo.teamSprints` (équipe + id JIRA → chargement à la demande s'il n'a
+ * plus de tickets en base) ; inconnu → ouvert par son seul nom.
+ */
+async function _openSprint(name) {
+    const [{ store }, { openSprintTicketsModal }, { closeModal }] = await Promise.all([
+        import('../state.js'), import('./sprint_tickets_modal.js'), import('./modal.js'),
+    ]);
+    const hit = (store.get('sprintInfo')?.teamSprints || []).find(s => s.name === name);
+    closeModal();
+    openSprintTicketsModal({ name, team: hit?.team, jiraId: hit?.jiraId, endDate: hit?.endDate, isCurrent: hit?.state === 'active' });
+}
+
+/** Filtres par catégorie (un clic isole la catégorie, un second rend tout) + pastilles de sprint cliquables. */
 export function bindTicketHistory(root) {
     const box = root?.querySelector('.th');
     if (!box) return;
+    box.querySelector('.th-days')?.addEventListener('click', e => {
+        const spr = e.target.closest('[data-th-sprint]');
+        if (spr) _openSprint(spr.dataset.thSprint);
+    });
     box.querySelector('.th-filters')?.addEventListener('click', e => {
         const btn = e.target.closest('[data-th-filter]');
         if (!btn) return;

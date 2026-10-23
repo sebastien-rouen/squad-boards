@@ -1,3 +1,19 @@
+## [3.253.0] - 2026-10-23
+
+### modal.js découpé · Historique : pastilles de sprint cliquables
+
+**✂️ Popin ticket découpée** (`modal.js` 2 972 → 574 lignes, code déplacé à l'identique, 406 tests verts) :
+- `ticket_pickers.js` (sélecteurs epic / personne / chips / étiquettes), `ticket_desc.js` (description + commentaires),
+  `ticket_head.js` (en-tête, tuiles, présence), `ticket_inline_edit.js` (édition en place), `poker_modal.js` (Poker),
+  `ticket_forms.js` (création / modification), `ticket_children.js` (volet enfants d'une feature).
+- API publique inchangée (`initModal`, `openTicketModal`, `closeModal`, `makePersonPicker`, `openCreateModal`,
+  `openEditModal`). Découpage généré avec analyse des dépendances : aucune variable mutable modifiée hors de son module.
+- Vérifié dans Chromium (écritures API bloquées) : ouverture, historique, statut, epic, personne, navigation ← →,
+  pleine page, Poker, modification, création, feature + volet enfants, Paramètres — aucune erreur.
+
+**🏃 Historique : « voir le sprint »** — chaque pastille de sprint (« + 31.4 ↗ ») ouvre les tickets de ce sprint
+(`openSprintTicketsModal`, chargement JIRA à la demande si besoin), la popin ticket se fermant d'abord.
+
 ## [3.252.0] - 2026-10-23
 
 ### Popin : historique en frise colorée · Board : badge 👀 · sync.js découpé

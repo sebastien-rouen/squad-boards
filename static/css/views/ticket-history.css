@@ -138,3 +138,11 @@
 @media (prefers-reduced-motion: reduce) {
     .th-sum::after, .th-filter { transition: none; }
 }
+
+/* Pastilles de sprint = boutons → tickets du sprint (3.253.0) */
+button.th-spr { font: inherit; font-size: 11px; font-weight: var(--fw-semibold); cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+button.th-spr:hover { filter: brightness(1.08); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 30%, transparent); }
+button.th-spr:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+.th-spr-go { font-size: 9px; opacity: 0; transition: opacity .15s ease; }
+button.th-spr:hover .th-spr-go, button.th-spr:focus-visible .th-spr-go { opacity: 1; }
+@media (hover: none) { .th-spr-go { opacity: .7; } }

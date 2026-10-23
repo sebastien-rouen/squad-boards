@@ -835,6 +835,12 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Dailys regroupés par créneau (déplié, vue globale, 3.247.0) : `groupDailies` (components/cal_banner_dailies.js), nature
   « daily » via `calNatureWithRules` ; état ouvert en mémoire de session seulement.
 
+## Contrôle de taille (`npm run check:size`)
+
+[tools/check-size.mjs](tools/check-size.mjs) liste les fichiers > 800 lignes (JS, CSS, Python) et les fonctions JS
+> 150 lignes (gabarits `…Html` / `…Css` : 300), parseur espree d'ESLint. `-- --strict` = sortie 1 si un FICHIER
+dépasse. Dev : `PUPPETEER_SKIP_DOWNLOAD=1 npm install` (node_modules ignoré par git).
+
 ## Tests (`npm test`)
 
 Suites `node:test` dans [tests/](tests/) — 161 tests, aucune dépendance, ~1 s. Détail :

@@ -1,112 +1,220 @@
 {
     "name": "decouverte",
     "title": "Squad Board, c'est quoi ?",
-    "description": "Un tableau de bord pour les équipes agiles : tickets, sprints, PI planning, roadmap, santé d'équipe et rapports, au même endroit. Pour les Scrum Masters, PO, RTE et les équipes.",
+    "description": "Le tableau de bord des équipes agiles : tickets, sprints, PI planning, roadmap, santé d'équipe et rapports au même endroit. Pour les Scrum Masters, PO, RTE et les équipes. Filmé sur l'instance de démo (données fictives), voix off locale.",
     "audience": "public",
     "brand": "Squad Board",
-    "intro": {
-        "sub": "Le tableau de bord des équipes agiles, en un coup d'œil"
+    "subtitle": "Le tableau de bord des équipes agiles, en un coup d'œil",
+    "outro": {
+        "sub": "squad-boards.bastou.dev · open source, auto-hébergé"
     },
-    "url": "http://127.0.0.1:3010/",
+    "url": "http://127.0.0.1:3011/",
     "publicUrl": "https://squad-boards.bastou.dev",
-    "viewport": {
-        "width": 1280,
-        "height": 720
+    "server": {
+        "cwd": "squad-boards",
+        "cmd": [
+            "python3",
+            "main.py"
+        ],
+        "env": {
+            "PORT": "3011",
+            "SB_DB_PATH": "data/demo.db"
+        },
+        "readyUrl": "http://127.0.0.1:3011/",
+        "dbFile": "data/demo.db"
     },
     "colorScheme": "light",
     "localStorage": {
-        "sb-theme": "light"
+        "sb-theme": "light",
+        "sb-poker-myname": "Camille"
     },
-    "ready": ".sidebar",
-    "blur": [
-        ".ticket-title",
-        "#mdl-title-span",
-        ".mdl-crumb-title",
-        ".ticket-assignee .truncate",
-        ".person-picker-name",
-        ".pi-obj-ro-text",
-        ".pi-obj-text",
-        ".mdl-people",
-        ".db-oncall-chips",
-        ".rm-tl-card-title",
-        ".npi-feat-title",
-        ".npi-child-title",
-        ".rtc-title",
-        ".rtc-who",
-        ".feature-title"
+    "ready": ".dashboard-metrics",
+    "transition": "slide-left",
+    "captionStyle": "subtitle",
+    "cinema": {
+        "letterbox": 2.39,
+        "vignette": 0.3,
+        "tint": "warm"
+    },
+    "voice": {
+        "rate": 1.05
+    },
+    "prepare": [
+        {
+            "goto": "#dashboard",
+            "ready": ".sidebar",
+            "wait": 500
+        },
+        {
+            "eval": "const src = [...document.scripts].map(s => s.src).find(s => /\\/js\\/app\\.js/.test(s)); const m = await import(src.replace(/app\\.js$/, 'demo.js')); await m.seedFullDemoData(() => {});",
+            "if": "(async () => { const r = await (await fetch('/api/tickets')).json(); return (Array.isArray(r) ? r : r.items || r.data || []).length < 60; })()"
+        },
+        {
+            "reload": true,
+            "ready": ".dashboard-metrics",
+            "wait": 800
+        }
     ],
     "steps": [
         {
             "goto": "#dashboard",
-            "wait": 1200
+            "wait": 300
         },
         {
-            "caption": "Pour qui ? Scrum Masters, Product Owners, RTE… et l'équipe entière"
+            "title": "Squad Board",
+            "kicker": "Le tableau de bord des équipes agiles",
+            "sub": "Tickets, sprints, PI, santé d'équipe et rapports : un seul endroit",
+            "say": "Squad Board : tickets, sprints, P I, santé d'équipe et rapports, au même endroit."
         },
         {
-            "caption": "Le Dashboard : le cap de l'équipe et ses indicateurs clés"
+            "caption": "Scrum Masters, PO, RTE : la journée commence ici",
+            "style": "kinetic",
+            "say": "Scrum Masters, P O, R T E : la journée commence ici."
         },
         {
-            "draw": {
-                "sel": ".dashboard-metrics",
-                "shape": "box",
-                "label": "WIP, bloqués, débit, cycle time",
-                "color": "#2563eb"
+            "spotlight": ".meteo-wrap",
+            "label": "la météo de chaque équipe, d'un coup d'œil",
+            "wait": 500
+        },
+        {
+            "count": {
+                "sel": ".meteo-val",
+                "ms": 1300
             },
-            "wait": 2600
+            "wait": 2000
         },
         {
-            "draw": ""
+            "spotlight": ""
+        },
+        {
+            "letterbox": false
         },
         {
             "caption": "Le Board : le flux du sprint, colonne par colonne",
-            "wait": 300
+            "style": "pill",
+            "voice": false,
+            "wait": 400
         },
         {
             "goto": "#kanban",
             "ready": ".ticket-card",
-            "wait": 2400
+            "wait": 700
         },
         {
-            "caption": "Les tickets viennent de JIRA, ou se créent ici"
+            "title": "Le Board",
+            "kicker": "01",
+            "sub": "Glisser une carte, c'est changer son statut",
+            "say": "Le Board : glisser une carte, c'est changer son statut."
+        },
+        {
+            "caption": "Une carte glisse vers « En cours »",
+            "style": "pill",
+            "voice": false,
+            "wait": 300
+        },
+        {
+            "drag": {
+                "from": ".board-column:has(.col-todo) .ticket-card",
+                "to": ".board-column:has(.col-inprog) .column-cards"
+            },
+            "wait": 1000
+        },
+        {
+            "stamp": "→ En cours",
+            "tone": "info",
+            "at": ".board-column:has(.col-inprog) .column-header",
+            "wait": 1500
         },
         {
             "caption": "PI Planning : objectifs et features de chaque équipe du train",
+            "style": "pill",
+            "voice": false,
             "wait": 300
         },
         {
             "goto": "#pi",
-            "wait": 2600
+            "wait": 400
+        },
+        {
+            "title": "Planifier",
+            "kicker": "02",
+            "sub": "PI Planning et Roadmap, du trimestre à la feature",
+            "say": "Planifier : P I Planning et Roadmap, du trimestre à la feature."
+        },
+        {
+            "pan": {
+                "drift": "in",
+                "scale": 1.06,
+                "ms": 2200
+            }
         },
         {
             "caption": "Roadmap : la trajectoire des features sur plusieurs PI",
+            "style": "pill",
+            "say": "La Roadmap : la trajectoire des features sur plusieurs P I.",
             "wait": 300
         },
         {
             "goto": "#roadmap",
-            "wait": 2600
+            "wait": 400
+        },
+        {
+            "pan": {
+                "drift": "in",
+                "scale": 1.06,
+                "ms": 2400
+            }
         },
         {
             "caption": "Santé : météo d'équipe, capacité, absences",
+            "style": "pill",
+            "voice": false,
             "wait": 300
         },
         {
             "goto": "#health",
-            "wait": 2600
+            "wait": 400
         },
         {
-            "caption": "Rapports : sprint, PI, flux, support… prêts à partager",
+            "title": "Piloter",
+            "kicker": "03",
+            "sub": "Santé, capacité et rapports prêts à partager",
+            "say": "Piloter : santé, capacité, et des rapports prêts à partager."
+        },
+        {
+            "pan": {
+                "drift": "in",
+                "scale": 1.06,
+                "ms": 2200
+            }
+        },
+        {
+            "caption": "Rapports : sprint, PI, flux, support… en un clic",
+            "style": "pill",
+            "say": "Les rapports : sprint, P I, flux, support, en un clic.",
             "wait": 300
         },
         {
             "goto": "#reports",
-            "wait": 2600
+            "wait": 400
         },
         {
-            "caption": "Un seul outil, léger, auto-hébergé, en français"
+            "pan": {
+                "drift": "in",
+                "scale": 1.06,
+                "ms": 2400
+            }
+        },
+        {
+            "letterbox": true
+        },
+        {
+            "caption": "Un seul outil. Léger, auto-hébergé, en français.",
+            "style": "kinetic"
         },
         {
             "caption": ""
         }
-    ]
+    ],
+    "maxSeconds": 75
 }

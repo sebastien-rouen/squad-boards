@@ -1,0 +1,6 @@
+[
+    { "id": "summary", "name": "Summary", "custom": false, "clauseNames": ["summary"] },
+    { "id": "customfield_10016", "name": "Story point estimate", "custom": true, "clauseNames": ["cf[10016]", "Story point estimate"] },
+    { "id": "customfield_10020", "name": "Sprint", "custom": true, "clauseNames": ["cf[10020]", "Sprint"] },
+    { "id": "customfield_10014", "name": "PI Planning", "custom": true, "clauseNames": ["cf[10014]", "PI Planning"] }
+]

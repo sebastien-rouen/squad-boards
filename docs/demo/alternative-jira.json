@@ -1,170 +1,61 @@
 {
     "name": "alternative-jira",
     "title": "Une alternative open source à JIRA ?",
-    "description": "Ce que Squad Board fait sans JIRA : tickets, kanban, estimation en poker, affinage, rétrospectives et PI planning. JIRA devient optionnel : on synchronise si on en a un, on vit sans sinon.",
+    "description": "Ce que Squad Board fait sans JIRA, en vrai : créer un ticket, le compléter en place, l'estimer au Planning Poker, affiner le prochain sprint, tenir ses rétrospectives. JIRA devient optionnel. Instance de démo, données fictives.",
     "audience": "public",
     "brand": "Squad Board",
-    "intro": {
-        "sub": "Tout ce qui tourne sans JIRA"
-    },
-    "outro": {
-        "sub": "Merci de votre attention · open source, auto-hébergé"
-    },
-    "url": "http://127.0.0.1:3010/",
+    "subtitle": "Tout ce qui tourne sans JIRA : créer, estimer, affiner, améliorer",
+    "outro": { "sub": "open source · auto-hébergé · JIRA en option" },
+    "url": "http://127.0.0.1:3011/",
     "publicUrl": "https://squad-boards.bastou.dev",
-    "viewport": {
-        "width": 1280,
-        "height": 720
+    "server": {
+        "cwd": "squad-boards",
+        "cmd": ["python3", "main.py"],
+        "env": { "PORT": "3011", "SB_DB_PATH": "data/demo.db" },
+        "readyUrl": "http://127.0.0.1:3011/",
+        "dbFile": "data/demo.db"
     },
     "colorScheme": "light",
-    "localStorage": {
-        "sb-theme": "light"
-    },
+    "localStorage": { "sb-theme": "light", "sb-team": "Alpha", "sb-poker-myname": "Camille" },
     "ready": ".ticket-card",
-    "fake": {
-        ".ticket-title": [
-            "Migrer l'API paiement vers la v2",
-            "Corriger l'export PDF des factures",
-            "Page d'accueil : nouveau bandeau",
-            "Alerte quand le stock passe sous 10",
-            "Connexion par lien magique",
-            "Tableau de bord : filtre par équipe",
-            "Réduire le temps de build CI",
-            "Traduire l'application en espagnol"
-        ],
-        "#mdl-title-span": [
-            "Migrer l'API paiement vers la v2"
-        ],
-        ".mdl-crumb-title": [
-            "Refonte du parcours de paiement"
-        ],
-        ".ticket-assignee": [
-            "Alex",
-            "Camille",
-            "Dominique",
-            "Sacha"
-        ],
-        ".person-picker-name": [
-            "Alex Martin",
-            "Camille Durand",
-            "Dominique Petit",
-            "Sacha Bernard"
-        ],
-        ".ticket-assignee .truncate": [
-            "Alex Martin",
-            "Camille Durand",
-            "Dominique Petit",
-            "Sacha Bernard",
-            "Noa Lefèvre",
-            "Lou Garnier"
-        ],
-        ".rtc-who": [
-            "Alex Martin",
-            "Camille Durand",
-            "Dominique Petit",
-            "Sacha Bernard",
-            "Noa Lefèvre",
-            "Lou Garnier"
-        ],
-        ".rtc-title": [
-            "Raccourcir la revue de code",
-            "Un daily à 9h15, debout",
-            "Écrire les critères d'acceptation avant le sprint",
-            "Binômer sur les tickets bloqués",
-            "Démo client toutes les deux semaines",
-            "Limiter le WIP à 3 par personne"
-        ],
-        ".feature-title": [
-            "Refonte du parcours de paiement",
-            "Nouveau module de facturation",
-            "Portail client v2",
-            "Observabilité et alerting"
-        ]
-    },
-    "blur": [
-        ".mdl-description",
-        ".mdl-people"
+    "transition": "slide-left",
+    "anim": true,
+    "voice": { "rate": 1.05 },
+    "prepare": [
+        { "goto": "#kanban", "ready": ".ticket-card", "wait": 400 }
     ],
     "steps": [
-        {
-            "goto": "#kanban"
-        },
-        {
-            "caption": "Un kanban complet : créer, déplacer, prioriser, sans JIRA"
-        },
-        {
-            "highlight": "#btn-create",
-            "tip": "Nouveau ticket en une touche (N)",
-            "wait": 2400
-        },
-        {
-            "highlight": ""
-        },
-        {
-            "caption": "Chaque ticket a sa fiche : statut, priorité, estimation, porteur"
-        },
-        {
-            "click": ".ticket-card",
-            "wait": 1400
-        },
-        {
-            "draw": {
-                "sel": ".mdl-props",
-                "shape": "box",
-                "label": "tout se modifie en place",
-                "color": "#2563eb"
-            },
-            "wait": 2400
-        },
-        {
-            "draw": ""
-        },
-        {
-            "caption": "Planning Poker intégré pour estimer en équipe",
-            "wait": 300
-        },
-        {
-            "zoom": "#mdl-poker-btn",
-            "scale": 1.6,
-            "wait": 800
-        },
-        {
-            "highlight": "#mdl-poker-btn",
-            "tip": "Voter, révéler, converger",
-            "wait": 2600
-        },
-        {
-            "highlight": ""
-        },
-        {
-            "zoom": "",
-            "wait": 800
-        },
-        {
-            "press": "Escape",
-            "wait": 800
-        },
-        {
-            "caption": "Affinage : préparer le prochain sprint, ticket par ticket",
-            "wait": 300
-        },
-        {
-            "goto": "#refinement",
-            "wait": 2600
-        },
-        {
-            "caption": "Rétrospectives et amélioration continue",
-            "wait": 300
-        },
-        {
-            "goto": "#retro",
-            "wait": 2600
-        },
-        {
-            "caption": "Et si JIRA est là : on synchronise. Sinon, on vit très bien sans"
-        },
-        {
-            "caption": ""
-        }
+        { "goto": "#kanban", "wait": 300 },
+        { "caption": "Pas de JIRA ? Pas grave. Le kanban est complet.", "style": "kinetic" },
+        { "caption": "Créer un ticket en une phrase", "wait": 300 },
+        { "highlight": "#btn-create", "tip": "Nouveau ticket (touche N)", "wait": 1300 },
+        { "highlight": "" },
+        { "click": "#btn-create", "wait": 900 },
+        { "type": { "sel": "#create-form input[name=\"title\"]", "text": "Alerte quand le stock passe sous 10", "delay": 40 }, "wait": 500 },
+        { "click": "#create-form button[type=\"submit\"]", "wait": 1400 },
+        { "stamp": "✓ Créé", "tone": "success", "pos": "top-right", "wait": 1500 },
+        { "caption": "Chaque ticket a sa fiche : tout se modifie en place", "wait": 300 },
+        { "click": ".board-column:has(.col-todo) .ticket-card", "wait": 1300 },
+        { "spotlight": ".mdl-props", "label": "statut, priorité, estimation, sprint, flux", "wait": 2600 },
+        { "spotlight": "" },
+        { "caption": "Planning Poker intégré : voter, révéler, converger", "wait": 300 },
+        { "zoom": "#mdl-poker-btn", "scale": 1.5, "wait": 700 },
+        { "highlight": "#mdl-poker-btn", "tip": "Estimer en équipe", "wait": 1100 },
+        { "highlight": "" },
+        { "zoom": "", "wait": 600 },
+        { "click": "#mdl-poker-btn", "wait": 1500 },
+        { "click": ".poker-card[data-val=\"5\"]", "wait": 1000 },
+        { "click": "#poker-reveal", "wait": 1700 },
+        { "stamp": "5 points", "tone": "info", "pos": "top-right", "wait": 1200 },
+        { "press": "Escape", "wait": 600 },
+        { "press": "Escape", "wait": 700 },
+        { "caption": "Affinage : préparer le prochain sprint, ticket par ticket", "wait": 300 },
+        { "goto": "#refinement/Alpha", "wait": 600 },
+        { "pan": { "drift": "in", "scale": 1.06, "ms": 2800 } },
+        { "caption": "Rétrospectives et amélioration continue", "wait": 300 },
+        { "goto": "#retro", "wait": 600 },
+        { "pan": { "drift": "in", "scale": 1.06, "ms": 2600 } },
+        { "caption": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans.", "style": "kinetic" },
+        { "caption": "" }
     ]
 }

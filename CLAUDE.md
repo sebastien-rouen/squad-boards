@@ -735,9 +735,14 @@ python main.py          # http://localhost:3001  — Swagger /docs
   changé, id de sprint gardé tant que le nom ne bouge pas. Push = `api.jiraSend` (titre, points, priorité, étiquettes,
   leader par `accountId`, statut par TRANSITION) — jamais la description (ADF). `PUT /api/tickets/:id` accepte les
   clés de cycle (`startedDate`…) et normalise `createdAt` / `updatedAt` via `_iso_utc`.
-- **Démos vidéo** (3.248.0) : `docs/demo/` est servi tel quel sous `/demo/` (`DEMO_DIR`, `main.py`) — lecteur, MP4,
-  scénarios JSON et `*.meta.json` générés par `tools/demo-video/record.mjs` (racine du monorepo, agent `demo-video`).
-  Ne rien éditer à la main dans ce dossier à part les `*.json` de scénario ; ne jamais monter `docs/` entier.
+- **Démos vidéo** (3.248.0, refonte 3.258.0) : `docs/demo/` est servi tel quel sous `/demo/` (`DEMO_DIR`, `main.py`) — lecteur,
+  MP4 1080p avec voix off, scénarios JSON, `fixtures/` (réponses JIRA simulées) et `*.meta.json` générés par
+  `tools/demo-video/record.mjs` (racine du monorepo, agent `demo-video`, format : `tools/demo-video/README.md`).
+  Ne rien éditer à la main dans ce dossier à part les `*.json` ; ne jamais monter `docs/` entier.
+  Les démos se filment sur l'**instance de démo** : `PORT=3011 SB_DB_PATH=data/demo.db python3 main.py` (bloc
+  `server` du scénario, lancée/arrêtée par l'outil ; `--fresh-db` recrée la base, `seedFullDemoData` est semé dans
+  `prepare`) — jamais sur `data/board.db` (gestes qui écrivent : création, drag, push JIRA). `SB_DB_PATH`
+  (app/config.py) : absolu ou relatif à la racine du projet ; `data/*.db` est ignoré par git.
 - **Historique d'un ticket** (3.252.0) : UNIQUEMENT `ticketHistoryHtml` / `bindTicketHistory` (components/ticket_history.js) ;
   catégorie d'un champ = `catOf` (`_BY_FIELD`) — un champ JIRA nouveau tombe en « Autres », l'ajouter là.
   Pastille de sprint = bouton → `openSprintTicketsModal` (popin ticket fermée d'abord : pas de fenêtres empilées).

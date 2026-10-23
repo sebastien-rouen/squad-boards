@@ -1,0 +1,42 @@
+{
+    "id": "10042",
+    "key": "{{key}}",
+    "fields": {
+        "summary": "Migrer l'API paiement vers la v2 (idempotence et reprise)",
+        "status": { "name": "En cours" },
+        "issuetype": { "name": "Story" },
+        "assignee": { "displayName": "Camille Simon", "accountId": "5f1a-demo-camille" },
+        "reporter": { "displayName": "Baptiste Roux" },
+        "priority": { "name": "High" },
+        "labels": ["paiement", "v2", "sprint-goal"],
+        "customfield_10016": 8,
+        "customfield_10020": [{ "id": 318, "name": "Alpha - Ite 31.3", "state": "active" }],
+        "customfield_10014": null,
+        "parent": null,
+        "flagged": null,
+        "created": "2026-09-30T08:12:00.000+0200",
+        "updated": "2026-10-23T17:45:00.000+0200",
+        "description": {
+            "type": "doc", "version": 1,
+            "content": [
+                { "type": "paragraph", "content": [{ "type": "text", "text": "Basculer les appels de paiement sur l'API v2 avec une clé d'idempotence par commande, et reprendre proprement une transaction interrompue." }] },
+                { "type": "heading", "attrs": { "level": 3 }, "content": [{ "type": "text", "text": "Critères d'acceptation" }] },
+                { "type": "bulletList", "content": [
+                    { "type": "listItem", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Un double envoi ne crée qu'un seul paiement." }] }] },
+                    { "type": "listItem", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Une coupure réseau en cours de paiement se reprend sans ressaisie." }] }] },
+                    { "type": "listItem", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Tableau de bord : taux d'échec v1 et v2 côte à côte." }] }] }
+                ] }
+            ]
+        },
+        "comment": { "comments": [
+            { "id": "c-901", "author": { "displayName": "Baptiste Roux" }, "created": "2026-10-22T09:30:00.000+0200",
+              "body": { "type": "doc", "version": 1, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Validé en revue de découpage : on garde la reprise dans cette story, la supervision passe dans une tâche à part." }] }] } }
+        ] },
+        "issuelinks": [],
+        "fixVersions": []
+    },
+    "changelog": { "histories": [
+        { "created": "2026-10-06T09:00:00.000+0200", "items": [{ "field": "status", "fromString": "À faire", "toString": "En cours" }] },
+        { "created": "2026-10-20T14:00:00.000+0200", "items": [{ "field": "Story point estimate", "fromString": "5", "toString": "8" }] }
+    ] }
+}

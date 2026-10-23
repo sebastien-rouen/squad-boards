@@ -11,7 +11,7 @@
     <header class="hd">
         <div class="hd-row">
             <h1 class="hd-title">🎬 Démos <span class="hd-site" id="hd-site"></span></h1>
-            <p class="hd-sub"><span id="hd-count"></span> · <kbd>←</kbd> <kbd>→</kbd> chapitres · <kbd>Espace</kbd> lecture · <a href="#how">comment c'est fait ↓</a></p>
+            <p class="hd-sub"><span id="hd-count"></span> · <kbd>←</kbd> <kbd>→</kbd> chapitres · <kbd>Espace</kbd> lecture · <kbd>M</kbd> son · <a href="#how">comment c'est fait ↓</a></p>
         </div>
         <!-- Sélecteur : une vignette par démo -->
         <nav class="picker" id="picker" aria-label="Choisir une démo"></nav>
@@ -28,6 +28,7 @@
                 <p class="pl-kicker" id="pl-kicker"></p>
                 <h2 class="pl-title" id="pl-title"></h2>
                 <p class="pl-desc" id="pl-desc"></p>
+                <p class="pl-badges" id="pl-badges"></p>
             </div>
             <section class="pl-block">
                 <h3 class="pl-block-title">Chapitres <span class="pl-count" id="pl-chapcount"></span></h3>
@@ -47,32 +48,32 @@
 
     <!-- ── Comment une démo est produite ── -->
     <section class="how" id="how" aria-labelledby="how-title">
-        <h2 class="how-title" id="how-title">Comment c'est fait <span class="hand">en une minute, sans montage</span></h2>
+        <h2 class="how-title" id="how-title">Comment c'est fait <span class="hand">en deux minutes, sans montage</span></h2>
 
         <ol class="pipe">
             <li class="pipe-step">
                 <span class="pipe-ico">📝</span>
                 <h3>Scénario JSON</h3>
-                <p>Une liste d'étapes lisible : aller à une vue, cliquer, sous-titrer, mettre en lumière, flouter. Versionné à côté de la vidéo.</p>
-                <code>{ "click": ".ticket-card" }</code>
+                <p>Une liste d'étapes lisible : aller à une vue, cliquer, glisser une carte, sous-titrer, mettre en lumière, poser un carton de chapitre. Versionné à côté de la vidéo.</p>
+                <code>{ "drag": { "from": ".ticket-card", "to": ".column-cards" } }</code>
             </li>
             <li class="pipe-step">
                 <span class="pipe-ico">🎭</span>
-                <h3>Playwright filme</h3>
-                <p>Chromium rejoue le scénario sur <b>drafts</b> et enregistre. Un calque injecté dessine le curseur, le halo, les bulles, les tracés à la main et les cartons.</p>
-                <code>recordVideo · 1280×720</code>
+                <h3>Playwright joue, Chrome filme</h3>
+                <p>Chromium rejoue le scénario sur une <b>instance de démo</b> (données fictives) et livre chaque image en 1080p. Un calque dessine le curseur, les bulles, les tracés, les bandes noires, les transitions.</p>
+                <code>Page.startScreencast · 1920×1080</code>
+            </li>
+            <li class="pipe-step">
+                <span class="pipe-ico">🎙️</span>
+                <h3>Voix off locale</h3>
+                <p>Chaque sous-titre est lu par <b>Piper</b> (synthèse vocale sur le serveur, aucun service cloud), calé à l'instant où il s'affiche, puis mixé en AAC.</p>
+                <code>piper · fr_FR-siwis</code>
             </li>
             <li class="pipe-step">
                 <span class="pipe-ico">🎞️</span>
-                <h3>ffmpeg compresse</h3>
-                <p>H.264 crf 30, 24 images/s, démarrage rapide : une interface tient dans quelques centaines de Ko. Poster WebP en prime.</p>
-                <code>libx264 · libwebp</code>
-            </li>
-            <li class="pipe-step">
-                <span class="pipe-ico">🎬</span>
-                <h3>Ce lecteur</h3>
-                <p>Chapitres horodatés depuis les sous-titres, poids, scénario pas à pas. Aucun serveur requis : la page s'ouvre en double-clic.</p>
-                <code>demos.js · *.meta.json</code>
+                <h3>ffmpeg assemble</h3>
+                <p>Images à cadence fixe, H.264 crf 28, démarrage rapide, poster WebP. Chapitres horodatés pour ce lecteur, qui s'ouvre sans serveur, en double-clic.</p>
+                <code>libx264 · aac · libwebp</code>
             </li>
         </ol>
 
@@ -85,8 +86,8 @@
             </article>
 
             <article class="how-card">
-                <h3>🫥 Floutage ou textes factices</h3>
-                <p class="how-sub">Les sites drafts contiennent des données réelles : chaque scénario dit ce qu'il cache (<code>blur</code>), ce qu'il remplace (<code>fake</code>) et pour qui (<code>audience</code>).</p>
+                <h3>🫥 Données fictives, floutage, textes factices</h3>
+                <p class="how-sub">Une démo se filme d'abord sur une <b>base de démo</b> (rien à cacher). À défaut, chaque scénario dit ce qu'il floute (<code>blur</code>), ce qu'il remplace (<code>fake</code>) et pour qui (<code>audience</code>).</p>
                 <div class="blur-demo" id="blur-demo" tabindex="0" role="button" aria-pressed="true" title="Cliquer pour comparer">
                     <div class="fake-card">
                         <div class="fake-top"><span class="fake-type">✨ STORY</span><span class="fake-id">GEX-11656</span></div>
@@ -105,11 +106,11 @@
                 <h3>🧰 Technos</h3>
                 <ul class="badges">
                     <li>Playwright <small>storybook/node_modules</small></li>
-                    <li>Chromium <small>/usr/bin/chromium</small></li>
-                    <li>ffmpeg 7 <small>libx264 · libwebp</small></li>
+                    <li>Chromium <small>/usr/bin/chromium · CDP</small></li>
+                    <li>ffmpeg 7 <small>libx264 · aac · libwebp</small></li>
+                    <li>Piper TTS <small>voix off, 100 % locale</small></li>
                     <li>Node 22 <small>script ES module</small></li>
                     <li>Caveat <small>police manuscrite, OFL</small></li>
-                    <li>0 dépendance npm <small>rien à installer</small></li>
                 </ul>
                 <p class="how-note">Agent Claude <code>demo-video</code> : il écrit le scénario, filme, contrôle image par image et relance.</p>
                 <pre class="how-cmd"><code>cd /sites/drafts

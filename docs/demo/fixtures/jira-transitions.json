@@ -1,0 +1,8 @@
+{
+    "transitions": [
+        { "id": "11", "name": "À faire", "to": { "name": "À faire" } },
+        { "id": "21", "name": "En cours", "to": { "name": "En cours" } },
+        { "id": "31", "name": "En revue", "to": { "name": "En revue" } },
+        { "id": "41", "name": "Terminé", "to": { "name": "Terminé" } }
+    ]
+}

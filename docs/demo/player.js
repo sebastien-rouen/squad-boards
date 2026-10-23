@@ -22,7 +22,7 @@ function renderGrid() {
         img.alt = d.title;
         btn.querySelector('.pick-dur').textContent = fmtT(d.durationS);
         btn.querySelector('.pick-title').textContent = d.title;
-        btn.querySelector('.pick-meta').textContent = `${fmtMb(d.files.mp4)} · ${d.chapters.length} chap.${d.audience === 'interne' ? ' · 🔒' : ''}`;
+        btn.querySelector('.pick-meta').textContent = `${fmtMb(d.files.mp4)} · ${d.chapters.length} chap.${d.voice ? ' · 🔊' : ''}${d.audience === 'interne' ? ' · 🔒' : ''}`;
         btn.addEventListener('click', () => { location.hash = d.name; });
         nav.append(btn);
     }
@@ -41,7 +41,24 @@ function stepLabel(s) {
     if (s.scroll) return ['Défilement', `${s.scroll.y ?? 300}px`];
     if (s.highlight !== undefined) return ['Halo', s.highlight ? `${s.highlight}${s.tip ? ` — « ${s.tip} »` : ''}` : 'retiré'];
     if (s.draw !== undefined) return ['Tracé', s.draw ? `${s.draw.shape || 'circle'} sur ${s.draw.sel}${s.draw.label ? ` — « ${s.draw.label} »` : ''}` : 'effacé'];
-    if (s.caption !== undefined) return ['Sous-titre', s.caption || '(masqué)'];
+    if (s.caption !== undefined) return ['Sous-titre', s.caption ? `${s.caption}${s.style ? ` [${s.style}]` : ''}` : '(masqué)'];
+    if (s.title !== undefined) return ['Chapitre', s.title ? `${s.kicker ? `${s.kicker} · ` : ''}${s.title}${s.sub ? ` — ${s.sub}` : ''}` : 'retiré'];
+    if (s.drag) return ['Glisser', `${s.drag.from} → ${s.drag.to}`];
+    if (s.spotlight !== undefined) return ['Projecteur', s.spotlight ? `${s.spotlight}${s.label ? ` — « ${s.label} »` : ''}` : 'retiré'];
+    if (s.stamp !== undefined) return ['Tampon', s.stamp || 'retiré'];
+    if (s.pan) return ['Travelling', s.pan.to ? `vers ${s.pan.to} ×${s.pan.scale || 1.4}` : `dérive ${s.pan.drift || 'in'}`];
+    if (s.zoom !== undefined) return ['Zoom', s.zoom ? `${s.zoom} ×${s.scale || 1.6}` : 'retour'];
+    if (s.letterbox !== undefined) return ['Bandes noires', s.letterbox ? `ratio ${typeof s.letterbox === 'number' ? s.letterbox : (s.ratio || 2.39)}` : 'retirées'];
+    if (s.count) return ['Compteur', s.count.sel || s.count];
+    if (s.speed !== undefined) return ['Vitesse', `×${s.speed}`];
+    if (s.say) return ['Voix', s.say];
+    if (s.cursor !== undefined) return ['Curseur', s.cursor === 'hide' || s.cursor === false ? 'caché' : 'montré'];
+    if (s.anim !== undefined) return ['Animations du site', s.anim ? 'rendues' : 'neutralisées'];
+    if (s.grade !== undefined) return ['Étalonnage', JSON.stringify(s.grade || {})];
+    if (s.eval) return ['Script', s.eval.slice(0, 60)];
+    if (s.waitFor) return ['Attendre', s.waitFor];
+    if (s.clickIf) return ['Clic si présent', s.clickIf];
+    if (s.reload) return ['Recharger', ''];
     if (s.wait !== undefined) return ['Pause', `${s.wait} ms`];
     return ['?', JSON.stringify(s)];
 }
@@ -53,9 +70,16 @@ function openDemo(name) {
     $('player').hidden = false;
     video.src = `${d.name}.mp4`;
     video.poster = `${d.name}-poster.webp`;
-    $('pl-kicker').textContent = `${d.site || ''} · ${fmtT(d.durationS)} · ${d.viewport.width}×${d.viewport.height}`;
+    $('pl-kicker').textContent = `${d.site || ''} · ${fmtT(d.durationS)} · ${d.viewport.width}×${d.viewport.height}${d.fps ? ` · ${d.fps} i/s` : ''}`;
     $('pl-title').textContent = d.title;
     $('pl-desc').textContent = d.description || '';
+    const badges = [];
+    if (d.voice) badges.push(`🔊 voix off · ${d.voiceLines || ''} réplique${(d.voiceLines || 0) > 1 ? 's' : ''}`);
+    if (d.cinema?.letterbox) badges.push(`🎞️ bandes noires ${d.cinema.letterbox}:1`);
+    if (d.transition && d.transition !== 'fade') badges.push(`↔ transitions ${d.transition}`);
+    if (d.anim) badges.push('✨ animations du site');
+    if (d.audience === 'interne') badges.push('🔒 interne');
+    $('pl-badges').replaceChildren(...badges.map(b => el('span', 'pl-badge', b)));
 
     const chapters = $('pl-chapters');
     chapters.replaceChildren(...d.chapters.map((c, i) => {
@@ -69,10 +93,13 @@ function openDemo(name) {
 
     const meta = $('pl-meta');
     meta.replaceChildren();
+    const privacy = d.audience === 'interne' ? 'interne (rien de flouté)'
+        : !d.blur.length && !d.fake ? 'public · données de démo (rien à cacher)'
+        : `public · ${d.blur.length ? `${d.blur.length} sélecteur${d.blur.length > 1 ? 's' : ''} flouté${d.blur.length > 1 ? 's' : ''}` : ''}${d.blur.length && d.fake ? ' · ' : ''}${d.fake ? `${d.fake} texte${d.fake > 1 ? 's' : ''} factice${d.fake > 1 ? 's' : ''}` : ''}`;
     const rows = [
         ['Enregistrée', new Date(d.recordedAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })],
-        ['Audience', d.audience === 'interne' ? 'interne (rien de flouté)' : `public · ${d.blur.length} sélecteur${d.blur.length > 1 ? 's' : ''} flouté${d.blur.length > 1 ? 's' : ''}`],
-        ['Source', d.url],
+        ['Audience', privacy],
+        ...(d.publicUrl ? [['Site', d.publicUrl.replace(/^https?:\/\//, '')]] : []),
         ['Poids', `MP4 ${fmtMb(d.files.mp4)}${d.files.webp ? ` · WebP ${fmtMb(d.files.webp)}` : ''} · poster ${fmtMb(d.files.poster)}`],
     ];
     for (const [k, v] of rows) meta.append(el('dt', '', k), el('dd', '', v));
@@ -115,6 +142,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowRight' && current.chapters[i + 1]) { e.preventDefault(); seek(current.chapters[i + 1].t); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); seek(current.chapters[Math.max(0, i - 1)]?.t ?? 0); }
     else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); video.paused ? video.play() : video.pause(); }
+    else if (e.key === 'm' || e.key === 'M') { video.muted = !video.muted; }
 });
 
 // ── Accueil : poids pour une minute (extrapolé depuis les démos du dossier) + bascule du floutage ──

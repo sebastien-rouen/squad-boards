@@ -222,7 +222,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   `piInfo.roleCapacity` (Paramètres → « Capacité dev — % de travail par rôle »,
   `/#settings/cap-roles` — Dev 100 %, Tech Lead 70 %, PO/SM 0 %). Les **absences sont
   pondérées de la même façon** : les congés d'un rôle à 0 % ne retirent rien à la capacité.
-  `roleCapacityPct()` est la source unique de cette règle — `_capRolePct` (pi.js) y pointe.
+  `roleCapacityPct()` est la source unique de cette règle — `_capRolePct` (pi-capacity-model.js) y pointe.
   Rôle inconnu → 100 % **et signalé** dans l'infobulle, jamais écarté en silence.
   ⚠️ **L'effectif vient du ROSTER du PI** (`effectiveRosterForPi` → `piInfo.piMembers[<PI>]`),
   jamais des absences seules : les congés d'une personne **sortie de l'équipe** y restent et
@@ -232,8 +232,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
   moyenne de vélocité des PI passés, ni dans le décompte des sprints du PI visé, ni comme
   charge suggérée. `breathIdxOf()` = `max(sprintsPerPI, plus grand index observé)` — ce `max`
   évite de promouvoir le dernier sprint CONNU d'un PI encore incomplet.
-  `breathIdxByPi()` est la source unique, y compris pour `_capAvgVelocity` (page Capacité de
-  pi.js) — l'ancien `_isIpSprint` (« si ≥ 6 sprints », comparé au `sprintsPerPI` configuré)
+  `breathIdxByPi()` est la source unique, y compris pour `_capAvgVelocity` (page Capacité,
+  pi-capacity-model.js) — l'ancien `_isIpSprint` (« si ≥ 6 sprints », comparé au `sprintsPerPI` configuré)
   ne détectait jamais rien avec 5 sprints/PI, et excluait le 5ᵉ d'un PI qui en compte 6.
 - **Statuts JIRA — repli silencieux** (3.145.2) : `mapStatus()` est un lookup EXACT dans
   `STATUS_MAP` avec repli **muet** sur `'todo'`. Un libellé non déclaré ne lève rien et prive le
@@ -765,6 +765,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
   retire le DERNIER vote de cette valeur (`toastUndo`, suppression en base différée). Une équipe, sprint EN COURS.
   Page PI (onglets Mood / Fist, `renderVotingPanel`) : MÊME grammaire (cartes emoji, +1 par clic, × au survol,
   pastilles de sprint) et mêmes échelles `VOTE_KINDS` — plus d'échelle propre à la page.
+- **Page PI découpée par onglet** (3.258.0) : `pi.js` = coquille (onglets, Indicateurs, Dépendances) ; `pi-objectives.js`
+  (+ verrou d'édition d'un PI passé, `syncObjectivesLock`), `pi-features.js`, `pi-capacity.js` + `pi-capacity-model.js`
+  (réglages, vélocité, fenêtres), `pi-teams.js` (Équipes + Support), `pi-burnup.js`, `pi-votes.js`. Aucun n'importe
+  `pi.js` ; `pi.js` ré-exporte `renderObjectives` (tests).
 - **Page PI → onglets Support / Équipes** : roster = `effectiveRosterForPi` du PI AFFICHÉ (jamais
   `deriveMembersFromAbsences` seul, qui garde les partis) ; absences de l'onglet Équipes bornées au PI (`piBounds`,
   prorata des jours ouvrés). Grille Support = même balisage que Paramètres → Rotation, en lecture seule.

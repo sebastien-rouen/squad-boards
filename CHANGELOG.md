@@ -1,3 +1,23 @@
+## [3.258.0] - 2026-10-24
+
+### Page PI : `pi.js` découpé par onglet (3 232 → 707 lignes) · contrôle de taille
+
+Refonte SANS changement visible : rendu de chaque onglet comparé dans Chromium entre l'ancien et le nouveau code
+(22 onglets, toutes équipes et Fuego) — identique, hormis l'ordre des attributs d'un canvas Chart.js. Desktop et
+mobile sans erreur, verrou des objectifs d'un PI passé vérifié (tient sur le même PI, relâché au changement).
+
+**🧱 Un module par onglet** (`static/js/views/`)
+- `pi-objectives.js`, `pi-features.js`, `pi-capacity.js` + `pi-capacity-model.js` (réglages, vélocité, fenêtres),
+  `pi-teams.js` (Équipes + Support), `pi-burnup.js`, `pi-votes.js`. `pi.js` garde la coquille, les Indicateurs et les
+  Dépendances ; aucun module n'importe `pi.js` (pas de cycle), `renderObjectives` reste ré-exporté (tests).
+- Le verrou d'édition des objectifs (`_objUnlocked`) vit désormais avec les objectifs : `syncObjectivesLock(piOffset)`,
+  appelé par `renderPI`, le relâche au changement de PI.
+
+**📏 `npm run check:size`** (`tools/check-size.mjs`)
+- Liste les fichiers > 800 lignes (JS, CSS, Python) et les fonctions JS > 150 lignes (gabarits `…Html` / `…Css` : 300),
+  avec le parseur d'ESLint (espree) — aucune dépendance ajoutée. `-- --strict` : sortie 1 si un fichier dépasse.
+- Règle « ~150 lignes par fonction » ajoutée aux bonnes pratiques BastaVerse (CLAUDE.md racine, juge, revue).
+
 ## [3.257.0] - 2026-10-23
 
 ### Paramètres : `settings.js` découpé par section (3 689 → 376 lignes)

@@ -217,8 +217,8 @@ export function _bindInlineEditors(container, ticket) {
             await saveC();
         });
 
-        // Bouton + Ajouter → ouvre le person picker. Se rouvre après chaque ajout
-        // pour enchaîner la saisie de plusieurs contributeurs (comme la rotation support).
+        // Bouton + Ajouter → ouvre le person picker ; un choix ferme le sélecteur (liste comprise), enregistre,
+        // puis re-rend la popin pour afficher la présence (congés) du nouveau contributeur (3.255.0).
         const addBtn = contribWrap.querySelector('#contrib-add-btn');
         if (addBtn) {
             const _openContribPicker = () => {
@@ -228,13 +228,19 @@ export function _bindInlineEditors(container, ticket) {
                 if (!allNames.length) return;
                 const onCommit = async (name) => {
                     cleanup();
+                    // Le sélecteur ET sa liste de résultats partent tout de suite (avant : ils restaient
+                    // affichés, et bloquaient la réouverture — `.person-picker` encore présent).
+                    pickerWrap.remove();
                     if (!name) return;
                     const chip = document.createElement('span');
                     chip.className = 'chip chip-gap';
                     chip.innerHTML = `${avatar(name, false, 18)} ${esc(name)} <button type="button" class="contrib-rm" data-name="${esc(name)}" title="Retirer">×</button>`;
                     contribWrap.insertBefore(chip, addBtn);
                     await saveC();
-                    requestAnimationFrame(() => _openContribPicker());  // enchaîne
+                    // Re-rendu de la popin : la bande de congés du nouveau contributeur (et son 🌴) apparaît.
+                    // Pas de réouverture automatique : elle ré-affichait aussitôt toute la liste (≈ 220 noms) —
+                    // « + Ajouter » pour le suivant.
+                    openTicketModal(ticket.id);
                 };
                 const onCancel = () => { cleanup(); pickerWrap.remove(); };
                 const { wrap: pickerWrap, input } = _makePersonPicker(allNames, '', onCommit, onCancel);

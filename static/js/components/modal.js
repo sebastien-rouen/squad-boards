@@ -33,6 +33,9 @@ export const titleEl = () => document.getElementById('modal-title');
 // homogène entre la modale de création (type) et le sélecteur de statut de la modale détail.
 const STATUS_ICONS = { todo: '📋', inprog: '🔄', review: '👀', test: '🧪', blocked: '🚫', done: '✅' };
 
+/** Prénom affiché devant une bande de présence : « NOM, Prénom » (import RH) → Prénom ; « Prénom Nom » (JIRA) → Prénom. */
+const _firstName = n => { const s = String(n || ''); const i = s.indexOf(','); return (i >= 0 ? s.slice(i + 1) : s).trim().split(/\s+/)[0] || s; };
+
 export const bodyEl = () => document.getElementById('modal-body');
 
 export function initModal() {
@@ -250,7 +253,7 @@ export function openTicketModal(ticketId) {
                 <!-- Présence de chaque contributeur (même bande que Leader / Rapporteur), hors du conteneur des chips :
                      le câblage ajout / retrait lit les .contrib-rm de #contrib-inline-wrap -->
                 ${contribPres.length ? `<div class="mdl-contrib-pres-list">${contribPres.map(({ c, pres }) =>
-                    `<div class="mdl-contrib-pres" data-name="${esc(c)}"><span class="mdl-contrib-pres-name" title="${esc(c)}">${esc(c.split(/[\s,]+/)[0])}</span>${pres.html}</div>`).join('')}</div>` : ''}
+                    `<div class="mdl-contrib-pres" data-name="${esc(c)}"><span class="mdl-contrib-pres-name" title="${esc(c)}">${esc(_firstName(c))}</span>${pres.html}</div>`).join('')}</div>` : ''}
             </div>
         </section>
 

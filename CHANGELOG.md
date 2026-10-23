@@ -1,3 +1,15 @@
+## [3.255.0] - 2026-10-23
+
+### Popin ticket : ajouter un contributeur affiche aussitôt ses congés
+
+- Choisir une personne dans « + Ajouter » **ferme le sélecteur et sa liste de résultats** (avant : la liste restait
+  affichée, et bloquait l'ouverture du sélecteur suivant), enregistre, puis **re-rend la popin** : la bande de congés du
+  nouveau contributeur (et son 🌴 s'il est absent) apparaît immédiatement. « + Ajouter » pour le suivant — la
+  réouverture automatique ré-affichait toute la liste (≈ 220 noms), contraire au but.
+- Bandes de présence des contributeurs : PRÉNOM affiché, y compris pour les noms de l'import RH « NOM, Prénom »
+  (avant : « ZAGHLAOUI » au lieu de « Idriss »).
+- 📁 `static/js/components/ticket_inline_edit.js`, `static/js/components/modal.js`
+
 ## [3.254.0] - 2026-10-23
 
 ### Découpage : cal_banner.js et sprint_tickets_modal.js sous les 800 lignes

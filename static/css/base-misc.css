@@ -2,13 +2,36 @@
    Contenu : responsive, cibles tactiles, raccourcis, scrollbar, listes, onglets, formulaires, chips, tickets enfants, accessibilité, infobulles, aide, bandeau filtre, badge de périmètre.
    Liés dans index.html juste après tokens.css, dans l'ordre ; base.css les @importe pour les maquettes. */
 /* ── Responsive ────────────────────────────────────────────────────────────── */
+.sidebar-scrim { display: none; }   /* voile du menu mobile : n'existe qu'au palier ≤ 1024 px */
 @media (max-width: 1024px) {
     .sidebar {
         transform: translateX(-100%);
     }
     .sidebar.open {
         transform: translateX(0);
+        box-shadow: 8px 0 32px rgba(0, 0, 0, .35);
     }
+    /* Voile sous le menu ouvert (créé par sidebar.js) : un toucher à côté referme le menu sans cliquer dessous */
+    .sidebar-scrim {
+        display: block; position: fixed; inset: 0; z-index: calc(var(--z-sidebar) - 1);
+        background: rgba(0, 0, 0, .45);
+        opacity: 0; pointer-events: none;
+        transition: opacity var(--tr-slow);
+        -webkit-tap-highlight-color: transparent;
+    }
+    body.nav-open .sidebar-scrim { opacity: 1; pointer-events: auto; }
+    body.nav-open { overflow: hidden; }   /* la page ne défile plus sous le menu */
+    /* Burger : toute la surface réagit (44 px, minimum tactile), l'icône ne capte pas le clic */
+    #btn-menu { width: 44px; height: 44px; margin-left: -6px; flex-shrink: 0; }
+    #btn-menu .icon { pointer-events: none; }
+    /* ✕ du tiroir : il recouvre le burger, la fermeture doit rester visible */
+    .sidebar-close {
+        margin-left: auto; width: 40px; height: 40px; border-radius: var(--r-md); flex-shrink: 0;
+        align-items: center; justify-content: center; font-size: 18px; color: var(--sidebar-text); opacity: .75;
+    }
+    .sidebar-close:hover, .sidebar-close:focus-visible { opacity: 1; background: rgba(255, 255, 255, .08); }
+    /* Pied du tiroir : 3 boutons qui se partagent la largeur (le 3ᵉ sortait du tiroir) */
+    .sidebar-footer .sidebar-btn { flex: 1 1 0; min-width: 0; justify-content: center; }
     .app {
         margin-left: 0;
     }

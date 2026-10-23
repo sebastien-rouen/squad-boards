@@ -42,6 +42,7 @@
     <link rel="stylesheet" href="/css/views/ticket-ready.css">
     <link rel="stylesheet" href="/css/views/modal-tiles.css">
     <link rel="stylesheet" href="/css/views/calendar-banner.css">
+    <link rel="stylesheet" href="/css/views/cal-banner-compact.css">
     <link rel="stylesheet" href="/css/views/print.css">
     <link rel="stylesheet" href="/css/views/pi-config.css">
     <link rel="stylesheet" href="/css/views/support-rotation.css">
@@ -118,6 +119,7 @@
         <div class="sidebar-header">
             <div class="sidebar-logo">SB</div>
             <span class="sidebar-title">Squad Board</span>
+            <button id="btn-menu-close" class="sidebar-close mobile-only" aria-label="Fermer le menu">✕</button>
         </div>
         <nav class="sidebar-nav" id="sidebar-nav"></nav>
         <div class="sidebar-section">
@@ -144,7 +146,7 @@
     <main id="app" class="app">
         <header id="topbar" class="topbar">
             <div class="topbar-left">
-                <button id="btn-menu" class="btn-icon mobile-only" data-tooltip="Menu" aria-label="Menu">
+                <button id="btn-menu" class="btn-icon mobile-only" aria-label="Menu">
                     <svg class="icon"><use href="#i-menu"/></svg>
                 </button>
                 <h1 id="view-title" class="topbar-title">Dashboard</h1>

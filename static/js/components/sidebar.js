@@ -197,7 +197,7 @@ export function initSidebar() {
         // Clear badges when visiting a notified view
         if (NOTIF_VIEWS.has(item.dataset.view)) store.set('newCount', 0);
         store.set('view', item.dataset.view);
-        sidebar.classList.remove('open');
+        setMenuOpen(false);   // aussi quand on retouche la vue courante (aucun évènement `view`)
     });
 
     // Re-render complet au changement de vue : gère l'état actif ET l'auto-déploiement
@@ -308,12 +308,45 @@ export function initSidebar() {
     });
 
     // ── Mobile menu ───────────────────────────────────────────────────────────
-    btnMenu?.addEventListener('click', () => sidebar.classList.toggle('open'));
-    document.addEventListener('click', e => {
-        if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btnMenu) {
-            sidebar.classList.remove('open');
-        }
+    // Voile sous le menu ouvert : un toucher à côté FERME le menu sans déclencher ce qui est dessous
+    // (lien, carte, bouton). ⚠️ Le clic sur le burger arrive sur son <svg> : tester `contains`, jamais
+    // `e.target === btnMenu` (le menu se rouvrait puis se refermait aussitôt, sauf au ras du bord).
+    const scrim = document.createElement('div');
+    scrim.className = 'sidebar-scrim';
+    scrim.setAttribute('aria-hidden', 'true');
+    sidebar.after(scrim);
+    btnMenu?.setAttribute('aria-controls', 'sidebar');
+    btnMenu?.setAttribute('aria-expanded', 'false');
+
+    const setMenuOpen = open => {
+        sidebar.classList.toggle('open', open);
+        document.body.classList.toggle('nav-open', open);
+        btnMenu?.setAttribute('aria-expanded', String(open));
+    };
+    btnMenu?.addEventListener('click', () => setMenuOpen(!sidebar.classList.contains('open')));
+    scrim.addEventListener('click', () => setMenuOpen(false));
+    document.getElementById('btn-menu-close')?.addEventListener('click', () => { setMenuOpen(false); btnMenu?.focus(); });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && sidebar.classList.contains('open')) { setMenuOpen(false); btnMenu?.focus(); }
     });
+    // Filet : tout clic hors du menu et du burger le ferme (le voile couvre déjà ce cas au doigt)
+    document.addEventListener('click', e => {
+        if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !btnMenu?.contains(e.target)
+            && e.target !== scrim) setMenuOpen(false);
+    });
+    store.on('view', () => setMenuOpen(false));
+    // Glisser vers la gauche sur le menu = le refermer (geste attendu d'un tiroir sur mobile)
+    let _swipeX = null, _swipeY = 0;
+    sidebar.addEventListener('touchstart', e => {
+        if (!sidebar.classList.contains('open') || e.touches.length !== 1) return;
+        _swipeX = e.touches[0].clientX; _swipeY = e.touches[0].clientY;
+    }, { passive: true });
+    sidebar.addEventListener('touchend', e => {
+        if (_swipeX == null) return;
+        const t = e.changedTouches[0], dx = t.clientX - _swipeX, dy = t.clientY - _swipeY;
+        _swipeX = null;
+        if (dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) setMenuOpen(false);
+    }, { passive: true });
 
     // ── Theme ─────────────────────────────────────────────────────────────────
     btnTheme.addEventListener('click', () => {

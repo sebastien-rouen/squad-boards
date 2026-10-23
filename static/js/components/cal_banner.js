@@ -7,6 +7,7 @@ import { store } from '../state.js';
 import { esc, hashColor, toast, getSprintForTeam, getCurrentPi, extractTeam, relevantCalendars, lastCalendarSync, supportMembersOnDay, previousWorkingDayIso, calNatureWithRules, copySlack } from '../utils.js';
 import * as api from '../api.js';
 import { holidayName } from '../utils/holidays.js';
+import { offSummaryHtml } from './cal_banner_off.js';
 
 // ── Jours fériés France : utils/holidays.js (source unique, partagée avec la frise de la page Équipe) ─
 const _getHoliday = holidayName;
@@ -254,7 +255,11 @@ export function renderCalBanner(wrap) {
     // "Toutes équipes" + beaucoup d'absences le même jour → un chip par personne déborde et
     // casse le visuel. On regroupe alors par équipe (couleur d'équipe + nombre d'absents).
     const groupOff = (!team || team === 'all') && offEvs.length > OFF_GROUP_THRESHOLD;
-    const offChips = _offChipsHtml(offEvs, todayEvs, groupOff);
+    // Vue globale (toutes les équipes / ligne produit) : UNE pastille de synthèse sur une ligne (3.246.0) — les
+    // pastilles par équipe s'empilaient sur la moitié de l'écran mobile. Vue équipe : un chip par personne.
+    const _global = (team || 'all') === 'all' || !!store.get('group');
+    const offSummary = _global && offEvs.length > 1;
+    const offChips = offSummary ? offSummaryHtml(offEvs, _teamColor) : _offChipsHtml(offEvs, todayEvs, groupOff);
     const offLine  = offChips
         ? `<div class="cal-banner-line cal-banner-line--off${groupOff ? ' cal-banner-line--off-grouped' : ''}">${offChips}</div>`
         : '';
@@ -279,7 +284,6 @@ export function renderCalBanner(wrap) {
     // Vue globale (toutes les équipes / une ligne produit) : clé À PART, REPLIÉE PAR DÉFAUT (3.238.0) — dépliée, la
     // journée de 13 équipes (~40 créneaux) prenait les deux tiers de l'écran et écrasait la page. Vue équipe :
     // clé historique, dépliée par défaut. Déplier l'une ne touche pas l'autre.
-    const _global = (store.get('team') || 'all') === 'all' || !!store.get('group');
     const _ckey = _global ? `${_CAL_BANNER_COLLAPSED_KEY}-all` : _CAL_BANNER_COLLAPSED_KEY;
     const _cval = localStorage.getItem(_ckey);
     const collapsed = _global ? _cval !== '0' : _cval === '1';
@@ -292,12 +296,12 @@ export function renderCalBanner(wrap) {
         ? upcomingEvs.map(ev => _chip(ev, todayEvs.indexOf(ev))).join('')
         : '<span class="cal-banner-empty">Aucune réunion à venir 🎉</span>';
     const collapsedHtml = `<div class="cal-banner-split">
-        ${_halfGroupHtml('🕐 Prochains créneaux', upcomingHtml)}
-        ${offChips ? `<span class="cal-banner-split-sep"></span>${_halfGroupHtml('🚫 Absents', offChips)}` : ''}
+        ${_halfGroupHtml('🕐 <span class="cal-lbl-txt">Prochains créneaux</span>', upcomingHtml)}
+        ${offChips ? `<span class="cal-banner-split-sep"></span>${_halfGroupHtml('🚫 <span class="cal-lbl-txt">Absents</span>', offChips)}` : ''}
     </div>`;
 
     wrap.innerHTML = `
-        <div class="cal-banner">
+        <div class="cal-banner${_global ? ' cal-banner--global' : ''}${collapsed ? ' is-collapsed' : ''}">
             <span class="cal-banner-icon">📅</span>
             <div class="cal-banner-events cal-banner-events--rows">
                 ${collapsed ? collapsedHtml : `${offLine}${regularLine}${emptyMsg}`}
@@ -321,6 +325,10 @@ export function renderCalBanner(wrap) {
     });
     wrap.querySelectorAll('.cal-chip:not([data-ev-idx])').forEach(chip => {
         chip.addEventListener('click', () => _openWeekModal(filtered));
+        // Synthèse des absents (role="button") : clavier aussi
+        chip.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _openWeekModal(filtered); }
+        });
     });
 }
 

@@ -1,3 +1,27 @@
+## [3.246.0] - 2026-10-22
+
+### Menu mobile fiable · bandeau calendrier compact en vue « toutes les équipes »
+
+**Menu mobile (burger)**
+- **Le burger réagit sur toute sa surface** : le clic arrivait sur l'icône `<svg>`, le test `e.target !== btnMenu` le
+  prenait pour un clic « à côté » et refermait aussitôt le menu — seul le bord gauche du bouton marchait. Bouton
+  agrandi à 44 px (minimum tactile).
+- **Toucher à côté du menu le ferme**, via un voile sombre qui intercepte le toucher : on ne déclenche plus par
+  mégarde le lien ou la carte situés dessous. Fermeture aussi par **✕** (le tiroir recouvre le burger), **Échap**,
+  **glisser vers la gauche** et au choix d'une vue. La page ne défile plus sous le menu ; `aria-expanded` à jour.
+- Infobulle « Menu » retirée (elle restait collée après un toucher) ; les 3 boutons du pied de tiroir se partagent
+  la largeur (le 3ᵉ était coupé).
+
+**Bandeau calendrier, vue globale** (toutes les équipes / ligne produit)
+- **Absents = une seule pastille** « 🚫 10 absents » + mini-badges par équipe (initiales, nombre, couleur), au lieu
+  d'une pastille par équipe qui s'empilait sur mobile. Qui est absent, et où : infobulle ; clic ou Entrée : la semaine.
+- **Replié** (défaut) : chaque moitié tient sur une ligne qui défile à l'horizontale (fondu en bout de ligne) ;
+  sur mobile, les deux moitiés s'empilent en pleine largeur et les libellés se réduisent à 🕐. Hauteur :
+  **205 → 66 px** sur mobile, **77 → 53 px** sur desktop.
+- **Déplié** : matin puis après-midi en pleine largeur, créneaux en **grille** (4 colonnes en 1 440 px), hauteur
+  plafonnée avec défilement interne. **613 → 267 px** sur desktop, **638 → 304 px** sur mobile.
+- Vue d'une équipe inchangée (un chip par personne).
+
 ## [3.245.0] - 2026-10-22
 
 ### Performances : une actualisation passe de 158 requêtes / 17 Mo à 9 requêtes / quelques Ko

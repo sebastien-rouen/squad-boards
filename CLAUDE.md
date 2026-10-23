@@ -777,6 +777,13 @@ python main.py          # http://localhost:3001  — Swagger /docs
   direct : les serializers ne doivent rendre que des types JSON natifs (pas de `datetime` brut). `GZipMiddleware` dans
   `main.py` pour le reste.
 
+- **Menu mobile** (3.246.0, sidebar.js) : ouverture / fermeture UNIQUEMENT par `setMenuOpen(open)` (classe `open`,
+  `body.nav-open`, `aria-expanded`). Voile `.sidebar-scrim` créé par le JS. ⚠️ Tester un clic sur un bouton à icône
+  avec `contains(e.target)`, jamais `e.target === bouton` (le clic arrive sur le `<svg>`).
+- **Bandeau calendrier, vue globale** (3.246.0) : absents = `offSummaryHtml` (components/cal_banner_off.js), styles
+  et rendus replié / déplié de la vue globale dans css/views/cal-banner-compact.css (après calendar-banner.css,
+  > 800 lignes). Classes d'état posées sur `.cal-banner` : `cal-banner--global`, `is-collapsed`.
+
 ## Tests (`npm test`)
 
 Suites `node:test` dans [tests/](tests/) — 161 tests, aucune dépendance, ~1 s. Détail :

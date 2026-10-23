@@ -1,0 +1,91 @@
+/* Bandeau calendrier en VUE GLOBALE (toutes les équipes / ligne produit) — 3.246.0.
+   Chargé APRÈS calendar-banner.css (déjà > 800 lignes), dont il surcharge le rendu replié.
+   - Absents : une pastille de synthèse « 🚫 N absents » + mini-badges par équipe (cal_banner_off.js).
+   - Chaque moitié (créneaux / absents) tient sur UNE ligne qui défile à l'horizontale au lieu de s'empiler.
+   - Mobile : les deux moitiés passent l'une sous l'autre, pleine largeur (côte à côte, les titres étaient coupés). */
+
+/* ── Synthèse des absents ─────────────────────────────────────────────────────────────────────── */
+.cal-chip--off-sum {
+    --cal-color: #fb923c;
+    max-width: none; overflow: visible;
+    gap: 8px; padding: 2px 6px 2px 8px;
+    background: color-mix(in srgb, #fb923c 10%, var(--surface));
+    box-shadow: none;
+}
+.cal-chip--off-sum:hover { background: color-mix(in srgb, #fb923c 18%, var(--surface)); }
+.cal-chip--off-sum:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cal-off-sum-n { font-weight: var(--fw-semibold); color: var(--text-primary); white-space: nowrap; }
+.cal-off-sum-n b { color: #ea580c; font-variant-numeric: tabular-nums; }
+.cal-off-teams { display: inline-flex; align-items: center; gap: 3px; }
+.cal-off-team {
+    display: inline-flex; align-items: center; gap: 3px;
+    height: 18px; padding: 0 2px 0 6px; border-radius: var(--r-full);
+    font-size: 10px; font-weight: var(--fw-bold); letter-spacing: .02em;
+    color: var(--cal-color);
+    background: color-mix(in srgb, var(--cal-color) 14%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--cal-color) 35%, transparent);
+}
+.cal-off-team b {
+    min-width: 14px; height: 14px; padding: 0 3px; border-radius: var(--r-full);
+    display: inline-grid; place-items: center;
+    background: var(--cal-color); color: #fff; font-size: 9.5px; font-variant-numeric: tabular-nums;
+}
+.cal-off-more { font-size: 10px; font-weight: var(--fw-bold); color: var(--text-muted); padding: 0 2px; }
+
+/* ── Replié : une ligne par moitié, défilement horizontal (plus de retour à la ligne) ──────────── */
+.cal-banner.is-collapsed { align-items: center; }
+.cal-banner.is-collapsed .cal-banner-half-chips {
+    flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: none; padding-bottom: 1px;
+    /* fondu à droite : signale qu'il y a de la suite */
+    mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+}
+.cal-banner.is-collapsed .cal-banner-half-chips::-webkit-scrollbar { display: none; }
+.cal-banner.is-collapsed .cal-banner-half-chips > * { flex-shrink: 0; }
+/* La moitié « absents » prend la place de son contenu (une pastille), les créneaux le reste */
+.cal-banner--global.is-collapsed .cal-banner-half:has(.cal-chip--off-sum) { flex: 0 1 auto; }
+.cal-banner--global.is-collapsed .cal-banner-half:has(.cal-chip--off-sum) .cal-banner-half-chips { mask-image: none; }
+
+/* ── Mobile : moitiés empilées, pleine largeur ─────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .cal-banner.is-collapsed { padding: 6px var(--sp-3); gap: var(--sp-2); }
+    .cal-banner.is-collapsed .cal-banner-icon { display: none; }   /* les libellés portent déjà 🕐 / 🚫 */
+    .cal-banner.is-collapsed .cal-banner-split { flex-direction: column; gap: 6px; }
+    .cal-banner.is-collapsed .cal-banner-split-sep { display: none; }
+    .cal-banner.is-collapsed .cal-banner-half {
+        flex-direction: row; align-items: center; gap: 8px;
+    }
+    /* Libellés réduits à leur emoji (le texte sur 3 lignes mangeait la largeur) ; la synthèse « 🚫 N absents »
+       se suffit à elle-même : son libellé disparaît */
+    .cal-banner.is-collapsed .cal-banner-half-lbl { font-size: 13px; flex-shrink: 0; }
+    .cal-banner.is-collapsed .cal-lbl-txt { display: none; }
+    .cal-banner--global.is-collapsed .cal-banner-half:has(.cal-chip--off-sum) .cal-banner-half-lbl { display: none; }
+    .cal-banner--global.is-collapsed .cal-banner-half:has(.cal-chip--off-sum) { flex: 1 1 auto; }
+    .cal-banner.is-collapsed .cal-chip { max-width: 240px; }
+    .cal-banner.is-collapsed .cal-chip--off-sum { max-width: none; }
+}
+
+/* ── Déplié en vue globale : toute la journée du train (~30 créneaux), mais bornée ──────────────────
+   Avant : une colonne de créneaux par demi-journée → 613 px sur desktop, 638 px sur mobile. Maintenant :
+   matin puis après-midi pleine largeur, créneaux en GRILLE, hauteur plafonnée et défilement interne. */
+.cal-banner--global:not(.is-collapsed) .cal-banner-events--rows {
+    flex-direction: column; align-items: stretch; gap: 6px;
+    max-height: min(260px, 38vh); overflow-y: auto; overflow-x: hidden;
+    overscroll-behavior: contain; scrollbar-width: thin;
+    mask-image: linear-gradient(180deg, #000 calc(100% - 18px), transparent);
+    padding-bottom: 14px;
+}
+.cal-banner--global:not(.is-collapsed) .cal-banner-line--off { border-right: 0; padding-right: 0; }
+.cal-banner--global:not(.is-collapsed) .cal-banner-split { flex-direction: column; gap: 6px; overflow: visible; }
+.cal-banner--global:not(.is-collapsed) .cal-banner-split-sep { display: none; }
+.cal-banner--global:not(.is-collapsed) .cal-banner-half { overflow: visible; }
+.cal-banner--global:not(.is-collapsed) .cal-banner-half-chips {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 6px;
+}
+.cal-banner--global:not(.is-collapsed) .cal-banner-half-chips .cal-chip { max-width: none; min-width: 0; }
+.cal-banner--global:not(.is-collapsed) .cal-chip-title { min-width: 0; }
+.cal-banner--global:not(.is-collapsed) .cal-chip-team { overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+@media (max-width: 640px) {
+    .cal-banner--global:not(.is-collapsed) .cal-banner-events--rows { max-height: 34vh; }
+    .cal-banner--global:not(.is-collapsed) .cal-banner-half-chips { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,83 @@
+/* ========================================
+   CADRE DESKTOP À L'ÉCHELLE
+
+   Le desktop se dessine à SA taille réelle — 1280 × 820 — puis on le réduit
+   pour qu'il tienne dans la largeur disponible, à côté du rail mobile de la
+   même page. C'est ce qui permet de juger une direction aux deux tailles d'un
+   seul coup d'œil, sans naviguer de l'une à l'autre.
+
+   Trois points qui coûtent une reprise si on les oublie :
+
+   1. **`transform` ne change pas la place occupée.** Un cadre réduit de moitié
+      laisserait quand même 820 px de vide sous lui. D'où `.bureau-fenetre`,
+      dont la hauteur suit l'échelle et qui rogne le débord.
+   2. **L'échelle est plafonnée à 1** (côté JS) : agrandir un cadre de 1280 px
+      sur un grand écran le rend flou sans rien montrer de plus.
+   3. **Aucune requête média ici.** Le cadre REPRÉSENTE un navigateur de
+      1280 px : une requête média mesurerait la fenêtre réelle et ferait
+      basculer la vue desktop en disposition mobile sur un écran étroit. La
+      disposition large est portée par la classe `.bureau`, jamais par une
+      largeur de fenêtre.
+   ======================================== */
+
+.bureau-zone {
+  padding: 0 16px 16px;
+}
+
+/* Fenêtre de découpe : sa hauteur suit l'échelle, sinon le cadre réduit
+   laisserait 820 px de vide sous lui. */
+.bureau-fenetre {
+  height: calc(820px * var(--echelle, 0.5));
+  overflow: hidden;
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+  background: var(--ui-bg, #101014);
+}
+
+/* Le cadre lui-même : dessiné en 1280 × 820, réduit par transformation.
+   `--echelle` est posée par `bureau.js` sur `.bureau-fenetre` et héritée ici. */
+.bureau {
+  width: 1280px;
+  height: 820px;
+  transform: scale(var(--echelle, 0.5));
+  transform-origin: top left;
+  overflow: hidden;
+  /* Contient les `position: fixed` du mockup, comme `.screen` le fait pour le
+     cadre téléphone : sans ça une barre d'action se calerait sur la fenêtre du
+     navigateur et s'échapperait du cadre. */
+  transform-style: flat;
+}
+
+/* Le contenu du cadre défile pour son compte, comme un vrai navigateur. */
+.bureau > .desk {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.bureau > .desk::-webkit-scrollbar {
+  width: 10px;
+}
+
+.bureau > .desk::-webkit-scrollbar-thumb {
+  background: var(--ui-surface-alt, #22222c);
+  border-radius: 8px;
+}
+
+/* Intitulé de la vue — sans lui, on ne sait pas si le cadre du haut est une
+   vue réduite du desktop ou une maquette distincte. */
+.gal-group--vue {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gal-group--vue small {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  opacity: 0.65;
+}

@@ -35,7 +35,7 @@ const EXPORT_CATEGORIES = [
     { key: 'calendars', label: 'Calendriers', icon: '🗓️' },
 ];
 const EXPORT_CATEGORY_KEYS = {
-    atlas:  ['skills', 'appetences', 'memberSkills', 'memberAppetences', 'mobility'],
+    atlas:  ['skills', 'appetences', 'memberSkills', 'memberAppetences', 'mobility', 'teamSkillRequirements'],
     config: ['sprint', 'pi'],
     team:   ['teamIdentities', 'workshopTemplates', 'teamWorkshops'],
     votes:  ['moodVotes', 'fistVotes', 'confidenceVotes'],
@@ -66,7 +66,7 @@ function _exportCategoryCounts() {
         absences: len('absences'),
         support:  len('support'),
         events:   len('events'),
-        atlas:    len('skills') + len('appetences') + len('memberSkills') + len('memberAppetences') + len('mobility'),
+        atlas:    len('skills') + len('appetences') + len('memberSkills') + len('memberAppetences') + len('mobility') + len('teamSkillRequirements'),
         team:     len('teamIdentities') + len('workshopTemplates') + len('teamWorkshops'),
         votes:    len('moodVotes') + len('fistVotes') + len('confidenceVotes'),
         retroItems: len('retroItems'),

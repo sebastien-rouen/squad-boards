@@ -27,7 +27,7 @@ const DOMAIN_LABELS = {
     absences: '🏖️ Absences', support: '🛟 Rotation support', events: '📌 Faits marquants',
     calendars: '🗓️ Calendriers', calendarRules: '🏷️ Règles d\'agenda', skills: '🧭 Compétences',
     appetences: '💡 Appétences', memberSkills: '🧭 Niveaux', memberAppetences: '💡 Appétences (membres)',
-    mobility: '🔀 Mobilité', teamIdentities: '🪪 Fiches d\'équipe', workshopTemplates: '📋 Ateliers',
+    mobility: '🔀 Mobilité', teamSkillRequirements: '⭐ Compétences requises', teamIdentities: '🪪 Fiches d\'équipe', workshopTemplates: '📋 Ateliers',
     teamWorkshops: '📝 Réponses d\'ateliers', moodVotes: '😊 Votes Mood', fistVotes: '✊ Fist of Five',
     confidenceVotes: '🎯 Confiance', retroItems: '🔁 Actions de rétro', risks: '⚠️ Risques',
 };

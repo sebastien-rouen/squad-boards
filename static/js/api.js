@@ -88,6 +88,10 @@ export const upsertMemberAppetence = data => request('/api/member-appetences', {
 export const getMobility         = ()   => request('/api/mobility');
 export const upsertMobility      = data => request('/api/mobility', { method: 'PUT', body: JSON.stringify(data) });
 export const deleteMobility      = id   => request(`/api/mobility/${id}`, { method: 'DELETE' });
+// Compétences requises par équipe (3.262.0, en base — avant : localStorage `sb-team-req-*`)
+export const getTeamSkillRequirements = () => request('/api/team-skill-requirements');
+export const setTeamSkillRequirement  = (team, skillId, required = true) =>
+    request('/api/team-skill-requirements', { method: 'PUT', body: JSON.stringify({ team, skillId, required }) });
 
 // ── Teams ─────────────────────────────────────────────────────────────────────
 export const getTeams        = ()   => request('/api/teams');

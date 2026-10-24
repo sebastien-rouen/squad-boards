@@ -54,6 +54,24 @@ adresse locale, un label de tracé n'est plus un chapitre) :
 Relancer : `cd /sites/drafts && node tools/demo-video/record.mjs squad-boards/docs/demo/<film>.json` (`--fresh-db`
 pour repartir d'une base de démo neuve).
 
+## [3.262.0] - 2026-10-24
+
+### Atlas — socle de la refonte (backend) : envie par compétence, compétences requises en base, trajectoires
+
+Préparation de la refonte de l'Atlas (directions Constellation + Matrice). Aucun changement visible : l'écran actuel
+continue de fonctionner tel quel.
+
+- **Envie par compétence** : `member_skill.appetence` (faible | neutre | forte). `PUT /api/member-skills` rend `level`
+  et `appetence` FACULTATIFS (un champ absent garde sa valeur) ; une ligne vit tant qu'il reste un niveau ou une envie.
+  Le catalogue d'appétences séparé (Management, Coaching…) est conservé.
+- **Compétences requises par équipe en base** : table `team_skill_requirement`, `GET/PUT /api/team-skill-requirements`
+  (idempotent, 404 sur compétence inconnue), supprimées avec la compétence ; dans `/api/export`, l'import et la
+  sauvegarde de configuration. Avant : localStorage `sb-team-req-<équipe>`, propre à chaque navigateur.
+- **Trajectoires de mobilité** : `member_mobility.stage` (souhait → plan → en_cours → bilan), `steps` (étapes datées,
+  JSON), `mentor`.
+- Vérifié sur une copie de la base (`SB_DB_PATH`) : 14 contrôles (envie seule sans historique, niveau qui garde
+  l'envie, suppression à 0 + neutre, exigences idempotentes, cascade, export, validations 400 / 404).
+
 ## [3.261.0] - 2026-10-24
 
 ### Health découpé (1 624 → 134 lignes) · modale d'alerte réparée · code mort retiré

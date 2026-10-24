@@ -75,6 +75,7 @@ export const store = new Store({
     memberSkills: [],      // niveaux par scope (membre|équipe)
     memberAppetences: [],  // appétences par scope
     mobility: [],          // lignes de suivi de mobilité
+    teamSkillRequirements: [],  // compétences requises par équipe { team, skillId }
     sprintInfo: null,
     velocityHistory: [],  // legacy — désormais calculé à la volée via utils.computeVelocityHistory
     // Décalage PI sélectionné dans le topbar (-2..+2), 0 = PI courant. Épinglé : persiste

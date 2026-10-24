@@ -540,12 +540,14 @@ async function loadAllData() {
         api.getMemberSkills().catch(() => []),
         api.getMemberAppetences().catch(() => []),
         api.getMobility().catch(() => []),
-    ]).then(([skills, appetences, memberSkills, memberAppetences, mobility]) => {
+        api.getTeamSkillRequirements().catch(() => []),
+    ]).then(([skills, appetences, memberSkills, memberAppetences, mobility, teamSkillRequirements]) => {
         store.set('skills', skills);
         store.set('appetences', appetences);
         store.set('memberSkills', memberSkills);
         store.set('memberAppetences', memberAppetences);
         store.set('mobility', mobility);
+        store.set('teamSkillRequirements', teamSkillRequirements);
     });
 }
 

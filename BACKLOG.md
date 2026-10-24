@@ -1,6 +1,6 @@
 # BACKLOG — squad-boards
 
-> Dernière mise à jour : 2026-10-21 (#A1 soldé en 3.238.0 — renouveler le jeton JIRA)
+> Dernière mise à jour : 2026-10-24 (Atlas refondu en 3.263.0, suites ajoutées ; dette de taille recomptée)
 >
 > Ce fichier ne contient que **ce qui reste à faire**. Les items soldés sont
 > dans [`docs/BACKLOG-ARCHIVE.md`](docs/BACKLOG-ARCHIVE.md) ; leur récit complet
@@ -25,8 +25,56 @@
 - [ ] **Tolérance de démarrage réglable** (`METEO_START_TOLERANCE`, 15 %) et bandes relatives (`METEO_REL_BAND`) dans Paramètres → Météo — seulement si une équipe se plaint d'un 🌧️ en J2 ; aujourd'hui constantes de `utils/meteo.js`. — *2026-10-18*
 - [ ] **Page 403 explicite — à appliquer** : le bloc est prêt dans [docs/nginx-403.md](docs/nginx-403.md) (Nginx Proxy Manager → hôte → *Advanced*). Geste d'infra, hors du site (préparé en 3.197.0). — *2026-10-18*
 - [ ] **Vérifier sur le serveur** ce qui a été ajouté le 2026-10-03 — le banc local simule l'API : `curl -s https://squad-boards-drafts.bastou.dev/api/config/export | head -c 300`, une vraie sauvegarde / restauration (Paramètres → Données → 💾), un changement de niveau Atlas puis `GET /api/skill-history`, et le bandeau « données obsolètes » après une synchro (auteur affiché). — *2026-10-18*
-- [ ] **Dette : fichiers de plus de 800 lignes — 25 fichiers au 2026-10-21** — les plus gros : settings.js (3 691), pi.js (3 232), modal.js (2 967), atlas.js (2 711), sprint_tickets_modal.js (2 638), charts.js (2 262), calendar-banner.css (1 759), dashboard.css (1 664), cal_banner.js (1 644), health.js (1 624), utils.js (1 382, « barrel » qui porte encore du code), sync.js (1 130), app.js (905). Découper par blocs consécutifs, preuve `cmp` (méthode de settings.css en 3.197.0), un fichier par session. — *2026-10-18, chiffres 2026-10-21*
-- [ ] 💡 **États vides restants** → `emptyStateHtml` (Rapports : Sprint et PI Planning — Flow, Support, Roadmap, Burnup faits en 3.212.0 ; PI, Roadmap, Support, Atlas `atlas-empty-sm`…), au fil des retouches de ces vues. — *2026-10-18*
+- [ ] **Dette : fichiers de plus de 800 lignes — 15 au 2026-10-24** (25 le 2026-10-21) — `npm run check:size` les liste.
+  Restent : charts.js (2 285), utils.js (1 384, « barrel » qui porte encore du code), reports.js (1 453), backlog.js
+  (1 095), roadmap.js (964), sprint.js (918), app.js (917), agenda.js (840) ; CSS : calendar-banner (1 759), dashboard
+  (1 664), sprint-tickets-modal (1 466), sprint (1 198), support (1 070), modal-detail (1 008), health (937).
+  Méthode éprouvée (3.257.0 → 3.261.0) : modèle calculé une fois + blocs `xxxHtml(m)` + câblage, HTML comparé à
+  l'ancien rendu dans Chromium (hasard figé), un fichier par session. — *2026-10-18, chiffres 2026-10-24*
+- [ ] **Dette : fonctions de plus de 150 lignes — 59** (règle ajoutée le 2026-10-24) — les plus grosses :
+  `_openSprintModal` (675, health-sprint-modal.js), `renderCapacity` (672, pi-capacity.js), `renderAgenda` (658),
+  `wireSprintPiSection` (559), `_doImport` (549, sync.js), `_openPokerModal` (544), `renderReports` (525), `renderPI`
+  (511), `updateInfoPanel` (489). — *2026-10-24*
+- [ ] 💡 **États vides restants** → `emptyStateHtml` (Rapports : Sprint et PI Planning — Flow, Support, Roadmap, Burnup faits en 3.212.0 ; Atlas fait en 3.264.0 ; restent PI, Roadmap, Support, et `atlas-empty-sm` d'atlas_history.js), au fil des retouches de ces vues. — *2026-10-24*
+
+### 🧬 Atlas — suites de la refonte (3.263.0)
+
+- [ ] **🔥 Première campagne d'évaluation** — la base n'a encore AUCUNE évaluation : carte et tableau de bord restent
+  éteints. Évaluer une équipe pilote, poser ses ⭐ compétences requises, puis ajuster les règles des signaux sur données
+  réelles (sachant = niveau ≥ 2, bus factor ≤ 1 sachant). — *2026-10-24*
+- [ ] **Auto-évaluation par la personne** — aujourd'hui seul un manager évalue (depuis la matrice). Proposer « ✏️ Mon
+  profil » : la personne note niveaux + envies, le manager VALIDE (statut `proposé` → `validé` sur `member_skill`). Sans
+  ça, la matrice repose sur une seule personne et vieillit vite. — *2026-10-24*
+- [ ] **Fraîcheur des évaluations** — `member_skill.updated_at` existe : griser les cases de plus de 6 mois, signal
+  « 7 évaluations > 6 mois » (KPI déjà dessiné dans les maquettes Signaux), filtre « à réévaluer ». — *2026-10-24*
+- [ ] **Import CSV des évaluations** — une campagne se fait souvent dans un tableur : colonnes `Nom;Compétence;Niveau;Envie`,
+  aperçu + rapprochement des noms par `findPerson` (person-name.js) avant écriture. — *2026-10-24*
+- [ ] **Profil cible par rôle** pour les trajectoires (Scrum Master, Tech Lead…) : radar « personne vs profil cible »
+  dessiné dans les maquettes (`mockups/atlas/*/05-mobilite.html`) mais pas de donnée. Table `role_profile` (rôle →
+  niveaux attendus) éditable dans le Catalogue. — *2026-10-24*
+- [ ] **Atelier : plusieurs déplacements** — la simulation n'en gère qu'un ; un PI Planning en enchaîne souvent 2-3.
+  Liste des déplacements, impact cumulé, puis « Appliquer au roster du PI suivant » (`piInfo.piMembers`, cf.
+  `effectiveRosterForPi`) au lieu d'une simple copie de texte. — *2026-10-24*
+- [ ] **Objectifs d'équipe de l'Atlas en base** — encore en localStorage `sb-team-objectives-*` (propres à chaque
+  navigateur, même défaut que les compétences requises avant 3.262.0). Les rapprocher des objectifs de PI ? — *2026-10-24*
+- [ ] **Sachant unique bientôt absent → info-panel et TV** — le signal 🚌 + 🌴 existe dans l'Atlas ; le remonter dans
+  les alertes de l'info-panel et l'écran TV du daily, où l'équipe le verrait à temps. — *2026-10-24*
+- [ ] **Couverture des compétences par PI** — instantané par PI (comme `skill_level_history`) pour tracer « trous de
+  couverture : 3 → 2 → 1 » (graphe dessiné dans les maquettes Signaux). — *2026-10-24*
+- [ ] **Tests de `atlas-model.js`** — fonctions pures (coverage, signals, suggest, simImpact, firstName) : golden dataset
+  synthétique comme `tests/status-map.test.mjs` (tests sur demande uniquement). — *2026-10-24*
+
+### 🧹 Qualité — repérée pendant les découpages (2026-10-23 / 24)
+
+- [ ] **Smoke test navigateur par vue** — le plantage de la modale d'alerte Health (`opts is not defined`, de 3.244.0 à
+  3.261.0) n'a été vu que par un test Playwright : aucun test unitaire ne rend les vues. Un script `npm run smoke`
+  (Chromium, écritures interceptées) qui ouvre chaque vue et ses modales principales et échoue sur toute erreur JS. — *2026-10-24*
+- [ ] **ESLint à zéro avertissement** — les modules découpés (Paramètres, PI, Dashboard, Health, Atlas) sont propres ;
+  il reste les anciens fichiers (settings-rotation.js : imports inutilisés, etc.). Puis `eslint` + `check:size --strict`
+  en garde avant commit. — *2026-10-24*
+- [ ] **Palette Ctrl+K : mots dans le désordre** — la recherche exige une suite CONTIGUË du libellé ou des mots-clés :
+  « tableau de bord des compétences » ne trouve rien, « bus factor » oui. Chercher chaque mot séparément (tous présents,
+  ordre libre) dans `_score()` de cmdpalette.js. — *2026-10-24*
 
 ## 💡 Idées (à affiner)
 
@@ -39,29 +87,21 @@
 
 ---
 
-## 🎯 Contexte de la session en cours — Atlas
+## 🎯 Contexte — Atlas (refondu en 3.263.0)
 
-Développement de la **vue Atlas** (menu `Atlas`, raccourci `A`) : outil de pilotage humain (coaching / RH / onboarding) combinant 3 artefacts liés :
-1. **Carte unFIX** zoomable (Programme → Équipes → Membres) — visuel type framework unFIX
-2. **Skills Matrix** (compétences × entités, niveaux 1-4 + appétences)
-3. **Tableau de suivi de mobilité** (trajectoires, exportable CSV)
+Directions retenues de la galerie [`static/mockups/atlas/`](static/mockups/atlas/README.md) : 🌌 **Constellation**
+(onglet Carte) + 🟩 **Matrice** (onglet Skills Matrix). Architecture et règles : section « Atlas refondu » de
+[CLAUDE.md](CLAUDE.md). En bref : coquille `views/atlas.js`, un module par onglet (`atlas-map`, `-matrix`, `-board`,
+`-mobility`, `-catalog`), calculs dans `atlas-model.js`, fiche + évaluation dans `atlas-member.js`, actions dans
+`atlas-actions.js`. Onglet dans le hash `#atlas/<équipe>/<onglet>` (palette Ctrl+K, liens partageables).
+Backend : `app/routers/atlas.py` — envie par compétence (`member_skill.appetence`), compétences requises
+(`team_skill_requirement`), trajectoires (`member_mobility.stage/steps/mentor`).
 
-### Décisions d'architecture validées avec l'utilisateur
-- **Stockage** : tables backend dédiées (pas localStorage)
-- **Granularité** : compétences ET appétences existent aux 2 niveaux — **membre ET équipe** (champ `scope` = `member|team`)
-- **Référentiel niveaux** (NE PAS modifier) : `1=exécutant spécialisé · 2=opérationnel structuré · 3=ingénieur cloud ready · 4=référent/architecte`
-- **Appétence** : `faible / neutre / forte` · **Potentiel** : `faible / moyen / fort` · **Risque** : `aucun / moyen / critique`
-
-### 📂 Fichiers clés de la feature Atlas
-| Fichier | Rôle |
-|---------|------|
-| [main.py](main.py) | tables (`class Skill` ~L270), dict helpers (`_skill_dict` ~L660), endpoints (`# Atlas:` ~L1182), seed (`_seed_atlas_catalog` ~L402), import (`import_all` ~L1961) |
-| [static/js/views/atlas.js](static/js/views/atlas.js) | toute la vue (carte + matrix + 3 modals + actions) |
-| [static/css/atlas.css](static/css/atlas.css) | styles |
-| [static/js/api.js](static/js/api.js) | fonctions API Atlas (section "Atlas :") |
-| [static/js/state.js](static/js/state.js) | clés de state |
-| [static/js/app.js](static/js/app.js) | registration vue + chargement données |
-| [static/js/config.js](static/js/config.js) | `NAV_ITEMS` (entrée `atlas`) |
+### Décisions validées avec l'utilisateur
+- **Référentiel niveaux** (NE PAS modifier) : `1=exécutant spécialisé · 2=opérationnel structuré · 3=ingénieur cloud ready · 4=référent/architecte` ; sachant = niveau ≥ 2.
+- **Envie** : PAR compétence (dans l'évaluation) ET catalogue d'envies séparé (Management, Coaching…) — 2026-10-24.
+- **Compétences requises par équipe** : en base, partagées par tous — 2026-10-24.
+- **Appétence** `faible / neutre / forte` · **Potentiel** `faible / moyen / fort` · **Risque** `aucun / moyen / critique` · **Étape** `souhait / plan / en_cours / bilan`.
 
 ---
 
@@ -70,18 +110,18 @@ Développement de la **vue Atlas** (menu `Atlas`, raccourci `A`) : outil de pilo
 - **Source de vérité membres** = table `absences` (CSV RH), via `deriveMembersFromAbsences(absences, members)`. NE PAS utiliser `store.get('members')` brut pour lister les personnes.
 - **Échapper avec `esc()`** avant tout `innerHTML` (XSS).
 - **Mapping snake/camel** : backend renvoie camelCase via les `_xxx_dict()`. Vérifier la correspondance (ex: `scope_key` → `scopeKey`, `member_name` → `memberName`).
-- **Filtre topbar** : `store.get('team')` (équipe ou `'all'`) + `store.get('group')` (id de ligne produit). La carte ET la matrix doivent respecter ce filtre — déjà implémenté dans `_buildHierarchy()` et `_matrixEntities()`.
+- **Filtre topbar** : `store.get('team')` (équipe ou `'all'`) + `store.get('group')` (id de ligne produit). Toutes les vues de l'Atlas le respectent via `atlasCtx()` (`teams`, `visiblePeople`).
+- **Noms RH « NOM, Prénom »** : prénom par `firstName` (atlas-model.js), jamais `split(' ')[0]`.
 - **Toujours mettre à jour [CHANGELOG.md](CHANGELOG.md)** lors de modifs conséquentes (format : version sémantique en tête, plus récente en haut).
 - **Pas de Co-Authored-By** dans les commits.
-- **Tester via curl** après modif backend (lancer `python main.py`, port 3000, tester les routes, nettoyer les données de test, arrêter le serveur).
+- **Tester le backend sur une COPIE de la base** (`SB_DB_PATH=<copie> python3 …` + `TestClient`) : l'historique des niveaux ne s'efface pas. Routes Python figées au lancement → `pm2 restart squad-boards-drafts` après modif.
 
 ### 🧪 Comment tester
 ```bash
-cd squad-board
-python main.py            # port 3000
-# Ouvrir http://localhost:3000 → menu Atlas (A)
-# Backend : curl http://localhost:3000/api/skills  (12 seedées)
-#           curl http://localhost:3000/docs         (Swagger)
+pm2 restart squad-boards-drafts          # après une modif Python (port 3010)
+npm test                                 # 406 tests node:test
+npm run check:size                       # fichiers > 800 lignes, fonctions > 150
+# Navigateur : http://127.0.0.1:3010/#atlas/all/matrix — données d'essai par interception (page.route), jamais en base
 ```
 
 ---

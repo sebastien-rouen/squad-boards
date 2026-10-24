@@ -101,6 +101,10 @@ function pushHash() {
         const tab = store.get('roadmapTab') || 'current';
         const piOffset = store.get('piOffset') || 0;
         hash = `roadmap/${teamPart}/${tab}${piOffset !== 0 ? '/' + piOffset : ''}`;
+    } else if (view === 'atlas') {
+        // Atlas : atlas/<team|all|group:X>/<onglet> (3.264.0) — onglet = map | matrix | board | mobility | catalog
+        const tab = store.get('atlasTab');
+        hash = tab ? `atlas/${teamPart}/${tab}` : (group || (team && team !== 'all') ? `atlas/${teamPart}` : 'atlas');
     } else if (view === 'reports') {
         // Format : reports/<team|all|group:X>/<section>  — section toujours présente pour éviter ambiguïté
         const sec = store.get('reportsSection') || 'metriques';
@@ -292,6 +296,7 @@ function applyHash() {
                         store.set('piOffset', isNaN(off) ? 0 : off);
                     }
                     else if (view === 'reports') store.set('reportsSection', decodeURIComponent(parts[2]));
+                    else if (view === 'atlas') store.set('atlasTab', decodeURIComponent(parts[2]));
                     else if (view === 'tv') store.set('tvScreen', decodeURIComponent(parts[2]));
                     else if (view === 'sprint') {
                         // parts[2..3] = sprintPick et/ou layout (swimlanes|list).
@@ -879,6 +884,7 @@ async function init() {
     // Mémorise la section consultée dans le hash sans re-render (le scroll-spy de reports.js
     // gère déjà l'affichage — un re-render ici ferait sauter le scroll).
     store.on('reportsSection', () => { if (store.get('view') === 'reports') pushHash(); });
+store.on('atlasTab', () => { if (store.get('view') === 'atlas') pushHash(); });
     store.on('view',  () => { renderView(); pushHash(); });
     // Changement d'équipe/groupe = nouveau contexte → on réinitialise les filtres backlog
     // (ils persistaient silencieusement en localStorage et donnaient un backlog vide inexpliqué).

@@ -8,9 +8,9 @@
  * enregistré : la sortie est un résumé copié pour le PI Planning.
  */
 
-import { esc, toast, copyToClipboard } from '../utils.js';
+import { esc, toast, copyToClipboard, emptyStateHtml } from '../utils.js';
 import * as M from './atlas-model.js';
-import { avatarHtml, levelHtml, appetenceHtml, dotHtml, radarHtml, emptyHtml } from './atlas-ui.js';
+import { avatarHtml, levelHtml, appetenceHtml, dotHtml, radarHtml } from './atlas-ui.js';
 
 const rad = a => a * Math.PI / 180;
 const at = (cx, cy, r, a) => [cx + Math.cos(rad(a)) * r, cy + Math.sin(rad(a)) * r];
@@ -144,7 +144,7 @@ function _simPanel(ctx, st) {
 }
 
 export function mapHtml(ctx, st) {
-    if (!ctx.teams.length) return emptyHtml('🌌', 'Aucune équipe dans le périmètre', 'Le filtre du haut ne laisse aucune équipe : élargissez-le à une ligne produit ou à tout le train.');
+    if (!ctx.teams.length) return emptyStateHtml({ icon: '🌌', title: 'Aucune équipe dans le périmètre', text: 'Le filtre du haut ne laisse aucune équipe : élargissez-le à une ligne produit ou à tout le train.' });
     const opts = M.activeSkills(ctx).concat(ctx.skills.filter(s => !M.activeSkills(ctx).includes(s)));
     const zoomName = st.zoom ? _lines(ctx, null).find(l => l.id === st.zoom)?.name : '';
     const panel = st.simOn ? _simPanel(ctx, st) : st.team && ctx.teams.includes(st.team) ? _teamPanel(ctx, st, st.team) : _programPanel(ctx);

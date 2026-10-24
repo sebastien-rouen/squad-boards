@@ -8,9 +8,9 @@
  */
 
 import { store } from '../state.js';
-import { esc, getCurrentPi } from '../utils.js';
+import { esc, getCurrentPi, emptyStateHtml } from '../utils.js';
 import * as M from './atlas-model.js';
-import { avatarHtml, dotHtml, emptyHtml } from './atlas-ui.js';
+import { avatarHtml, dotHtml } from './atlas-ui.js';
 import { signalHtml } from './atlas-map.js';
 
 const _ring = (ctx, team) => {
@@ -86,7 +86,7 @@ function _objectives(st) {
 }
 
 export function boardHtml(ctx, st) {
-    if (!M.hasEvaluations(ctx)) return emptyHtml('🧬', 'Construisez votre Skills Matrix', 'Aucune compétence évaluée pour l\'instant : le tableau de bord se remplit dès les premières évaluations et compétences requises.', '<button type="button" class="btn btn-primary btn-sm" data-goto="matrix">🎯 Ouvrir la matrice</button>');
+    if (!M.hasEvaluations(ctx)) return emptyStateHtml({ icon: '🧬', title: 'Construisez votre Skills Matrix', text: 'Aucune compétence évaluée pour l\'instant : le tableau de bord se remplit dès les premières évaluations et compétences requises.', action: { label: '🎯 Ouvrir la matrice', attrs: 'data-goto="matrix"' } });
     const sig = M.signals(ctx);
     return `${_kpis(ctx)}
         <div class="atl-mapgrid">

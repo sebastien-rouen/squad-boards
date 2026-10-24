@@ -55,10 +55,6 @@ export function radarHtml(axes, values, { size = 220, compare = null, labels = t
         + `<polygon class="atl-radar__val" points="${poly(values)}"/>${lbl}</svg>`;
 }
 
-/** État vide (icône, titre, texte, actions HTML). */
-export const emptyHtml = (icon, title, text, actions = '') =>
-    `<div class="atl-empty"><span class="atl-empty__icon">${icon}</span><b>${title}</b><p>${text}</p>${actions ? `<div class="atl-empty__acts">${actions}</div>` : ''}</div>`;
-
 /**
  * Ouvre une modale accessible (role=dialog, focus piégé, Échap / clic hors de la carte = fermer).
  * Retourne { el, close }. `id` : identifiant stable de la couche (ex. `atlas-membercard-overlay`, lu par la TV).

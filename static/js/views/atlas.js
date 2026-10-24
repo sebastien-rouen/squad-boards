@@ -34,8 +34,9 @@ const TABS = [
 const _ls = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 
 // État de la vue, gardé d'un rendu à l'autre (session) ; onglet et portée de la matrice mémorisés.
+const _validTab = k => TABS.some(([t]) => t === k);
 const st = {
-    tab: TABS.some(([k]) => k === _ls('sb-atlas-tab', 'map')) ? _ls('sb-atlas-tab', 'map') : 'map',
+    tab: _validTab(_ls('sb-atlas-tab', 'map')) ? _ls('sb-atlas-tab', 'map') : 'map',
     // Carte
     skill: null, mode: 'org', team: null, zoom: null, simOn: false, sim: null,
     // Matrice
@@ -57,6 +58,7 @@ const act = {
     goto(tab, opts = {}) {
         st.tab = tab;
         try { localStorage.setItem('sb-atlas-tab', tab); } catch { /* stockage indisponible */ }
+        store.set('atlasTab', tab);   // → hash #atlas/<équipe>/<onglet> (lien partageable, palette Ctrl+K)
         if (opts.team) st.team = opts.team;
         if (opts.focus) { st.focus = opts.focus; st.scope = 'member'; st.query = opts.focus; }
         rerender();
@@ -118,6 +120,9 @@ async function _migrateLocalRequirements() {
 
 export function renderAtlas(container) {
     _container = container;
+    // Onglet demandé par le hash (#atlas/<équipe>/<onglet>, palette Ctrl+K) > dernier onglet ouvert
+    const fromHash = store.get('atlasTab');
+    if (_validTab(fromHash)) st.tab = fromHash;
     container.innerHTML = `<div class="atlas atl">
         <nav class="atl-tabs" role="tablist" aria-label="Sections de l'Atlas">${TABS.map(([k, l]) => `<button type="button" class="atl-tab" role="tab" data-atl-tab="${k}">${l}</button>`).join('')}</nav>
         <div class="atl-body"></div></div>`;
@@ -129,6 +134,12 @@ export function renderAtlas(container) {
     if (!container._atlasSubs) {
         container._atlasSubs = ['team', 'group', 'skills', 'appetences', 'memberSkills', 'memberAppetences', 'mobility', 'teamSkillRequirements', 'absences']
             .map(k => store.on(k, () => { if (container.isConnected && _container === container) rerender(); }));
+        // Onglet changé par le hash (lien, palette, retour arrière) alors que l'Atlas est déjà affiché
+        container._atlasSubs.push(store.on('atlasTab', t => {
+            if (!_validTab(t) || t === st.tab || _container !== container || !container.isConnected) return;
+            st.tab = t;
+            rerender();
+        }));
     }
     if ((store.get('skills') || []).length) _migrateLocalRequirements();
 }

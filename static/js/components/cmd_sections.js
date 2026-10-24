@@ -129,7 +129,12 @@ const RAW = [
     { view: 'team', icon: '✨', label: 'Ateliers',           sel: '#team-workshops-section',   keywords: 'ateliers workshops animation team building' },
 
     // ── Atlas ──────────────────────────────────────────────────────────────
-    { view: 'atlas', icon: '🧭', label: 'Carte des compétences', sel: '#atlas-stage',          keywords: 'carte competences skills map programme zoom' },
+    { view: 'atlas', icon: '🗺️', label: 'Carte des compétences', tab: 'map', sel: '#atlas-stage', keywords: 'carte competences skills map programme constellation sachants zoom' },
+    { view: 'atlas', icon: '🔀', label: 'Atelier de staffing', tab: 'map', sel: '[data-sim-toggle]', keywords: 'atelier staffing simulation deplacer affectation equipe impact' },
+    { view: 'atlas', icon: '🎯', label: 'Skills Matrix', tab: 'matrix', sel: '.atl-hm-wrap, .atl-mlist', keywords: 'skills matrix matrice competences niveaux evaluation heatmap requises' },
+    { view: 'atlas', icon: '📊', label: 'Tableau de bord des compétences', tab: 'board', sel: '.atl-kpis', keywords: 'tableau bord competences couverture bus factor signaux accompagner' },
+    { view: 'atlas', icon: '🧭', label: 'Mobilité & trajectoires', tab: 'mobility', sel: '.atl-kanban, .atl-body--mobility .empty-state', keywords: 'mobilite trajectoire carriere evolution souhait plan bilan' },
+    { view: 'atlas', icon: '⚙️', label: 'Catalogue des compétences', tab: 'catalog', sel: '.atl-cat', keywords: 'catalogue competences envies appetences ajouter categorie' },
 
     // ── Backlog ──────────────────────────────────────────────
     { view: 'backlog', icon: '🔎', label: 'Filtres du backlog',   sel: '.bl-toolbar', keywords: 'filtres recherche tri densite colonnes csv' },

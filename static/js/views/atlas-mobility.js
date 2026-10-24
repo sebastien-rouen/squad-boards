@@ -7,9 +7,9 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, toast, confirmDanger, arrayToCsv } from '../utils.js';
+import { esc, toast, confirmDanger, arrayToCsv, emptyStateHtml } from '../utils.js';
 import * as M from './atlas-model.js';
-import { avatarHtml, barHtml, dotHtml, openAtlasModal, emptyHtml } from './atlas-ui.js';
+import { avatarHtml, barHtml, dotHtml, openAtlasModal } from './atlas-ui.js';
 
 export const STAGES = [['souhait', 'Souhait'], ['plan', 'Plan'], ['en_cours', 'En cours'], ['bilan', 'Bilan']];
 const stageIdx = s => Math.max(0, STAGES.findIndex(([k]) => k === s));
@@ -35,7 +35,7 @@ const _card = (ctx, m) => {
 export function mobilityHtml(ctx) {
     const rows = ctx.mobility.filter(m => m.targetRole || m.targetTeam || (m.steps || []).length || m.plan);
     const head = `<div class="atl-tools"><b>${rows.length} trajectoire${rows.length > 1 ? 's' : ''}</b><span class="spacer"></span><button type="button" class="btn btn-ghost btn-sm" data-mob-csv>📥 CSV</button><button type="button" class="btn btn-primary btn-sm" data-mob-new>＋ Nouvelle trajectoire</button></div>`;
-    if (!rows.length) return head + emptyHtml('🧭', 'Aucune trajectoire', 'Une envie d\'évoluer (Scrum Master, Tech Lead, expertise…) se suit ici : souhait, plan d\'étapes datées, bilan — avec son effet sur l\'équipe.', '<button type="button" class="btn btn-primary btn-sm" data-mob-new>＋ Nouvelle trajectoire</button>');
+    if (!rows.length) return head + emptyStateHtml({ icon: '🧭', title: 'Aucune trajectoire', text: 'Une envie d\'évoluer (Scrum Master, Tech Lead, expertise…) se suit ici : souhait, plan d\'étapes datées, bilan — avec son effet sur l\'équipe.', action: { label: '＋ Nouvelle trajectoire', attrs: 'data-mob-new' } });
     return head + `<div class="atl-kanban">${STAGES.map(([k, l]) => { const list = rows.filter(m => (m.stage || 'souhait') === k); return `<section class="atl-kanban__col"><h4>${l} <span class="atl-chip">${list.length}</span></h4>${list.map(m => _card(ctx, m)).join('') || '<small class="atl-muted">—</small>'}</section>`; }).join('')}</div>`;
 }
 

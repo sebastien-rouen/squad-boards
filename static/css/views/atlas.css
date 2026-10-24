@@ -136,13 +136,6 @@ button.atl-chip { cursor: pointer; }
 .atl-sig__main > span { font-size: 12.5px; color: var(--text-secondary); }
 .atl-sig__acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
 
-/* ── État vide ─ */
-.atl-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 32px 16px; border: 1px dashed var(--border); border-radius: var(--r-lg); }
-.atl-empty__icon { font-size: 36px; }
-.atl-empty b { font-size: 16px; }
-.atl-empty p { margin: 0; max-width: 46ch; color: var(--text-secondary); font-size: var(--fs-sm); }
-.atl-empty__acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-
 /* Histogramme empilé des niveaux */
 .atl-histo { display: flex; height: 18px; border-radius: 4px; overflow: hidden; background: var(--surface-hover); }
 .atl-histo i { display: grid; place-items: center; font-style: normal; font-size: 10.5px; font-weight: 800; color: var(--text); min-width: 14px; }

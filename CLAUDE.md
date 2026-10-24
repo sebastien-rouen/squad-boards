@@ -807,7 +807,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
   fonctions pures : sachant = niveau ≥ 2 `EXPERT_MIN`, `coverage`, `signals`, `suggest`, `simImpact`) — ne pas
   recompter des sachants dans une vue. Envie PAR compétence = `memberSkills[].appetence` ; catalogue d'envies séparé =
   `memberAppetences`. Compétences requises = `teamSkillRequirements` (EN BASE, `PUT /api/team-skill-requirements`).
-  Prénom d'un nom RH « NOM, Prénom » = `firstName` (jamais `split(' ')[0]`). Contrats externes : `openMemberCard`,
+  Prénom d'un nom RH « NOM, Prénom » = `firstName` (jamais `split(' ')[0]`). Onglet = hash `#atlas/<équipe>/<onglet>` (store
+  `atlasTab`, posé par `act.goto`) ; états vides = `emptyStateHtml`. Contrats externes : `openMemberCard`,
   `SKILL_LEVELS`, `APPETENCE_VALUES`, id `atlas-membercard-overlay` (TV), `#atlas-stage` (palette Ctrl+K).
   CSS : css/views/atlas.css (+ `-map`, `-panels`), préfixe `atl-` ; `atlas-hist-*` reste à atlas-history.css.
 - **Historique des niveaux Atlas** (3.198.0) : table `skill_level_history`, écrite UNIQUEMENT par

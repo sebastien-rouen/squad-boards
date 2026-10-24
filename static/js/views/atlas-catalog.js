@@ -7,9 +7,8 @@
 
 import { store } from '../state.js';
 import * as api from '../api.js';
-import { esc, toast, toastUndo } from '../utils.js';
+import { esc, toast, toastUndo, emptyStateHtml } from '../utils.js';
 import * as M from './atlas-model.js';
-import { emptyHtml } from './atlas-ui.js';
 
 const DEFAULT_CATALOG = [
     ['Frontend', '#3b82f6', ['React / JS', 'CSS / Design System', 'Accessibilité']],
@@ -44,7 +43,7 @@ function _section(ctx, kind, list, title, hint) {
 export function catalogHtml(ctx) {
     const cats = [...new Set([...ctx.skills, ...ctx.appetences].map(x => x.category).filter(Boolean))];
     const empty = !ctx.skills.length
-        ? emptyHtml('⚙️', 'Catalogue vide', 'Partez d\'un catalogue type (12 compétences en 4 catégories) ou ajoutez les vôtres ci-dessous.', '<button type="button" class="btn btn-primary btn-sm" data-seed>⚙️ Catalogue par défaut</button>')
+        ? emptyStateHtml({ icon: '⚙️', title: 'Catalogue vide', text: 'Partez d\'un catalogue type (12 compétences en 4 catégories) ou ajoutez les vôtres ci-dessous.', action: { label: '⚙️ Catalogue par défaut', attrs: 'data-seed' } })
         : '';
     return `${empty}<datalist id="atl-cat-cats">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
         <div class="atl-cat">${_section(ctx, 'skill', ctx.skills, '🧭 Compétences', 'ordre = colonnes de la matrice et axes des radars')}${_section(ctx, 'app', ctx.appetences, '💡 Envies (hors compétences)', 'Management, Coaching… — l\'envie PAR compétence se note dans l\'évaluation')}</div>`;

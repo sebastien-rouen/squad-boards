@@ -1,3 +1,20 @@
+## [3.264.0] - 2026-10-24
+
+### Atlas dans la palette Ctrl+K · onglet dans l'adresse · backlog des suites
+
+- **Palette Ctrl+K** : 6 entrées — 🗺️ Carte des compétences, 🔀 Atelier de staffing, 🎯 Skills Matrix, 📊 Tableau de
+  bord des compétences, 🧭 Mobilité & trajectoires, ⚙️ Catalogue — chacune ouvre son onglet et met le bloc en avant.
+- **Onglet dans l'adresse** : `#atlas/<équipe>/<onglet>` (`map | matrix | board | mobility | catalog`, store
+  `atlasTab`) — lien partageable, retour arrière, ouverture depuis la palette ; l'Atlas déjà affiché change d'onglet
+  quand le hash change.
+- **États vides** : l'Atlas utilise `emptyStateHtml` (règle du projet) au lieu d'un composant maison.
+- **BACKLOG** : section « 🧬 Atlas — suites de la refonte » (campagne d'évaluation, auto-évaluation, fraîcheur,
+  import CSV, profil cible, atelier multi-déplacements, objectifs en base, alerte TV, couverture par PI, tests du
+  modèle) et « 🧹 Qualité » (smoke test navigateur par vue, ESLint à zéro, palette en mots libres) ; dette de taille
+  recomptée (15 fichiers > 800 lignes, 59 fonctions > 150) ; contexte Atlas obsolète remplacé.
+- Vérifié dans Chromium : 6 recherches de la palette → bon onglet et bon hash, lien direct, parcours complet de
+  l'Atlas (données injectées par interception), état vide — aucune erreur.
+
 ## [3.263.0] - 2026-10-24
 
 ### Atlas refondu — 🌌 Constellation + 🟩 Skills Matrix (directions retenues de la galerie `mockups/atlas/`)

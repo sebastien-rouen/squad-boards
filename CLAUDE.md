@@ -739,7 +739,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   changé, id de sprint gardé tant que le nom ne bouge pas. Push = `api.jiraSend` (titre, points, priorité, étiquettes,
   leader par `accountId`, statut par TRANSITION) — jamais la description (ADF). `PUT /api/tickets/:id` accepte les
   clés de cycle (`startedDate`…) et normalise `createdAt` / `updatedAt` via `_iso_utc`.
-- **Démos vidéo** (3.248.0, refonte 3.258.0) : `docs/demo/` est servi tel quel sous `/demo/` (`DEMO_DIR`, `main.py`) — lecteur,
+- **Démos vidéo** (3.248.0, refonte 3.262.0) : `docs/demo/` est servi tel quel sous `/demo/` (`DEMO_DIR`, `main.py`) — lecteur,
   MP4 1080p avec voix off, scénarios JSON, `fixtures/` (réponses JIRA simulées) et `*.meta.json` générés par
   `tools/demo-video/record.mjs` (racine du monorepo, agent `demo-video`, format : `tools/demo-video/README.md`).
   Ne rien éditer à la main dans ce dossier à part les `*.json` ; ne jamais monter `docs/` entier.

@@ -9,6 +9,7 @@ from app.models.people import Absence, SupportRotation
 from app.models.agile import Event, MoodVote, RetroItem, Risk, PokerVote, PokerRound
 from app.models.atlas import (
     Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, SkillLevelHistory,
+    TeamSkillRequirement,
 )
 from app.models.calendar import TeamCalendar, CalendarRule
 from app.models.team_identity import TeamIdentity, WorkshopTemplate, TeamWorkshop, Attachment
@@ -19,6 +20,7 @@ __all__ = [
     "Absence", "SupportRotation",
     "Event", "MoodVote", "RetroItem", "Risk", "PokerVote", "PokerRound",
     "Skill", "Appetence", "MemberSkill", "MemberAppetence", "MemberMobility", "SkillLevelHistory",
+    "TeamSkillRequirement",
     "TeamCalendar", "CalendarRule",
     "TeamIdentity", "WorkshopTemplate", "TeamWorkshop", "Attachment",
 ]

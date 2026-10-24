@@ -1,3 +1,59 @@
+## [3.262.0] - 2026-10-24
+
+### Démos vidéo refaites : instance de démo, gestes complets, salle de cinéma, voix off locale
+
+Les trois films de `docs/demo/` montraient des écrans ; ils montrent maintenant des gestes jusqu'à leur résultat, sur des
+données fictives lisibles, en 1080p, avec une voix off et une mise en scène. L'outil `tools/demo-video/record.mjs`
+(racine du monorepo) est refondu en modules (`lib/overlay`, `steps`, `capture`, `encode`, `voice`, `server`, `meta`) ;
+format complet dans `tools/demo-video/README.md`, méthode et préconisations dans l'agent `demo-video`.
+
+**🎬 Instance de démo** — `SB_DB_PATH` (app/config.py, absolu ou relatif à la racine) : `PORT=3011 SB_DB_PATH=data/demo.db
+python3 main.py`. Le scénario la lance et l'arrête lui-même (bloc `server`), sème `seedFullDemoData` dans `prepare`
+(`--fresh-db` recrée la base). Plus aucun floutage : équipes Vega / Lyra / Orion / Sirius, noms fictifs. Les gestes qui
+écrivent (créer, glisser, pousser vers JIRA) ne touchent jamais `data/board.db`. Un scénario remet lui-même l'état
+qu'il filme (`PUT /api/tickets/LYR-103` dans `prepare`) : rejouable à l'infini.
+
+**🎞️ Capture et image** — images livrées une à une par Chrome (`Page.startScreencast`, JPEG 88) et assemblées par ffmpeg à
+cadence fixe : 1920×1080 net, 30 i/s, crf 28 (contre du VP8 720p flou). Sections accélérées possibles (`speed`).
+Repli `--capture video`. Cible 60 à 90 s, plafond 120 s (`maxSeconds`). Plus de WebP animé par défaut (`--webp`) :
+les trois fichiers de 7 à 10 Mo servis sous `/demo/` sont supprimés. ⚠️ Le contexte n'est plus en `reducedMotion:
+reduce` : la règle « mouvement réduit » du site tuait aussi les animations du calque.
+
+**🎙️ Voix off** — Piper TTS en local (`tools/demo-video/.venv`, voix `fr_FR-siwis-medium`, aucun service cloud) :
+chaque sous-titre / carton est synthétisé AVANT la capture (cache par empreinte), sa durée cale l'attente de l'étape,
+deux répliques ne se chevauchent jamais, piste AAC 112 kb/s mixée dans le MP4. `say` pour la prononciation (« P I »),
+`voice: false` pour taire une ligne. Item 🎙️ du BACKLOG clos.
+
+**🎥 Mise en scène** (overlay-cinema.css, préconisations dans l'agent) — **salle de cinéma** en ouverture et en fin
+(`intro.style: "cinema"` : rideaux de velours qui s'ouvrent, faisceau du projecteur, écran qui s'allume sur la première
+vue, fauteuils, amorce 3 · 2 · 1, la caméra entre dans l'écran ; en fin « Merci, » puis rideaux fermés), bandes noires
+2.39 (`letterbox`), cartons de chapitre sur la vue floutée (`title` + `kicker`), sous-titres `subtitle` / `lower-third` /
+`kinetic` / `typewriter`, transitions par capture de la vue quittée (`slide-left`, `zoom`, `blur`, `wipe`, `iris`…),
+projecteur (`spotlight` + étiquette manuscrite), tampon (`stamp`), compteurs (`count`), travelling et dérive lente
+(`pan`), glisser-déposer avec fantôme (`drag` — évènements HTML5 dispatchés par le calque, un drag natif de Chromium
+headless n'aboutit pas), étalonnage (vignette, teinte, grain), animations du site à la demande (`anim`). Curseur caché
+pendant un tour de vues, il entre au premier geste. **Temps de lecture** : 1 s + 0,42 s par mot, cartons 3,2 s, panneaux
+4 à 6 s.
+
+**🧪 Réponses JIRA simulées** — `docs/demo/fixtures/` (champs, issue en ADF, transitions, priorités) servies par
+`page.route` (`mocks` du scénario, `{{key}}` = identifiant demandé) : la synchro d'un ticket se joue pour de vrai
+(comparaison champ par champ, push, relecture, toast) sans JIRA ni réseau.
+
+**📼 Les trois films** (lecteur `/demo/` : badges voix off / bandes / transitions, touche `M` pour le son, méta sans
+adresse locale, un label de tracé n'est plus un chapitre) :
+- `decouverte` (1 min 18, 4,9 Mo, 8 répliques) — film d'intention : salle de cinéma avec amorce, bandes noires et
+  étalonnage chaud sur l'accroche et la chute, projecteur + compteurs sur la météo, chapitres Board / Planifier /
+  Piloter, travellings, **une feature glissée dans la Roadmap** (⚠️ la vue Kanban n'a pas de glisser-déposer et le
+  Board Scrum du jeu de démo est vide : pas de carte à glisser là).
+- `jira-sync` (53 s, 2,4 Mo, 7 répliques) — tutoriel : ouvrir la fiche, zoom sur ↻, **clic réel** → panneau de
+  comparaison sous projecteur (6 s de lecture), **push** → ticket réécrit, tampon « Poussé vers JIRA ».
+- `alternative-jira` (1 min 27, 3,4 Mo, 9 répliques) — salle de cinéma, animations du site rendues : **création d'un
+  ticket** saisi lettre à lettre, fiche sous projecteur, **Poker joué** (vote 5, révélation, consensus), Affinage,
+  Amélioration.
+
+Relancer : `cd /sites/drafts && node tools/demo-video/record.mjs squad-boards/docs/demo/<film>.json` (`--fresh-db`
+pour repartir d'une base de démo neuve).
+
 ## [3.261.0] - 2026-10-24
 
 ### Health découpé (1 624 → 134 lignes) · modale d'alerte réparée · code mort retiré

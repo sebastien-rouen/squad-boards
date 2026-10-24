@@ -10,62 +10,62 @@
     "width": 1920,
     "height": 1080
   },
-  "durationS": 63.6,
-  "recordedAt": "2026-10-23T22:45:35.133Z",
+  "durationS": 77.7,
+  "recordedAt": "2026-10-23T23:00:51.222Z",
   "chapters": [
     {
-      "t": 2.98,
+      "t": 8.52,
       "text": "Le tableau de bord des équipes agiles · Squad Board"
     },
     {
-      "t": 9.56,
+      "t": 15.5,
       "text": "Scrum Masters, PO, RTE : la journée commence ici"
     },
     {
-      "t": 17.81,
+      "t": 26.41,
       "text": "Le Board : le flux du sprint, colonne par colonne"
     },
     {
-      "t": 19.66,
+      "t": 28.3,
       "text": "01 · Le Board"
     },
     {
-      "t": 24.03,
+      "t": 33.07,
       "text": "Scrum ou Kanban : les colonnes suivent le flux de l'équipe"
     },
     {
-      "t": 27.26,
+      "t": 36.42,
       "text": "PI Planning : objectifs et features de chaque équipe du train"
     },
     {
-      "t": 28.5,
+      "t": 37.67,
       "text": "02 · Planifier"
     },
     {
-      "t": 36.43,
+      "t": 46,
       "text": "Roadmap : glisser une feature, c'est la reprioriser"
     },
     {
-      "t": 43.06,
+      "t": 53.29,
       "text": "Santé : météo d'équipe, capacité, absences"
     },
     {
-      "t": 44.31,
+      "t": 54.49,
       "text": "03 · Piloter"
     },
     {
-      "t": 51.43,
+      "t": 62.02,
       "text": "Rapports : sprint, PI, flux, support… en un clic"
     },
     {
-      "t": 56.35,
+      "t": 67.35,
       "text": "Un seul outil. Léger, auto-hébergé, en français."
     }
   ],
   "files": {
-    "mp4": 2989334,
+    "mp4": 5119135,
     "webp": 0,
-    "poster": 11938
+    "poster": 17872
   },
   "blur": [],
   "fake": 0,
@@ -88,14 +88,14 @@
     {
       "spotlight": ".meteo-wrap",
       "label": "la météo de chaque équipe, d'un coup d'œil",
-      "wait": 500
+      "wait": 900
     },
     {
       "count": {
         "sel": ".meteo-val",
         "ms": 1300
       },
-      "wait": 2000
+      "wait": 3200
     },
     {
       "spotlight": ""
@@ -178,7 +178,7 @@
       "stamp": "✓ Réordonné",
       "tone": "success",
       "at": "#feature-drag-list .feature-draggable:nth-of-type(2)",
-      "wait": 1500
+      "wait": 2200
     },
     {
       "caption": "Santé : météo d'équipe, capacité, absences",
@@ -225,7 +225,8 @@
     },
     {
       "caption": "Un seul outil. Léger, auto-hébergé, en français.",
-      "style": "kinetic"
+      "style": "kinetic",
+      "wait": 5200
     },
     {
       "caption": ""

@@ -39,6 +39,9 @@ class MemberSkill(SQLModel, table=True):
     team: str = ""               # équipe de rattachement (pour filtrage)
     skill_id: str = Field(default="", index=True)
     level: int = 0               # 0=aucun, 1=exécutant, 2=opérationnel, 3=cloud ready, 4=référent
+    # Envie de progresser sur CETTE compétence (3.262.0) : faible | neutre | forte. Une ligne peut
+    # exister au niveau 0 si l'envie est exprimée (« je n'en fais pas encore, j'aimerais »).
+    appetence: str = "neutre"
     updated_at: str = Field(default_factory=_now)
 
 
@@ -87,4 +90,19 @@ class MemberMobility(SQLModel, table=True):
     risk: str = "aucun"                  # aucun | moyen | critique
     plan: str = ""                       # plan d'accompagnement
     transition_duration: str = ""        # durée de transition (ex: "3 mois")
+    # Trajectoire (3.262.0) : étape du parcours, étapes datées (JSON [{label, when, done}]), accompagnant
+    stage: str = "souhait"               # souhait | plan | en_cours | bilan
+    steps: str = "[]"
+    mentor: str = ""
     updated_at: str = Field(default_factory=_now)
+
+
+class TeamSkillRequirement(SQLModel, table=True):
+    """Compétence REQUISE par une équipe (3.262.0) — base des « trous » de couverture de l'Atlas.
+    Partagée par tous (avant : localStorage `sb-team-req-<équipe>`, propre à chaque navigateur)."""
+    __tablename__ = "team_skill_requirement"
+    __table_args__ = _TA
+    id: str = Field(default_factory=_gen_id, primary_key=True)
+    team: str = Field(default="", index=True)
+    skill_id: str = Field(default="", index=True)
+    created_at: str = Field(default_factory=_now)

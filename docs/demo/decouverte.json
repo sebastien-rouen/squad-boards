@@ -223,5 +223,6 @@
     "intro": {
         "style": "cinema",
         "countdown": true
-    }
+    },
+    "posterAt": -2.6
 }

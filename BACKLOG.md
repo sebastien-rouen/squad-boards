@@ -30,7 +30,7 @@
 
 ## 💡 Idées (à affiner)
 
-- [x] 🎙️ **Démos vidéo : voix off en français** — fait en 3.258.0 (2026-10-24) : Piper en local dans
+- [x] 🎙️ **Démos vidéo : voix off en français** — fait en 3.262.0 (2026-10-24) : Piper en local dans
   `tools/demo-video/.venv` (voix `fr_FR-siwis-medium`), une réplique par sous-titre synthétisée AVANT la capture et
   calée à l'instant du sous-titre, piste AAC mixée dans le MP4 (un seul fichier, `muted` par défaut dans les pages ;
   le lecteur `/demo/` l'active à la demande, touche `M`). Proposé le 2026-10-22.

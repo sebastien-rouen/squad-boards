@@ -88,7 +88,15 @@
         {
             "goto": "#kanban",
             "ready": ".ticket-card",
-            "wait": 400
+            "wait": 300
+        },
+        {
+            "eval": "await fetch('/api/tickets/LYR-103', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: \"Proxy inverse pour les services d'authentification\", leader: 'Baptiste Ferry', labels: [], description: '', points: 5, priority: 'high', sprintName: 'Lyra - Ite 5.3' }) });"
+        },
+        {
+            "reload": true,
+            "ready": ".ticket-card",
+            "wait": 500
         }
     ],
     "steps": [
@@ -105,7 +113,7 @@
             "wait": 300
         },
         {
-            "click": ".board-column:has(.col-inprog) .ticket-card",
+            "click": ".ticket-card[data-ticket-id=\"LYR-103\"]",
             "wait": 1300
         },
         {

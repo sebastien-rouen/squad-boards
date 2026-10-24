@@ -98,6 +98,11 @@ def run_migrations(engine):
         # Auteur et mode de la dernière synchro JIRA (bandeau « données obsolètes », 3.197.0)
         ("sprintconfig", "synced_by",      "ALTER TABLE sprintconfig ADD COLUMN synced_by TEXT DEFAULT ''"),
         ("sprintconfig", "sync_kind",      "ALTER TABLE sprintconfig ADD COLUMN sync_kind TEXT DEFAULT ''"),
+        # Atlas refondu (3.262.0) : envie par compétence, trajectoire de mobilité
+        ("member_skill", "appetence",      "ALTER TABLE member_skill ADD COLUMN appetence TEXT DEFAULT 'neutre'"),
+        ("member_mobility", "stage",       "ALTER TABLE member_mobility ADD COLUMN stage TEXT DEFAULT 'souhait'"),
+        ("member_mobility", "steps",       "ALTER TABLE member_mobility ADD COLUMN steps TEXT DEFAULT '[]'"),
+        ("member_mobility", "mentor",      "ALTER TABLE member_mobility ADD COLUMN mentor TEXT DEFAULT ''"),
     ]
     with engine.connect() as conn:
         insp = sa_inspect(engine)

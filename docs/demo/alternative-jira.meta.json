@@ -10,50 +10,50 @@
     "width": 1920,
     "height": 1080
   },
-  "durationS": 73.8,
-  "recordedAt": "2026-10-23T22:51:55.253Z",
+  "durationS": 86.8,
+  "recordedAt": "2026-10-23T23:04:38.335Z",
   "chapters": [
     {
-      "t": 2.98,
+      "t": 6.63,
       "text": "Pas de JIRA ? Pas grave. Le kanban est complet."
     },
     {
-      "t": 7,
+      "t": 10.84,
       "text": "Créer un ticket en une phrase"
     },
     {
-      "t": 9.45,
+      "t": 13.25,
       "text": "Nouveau ticket (touche N)"
     },
     {
-      "t": 24.64,
+      "t": 32.19,
       "text": "Chaque ticket a sa fiche : tout se modifie en place"
     },
     {
-      "t": 30.15,
+      "t": 39.08,
       "text": "Planning Poker intégré : voter, révéler, converger"
     },
     {
-      "t": 34.23,
+      "t": 43.17,
       "text": "Estimer en équipe"
     },
     {
-      "t": 57.27,
+      "t": 69.95,
       "text": "Affinage : préparer le prochain sprint, ticket par ticket"
     },
     {
-      "t": 61.31,
+      "t": 73.99,
       "text": "Rétrospectives et amélioration continue"
     },
     {
-      "t": 65.52,
+      "t": 77.95,
       "text": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans."
     }
   ],
   "files": {
-    "mp4": 3591715,
+    "mp4": 3523916,
     "webp": 0,
-    "poster": 46318
+    "poster": 20690
   },
   "blur": [],
   "fake": 0,
@@ -64,7 +64,8 @@
     },
     {
       "caption": "Pas de JIRA ? Pas grave. Le kanban est complet.",
-      "style": "kinetic"
+      "style": "kinetic",
+      "wait": 4200
     },
     {
       "caption": "Créer un ticket en une phrase",
@@ -73,7 +74,7 @@
     {
       "highlight": "#btn-create",
       "tip": "Nouveau ticket (touche N)",
-      "wait": 1300
+      "wait": 2000
     },
     {
       "highlight": ""
@@ -98,7 +99,7 @@
       "stamp": "✓ Créé",
       "tone": "success",
       "pos": "top-right",
-      "wait": 1500
+      "wait": 2200
     },
     {
       "caption": "Chaque ticket a sa fiche : tout se modifie en place",
@@ -111,7 +112,7 @@
     {
       "spotlight": ".mdl-props",
       "label": "statut, priorité, estimation, sprint, flux",
-      "wait": 2200
+      "wait": 3600
     },
     {
       "spotlight": ""
@@ -128,7 +129,7 @@
     {
       "highlight": "#mdl-poker-btn",
       "tip": "Estimer en équipe",
-      "wait": 1100
+      "wait": 2000
     },
     {
       "highlight": ""
@@ -153,7 +154,7 @@
       "stamp": "5 points",
       "tone": "info",
       "pos": "top-right",
-      "wait": 1000
+      "wait": 2200
     },
     {
       "press": "Escape",
@@ -195,7 +196,8 @@
     },
     {
       "caption": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans.",
-      "style": "kinetic"
+      "style": "kinetic",
+      "wait": 5600
     },
     {
       "caption": ""

@@ -10,6 +10,18 @@ from app.models import (
     TeamGroup, Absence, SupportRotation, Event, MoodVote, RetroItem,
     TeamCalendar, PokerVote, PokerRound, TeamIdentity, WorkshopTemplate, TeamWorkshop, Attachment,
 )
+import json
+
+
+def _json_list(raw) -> list:
+    """Liste stockée en texte JSON (ex. étapes d'une trajectoire) — illisible ou absente → []."""
+    if isinstance(raw, list):
+        return raw
+    try:
+        v = json.loads(raw or "[]")
+        return v if isinstance(v, list) else []
+    except (TypeError, ValueError):
+        return []
 
 
 def _ticket_dict(t: Ticket) -> dict:
@@ -91,7 +103,8 @@ def _appetence_dict(a: Appetence) -> dict:
 
 def _member_skill_dict(ms: MemberSkill) -> dict:
     return {"id": ms.id, "scope": ms.scope, "scopeKey": ms.scope_key, "team": ms.team,
-            "skillId": ms.skill_id, "level": ms.level, "updatedAt": ms.updated_at}
+            "skillId": ms.skill_id, "level": ms.level, "appetence": ms.appetence or "neutre",
+            "updatedAt": ms.updated_at}
 
 
 def _skill_history_dict(h) -> dict:
@@ -109,7 +122,12 @@ def _mobility_dict(m: MemberMobility) -> dict:
             "targetTeam": m.target_team, "targetRole": m.target_role,
             "currentLevel": m.current_level, "potential": m.potential,
             "appetence": m.appetence, "risk": m.risk, "plan": m.plan,
-            "transitionDuration": m.transition_duration, "updatedAt": m.updated_at}
+            "transitionDuration": m.transition_duration, "stage": m.stage or "souhait",
+            "steps": _json_list(m.steps), "mentor": m.mentor or "", "updatedAt": m.updated_at}
+
+
+def _team_skill_req_dict(r) -> dict:
+    return {"id": r.id, "team": r.team, "skillId": r.skill_id, "createdAt": r.created_at}
 
 
 def _sprint_dict(s: SprintConfig) -> dict | None:

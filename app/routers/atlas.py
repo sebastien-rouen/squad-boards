@@ -1,8 +1,10 @@
-"""Routeur Atlas — compétences, appétences, niveaux par membre/équipe, mobilité.
+"""Routeur Atlas — compétences, appétences, niveaux par membre/équipe, mobilité, compétences requises.
 
 Upsert par clé logique (member-skills / member-appetences), suppression en cascade
-des niveaux quand on supprime une compétence/appétence du catalogue.
+des niveaux (et des exigences d'équipe) quand on supprime une compétence/appétence du catalogue.
 """
+import json
+
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlmodel import Session, select
 
@@ -10,11 +12,15 @@ from app.common import _gen_id, _now
 from app.db import get_session
 from app.models import (
     Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, SkillLevelHistory,
+    TeamSkillRequirement,
 )
 from app.serializers import (
     _skill_dict, _appetence_dict, _member_skill_dict, _member_appetence_dict,
-    _mobility_dict, _skill_history_dict,
+    _mobility_dict, _skill_history_dict, _team_skill_req_dict,
 )
+
+_APPETENCES = ("faible", "neutre", "forte")
+_STAGES = ("souhait", "plan", "en_cours", "bilan")
 
 router = APIRouter(tags=["atlas"])
 
@@ -58,9 +64,11 @@ def delete_skill(skill_id: str, session: Session = Depends(get_session)):
     if not s:
         raise HTTPException(404, "Compétence non trouvée")
     session.delete(s)
-    # Nettoie les niveaux associés
+    # Nettoie les niveaux et les exigences d'équipe associés
     for ms in session.exec(select(MemberSkill).where(MemberSkill.skill_id == skill_id)).all():
         session.delete(ms)
+    for r in session.exec(select(TeamSkillRequirement).where(TeamSkillRequirement.skill_id == skill_id)).all():
+        session.delete(r)
     session.commit()
     return {"ok": True}
 
@@ -118,33 +126,41 @@ def list_member_skills(session: Session = Depends(get_session)):
 
 @router.put("/api/member-skills")
 async def upsert_member_skill(request: Request, session: Session = Depends(get_session)):
-    """Upsert par clé logique scope|scope_key|skill_id. level=0 supprime l'entrée."""
+    """Upsert par clé logique scope|scope_key|skill_id.
+
+    `level` et `appetence` sont FACULTATIFS : un champ absent garde sa valeur (envoyer une envie seule ne
+    remet pas le niveau à 0). La ligne disparaît quand il ne reste ni niveau ni envie (0 + neutre).
+    """
     body = await request.json()
     scope = body.get("scope", "member")
     scope_key = (body.get("scopeKey") or "").strip()
     skill_id = body.get("skillId") or ""
-    level = int(body.get("level", 0))
     if not scope_key or not skill_id:
         raise HTTPException(400, "scopeKey et skillId requis")
+    if "appetence" in body and body["appetence"] not in _APPETENCES:
+        raise HTTPException(400, "appetence : faible | neutre | forte")
     row = session.exec(select(MemberSkill).where(
         MemberSkill.scope == scope, MemberSkill.scope_key == scope_key,
         MemberSkill.skill_id == skill_id)).first()
-    # Historique (3.198.0) : une ligne par CHANGEMENT réel de niveau (même niveau resaisi = rien).
     prev = row.level if row else 0
-    if max(level, 0) != prev:
+    level = max(int(body["level"]), 0) if "level" in body else prev
+    appetence = body.get("appetence") or (row.appetence if row else "neutre") or "neutre"
+    # Historique (3.198.0) : une ligne par CHANGEMENT réel de niveau (même niveau resaisi = rien).
+    if level != prev:
         session.add(SkillLevelHistory(scope=scope, scope_key=scope_key,
                                       team=body.get("team", row.team if row else ""),
-                                      skill_id=skill_id, prev_level=prev, level=max(level, 0)))
-    if level <= 0:
+                                      skill_id=skill_id, prev_level=prev, level=level))
+    if level <= 0 and appetence == "neutre":
         if row:
             session.delete(row)
         session.commit()
         return {"ok": True, "deleted": True}
     if row:
-        row.level = level; row.team = body.get("team", row.team); row.updated_at = _now()
+        row.level = level; row.appetence = appetence
+        row.team = body.get("team", row.team); row.updated_at = _now()
     else:
         row = MemberSkill(scope=scope, scope_key=scope_key, team=body.get("team", ""),
-                          skill_id=skill_id, level=level)
+                          skill_id=skill_id, level=level, appetence=appetence)
     session.add(row); session.commit(); session.refresh(row)
     return _member_skill_dict(row)
 
@@ -212,10 +228,18 @@ async def upsert_mobility(request: Request, session: Session = Depends(get_sessi
     _map = {"team": "team", "targetTeam": "target_team", "targetRole": "target_role",
             "currentLevel": "current_level", "potential": "potential",
             "appetence": "appetence", "risk": "risk", "plan": "plan",
-            "transitionDuration": "transition_duration"}
+            "transitionDuration": "transition_duration", "mentor": "mentor"}
     for k, attr in _map.items():
         if k in body:
             setattr(row, attr, body[k])
+    if "stage" in body:
+        if body["stage"] not in _STAGES:
+            raise HTTPException(400, "stage : souhait | plan | en_cours | bilan")
+        row.stage = body["stage"]
+    if "steps" in body:
+        if not isinstance(body["steps"], list):
+            raise HTTPException(400, "steps : liste attendue")
+        row.steps = json.dumps(body["steps"], ensure_ascii=False)
     row.updated_at = _now()
     session.add(row); session.commit(); session.refresh(row)
     return _mobility_dict(row)
@@ -228,3 +252,31 @@ def delete_mobility(mobility_id: str, session: Session = Depends(get_session)):
         raise HTTPException(404, "Ligne non trouvée")
     session.delete(m); session.commit()
     return {"ok": True}
+
+
+# ── Compétences requises par équipe (3.262.0) ────────────────────────────────
+@router.get("/api/team-skill-requirements")
+def list_team_skill_requirements(session: Session = Depends(get_session)):
+    return [_team_skill_req_dict(r) for r in session.exec(select(TeamSkillRequirement)).all()]
+
+
+@router.put("/api/team-skill-requirements")
+async def set_team_skill_requirement(request: Request, session: Session = Depends(get_session)):
+    """Pose ou retire une exigence : {team, skillId, required: bool}. Idempotent."""
+    body = await request.json()
+    team = (body.get("team") or "").strip()
+    skill_id = body.get("skillId") or ""
+    if not team or not skill_id:
+        raise HTTPException(400, "team et skillId requis")
+    if not session.get(Skill, skill_id):
+        raise HTTPException(404, "Compétence non trouvée")
+    rows = session.exec(select(TeamSkillRequirement).where(
+        TeamSkillRequirement.team == team, TeamSkillRequirement.skill_id == skill_id)).all()
+    if body.get("required", True):
+        if not rows:
+            session.add(TeamSkillRequirement(team=team, skill_id=skill_id))
+    else:
+        for r in rows:
+            session.delete(r)
+    session.commit()
+    return {"ok": True, "team": team, "skillId": skill_id, "required": bool(body.get("required", True))}

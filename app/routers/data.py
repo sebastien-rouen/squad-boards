@@ -20,13 +20,13 @@ from app.services.ics import expand_calendar_events
 from app.models import (
     Team, Member, Ticket, Feature, Epic, SprintConfig, PIConfig, TeamGroup,
     Absence, SupportRotation, Event, MoodVote, RetroItem, Risk,
-    Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, TeamCalendar,
+    Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, TeamSkillRequirement, TeamCalendar,
     TeamIdentity, WorkshopTemplate, TeamWorkshop, PokerRound,
 )
 from app.serializers import (
     _ticket_dict, _feature_dict, _epic_dict, _member_dict, _team_dict, _group_dict,
     _absence_dict, _support_dict, _event_dict, _risk_dict, _skill_dict, _appetence_dict,
-    _member_skill_dict, _member_appetence_dict, _mobility_dict, _sprint_dict, _pi_dict,
+    _member_skill_dict, _member_appetence_dict, _mobility_dict, _team_skill_req_dict, _sprint_dict, _pi_dict,
     _retro_dict, _mood_dict, _cal_dict, _team_identity_dict, _workshop_template_dict,
     _team_workshop_dict, _poker_round_dict,
 )
@@ -52,6 +52,7 @@ _EXPORT_SPEC = [
     ("memberSkills",     MemberSkill,     _member_skill_dict),
     ("memberAppetences", MemberAppetence, _member_appetence_dict),
     ("mobility",         MemberMobility,  _mobility_dict),
+    ("teamSkillRequirements", TeamSkillRequirement, _team_skill_req_dict),
     ("calendars",        TeamCalendar,    _cal_dict),
     ("teamIdentities",   TeamIdentity,    _team_identity_dict),
     ("workshopTemplates", WorkshopTemplate, _workshop_template_dict),
@@ -598,7 +599,7 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
                 id=d.get("id") or _gen_id(),
                 scope=d.get("scope", "member"), scope_key=d.get("scopeKey", ""),
                 team=d.get("team", ""), skill_id=d.get("skillId", ""),
-                level=d.get("level", 0),
+                level=d.get("level", 0), appetence=d.get("appetence", "neutre"),
             ))
         counts["memberSkills"] = len(items)
 
@@ -629,8 +630,21 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
                 potential=d.get("potential", "moyen"), appetence=d.get("appetence", "neutre"),
                 risk=d.get("risk", "aucun"), plan=d.get("plan", ""),
                 transition_duration=d.get("transitionDuration", ""),
+                stage=d.get("stage", "souhait"), mentor=d.get("mentor", ""),
+                steps=json.dumps(d.get("steps") or [], ensure_ascii=False),
             ))
         counts["mobility"] = len(items)
+
+    if "teamSkillRequirements" in body and body["teamSkillRequirements"] is not None:
+        items = body["teamSkillRequirements"]
+        if mode == "replace":
+            for row in session.exec(select(TeamSkillRequirement)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(TeamSkillRequirement(
+                id=d.get("id") or _gen_id(), team=d.get("team", ""), skill_id=d.get("skillId", ""),
+            ))
+        counts["teamSkillRequirements"] = len(items)
 
     # ── Équipe : fiche d'identité / catalogue d'ateliers / réponses d'ateliers ──
     if "teamIdentities" in body and body["teamIdentities"] is not None:

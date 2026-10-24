@@ -90,7 +90,7 @@ function _mobileList(ctx, cols) {
         const ex = M.expertsOf(ctx, s.id);
         const people = ctx.visiblePeople.filter(p => M.levelOf(ctx, p.name, s.id)).sort((a, b) => M.levelOf(ctx, b.name, s.id) - M.levelOf(ctx, a.name, s.id));
         return `<details class="atl-skc${ex.length <= 1 ? ' is-bus' : ''}"><summary><b>${esc(s.name)}</b><small>${esc(s.category || '')}</small><span class="spacer"></span><span class="atl-chip${ex.length <= 1 ? ' atl-chip--danger' : ''}">${ex.length <= 1 ? '🚌 ' : ''}${ex.length} sachant${ex.length > 1 ? 's' : ''}</span></summary>${_histo(ctx, s.id, ctx.visiblePeople)}`
-            + `<div class="atl-pchips">${people.map(p => `<button type="button" class="atl-pchip" data-eval="${esc(p.name)}" data-skill="${esc(s.id)}">${avatarHtml(p.name, { size: 'xs', color: ctx.teamColor(p.team) })}${esc(p.name.split(' ')[0])}${levelHtml(M.levelOf(ctx, p.name, s.id))}</button>`).join('') || '<small class="atl-muted">aucune évaluation</small>'}</div></details>`;
+            + `<div class="atl-pchips">${people.map(p => `<button type="button" class="atl-pchip" data-eval="${esc(p.name)}" data-skill="${esc(s.id)}">${avatarHtml(p.name, { size: 'xs', color: ctx.teamColor(p.team) })}${esc(M.firstName(p.name))}${levelHtml(M.levelOf(ctx, p.name, s.id))}</button>`).join('') || '<small class="atl-muted">aucune évaluation</small>'}</div></details>`;
     }).join('');
 }
 
@@ -101,8 +101,9 @@ export function matrixHtml(ctx, st) {
         + (st.scope === 'team' ? '<th class="atl-hm__sk">Couv.</th>' : apps.map((a, i) => `<th class="atl-hm__sk atl-hm__sk--app${i === 0 ? ' is-first' : ''}" title="Envie (catalogue d'appétences)">💡 ${esc(a.name)}</th>`).join('')) + '</tr></thead>';
     const foot = st.scope === 'team' ? '' : `<tfoot><tr><th class="atl-hm__who">Sachants (≥ 2)</th>${cols.map(s => { const n = M.expertsOf(ctx, s.id).length; return `<td class="atl-hm__n${n <= 1 ? ' is-bus' : n <= 2 ? ' is-thin' : ''}">${n}${n <= 1 ? ' 🚌' : ''}</td>`; }).join('')}${apps.length ? `<td colspan="${apps.length}"></td>` : ''}</tr></tfoot>`;
     const body = st.scope === 'team' ? _teamRows(ctx, cols) : _personRows(ctx, st, cols, apps);
-    const panel = st.scope === 'team' ? _comparePanel(ctx, st) : st.colSkill ? _skillPanel(ctx, st.colSkill)
-        : `<div class="atl-panel__head"><h3>Lire la matrice</h3></div><p class="atl-muted">Touchez une case pour évaluer, un nom pour la fiche, un en-tête pour le détail d'une compétence. ⭐ dans le bandeau d'une équipe : compétence requise (partagée par tous).</p><div class="atl-legend">${[1, 2, 3, 4].map(v => levelHtml(v, { label: true })).join('')}</div><p class="atl-muted"><i class="atl-hm__ap atl-hm__ap--inline"></i> envie forte · <span class="atl-legend__req"></span> requise par l'équipe · <span class="atl-legend__gapcell"></span> requise sans sachant</p>`;
+    // Panneau seulement à la demande (compétence touchée, vue Équipes) : sinon la grille prend toute la largeur.
+    const panel = st.scope === 'team' ? _comparePanel(ctx, st) : st.colSkill ? _skillPanel(ctx, st.colSkill) + '<button type="button" class="btn btn-ghost btn-sm" data-col="">✕ Fermer</button>' : '';
+    const legend = `<div class="atl-legend atl-legend--hm">${[1, 2, 3, 4].map(v => `<span>${levelHtml(v)} ${esc(M.levelMeta(v).label)}</span>`).join('')}<span><i class="atl-hm__ap atl-hm__ap--inline"></i> envie forte</span><span><span class="atl-legend__req"></span> requise</span><span><span class="atl-legend__gapcell"></span> requise sans sachant</span><small>Case = évaluer · nom = fiche · en-tête = détail · ⭐ du bandeau = requise pour l'équipe</small></div>`;
     return `<div class="atl-tools">
             <div class="seg" role="group" aria-label="Lignes">${[['member', 'Personnes'], ['team', 'Équipes']].map(([k, l]) => `<button type="button" class="seg__item${st.scope === k ? ' seg__item--on' : ''}" data-scope="${k}">${l}</button>`).join('')}</div>
             ${st.scope === 'member' ? `<input class="input input-sm atl-q" type="search" placeholder="🔍 Personne…" value="${esc(st.query || '')}" data-query aria-label="Filtrer les personnes">` : ''}
@@ -111,10 +112,11 @@ export function matrixHtml(ctx, st) {
             <span class="spacer"></span>
             <button type="button" class="btn btn-sm btn-secondary" data-suggest="">🧭 Qui affecter ?</button>
         </div>
-        <div class="atl-mapgrid atl-mapgrid--matrix">
+        ${st.scope === 'member' ? legend : ''}
+        <div class="atl-mapgrid atl-mapgrid--matrix${panel ? '' : ' is-full'}">
             <div class="atl-hm-wrap">${cols.length ? `<table class="atl-hm${st.scope === 'team' ? ' atl-hm--teams' : ''}">${head}<tbody>${body}</tbody>${foot}</table>` : '<p class="atl-muted atl-pad">Aucune colonne avec ces filtres.</p>'}</div>
             <div class="atl-mlist">${_mobileList(ctx, cols)}</div>
-            <aside class="atl-panel">${panel}</aside>
+            ${panel ? `<aside class="atl-panel">${panel}</aside>` : ''}
         </div>`;
 }
 
@@ -157,7 +159,7 @@ export function bindMatrix(root, ctx, st, rerender, act) {
         if (b('[data-scope]')) { st.scope = b('[data-scope]').dataset.scope; rerender(); return; }
         if (b('[data-flag]')) { const k = b('[data-flag]').dataset.flag; st[k] = !st[k]; rerender(); return; }
         if (b('[data-req]')) { const r = b('[data-req]'); _toggleReq(r.dataset.team, r.dataset.req, rerender); return; }
-        if (b('[data-col]')) { const id = b('[data-col]').dataset.col; st.colSkill = st.colSkill === id ? null : id; rerender(); return; }
+        if (b('[data-col]')) { const id = b('[data-col]').dataset.col; st.colSkill = !id || st.colSkill === id ? null : id; rerender(); return; }
         if (b('[data-app]')) { _cycleApp(b('[data-app]')); return; }
         if (b('[data-eval]')) { const c = b('[data-eval]'); act.openEval(c.dataset.eval, c.dataset.skill); return; }
         if (b('[data-member]')) { act.openMember(b('[data-member]').dataset.member); return; }

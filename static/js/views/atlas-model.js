@@ -23,6 +23,8 @@ export const APPETENCE_VALUES = [
     { v: 'neutre', label: 'Neutre', color: '#cbd5e1', icon: '◐' },
     { v: 'forte',  label: 'Forte',  color: '#f59e0b', icon: '●' },
 ];
+/** Prénom d'un nom RH « NOM, Prénom » ou JIRA « Prénom Nom ». */
+export const firstName = n => { const s = String(n || ''); const i = s.indexOf(','); return (i >= 0 ? s.slice(i + 1) : s).trim().split(/\s+/)[0] || s; };
 export const levelMeta = v => SKILL_LEVELS.find(l => l.v === v) || SKILL_LEVELS[0];
 export const EXPERT_MIN = 2;
 
@@ -122,7 +124,7 @@ export function signals(ctx) {
         for (const id of coverage(ctx, team).missing) {
             const learners = learnersOf(ctx, id, membersOf(ctx, team));
             out.push({ sev: 'danger', kind: 'trou', icon: '🕳️', team, skillId: id, who: learners.map(p => p.name),
-                title: `${team} : ${name(id)} non couvert`, text: `Requis par l'équipe, aucun sachant (niveau ≥ 2).${learners.length ? ` Relève possible : ${learners.map(p => p.name.split(' ')[0]).join(', ')}.` : ''}` });
+                title: `${team} : ${name(id)} non couvert`, text: `Requis par l'équipe, aucun sachant (niveau ≥ 2).${learners.length ? ` Relève possible : ${learners.map(p => firstName(p.name)).join(', ')}.` : ''}` });
         }
     }
     for (const s of activeSkills(ctx)) {
@@ -136,7 +138,7 @@ export function signals(ctx) {
     for (const p of ctx.visiblePeople) {
         const wants = ctx.skills.filter(s => wantOf(ctx, p.name, s.id) === 'forte' && levelOf(ctx, p.name, s.id) < EXPERT_MIN);
         if (wants.length) out.push({ sev: 'info', kind: 'envie', icon: '✨', team: p.team, skillId: wants[0].id, who: [p.name],
-            title: `${p.name.split(' ')[0]} : envie de ${wants.map(s => s.name).join(', ')}`, text: 'Envie forte, pas encore sachant : une montée en compétence à proposer.' });
+            title: `${firstName(p.name)} : envie de ${wants.map(s => s.name).join(', ')}`, text: 'Envie forte, pas encore sachant : une montée en compétence à proposer.' });
     }
     const rank = { danger: 0, warn: 1, info: 2, ok: 3 };
     return out.sort((a, b) => rank[a.sev] - rank[b.sev]);

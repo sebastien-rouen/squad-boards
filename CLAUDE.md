@@ -801,6 +801,15 @@ python main.py          # http://localhost:3001  — Swagger /docs
   rare). Barre de filtres : re-rendre son `innerHTML`, jamais l'élément (le rail l'enveloppe).
 - **Échap et couches** : popin ticket au-dessus d'une couche (`.above-demo`) → Échap ne ferme QU'ELLE
   (`stopImmediatePropagation` dans modal.js) ; les couches dessous testent `ticketModalOnTop()` (utils/modals.js).
+- **Atlas refondu** (3.263.0, Constellation + Matrice) : coquille `views/atlas.js` (onglets, état, actions) + un
+  module par onglet sur le contrat `xxxHtml(ctx, st)` / `bindXxx(root, ctx, st, rerender, act)` — conteneur RECRÉÉ à
+  chaque rendu (écouteurs délégués jamais empilés). Calculs UNIQUEMENT dans `atlas-model.js` (`atlasCtx()` puis
+  fonctions pures : sachant = niveau ≥ 2 `EXPERT_MIN`, `coverage`, `signals`, `suggest`, `simImpact`) — ne pas
+  recompter des sachants dans une vue. Envie PAR compétence = `memberSkills[].appetence` ; catalogue d'envies séparé =
+  `memberAppetences`. Compétences requises = `teamSkillRequirements` (EN BASE, `PUT /api/team-skill-requirements`).
+  Prénom d'un nom RH « NOM, Prénom » = `firstName` (jamais `split(' ')[0]`). Contrats externes : `openMemberCard`,
+  `SKILL_LEVELS`, `APPETENCE_VALUES`, id `atlas-membercard-overlay` (TV), `#atlas-stage` (palette Ctrl+K).
+  CSS : css/views/atlas.css (+ `-map`, `-panels`), préfixe `atl-` ; `atlas-hist-*` reste à atlas-history.css.
 - **Historique des niveaux Atlas** (3.198.0) : table `skill_level_history`, écrite UNIQUEMENT par
   `PUT /api/member-skills` (une ligne par changement réel), lue par `components/atlas_history.js`.
 - **Dernière synchro** (3.197.0) : `sprintconfig.synced_by` / `sync_kind`, posés par la synchro

@@ -54,6 +54,8 @@ export function orbitSvg(ctx, st) {
     const half = R + rM + 120, cx = half, cy = half;
     const angle = t => -90 + teams.indexOf(t) * step;
     const skill = st.mode === 'skill' ? st.skill : null;
+    // Au-delà de 24 sachants allumés, les noms se chevauchent : le panneau les liste, la carte les colore.
+    const nameHits = !!skill && teams.flatMap(t => M.membersOf(ctx, t)).filter(p => M.levelOf(ctx, p.name, skill) >= M.EXPERT_MIN).length <= 24;
     let s = `<svg class="atl-orbit" viewBox="0 0 ${half * 2} ${half * 2}" role="img" aria-label="Carte du programme">`;
     if (teams.length > 1) {
         s += `<circle class="atl-orbit__ring" cx="${cx}" cy="${cy}" r="${f(R)}"/>`;
@@ -80,7 +82,7 @@ export function orbitSvg(ctx, st) {
             const hit = v >= M.EXPERT_MIN;
             s += `<line class="atl-orbit__tie" x1="${f(tx)}" y1="${f(ty)}" x2="${f(mx)}" y2="${f(my)}"/>`;
             s += `<circle class="atl-orbit__member${v >= 0 ? ' m-lvl-' + v : ''}${hit ? ' is-hit' : ''}${p.ghost ? ' is-ghost' : ''}${p.moved ? ' is-moved' : ''}" cx="${f(mx)}" cy="${f(my)}" r="${hit ? 10 : 7}" data-member="${esc(p.name)}" tabindex="0"><title>${esc(p.name)}${skill ? ` · ${esc(ctx.skills.find(x => x.id === skill)?.name || '')} ${v || '–'}` : ''}</title></circle>`;
-            if (hit) s += `<text class="atl-orbit__tag" x="${f(mx)}" y="${f(my - 15)}">${esc(p.name.split(' ')[0])} · ${v}</text>`;
+            if (hit && nameHits) s += `<text class="atl-orbit__tag" x="${f(mx)}" y="${f(my - 15)}">${esc(M.firstName(p.name))} · ${v}</text>`;
         });
         s += `<circle class="atl-orbit__body" cx="${f(tx)}" cy="${f(ty)}" r="${rT}" tabindex="0"/>`;
         if (cov.missing.length) s += `<circle class="atl-orbit__gap" cx="${f(tx)}" cy="${f(ty)}" r="${rT + 7}"><title>Requis non couvert : ${esc(cov.missing.map(id => ctx.skills.find(x => x.id === id)?.name).join(', '))}</title></circle>`;
@@ -123,7 +125,7 @@ function _programPanel(ctx) {
 
 /** Carte d'un signal (partagée avec le tableau de bord). */
 export const signalHtml = s => `<article class="atl-sig atl-sig--${s.sev}"><span class="atl-sig__icon">${s.icon}</span><div class="atl-sig__main"><b>${esc(s.title)}</b><span>${esc(s.text)}</span>`
-    + `<div class="atl-sig__acts">${s.kind === 'trou' || s.kind === 'bus' ? `<button type="button" class="btn btn-xs btn-secondary" data-suggest="${esc(s.skillId)}" data-team="${esc(s.team || '')}">🧭 Qui affecter ?</button>` : ''}`
+    + `<div class="atl-sig__acts">${s.kind === 'trou' || s.kind === 'bus' ? `<button type="button" class="btn btn-xs btn-secondary" data-suggest="${esc(s.skillId)}">🧭 Qui affecter ?</button>` : ''}`
     + `${s.who[0] ? `<button type="button" class="btn btn-xs btn-secondary" data-skillup="${esc(s.skillId)}" data-who="${esc(s.kind === 'bus' ? '' : s.who[0])}" data-team="${esc(s.team || '')}">🚀 Monter en compétence</button>` : ''}</div></div></article>`;
 
 /** Panneau de simulation : déplacement en cours et impact chiffré. */
@@ -137,7 +139,7 @@ function _simPanel(ctx, st) {
         + row(`${esc(imp.to)} · couverture`, imp.toCov[1].missing.length ? 'toujours à couvrir : ' + esc(imp.toCov[1].missing.map(id => ctx.skills.find(s => s.id === id)?.name).join(', ')) : 'compétences requises couvertes', `${pct(imp.toCov[0])} → ${pct(imp.toCov[1])}`, (imp.toCov[1].pct ?? 0) > (imp.toCov[0].pct ?? 0) ? 'up' : '')
         + row(`${esc(imp.from)} · couverture`, imp.lost.length ? 'perd son seul sachant : ' + esc(imp.lost.map(s => s.name).join(', ')) : 'rien de requis n\'est perdu', `${pct(imp.fromCov[0])} → ${pct(imp.fromCov[1])}`, (imp.fromCov[1].pct ?? 100) < (imp.fromCov[0].pct ?? 100) ? 'down' : '')
         + row(`${esc(imp.from)} · effectif`, `${imp.fromSize[0]} → ${imp.fromSize[1]} personnes`, '−1', 'down')
-        + row(`Charge de ${esc(imp.who.name.split(' ')[0])}`, 'tickets actifs à réattribuer', String(imp.load), imp.load ? 'warn' : '')
+        + row(`Charge de ${esc(M.firstName(imp.who.name))}`, 'tickets actifs à réattribuer', String(imp.load), imp.load ? 'warn' : '')
         + `<div class="atl-acts"><button type="button" class="btn btn-primary btn-sm" data-sim-copy>📋 Copier la proposition</button><button type="button" class="btn btn-ghost btn-sm" data-sim-reset>↺ Annuler</button></div>`;
 }
 
@@ -170,7 +172,7 @@ function _pickTarget(ctx, st, who, rerender) {
     const pop = document.createElement('div');
     pop.id = 'atl-sim-pick';
     pop.className = 'atl-pop';
-    pop.innerHTML = `<b>🔀 Déplacer ${esc(who.split(' ')[0])} vers…</b>` + ctx.teams.filter(t => t !== p.team).map(t => {
+    pop.innerHTML = `<b>🔀 Déplacer ${esc(M.firstName(who))} vers…</b>` + ctx.teams.filter(t => t !== p.team).map(t => {
         const imp = M.simImpact(ctx, { who, to: t });
         const gain = (imp.toCov[1].pct ?? 0) - (imp.toCov[0].pct ?? 0);
         return `<button type="button" class="atl-row" data-to="${esc(t)}">${dotHtml(ctx.teamColor(t))}<span class="atl-row__main"><b>${esc(t)}</b><small>couverture ${imp.toCov[0].pct ?? '—'} %</small></span>${gain > 0 ? `<span class="atl-chip atl-chip--ok">+${gain} %</span>` : ''}</button>`;

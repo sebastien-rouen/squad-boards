@@ -1,3 +1,36 @@
+## [3.263.0] - 2026-10-24
+
+### Atlas refondu — 🌌 Constellation + 🟩 Skills Matrix (directions retenues de la galerie `mockups/atlas/`)
+
+L'Atlas est réécrit de zéro (`atlas.js` : 2 711 → 133 lignes, `css/atlas.css` 1 243 lignes supprimé), toutes ses
+fonctions conservées sous le nouveau visuel, un module par onglet (tous < 300 lignes) :
+
+- **🗺️ Carte constellation** (`atlas-map.js`) : programme au centre, lignes produit en secteurs, équipes en astres,
+  personnes en satellites. Chercher une compétence colore les satellites par niveau et nomme les sachants ; une
+  compétence REQUISE sans sachant entoure l'équipe d'un halo rouge. Zoom sur une ligne, panneau d'équipe (radar,
+  requises, membres), signaux du programme. **Atelier** : déplacement simulé d'une personne (fantôme, trajet,
+  impact chiffré : couverture avant / après des deux équipes, seul sachant perdu, charge), copie de la proposition.
+  Visite guidée, plein écran, export PNG.
+- **🎯 Skills Matrix** (`atlas-matrix.js`) : heatmap personnes × compétences par équipe, envie forte en ambre, case
+  cerclée = requise ; **⭐ du bandeau d'équipe = compétence requise, enregistrée EN BASE** (partagée par tous) ;
+  pied de colonne « sachants » avec 🚌 ; envies du catalogue séparé en colonnes ; vue Équipes (niveau moyen) +
+  comparaison radar ; mobile : une liste par compétence triée par fragilité.
+- **📊 Tableau de bord** (`atlas-board.js`) : KPI, anneaux de couverture, ciel des compétences, bus factor avec
+  relève, personnes à accompagner, objectifs d'équipe par PI (même clé localStorage qu'avant : rien de perdu).
+- **🧭 Mobilité** (`atlas-mobility.js`) : trajectoires Souhait → Plan → En cours → Bilan, étapes datées,
+  accompagnant, effet CALCULÉ sur l'équipe (seul sachant perdu), champs RH d'origine dans « Détails RH », CSV.
+- **⚙️ Catalogue** (`atlas-catalog.js`) : compétences + envies, édition en place, ordre ▲▼, suppression annulable.
+- **Fiche** (`atlas-member.js`, id `atlas-membercard-overlay` conservé pour la TV) : radar comparé à l'équipe,
+  compétences et envies, trajectoire, historique ; **évaluation** d'une compétence ou de toutes (niveau + envie).
+- **Actions** (`atlas-actions.js`) : ticket de montée en compétence (binôme = meilleur sachant non absent) et
+  « Qui affecter ? » (niveau, charge, absence, envie sur la compétence) + affectation à un ticket.
+- Calculs dans `atlas-model.js` (source unique : sachant = niveau ≥ 2, couverture, signaux, suggestions, impact).
+- Migration unique : les compétences requises en localStorage `sb-team-req-*` sont poussées en base puis effacées.
+- Noms RH « NOM, Prénom » : prénom via `firstName` (le prénom n'est plus « LOUKILI, »).
+- Vérifié dans Chromium (données injectées par interception, aucune écriture en base) : clair / sombre, desktop /
+  mobile, parcours carte → atelier → fiche → évaluation → ⭐ → vue Équipes → tableau de bord → qui affecter →
+  mobilité → catalogue, état vide, ouverture de la fiche depuis la page Équipe et `~membre=` — aucune erreur.
+
 ## [3.262.0] - 2026-10-24
 
 ### Démos vidéo refaites : instance de démo, gestes complets, salle de cinéma, voix off locale

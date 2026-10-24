@@ -36,6 +36,12 @@
 .atl-search select { border: 0; background: transparent; color: var(--text); font: inherit; font-size: var(--fs-sm); max-width: 260px; }
 .atl-q { max-width: 200px; }
 
+/* ── Commutateur segmenté (le site n'en a pas : propre à l'Atlas) ─ */
+.atl .seg, .atl-modal .seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--r-full); background: var(--surface-hover); border: 1px solid var(--border); flex-wrap: wrap; }
+.atl .seg__item, .atl-modal .seg__item { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 0; border-radius: var(--r-full); background: transparent; color: var(--text-secondary); font: inherit; font-size: 12.5px; font-weight: var(--fw-semibold); cursor: pointer; }
+.atl .seg__item--on, .atl-modal .seg__item--on { background: var(--primary); color: #fff; }
+.atl .seg__item:focus-visible, .atl-modal .seg__item:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
 /* ── Puces, points, barres ─ */
 .atl-chip {
     display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 10px; border-radius: var(--r-full);
@@ -116,6 +122,8 @@ button.atl-chip { cursor: pointer; }
 .atl-card h3 { margin: 0; font-size: 15px; }
 .atl-card h3 small { font-weight: 500; color: var(--text-muted); font-size: 12px; margin-left: 6px; }
 .atl-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
+.atl-panel .atl-legend { flex-direction: column; align-items: flex-start; }
+.atl-panel .atl-legend .atl-lvl { height: auto; min-height: 24px; justify-content: start; }
 
 /* ── Signaux ─ */
 .atl-sig { --s: var(--text-muted); display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--s); }

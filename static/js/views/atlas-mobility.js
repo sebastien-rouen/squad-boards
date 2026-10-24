@@ -58,7 +58,7 @@ export function openMobility(name, onSaved = () => {}) {
         <div class="atl-field"><span>Étape</span><div class="seg" role="group">${STAGES.map(([k, l]) => `<button type="button" class="seg__item${k === st.stage ? ' seg__item--on' : ''}" data-stage="${k}">${l}</button>`).join('')}</div></div>
         <h4 class="atl-sec">Plan d'actions</h4><div class="atl-steps" data-steps>${st.steps.map(_stepRow).join('')}</div>
         <button type="button" class="btn btn-ghost btn-sm" data-step-add>＋ Ajouter une étape</button>
-        ${cost.length ? `<div class="atl-callout">⚖️ Si ${esc(name.split(' ')[0])} évolue, ${esc(p.team)} perd son seul sachant : <b>${esc(cost.map(s => s.name).join(', '))}</b>. Prévoir une relève (📈 dans la matrice).</div>` : ''}
+        ${cost.length ? `<div class="atl-callout">⚖️ Si ${esc(M.firstName(name))} évolue, ${esc(p.team)} perd son seul sachant : <b>${esc(cost.map(s => s.name).join(', '))}</b>. Prévoir une relève (📈 dans la matrice).</div>` : ''}
         <details class="atl-details"><summary>Détails RH</summary><div class="atl-form2">
             <label class="atl-field"><span>Potentiel</span><select class="input" data-f="potential">${opt([['faible', 'faible'], ['moyen', 'moyen'], ['fort', 'fort']], cur.potential || 'moyen')}</select></label>
             <label class="atl-field"><span>Risque</span><select class="input" data-f="risk">${opt([['aucun', 'aucun'], ['moyen', 'moyen'], ['critique', 'critique']], cur.risk || 'aucun')}</select></label>

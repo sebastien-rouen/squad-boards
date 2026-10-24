@@ -30,7 +30,7 @@ export function openSkillUp(who, team, skillId) {
         <div class="atl-form2"><label class="atl-field"><span>Compétence</span><select class="input" name="skill" data-skill-sel>${skillOpts(ctx, sid)}</select></label>
         <label class="atl-field"><span>Pour</span><select class="input" name="leader"><option value="">— à désigner —</option>${ctx.people.filter(p => !t || p.team === t).map(p => `<option value="${esc(p.name)}"${p.name === who ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
         <label class="atl-field"><span>Board (équipe)</span><select class="input" name="team">${ctx.allTeams.map(x => `<option value="${esc(x)}"${x === t ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></label></div>
-        <label class="atl-field"><span>Titre</span><input class="input" name="title" required value="Monter en compétence ${esc(skill.name)}${who ? ' — ' + esc(who.split(' ')[0]) : ''}"></label>
+        <label class="atl-field"><span>Titre</span><input class="input" name="title" required value="Monter en compétence ${esc(skill.name)}${who ? ' — ' + esc(M.firstName(who)) : ''}"></label>
         <label class="atl-field"><span>Objectif / plan</span><textarea class="input" name="description" rows="4">Passer du niveau ${lvl} à ${Math.min(4, Math.max(2, lvl + 1))} sur « ${esc(skill.name)} ».${mentor ? `\nBinôme proposé : ${esc(mentor.name)} (niveau ${M.levelOf(ctx, mentor.name, sid)}).` : '\nAucun sachant disponible : formation externe à prévoir.'}</textarea></label>
         ${mentor ? `<p class="atl-muted">🤝 Binôme proposé : ${avatarHtml(mentor.name, { size: 'xs', color: ctx.teamColor(mentor.team) })} <b>${esc(mentor.name)}</b> — meilleur sachant non absent dans les 14 jours.</p>` : ''}
     </form>`;

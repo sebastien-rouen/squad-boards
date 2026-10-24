@@ -1,5 +1,8 @@
 # Atlas — quatre directions pour la refonte
 
+> ✅ **Retenues et implémentées (3.263.0)** : 🌌 Constellation (onglet Carte) + 🟩 Matrice (onglet Skills Matrix),
+> dans `static/js/views/atlas*.js`. Profils et Signaux restent ici pour mémoire.
+
 Maquettes statiques (rien du site n'est modifié) pour **refaire l'Atlas** (`views/atlas.js` : carte unFIX +
 Skills Matrix + une douzaine de modales). Même cahier pour les quatre directions : **voir qui sait quoi**,
 **repérer les trous avant qu'ils coûtent**, **agir** (former, affecter, accompagner une mobilité).

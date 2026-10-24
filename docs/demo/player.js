@@ -22,7 +22,7 @@ function renderGrid() {
         img.alt = d.title;
         btn.querySelector('.pick-dur').textContent = fmtT(d.durationS);
         btn.querySelector('.pick-title').textContent = d.title;
-        btn.querySelector('.pick-meta').textContent = `${fmtMb(d.files.mp4)} · ${d.chapters.length} chap.${d.voice ? ' · 🔊' : ''}${d.audience === 'interne' ? ' · 🔒' : ''}`;
+        btn.querySelector('.pick-meta').textContent = `${fmtMb(d.files.mp4)} · ${d.chapters.length} chap.${d.voice ? ' · 🔊' : ''}${d.music ? ' · 🎵' : ''}${d.audience === 'interne' ? ' · 🔒' : ''}`;
         btn.addEventListener('click', () => { location.hash = d.name; });
         nav.append(btn);
     }
@@ -75,6 +75,7 @@ function openDemo(name) {
     $('pl-desc').textContent = d.description || '';
     const badges = [];
     if (d.voice) badges.push(`🔊 voix off · ${d.voiceLines || ''} réplique${(d.voiceLines || 0) > 1 ? 's' : ''}`);
+    if (d.music) badges.push(`🎵 musique · ${d.music}`);
     if (d.cinema?.letterbox) badges.push(`🎞️ bandes noires ${d.cinema.letterbox}:1`);
     if (d.transition && d.transition !== 'fade') badges.push(`↔ transitions ${d.transition}`);
     if (d.anim) badges.push('✨ animations du site');

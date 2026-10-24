@@ -10,62 +10,62 @@
     "width": 1920,
     "height": 1080
   },
-  "durationS": 77.7,
-  "recordedAt": "2026-10-23T23:00:51.222Z",
+  "durationS": 77.6,
+  "recordedAt": "2026-10-24T06:54:53.777Z",
   "chapters": [
     {
-      "t": 8.52,
+      "t": 8.5,
       "text": "Le tableau de bord des équipes agiles · Squad Board"
     },
     {
-      "t": 15.5,
+      "t": 15.49,
       "text": "Scrum Masters, PO, RTE : la journée commence ici"
     },
     {
-      "t": 26.41,
+      "t": 26.58,
       "text": "Le Board : le flux du sprint, colonne par colonne"
     },
     {
-      "t": 28.3,
+      "t": 28.44,
       "text": "01 · Le Board"
     },
     {
-      "t": 33.07,
+      "t": 33.21,
       "text": "Scrum ou Kanban : les colonnes suivent le flux de l'équipe"
     },
     {
-      "t": 36.42,
+      "t": 36.66,
       "text": "PI Planning : objectifs et features de chaque équipe du train"
     },
     {
-      "t": 37.67,
+      "t": 37.83,
       "text": "02 · Planifier"
     },
     {
-      "t": 46,
+      "t": 46.15,
       "text": "Roadmap : glisser une feature, c'est la reprioriser"
     },
     {
-      "t": 53.29,
+      "t": 53.77,
       "text": "Santé : météo d'équipe, capacité, absences"
     },
     {
-      "t": 54.49,
+      "t": 55,
       "text": "03 · Piloter"
     },
     {
-      "t": 62.02,
+      "t": 62.5,
       "text": "Rapports : sprint, PI, flux, support… en un clic"
     },
     {
-      "t": 67.35,
+      "t": 67.34,
       "text": "Un seul outil. Léger, auto-hébergé, en français."
     }
   ],
   "files": {
-    "mp4": 5119135,
+    "mp4": 5895509,
     "webp": 0,
-    "poster": 17872
+    "poster": 17956
   },
   "blur": [],
   "fake": 0,
@@ -235,6 +235,7 @@
   "scenario": "decouverte.json",
   "voice": true,
   "voiceLines": 8,
+  "music": "cinema",
   "fps": 30,
   "capture": "screencast",
   "transition": "slide-left",
@@ -243,5 +244,44 @@
     "vignette": 0.3,
     "tint": "warm"
   },
-  "anim": false
+  "anim": false,
+  "audio": {
+    "cues": [
+      {
+        "atS": 8.503,
+        "text": "Squad Board : tickets, sprints, P I, santé d'équipe et rapports, au même endroit."
+      },
+      {
+        "atS": 15.492,
+        "text": "Scrum Masters, P O, R T E : la journée commence ici."
+      },
+      {
+        "atS": 28.444,
+        "text": "Le Board : le flux du sprint, colonne par colonne."
+      },
+      {
+        "atS": 37.826,
+        "text": "Planifier : P I Planning et Roadmap, du trimestre à la feature."
+      },
+      {
+        "atS": 46.145,
+        "text": "La Roadmap : glisser une feature, c'est la reprioriser."
+      },
+      {
+        "atS": 54.999,
+        "text": "Piloter : santé, capacité, et des rapports prêts à partager."
+      },
+      {
+        "atS": 62.504,
+        "text": "Les rapports : sprint, P I, flux, support, en un clic."
+      },
+      {
+        "atS": 67.337,
+        "text": "Un seul outil. Léger, auto-hébergé, en français."
+      }
+    ],
+    "voice": {
+      "rate": 1.05
+    }
+  }
 }

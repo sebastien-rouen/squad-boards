@@ -1,0 +1,146 @@
+/* Atlas — coquille et briques communes (refonte 3.263.0, views/atlas*.js).
+   Thème : variables de tokens.css. Couleurs de DONNÉES fixes (niveau, envie) : même sens partout,
+   en clair comme en sombre. Préfixe `atl-` (l'ancien `atlas-` reste à atlas_history.js). */
+
+.atl, .atl-overlay, .atl-pop {
+    --lvl-0: color-mix(in srgb, var(--text-muted) 18%, transparent);
+    --lvl-1: #94a3b8;
+    --lvl-2: #38bdf8;
+    --lvl-3: #22c55e;
+    --lvl-4: #a855f7;
+    --ap-forte: #f59e0b;
+}
+.atl { display: flex; flex-direction: column; gap: 12px; }
+.atl [hidden] { display: none !important; }
+.atl .spacer, .atl-modal .spacer { flex: 1 1 auto; }
+.atl-muted { color: var(--text-muted); font-size: 12.5px; }
+.atl-pad { padding: 16px; }
+
+/* ── Onglets ─ */
+.atl-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border); }
+.atl-tab {
+    flex: 0 0 auto; min-height: 42px; padding: 0 14px; border: 0; background: transparent; cursor: pointer;
+    color: var(--text-secondary); font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold);
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.atl-tab:hover { color: var(--text); }
+.atl-tab.is-active { color: var(--text); border-bottom-color: var(--primary); }
+.atl-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+.atl-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.atl-nudge { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--r-md); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); font-size: var(--fs-sm); }
+
+/* ── Barre d'outils ─ */
+.atl-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.atl-search { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); }
+.atl-search select { border: 0; background: transparent; color: var(--text); font: inherit; font-size: var(--fs-sm); max-width: 260px; }
+.atl-q { max-width: 200px; }
+
+/* ── Puces, points, barres ─ */
+.atl-chip {
+    display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 10px; border-radius: var(--r-full);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+    font: inherit; font-size: 12px; font-weight: var(--fw-semibold); white-space: nowrap;
+}
+button.atl-chip { cursor: pointer; }
+.atl-chip--on { background: color-mix(in srgb, var(--primary) 16%, var(--surface)); border-color: color-mix(in srgb, var(--primary) 50%, transparent); color: var(--primary); }
+.atl-chip--ok { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+.atl-chip--warn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 45%, transparent); background: color-mix(in srgb, var(--warning) 10%, var(--surface)); }
+.atl-chip--danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, transparent); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
+.atl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.atl-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: 0 0 auto; }
+.atl-bar { display: block; height: 6px; border-radius: var(--r-full); background: var(--surface-hover); overflow: hidden; }
+.atl-bar i { display: block; height: 100%; background: var(--primary); border-radius: inherit; }
+.atl-bar--ok i { background: var(--success); }
+.atl-bar--warn i { background: var(--warning); }
+.atl-bar--danger i { background: var(--danger); }
+
+/* ── Avatar, niveau, envie ─ */
+.atl-av {
+    display: inline-grid; place-items: center; flex: 0 0 auto; border-radius: 50%; font-weight: var(--fw-bold); color: var(--text);
+    background: color-mix(in srgb, var(--c) 22%, var(--surface)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 75%, transparent);
+}
+.atl-av--xs { width: 22px; height: 22px; font-size: 9px; }
+.atl-av--sm { width: 30px; height: 30px; font-size: 11px; }
+.atl-av--md { width: 40px; height: 40px; font-size: 14px; }
+.atl-av--lg { width: 54px; height: 54px; font-size: 18px; }
+.atl-av--xl { width: 76px; height: 76px; font-size: 24px; }
+.atl-av.is-away { opacity: .6; box-shadow: inset 0 0 0 2px var(--warning); }
+
+.atl-lvl { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 5px; border-radius: 6px; font-size: 12px; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; color: #0b1020; flex: 0 0 auto; }
+.atl-lvl small { margin-left: 6px; font-weight: var(--fw-semibold); color: inherit; }
+.atl-lvl--0 { background: var(--lvl-0); color: var(--text-muted); }
+.atl-lvl--1 { background: var(--lvl-1); }
+.atl-lvl--2 { background: var(--lvl-2); }
+.atl-lvl--3 { background: var(--lvl-3); }
+.atl-lvl--4 { background: var(--lvl-4); color: #fff; }
+.atl-ap { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.atl-ap--forte { background: var(--ap-forte); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ap-forte) 25%, transparent); }
+.atl-ap--neutre { box-shadow: inset 0 0 0 1.5px var(--text-muted); opacity: .6; }
+.atl-ap--faible { box-shadow: inset 0 0 0 1.5px var(--text-muted); opacity: .3; }
+
+/* Couleurs de niveau en fond atténué (matrice, histogrammes) */
+.atl .c-0, .atl-modal .c-0 { background: transparent; }
+.atl .c-1, .atl-modal .c-1 { background: color-mix(in srgb, var(--lvl-1) 32%, transparent); }
+.atl .c-2, .atl-modal .c-2 { background: color-mix(in srgb, var(--lvl-2) 40%, transparent); }
+.atl .c-3, .atl-modal .c-3 { background: color-mix(in srgb, var(--lvl-3) 46%, transparent); }
+.atl .c-4, .atl-modal .c-4 { background: color-mix(in srgb, var(--lvl-4) 60%, transparent); }
+
+/* ── Radar ─ */
+.atl-radar { display: block; max-width: 100%; height: auto; overflow: visible; }
+.atl-radar__ring, .atl-radar__axis { fill: none; stroke: var(--border); stroke-width: 1; }
+.atl-radar__val { fill: color-mix(in srgb, var(--primary) 26%, transparent); stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; }
+.atl-radar__cmp { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.atl-radar__lbl { fill: var(--text-secondary); font-size: 9.5px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+
+/* ── Panneau latéral et lignes ─ */
+.atl-mapgrid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: start; }
+.atl-panel { position: sticky; top: 8px; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); max-height: calc(100vh - 140px); overflow-y: auto; }
+.atl-panel__head { display: flex; align-items: center; gap: 8px; }
+.atl-panel__head h3 { margin: 0; font-size: 15px; }
+.atl-panel__radar { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.atl-sec { margin: 6px 0 0; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.atl-row {
+    display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 6px 8px; text-align: left;
+    border: 0; border-radius: var(--r-md); background: transparent; color: var(--text); font: inherit; cursor: pointer;
+}
+.atl-row:hover { background: var(--surface-hover); }
+.atl-row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.atl-row__main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.atl-row__main b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.atl-row__main small { font-size: 12px; color: var(--text-muted); }
+.atl-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.atl-hint { margin-top: 4px; }
+.atl-sep { height: 1px; background: var(--border); margin: 6px 0; }
+.atl-card { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); }
+.atl-card h3 { margin: 0; font-size: 15px; }
+.atl-card h3 small { font-weight: 500; color: var(--text-muted); font-size: 12px; margin-left: 6px; }
+.atl-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
+
+/* ── Signaux ─ */
+.atl-sig { --s: var(--text-muted); display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--s); }
+.atl-sig--danger { --s: var(--danger); background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }
+.atl-sig--warn { --s: var(--warning); }
+.atl-sig--info { --s: #a855f7; }
+.atl-sig__icon { font-size: 18px; line-height: 1.3; }
+.atl-sig__main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.atl-sig__main b { font-size: 13px; }
+.atl-sig__main > span { font-size: 12.5px; color: var(--text-secondary); }
+.atl-sig__acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+
+/* ── État vide ─ */
+.atl-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 32px 16px; border: 1px dashed var(--border); border-radius: var(--r-lg); }
+.atl-empty__icon { font-size: 36px; }
+.atl-empty b { font-size: 16px; }
+.atl-empty p { margin: 0; max-width: 46ch; color: var(--text-secondary); font-size: var(--fs-sm); }
+.atl-empty__acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+/* Histogramme empilé des niveaux */
+.atl-histo { display: flex; height: 18px; border-radius: 4px; overflow: hidden; background: var(--surface-hover); }
+.atl-histo i { display: grid; place-items: center; font-style: normal; font-size: 10.5px; font-weight: 800; color: var(--text); min-width: 14px; }
+.atl-histo-lg .atl-histo { height: 26px; }
+
+@media (max-width: 960px) {
+    .atl-mapgrid { grid-template-columns: 1fr; }
+    .atl-panel { position: static; max-height: none; }
+}

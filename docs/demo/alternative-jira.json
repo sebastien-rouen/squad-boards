@@ -192,5 +192,9 @@
     "intro": {
         "style": "cinema"
     },
-    "posterAt": -2.6
+    "posterAt": -2.6,
+    "music": {
+        "track": "lumineux",
+        "gain": -18
+    }
 }

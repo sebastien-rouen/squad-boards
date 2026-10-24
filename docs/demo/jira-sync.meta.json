@@ -10,42 +10,42 @@
     "width": 1920,
     "height": 1080
   },
-  "durationS": 53.2,
-  "recordedAt": "2026-10-24T06:41:14.791Z",
+  "durationS": 50.9,
+  "recordedAt": "2026-10-24T06:56:22.530Z",
   "chapters": [
     {
-      "t": 3.04,
+      "t": 2.98,
       "text": "Un ticket local et son jumeau JIRA ont divergé"
     },
     {
-      "t": 8.45,
+      "t": 8.39,
       "text": "Ouvrir la fiche"
     },
     {
-      "t": 11.45,
+      "t": 11.28,
       "text": "Le bouton ↻ compare la fiche avec JIRA"
     },
     {
-      "t": 15.25,
+      "t": 14.97,
       "text": "Comparer avec JIRA"
     },
     {
-      "t": 31.3,
+      "t": 30.33,
       "text": "Prendre JIRA, ou pousser nos modifications : au choix"
     },
     {
-      "t": 35.32,
+      "t": 34.14,
       "text": "Pousser vers JIRA les champs cochés"
     },
     {
-      "t": 45.06,
+      "t": 42.73,
       "text": "Le ticket est aligné, sans quitter la fiche"
     }
   ],
   "files": {
-    "mp4": 2558654,
+    "mp4": 2593517,
     "webp": 0,
-    "poster": 45466
+    "poster": 45468
   },
   "blur": [],
   "fake": 0,
@@ -138,9 +138,45 @@
   "scenario": "jira-sync.json",
   "voice": true,
   "voiceLines": 7,
+  "music": null,
   "fps": 30,
   "capture": "screencast",
   "transition": "zoom",
   "cinema": {},
-  "anim": false
+  "anim": false,
+  "audio": {
+    "cues": [
+      {
+        "atS": 2.982,
+        "text": "Un ticket local et son jumeau JIRA ont divergé"
+      },
+      {
+        "atS": 8.387,
+        "text": "Ouvrir la fiche"
+      },
+      {
+        "atS": 11.276,
+        "text": "Le bouton de synchronisation compare la fiche avec Jira."
+      },
+      {
+        "atS": 14.973,
+        "text": "Comparer avec JIRA"
+      },
+      {
+        "atS": 30.328,
+        "text": "Prendre JIRA, ou pousser nos modifications : au choix"
+      },
+      {
+        "atS": 34.137,
+        "text": "Pousser vers JIRA les champs cochés"
+      },
+      {
+        "atS": 42.728,
+        "text": "Le ticket est aligné, sans quitter la fiche"
+      }
+    ],
+    "voice": {
+      "rate": 1.05
+    }
+  }
 }

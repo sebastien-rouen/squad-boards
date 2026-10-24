@@ -1,152 +1,6 @@
 // Généré par tools/demo-video/record.mjs — ne pas éditer
 window.DEMOS = [
   {
-    "name": "jira-sync",
-    "title": "Synchroniser un ticket avec JIRA depuis sa fiche",
-    "description": "Le bouton ↻ compare le ticket local avec JIRA, champ par champ, puis on pousse nos modifications ou on prend la version JIRA, sans quitter la fiche. Instance de démo, réponses JIRA simulées (fixtures/).",
-    "audience": "public",
-    "site": "squad-boards",
-    "url": "http://127.0.0.1:3011/",
-    "publicUrl": "https://squad-boards.bastou.dev",
-    "viewport": {
-      "width": 1920,
-      "height": 1080
-    },
-    "durationS": 53.2,
-    "recordedAt": "2026-10-24T06:41:14.791Z",
-    "chapters": [
-      {
-        "t": 3.04,
-        "text": "Un ticket local et son jumeau JIRA ont divergé"
-      },
-      {
-        "t": 8.45,
-        "text": "Ouvrir la fiche"
-      },
-      {
-        "t": 11.45,
-        "text": "Le bouton ↻ compare la fiche avec JIRA"
-      },
-      {
-        "t": 15.25,
-        "text": "Comparer avec JIRA"
-      },
-      {
-        "t": 31.3,
-        "text": "Prendre JIRA, ou pousser nos modifications : au choix"
-      },
-      {
-        "t": 35.32,
-        "text": "Pousser vers JIRA les champs cochés"
-      },
-      {
-        "t": 45.06,
-        "text": "Le ticket est aligné, sans quitter la fiche"
-      }
-    ],
-    "files": {
-      "mp4": 2558654,
-      "webp": 0,
-      "poster": 45466
-    },
-    "blur": [],
-    "fake": 0,
-    "steps": [
-      {
-        "goto": "#kanban",
-        "wait": 300
-      },
-      {
-        "caption": "Un ticket local et son jumeau JIRA ont divergé",
-        "style": "kinetic"
-      },
-      {
-        "caption": "Ouvrir la fiche",
-        "wait": 300
-      },
-      {
-        "click": ".ticket-card[data-ticket-id=\"LYR-103\"]",
-        "wait": 1300
-      },
-      {
-        "caption": "Le bouton ↻ compare la fiche avec JIRA",
-        "say": "Le bouton de synchronisation compare la fiche avec Jira.",
-        "wait": 300
-      },
-      {
-        "zoom": "#mdl-jira-sync",
-        "scale": 1.6,
-        "wait": 800
-      },
-      {
-        "highlight": "#mdl-jira-sync",
-        "tip": "Comparer avec JIRA",
-        "wait": 2200
-      },
-      {
-        "highlight": ""
-      },
-      {
-        "zoom": "",
-        "wait": 700
-      },
-      {
-        "click": "#mdl-jira-sync",
-        "wait": 1800
-      },
-      {
-        "spotlight": "#mjs-panel",
-        "label": "ici · dans JIRA : les écarts, champ par champ",
-        "wait": 6000
-      },
-      {
-        "spotlight": ""
-      },
-      {
-        "caption": "Prendre JIRA, ou pousser nos modifications : au choix",
-        "wait": 300
-      },
-      {
-        "highlight": "#mjs-push",
-        "tip": "Pousser vers JIRA les champs cochés",
-        "wait": 2200
-      },
-      {
-        "highlight": ""
-      },
-      {
-        "click": "#mjs-push",
-        "wait": 1800
-      },
-      {
-        "stamp": "✓ Poussé vers JIRA",
-        "tone": "success",
-        "pos": "top-right",
-        "wait": 1200
-      },
-      {
-        "caption": "Le ticket est aligné, sans quitter la fiche",
-        "style": "kinetic",
-        "wait": 4200
-      },
-      {
-        "press": "Escape",
-        "wait": 700
-      },
-      {
-        "caption": ""
-      }
-    ],
-    "scenario": "jira-sync.json",
-    "voice": true,
-    "voiceLines": 7,
-    "fps": 30,
-    "capture": "screencast",
-    "transition": "zoom",
-    "cinema": {},
-    "anim": false
-  },
-  {
     "name": "alternative-jira",
     "title": "Une alternative open source à JIRA ?",
     "description": "Ce que Squad Board fait sans JIRA, en vrai : créer un ticket, le compléter en place, l'estimer au Planning Poker, affiner le prochain sprint, tenir ses rétrospectives. JIRA devient optionnel. Instance de démo, données fictives.",
@@ -158,50 +12,50 @@ window.DEMOS = [
       "width": 1920,
       "height": 1080
     },
-    "durationS": 86.8,
-    "recordedAt": "2026-10-23T23:04:38.335Z",
+    "durationS": 81.2,
+    "recordedAt": "2026-10-24T06:58:42.738Z",
     "chapters": [
       {
-        "t": 6.63,
+        "t": 6.48,
         "text": "Pas de JIRA ? Pas grave. Le kanban est complet."
       },
       {
-        "t": 10.84,
+        "t": 10.76,
         "text": "Créer un ticket en une phrase"
       },
       {
-        "t": 13.25,
+        "t": 12.92,
         "text": "Nouveau ticket (touche N)"
       },
       {
-        "t": 32.19,
+        "t": 28.47,
         "text": "Chaque ticket a sa fiche : tout se modifie en place"
       },
       {
-        "t": 39.08,
+        "t": 35.17,
         "text": "Planning Poker intégré : voter, révéler, converger"
       },
       {
-        "t": 43.17,
+        "t": 39.28,
         "text": "Estimer en équipe"
       },
       {
-        "t": 69.95,
+        "t": 64.21,
         "text": "Affinage : préparer le prochain sprint, ticket par ticket"
       },
       {
-        "t": 73.99,
+        "t": 68.25,
         "text": "Rétrospectives et amélioration continue"
       },
       {
-        "t": 77.95,
+        "t": 72.42,
         "text": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans."
       }
     ],
     "files": {
-      "mp4": 3523916,
+      "mp4": 4590628,
       "webp": 0,
-      "poster": 20690
+      "poster": 20742
     },
     "blur": [],
     "fake": 0,
@@ -354,11 +208,237 @@ window.DEMOS = [
     "scenario": "alternative-jira.json",
     "voice": true,
     "voiceLines": 9,
+    "music": "lumineux",
     "fps": 30,
     "capture": "screencast",
     "transition": "slide-left",
     "cinema": {},
-    "anim": true
+    "anim": true,
+    "audio": {
+      "cues": [
+        {
+          "atS": 6.476,
+          "text": "Pas de JIRA ? Pas grave. Le kanban est complet."
+        },
+        {
+          "atS": 10.755,
+          "text": "Créer un ticket en une phrase"
+        },
+        {
+          "atS": 12.917,
+          "text": "Nouveau ticket (touche N)"
+        },
+        {
+          "atS": 28.47,
+          "text": "Chaque ticket a sa fiche : tout se modifie en place"
+        },
+        {
+          "atS": 35.174,
+          "text": "Planning Poker intégré : voter, révéler, converger"
+        },
+        {
+          "atS": 39.276,
+          "text": "Estimer en équipe"
+        },
+        {
+          "atS": 64.206,
+          "text": "Affinage : préparer le prochain sprint, ticket par ticket"
+        },
+        {
+          "atS": 68.248,
+          "text": "Rétrospectives et amélioration continue"
+        },
+        {
+          "atS": 72.421,
+          "text": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans."
+        }
+      ],
+      "voice": {
+        "rate": 1.05
+      }
+    }
+  },
+  {
+    "name": "jira-sync",
+    "title": "Synchroniser un ticket avec JIRA depuis sa fiche",
+    "description": "Le bouton ↻ compare le ticket local avec JIRA, champ par champ, puis on pousse nos modifications ou on prend la version JIRA, sans quitter la fiche. Instance de démo, réponses JIRA simulées (fixtures/).",
+    "audience": "public",
+    "site": "squad-boards",
+    "url": "http://127.0.0.1:3011/",
+    "publicUrl": "https://squad-boards.bastou.dev",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "durationS": 50.9,
+    "recordedAt": "2026-10-24T06:56:22.530Z",
+    "chapters": [
+      {
+        "t": 2.98,
+        "text": "Un ticket local et son jumeau JIRA ont divergé"
+      },
+      {
+        "t": 8.39,
+        "text": "Ouvrir la fiche"
+      },
+      {
+        "t": 11.28,
+        "text": "Le bouton ↻ compare la fiche avec JIRA"
+      },
+      {
+        "t": 14.97,
+        "text": "Comparer avec JIRA"
+      },
+      {
+        "t": 30.33,
+        "text": "Prendre JIRA, ou pousser nos modifications : au choix"
+      },
+      {
+        "t": 34.14,
+        "text": "Pousser vers JIRA les champs cochés"
+      },
+      {
+        "t": 42.73,
+        "text": "Le ticket est aligné, sans quitter la fiche"
+      }
+    ],
+    "files": {
+      "mp4": 2593517,
+      "webp": 0,
+      "poster": 45468
+    },
+    "blur": [],
+    "fake": 0,
+    "steps": [
+      {
+        "goto": "#kanban",
+        "wait": 300
+      },
+      {
+        "caption": "Un ticket local et son jumeau JIRA ont divergé",
+        "style": "kinetic"
+      },
+      {
+        "caption": "Ouvrir la fiche",
+        "wait": 300
+      },
+      {
+        "click": ".ticket-card[data-ticket-id=\"LYR-103\"]",
+        "wait": 1300
+      },
+      {
+        "caption": "Le bouton ↻ compare la fiche avec JIRA",
+        "say": "Le bouton de synchronisation compare la fiche avec Jira.",
+        "wait": 300
+      },
+      {
+        "zoom": "#mdl-jira-sync",
+        "scale": 1.6,
+        "wait": 800
+      },
+      {
+        "highlight": "#mdl-jira-sync",
+        "tip": "Comparer avec JIRA",
+        "wait": 2200
+      },
+      {
+        "highlight": ""
+      },
+      {
+        "zoom": "",
+        "wait": 700
+      },
+      {
+        "click": "#mdl-jira-sync",
+        "wait": 1800
+      },
+      {
+        "spotlight": "#mjs-panel",
+        "label": "ici · dans JIRA : les écarts, champ par champ",
+        "wait": 6000
+      },
+      {
+        "spotlight": ""
+      },
+      {
+        "caption": "Prendre JIRA, ou pousser nos modifications : au choix",
+        "wait": 300
+      },
+      {
+        "highlight": "#mjs-push",
+        "tip": "Pousser vers JIRA les champs cochés",
+        "wait": 2200
+      },
+      {
+        "highlight": ""
+      },
+      {
+        "click": "#mjs-push",
+        "wait": 1800
+      },
+      {
+        "stamp": "✓ Poussé vers JIRA",
+        "tone": "success",
+        "pos": "top-right",
+        "wait": 1200
+      },
+      {
+        "caption": "Le ticket est aligné, sans quitter la fiche",
+        "style": "kinetic",
+        "wait": 4200
+      },
+      {
+        "press": "Escape",
+        "wait": 700
+      },
+      {
+        "caption": ""
+      }
+    ],
+    "scenario": "jira-sync.json",
+    "voice": true,
+    "voiceLines": 7,
+    "music": null,
+    "fps": 30,
+    "capture": "screencast",
+    "transition": "zoom",
+    "cinema": {},
+    "anim": false,
+    "audio": {
+      "cues": [
+        {
+          "atS": 2.982,
+          "text": "Un ticket local et son jumeau JIRA ont divergé"
+        },
+        {
+          "atS": 8.387,
+          "text": "Ouvrir la fiche"
+        },
+        {
+          "atS": 11.276,
+          "text": "Le bouton de synchronisation compare la fiche avec Jira."
+        },
+        {
+          "atS": 14.973,
+          "text": "Comparer avec JIRA"
+        },
+        {
+          "atS": 30.328,
+          "text": "Prendre JIRA, ou pousser nos modifications : au choix"
+        },
+        {
+          "atS": 34.137,
+          "text": "Pousser vers JIRA les champs cochés"
+        },
+        {
+          "atS": 42.728,
+          "text": "Le ticket est aligné, sans quitter la fiche"
+        }
+      ],
+      "voice": {
+        "rate": 1.05
+      }
+    }
   },
   {
     "name": "decouverte",
@@ -372,62 +452,62 @@ window.DEMOS = [
       "width": 1920,
       "height": 1080
     },
-    "durationS": 77.7,
-    "recordedAt": "2026-10-23T23:00:51.222Z",
+    "durationS": 77.6,
+    "recordedAt": "2026-10-24T06:54:53.777Z",
     "chapters": [
       {
-        "t": 8.52,
+        "t": 8.5,
         "text": "Le tableau de bord des équipes agiles · Squad Board"
       },
       {
-        "t": 15.5,
+        "t": 15.49,
         "text": "Scrum Masters, PO, RTE : la journée commence ici"
       },
       {
-        "t": 26.41,
+        "t": 26.58,
         "text": "Le Board : le flux du sprint, colonne par colonne"
       },
       {
-        "t": 28.3,
+        "t": 28.44,
         "text": "01 · Le Board"
       },
       {
-        "t": 33.07,
+        "t": 33.21,
         "text": "Scrum ou Kanban : les colonnes suivent le flux de l'équipe"
       },
       {
-        "t": 36.42,
+        "t": 36.66,
         "text": "PI Planning : objectifs et features de chaque équipe du train"
       },
       {
-        "t": 37.67,
+        "t": 37.83,
         "text": "02 · Planifier"
       },
       {
-        "t": 46,
+        "t": 46.15,
         "text": "Roadmap : glisser une feature, c'est la reprioriser"
       },
       {
-        "t": 53.29,
+        "t": 53.77,
         "text": "Santé : météo d'équipe, capacité, absences"
       },
       {
-        "t": 54.49,
+        "t": 55,
         "text": "03 · Piloter"
       },
       {
-        "t": 62.02,
+        "t": 62.5,
         "text": "Rapports : sprint, PI, flux, support… en un clic"
       },
       {
-        "t": 67.35,
+        "t": 67.34,
         "text": "Un seul outil. Léger, auto-hébergé, en français."
       }
     ],
     "files": {
-      "mp4": 5119135,
+      "mp4": 5895509,
       "webp": 0,
-      "poster": 17872
+      "poster": 17956
     },
     "blur": [],
     "fake": 0,
@@ -597,6 +677,7 @@ window.DEMOS = [
     "scenario": "decouverte.json",
     "voice": true,
     "voiceLines": 8,
+    "music": "cinema",
     "fps": 30,
     "capture": "screencast",
     "transition": "slide-left",
@@ -605,6 +686,45 @@ window.DEMOS = [
       "vignette": 0.3,
       "tint": "warm"
     },
-    "anim": false
+    "anim": false,
+    "audio": {
+      "cues": [
+        {
+          "atS": 8.503,
+          "text": "Squad Board : tickets, sprints, P I, santé d'équipe et rapports, au même endroit."
+        },
+        {
+          "atS": 15.492,
+          "text": "Scrum Masters, P O, R T E : la journée commence ici."
+        },
+        {
+          "atS": 28.444,
+          "text": "Le Board : le flux du sprint, colonne par colonne."
+        },
+        {
+          "atS": 37.826,
+          "text": "Planifier : P I Planning et Roadmap, du trimestre à la feature."
+        },
+        {
+          "atS": 46.145,
+          "text": "La Roadmap : glisser une feature, c'est la reprioriser."
+        },
+        {
+          "atS": 54.999,
+          "text": "Piloter : santé, capacité, et des rapports prêts à partager."
+        },
+        {
+          "atS": 62.504,
+          "text": "Les rapports : sprint, P I, flux, support, en un clic."
+        },
+        {
+          "atS": 67.337,
+          "text": "Un seul outil. Léger, auto-hébergé, en français."
+        }
+      ],
+      "voice": {
+        "rate": 1.05
+      }
+    }
   }
 ];

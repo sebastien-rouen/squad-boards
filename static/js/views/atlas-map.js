@@ -246,8 +246,7 @@ export function bindMap(root, ctx, st, rerender, act) {
             copyToClipboard(`Proposition de staffing : ${imp.who.name}, ${imp.from} → ${imp.to}\n`
                 + `• ${imp.to} : couverture ${pct(imp.toCov[0])} → ${pct(imp.toCov[1])}\n`
                 + `• ${imp.from} : couverture ${pct(imp.fromCov[0])} → ${pct(imp.fromCov[1])}, effectif ${imp.fromSize[0]} → ${imp.fromSize[1]}${imp.lost.length ? `, perd son seul sachant ${imp.lost.map(s => s.name).join(', ')}` : ''}\n`
-                + `• ${imp.load} ticket(s) actif(s) à réattribuer`);
-            toast('Proposition copiée — à présenter au PI Planning', 'success');
+                + `• ${imp.load} ticket(s) actif(s) à réattribuer`, 'Proposition copiée pour le PI Planning');
             return;
         }
         if (t.closest('[data-tour]')) { _tour(ctx, st, rerender); return; }

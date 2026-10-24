@@ -185,5 +185,6 @@
             "caption": ""
         }
     ],
-    "maxSeconds": 120
+    "maxSeconds": 120,
+    "music": false
 }

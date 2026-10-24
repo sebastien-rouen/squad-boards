@@ -35,6 +35,14 @@ headless n'aboutit pas), étalonnage (vignette, teinte, grain), animations du si
 pendant un tour de vues, il entre au premier geste. **Temps de lecture** : 1 s + 0,42 s par mot, cartons 3,2 s, panneaux
 4 à 6 s.
 
+**🎵 Musique d'ambiance** — catalogue de quatre pistes **générées localement** (`tools/demo-video/music/generate.py`,
+synthèse numpy : `calme`, `lumineux`, `cinema`, `tech` ; aucune licence tierce), documentées dans
+`music/CATALOGUE.md`. Choisie **par démo** (`music` du scénario : nom, `gain`, `duck`, `fadeS`, ou `file` à soi ;
+`false` = rien), bouclée, fondue, **baissée sous la voix** (compresseur piloté par la voix off). `--music` /
+`--no-music` en ligne de commande ; `remix.mjs` refait la piste d'un film déjà filmé sans le refilmer (répliques et
+instants gardés dans `audio.cues` du meta, cache Piper). Ici : `cinema` sur la découverte, `lumineux` (−18 dB) sur
+l'alternative à JIRA, aucune sur le tutoriel de synchro.
+
 **🧪 Réponses JIRA simulées** — `docs/demo/fixtures/` (champs, issue en ADF, transitions, priorités) servies par
 `page.route` (`mocks` du scénario, `{{key}}` = identifiant demandé) : la synchro d'un ticket se joue pour de vrai
 (comparaison champ par champ, push, relecture, toast) sans JIRA ni réseau.

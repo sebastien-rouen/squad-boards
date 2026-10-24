@@ -10,50 +10,50 @@
     "width": 1920,
     "height": 1080
   },
-  "durationS": 86.8,
-  "recordedAt": "2026-10-23T23:04:38.335Z",
+  "durationS": 81.2,
+  "recordedAt": "2026-10-24T06:58:42.738Z",
   "chapters": [
     {
-      "t": 6.63,
+      "t": 6.48,
       "text": "Pas de JIRA ? Pas grave. Le kanban est complet."
     },
     {
-      "t": 10.84,
+      "t": 10.76,
       "text": "Créer un ticket en une phrase"
     },
     {
-      "t": 13.25,
+      "t": 12.92,
       "text": "Nouveau ticket (touche N)"
     },
     {
-      "t": 32.19,
+      "t": 28.47,
       "text": "Chaque ticket a sa fiche : tout se modifie en place"
     },
     {
-      "t": 39.08,
+      "t": 35.17,
       "text": "Planning Poker intégré : voter, révéler, converger"
     },
     {
-      "t": 43.17,
+      "t": 39.28,
       "text": "Estimer en équipe"
     },
     {
-      "t": 69.95,
+      "t": 64.21,
       "text": "Affinage : préparer le prochain sprint, ticket par ticket"
     },
     {
-      "t": 73.99,
+      "t": 68.25,
       "text": "Rétrospectives et amélioration continue"
     },
     {
-      "t": 77.95,
+      "t": 72.42,
       "text": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans."
     }
   ],
   "files": {
-    "mp4": 3523916,
+    "mp4": 4590628,
     "webp": 0,
-    "poster": 20690
+    "poster": 20742
   },
   "blur": [],
   "fake": 0,
@@ -206,9 +206,53 @@
   "scenario": "alternative-jira.json",
   "voice": true,
   "voiceLines": 9,
+  "music": "lumineux",
   "fps": 30,
   "capture": "screencast",
   "transition": "slide-left",
   "cinema": {},
-  "anim": true
+  "anim": true,
+  "audio": {
+    "cues": [
+      {
+        "atS": 6.476,
+        "text": "Pas de JIRA ? Pas grave. Le kanban est complet."
+      },
+      {
+        "atS": 10.755,
+        "text": "Créer un ticket en une phrase"
+      },
+      {
+        "atS": 12.917,
+        "text": "Nouveau ticket (touche N)"
+      },
+      {
+        "atS": 28.47,
+        "text": "Chaque ticket a sa fiche : tout se modifie en place"
+      },
+      {
+        "atS": 35.174,
+        "text": "Planning Poker intégré : voter, révéler, converger"
+      },
+      {
+        "atS": 39.276,
+        "text": "Estimer en équipe"
+      },
+      {
+        "atS": 64.206,
+        "text": "Affinage : préparer le prochain sprint, ticket par ticket"
+      },
+      {
+        "atS": 68.248,
+        "text": "Rétrospectives et amélioration continue"
+      },
+      {
+        "atS": 72.421,
+        "text": "Et si JIRA est là ? On synchronise. Sinon, on vit très bien sans."
+      }
+    ],
+    "voice": {
+      "rate": 1.05
+    }
+  }
 }

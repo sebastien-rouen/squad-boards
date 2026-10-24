@@ -1,5 +1,6 @@
 /* VIEW: Atlas — 📈 évolution des niveaux dans la fiche membre (components/atlas_history.js, 3.198.0).
-   Feuille à part : atlas.css dépasse déjà 800 lignes. */
+   Feuille à part du reste de l'Atlas (css/views/atlas*.css) : le composant sert aussi hors de la vue. */
+.atlas-empty-sm { color: var(--text-muted); font-size: var(--fs-xs); font-style: italic; }
 .atlas-hist-list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .atlas-hist-row { display: grid; grid-template-columns: minmax(6rem, 9rem) 1fr; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
 .atlas-hist-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }

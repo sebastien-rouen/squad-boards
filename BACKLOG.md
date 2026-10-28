@@ -107,8 +107,7 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
 
 **🟡 P3 — confort, plusieurs instances**
 - [x] **P3-11 · Identité de l'instance** · ✅ 3.276.0 — Paramètres → Identité du projet (nom, logo, couleur).
-- [ ] **P3-12 · Nommage des boards → équipes** — `extractTeam()` connaît `Sprint|Équipe|Team|Board|Kanban` et les
-  suffixes « Ité 31.2 » du client ; exposer une table « board → équipe » (existe en partie : `sb-jiraProjectTeams`). — *2026-10-28*
+- [x] **P3-12 · Nommage des boards → équipes** · ✅ 3.277.0 — alias dans 🗂️ Correspondance, avant les règles d'`extractTeam`.
 - [ ] **P3-13 · Plusieurs projets** — aujourd'hui 1 base = 1 projet (`SB_DB_PATH`). Recommandation : multi-INSTANCE
   (une base + un port par projet, déjà possible) documenté avec un gabarit `ecosystem.config.cjs`, plutôt qu'un
   multi-tenant (chantier lourd). `.env.example` annonce encore `PORT=3000` (réel 3010, cf. #A5). — *2026-10-28*

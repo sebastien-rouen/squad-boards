@@ -1,3 +1,16 @@
+## [3.277.0] - 2026-10-28
+
+### P3-12 — Noms de boards / sprints → équipes, sans code
+
+- **Paramètres → JIRA → 🗂️ Correspondance → 👥 Noms d'équipe** : alias « nom JIRA exact (board, sprint, champ
+  Team[Team]) → équipe », casse ignorée (réglage de projet `sb-team-aliases`, `utils/jira-mapping.js`).
+- `extractTeam()` consulte l'alias AVANT ses règles automatiques (préfixes Sprint / Équipe / Team / Board /
+  Kanban, suffixes « Ité 31.2 ») — inchangées pour les noms sans alias. Synchro : à la suivante ; absences RH et
+  personnes : tout de suite (même fonction).
+- `PROJECT_KEYS` complété des clés de correspondance de 3.268.0 (seule la migration locale → base s'en servait).
+- Vérifié dans Chromium (écritures interceptées) : « Squad Paiement 2024 » → Ami avec l'alias, « Sprint Fuego » et
+  « Fuego - Ité 31.2 » → Fuego inchangés, retrait → nom d'origine ; 406 tests verts.
+
 ## [3.276.0] - 2026-10-28
 
 ### P3-11 — Identité de l'instance (nom, logo, couleur)

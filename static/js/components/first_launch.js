@@ -22,14 +22,16 @@ export function firstLaunchHtml() {
             <a class="first-launch-choice" href="#settings/jira">
                 <span aria-hidden="true">🔌</span><b>Importer depuis JIRA</b><span>Jeton + boards : la première sync remplit tout.</span>
             </a>
-            <a class="first-launch-choice" href="#settings/equipes">
-                <span aria-hidden="true">✏️</span><b>Créer à la main</b><span>Une équipe, un sprint, tes tickets. JIRA restera optionnel.</span>
-            </a>
+            <button type="button" class="first-launch-choice" id="first-launch-wizard">
+                <span aria-hidden="true">🧭</span><b>Mettre en route mon projet</b><span>Cadence, équipes, modules, calendrier : 5 étapes guidées. JIRA restera optionnel.</span>
+            </button>
         </div>
     </section>`;
 }
 
 export function bindFirstLaunch(container) {
+    container.querySelector('#first-launch-wizard')?.addEventListener('click', () =>
+        import('./setup_wizard.js').then(m => m.openSetupWizard()));
     const btn = container.querySelector('#first-launch-demo');
     if (!btn) return;
     btn.addEventListener('click', async () => {

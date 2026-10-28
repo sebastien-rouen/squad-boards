@@ -29,11 +29,13 @@ export function modulesSectionHtml() {
                 <div><h3>Modules & menu</h3><p>Vues proposées au projet et libellés du menu (ex. « PI Planning » → « Release ») — pour tous</p></div>
                 <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
             </div>
-            <div class="settings-section-body"><p class="sync-cfg-hint">Un module masqué disparaît du menu, des raccourcis et de la palette Ctrl+K ; ses données restent intactes et il revient tel quel une fois réactivé.</p><div id="mods">${_bodyHtml()}</div></div>
+            <div class="settings-section-body"><p><button type="button" class="btn btn-secondary btn-sm" data-open-wizard>🧭 Assistant de mise en route</button></p><p class="sync-cfg-hint">Un module masqué disparaît du menu, des raccourcis et de la palette Ctrl+K ; ses données restent intactes et il revient tel quel une fois réactivé.</p><div id="mods">${_bodyHtml()}</div></div>
         </div>`;
 }
 
 export function wireModulesSection(container) {
+    container.querySelector('[data-open-wizard]')?.addEventListener('click', () =>
+        import('../components/setup_wizard.js').then(m => m.openSetupWizard()));
     const root = container.querySelector('#mods');
     if (!root) return;
     root.addEventListener('change', e => {

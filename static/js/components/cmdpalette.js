@@ -158,6 +158,11 @@ const ACTIONS = [
         run: async () => { store.set('view', 'atlas'); (await import('../views/atlas.js')).openAtlasCampaign(); },
     },
     {
+        id: 'setup-wizard', label: 'Assistant de mise en route du projet', icon: '🧭',
+        keywords: 'assistant mise en route projet configuration onboarding cadence equipes modules calendrier',
+        run: () => import('./setup_wizard.js').then(m => m.openSetupWizard()),
+    },
+    {
         id: 'create-ticket', label: 'Nouveau ticket', icon: '➕',
         keywords: 'nouveau créer create ticket ajouter new issue',
         run: () => document.getElementById('btn-create')?.click(),

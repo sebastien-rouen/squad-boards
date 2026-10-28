@@ -104,3 +104,17 @@ export function logout() {
     syncCookie(null);
     location.replace(LOGIN);
 }
+
+/** Bouton de compte du pied de sidebar (index.html) : nom de la session, clic = déconnexion confirmée. */
+export function initAccountButton() {
+    const u = currentUser();
+    const btn = document.getElementById('btn-account');
+    if (!u || !btn) return;
+    btn.hidden = false;
+    document.getElementById('account-name').textContent = u.name || (u.email || '').split('@')[0] || 'Compte';
+    btn.dataset.tooltip = `${u.email || ''} — se déconnecter`;
+    btn.addEventListener('click', async () => {
+        const { confirmDanger } = await import('./utils.js');
+        if (await confirmDanger('Se déconnecter', 'La session SSO de ce navigateur sera fermée.', { confirmLabel: 'Se déconnecter', danger: false })) logout();
+    });
+}

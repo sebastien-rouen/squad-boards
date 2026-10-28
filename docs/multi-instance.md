@@ -38,8 +38,8 @@ instance (réglages de projet compris). Un mode « gabarit » sans données est 
 
 ## Limites connues
 
-- **Pas d'authentification** (BACKLOG #A2) : chaque instance est ouverte à qui atteint son port — à fermer avant
-  d'y mettre un vrai projet.
-- `reload=True` dans `main.py` (mode développement) : chaque instance surveille le code ; à retirer en exploitation.
+- **Authentification** (3.280.0, [authentification.md](authentification.md)) : SSO BastaVerse par instance
+  (`AUTH_REQUIRED`, `AUTH_ALLOWED_EMAILS` dans son environnement) ; écoute sur 127.0.0.1 par défaut (`SB_HOST`).
+- `SB_RELOAD=false` en exploitation : sinon chaque instance surveille le code (mode développement, défaut).
 - Préférences d'affichage (thème, dépliages, filtres) : par navigateur ET par adresse — deux instances sur deux
   sous-domaines ne se les partagent pas, ce qui est voulu.

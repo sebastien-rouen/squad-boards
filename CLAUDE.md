@@ -827,6 +827,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Secrets** (3.269.0) : jeton / compte / URL JIRA et webhook Slack = table `server_secret` (`app/secrets_store.py`),
   en ÉCRITURE SEULE (`PUT /api/secrets/jira|slack`), jamais renvoyés ni exportés ; `/api/config` n'en donne que la
   présence. Ne jamais les remettre en localStorage ni dans `projectStorage`.
+- **Authentification SSO** (3.280.0) : verrou UNIQUE `app/auth.py` (middleware) — commutateur `AUTH_REQUIRED` côté
+  serveur SEULEMENT, lu par le front sur `/api/auth/status` (public). Jeton = en-tête OU cookie `sb_session`
+  (`auth-session.js`) : un `fetch` / `<img>` direct passe sans rien ajouter. Une route publique s'ajoute à `_PUBLIC`
+  (méthode + chemin exacts), jamais par préfixe. Un 401 ne renvoie à la connexion que s'il porte `X-Auth-Required`.
 - **Palette Ctrl+K — recherche** : `_score()` ignore accents et casse, puis accepte les mots DANS LE DÉSORDRE (chaque
   mot significatif doit commencer un mot du texte, mots outils `_STOP` écartés, score 30 < sous-chaîne 40). Vues,
   blocs et actions sont notés sur libellé, mots-clés ET les deux réunis (`_scoreEntry`).

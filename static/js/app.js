@@ -42,7 +42,7 @@ import { applyStatusOverride, forceAllColumns } from './utils/status-override.js
 import { projectStorage, migrateLocalProjectSettings } from './project-settings.js';
 import './utils/modules.js';   // modules activables + libellés du menu (garde de route sur `view`)
 import { applyIdentity, projectName } from './utils/identity.js';
-import { ensureAuth, currentUser, logout } from './auth-session.js';
+import { ensureAuth, initAccountButton } from './auth-session.js';
 
 // ── Vues en lazy loading — chaque module n'est téléchargé/parsé qu'à la première
 // visite de la vue (settings ≈ 300 KB, pi ≈ 176 KB, atlas ≈ 148 KB ne pèsent plus
@@ -716,24 +716,10 @@ function _showLoader(mode, opts = {}) {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-/** Bouton de compte du pied de sidebar : nom de la session, clic = déconnexion (confirmée). */
-function _initAccount() {
-    const u = currentUser();
-    const btn = document.getElementById('btn-account');
-    if (!u || !btn) return;
-    btn.hidden = false;
-    document.getElementById('account-name').textContent = u.name || (u.email || '').split('@')[0] || 'Compte';
-    btn.dataset.tooltip = `${u.email || ''} — se déconnecter`;
-    btn.addEventListener('click', async () => {
-        const { confirmDanger } = await import('./utils.js');
-        if (await confirmDanger('Se déconnecter', 'La session SSO de ce navigateur sera fermée.', { confirmLabel: 'Se déconnecter', danger: false })) logout();
-    });
-}
-
 async function init() {
     // Verrou SSO (3.280.0) : session vérifiée AVANT le premier appel à l'API ; sinon, page de connexion
     if (!(await ensureAuth())) return;
-    _initAccount();
+    initAccountButton();
     // Écran d'attente immédiat : l'écran n'est plus vide pendant le chargement initial des données
     _showLoader('load');
     initSidebar();

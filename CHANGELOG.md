@@ -1,3 +1,30 @@
+## [3.280.0] - 2026-10-28
+
+### #A2 — Authentification SSO BastaVerse (livrée porte OUVERTE)
+
+- **Verrou serveur** `app/auth.py` (port Python de `backlog/api/middleware/auth.js`, skill `/auth-sso`) devant
+  `/api/*`, le proxy `/jira/*` et Swagger : jeton du hub `auth` vérifié par `auth-refresh` (cache 60 s, empreinte),
+  hub injoignable ⇒ refus, liste blanche `AUTH_ALLOWED_EMAILS` (403). UN SEUL commutateur, `AUTH_REQUIRED`, lu par
+  le front sur `GET /api/auth/status` (public) — impossible de désaligner front et serveur. `/docs` fermé une fois armé.
+- **Cookie `sb_session`** (SameSite=Strict, recopie du jeton) : `<img>` des pièces jointes JIRA, `fetch` directs et
+  liens de téléchargement authentifiés sans toucher à chaque appel. Refus du verrou marqués `X-Auth-Required` :
+  seul ce 401 renvoie à la connexion (`?reason=expired`) — un 401 relayé par le proxy JIRA reste une erreur JIRA.
+- **Front** : `js/auth-session.js` (garde AVANT le premier appel, prolongation toutes les 6 h pour l'écran TV),
+  page `/login.html` (fournisseurs lus sur le hub : Google, Infomaniak ; repli e-mail ; `?test` = essayer la
+  connexion porte ouverte), bouton de compte en pied de menu (déconnexion confirmée). `login.css` = copie commune
+  BastaVerse, décor et thème clair / sombre du site dans `login-theme.css`.
+- **Exploitation** : écoute sur `127.0.0.1` par défaut (`SB_HOST`, Nginx vise déjà 127.0.0.1:3010), `SB_RELOAD=false`
+  pour couper le mode développement. Bandeau hors ligne sondé sur `/api/auth/status` (une session expirée n'est
+  pas une panne).
+- 🐛 `request()` (api.js) : un appelant qui passait ses en-têtes (proxy JIRA en écriture) perdait le
+  `Content-Type: application/json` — en-têtes désormais fusionnés.
+- Doc : `docs/authentification.md` (armer / désarmer, pièges : instance de démo, CORS depuis 127.0.0.1).
+- Vérifié : 20 contrôles serveur sur une copie de la base (porte fermée / ouverte / hub injoignable, en-tête et
+  cookie, jeton forgé refusé par le VRAI hub, 403 hors liste, secrets protégés) ; Chromium par le domaine public,
+  commutateur simulé : redirection vers la connexion avec destination, fournisseurs réels, session → app + cookie
+  Strict + bouton compte, 401 du verrou → reconnexion « expired », porte ouverte inchangée ; captures clair (390 px)
+  et sombre (1440 px). Serveur redémarré : écoute 127.0.0.1, site public OK. 406 tests unitaires OK.
+
 ## [3.279.0] - 2026-10-28
 
 ### P3-14 — Gabarit de projet (démarrer un projet depuis un autre)

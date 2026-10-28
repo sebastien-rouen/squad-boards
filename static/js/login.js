@@ -119,8 +119,8 @@ function renderProviders(providers) {
 
 async function start() {
     const st = await authStatus();
-    // Porte ouverte, ou déjà connecté : rien à faire ici
-    if (!st.required || readSession()) { location.replace(destination()); return; }
+    // Porte ouverte, ou déjà connecté : rien à faire ici — sauf `?test` (essai de la connexion AVANT d'armer)
+    if (!new URLSearchParams(location.search).has('test') && (!st.required || readSession())) { location.replace(destination()); return; }
     const reason = NOTICES[new URLSearchParams(location.search).get('reason')];
     if (reason) { $('login-notice').textContent = reason; $('login-notice').hidden = false; }
     formEl.addEventListener('submit', e => {

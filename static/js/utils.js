@@ -3,7 +3,7 @@
  */
 
 import { STATUS_MAP, STATUS_LABELS, TYPE_MAP, TYPE_LABELS, TYPE_ICONS, WIP_STATUSES } from './config.js';
-import { customStatusOf, customTypeOf } from './utils/jira-mapping.js';
+import { customStatusOf, customTypeOf, teamAliasOf } from './utils/jira-mapping.js';
 
 // ── Modules extraits — utils.js reste le point d'entrée unique des vues ────────
 export * from './utils/dom.js';
@@ -170,6 +170,9 @@ export function fieldLabelFr(field) {
  */
 export function extractTeam(name) {
     if (!name) return 'Autre';
+    // Alias du projet (Paramètres → JIRA → Correspondance, 3.277.0) avant les conventions de nommage ci-dessous
+    const alias = teamAliasOf(name);
+    if (alias) return alias;
     // Suffixe d'itération : tiret avec OU sans espaces (« Etoile-Ité 31.2 », « Team B- Itération »),
     // mot-clé FACULTATIF (Ité, Iter, Itér, Itération, Sprint, S — « Caméléon - 31.2 » n'en a pas),
     // puis un numéro. Un numéro est exigé : « GCOM - Fuego » reste intact.

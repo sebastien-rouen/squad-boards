@@ -5,6 +5,8 @@
  *   ⚠️ À ranger  : libellés qu'aucune source n'a su ranger à la dernière synchro (avant : « À faire » en silence).
  *   Statuts vus  : tous les statuts JIRA présents dans les tickets, avec leur colonne actuelle — modifiable.
  *   Du projet    : les correspondances saisies, retirables (retour à la carte générique / au board).
+ *   Équipes      : alias « nom JIRA (board, sprint, Team[Team]) → équipe » quand le nommage échappe aux règles
+ *                  automatiques d'`extractTeam` (3.277.0).
  * Réglage PARTAGÉ (réglages de projet) ; un statut s'applique tout de suite, un type à la prochaine synchro.
  */
 
@@ -12,7 +14,7 @@ import { store } from '../state.js';
 import { esc } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS, STATUS_ORDER } from '../config.js';
 import { forcedStatus } from '../utils/status-override.js';
-import { customStatusMap, customTypeMap, setCustomMapping, readUnmapped, normLabel, STATUS_KEYS, TYPE_KEYS } from '../utils/jira-mapping.js';
+import { customStatusMap, customTypeMap, setCustomMapping, readUnmapped, normLabel, STATUS_KEYS, TYPE_KEYS, teamAliases, setTeamAlias } from '../utils/jira-mapping.js';
 
 let _query = '';
 
@@ -71,6 +73,22 @@ function _bodyHtml() {
             <input class="input input-sm" name="label" placeholder="Libellé JIRA exact (ex. « Recette client »)" maxlength="80" required aria-label="Libellé JIRA">
             <select class="input input-sm" name="value" aria-label="Rangé en">${STATUS_KEYS.map(k => `<option value="${k}">${esc(STATUS_LABELS[k])}</option>`).join('')}</select>
             <button type="submit" class="btn btn-secondary btn-sm">Ajouter</button>
+        </form>
+        ${_teamsHtml()}`;
+}
+
+/** 👥 Noms d'équipe : alias explicites, avant les règles automatiques (« Sprint X », « X - Ité 31.2 »…). */
+function _teamsHtml() {
+    const aliases = Object.entries(teamAliases());
+    const teams = store.get('teams') || [];
+    return `<h4 class="jmap-h">👥 Noms d'équipe${aliases.length ? ` <span class="jmap-count">${aliases.length}</span>` : ''}</h4>
+        <p class="sync-cfg-hint">Un board, un sprint ou un champ Team[Team] nommé autrement que l'équipe (« Squad Paiement 2024 », « PAY-Ops ») ? Donne son nom JIRA exact et l'équipe visée. Pris en compte à la prochaine synchro ; les absences RH le suivent tout de suite.</p>
+        ${aliases.length ? `<div class="jmap-list">${aliases.map(([raw, t]) => `<div class="jmap-row is-own"><span class="jmap-kind">JIRA</span><b class="jmap-label">${esc(raw)}</b><small>→ ${esc(t)}</small><button type="button" class="btn btn-ghost btn-xs" data-jmap-team-del="${esc(raw)}" aria-label="${esc(`Retirer l'alias « ${raw} »`)}">✕ Retirer</button></div>`).join('')}</div>` : ''}
+        <form class="jmap-add" data-jmap-team-add>
+            <input class="input input-sm" name="raw" placeholder="Nom JIRA exact (ex. « Squad Paiement 2024 »)" maxlength="80" required aria-label="Nom JIRA">
+            <input class="input input-sm" name="team" list="jmap-teams" placeholder="Équipe" maxlength="60" required aria-label="Équipe">
+            <datalist id="jmap-teams">${teams.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
+            <button type="submit" class="btn btn-secondary btn-sm">Ajouter</button>
         </form>`;
 }
 
@@ -99,9 +117,17 @@ export function wireJiraMapping(container) {
     root.addEventListener('input', e => { if (e.target.matches('[data-jmap-q]')) { _query = e.target.value; redraw(); } });
     root.addEventListener('click', e => {
         const d = e.target.closest('[data-jmap-del]');
-        if (d) { setCustomMapping(d.dataset.jmapDel, d.dataset.label, ''); redraw(); }
+        if (d) { setCustomMapping(d.dataset.jmapDel, d.dataset.label, ''); redraw(); return; }
+        const td = e.target.closest('[data-jmap-team-del]');
+        if (td) { setTeamAlias(td.dataset.jmapTeamDel, ''); redraw(); }
     });
     root.addEventListener('submit', e => {
+        if (e.target.matches('[data-jmap-team-add]')) {
+            e.preventDefault();
+            setTeamAlias(e.target.elements.raw.value, e.target.elements.team.value);
+            redraw();
+            return;
+        }
         if (!e.target.matches('[data-jmap-add]')) return;
         e.preventDefault();
         const fd = new FormData(e.target);

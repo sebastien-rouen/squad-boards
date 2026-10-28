@@ -16,6 +16,7 @@ import { projectStorage } from '../project-settings.js';
 export const STATUS_MAP_KEY = 'sb-status-map';
 export const TYPE_MAP_KEY = 'sb-type-map';
 export const UNMAPPED_KEY = 'sb-sync-unmapped';
+export const TEAM_ALIAS_KEY = 'sb-team-aliases';   // { « nom JIRA en minuscules » : « Équipe » } (3.277.0)
 export const STATUS_KEYS = ['todo', 'inprog', 'review', 'test', 'blocked', 'done'];
 export const TYPE_KEYS = ['story', 'bug', 'task', 'support', 'ops', 'debt', 'epic', 'feature'];
 
@@ -36,6 +37,19 @@ export const customStatusMap = () => _read(STATUS_MAP_KEY);
 export const customTypeMap = () => _read(TYPE_MAP_KEY);
 export const customStatusOf = name => customStatusMap()[normLabel(name)] || null;
 export const customTypeOf = name => customTypeMap()[normLabel(name)] || null;
+
+// ── Noms d'équipe (3.277.0) ───────────────────────────────────────────────────
+// Board, sprint ou champ Team[Team] dont le nom ne suit pas les conventions reconnues par `extractTeam`
+// (« Sprint X », « Team X », « X - Ité 31.2 ») : l'alias explicite passe AVANT ces règles.
+export const teamAliases = () => _read(TEAM_ALIAS_KEY);
+export const teamAliasOf = name => teamAliases()[normLabel(name)] || null;
+export function setTeamAlias(raw, team) {
+    const map = { ..._read(TEAM_ALIAS_KEY) };
+    const k = normLabel(raw), t = String(team || '').trim();
+    if (!k) return;
+    if (t) map[k] = t; else delete map[k];
+    if (Object.keys(map).length) projectStorage.setItem(TEAM_ALIAS_KEY, JSON.stringify(map)); else projectStorage.removeItem(TEAM_ALIAS_KEY);
+}
 
 /** Range (ou libère, `value` vide) un libellé. `kind` = 'status' | 'type'. */
 export function setCustomMapping(kind, name, value) {

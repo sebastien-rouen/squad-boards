@@ -1,3 +1,21 @@
+## [3.281.0] - 2026-10-28
+
+### Écritures signées par le compte SSO
+
+- `signed(request, repli)` (app/auth.py) : porte ARMÉE, l'auteur est le compte de la session (nom, sinon partie
+  locale de l'e-mail) et prime sur le nom saisi ; porte ouverte, comportement inchangé. Appliqué aux faits
+  marquants, tours de poker conclus, commentaires et changements de statut des tickets. Les votes Mood / Confiance
+  restent ANONYMES (recueillis pour toute l'équipe depuis un poste, cf. CLAUDE.md).
+- Session ouverte et aucun nom saisi : `sb-poker-myname` (poker, frise, synchro) pré-rempli avec le compte.
+- Vérifié sur une copie de la base, armée (session simulée) et ouverte : 5 × 2 contrôles.
+
+### 🐛 Pied de menu
+
+- Régression 3.280.0 : `.sidebar-btn { display: flex }` écrasait `hidden` → bouton « Compte » visible porte
+  ouverte. `.sidebar-btn[hidden]` rétabli ; le compte devient un bouton à icône seule (nom dans l'infobulle).
+- Antérieur : « Aide » sortait du menu sur ordinateur (3 boutons en ligne = 271 px pour 204). Icône au-dessus du
+  libellé : 3 boutons (ouvert) ou 4 (armé) tiennent dans le menu, mesuré.
+
 ## [3.280.0] - 2026-10-28
 
 ### #A2 — Authentification SSO BastaVerse (livrée porte OUVERTE)

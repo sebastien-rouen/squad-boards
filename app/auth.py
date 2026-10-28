@@ -116,3 +116,12 @@ def auth_me(request: Request):
     """Compte de la session (null porte ouverte) — protégé comme le reste de l'API."""
     u = getattr(request.state, "user", None)
     return {"user": {"email": u.get("email"), "name": u.get("name") or ""} if u else None}
+
+
+def signed(request: Request, fallback: str = "") -> str:
+    """Auteur d'une écriture (3.281.0) : le compte SSO de la session quand la porte est armée — il PRIME sur le nom
+    saisi, qui pouvait être n'importe quoi ; porte ouverte, le nom fourni par le client (comportement d'avant)."""
+    u = getattr(request.state, "user", None)
+    if not u:
+        return fallback
+    return (str(u.get("name") or "").strip() or str(u.get("email") or "").split("@")[0] or fallback)[:80]

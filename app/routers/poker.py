@@ -23,6 +23,7 @@ from app.common import _now
 from app.db import get_session
 from app.models import PokerVote, PokerRound
 from app.serializers import _poker_dict, _poker_round_dict
+from app.auth import signed
 
 router_poker = APIRouter(tags=["poker"])
 
@@ -120,7 +121,7 @@ async def save_poker_round(ticket: str, request: Request, session: Session = Dep
     avg = round(sum(nums) / len(nums), 2) if nums else None
     spread = round((sum((n - avg) ** 2 for n in nums) / len(nums)) ** 0.5, 2) if len(nums) > 1 else (0.0 if nums else None)
     r = PokerRound(ticket_id=ticket, team=(body.get("team") or "").strip(), value=value, votes=votes,
-                   voters=len(votes), avg=avg, spread=spread, author=(body.get("author") or "").strip())
+                   voters=len(votes), avg=avg, spread=spread, author=signed(request, (body.get("author") or "").strip()))
     session.add(r)
     session.commit()
     session.refresh(r)

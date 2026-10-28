@@ -11,6 +11,7 @@ from app.models import Ticket
 from app.serializers import _ticket_dict
 from app.crud import make_crud_router
 from app.routers.data import _iso_utc
+from app.auth import signed
 
 # get + delete via factory ; list (filtres) et update (tracking statut) custom.
 router = make_crud_router(
@@ -77,7 +78,7 @@ async def update_ticket(ticket_id: str, request: Request, session: Session = Dep
         changes = list(t.recent_changes or [])
         changes.append({
             "date": _now(),
-            "author": body.pop("_author", "Utilisateur"),
+            "author": signed(request, body.pop("_author", "Utilisateur")),
             "field": "status",
             "from": t.status,
             "to": body["status"],
@@ -119,7 +120,7 @@ async def add_comment(ticket_id: str, request: Request, session: Session = Depen
     body = await request.json()
     comment = {
         "id": _gen_id(),
-        "author": body.get("author", "Utilisateur"),
+        "author": signed(request, body.get("author", "Utilisateur")),
         "body": body.get("body", ""),
         "date": _now(),
     }

@@ -85,6 +85,8 @@ export async function ensureAuth() {
     const s = readSession();
     if (!s) { syncCookie(null); goLogin(); return false; }
     syncCookie(s.token);
+    // Nom affiché (poker, frise, synchro) : celui du compte quand rien n'est saisi — le serveur signe de toute façon
+    try { if (!localStorage.getItem('sb-poker-myname')) localStorage.setItem('sb-poker-myname', s.record.name || (s.record.email || '').split('@')[0]); } catch { /* stockage bloqué */ }
     setInterval(() => _refresh(st.hub), REFRESH_MS);
     return true;
 }

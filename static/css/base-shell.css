@@ -226,6 +226,14 @@ body { display: flex; }
     transition: background var(--tr-fast), color var(--tr-fast);
 }
 .sidebar-btn:hover { background: rgba(255,255,255,0.06); color: #e2e8f0; }
+/* `display: flex` ci-dessus écraserait l'attribut hidden (bouton de compte porte ouverte, 3.281.0) */
+.sidebar-btn[hidden] { display: none; }
+/* Pied de menu : icône AU-DESSUS du libellé — en ligne, trois boutons faisaient 271 px pour 204 (« Aide » sortait du menu) */
+.sidebar-footer .sidebar-btn { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 2px; padding: var(--sp-2) 2px; font-size: var(--fs-xs); }
+.sidebar-footer .sidebar-btn--icon { flex: 0 0 auto; padding-inline: var(--sp-2); }
+/* Bouton à icône seule (compte SSO) : le nom est dans l'infobulle, les trois boutons voisins gardent leur libellé */
+.sidebar-btn--icon { flex: 0 0 auto; }
+.sidebar-btn--icon > span { display: none; }
 
 /* Sidebar team section */
 .sidebar-section {

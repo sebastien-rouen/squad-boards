@@ -12,6 +12,7 @@ from app.db import get_session
 from app.models import Event, RetroItem, Risk, MoodVote
 from app.serializers import _event_dict, _retro_dict, _risk_dict, _mood_dict
 from app.crud import make_crud_router
+from app.auth import signed
 
 # ── Events (faits marquants) ────────────────────────────────────────────────
 router_events = make_crud_router(
@@ -33,7 +34,7 @@ async def create_event(request: Request, session: Session = Depends(get_session)
         start_date=body.get("startDate", ""),
         end_date=body.get("endDate") or body.get("startDate", ""),
         teams=body.get("teams", []),
-        author=str(body.get("author") or "")[:80],
+        author=signed(request, str(body.get("author") or ""))[:80],
     )
     session.add(e)
     session.commit()

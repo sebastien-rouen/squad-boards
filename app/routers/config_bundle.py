@@ -8,7 +8,10 @@ de poste. Il ajoute les règles d'agenda (`calendar_rule`), absentes de l'export
 configuration s'ajoute ici, et nulle part ailleurs (sinon elle manquerait à la restauration).
 L'import réutilise `import_body` (data.py) en mode `merge` par défaut : rien n'est effacé.
 
-⚠️ Le fichier contient des données personnelles (absences RH) et des URL d'agenda parfois tokenisées :
+Mode GABARIT (`?mode=template`, 3.279.0) : la seule configuration réutilisable (catalogue Atlas, ateliers,
+règles d'agenda, réglages génériques, cadence) pour démarrer un AUTRE projet — sans aucune donnée.
+
+⚠️ Le bundle complet contient des données personnelles (absences RH) et des URL d'agenda parfois tokenisées :
 nommé `*.local.json` (ignoré par git), jamais versionné ni partagé.
 """
 from fastapi import APIRouter, Request, Depends, HTTPException
@@ -16,7 +19,7 @@ from sqlmodel import Session, select
 
 from app.common import _gen_id, _now
 from app.db import get_session
-from app.models import CalendarRule, MoodVote, PIConfig, SkillLevelHistory
+from app.models import CalendarRule, MoodVote, PIConfig, ProjectSetting, SkillLevelHistory
 from app.routers.calendar_rules import _rule_dict
 from app.routers.data import _EXPORT_SPEC, import_body
 from app.serializers import _pi_dict, _mood_dict, _skill_history_dict
@@ -33,9 +36,49 @@ CONFIG_DOMAINS = [
 ]
 BUNDLE_VERSION = "1"
 
+# ── Gabarit de projet (3.279.0) : la configuration RÉUTILISABLE d'un projet, SANS aucune donnée ──
+# Liste BLANCHE (jamais une liste noire : une table ou un réglage ajouté plus tard ne doit pas fuir
+# par défaut). Ni équipes, ni personnes, ni absences, ni votes, ni tickets, ni secrets.
+TEMPLATE_DOMAINS = ["skills", "appetences", "workshopTemplates"]
+# Réglages de projet génériques. Exclus : ce qui nomme des équipes ou des personnes (alias, périmètres
+# de cadrage, charges, objectifs), l'état de la synchro (boards, colonnes, sprints vides, non mappés)
+# et l'identité de l'instance (nom, couleur) — le nouveau projet a la sienne.
+TEMPLATE_SETTINGS = {
+    "sb-sync-sprintField", "sb-sync-teamField", "sb-sync-piSprintField", "sb-sync-contributorsField",
+    "sb-sync-quickDays", "sb-sync-closedKeep", "sb-sync-closedTicketSprints", "sb-sync-archiveClosed",
+    "sb-sync-maxBoards", "sb-sync-maxFeatures",
+    "sb-meteo-thresholds", "sb-meteo-scope", "sb-sla-target-days", "sb-backlog-stale-months",
+    "sb-dash-stale-days", "sb-reminders", "sb-holidays",
+    "sb-atlas-expert-min", "sb-atlas-away-days", "sb-atlas-levels", "sb-poker-scale",
+    "sb-status-map", "sb-type-map", "sb-modules",
+}
+# Cadence seule de la config PI (pas de numéro, d'objectifs, de roster ni d'alias).
+_PI_CADENCE = {"sprintsPerPI": "sprints_per_pi", "sprintDuration": "sprint_duration", "roleCapacity": "role_capacity"}
+
+
+def _export_template(session: Session) -> dict:
+    spec = {k: (model, ser) for k, model, ser in _EXPORT_SPEC}
+    db = {}
+    for k in TEMPLATE_DOMAINS:
+        model, ser = spec[k]
+        db[k] = [ser(x) for x in session.exec(select(model)).all()]
+    db["projectSettings"] = [
+        {"key": r.key, "value": r.value}
+        for r in session.exec(select(ProjectSetting)).all() if r.key in TEMPLATE_SETTINGS and r.value
+    ]
+    pi = _pi_dict(session.get(PIConfig, "pi-1")) or {}
+    db["piCadence"] = {k: pi[k] for k in _PI_CADENCE if pi.get(k) not in (None, "", {})}
+    db["calendarRules"] = [_rule_dict(r) for r in session.exec(select(CalendarRule)).all()]
+    return {
+        "_meta": {"app": "squad-board", "kind": "template", "version": BUNDLE_VERSION, "exportedAt": _now(), "domains": list(db)},
+        "db": db,
+    }
+
 
 @router.get("/api/config/export")
-def export_config(session: Session = Depends(get_session)):
+def export_config(mode: str = "", session: Session = Depends(get_session)):
+    if mode == "template":
+        return _export_template(session)
     # Lecture des seuls domaines du bundle (export_all sérialiserait aussi ~15 Mo de tickets).
     spec = {k: (model, ser) for k, model, ser in _EXPORT_SPEC}
     votes = {"moodVotes": "mood", "fistVotes": "fist", "confidenceVotes": "confidence"}
@@ -66,13 +109,31 @@ async def import_config(request: Request, session: Session = Depends(get_session
     if meta and meta.get("app") not in (None, "squad-board"):
         raise HTTPException(400, "Ce fichier ne vient pas de Squad Board")
     db = body.get("db") if isinstance(body.get("db"), dict) else body
-    mode = "replace" if body.get("mode") == "replace" else "merge"
-    payload = {k: db[k] for k in CONFIG_DOMAINS if isinstance(db.get(k), (list, dict))}
+    template = meta.get("kind") == "template"
+    # Un gabarit ne remplace jamais : il complète le projet (et ne lit QUE ses domaines, même édité à la main).
+    mode = "replace" if body.get("mode") == "replace" and not template else "merge"
+    domains = TEMPLATE_DOMAINS + ["projectSettings"] if template else CONFIG_DOMAINS
+    payload = {k: db[k] for k in domains if isinstance(db.get(k), (list, dict))}
+    if template and isinstance(payload.get("projectSettings"), list):
+        payload["projectSettings"] = [d for d in payload["projectSettings"] if isinstance(d, dict) and d.get("key") in TEMPLATE_SETTINGS]
     payload["mode"] = mode
     res = import_body(payload, session)
     counts = dict(res.get("counts") or {})
     if "pi" in payload:
         counts["pi"] = 1
+    cad = db.get("piCadence") if template else None
+    if isinstance(cad, dict) and cad:
+        p = session.get(PIConfig, "pi-1") or PIConfig(id="pi-1")
+        for k, attr in _PI_CADENCE.items():
+            v = cad.get(k)
+            if k == "roleCapacity" and isinstance(v, dict):
+                setattr(p, attr, {str(r): int(x) for r, x in v.items() if isinstance(x, (int, float)) and 0 <= x <= 100})
+            elif k != "roleCapacity" and isinstance(v, int) and 1 <= v <= (12 if k == "sprintsPerPI" else 28):
+                setattr(p, attr, v)
+        p.updated_at = _now()
+        session.add(p)
+        session.commit()
+        counts["piCadence"] = 1
 
     # Règles d'agenda : clé logique = titre normalisé (unique) — upsert, jamais de doublon.
     rules = db.get("calendarRules")

@@ -565,14 +565,22 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
         counts["pokerRounds"] = len(items)
 
     # ── Atlas : compétences / appétences / niveaux / mobilité ──────────────────
+    skill_remap: dict = {}   # id du fichier → id déjà en base (même nom)
+    appet_remap: dict = {}
     if "skills" in body and body["skills"] is not None:
         items = body["skills"]
         if mode == "replace":
             for row in session.exec(select(Skill)).all():
                 session.delete(row)
+        # Fusion PAR NOM (3.279.0) : une base neuve est semée avec le même catalogue sous d'autres ids —
+        # le fichier reprend l'id en place, et ses références (niveaux, exigences) sont remappées.
+        by_name = {} if mode == "replace" else {x.name.strip().lower(): x.id for x in session.exec(select(Skill)).all()}
         for d in items:
+            sid = by_name.get(str(d.get("name", "")).strip().lower()) or d.get("id") or _gen_id()
+            if d.get("id") and d["id"] != sid:
+                skill_remap[d["id"]] = sid
             session.merge(Skill(
-                id=d.get("id") or _gen_id(), name=d.get("name", ""),
+                id=sid, name=d.get("name", ""),
                 category=d.get("category", ""), color=d.get("color", "#6366f1"),
                 sort=d.get("sort", 0),
             ))
@@ -583,9 +591,13 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
         if mode == "replace":
             for row in session.exec(select(Appetence)).all():
                 session.delete(row)
+        by_name = {} if mode == "replace" else {x.name.strip().lower(): x.id for x in session.exec(select(Appetence)).all()}
         for d in items:
+            aid = by_name.get(str(d.get("name", "")).strip().lower()) or d.get("id") or _gen_id()
+            if d.get("id") and d["id"] != aid:
+                appet_remap[d["id"]] = aid
             session.merge(Appetence(
-                id=d.get("id") or _gen_id(), name=d.get("name", ""),
+                id=aid, name=d.get("name", ""),
                 category=d.get("category", ""), color=d.get("color", "#f59e0b"),
                 sort=d.get("sort", 0),
             ))
@@ -600,7 +612,7 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
             session.merge(MemberSkill(
                 id=d.get("id") or _gen_id(),
                 scope=d.get("scope", "member"), scope_key=d.get("scopeKey", ""),
-                team=d.get("team", ""), skill_id=d.get("skillId", ""),
+                team=d.get("team", ""), skill_id=skill_remap.get(d.get("skillId", ""), d.get("skillId", "")),
                 level=d.get("level", 0), appetence=d.get("appetence", "neutre"),
             ))
         counts["memberSkills"] = len(items)
@@ -614,7 +626,7 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
             session.merge(MemberAppetence(
                 id=d.get("id") or _gen_id(),
                 scope=d.get("scope", "member"), scope_key=d.get("scopeKey", ""),
-                team=d.get("team", ""), appetence_id=d.get("appetenceId", ""),
+                team=d.get("team", ""), appetence_id=appet_remap.get(d.get("appetenceId", ""), d.get("appetenceId", "")),
                 value=d.get("value", "neutre"),
             ))
         counts["memberAppetences"] = len(items)
@@ -644,7 +656,8 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
                 session.delete(row)
         for d in items:
             session.merge(TeamSkillRequirement(
-                id=d.get("id") or _gen_id(), team=d.get("team", ""), skill_id=d.get("skillId", ""),
+                id=d.get("id") or _gen_id(), team=d.get("team", ""),
+                skill_id=skill_remap.get(d.get("skillId", ""), d.get("skillId", "")),
             ))
         counts["teamSkillRequirements"] = len(items)
 
@@ -681,12 +694,16 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
         if mode == "replace":
             for row in session.exec(select(WorkshopTemplate)).all():
                 session.delete(row)
+        # `key` est UNIQUE et une base neuve est semée avec les mêmes modèles sous d'autres ids :
+        # un modèle déjà présent par sa clé garde l'id en place (sinon IntegrityError, 3.279.0).
+        by_key = {w.key: w.id for w in session.exec(select(WorkshopTemplate)).all()}
         for d in items:
             # slugify : un import JSON/CSV édité à la main peut contenir des clés non
             # normalisées (espaces, accents) — sinon elles casseraient les sélecteurs
             # DOM/CSS côté front (id="ws-field-<templateKey>-<fieldKey>").
+            key = slugify(d.get("key", ""))
             session.merge(WorkshopTemplate(
-                id=d.get("id") or _gen_id(), key=slugify(d.get("key", "")), name=d.get("name", ""),
+                id=by_key.get(key) or d.get("id") or _gen_id(), key=key, name=d.get("name", ""),
                 description=d.get("description", ""), icon=d.get("icon", "📋"),
                 category=d.get("category", "custom"), fields=clean_workshop_fields(d.get("fields", [])),
                 sort=d.get("sort", 0), active=d.get("active", True),

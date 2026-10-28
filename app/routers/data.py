@@ -762,7 +762,7 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
         session.commit()
     else:
         session.flush()   # test d'import : les contraintes jouent, l'appelant annule
-    return {"ok": True, "mode": mode, "counts": counts}
+    return {"ok": True, "mode": mode, "counts": counts, "skillRemap": skill_remap}
 
 
 @router.get("/api/config")

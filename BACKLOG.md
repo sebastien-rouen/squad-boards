@@ -109,8 +109,8 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
 - [x] **P3-11 · Identité de l'instance** · ✅ 3.276.0 — Paramètres → Identité du projet (nom, logo, couleur).
 - [x] **P3-12 · Nommage des boards → équipes** · ✅ 3.277.0 — alias dans 🗂️ Correspondance, avant les règles d'`extractTeam`.
 - [x] **P3-13 · Plusieurs projets** · ✅ 3.278.0 — multi-instance documenté (docs/multi-instance.md), gabarit PM2, `SB_UPLOADS_DIR`.
-- [ ] **P3-14 · Gabarit de projet** — l'export de configuration `.local` (3.198.0) existe ; ajouter un mode « gabarit »
-  SANS données (catalogue Atlas, statuts, seuils, modèles d'ateliers) pour démarrer un projet depuis un autre. — *2026-10-28*
+- [x] **P3-14 · Gabarit de projet** · ✅ 3.279.0 — bouton 🧩 dans Paramètres → Données (`?mode=template`, liste blanche),
+  réimport en fusion par « Restaurer… » ; compétences / ateliers fusionnés par nom / clé (plus de doublon ni de plantage sur base neuve).
 
 ## 💡 Idées (à affiner)
 

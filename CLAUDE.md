@@ -772,6 +772,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
   epics / sprints). ⚠️ Une nouvelle table de configuration s'ajoute à `CONFIG_DOMAINS` (sinon absente
   de la restauration). Les secrets du navigateur sont filtrés dans [settings-backup.js](static/js/views/settings-backup.js)
   (`isSecret`) à l'export ET à la restauration.
+  Gabarit de projet (3.279.0) : `?mode=template` = LISTE BLANCHE (`TEMPLATE_DOMAINS`, `TEMPLATE_SETTINGS`) — un nouveau
+  réglage GÉNÉRIQUE (sans nom d'équipe / de personne) s'y ajoute explicitement. Import : compétences / appétences
+  fusionnées par NOM, ateliers par `key`, références remappées (`skillRemap`) — une base neuve est semée sous d'autres ids.
 - **Votes Mood / Confiance dans l'info-panel** : `components/panel_votes.js` (carte « 🗳 Votes du sprint »),
   échelles = `VOTE_KINDS` (utils/vote-kinds.js, ré-exporté par health-votes.js). CHAQUE CLIC AJOUTE UN VOTE
   (recueil des votes de l'équipe depuis un poste, comme la page PI — pas de « mon vote ») ; × au survol =

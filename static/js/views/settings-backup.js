@@ -9,6 +9,10 @@
  * Restauration : aperçu chiffré → `POST /api/config/import` (fusion, rien n'est effacé) → clés
  * locales réécrites → données rechargées. Tickets / features / epics / sprints : synchro JIRA.
  *
+ * Gabarit de projet (3.279.0) : `?mode=template` = la configuration RÉUTILISABLE seule (catalogue Atlas,
+ * ateliers, règles d'agenda, réglages génériques, cadence), sans aucune donnée ni préférence du poste —
+ * pour démarrer un autre projet. Liste blanche côté serveur ; importé en fusion, jamais en remplacement.
+ *
  * ≠ « Export » de la même section (snapshot complet, au choix des catégories).
  * ⚠️ Données personnelles (absences RH) et URL d'agenda : `*.local.json` est ignoré par git.
  */
@@ -30,6 +34,7 @@ const DOMAIN_LABELS = {
     mobility: '🔀 Mobilité', teamSkillRequirements: '⭐ Compétences requises', teamIdentities: '🪪 Fiches d\'équipe', workshopTemplates: '📋 Ateliers',
     teamWorkshops: '📝 Réponses d\'ateliers', moodVotes: '😊 Votes Mood', fistVotes: '✊ Fist of Five',
     confidenceVotes: '🎯 Confiance', retroItems: '🔁 Actions de rétro', risks: '⚠️ Risques',
+    projectSettings: '⚙️ Réglages du projet', piCadence: '🗓️ Cadence (sprints, capacité par rôle)',
 };
 
 /** Clés localStorage à sauvegarder → { clé: valeur }. */
@@ -52,6 +57,15 @@ export function restoreLocalConfig(obj, storage = localStorage) {
     return n;
 }
 
+function _download(obj, name) {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 const count = v => (Array.isArray(v) ? v.length : v && typeof v === 'object' ? 1 : 0);
 
 export function backupCardHtml() {
@@ -62,10 +76,12 @@ export function backupCardHtml() {
                 <p class="backup-title">Sauvegarde &amp; restauration de la configuration</p>
                 <p class="backup-desc">Équipes, lignes produit, membres, config PI (dates, objectifs, capacité par rôle, statuts forcés), absences, rotation support, faits marquants, calendriers et règles d'agenda, Atlas, fiches et ateliers d'équipe, votes — <b>et les préférences de ce navigateur</b>. Sans tickets, features, epics ni sprints : la synchro JIRA les rapatrie.</p>
                 <p class="backup-warn">⚠️ Le fichier contient des données personnelles (absences) et les URL des agendas : à garder pour soi, ne pas le partager ni le versionner (<code>*.local.json</code> est ignoré par git). Le jeton JIRA et le webhook Slack n'y sont jamais.</p>
+                <p class="backup-desc">🧩 <b>Gabarit de projet</b> : la configuration réutilisable seule (catalogue Atlas, ateliers, règles d'agenda, seuils, correspondance JIRA, modules, cadence), sans aucune donnée d'équipe — pour démarrer un autre projet avec « Restaurer… ».</p>
             </div>
             <div class="backup-actions">
                 <button type="button" class="btn btn-primary" id="btn-config-export">⬇️ Sauvegarder</button>
                 <button type="button" class="btn btn-secondary" id="btn-config-import">⬆️ Restaurer…</button>
+                <button type="button" class="btn btn-ghost" id="btn-config-template" title="Catalogue Atlas, ateliers, règles d'agenda, seuils, correspondance JIRA, modules et cadence — sans équipes, personnes, absences, votes ni tickets. S'importe avec « Restaurer… » dans le nouveau projet.">🧩 Gabarit de projet</button>
                 <input type="file" id="config-import-file" accept=".json,application/json" hidden>
             </div>
         </div>`;
@@ -85,16 +101,25 @@ export function wireBackup(container, onReload = () => {}) {
             const bundle = await api.exportConfig();
             bundle.local = localConfigSnapshot();
             bundle._meta = { ...(bundle._meta || {}), localKeys: Object.keys(bundle.local).length };
-            const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=utf-8' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'squad-config.local.json';
-            document.body.append(a); a.click(); a.remove();
-            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            _download(bundle, 'squad-config.local.json');
             const n = Object.values(bundle.db || {}).reduce((s, v) => s + count(v), 0);
             toast(`Configuration sauvegardée — ${n} éléments + ${bundle._meta.localKeys} préférences`, 'success');
         } catch (err) {
             toast(`Sauvegarde impossible : ${err.message || err}`, 'error');
+        } finally { btn.disabled = false; }
+    });
+
+    // Gabarit : aucune donnée personnelle, nom en .json simple (partageable d'un projet à l'autre)
+    container.querySelector('#btn-config-template')?.addEventListener('click', async e => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        try {
+            const tpl = await api.exportConfig('template');
+            _download(tpl, 'squad-gabarit.json');
+            const n = Object.values(tpl.db || {}).reduce((s, v) => s + count(v), 0);
+            toast(`Gabarit exporté — ${n} éléments, sans aucune donnée d'équipe`, 'success');
+        } catch (err) {
+            toast(`Gabarit impossible : ${err.message || err}`, 'error');
         } finally { btn.disabled = false; }
     });
 
@@ -112,20 +137,23 @@ export function wireBackup(container, onReload = () => {}) {
         // Aperçu : ce que le fichier contient, domaine par domaine, avant toute écriture.
         const lines = Object.entries(bundle.db).filter(([, v]) => count(v))
             .map(([k, v]) => `${DOMAIN_LABELS[k] || k} : ${Array.isArray(v) ? v.length : '✓'}`);
-        const nLocal = Object.keys(bundle.local || {}).length;
+        const tpl = bundle._meta?.kind === 'template';
+        const nLocal = tpl ? 0 : Object.keys(bundle.local || {}).length;
         const when = bundle._meta?.exportedAt ? new Date(bundle._meta.exportedAt).toLocaleString('fr-FR') : 'date inconnue';
-        const choice = await choiceModal('Restaurer la configuration',
-            `Sauvegarde du ${when}\n\n${lines.join('\n') || 'Aucune donnée de base'}\n${nLocal ? `\n🖥️ Préférences du navigateur : ${nLocal}` : ''}\n\nFusion : les éléments du fichier sont ajoutés ou mis à jour, rien n'est effacé.`,
+        const choice = await choiceModal(tpl ? 'Appliquer un gabarit de projet' : 'Restaurer la configuration',
+            `${tpl ? 'Gabarit' : 'Sauvegarde'} du ${when}\n\n${lines.join('\n') || 'Aucune donnée de base'}\n${nLocal ? `\n🖥️ Préférences du navigateur : ${nLocal}` : ''}\n\n${tpl
+                ? 'Fusion : catalogue, ateliers et réglages sont ajoutés ou mis à jour (une compétence de même nom est reprise, pas dupliquée) ; équipes, personnes et numéro de PI ne bougent pas.'
+                : 'Fusion : les éléments du fichier sont ajoutés ou mis à jour, rien n\'est effacé.'}`,
             [
                 ...(nLocal ? [{ key: 'all', label: 'Restaurer tout', variant: 'primary' }] : []),
-                { key: 'db', label: nLocal ? 'Base seulement' : 'Restaurer', variant: nLocal ? 'secondary' : 'primary' },
+                { key: 'db', label: nLocal ? 'Base seulement' : tpl ? 'Appliquer' : 'Restaurer', variant: nLocal ? 'secondary' : 'primary' },
             ]);
         if (!choice) return;
         try {
             const res = await api.importConfig({ _meta: bundle._meta, db: bundle.db, mode: 'merge' });
             const nl = choice === 'all' ? restoreLocalConfig(bundle.local) : 0;
             const total = Object.values(res?.counts || {}).reduce((s, v) => s + (+v || 0), 0);
-            toast(`Configuration restaurée — ${total} éléments${nl ? ` + ${nl} préférences` : ''}`, 'success', 5000);
+            toast(`${tpl ? 'Gabarit appliqué' : 'Configuration restaurée'} — ${total} éléments${nl ? ` + ${nl} préférences` : ''}`, 'success', 5000);
             await window.__squadBoard?.reloadData?.();
             onReload();
         } catch (err) {

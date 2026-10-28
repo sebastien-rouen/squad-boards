@@ -119,6 +119,7 @@ async def import_config(request: Request, session: Session = Depends(get_session
     payload["mode"] = mode
     res = import_body(payload, session)
     counts = dict(res.get("counts") or {})
+    remap = res.get("skillRemap") or {}
     if "pi" in payload:
         counts["pi"] = 1
     cad = db.get("piCadence") if template else None
@@ -163,7 +164,7 @@ async def import_config(request: Request, session: Session = Depends(get_session
                 continue
             session.add(SkillLevelHistory(
                 id=d["id"], scope=d.get("scope", "member"), scope_key=d.get("scopeKey", ""),
-                team=d.get("team", ""), skill_id=d.get("skillId", ""),
+                team=d.get("team", ""), skill_id=remap.get(d.get("skillId", ""), d.get("skillId", "")),
                 prev_level=int(d.get("prevLevel") or 0), level=int(d.get("level") or 0),
                 changed_at=d.get("changedAt") or _now(),
             ))

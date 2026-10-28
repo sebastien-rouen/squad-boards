@@ -217,7 +217,7 @@ export const rankFeatures    = items => request('/api/features/rank', { method: 
 export const getAll          = ()   => request('/api/all');
 export const exportAll       = ()   => request('/api/export');
 // Bundle de configuration curée (sauvegarde .local, 3.198.0) — cf. app/routers/config_bundle.py
-export const exportConfig    = ()   => request('/api/config/export');
+export const exportConfig    = (mode = '') => request(`/api/config/export${mode ? `?mode=${mode}` : ''}`);
 export const importConfig    = data => request('/api/config/import', { method: 'POST', body: JSON.stringify(data || {}) });
 // `dryRun` : import complet côté serveur puis annulation — rien n'est écrit (réponse + `current`).
 export const importAll       = (data, mode = 'replace', { dryRun = false } = {}) => request(`/api/import${dryRun ? '?dry_run=1' : ''}`, {

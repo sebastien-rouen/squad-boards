@@ -1,3 +1,26 @@
+## [3.279.0] - 2026-10-28
+
+### P3-14 — Gabarit de projet (démarrer un projet depuis un autre)
+
+- **Paramètres → Données → 🧩 Gabarit de projet** : télécharge `squad-gabarit.json` = la configuration
+  RÉUTILISABLE seule — catalogue Atlas (compétences, appétences), modèles d'ateliers, règles d'agenda, réglages
+  génériques (seuils, règles métier, correspondance JIRA, champs de synchro, modules, jours fériés, rappels,
+  niveaux Atlas) et cadence (durée de sprint, sprints par PI, capacité par rôle). Aucune équipe, personne,
+  absence, vote, ticket ni secret ; ni nom / couleur de l'instance, alias, périmètres de cadrage ou charges.
+- **Serveur** (`GET /api/config/export?mode=template`, `app/routers/config_bundle.py`) : LISTE BLANCHE
+  (`TEMPLATE_DOMAINS`, `TEMPLATE_SETTINGS`) — un réglage ou une table ajoutés plus tard ne fuient pas par défaut.
+  Import par « Restaurer… » : reconnu par `_meta.kind`, toujours en FUSION, ne lit que ses domaines et ses
+  réglages (un fichier édité à la main n'injecte rien d'autre) ; la cadence ne touche ni au numéro de PI ni aux
+  objectifs. Aperçu dédié « Appliquer un gabarit de projet ».
+- 🐛 **Restauration vers une base neuve** (gabarit OU sauvegarde complète) : la base neuve est semée avec les
+  mêmes modèles d'ateliers et compétences sous d'autres ids → `IntegrityError` (clé d'atelier unique) puis
+  catalogue en double. Désormais : atelier fusionné par `key`, compétence / appétence par nom (casse ignorée),
+  et les niveaux, exigences d'équipe et historique du fichier sont REMAPPÉS sur l'id en place (`skillRemap`).
+- Vérifié sur des copies de la base : export (6 domaines, 0 donnée personnelle), import dans une base neuve
+  (12 compétences sans doublon, réglage et membre injectés ignorés, PI 7 conservé, cadence appliquée), sauvegarde
+  complète + niveau / exigence / historique synthétiques (0 orphelin) ; Chromium desktop + mobile (écritures
+  simulées) : téléchargement, aperçu, envoi `kind: template`, pas de débordement. 406 tests unitaires OK.
+
 ## [3.278.0] - 2026-10-28
 
 ### P3-13 — Plusieurs projets : une instance par projet (documenté, outillé)

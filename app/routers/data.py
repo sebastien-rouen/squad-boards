@@ -13,9 +13,10 @@ from fastapi import APIRouter, Request, Response, Depends, HTTPException
 from sqlmodel import Session, select, func
 
 from app.common import _gen_id, _now, slugify, clean_workshop_fields
-from app.config import JIRA_URL, JIRA_USER, JIRA_TOKEN, JIRA_PROJECT
+from app.config import JIRA_PROJECT
 from app import boot_cache
 from app.db import get_session
+from app.secrets_store import jira_effective, get_secret
 from app.services.ics import expand_calendar_events
 from app.models import (
     Team, Member, Ticket, Feature, Epic, SprintConfig, PIConfig, TeamGroup,
@@ -751,10 +752,14 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
 def get_config():
     # On expose URL/email (non secrets) pour pré-remplir le formulaire Paramètres,
     # mais JAMAIS le token : seul un booléen indique qu'un token .env est configuré.
+    # Connexion effective = enregistrée depuis Paramètres (table server_secret, 3.269.0) sinon .env.
+    url, user, token, source = jira_effective()
     return {
-        "jiraConfigured": bool(JIRA_URL and JIRA_USER and JIRA_TOKEN),
+        "jiraConfigured": bool(url and user and token),
         "project": JIRA_PROJECT,
-        "jiraUrl": JIRA_URL if JIRA_URL else None,
-        "jiraUser": JIRA_USER if JIRA_USER else None,
-        "jiraTokenSet": bool(JIRA_TOKEN),
+        "jiraUrl": url or None,
+        "jiraUser": user or None,
+        "jiraTokenSet": bool(token),
+        "jiraSource": source,
+        "slackConfigured": bool(get_secret("slack.webhook")),
     }

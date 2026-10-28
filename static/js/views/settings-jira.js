@@ -2,7 +2,7 @@
  * Plugin JIRA — section « Paramètres → Plugin JIRA » : connexion (URL / email / token),
  * paramètres de synchronisation, équipes masquées et création de groupes depuis les projets.
  *
- * Extrait de settings.js (v3.141.8). Le HTML relit tout depuis le store et `api.getJiraCreds()`,
+ * Extrait de settings.js (v3.141.8). Le HTML relit tout depuis le store (connexion du serveur : `jiraEnv`),
  * donc aucune donnée à lui passer ; seul le rafraîchissement de la vue est INJECTÉ
  * (`onReload`) — importer `reloadAndRender` depuis settings.js créerait un cycle.
  */
@@ -144,7 +144,7 @@ export function jiraSectionHtml() {
     const project         = store.get('project');
     const jiraUrl         = store.get('jiraUrl');
     const jiraEnv         = store.get('jiraEnv') || {};
-    const jiraCreds       = api.getJiraCreds();
+    const onServer        = jiraEnv.source === 'serveur';   // connexion enregistrée ici (sinon .env)
     const excluded        = [...getExcludedTeams()].sort((a, b) => a.localeCompare(b, 'fr'));
     const tab             = _activeTab();
     return `
@@ -161,7 +161,7 @@ export function jiraSectionHtml() {
 
                 <div class="sync-cfg-block mt-4">
                     <div class="sync-cfg-title">Connexion JIRA</div>
-                    <div class="sync-cfg-hint">Pré-rempli depuis le <code>.env</code> serveur si présent. Toute valeur saisie ici est gardée en mémoire (localStorage) et <strong>prime sur le .env</strong>. Laissez vide pour conserver la valeur du .env.</div>
+                    <div class="sync-cfg-hint">🌐 Connexion <strong>partagée par tous les postes</strong>, enregistrée sur le serveur : le jeton n'est jamais renvoyé au navigateur ni inclus dans les sauvegardes. ${onServer ? 'Elle prime sur le <code>.env</code>.' : 'Actuellement : valeurs du <code>.env</code> du serveur.'}</div>
 
                     <div class="sync-cfg-row">
                         <div class="sync-cfg-label">
@@ -173,7 +173,7 @@ export function jiraSectionHtml() {
                         </div>
                         <div class="sync-cfg-input-wrap">
                             <input type="url" id="jira-url" class="input sync-cfg-input sync-cfg-input--wide" placeholder="${esc(jiraEnv.url || 'https://mon-domaine.atlassian.net')}"
-                                value="${esc(jiraCreds.url || '')}">
+                                value="${esc(jiraEnv.url || '')}">
                         </div>
                     </div>
 
@@ -187,7 +187,7 @@ export function jiraSectionHtml() {
                         </div>
                         <div class="sync-cfg-input-wrap">
                             <input type="email" id="jira-user" class="input sync-cfg-input sync-cfg-input--wide" placeholder="${esc(jiraEnv.user || 'prenom.nom@societe.com')}"
-                                value="${esc(jiraCreds.user || '')}">
+                                value="${esc(jiraEnv.user || '')}">
                         </div>
                     </div>
 
@@ -196,12 +196,12 @@ export function jiraSectionHtml() {
                             <span class="sync-cfg-icon">🔑</span>
                             <div>
                                 <div class="sync-cfg-name">Token API</div>
-                                <div class="sync-cfg-desc">${jiraEnv.tokenSet ? 'Un token est déjà défini dans le .env — laissez vide pour le conserver, ou saisissez-en un nouveau pour le surcharger.' : 'Token API Atlassian — non affiché une fois enregistré.'}</div>
+                                <div class="sync-cfg-desc">${jiraEnv.tokenSet ? (onServer ? 'Un token est déjà enregistré' : 'Un token est déjà défini dans le .env') + ' — laissez vide pour le conserver, ou saisissez-en un nouveau.' : 'Token API Atlassian — jamais réaffiché une fois enregistré.'}</div>
                             </div>
                         </div>
                         <div class="sync-cfg-input-wrap">
                             <input type="password" id="jira-token" class="input sync-cfg-input sync-cfg-input--wide" autocomplete="off"
-                                placeholder="${jiraCreds.token ? '•••••••••• (enregistré — laissez vide pour conserver)' : (jiraEnv.tokenSet ? '•••••••••• (défini dans .env)' : 'Aucun token')}"
+                                placeholder="${jiraEnv.tokenSet ? `•••••••••• (${onServer ? 'enregistré' : 'défini dans .env'} — laissez vide pour conserver)` : 'Aucun token'}"
                                 value="">
                         </div>
                     </div>
@@ -209,7 +209,7 @@ export function jiraSectionHtml() {
                     <div class="sync-cfg-actions">
                         <button class="btn btn-primary btn-sm" id="btn-save-jira-conn">Enregistrer la connexion</button>
                         <button class="btn btn-ghost btn-sm" id="btn-test-jira-conn">Tester</button>
-                        ${(jiraCreds.url || jiraCreds.user || jiraCreds.token) ? `<button class="btn btn-ghost btn-sm" id="btn-reset-jira-conn" title="Revenir aux valeurs du .env">Réinitialiser (.env)</button>` : ''}
+                        ${onServer ? `<button class="btn btn-ghost btn-sm" id="btn-reset-jira-conn" title="Effacer la connexion enregistrée et revenir aux valeurs du .env">Réinitialiser (.env)</button>` : ''}
                     </div>
                 </div>
                 </div>
@@ -403,23 +403,29 @@ export function wireJiraSection(container, onReload = () => {}) {
         if (v) projectStorage.setItem(lsKey, v);
         else projectStorage.removeItem(lsKey);
     };
-    // ── Connexion JIRA (URL / email / token → localStorage, prime sur .env) ────
-    const _saveJiraConn = () => {
-        const url   = container.querySelector('#jira-url')?.value || '';
-        const user  = container.querySelector('#jira-user')?.value || '';
-        const token = container.querySelector('#jira-token')?.value || '';
-        // URL/email vides ⇒ suppression (fallback .env). Token vide ⇒ on conserve l'existant.
-        api.setJiraCreds({ url, user, ...(token.trim() ? { token } : {}) });
+    // ── Connexion JIRA PARTAGÉE (serveur, écriture seule — 3.269.0) ────────────
+    // Champ identique à la valeur effective ⇒ rien n'est envoyé (évite de figer le .env en base) ; vide ⇒ retiré
+    // (retour au .env) ; jeton vide ⇒ conservé. Renvoie false si le serveur refuse (URL non autorisée…).
+    const _saveJiraConn = async () => {
+        const env   = store.get('jiraEnv') || {};
+        const url   = (container.querySelector('#jira-url')?.value || '').trim();
+        const user  = (container.querySelector('#jira-user')?.value || '').trim();
+        const token = (container.querySelector('#jira-token')?.value || '').trim();
+        const body = { ...(url !== (env.url || '') ? { url } : {}), ...(user !== (env.user || '') ? { user } : {}), ...(token ? { token } : {}) };
+        if (!Object.keys(body).length) return true;
+        try { await api.saveJiraConnection(body); }
+        catch (err) { toast(`Connexion non enregistrée : ${err.message}`, 'error', 6000); return false; }
+        await window.__squadBoard?.applyJiraConfig?.();
+        return true;
     };
     container.querySelector('#btn-save-jira-conn')?.addEventListener('click', async () => {
-        _saveJiraConn();
-        await window.__squadBoard?.applyJiraConfig?.();
-        toast('Connexion JIRA enregistrée', 'success');
+        if (!(await _saveJiraConn())) return;
+        toast('Connexion JIRA enregistrée (partagée)', 'success');
         reloadAndRender();
     });
     container.querySelector('#btn-test-jira-conn')?.addEventListener('click', async e => {
         const btn = e.currentTarget;
-        _saveJiraConn();  // on teste ce qui est saisi
+        if (!(await _saveJiraConn())) return;  // on teste ce qui est saisi
         const old = btn.textContent; btn.disabled = true; btn.textContent = 'Test…';
         try {
             const me = await api.jiraGet('rest/api/3/myself');
@@ -429,7 +435,7 @@ export function wireJiraSection(container, onReload = () => {}) {
         } finally { btn.disabled = false; btn.textContent = old; }
     });
     container.querySelector('#btn-reset-jira-conn')?.addEventListener('click', async () => {
-        api.setJiraCreds({ url: '', user: '', token: '' });
+        try { await api.saveJiraConnection({ reset: true }); } catch (err) { toast(err.message, 'error'); return; }
         await window.__squadBoard?.applyJiraConfig?.();
         toast('Connexion réinitialisée (valeurs du .env)', 'success');
         reloadAndRender();

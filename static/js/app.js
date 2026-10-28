@@ -563,14 +563,14 @@ async function loadAllData() {
     });
 }
 
-// ── Config JIRA : fusionne .env (server) et surcharges localStorage (Paramètres) ──
-// L'URL et l'email sont pré-remplis depuis le .env ; le token .env n'est jamais exposé
-// (booléen jiraTokenSet seulement). La connexion est « configurée » si chaque élément
-// (URL, email, token) est présent via localStorage OU via le .env.
+// ── Config JIRA : connexion du SERVEUR (enregistrée dans Paramètres, sinon .env) ──
+// URL et email effectifs renvoyés par /api/config, jeton JAMAIS (booléen jiraTokenSet). Un jeton perso
+// encore présent sur le poste (en-têtes X-Jira-*) compte aussi — cas devenu exceptionnel depuis 3.269.0.
 function applyJiraConfig(config) {
     const cfg = config || {};
     const creds = api.getJiraCreds();
-    store.set('jiraEnv', { url: cfg.jiraUrl || null, user: cfg.jiraUser || null, tokenSet: !!cfg.jiraTokenSet });
+    store.set('jiraEnv', { url: cfg.jiraUrl || null, user: cfg.jiraUser || null, tokenSet: !!cfg.jiraTokenSet, source: cfg.jiraSource || '' });
+    store.set('slackConfigured', !!cfg.slackConfigured);
     store.set('project', cfg.project || '');
     store.set('jiraUrl', creds.url || cfg.jiraUrl || null);
     const urlOk   = !!(creds.url   || cfg.jiraUrl);
@@ -578,6 +578,35 @@ function applyJiraConfig(config) {
     const tokenOk = !!(creds.token || cfg.jiraTokenSet);
     store.set('jiraConfigured', urlOk && userOk && tokenOk);
 }
+/**
+ * Migration unique (3.269.0) : jeton JIRA et webhook Slack quittent le localStorage du poste. Si le serveur n'a
+ * pas encore de connexion enregistrée, celle du poste y monte (écriture seule) ; dans tous les cas la copie
+ * locale est effacée — sauf si l'envoi échoue (réessai au prochain chargement). Renvoie true si le serveur a changé.
+ */
+async function migrateLocalSecrets(cfg) {
+    let changed = false;
+    const ls = (() => { try { return localStorage; } catch { return null; } })();
+    if (!ls) return false;
+    const c = api.getJiraCreds();
+    if (c.url || c.user || c.token) {
+        try {
+            if (cfg?.jiraSource !== 'serveur' && c.token) {
+                await api.saveJiraConnection({ ...(c.url ? { url: c.url } : {}), ...(c.user ? { user: c.user } : {}), token: c.token });
+                changed = true;
+            }
+            Object.values(api.JIRA_LS_KEYS).forEach(k => ls.removeItem(k));
+        } catch { /* URL refusée ou serveur injoignable : la connexion locale reste utilisable, on réessaiera */ }
+    }
+    const hook = (ls.getItem(api.SLACK_LS_KEYS.webhook) || '').trim();
+    if (hook) {
+        try {
+            if (!cfg?.slackConfigured) { await api.saveSlackWebhook(hook); changed = true; }
+            ls.removeItem(api.SLACK_LS_KEYS.webhook);
+        } catch { /* réessai au prochain chargement */ }
+    }
+    return changed;
+}
+
 if (typeof window !== 'undefined') {
     window.__squadBoard = window.__squadBoard || {};
     window.__squadBoard.applyJiraConfig = () => api.getConfig().then(applyJiraConfig).catch(() => applyJiraConfig(null));
@@ -856,9 +885,10 @@ async function init() {
         updateMyBtn();
     };
 
-    // Load server config (URL/email/token .env) — fusionné avec les surcharges localStorage
+    // Connexion JIRA / Slack du serveur ; secrets encore sur ce poste → montés une fois côté serveur (3.269.0)
     try {
-        const config = await api.getConfig();
+        let config = await api.getConfig();
+        if (await migrateLocalSecrets(config)) config = await api.getConfig();
         applyJiraConfig(config);
     } catch {
         applyJiraConfig(null);

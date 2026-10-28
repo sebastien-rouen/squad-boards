@@ -12,7 +12,7 @@ from app.models.atlas import (
     TeamSkillRequirement,
 )
 from app.models.calendar import TeamCalendar, CalendarRule
-from app.models.settings import ProjectSetting
+from app.models.settings import ProjectSetting, ServerSecret
 from app.models.team_identity import TeamIdentity, WorkshopTemplate, TeamWorkshop, Attachment
 
 __all__ = [
@@ -24,5 +24,5 @@ __all__ = [
     "TeamSkillRequirement",
     "TeamCalendar", "CalendarRule",
     "TeamIdentity", "WorkshopTemplate", "TeamWorkshop", "Attachment",
-    "ProjectSetting",
+    "ProjectSetting", "ServerSecret",
 ]

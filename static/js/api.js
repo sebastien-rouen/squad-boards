@@ -285,8 +285,11 @@ export const getCalendarEvents = (params={}) => {
 };
 
 // ── JIRA Proxy (optional) ────────────────────────────────────────────────────
-// Identifiants JIRA surchargeables depuis Paramètres (stockés en localStorage).
-// Quand renseignés, ils sont envoyés au proxy via en-têtes X-Jira-* et priment sur le .env.
+// Connexion PARTAGÉE (3.269.0) : enregistrée côté serveur en écriture seule (table server_secret), lue par le
+// proxy ; le jeton ne revient jamais au navigateur. Les clés locales ci-dessous ne servent plus qu'à la
+// migration des postes d'avant (app.js → migrateLocalSecrets) et à un jeton perso ponctuel (en-têtes X-Jira-*).
+export const saveJiraConnection = body => request('/api/secrets/jira', { method: 'PUT', body: JSON.stringify(body) });
+export const saveSlackWebhook   = webhook => request('/api/secrets/slack', { method: 'PUT', body: JSON.stringify({ webhook }) });
 export const JIRA_LS_KEYS = { url: 'sb-jira-url', user: 'sb-jira-user', token: 'sb-jira-token' };
 
 export function getJiraCreds() {
@@ -295,12 +298,6 @@ export function getJiraCreds() {
         user:  (localStorage.getItem(JIRA_LS_KEYS.user)  || '').trim(),
         token: (localStorage.getItem(JIRA_LS_KEYS.token) || '').trim(),
     };
-}
-export function setJiraCreds({ url, user, token }) {
-    const _set = (k, v) => v != null && (v.trim() ? localStorage.setItem(k, v.trim()) : localStorage.removeItem(k));
-    _set(JIRA_LS_KEYS.url, url);
-    _set(JIRA_LS_KEYS.user, user);
-    _set(JIRA_LS_KEYS.token, token);
 }
 function jiraHeaders() {
     const c = getJiraCreds();
@@ -312,17 +309,11 @@ function jiraHeaders() {
 }
 
 // ── Slack Incoming Webhook ────────────────────────────────────────────────────
+// Webhook du PROJET enregistré côté serveur (3.269.0) ; la clé locale ne sert plus qu'à la migration.
 export const SLACK_LS_KEYS = { webhook: 'sb-slack-webhook' };
-export function getSlackWebhook() { return (localStorage.getItem(SLACK_LS_KEYS.webhook) || '').trim(); }
-export function setSlackWebhook(url) {
-    const v = (url || '').trim();
-    v ? localStorage.setItem(SLACK_LS_KEYS.webhook, v) : localStorage.removeItem(SLACK_LS_KEYS.webhook);
-}
-/** Envoie un message texte vers le webhook Slack via le proxy backend (contourne CORS). */
+/** Envoie un message texte dans Slack via le proxy backend (webhook du projet, ou `webhook` ponctuel). */
 export async function sendSlackMessage(text, webhook) {
-    const url = webhook || getSlackWebhook();
-    if (!url) throw new Error('Aucun webhook Slack configuré (Paramètres → Intégrations → Slack)');
-    return request('/api/slack/send', { method: 'POST', body: JSON.stringify({ webhook: url, text }) });
+    return request('/api/slack/send', { method: 'POST', body: JSON.stringify({ text, ...(webhook ? { webhook } : {}) }) });
 }
 
 /**

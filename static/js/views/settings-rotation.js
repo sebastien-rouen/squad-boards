@@ -750,7 +750,7 @@ function _rotTeamPanelHtml(teamName, teamColor, teamSupport, teamMembers, absenc
                     </select>
                 </label>
                 <button class="btn btn-sm btn-secondary rot-btn" data-rot-copy="${esc(teamName)}" title="Copier un message de rotation prêt à coller. Clic droit = personnaliser le libellé.">📋 Copier</button>
-                ${api.getSlackWebhook() ? `<button class="btn btn-sm btn-secondary rot-btn" data-rot-slack="${esc(teamName)}" title="Envoyer la rotation dans Slack">💬 Slack</button>` : ''}
+                ${store.get('slackConfigured') ? `<button class="btn btn-sm btn-secondary rot-btn" data-rot-slack="${esc(teamName)}" title="Envoyer la rotation dans Slack">💬 Slack</button>` : ''}
                 <button class="btn btn-sm btn-secondary rot-btn" data-rot-shuffle="${esc(teamName)}" title="Générer automatiquement en respectant les congés">🎲 Shuffle</button>
                 <button class="btn btn-sm btn-danger rot-btn" data-rot-clear="${esc(teamName)}" title="Effacer la rotation de cette équipe">✕</button>
             </div>

@@ -15,3 +15,14 @@ class ProjectSetting(SQLModel, table=True):
     key: str = Field(primary_key=True)
     value: str = ""
     updated_at: str = Field(default_factory=_now)
+
+
+class ServerSecret(SQLModel, table=True):
+    """Secrets de PROJET (3.269.0) : jeton JIRA, webhook Slack — en ÉCRITURE SEULE (jamais renvoyés au navigateur)
+    et HORS des exports / sauvegardes. Avant : localStorage de chaque poste, lisible par tout script de la page.
+    Clés : `jira.url`, `jira.user`, `jira.token`, `slack.webhook`."""
+    __tablename__ = "server_secret"
+    __table_args__ = _TA
+    key: str = Field(primary_key=True)
+    value: str = ""
+    updated_at: str = Field(default_factory=_now)

@@ -361,7 +361,7 @@ function _recapHtml(pool, weeks, piNum, members) {
         isPreview: !!_preview,
         shortfalls: _preview ? (_preview.run.shortfalls || []) : [],
         view: getPoolView(),
-        slackAvailable: !!api.getSlackWebhook(),
+        slackAvailable: !!store.get('slackConfigured'),
         focusable: outOfPool.length > 0,
         focused: _focusPool,
         // Édition au jour près, comme la grille par équipe — mais JAMAIS sur un aperçu :

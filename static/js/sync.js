@@ -570,7 +570,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
     // (poker / frise), sinon l'email JIRA saisi dans Paramètres — jamais celui du .env (compte partagé).
     let syncedBy = '';
     try { syncedBy = (localStorage.getItem('sb-poker-myname') || '').trim(); } catch { /* stockage indisponible */ }
-    if (!syncedBy) syncedBy = (api.getJiraCreds().user || '').trim();
+    if (!syncedBy) syncedBy = (api.getJiraCreds().user || '').trim();   // jeton perso seulement : jamais le compte partagé
     const sprintPayload = (sprintInfo || teamSprintsOut.length)
         ? { ...(sprintInfo || {}), teamSprints: teamSprintsOut, syncedBy, syncKind: quickMode ? `rapide-${sinceDays}` : 'complete' }
         : null;

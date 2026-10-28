@@ -2,8 +2,8 @@
  * Paramètres → « Seuils météo » — l'échelle ☀️ ⛅ 🌧️ ⛈️ du Dashboard, réglable avec aperçu.
  *
  * Même découpage que settings-jira.js : `meteoSectionHtml()` rend la section,
- * `wireMeteoSection(container)` la câble. Les seuils sont GLOBAUX (toutes les équipes) et
- * locaux à ce navigateur (`sb-meteo-thresholds`, comme les autres réglages `sb-*`) ; l'échelle
+ * `wireMeteoSection(container)` la câble. Les seuils sont GLOBAUX (toutes les équipes) et PARTAGÉS
+ * (réglage de projet `sb-meteo-thresholds`, en base depuis 3.266.0 — project-settings.js) ; l'échelle
  * elle-même vit dans utils/meteo.js — ici on ne fait que la lire, la valider et l'écrire.
  *
  * L'aperçu recalcule la VRAIE matrice avec les seuils saisis (avant enregistrement) : on voit

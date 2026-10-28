@@ -29,6 +29,7 @@ import { wireSupportIo } from './settings-support-io.js';
 import { sprintPiSectionHtml } from './settings-sprint-pi-html.js';
 import { wireSprintPiSection } from './settings-sprint-pi.js';
 import { remindersSectionHtml, wireRemindersSection } from './settings-reminders.js';
+import { workcalSectionHtml, wireWorkcalSection } from './settings-workcal.js';
 import { calendarsSectionHtml, wireCalendarsSection } from './settings-calendars.js';
 import { slackSectionHtml, wireSlackSection } from './settings-slack.js';
 import { dataSectionHtml, aboutSectionHtml, wireDataSection } from './settings-data.js';
@@ -81,6 +82,7 @@ export function renderSettings(container) {
             ${rotationSectionHtml(ctx)}
             ${sprintPiSectionHtml(ctx)}
             ${remindersSectionHtml(ctx)}
+            ${workcalSectionHtml()}
             ${calendarsSectionHtml(ctx)}
             ${jiraSectionHtml()}
             ${slackSectionHtml(ctx)}
@@ -99,6 +101,7 @@ export function renderSettings(container) {
     wireBackup(container, ctx.reload);           // 💾 sauvegarde & restauration (Données)
     wireCalDetect(container);
     wireMeteoSection(container);
+    wireWorkcalSection(container);
     wireSlackSection(container, ctx);
     wireGroupsSection(container, ctx);
     wireTeamsSection(container, ctx);
@@ -239,7 +242,7 @@ function _settingsApplyTabs(container) {
     // Groupes de tabs — l'ordre et les slugs doivent correspondre aux titres h3 des sections
     const TAB_GROUPS = [
         { label: 'Équipe',        slugs: ['lignes-produit-groupes', 'equipes', 'membres', 'capacite-dev-de-travail-par-role', 'absences-conges'] },
-        { label: 'Planning',      slugs: ['sprint-pi', 'rotation', 'faits-marquants', 'rappels-ceremonies'] },
+        { label: 'Planning',      slugs: ['sprint-pi', 'rotation', 'faits-marquants', 'rappels-ceremonies', 'calendrier-de-travail'] },
         { label: 'Météo',         slugs: ['seuils-meteo'] },
         { label: 'Intégrations',  slugs: ['calendriers-ics', 'plugin-jira-optionnel', 'slack-optionnel'] },
         { label: 'Système',       slugs: ['donnees', 'a-propos'] },

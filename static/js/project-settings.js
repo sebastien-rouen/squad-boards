@@ -17,6 +17,7 @@ import { store } from './state.js';
 import * as api from './api.js';
 import { toast } from './utils/dom.js';
 import { meteoStorage } from './utils/meteo.js';
+import { holidaySettings } from './utils/holidays.js';
 
 export const PROJECT_KEYS = Object.freeze([
     // Synchro JIRA : champs, profondeurs, mémoire des sprints vides, résultat partagé de la dernière synchro
@@ -26,7 +27,7 @@ export const PROJECT_KEYS = Object.freeze([
     'sb-jiraProjectTeams', 'sb-jira-excluded-teams', 'sb-boardColumns',
     // Règles métier
     'sb-meteo-thresholds', 'sb-meteo-scope', 'sb-sla-target-days', 'sb-backlog-stale-months',
-    'sb-dash-stale-days', 'sb-reminders', 'sb-cadrage-perimeters',
+    'sb-dash-stale-days', 'sb-reminders', 'sb-cadrage-perimeters', 'sb-holidays',
 ]);
 // Clés à suffixe : charge prévue par sprint, objectifs d'équipe de l'Atlas (par équipe et PI)
 export const PROJECT_PREFIXES = Object.freeze(['sb-charge-', 'sb-team-objectives-']);
@@ -69,7 +70,9 @@ export const projectStorage = Object.freeze({
     removeItem(key) { _write(key, null); },
 });
 
-meteoStorage.current = projectStorage;   // seuils météo : utils/meteo.js est pur, on lui branche la source
+// Modules purs (testés sous node) : on leur branche la source des réglages
+meteoStorage.current = projectStorage;                              // seuils météo
+holidaySettings.read = () => projectStorage.getItem('sb-holidays');  // pays des fériés + fermetures
 
 /**
  * Migration unique : les réglages de projet saisis sur CE poste avant 3.266.0 montent en base s'ils

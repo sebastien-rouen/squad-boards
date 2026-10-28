@@ -106,8 +106,7 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
   l'info-panel garde son propre « > 5 j » en dur — infopanel.js), SLA support, échelle du poker figée côté
   serveur (`poker.py _ALLOWED = 1,2,3,5,8,13,21,?` : ni 0, ni ½, ni tailles de t-shirt). Un écran « Règles » qui les
   rassemble avec leur effet. — *2026-10-28*
-- [ ] **P2-9 · Jours fériés par pays** — `utils/holidays.js` = France métropole en dur. Choix FR / Alsace-Moselle /
-  BE / CH / aucun + jours de fermeture de l'entreprise (ponts). — *2026-10-28*
+- [x] **P2-9 · Jours fériés par pays** · ✅ 3.270.0 — Paramètres → Calendrier de travail (FR, Alsace-Moselle, BE, CH, aucun) + fermetures.
 - [ ] **P2-10 · Référentiel de niveaux Atlas éditable** — les 4 libellés actuels sont une décision du client (à NE PAS
   changer pour lui) ; pour un autre projet : libellés et descriptions éditables dans le Catalogue, échelle 0-4
   conservée (les calculs en dépendent). — *2026-10-28*

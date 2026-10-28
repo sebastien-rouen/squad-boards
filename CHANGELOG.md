@@ -1,3 +1,18 @@
+## [3.270.0] - 2026-10-28
+
+### P2-9 — Jours fériés par pays + fermetures de l'entreprise
+
+- **Paramètres → Planning → 📅 Calendrier de travail** (`settings-workcal.js`) : pays des jours fériés
+  (🇫🇷 France métropole — défaut, 🇫🇷 Alsace-Moselle, 🇧🇪 Belgique, 🇨🇭 Suisse — jours les plus courants, aucun)
+  et jours de fermeture de l'entreprise (ponts, fin d'année), avec les 6 prochains fériés en aperçu.
+- `utils/holidays.js` : `holidaysOf(pays, année)`, `holidayName()` tient compte du pays et des fermetures (« Fermeture
+  de l'entreprise ») — donc les jours OUVRÉS partout (capacité, durées, bandeau calendrier, frise, TV). Module resté
+  pur (tests node) : la source du réglage lui est branchée par project-settings.js (`holidaySettings.read`).
+- Réglage de projet partagé `sb-holidays` ; « France sans fermeture » = aucun réglage enregistré (défaut).
+- Commentaire de `settings-meteo.js` corrigé (les seuils sont partagés depuis 3.266.0).
+- Vérifié dans Chromium (écritures interceptées) : BE → 14/07 ouvré et 21/07 férié, fermeture du 24/12 comptée,
+  retour au défaut = réglage supprimé ; 406 tests verts.
+
 ## [3.269.0] - 2026-10-28
 
 ### P1-4 — Jeton JIRA et webhook Slack hors du navigateur (connexion partagée, écriture seule)

@@ -32,6 +32,7 @@ import { remindersSectionHtml, wireRemindersSection } from './settings-reminders
 import { workcalSectionHtml, wireWorkcalSection } from './settings-workcal.js';
 import { rulesSectionHtml, wireRulesSection } from './settings-rules.js';
 import { modulesSectionHtml, wireModulesSection } from './settings-modules.js';
+import { identitySectionHtml, wireIdentitySection } from './settings-identity.js';
 import { calendarsSectionHtml, wireCalendarsSection } from './settings-calendars.js';
 import { slackSectionHtml, wireSlackSection } from './settings-slack.js';
 import { dataSectionHtml, aboutSectionHtml, wireDataSection } from './settings-data.js';
@@ -90,6 +91,7 @@ export function renderSettings(container) {
             ${slackSectionHtml(ctx)}
             ${meteoSectionHtml()}
             ${rulesSectionHtml()}
+            ${identitySectionHtml()}
             ${modulesSectionHtml()}
             ${dataSectionHtml(ctx)}
             ${aboutSectionHtml(ctx)}
@@ -108,6 +110,7 @@ export function renderSettings(container) {
     wireWorkcalSection(container);
     wireRulesSection(container);
     wireModulesSection(container);
+    wireIdentitySection(container);
     wireSlackSection(container, ctx);
     wireGroupsSection(container, ctx);
     wireTeamsSection(container, ctx);
@@ -251,7 +254,7 @@ function _settingsApplyTabs(container) {
         { label: 'Planning',      slugs: ['sprint-pi', 'rotation', 'faits-marquants', 'rappels-ceremonies', 'calendrier-de-travail'] },
         { label: 'Règles',        slugs: ['seuils-meteo', 'regles-metier'] },
         { label: 'Intégrations',  slugs: ['calendriers-ics', 'plugin-jira-optionnel', 'slack-optionnel'] },
-        { label: 'Système',       slugs: ['modules-menu', 'donnees', 'a-propos'] },
+        { label: 'Système',       slugs: ['identite-du-projet', 'modules-menu', 'donnees', 'a-propos'] },
     ];
 
     const _tabBtn = t =>

@@ -1,0 +1,12 @@
+/* Couleur principale de l'instance (js/utils/identity.js, 3.276.0) : `--brand` posé par le JS, variantes dérivées. */
+:root[data-brand] {
+    --primary: var(--brand);
+    --primary-hover: color-mix(in srgb, var(--brand) 82%, black);
+    --primary-light: color-mix(in srgb, var(--brand) 78%, white);
+    --primary-bg: color-mix(in srgb, var(--brand) 10%, white);
+}
+:root[data-brand][data-theme="dark"] {
+    --primary-hover: color-mix(in srgb, var(--brand) 70%, white);
+    --primary-light: color-mix(in srgb, var(--brand) 70%, white);
+    --primary-bg: color-mix(in srgb, var(--brand) 28%, #0b1020);
+}

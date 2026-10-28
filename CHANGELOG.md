@@ -1,3 +1,16 @@
+## [3.276.0] - 2026-10-28
+
+### P3-11 — Identité de l'instance (nom, logo, couleur)
+
+- **Paramètres → Système → Identité du projet** (`settings-identity.js`) : nom du projet (barre latérale, initiales
+  du logo, titre de l'onglet « Vue — Projet ») et couleur principale (clair + sombre), partagés (réglages
+  `sb-project-name` — aussi posé par l'assistant — et `sb-brand-color`, `utils/identity.js`).
+- La couleur ne pose que `--brand` sur la racine ; `--primary`, `-hover`, `-light`, `-bg` en sont dérivées par
+  `color-mix` dans `css/identity.css` (aucun style écrit par le JS).
+- « Squad Board » reste le nom de l'OUTIL dans les exports et comptes rendus ; vide = nom par défaut.
+- Vérifié dans Chromium (écritures interceptées) : « Train Paiement » → barre latérale, logo « TP », titre
+  « Paramètres — Train Paiement », `--primary` vert ; 406 tests verts.
+
 ## [3.275.0] - 2026-10-28
 
 ### P2-5 — 🧭 Assistant de mise en route d'un projet

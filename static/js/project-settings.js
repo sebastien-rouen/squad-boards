@@ -29,7 +29,7 @@ export const PROJECT_KEYS = Object.freeze([
     'sb-meteo-thresholds', 'sb-meteo-scope', 'sb-sla-target-days', 'sb-backlog-stale-months',
     'sb-dash-stale-days', 'sb-reminders', 'sb-cadrage-perimeters', 'sb-holidays',
     'sb-atlas-expert-min', 'sb-atlas-away-days', 'sb-poker-scale',   // règles métier (rules.js)
-    'sb-project-name',                                               // assistant de mise en route
+    'sb-project-name', 'sb-brand-color',                             // identité de l'instance (utils/identity.js)
 ]);
 // Clés à suffixe : charge prévue par sprint, objectifs d'équipe de l'Atlas (par équipe et PI)
 export const PROJECT_PREFIXES = Object.freeze(['sb-charge-', 'sb-team-objectives-']);

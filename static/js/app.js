@@ -41,6 +41,7 @@ import { renderCalBanner } from './components/cal_banner.js';
 import { applyStatusOverride, forceAllColumns } from './utils/status-override.js';
 import { projectStorage, migrateLocalProjectSettings } from './project-settings.js';
 import './utils/modules.js';   // modules activables + libellés du menu (garde de route sur `view`)
+import { applyIdentity, projectName } from './utils/identity.js';
 
 // ── Vues en lazy loading — chaque module n'est téléchargé/parsé qu'à la première
 // visite de la vue (settings ≈ 300 KB, pi ≈ 176 KB, atlas ≈ 148 KB ne pèsent plus
@@ -398,8 +399,9 @@ function _updateTitle() {
     const team  = store.get('team');
     const label = NAV_ITEMS.find(n => n.id === view)?.label || VIEW_TITLES[view] || view;   // libellé du projet d'abord
     const teamPart = (team && team !== 'all') ? ` · ${team}` : '';
-    document.title = `${label}${teamPart} — Squad Board`;
+    document.title = `${label}${teamPart} — ${projectName()}`;   // nom de l'instance (utils/identity.js)
 }
+store.on('navVersion', _updateTitle);   // libellé du menu ou nom du projet changé
 
 // ── Render active view ────────────────────────────────────────────────────────
 // Async (lazy loading) : un jeton de séquence protège contre les navigations rapides —
@@ -506,6 +508,7 @@ async function loadAllData() {
         store.set('projectSettings', settings);
         migrateLocalProjectSettings().catch(() => {});
     }
+    applyIdentity();   // nom, logo et couleur de l'instance
     // Statuts forcés (Paramètres → JIRA) appliqués dès le chargement : la base n'est corrigée qu'à la
     // prochaine synchro complète (une rapide ne retraite que les tickets modifiés).
     const tickets = applyStatusOverride(d.tickets || [], d.pi?.statusOverride);   // règle en base, pas encore dans le store

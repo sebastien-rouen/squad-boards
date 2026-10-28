@@ -106,8 +106,7 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
 - [x] **P2-10 · Référentiel de niveaux Atlas éditable** · ✅ 3.271.0 — ⚙️ Catalogue → 🎚️ Référentiel (libellés 1-4, échelle fixe).
 
 **🟡 P3 — confort, plusieurs instances**
-- [ ] **P3-11 · Identité de l'instance** — « Squad Board » en dur (`index.html`, `first_launch.js`) : nom, logo,
-  couleur primaire en réglages ; `<title>` dynamique — utile dès que deux instances tournent côte à côte. — *2026-10-28*
+- [x] **P3-11 · Identité de l'instance** · ✅ 3.276.0 — Paramètres → Identité du projet (nom, logo, couleur).
 - [ ] **P3-12 · Nommage des boards → équipes** — `extractTeam()` connaît `Sprint|Équipe|Team|Board|Kanban` et les
   suffixes « Ité 31.2 » du client ; exposer une table « board → équipe » (existe en partie : `sb-jiraProjectTeams`). — *2026-10-28*
 - [ ] **P3-13 · Plusieurs projets** — aujourd'hui 1 base = 1 projet (`SB_DB_PATH`). Recommandation : multi-INSTANCE

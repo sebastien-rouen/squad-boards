@@ -813,6 +813,10 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Campagne d'évaluation (3.265.0) = `atlas-campaign.js` (équipe → ⭐ requises → personne par personne → bilan) : elle
   RÉUTILISE les briques d'évaluation exportées par `atlas-member.js` (`evalRowHtml`, `handleEvalClick`, `evalChanges`,
   `saveEvaluations`) — ne pas recopier une ligne d'évaluation ailleurs. Progression non stockée (relue des évaluations).
+- **Réglages de PROJET vs préférences du poste** (3.266.0) : un réglage qui change le comportement pour TOUTE
+  l'équipe (seuils, champs JIRA, charges, rappels…) passe par `projectStorage` (project-settings.js, en base,
+  `GET/PUT /api/project-settings`) et sa clé s'ajoute à `PROJECT_KEYS` / `PROJECT_PREFIXES` ; une préférence
+  d'affichage (dépliage, filtre, onglet, thème) reste en `localStorage`. Jamais de secret dans `projectStorage`.
 - **Palette Ctrl+K — recherche** : `_score()` ignore accents et casse, puis accepte les mots DANS LE DÉSORDRE (chaque
   mot significatif doit commencer un mot du texte, mots outils `_STOP` écartés, score 30 < sous-chaîne 40). Vues,
   blocs et actions sont notés sur libellé, mots-clés ET les deux réunis (`_scoreEntry`).

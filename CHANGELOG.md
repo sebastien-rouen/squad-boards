@@ -1,3 +1,27 @@
+## [3.266.0] - 2026-10-28
+
+### P1-1 — Réglages de projet partagés, en base (plus un comportement par navigateur)
+
+- **Nouvelle table `project_setting`** (clé → valeur texte) et routes `GET / PUT /api/project-settings` (écriture par
+  lot, `null` = retour au défaut ; clé `sb-…` validée, valeur ≤ 256 Ko). Incluse dans l'export complet, l'import et
+  le bundle de configuration `.local` (`CONFIG_DOMAINS`). `/api/all` est inchangé (golden test).
+- **`static/js/project-settings.js`** : `projectStorage`, même interface que `localStorage`, adossé au store
+  `projectSettings` (chargé EN PARALLÈLE de `/api/all`, avant tout rendu) ; écriture optimiste + un seul PUT groupé
+  (300 ms). API injoignable → repli sur le localStorage du poste.
+- **Basculés** (21 clés + 2 familles) : champs et profondeurs de synchro JIRA (`sb-sync-*`), équipes JIRA masquées,
+  colonnes et équipes par projet de la dernière synchro, seuils météo (tendance + périmètre), cible SLA, mois
+  « backlog dormant », jours de stagnation du Dashboard, rappels de cérémonies, charge prévue par sprint
+  (`sb-charge-*`), objectifs d'équipe de l'Atlas (`sb-team-objectives-*`). Restent locaux : thème, dépliages,
+  filtres, onglets, nom du poste, identifiants JIRA / Slack (→ P1-4).
+- **Migration unique** au chargement : les réglages saisis sur un poste montent en base s'ils n'y sont pas (le premier
+  poste fait foi), puis la copie locale est retirée.
+- `utils/meteo.js` reste pur (tests node) : la source des seuils lui est branchée (`meteoStorage.current`).
+- Vérifié : API sur une COPIE de la base (15 contrôles) ; Chromium avec écritures interceptées — migration (3 clés
+  montées, préférence gardée), lecture serveur visible dans Paramètres → Synchro, écritures regroupées en 1 PUT, repli
+  si l'API échoue ; 406 tests verts.
+- Vu, pas corrigé : l'alerte « tickets stagnants » de l'info-panel garde son propre seuil de 5 j, distinct du réglage
+  du Dashboard → BACKLOG P2-8.
+
 ## [3.265.0] - 2026-10-28
 
 ### Atlas : campagne d'évaluation guidée · palette Ctrl+K en mots libres · backlog « site paramétrable »

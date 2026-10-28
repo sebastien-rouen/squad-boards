@@ -85,13 +85,7 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
 #A2 (authentification) reste préalable à tout ce qui touche aux secrets ou au multi-projets.
 
 **🔴 P1 — bloquant pour brancher un autre projet**
-- [ ] **P1-1 · Réglages de projet en base, partagés** — ~20 réglages de PROJET sont en localStorage `sb-*` : mapping
-  JIRA (`sb-sync-sprintField|teamField|piSprintField|contributorsField`), profondeurs de synchro (`closedKeep`,
-  `closedTicketSprints`, `maxBoards`…), `sb-jiraProjectTeams`, `sb-jira-excluded-teams`, `sb-meteo-thresholds`,
-  `sb-sla-target-days`, `sb-backlog-stale-months`, `sb-dash-stale-days`, `sb-refinement-steps|groups`,
-  `sb-team-objectives-*`. **À faire** : table `project_setting(key, value JSON)` + `GET/PUT /api/settings`, chargée
-  dans le store au démarrage, ajoutée à `CONFIG_DOMAINS` (export `.local`) ; liste blanche « projet » vs « préférence
-  d'affichage » (qui reste locale) ; migration unique des clés locales comme `sb-team-req-*` en 3.263.0. — *2026-10-28*
+- [x] **P1-1 · Réglages de projet en base** · ✅ 3.266.0 — `projectStorage` (project-settings.js), table `project_setting`.
 - [ ] **P1-2 · Correspondance des statuts et types JIRA éditable** — `STATUS_MAP` (~120 libellés, dont ceux du client :
   « à livrer en qualif (mi) », « 3 amigos ») et `TYPE_MAP` sont dans `config.js` ; un libellé inconnu retombe
   SILENCIEUSEMENT sur `todo` (le ticket sort des métriques de flux). Les statuts forcés (3.195.0) ne couvrent que
@@ -118,7 +112,8 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
   affichés ; une équipe Scrum hors SAFe n'a ni PI ni train. Réglage « modules actifs » (navigation, palette, Dashboard)
   et libellés « PI → Release / Trimestre », « Train → Programme », « Ligne produit → Domaine ». — *2026-10-28*
 - [ ] **P2-8 · Seuils métier réglables, réunis** — Atlas (sachant `EXPERT_MIN = 2`, bus factor ≤ 1, absence « bientôt »
-  14 j), météo (`METEO_START_TOLERANCE`, item plus haut), stagnation > 5 j, SLA support, échelle du poker figée côté
+  14 j), météo (`METEO_START_TOLERANCE`, item plus haut), stagnation (Dashboard réglable, mais l'alerte de
+  l'info-panel garde son propre « > 5 j » en dur — infopanel.js), SLA support, échelle du poker figée côté
   serveur (`poker.py _ALLOWED = 1,2,3,5,8,13,21,?` : ni 0, ni ½, ni tailles de t-shirt). Un écran « Règles » qui les
   rassemble avec leur effet. — *2026-10-28*
 - [ ] **P2-9 · Jours fériés par pays** — `utils/holidays.js` = France métropole en dur. Choix FR / Alsace-Moselle /

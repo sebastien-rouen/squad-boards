@@ -9,6 +9,7 @@ import * as api from '../api.js';
 import { isActionRetro } from '../business_rules.js';
 import { VOTE_KINDS, pushVote, voteCellHtml, voteTotalHtml, voteRowCls, pickerHtml } from './health-votes.js';
 import { _fmtD, _healthCtx, _pointsAtLaunch, _spKey, _sprintMetaStore, _stateBadge } from './health-shared.js';
+import { projectStorage } from '../project-settings.js';
 
 // Réouverture depuis le hash (refresh / lien partagé / retour arrière depuis un ticket) : lit
 // _sprintMetaStore peuplé par renderHealth. `pushHistory: false` — le hash courant correspond
@@ -129,7 +130,7 @@ export function _openSprintModal(meta, teamName, metric, initialSprintName, push
         //      corrigée des congés de CE sprint. Suggestion, pas saisie : elle n'est pas
         //      écrite en localStorage tant que l'utilisateur n'y a pas touché.
         const chargeKey  = `sb-charge-${s.name}`;
-        const chargeSaved = localStorage.getItem(chargeKey);
+        const chargeSaved = projectStorage.getItem(chargeKey);
         const capSp = meta.capBySprint?.[s.name] || null;
         // 🍃 Respiration : rien n'y est engagé, donc aucune charge n'y est suggérée. Le sprint
         // reste affiché — il existe — mais il est marqué pour qu'on ne le prenne pas pour une
@@ -596,7 +597,7 @@ export function _openSprintModal(meta, teamName, metric, initialSprintName, push
         input.addEventListener('change', () => {
             const v = input.value.trim();
             if (v === '' || isNaN(Number(v))) { _refreshChargeTotal(); return; }
-            localStorage.setItem(input.dataset.chargeKey, v);
+            projectStorage.setItem(input.dataset.chargeKey, v);
             // Ce n'est plus une suggestion : la valeur vient d'être décidée par l'équipe.
             input.classList.remove('htl-charge-input--suggested');
             _refreshChargeTotal();

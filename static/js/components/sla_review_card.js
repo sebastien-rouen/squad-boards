@@ -14,6 +14,7 @@
 import { esc, isTicketExcludedFromFlow, getStatusLabel, extractPiNum, cycleDays } from '../utils.js';
 import { TYPE_ICONS } from '../config.js';
 import { helpIconHtml } from './help_popover.js';
+import { projectStorage } from '../project-settings.js';
 
 const LS_KEY = 'sb-sla-target-days';
 const MAX_ROWS = 15;
@@ -56,7 +57,7 @@ function _model(tickets) {
     const p85 = _p85(measCts);
 
     // Cible : manuelle (localStorage) > P85 du PI précédent > P85 global (provisoire).
-    const raw = parseFloat(localStorage.getItem(LS_KEY));
+    const raw = parseFloat(projectStorage.getItem(LS_KEY));
     const isManual = raw > 0;
     const refP85 = refPi ? _p85((byPi.get(refPi) || []).map(t => cycleDays(t))) : null;
     const isProvisional = !isManual && !refPi;               // pas de référence externe fiable
@@ -144,11 +145,11 @@ export function bindSlaReviewCard(container, tickets) {
     input?.addEventListener('change', () => {
         const n = parseFloat(input.value);
         if (isNaN(n) || n <= 0 || n > 365) { rebind(); return; }
-        localStorage.setItem(LS_KEY, String(n));
+        projectStorage.setItem(LS_KEY, String(n));
         rebind();
     });
     container.querySelector('.sla-target-auto')?.addEventListener('click', () => {
-        localStorage.removeItem(LS_KEY);
+        projectStorage.removeItem(LS_KEY);
         rebind();
     });
     container.querySelectorAll('.sla-card .stuck-row[data-ticket]').forEach(row => {

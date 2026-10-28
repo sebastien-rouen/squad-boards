@@ -13,10 +13,11 @@ import * as api from '../api.js';
 import { esc, toast, emptyStateHtml, getCurrentPi } from '../utils.js';
 import { getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
 import { statusOverrideHtml, wireStatusOverride } from './settings-status-override.js';
+import { projectStorage } from '../project-settings.js';
 
 /** Valeur effective d'un réglage de sync (saisie utilisateur, sinon défaut). */
 function _readCapValue(lsKey, fallback) {
-    const n = parseInt((localStorage.getItem(lsKey) || '').trim(), 10);
+    const n = parseInt((projectStorage.getItem(lsKey) || '').trim(), 10);
     return isNaN(n) || n < 0 ? fallback : n;
 }
 
@@ -215,7 +216,7 @@ export function jiraSectionHtml() {
                 ${jiraConfigured ? `
                 <div class="sync-cfg-block mt-4">
                     <div class="sync-cfg-title">Configuration de la synchronisation</div>
-                    <div class="sync-cfg-hint">Acceptes : nom JQL (ex : <code>Sprint</code>, <code>Team[Team]</code>) ou ID (<code>customfield_XXXXX</code>). Laissez vide pour la detection automatique. Pour les champs <em>Max</em>, laissez vide = illimité. Les champs candidats sont loggues dans la console apres chaque sync.</div>
+                    <div class="sync-cfg-hint">🌐 Réglages <strong>partagés par tous les postes</strong> (enregistrés sur le serveur). Acceptés : nom JQL (ex : <code>Sprint</code>, <code>Team[Team]</code>) ou ID (<code>customfield_XXXXX</code>). Laissez vide pour la detection automatique. Pour les champs <em>Max</em>, laissez vide = illimité. Les champs candidats sont loggues dans la console apres chaque sync.</div>
 
                     <div class="sync-cfg-row">
                         <div class="sync-cfg-label">
@@ -227,7 +228,7 @@ export function jiraSectionHtml() {
                         </div>
                         <div class="sync-cfg-input-wrap">
                             <input type="number" id="sync-quick-days" class="input sync-cfg-input" min="1" max="365" step="1" placeholder="14"
-                                value="${esc(localStorage.getItem('sb-sync-quickDays') || '')}">
+                                value="${esc(projectStorage.getItem('sb-sync-quickDays') || '')}">
                             <span class="sync-cfg-unit">jours</span>
                         </div>
                     </div>
@@ -242,7 +243,7 @@ export function jiraSectionHtml() {
                         </div>
                         <div class="sync-cfg-input-wrap">
                             <input type="number" id="sync-max-features" class="input sync-cfg-input" min="1" step="10" placeholder="Illimité"
-                                value="${esc(localStorage.getItem('sb-sync-maxFeatures') || '')}">
+                                value="${esc(projectStorage.getItem('sb-sync-maxFeatures') || '')}">
                             <span class="sync-cfg-unit">tickets</span>
                         </div>
                     </div>
@@ -257,7 +258,7 @@ export function jiraSectionHtml() {
                         </div>
                         <div class="sync-cfg-input-wrap">
                             <input type="number" id="sync-max-boards" class="input sync-cfg-input" min="1" step="10" placeholder="Illimité"
-                                value="${esc(localStorage.getItem('sb-sync-maxBoards') || '')}">
+                                value="${esc(projectStorage.getItem('sb-sync-maxBoards') || '')}">
                             <span class="sync-cfg-unit">boards</span>
                         </div>
                     </div>
@@ -272,7 +273,7 @@ export function jiraSectionHtml() {
                         </div>
                         <div class="sync-cfg-input-wrap">
                             <input type="text" id="sync-sprint-field" class="input sync-cfg-input sync-cfg-id" placeholder="customfield_10021"
-                                value="${esc(localStorage.getItem('sb-sync-sprintField') || '')}">
+                                value="${esc(projectStorage.getItem('sb-sync-sprintField') || '')}">
                         </div>
                     </div>
 
@@ -286,7 +287,7 @@ export function jiraSectionHtml() {
                         </div>
                         <div class="sync-cfg-input-wrap">
                             <input type="text" id="sync-team-field" class="input sync-cfg-input" placeholder="Team[Team]"
-                                value="${esc(localStorage.getItem('sb-sync-teamField') || '')}">
+                                value="${esc(projectStorage.getItem('sb-sync-teamField') || '')}">
                         </div>
                     </div>
 
@@ -300,7 +301,7 @@ export function jiraSectionHtml() {
                         </div>
                         <div class="sync-cfg-input-wrap">
                             <input type="number" id="sync-closed-keep" class="input sync-cfg-input" min="5" max="200" step="5" placeholder="${SYNC_DEFAULTS.closedKeep}"
-                                value="${esc(localStorage.getItem('sb-sync-closedKeep') || '')}">
+                                value="${esc(projectStorage.getItem('sb-sync-closedKeep') || '')}">
                             <span class="sync-cfg-unit">sprints</span>
                         </div>
                     </div>
@@ -319,7 +320,7 @@ export function jiraSectionHtml() {
                         <div class="sync-cfg-input-wrap sync-cfg-input-wrap--stack">
                             <div class="sync-cfg-inline">
                                 <input type="number" id="sync-closed-ticket-sprints" class="input sync-cfg-input" min="0" max="60" step="1" placeholder="${SYNC_DEFAULTS.closedTicketSprints}"
-                                    value="${esc(localStorage.getItem('sb-sync-closedTicketSprints') || '')}">
+                                    value="${esc(projectStorage.getItem('sb-sync-closedTicketSprints') || '')}">
                                 <span class="sync-cfg-unit">sprints</span>
                             </div>
                             <div class="sync-cfg-presets" role="group" aria-label="Raccourcis de profondeur">
@@ -385,15 +386,15 @@ export function wireJiraSection(container, onReload = () => {}) {
     // effaçait la clé et rétablissait silencieusement le défaut.
     const _saveCap = (inputId, lsKey, min = 1) => {
         const raw = (container.querySelector(`#${inputId}`)?.value || '').trim();
-        if (!raw) { localStorage.removeItem(lsKey); return; }
+        if (!raw) { projectStorage.removeItem(lsKey); return; }
         const n = parseInt(raw);
-        if (!isNaN(n) && n >= min) localStorage.setItem(lsKey, String(n));
-        else localStorage.removeItem(lsKey);
+        if (!isNaN(n) && n >= min) projectStorage.setItem(lsKey, String(n));
+        else projectStorage.removeItem(lsKey);
     };
     const _saveStr = (inputId, lsKey) => {
         const v = (container.querySelector(`#${inputId}`)?.value || '').trim();
-        if (v) localStorage.setItem(lsKey, v);
-        else localStorage.removeItem(lsKey);
+        if (v) projectStorage.setItem(lsKey, v);
+        else projectStorage.removeItem(lsKey);
     };
     // ── Connexion JIRA (URL / email / token → localStorage, prime sur .env) ────
     const _saveJiraConn = () => {
@@ -435,7 +436,7 @@ export function wireJiraSection(container, onReload = () => {}) {
         _saveCap('sync-closed-ticket-sprints', 'sb-sync-closedTicketSprints', 0);
         // Booléen stocké en 0/1 : `syncSetting` ne lit que des entiers, et une clé absente
         // doit pouvoir signifier « défaut » et non « désactivé ».
-        localStorage.setItem('sb-sync-archiveClosed',
+        projectStorage.setItem('sb-sync-archiveClosed',
             container.querySelector('#sync-archive-closed')?.checked ? '1' : '0');
         _saveStr('sync-sprint-field', 'sb-sync-sprintField');
         _saveStr('sync-team-field',   'sb-sync-teamField');

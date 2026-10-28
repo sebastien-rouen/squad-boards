@@ -64,8 +64,14 @@ export const METEO_LABEL = Object.freeze({ sun: 'Beau', cloud: 'Variable', rain:
 /** Du pire au meilleur — `none` n'entre jamais dans un classement. */
 const ORDER = ['storm', 'rain', 'cloud', 'sun'];
 
-/** Seuils effectifs : surcharge localStorage (validée) sinon défauts. */
-export function meteoThresholds(storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
+/**
+ * Où lire les surcharges : localStorage par défaut (tests node : rien) ; project-settings.js y branche les
+ * réglages de projet partagés au chargement (3.266.0) — ce module reste pur, sans import.
+ */
+export const meteoStorage = { current: typeof localStorage !== 'undefined' ? localStorage : null };
+
+/** Seuils effectifs : surcharge des réglages de projet (validée) sinon défauts. */
+export function meteoThresholds(storage = meteoStorage.current) {
     try {
         const raw = storage?.getItem('sb-meteo-thresholds');
         if (!raw) return METEO_DEFAULT_THRESHOLDS;
@@ -79,7 +85,7 @@ export function meteoThresholds(storage = (typeof localStorage !== 'undefined' ?
 }
 
 /** Plafonds du domaine 📐 Périmètre : surcharge `sb-meteo-scope` (validée) sinon défauts. */
-export function meteoScopeThresholds(storage = (typeof localStorage !== 'undefined' ? localStorage : null)) {
+export function meteoScopeThresholds(storage = meteoStorage.current) {
     try {
         const raw = storage?.getItem('sb-meteo-scope');
         if (!raw) return METEO_SCOPE_DEFAULT_THRESHOLDS;

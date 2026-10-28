@@ -20,13 +20,13 @@ from app.services.ics import expand_calendar_events
 from app.models import (
     Team, Member, Ticket, Feature, Epic, SprintConfig, PIConfig, TeamGroup,
     Absence, SupportRotation, Event, MoodVote, RetroItem, Risk,
-    Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, TeamSkillRequirement, TeamCalendar,
+    Skill, Appetence, MemberSkill, MemberAppetence, MemberMobility, TeamSkillRequirement, ProjectSetting, TeamCalendar,
     TeamIdentity, WorkshopTemplate, TeamWorkshop, PokerRound,
 )
 from app.serializers import (
     _ticket_dict, _feature_dict, _epic_dict, _member_dict, _team_dict, _group_dict,
     _absence_dict, _support_dict, _event_dict, _risk_dict, _skill_dict, _appetence_dict,
-    _member_skill_dict, _member_appetence_dict, _mobility_dict, _team_skill_req_dict, _sprint_dict, _pi_dict,
+    _member_skill_dict, _member_appetence_dict, _mobility_dict, _team_skill_req_dict, _project_setting_dict, _sprint_dict, _pi_dict,
     _retro_dict, _mood_dict, _cal_dict, _team_identity_dict, _workshop_template_dict,
     _team_workshop_dict, _poker_round_dict,
 )
@@ -58,6 +58,7 @@ _EXPORT_SPEC = [
     ("workshopTemplates", WorkshopTemplate, _workshop_template_dict),
     ("teamWorkshops",    TeamWorkshop,    _team_workshop_dict),
     ("pokerRounds",      PokerRound,      _poker_round_dict),
+    ("projectSettings",  ProjectSetting,  _project_setting_dict),
 ]
 
 
@@ -645,6 +646,16 @@ def import_body(body: dict, session: Session, commit: bool = True) -> dict:
                 id=d.get("id") or _gen_id(), team=d.get("team", ""), skill_id=d.get("skillId", ""),
             ))
         counts["teamSkillRequirements"] = len(items)
+
+    # Réglages de projet partagés (3.266.0) — clé → valeur
+    if "projectSettings" in body and body["projectSettings"] is not None:
+        items = [d for d in body["projectSettings"] if d.get("key")]
+        if mode == "replace":
+            for row in session.exec(select(ProjectSetting)).all():
+                session.delete(row)
+        for d in items:
+            session.merge(ProjectSetting(key=d["key"], value=str(d.get("value") or ""), updated_at=d.get("updatedAt") or _now()))
+        counts["projectSettings"] = len(items)
 
     # ── Équipe : fiche d'identité / catalogue d'ateliers / réponses d'ateliers ──
     if "teamIdentities" in body and body["teamIdentities"] is not None:

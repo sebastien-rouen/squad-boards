@@ -17,6 +17,7 @@ import {
     fetchNextPiFutureTickets, fetchFeatures, fetchEpics, fetchPiNamedSprints, fetchFeatureChildren,
     fetchImprovementTickets, fetchBufferHistory,
 } from './sync-passes.js';
+import { projectStorage } from './project-settings.js';
 // API publique inchangée (app.js, topbar, Paramètres, tests) : ré-exports
 export { makeIncidents, getExcludedTeams, addExcludedTeam, removeExcludedTeam, clearExcludedTeams, dismissSyncReport } from './sync-report.js';
 export { clearEmptyClosedMemory, _buildClosedArchive } from './sync-archive.js';
@@ -71,7 +72,7 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
     const updClause = quickMode ? ` AND updated >= -${sinceDays}d` : '';
     // Read user-configurable sync settings from localStorage. Empty = Infinity (no cap).
     const _readCap = key => {
-        const raw = (localStorage.getItem(key) || '').trim();
+        const raw = (projectStorage.getItem(key) || '').trim();
         if (!raw) return Infinity;
         const n = parseInt(raw);
         return isNaN(n) || n < 1 ? Infinity : n;

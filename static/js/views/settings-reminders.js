@@ -5,6 +5,7 @@
 
 import { loadReminders, REMINDER_DEFS, saveReminders as _saveReminders } from '../reminders.js';
 import { esc, toast } from '../utils.js';
+import { projectStorage } from '../project-settings.js';
 
 /** Section « Rappels & Cérémonies ». */
 export function remindersSectionHtml(_ctx) {
@@ -47,7 +48,7 @@ export function remindersSectionHtml(_ctx) {
         <div class="flex gap-2 items-center">
             <label class="label" style="margin:0;white-space:nowrap">Seuil :</label>
             <input type="number" class="input" id="bl-stale-months-input"
-                   value="${parseInt(localStorage.getItem('sb-backlog-stale-months') || '3', 10) || 3}"
+                   value="${parseInt(projectStorage.getItem('sb-backlog-stale-months') || '3', 10) || 3}"
                    min="1" max="24" step="1" style="width:72px">
             <span class="text-xs text-muted">mois</span>
         </div>
@@ -83,7 +84,7 @@ export function wireRemindersSection(container, _ctx) {
     container.querySelector('#bl-stale-months-input')?.addEventListener('change', e => {
         const val = Math.max(1, parseInt(e.target.value) || 3);
         e.target.value = val;
-        localStorage.setItem('sb-backlog-stale-months', String(val));
+        projectStorage.setItem('sb-backlog-stale-months', String(val));
         toast('Seuil périmés sauvegardé', 'success');
     });
 }

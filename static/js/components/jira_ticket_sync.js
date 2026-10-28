@@ -19,6 +19,7 @@ import { store } from '../state.js';
 import * as api from '../api.js';
 import { esc, toast, mapStatus, priorityKey, fmtRelative } from '../utils.js';
 import { STATUS_LABELS, SYNC_CONFIG } from '../config.js';
+import { projectStorage } from '../project-settings.js';
 
 const PANEL_ID = 'mjs-panel';
 const PI_FIELD_RE = /\bpi\b[\s_-]*(sprint|planning|increment|it[eé]ration)|program[\s_-]*increment|art[\s_-]*sprint/i;
@@ -31,7 +32,7 @@ let _fields = null;    // ids des champs JIRA résolus (une fois par session)
 async function resolveFields() {
     if (_fields) return _fields;
     const fields = await api.jiraGet('rest/api/3/field');
-    const over = key => (localStorage.getItem(key) || '').trim() || null;
+    const over = key => (projectStorage.getItem(key) || '').trim() || null;
     const resolve = (ov, auto) => {
         if (ov && /^customfield_\d+$/.test(ov)) return ov;
         if (ov) {

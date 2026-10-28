@@ -92,6 +92,9 @@ export const deleteMobility      = id   => request(`/api/mobility/${id}`, { meth
 export const getTeamSkillRequirements = () => request('/api/team-skill-requirements');
 export const setTeamSkillRequirement  = (team, skillId, required = true) =>
     request('/api/team-skill-requirements', { method: 'PUT', body: JSON.stringify({ team, skillId, required }) });
+// Réglages de projet partagés (3.266.0) — { clé: valeur } ; null = retour au défaut
+export const getProjectSettings = () => request('/api/project-settings');
+export const putProjectSettings = values => request('/api/project-settings', { method: 'PUT', body: JSON.stringify({ values }) });
 
 // ── Teams ─────────────────────────────────────────────────────────────────────
 export const getTeams        = ()   => request('/api/teams');

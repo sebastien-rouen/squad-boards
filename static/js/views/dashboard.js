@@ -27,6 +27,7 @@ import { bindPiFlowRows } from '../components/pi_stage_flow.js';
 import { dashboardModel } from './dashboard-model.js';
 import { goalsBandHtml, bindObjectivesEdit } from './dashboard-goals.js';
 import { onCallTodayHtml, sprintTimelineHtml, otherPiHeaderHtml, metricsHtml, flowStreamHtml, teamStreamHtml } from './dashboard-sections.js';
+import { projectStorage } from '../project-settings.js';
 
 /** Sections du sommaire du Dashboard, dans l'ordre de la page (sélecteurs = blocs racines de la vue). */
 const _DASH_TOC = [
@@ -141,7 +142,7 @@ function _bindDashboard(container, m) {
         const n = parseInt(staleInput.value, 10);
         if (isNaN(n) || n < 1 || n > 365) { staleInput.value = STALE_DAYS; return; }
         if (n === STALE_DAYS) return;
-        localStorage.setItem('sb-dash-stale-days', String(n));
+        projectStorage.setItem('sb-dash-stale-days', String(n));
         m.rerender();
     });
 

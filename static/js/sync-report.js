@@ -5,6 +5,7 @@
 
 import { store } from './state.js';
 import { toast } from './utils.js';
+import { projectStorage } from './project-settings.js';
 
 /**
  * Collecteur d'échecs PARTIELS d'un import.
@@ -57,7 +58,7 @@ const EXCLUDED_TEAMS_KEY = 'sb-jira-excluded-teams';
 
 export function getExcludedTeams() {
     try {
-        const arr = JSON.parse(localStorage.getItem(EXCLUDED_TEAMS_KEY) || '[]');
+        const arr = JSON.parse(projectStorage.getItem(EXCLUDED_TEAMS_KEY) || '[]');
         return Array.isArray(arr) ? arr.filter(Boolean) : [];
     } catch { return []; }
 }
@@ -66,16 +67,16 @@ export function addExcludedTeam(name) {
     if (!n) return;
     const cur = getExcludedTeams();
     if (!cur.some(t => t.toLowerCase() === n.toLowerCase())) {
-        localStorage.setItem(EXCLUDED_TEAMS_KEY, JSON.stringify([...cur, n]));
+        projectStorage.setItem(EXCLUDED_TEAMS_KEY, JSON.stringify([...cur, n]));
     }
 }
 export function removeExcludedTeam(name) {
     const n = String(name || '').trim().toLowerCase();
-    localStorage.setItem(EXCLUDED_TEAMS_KEY,
+    projectStorage.setItem(EXCLUDED_TEAMS_KEY,
         JSON.stringify(getExcludedTeams().filter(t => t.toLowerCase() !== n)));
 }
 export function clearExcludedTeams() {
-    localStorage.removeItem(EXCLUDED_TEAMS_KEY);
+    projectStorage.removeItem(EXCLUDED_TEAMS_KEY);
 }
 
 // ── Progress UI (header bar — non-bloquant) ───────────────────────────────────

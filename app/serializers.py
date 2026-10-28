@@ -130,6 +130,10 @@ def _team_skill_req_dict(r) -> dict:
     return {"id": r.id, "team": r.team, "skillId": r.skill_id, "createdAt": r.created_at}
 
 
+def _project_setting_dict(r) -> dict:
+    return {"key": r.key, "value": r.value, "updatedAt": r.updated_at}
+
+
 def _sprint_dict(s: SprintConfig) -> dict | None:
     if not s:
         return None

@@ -39,6 +39,7 @@ import { initDiagramZoom } from './components/diagram_zoom.js';
 import { updateInfoPanel } from './components/infopanel.js';
 import { renderCalBanner } from './components/cal_banner.js';
 import { applyStatusOverride, forceAllColumns } from './utils/status-override.js';
+import { projectStorage, migrateLocalProjectSettings } from './project-settings.js';
 
 // ── Vues en lazy loading — chaque module n'est téléchargé/parsé qu'à la première
 // visite de la vue (settings ≈ 300 KB, pi ≈ 176 KB, atlas ≈ 148 KB ne pèsent plus
@@ -447,7 +448,7 @@ function checkSyncStale() {
     const info = document.getElementById('sync-menu-info');
     if (!btn) return;
     let qd = 14;
-    try { const n = parseInt(localStorage.getItem('sb-sync-quickDays') || '', 10); if (n >= 1 && n <= 365) qd = n; } catch { /* défaut */ }
+    try { const n = parseInt(projectStorage.getItem('sb-sync-quickDays') || '', 10); if (n >= 1 && n <= 365) qd = n; } catch { /* défaut */ }
     const action = `Sync rapide depuis JIRA (derniers ${qd} jours, merge)`;
     if (!lastSync) {
         btn.classList.remove('is-stale', 'is-very-stale');
@@ -495,7 +496,13 @@ window.__squadBoard.openCurrentSprintDemo = (...a) =>
 
 // ── Load all data from backend ────────────────────────────────────────────────
 async function loadAllData() {
-    const d = await api.getAll();
+    // Réglages de projet partagés (3.266.0) lus AVANT tout rendu : seuils, champs JIRA, charges… En cas
+    // d'échec, `projectSettings` reste null et projectStorage retombe sur le localStorage du poste.
+    const [d, settings] = await Promise.all([api.getAll(), api.getProjectSettings().catch(() => null)]);
+    if (settings) {
+        store.set('projectSettings', settings);
+        migrateLocalProjectSettings().catch(() => {});
+    }
     // Statuts forcés (Paramètres → JIRA) appliqués dès le chargement : la base n'est corrigée qu'à la
     // prochaine synchro complète (une rapide ne retraite que les tickets modifiés).
     const tickets = applyStatusOverride(d.tickets || [], d.pi?.statusOverride);   // règle en base, pas encore dans le store
@@ -527,12 +534,12 @@ async function loadAllData() {
     api.getCalendarRules().then(r => store.set('calendarRules', r || [])).catch(() => store.set('calendarRules', []));
     // Board column labels (persisted from last sync)
     try {
-        const saved = localStorage.getItem('sb-boardColumns');
+        const saved = projectStorage.getItem('sb-boardColumns');
         if (saved) store.set('boardColumns', forceAllColumns(JSON.parse(saved)));
     } catch { /* ignore */ }
     // JIRA project→teams mapping (persisted from last sync, used for group suggestions)
     try {
-        const saved = localStorage.getItem('sb-jiraProjectTeams');
+        const saved = projectStorage.getItem('sb-jiraProjectTeams');
         if (saved) store.set('jiraProjectTeams', JSON.parse(saved));
     } catch { /* ignore */ }
     // Notifications: count tickets modified since last visit
@@ -587,7 +594,7 @@ async function handleJiraImport(mode = 14) {
     const isFull = mode === 'full';
     // Lu ici plutôt qu'importé de config.js : handleJiraImport ne doit pas devenir un point
     // d'entrée STATIQUE vers la chaîne de sync (sync.js est chargé en dynamique juste après).
-    const _archiveClosedOn = () => (localStorage.getItem('sb-sync-archiveClosed') ?? '1') !== '0';
+    const _archiveClosedOn = () => (projectStorage.getItem('sb-sync-archiveClosed') ?? '1') !== '0';
     const { importFromJira, getExcludedTeams, clearExcludedTeams, clearEmptyClosedMemory } = await import('./sync.js');
     const excluded = getExcludedTeams();
     let overwrite = false;
@@ -639,11 +646,11 @@ async function handleJiraImport(mode = 14) {
     try {
         const result = await importFromJira(isFull ? { overwrite } : { sinceDays: mode, overwrite });
         if (result.boardColumns && Object.keys(result.boardColumns).length) {
-            localStorage.setItem('sb-boardColumns', JSON.stringify(result.boardColumns));
+            projectStorage.setItem('sb-boardColumns', JSON.stringify(result.boardColumns));
             store.set('boardColumns', result.boardColumns);
         }
         if (result.projectTeams && Object.keys(result.projectTeams).length) {
-            localStorage.setItem('sb-jiraProjectTeams', JSON.stringify(result.projectTeams));
+            projectStorage.setItem('sb-jiraProjectTeams', JSON.stringify(result.projectTeams));
             store.set('jiraProjectTeams', result.projectTeams);
         }
         await loadAllData();
@@ -706,7 +713,7 @@ async function init() {
 
     // Helper : durée de sync rapide configurée dans Paramètres (default 14)
     const _getQuickDays = () => {
-        const raw = (localStorage.getItem('sb-sync-quickDays') || '').trim();
+        const raw = (projectStorage.getItem('sb-sync-quickDays') || '').trim();
         const n = parseInt(raw, 10);
         return (!isNaN(n) && n >= 1 && n <= 365) ? n : 14;
     };

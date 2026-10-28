@@ -7,12 +7,13 @@
 import * as api from './api.js';
 import { SYNC_CONFIG } from './config.js';
 import { detectContributorsField, setContributorsField } from './sync-parse.js';
+import { projectStorage } from './project-settings.js';
 
 /** @returns {Promise<{ storyPointsField: string, sprintFieldId: string, piSprintField: string|null, teamFieldId: string|null, fieldIndex: Map<string, string> }>} */
 export async function detectSyncFields() {
-    const piSprintFieldOverride = (localStorage.getItem('sb-sync-piSprintField') || '').trim() || null;
-    const sprintFieldOverride   = (localStorage.getItem('sb-sync-sprintField')   || '').trim() || null;
-    const teamFieldOverride     = (localStorage.getItem('sb-sync-teamField')     || '').trim() || null;
+    const piSprintFieldOverride = (projectStorage.getItem('sb-sync-piSprintField') || '').trim() || null;
+    const sprintFieldOverride   = (projectStorage.getItem('sb-sync-sprintField')   || '').trim() || null;
+    const teamFieldOverride     = (projectStorage.getItem('sb-sync-teamField')     || '').trim() || null;
     // 1. Discover story points field, sprint field, team field, and PI Sprint custom field
     let storyPointsField = 'story_points';
     let sprintFieldId    = sprintFieldOverride || SYNC_CONFIG.sprintField;
@@ -83,7 +84,7 @@ export async function detectSyncFields() {
         }
 
         // Champ « Contributeurs » (volontaires aux côtés du porteur — page Affinage, cadrage)
-        const contribOverride = (localStorage.getItem('sb-sync-contributorsField') || '').trim() || null;
+        const contribOverride = (projectStorage.getItem('sb-sync-contributorsField') || '').trim() || null;
         const contribField = detectContributorsField(fields, contribOverride);
         setContributorsField(contribField);
         if (contribField) console.log(`[Squad-Board] Champ Contributeurs: ${contribField} ("${_fieldIndex.get(contribField) || '?'}")`);

@@ -3,6 +3,7 @@
  * Ré-exporté par sync.js (`clearEmptyClosedMemory` pour app.js, `_buildClosedArchive` pour les tests).
  */
 import { store } from './state.js';
+import { projectStorage } from './project-settings.js';
 
 /**
  * Archive des sprints clos — ce qu'une sync complète n'a pas besoin de re-télécharger.
@@ -51,7 +52,7 @@ const EMPTY_CLOSED_MAX = 800;   // borne : ~40 boards × 20 sprints vides, large
  */
 export function _loadEmptyClosed(enabled) {
     if (!enabled) return new Set();
-    try { return new Set(JSON.parse(localStorage.getItem(EMPTY_CLOSED_KEY) || '[]')); }
+    try { return new Set(JSON.parse(projectStorage.getItem(EMPTY_CLOSED_KEY) || '[]')); }
     catch { return new Set(); }
 }
 
@@ -59,13 +60,13 @@ export function _saveEmptyClosed(ids) {
     try {
         // Les plus récemment constatés en dernier : c'est le début qu'on sacrifie si ça déborde.
         const list = [...ids].slice(-EMPTY_CLOSED_MAX);
-        localStorage.setItem(EMPTY_CLOSED_KEY, JSON.stringify(list));
+        projectStorage.setItem(EMPTY_CLOSED_KEY, JSON.stringify(list));
     } catch { /* quota localStorage : la mémoire est un confort, pas une dépendance */ }
 }
 
 /** Purge la mémoire des sprints vides — appelée par « Tout réimporter depuis JIRA ». */
 export function clearEmptyClosedMemory() {
-    try { localStorage.removeItem(EMPTY_CLOSED_KEY); } catch { /* ignore */ }
+    try { projectStorage.removeItem(EMPTY_CLOSED_KEY); } catch { /* ignore */ }
 }
 
 export function _buildClosedArchive(enabled, isExcludedTeam) {

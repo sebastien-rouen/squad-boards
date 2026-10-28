@@ -4,6 +4,8 @@
  * pas tirer les 300 KB de la vue Paramètres (lazy loading des vues, cf app.js).
  */
 
+import { projectStorage } from './project-settings.js';
+
 const _LS_REMINDERS = 'sb-reminders';
 
 export const REMINDER_DEFS = [
@@ -17,7 +19,7 @@ export const REMINDER_DEFS = [
 
 export function loadReminders() {
     try {
-        const saved = JSON.parse(localStorage.getItem(_LS_REMINDERS) || '{}');
+        const saved = JSON.parse(projectStorage.getItem(_LS_REMINDERS) || '{}');
         const result = {};
         for (const def of REMINDER_DEFS) {
             result[def.id] = {
@@ -30,5 +32,5 @@ export function loadReminders() {
 }
 
 export function saveReminders(data) {
-    localStorage.setItem(_LS_REMINDERS, JSON.stringify(data));
+    projectStorage.setItem(_LS_REMINDERS, JSON.stringify(data));
 }

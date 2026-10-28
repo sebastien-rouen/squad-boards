@@ -12,6 +12,7 @@ import { esc, getCurrentPi, emptyStateHtml } from '../utils.js';
 import * as M from './atlas-model.js';
 import { avatarHtml, dotHtml } from './atlas-ui.js';
 import { signalHtml } from './atlas-map.js';
+import { projectStorage } from '../project-settings.js';
 
 const _ring = (ctx, team) => {
     const c = M.coverage(ctx, team);
@@ -73,7 +74,7 @@ function _objectives(st) {
     const pi = cur ? cur + (st.objOffset || 0) : 0;
     const key = 'sb-team-objectives-' + (team && team !== 'all' ? team : 'all') + (pi > 0 ? '-PI' + pi : '');
     let raw = '';
-    try { raw = localStorage.getItem(key) || ''; } catch { /* stockage indisponible */ }
+    try { raw = projectStorage.getItem(key) || ''; } catch { /* stockage indisponible */ }
     const lines = raw.split('\n').filter(l => l.trim());
     const locked = (st.objOffset || 0) < 0 && !st.objUnlocked;
     return `<div class="atl-panel__head"><h3>🎯 Objectifs ${team && team !== 'all' ? esc(team) : 'du périmètre'}</h3><span class="spacer"></span>`
@@ -120,7 +121,7 @@ export function bindBoard(root, ctx, st, rerender, act) {
         if (b('[data-obj-save]')) {
             const key = b('[data-obj-save]').dataset.objSave;
             const val = root.querySelector('[data-obj-text]')?.value || '';
-            try { val.trim() ? localStorage.setItem(key, val.trim()) : localStorage.removeItem(key); } catch { /* stockage indisponible */ }
+            try { val.trim() ? projectStorage.setItem(key, val.trim()) : projectStorage.removeItem(key); } catch { /* stockage indisponible */ }
             st.objEditing = null; rerender();
         }
     });
@@ -128,11 +129,11 @@ export function bindBoard(root, ctx, st, rerender, act) {
         const c = e.target.closest('[data-obj-chk]');
         if (!c) return;
         try {
-            const lines = (localStorage.getItem(c.dataset.key) || '').split('\n').filter(l => l.trim());
+            const lines = (projectStorage.getItem(c.dataset.key) || '').split('\n').filter(l => l.trim());
             const i = Number(c.dataset.objChk);
             const text = lines[i].replace(/^\[[ xX]\] /, '');
             lines[i] = (c.checked ? '[x] ' : '') + text;
-            localStorage.setItem(c.dataset.key, lines.join('\n'));
+            projectStorage.setItem(c.dataset.key, lines.join('\n'));
         } catch { /* stockage indisponible */ }
         rerender();
     });

@@ -27,7 +27,7 @@ router = APIRouter(tags=["config"])
 CONFIG_DOMAINS = [
     "teams", "groups", "members", "pi",
     "absences", "support", "events", "calendars",
-    "skills", "appetences", "memberSkills", "memberAppetences", "mobility", "teamSkillRequirements",
+    "skills", "appetences", "memberSkills", "memberAppetences", "mobility", "teamSkillRequirements", "projectSettings",
     "teamIdentities", "workshopTemplates", "teamWorkshops",
     "moodVotes", "fistVotes", "confidenceVotes", "retroItems", "risks",
 ]

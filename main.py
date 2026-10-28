@@ -22,7 +22,7 @@ from app.routers import (
     teams, groups, epics, members, absences, support, agile,
     tickets, features, planning, atlas, calendars, jira, data, poker,
     team_identity, workshop_templates, team_workshops, attachments, slack, calendar_rules,
-    config_bundle,
+    config_bundle, project_settings,
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -55,6 +55,7 @@ for _r in (
     calendars.router, jira.router, data.router, poker.router_poker,
     team_identity.router, workshop_templates.router, team_workshops.router,
     attachments.router, slack.router, calendar_rules.router, config_bundle.router,
+    project_settings.router,
 ):
     app.include_router(_r)
 

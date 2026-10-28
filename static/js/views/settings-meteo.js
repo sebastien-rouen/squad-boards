@@ -13,6 +13,7 @@
 import { store } from '../state.js';
 import { esc, toast, getCurrentPi, meteoThresholds, meteoScopeThresholds, METEO_DEFAULT_THRESHOLDS, METEO_SCOPE_DEFAULT_THRESHOLDS, METEO_REL_BAND, METEO_START_TOLERANCE } from '../utils.js';
 import { meteoMatrixHtml, meteoContext } from '../components/meteo_matrix.js';
+import { projectStorage } from '../project-settings.js';
 
 const LS_KEY = 'sb-meteo-thresholds';
 const LS_SCOPE = 'sb-meteo-scope';
@@ -57,7 +58,7 @@ function _previewHtml(thresholds, scopeThresholds = null) {
 export function meteoSectionHtml() {
     const th = meteoThresholds();
     const sth = meteoScopeThresholds();
-    const isCustom = !!localStorage.getItem(LS_KEY) || !!localStorage.getItem(LS_SCOPE);
+    const isCustom = !!projectStorage.getItem(LS_KEY) || !!projectStorage.getItem(LS_SCOPE);
     return `
         <!-- ═══ Seuils météo ═══ -->
         <div class="settings-section" id="section-seuils-meteo">
@@ -123,8 +124,8 @@ export function wireMeteoSection(container) {
     sec.querySelector('#meteo-thr-save')?.addEventListener('click', () => {
         const d = _readDraft(sec);
         if (!d.ok) { setMsg(d.error, true); return; }
-        localStorage.setItem(LS_KEY, JSON.stringify(d.thresholds));
-        localStorage.setItem(LS_SCOPE, JSON.stringify(d.scope));
+        projectStorage.setItem(LS_KEY, JSON.stringify(d.thresholds));
+        projectStorage.setItem(LS_SCOPE, JSON.stringify(d.scope));
         btnReset.disabled = false;
         setMsg('Seuils enregistrés — le Dashboard les applique dès son prochain affichage.');
         toast('Seuils météo enregistrés', 'success');
@@ -132,8 +133,8 @@ export function wireMeteoSection(container) {
     });
 
     btnReset?.addEventListener('click', () => {
-        localStorage.removeItem(LS_KEY);
-        localStorage.removeItem(LS_SCOPE);
+        projectStorage.removeItem(LS_KEY);
+        projectStorage.removeItem(LS_SCOPE);
         for (const f of FIELDS) { const inp = sec.querySelector(`#meteo-thr-${f.key}`); if (inp) inp.value = METEO_DEFAULT_THRESHOLDS[f.key]; }
         for (const f of SCOPE_FIELDS) { const inp = sec.querySelector(`#meteo-scope-${f.key}`); if (inp) inp.value = METEO_SCOPE_DEFAULT_THRESHOLDS[f.key]; }
         btnReset.disabled = true;

@@ -75,6 +75,7 @@ export const store = new Store({
     memberSkills: [],      // niveaux par scope (membre|équipe)
     memberAppetences: [],  // appétences par scope
     mobility: [],          // lignes de suivi de mobilité
+    projectSettings: null,      // réglages de projet partagés (project-settings.js) — null = pas encore chargés
     teamSkillRequirements: [],  // compétences requises par équipe { team, skillId }
     sprintInfo: null,
     velocityHistory: [],  // legacy — désormais calculé à la volée via utils.computeVelocityHistory

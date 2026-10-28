@@ -1,5 +1,7 @@
 /** Centralized configuration constants. */
 
+import { projectStorage } from './project-settings.js';
+
 export const STATUS_ORDER = ['todo', 'inprog', 'review', 'test', 'blocked', 'done'];
 
 export const STATUS_LABELS = {
@@ -234,7 +236,7 @@ export const SYNC_DEFAULTS = {
  * @returns {number} valeur effective — jamais NaN, jamais négative
  */
 export function syncSetting(name) {
-    const raw = (localStorage.getItem(`sb-sync-${name}`) || '').trim();
+    const raw = (projectStorage.getItem(`sb-sync-${name}`) || '').trim();
     const n = parseInt(raw, 10);
     // 0 est LÉGITIME pour `closedTicketSprints` (désactive la passe) : on ne retombe sur le
     // défaut que si la saisie est absente ou illisible, pas si elle vaut zéro.

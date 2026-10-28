@@ -12,6 +12,7 @@ import { openCreateModal }                                from '../components/mo
 import { loadFilters, saveFilters,
          applyFilters, clearFilters, hasActiveFilters }   from '../components/backlog-filters.js';
 import { BulkManager }                                    from '../components/backlog-bulk.js';
+import { projectStorage } from '../project-settings.js';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const LS_STALE     = 'sb-backlog-stale-months';
@@ -39,7 +40,7 @@ let _openPopover  = null; // clé du popover filtre actuellement ouvert
 
 // ── Stale helpers ──────────────────────────────────────────────────────────────
 function getStaleMonths() {
-    return Math.max(1, parseInt(localStorage.getItem(LS_STALE) || '3', 10) || 3);
+    return Math.max(1, parseInt(projectStorage.getItem(LS_STALE) || '3', 10) || 3);
 }
 function isStale(t) {
     if (!t.updatedAt) return false;

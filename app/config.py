@@ -17,7 +17,7 @@ DEMO_DIR = BASE_DIR / "docs" / "demo"   # démos vidéo servies sous /demo/ (mai
 _db_env = os.getenv("SB_DB_PATH", "").strip()
 DB_PATH = (Path(_db_env) if Path(_db_env).is_absolute() else BASE_DIR / _db_env) if _db_env else DATA_DIR / "board.db"
 # Pièces jointes : `SB_UPLOADS_DIR` (absolu ou relatif à la racine) pour qu'une instance parallèle n'écrive pas dans
-# le dossier d'une autre (docs/multi-instance.md, 3.282.0). Défaut : data/uploads.
+# le dossier d'une autre (docs/multi-instance.md, 3.283.0). Défaut : data/uploads.
 _up_env = os.getenv("SB_UPLOADS_DIR", "").strip()
 UPLOADS_DIR = (Path(_up_env) if Path(_up_env).is_absolute() else BASE_DIR / _up_env) if _up_env else DATA_DIR / "uploads"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)

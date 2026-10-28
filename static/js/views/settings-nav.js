@@ -9,6 +9,10 @@
  */
 
 export const SETTINGS_NAV = Object.freeze([
+    // Sans nom de groupe : entrée d'accueil, page d'arrivée de `#settings` (3.283.0)
+    { group: '', icon: '', items: [
+        { slug: 'vue-d-ensemble',         icon: '🧭', label: 'Vue d\'ensemble',       keywords: 'etat configuration a faire checklist assistant' },
+    ] },
     { group: 'Projet', icon: '🏁', items: [
         { slug: 'identite-du-projet',     icon: '🏷️', label: 'Identité',              keywords: 'nom projet couleur marque initiales logo' },
         { slug: 'modules-menu',           icon: '🧩', label: 'Modules & menu',        keywords: 'vues masquer renommer menu navigation assistant mise en route' },
@@ -37,7 +41,7 @@ export const SETTINGS_NAV = Object.freeze([
     ] },
     { group: 'Données', icon: '💾', items: [
         { slug: 'donnees',                icon: '📦', label: 'Sauvegarde & données',  keywords: 'export import sauvegarde restauration gabarit supprimer zip' },
-        { slug: 'faits-marquants',        icon: '⚡', label: 'Faits marquants',       keywords: 'faits marquants evenements frise liste' },
+        { slug: 'faits-marquants',        icon: '⚡', label: 'Faits marquants',       module: 'team', keywords: 'faits marquants evenements frise liste' },
         { slug: 'a-propos',               icon: 'ℹ️', label: 'À propos',              keywords: 'version a propos aide' },
     ] },
 ]);

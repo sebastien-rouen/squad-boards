@@ -1,3 +1,19 @@
+## [3.283.0] - 2026-10-29
+
+### Paramètres — vue d'ensemble et onglets selon les modules (lot 2/3 : propositions 4, 5)
+
+- **🧭 Vue d'ensemble** (`views/settings-overview.js`, page d'arrivée de `#settings`) : une ligne par réglage,
+  ✅ configuré · ⚠️ à faire · · facultatif, cliquable vers son onglet, + bouton « Assistant de mise en route ».
+  Chaque état relit la source de l'onglet (store, réglages de projet) — aucun calcul propre. Signale notamment :
+  rôles sans pondération (comptés à 100 % par `roleCapacityPct`, lookup exact), congés connus à moins de 30 jours,
+  personne d'astreinte cette semaine, statuts JIRA non classés, synchro jamais faite.
+  `#settings` sans section → Vue d'ensemble (avant : dernier onglet visité, `sb-settings-tab`, plus écrit).
+- **Onglets suivant les modules** : `module` au registre `SETTINGS_NAV` — Rotation support (module Support) et
+  Faits marquants (module Équipe) quittent la navigation quand leur module est désactivé ; un lien direct les
+  ouvre encore, rien n'est supprimé. Les agendas, la capacité et Sprint & PI servent partout : jamais masqués.
+- Vérifié : Chromium 1440 / 390 px (13 lignes d'état, clic → onglet + hash, module Support désactivé simulé →
+  onglet retiré, 0 erreur, pas de débordement).
+
 ## [3.282.0] - 2026-10-29
 
 ### Paramètres — navigation repensée (lot 1/3 : propositions 1, 2, 3)

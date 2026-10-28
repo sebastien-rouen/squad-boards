@@ -14,6 +14,8 @@ import { esc, deriveMembersFromAbsences, scrollToEl } from '../utils.js';
 import * as api from '../api.js';
 import { mountNavRail } from '../components/nav-rail.js';
 import { SETTINGS_NAV, NAV_BY_SLUG } from './settings-nav.js';
+import { overviewSectionHtml, wireOverviewSection } from './settings-overview.js';
+import { isModuleOn } from '../utils/modules.js';
 import { _rotRenderPanels, _rotSetCollapsed } from './settings-rotation.js';
 import { jiraSectionHtml, wireJiraSection } from './settings-jira.js';
 import { wirePersonAliases } from './settings-person-aliases.js';
@@ -78,6 +80,7 @@ export function renderSettings(container) {
     container.innerHTML = `<div class="stg-shell${side ? ' stg-shell--side' : ''}">
         <nav id="settings-tabs" class="settings-tabs" aria-label="Sections Paramètres"></nav>
         <div class="settings-layout">
+            ${overviewSectionHtml(ctx)}
             ${groupsSectionHtml(ctx)}
             ${teamsSectionHtml(ctx)}
             ${membersSectionHtml(ctx)}
@@ -259,13 +262,15 @@ function _settingsApplyTabs(container) {
             <span class="stg-tab-label">${esc(t.label)}</span>
         </button>`;
     const _groupHtml = (label, icon, items) => items.length ? `<div class="stg-tab-group">
-            <span class="stg-tab-group-label">${icon ? `<span aria-hidden="true">${icon}</span> ` : ''}${esc(label)}</span>
+            ${label ? `<span class="stg-tab-group-label">${icon ? `<span aria-hidden="true">${icon}</span> ` : ''}${esc(label)}</span>` : ''}
             <div class="stg-tab-group-items">${items.map(_tabBtn).join('')}</div>
         </div>` : '';
     const bySlug = new Map(tabs.map(t => [t.slug, t]));
     // Section sans entrée au registre → « Autres » (signal : la classer dans settings-nav.js)
     const unassigned = tabs.filter(t => !NAV_BY_SLUG[t.slug]);
-    nav.innerHTML = SETTINGS_NAV.map(g => _groupHtml(g.group, g.icon, g.items.map(it => bySlug.get(it.slug)).filter(Boolean))).join('')
+    // Onglet d'un module désactivé : retiré de la nav (un lien direct l'ouvre encore, rien n'est supprimé)
+    const _shown = it => !it.module || isModuleOn(it.module);
+    nav.innerHTML = SETTINGS_NAV.map(g => _groupHtml(g.group, g.icon, g.items.filter(_shown).map(it => bySlug.get(it.slug)).filter(Boolean))).join('')
         + _groupHtml('Autres', '', unassigned);
 
     const side = container.querySelector('.stg-shell--side');
@@ -305,7 +310,6 @@ function _settingsApplyTabs(container) {
         nav.querySelectorAll('[data-stg-tab]').forEach(btn => {
             btn.classList.toggle('is-active', btn.dataset.stgTab === found.slug);
         });
-        localStorage.setItem('sb-settings-tab', found.slug);
         // Sync URL : on stocke dans le store (consommé par pushHash → #settings/<slug>) sans
         // re-déclencher le re-render. replaceState pour ne pas polluer l'historique à chaque clic.
         if (syncHash) {
@@ -322,8 +326,8 @@ function _settingsApplyTabs(container) {
     const _hashParts = location.hash.replace(/^#/, '').split('/');
     const fromHash  = (_hashParts[0] === 'settings' && _hashParts[1]) ? decodeURIComponent(_hashParts[1]) : null;
     const fromStore = store.get('settingsSection');
-    const fromLS    = localStorage.getItem('sb-settings-tab');
-    activate(fromHash || fromStore || fromLS || tabs[0]?.slug, { syncHash: false });
+    // Sans section demandée : la Vue d'ensemble (3.283.0) — avant, le dernier onglet visité (sb-settings-tab)
+    activate(fromHash || fromStore || 'vue-d-ensemble', { syncHash: false });
     // Sync hash initial : si on a déterminé une tab et que le hash n'est pas déjà settings/<slug>, on le pose
     if (tabs.length) {
         const activeSlug = (nav.querySelector('.stg-tab.is-active')?.dataset.stgTab) || tabs[0].slug;
@@ -338,6 +342,7 @@ function _settingsApplyTabs(container) {
     nav.querySelectorAll('[data-stg-tab]').forEach(btn => {
         btn.addEventListener('click', () => activate(btn.dataset.stgTab));
     });
+    wireOverviewSection(container, slug => activate(slug));
 }
 
 // Une couleur par GROUPE (avant : par position, deux voisins d'un même groupe ne se ressemblaient pas)

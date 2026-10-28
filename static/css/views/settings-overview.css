@@ -1,0 +1,32 @@
+/* Paramètres → Vue d'ensemble (3.283.0, views/settings-overview.js) — une ligne par réglage : icône · nom · état · détail */
+.stg-ov-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); }
+.stg-ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--sp-4); }
+.stg-ov-group h4 {
+    margin: 0 0 var(--sp-2);
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-muted);
+}
+.stg-ov-row {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    grid-template-areas: "ico name state" "ico txt txt";
+    column-gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    margin-bottom: var(--sp-2);
+    color: var(--text);
+    text-decoration: none;
+    background: var(--surface);
+    transition: border-color var(--tr-fast), background var(--tr-fast);
+}
+.stg-ov-row:hover, .stg-ov-row:focus-visible { border-color: var(--primary); background: var(--surface-hover); }
+.stg-ov-row--todo { border-left: 3px solid var(--warning, #f59e0b); }
+.stg-ov-row--ok { border-left: 3px solid var(--success, #16a34a); }
+.stg-ov-ico { grid-area: ico; font-size: 16px; line-height: 1.4; }
+.stg-ov-name { grid-area: name; font-weight: var(--fw-medium); }
+.stg-ov-state { grid-area: state; }
+.stg-ov-txt { grid-area: txt; font-size: var(--fs-xs); color: var(--text-secondary); }
+@media (max-width: 480px) { .stg-ov-grid { grid-template-columns: 1fr; } }

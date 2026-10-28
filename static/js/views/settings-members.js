@@ -8,6 +8,14 @@ import { esc, deriveMembersFromAbsences, toast, confirmDanger } from '../utils.j
 import * as api from '../api.js';
 
 /** Section « Membres ». */
+/** Membres rangés par équipe (alphabétique, « sans équipe » en dernier), noms triés dans chaque équipe (3.284.0). */
+function _byTeam(members) {
+    const by = new Map();
+    for (const m of members) { const k = m.team || ''; if (!by.has(k)) by.set(k, []); by.get(k).push(m); }
+    const cmp = (a, b) => String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' });
+    return [...by.entries()].sort(([a], [b]) => (!a) - (!b) || cmp(a, b)).map(([k, l]) => [k, l.sort((x, y) => cmp(x.name, y.name))]);
+}
+
 export function membersSectionHtml(ctx) {
     const { members, absences, teamNames } = ctx;
     return `
@@ -23,9 +31,13 @@ export function membersSectionHtml(ctx) {
                     <span class="abs-filter-count" id="member-filter-count"></span>
                 </div>
                 <div class="item-list" id="member-list">
-                    ${members.map(m => {
-                        const memberAbs = _memberAbsenceInfo(m.name, absences);
-                        return `
+                    ${_byTeam(members).map(([team, list]) => {
+                        const rows = list.map(m => ({ m, abs: _memberAbsenceInfo(m.name, absences) }));
+                        const off = rows.filter(r => r.abs.todayCount > 0).length;
+                        return `<details class="mbr-team" data-team="${esc(team)}">
+                        <summary class="mbr-team__head"><b>${esc(team || 'Sans équipe')}</b>
+                            <span class="mbr-team__meta">${rows.length} personne${rows.length > 1 ? 's' : ''}${off ? ` · 🌴 ${off} absent${off > 1 ? 's' : ''} aujourd'hui` : ''}</span></summary>
+                        ${rows.map(({ m, abs: memberAbs }) => `
                         <div class="item-row${memberAbs.todayCount > 0 ? ' item-row--absent-today' : ''}" data-id="${esc(m.id)}"
                              data-search="${esc((m.name + ' ' + (m.team || '') + ' ' + (m.role || '') + ' ' + (m.entity || '')).toLowerCase())}">
                             <span class="item-name">
@@ -43,7 +55,8 @@ export function membersSectionHtml(ctx) {
                             <div class="item-actions">
                                 <button aria-label="Supprimer" class="btn-icon btn-del-member" data-id="${esc(m.id)}" title="Supprimer"><svg class="icon icon-sm text-danger"><use href="#i-x"/></svg></button>
                             </div>
-                        </div>`;
+                        </div>`).join('')}
+                        </details>`;
                     }).join('')}
                 </div>
                 <div class="add-inline mt-2">
@@ -57,7 +70,7 @@ export function membersSectionHtml(ctx) {
                     <button class="btn btn-primary btn-sm" id="btn-add-member">Ajouter</button>
                 </div>
 
-                <h4 class="text-sm font-semibold mt-4 mb-1">Import CSV membres</h4>
+                <details class="mbr-import mt-4"><summary class="text-sm font-semibold">📥 Import CSV membres</summary>
                 <p class="text-xs text-muted mb-2">Format : <code>Nom;Equipe;Entite;Role</code> — une ligne par membre. Une ligne d'en-tête (<code>Nom</code>, <code>Équipe</code>, <code>Rôle</code>, <code>Entité</code>, en français ou en anglais) permet n'importe quel ordre de colonnes. Colonnes supplémentaires ignorées. Écrase toute la liste existante.</p>
                 ${absences.some(a => a.memberName && a.team) ? '' : '<p class="text-xs mb-2">🧑‍🤝‍🧑 <strong>Aucun export RH importé</strong> : cette liste fait foi pour tout le site (Atlas, capacité, rotation, météo). Importer des congés RH la remplacera comme source.</p>'}
                 <textarea class="input" id="member-csv-input" rows="5" placeholder="Alice;Fuego;Accenture;Dev&#10;Bob;Gabbiano;Capgemini;PO&#10;Claire;Fuego;Accenture;SM"></textarea>
@@ -65,6 +78,7 @@ export function membersSectionHtml(ctx) {
                     <button class="btn btn-primary btn-sm" id="btn-import-member-csv">Importer le CSV</button>
                     <button class="btn btn-danger btn-sm" id="btn-clear-members">Tout supprimer</button>
                 </div>
+                </details>
             </div>
         </div>`;
 }
@@ -178,6 +192,12 @@ export function wireMembersSection(container, ctx) {
             const match = !q || (row.dataset.search || '').includes(q);
             row.style.display = match ? '' : 'none';
             if (match) visible++;
+        });
+        // Équipes repliées (3.284.0) : une recherche ouvre celles qui ont un résultat et masque les autres
+        container.querySelectorAll('#member-list .mbr-team').forEach(g => {
+            const hits = [...g.querySelectorAll('.item-row')].some(r => r.style.display !== 'none');
+            g.hidden = !!q && !hits;
+            g.open = !!q && hits;
         });
         if (memberFilterCount) memberFilterCount.textContent = q ? `${visible} résultat${visible > 1 ? 's' : ''}` : '';
     };

@@ -464,7 +464,7 @@ function _search(q) {
         // Blocs de page (« Temps par colonne », « Prévision de fin »…) — sous les vues,
         // au-dessus des tickets : on cherche un endroit où aller, pas un ticket.
         for (const sec of SECTIONS) {
-            if (!isModuleOn(sec.view)) continue;
+            if (!isModuleOn(sec.view) || (sec.module && !isModuleOn(sec.module))) continue;   // onglet d'un module masqué (3.284.0)
             const s2 = _scoreEntry(sec, text);
             if (s2 > 0) results.push({ group: 'section', score: s2 + 18, item: sec });
         }

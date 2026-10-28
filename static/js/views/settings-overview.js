@@ -11,7 +11,7 @@ import { projectName, APP_NAME } from '../utils/identity.js';
 import { holidayConfig, HOLIDAY_COUNTRIES } from '../utils/holidays.js';
 import { readUnmapped } from '../utils/jira-mapping.js';
 import { isModuleOn, modulesConfig } from '../utils/modules.js';
-import { SETTINGS_NAV, NAV_BY_SLUG } from './settings-nav.js';
+import { SETTINGS_NAV, NAV_BY_SLUG } from '../settings-nav.js';
 
 const OK = 'ok', TODO = 'todo', OPT = 'opt';
 const _fmt = iso => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });

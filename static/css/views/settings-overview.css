@@ -1,4 +1,5 @@
-/* Paramètres → Vue d'ensemble (3.283.0, views/settings-overview.js) — une ligne par réglage : icône · nom · état · détail */
+/* Paramètres — Vue d'ensemble (3.283.0, views/settings-overview.js) : une ligne par réglage, icône · nom · état · détail ;
+   + aides de lecture des pages longues et filtre de la colonne (3.284.0). */
 .stg-ov-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); }
 .stg-ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--sp-4); }
 .stg-ov-group h4 {
@@ -30,3 +31,18 @@
 .stg-ov-state { grid-area: state; }
 .stg-ov-txt { grid-area: txt; font-size: var(--fs-xs); color: var(--text-secondary); }
 @media (max-width: 480px) { .stg-ov-grid { grid-template-columns: 1fr; } }
+
+/* Membres rangés par équipe (3.284.0) — 225 lignes dépliées faisaient 14 600 px */
+.mbr-team { border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: var(--sp-2); }
+.mbr-team__head { display: flex; align-items: baseline; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); cursor: pointer; }
+.mbr-team__meta { font-size: var(--fs-xs); color: var(--text-muted); }
+.mbr-team[open] > .mbr-team__head { border-bottom: 1px solid var(--border); }
+.mbr-import > summary { cursor: pointer; padding: var(--sp-2) 0; }
+/* Blocs repliables des pages longues (3.284.0) : détecteur d'agendas, formulaire d'ajout, aperçu météo */
+.stg-fold { border: 1px solid var(--border); border-radius: var(--r-md); padding: 0 var(--sp-3); margin-bottom: var(--sp-3); }
+.stg-fold > summary { cursor: pointer; padding: var(--sp-2) 0; font-weight: var(--fw-semibold); font-size: var(--fs-sm); }
+.stg-fold[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: var(--sp-3); }
+.stg-fold__hint { font-weight: normal; color: var(--text-muted); font-size: var(--fs-xs); margin-left: var(--sp-2); }
+.stg-fold--detect .tcd > h4 { display: none; }
+.stg-nav-search { width: 100%; margin-bottom: var(--sp-1); }
+.stg-tab[hidden], .stg-tab-group[hidden] { display: none; }

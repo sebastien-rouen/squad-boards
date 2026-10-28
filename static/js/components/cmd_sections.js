@@ -19,6 +19,7 @@
 import { store } from '../state.js';
 import { toast, scrollToEl } from '../utils.js';
 import { NAV_ITEMS } from '../config.js';
+import { SETTINGS_NAV } from '../settings-nav.js';
 
 
 // Délai max d'attente de l'apparition du bloc (rendu de vue lazy + import dynamique)
@@ -150,21 +151,11 @@ const RAW = [
     { view: 'agenda', icon: '🎧', label: 'Support de la semaine', sel: '.agenda-support-bar', keywords: 'support semaine astreinte bandeau' },
     { view: 'agenda', icon: '🚫', label: 'Absences (OFF)',        sel: '.agenda-off-row',     keywords: 'absences off conges indisponibles' },
 
-    // ── Paramètres (onglets) ───────────────────────────────────────────────
-    { view: 'settings', icon: '🏷️', label: 'Lignes produit / Groupes', tab: 'lignes-produit-groupes', sel: '#section-lignes-produit-groupes', anchor: 'Lignes produit / Groupes', keywords: 'lignes produit groupes regroupement equipes' },
-    { view: 'settings', icon: '👥', label: 'Équipes (paramètres)',      tab: 'equipes', sel: '#section-equipes', anchor: 'Équipes',                 keywords: 'equipes teams parametres creation' },
-    { view: 'settings', icon: '🧑', label: 'Membres',                   tab: 'membres', sel: '#section-membres', anchor: 'Membres',                 keywords: 'membres personnes roster csv' },
-    { view: 'settings', icon: '⚡', label: 'Capacité dev par rôle',      tab: 'cap-roles', sel: '#section-cap-roles', anchor: 'Capacité dev', keywords: 'capacite role dev tech lead po sm pourcentage etp' },
-    { view: 'settings', icon: '🏖️', label: 'Absences / Congés',         tab: 'absences-conges', sel: '#section-absences-conges', anchor: 'Absences / Congés',         keywords: 'absences conges csv import rh' },
-    { view: 'settings', icon: '🗓️', label: 'Sprint & PI',               tab: 'sprint-pi', sel: '#section-sprint-pi', anchor: 'Sprint & PI',               keywords: 'sprint pi iteration duree dates configuration' },
-    { view: 'settings', icon: '🔁', label: 'Rotation Support',          tab: 'rotation', sel: '#section-rotation', anchor: 'Rotation Support',                keywords: 'rotation support grille shuffle semaines' },
-    { view: 'settings', icon: '📌', label: 'Faits marquants',           tab: 'faits-marquants', sel: '#section-faits-marquants', anchor: 'Faits marquants',         keywords: 'faits marquants incidents gel code jalons' },
-    { view: 'settings', icon: '🔔', label: 'Rappels & Cérémonies',      tab: 'rappels-ceremonies', sel: '#section-rappels-ceremonies', anchor: 'Rappels & Cérémonies',      keywords: 'rappels ceremonies daily retro demo notifications' },
-    { view: 'settings', icon: '📅', label: 'Calendriers ICS',           tab: 'calendriers-ics', sel: '#section-calendriers-ics', anchor: 'Calendriers ICS',         keywords: 'calendriers ics google agenda flux' },
-    { view: 'settings', icon: '🔌', label: 'Plugin JIRA',               tab: 'plugin-jira-optionnel', sel: '#section-plugin-jira-optionnel', anchor: 'Plugin JIRA',   keywords: 'jira plugin import synchronisation token' },
-    { view: 'settings', icon: '💬', label: 'Slack',                     tab: 'slack-optionnel', sel: '#section-slack-optionnel', anchor: 'Slack (optionnel)',         keywords: 'slack webhook canal notifications' },
-    { view: 'settings', icon: '💾', label: 'Données (import / export)', tab: 'donnees', sel: '#section-donnees', anchor: 'Données',                 keywords: 'donnees import export sauvegarde reset' },
-    { view: 'settings', icon: 'ℹ️', label: 'À propos',                  tab: 'a-propos', sel: '#section-a-propos', anchor: 'A propos',                keywords: 'a propos version changelog aide' },
+    // ── Paramètres (onglets) : générés depuis le registre SETTINGS_NAV (3.284.0) — plus de liste en double ──
+    ...SETTINGS_NAV.flatMap(g => g.items.map(it => ({
+        view: 'settings', icon: it.icon, label: it.label, tab: it.slug, sel: `#section-${it.slug}`, module: it.module,
+        keywords: `${it.keywords} reglage reglages parametre parametres ${g.group.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()}`,
+    }))),
 ];
 
 export const SECTIONS = RAW.map(s => ({

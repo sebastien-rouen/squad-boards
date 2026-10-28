@@ -58,9 +58,9 @@ export function calendarsSectionHtml(ctx) {
                     </div>
                 ` : '<p class="text-muted text-sm mb-4">Aucun calendrier configuré</p>'}
 
-                ${calendars.length ? calDetectHtml() : ''}
+                ${calendars.length ? `<details class="stg-fold stg-fold--detect"><summary>🧭 Détecteur d'évènements <span class="stg-fold__hint">natures, portées et règles à la main</span></summary>${calDetectHtml()}</details>` : ''}
 
-                <h4 class="text-sm font-semibold mb-2">Ajouter un calendrier</h4>
+                <details class="stg-fold"${calendars.length ? '' : ' open'}><summary>➕ Ajouter un calendrier</summary>
                 <div class="form-row mb-2">
                     <div class="form-group">
                         <label class="label">Nom *</label>
@@ -81,6 +81,7 @@ export function calendarsSectionHtml(ctx) {
                     <p class="text-xs text-muted mt-1">Google Calendar : Paramètres du calendrier → Intégrations → Adresse publique au format ICAL</p>
                 </div>
                 <button class="btn btn-primary btn-sm" id="btn-add-cal">Ajouter et synchroniser</button>
+                </details>
             </div>
         </div>`;
 }

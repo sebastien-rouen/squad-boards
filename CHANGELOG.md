@@ -1,3 +1,19 @@
+## [3.284.0] - 2026-10-29
+
+### Paramètres — pages longues et recherche (lot 3/3 : propositions 6, 7)
+
+- **Membres** rangés par équipe dans des blocs repliés (effectif + absents du jour en tête) : 14 579 → 1 485 px.
+  Le filtre ouvre les équipes qui ont un résultat et masque les autres ; l'arrivée filtrée sur l'équipe du topbar
+  ouvre donc directement la sienne. Import CSV dans un bloc repliable.
+- **Agendas (ICS)** : détecteur d'évènements et formulaire d'ajout repliés (ouvert d'office sans agenda) :
+  5 207 → 1 259 px. **Seuils météo** : aperçu replié, ouvert dès qu'un seuil change : 2 470 → 842 px.
+- **Recherche** : champ « Rechercher un réglage… » en tête de la colonne (ordinateur ; Entrée ouvre le premier
+  résultat, Échap efface) sur libellés, groupes et mots-clés sans accents. **Ctrl+K** : les entrées « Paramètres »
+  sont GÉNÉRÉES depuis `SETTINGS_NAV` (19 réglages, avant 14 tenus à la main avec des libellés divergents) et
+  suivent le masquage par module. Registre déplacé en `js/settings-nav.js` (un composant n'importe pas `views/`).
+- Vérifié : Chromium 1440 px (hauteurs, filtre Membres → Fuego seul ouvert, « fériés » / « webhook » / « réglage
+  seuil » dans la colonne et la palette, Entrée → onglet) et 390 px (4 onglets, pas de débordement), 0 erreur.
+
 ## [3.283.0] - 2026-10-29
 
 ### Paramètres — vue d'ensemble et onglets selon les modules (lot 2/3 : propositions 4, 5)

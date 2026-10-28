@@ -99,7 +99,8 @@ export function meteoSectionHtml() {
                         <button class="btn btn-secondary btn-sm" id="meteo-thr-reset" type="button"${isCustom ? '' : ' disabled'}>Valeurs par défaut</button>
                     </div>
                 </div>
-                <div id="meteo-thr-preview">${_previewHtml(th, sth)}</div>
+                <details class="stg-fold" id="meteo-thr-fold"><summary>👁️ Aperçu sur les équipes <span class="stg-fold__hint">la vraie matrice, recalculée à chaque saisie</span></summary>
+                <div id="meteo-thr-preview">${_previewHtml(th, sth)}</div></details>
             </div>
         </div>`;
 }
@@ -117,6 +118,7 @@ export function wireMeteoSection(container) {
         const d = _readDraft(sec);
         if (!d.ok) { setMsg(d.error, true); return; }
         setMsg('');
+        sec.querySelector('#meteo-thr-fold').open = true;   // une saisie montre son effet (3.284.0)
         preview.innerHTML = _previewHtml(d.thresholds, d.scope);
     };
     sec.querySelectorAll('.meteo-thr-input').forEach(inp => inp.addEventListener('input', refresh));

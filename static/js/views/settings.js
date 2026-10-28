@@ -13,7 +13,7 @@ import { store } from '../state.js';
 import { esc, deriveMembersFromAbsences, scrollToEl } from '../utils.js';
 import * as api from '../api.js';
 import { mountNavRail } from '../components/nav-rail.js';
-import { SETTINGS_NAV, NAV_BY_SLUG } from './settings-nav.js';
+import { SETTINGS_NAV, NAV_BY_SLUG } from '../settings-nav.js';
 import { overviewSectionHtml, wireOverviewSection } from './settings-overview.js';
 import { isModuleOn } from '../utils/modules.js';
 import { _rotRenderPanels, _rotSetCollapsed } from './settings-rotation.js';
@@ -279,6 +279,7 @@ function _settingsApplyTabs(container) {
     _tabsResizeObs?.disconnect();
     if (side) {
         container.style.setProperty('--stg-tabs-h', '0px');   // la nav n'est plus au-dessus du contenu
+        _mountNavSearch(nav);
     } else {
         // Rail défilant : la barre tenait 8 lignes et 227 px sur un iPhone 14 (mesuré), soit
         // plus de la moitié de l'écran pour une nav collante. Monté APRÈS le remplissage —
@@ -343,6 +344,31 @@ function _settingsApplyTabs(container) {
         btn.addEventListener('click', () => activate(btn.dataset.stgTab));
     });
     wireOverviewSection(container, slug => activate(slug));
+}
+
+const _fold = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/**
+ * Filtre de la colonne (3.284.0, ordinateur seulement — sur mobile, Ctrl+K) : chaque mot doit apparaître dans le
+ * libellé, le groupe ou les mots-clés du registre ; Entrée ouvre le premier onglet restant.
+ */
+function _mountNavSearch(nav) {
+    nav.insertAdjacentHTML('afterbegin', '<input type="search" class="input input-sm stg-nav-search" placeholder="Rechercher un réglage…" aria-label="Rechercher un réglage" autocomplete="off">');
+    const input = nav.querySelector('.stg-nav-search');
+    const filter = () => {
+        const words = _fold(input.value).split(/\s+/).filter(Boolean);
+        nav.querySelectorAll('.stg-tab').forEach(btn => {
+            const e = NAV_BY_SLUG[btn.dataset.stgTab];
+            const hay = _fold(`${btn.textContent} ${e?.group || ''} ${e?.keywords || ''}`);
+            btn.hidden = words.some(w => !hay.includes(w));
+        });
+        nav.querySelectorAll('.stg-tab-group').forEach(g => { g.hidden = !g.querySelector('.stg-tab:not([hidden])'); });
+    };
+    input.addEventListener('input', filter);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') nav.querySelector('.stg-tab:not([hidden])')?.click();
+        if (e.key === 'Escape' && input.value) { e.stopPropagation(); input.value = ''; filter(); }
+    });
 }
 
 // Une couleur par GROUPE (avant : par position, deux voisins d'un même groupe ne se ressemblaient pas)

@@ -26,6 +26,8 @@ import {
 import { refinementRecapModel, recapSlack, recapHtml, copyRecapRich, downloadRecapCsv, toCompleteSlack } from '../components/refinement_recap.js';
 import { setPokerPlaylist } from '../utils/poker-playlist.js';
 import { cadrageSectionHtml } from '../components/refinement_cadrage.js';
+import { cadragePerimeter, setCadragePerimeter } from '../utils/cadrage.js';
+import { promptModal } from '../utils/modals.js';
 import { refinementStepsHtml } from '../components/refinement_steps.js';
 import { acceptanceStatus } from '../components/desc_sections.js';
 import { readyChecks, armReadyGuide } from '../components/ticket_ready.js';
@@ -358,6 +360,24 @@ function _paint(container) {
     if (steps) container.querySelector('.rf')?.style.setProperty('--rf-sticky', `${steps.offsetHeight}px`);
 }
 
+/** ✏️ Périmètre de cadrage de l'équipe (réglage de projet partagé) : produit des étiquettes de rôle + étiquettes métier. */
+async function _editPerimeter(container) {
+    const team = _st.team;
+    const cur = cadragePerimeter(team, store.get('groups') || []);
+    const product = await promptModal(`Périmètre de cadrage — ${team}`, {
+        message: 'Produit des étiquettes de rôle (SA-<produit>, PO-<produit>, PM-<produit>).\nVide = nom de la ligne produit de l\'équipe.',
+        value: cur.own ? cur.product : '', placeholder: cur.product || 'ex. INFRA', confirmLabel: 'Suivant',
+    });
+    if (product === null) return;
+    const tags = await promptModal(`Périmètre de cadrage — ${team}`, {
+        message: 'Étiquettes métier où l\'équipe contribue, séparées par des virgules (facultatif).',
+        value: cur.tags.join(', '), placeholder: 'ex. OPS, RUN', confirmLabel: 'Enregistrer',
+    });
+    if (tags === null) return;
+    setCadragePerimeter(team, product, tags.split(','));
+    _paint(container);
+}
+
 /** Fil « Par où commencer ? » : met la section dans le bon état (filtre, dépliage), puis y amène l'œil. */
 const _STEP_TARGET = { fix: '.rf-queue', estimate: '.rf-queue', cadrage: '.rf-cad', recap: '.rf-recap' };
 
@@ -497,6 +517,7 @@ export async function renderRefinement(container) {
         if (e.target.closest('[data-rf-only-missing]') && _st) { _st.onlyMissing = !_st.onlyMissing; _paint(container); return; }
         if (e.target.closest('[data-rf-recap]') && _st) { _st.recapOpen = !_st.recapOpen; _paint(container); return; }
         if (e.target.closest('[data-rf-cad-toggle]') && _st) { _toggleCadrage(container); return; }
+        if (e.target.closest('[data-rf-cad-edit]') && _st) { _editPerimeter(container); return; }
         const cadPi = e.target.closest('[data-rf-cad-pi]');
         if (cadPi && _st) { _pickCadragePi(container, cadPi.dataset.rfCadPi); return; }
         if (e.target.closest('[data-rf-cad-play]') && _st) { _playCadrage(); return; }

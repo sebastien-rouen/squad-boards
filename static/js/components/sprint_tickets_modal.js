@@ -543,23 +543,25 @@ async function _fetchAndRenderFromJira(sprint, jiraIds) {
 
 async function _fetchAllIssuesForSprint(sprintId) {
     const tickets = [];
+    // Champs story points DÉTECTÉS sur l'instance (avant 3.266.0 : ids du client en dur, 10023 / 10026)
+    const spIds = await import('../sync-fields.js').then(m => m.storyPointFieldIds()).catch(() => []);
     let startAt = 0;
     for (let i = 0; i < 20; i++) { // hard cap 20 pages × 100 = 2000 tickets
         const resp = await api.jiraGet(`rest/agile/1.0/sprint/${sprintId}/issue`, {
             maxResults: 100,
             startAt,
-            fields: 'summary,status,issuetype,priority,assignee,labels,resolutiondate,created,updated,customfield_10023,customfield_10026',
+            fields: ['summary,status,issuetype,priority,assignee,labels,resolutiondate,created,updated', ...spIds].join(','),
         });
         const issues = resp?.issues || [];
         if (!issues.length) break;
-        for (const issue of issues) tickets.push(_transformLite(issue));
+        for (const issue of issues) tickets.push(_transformLite(issue, spIds));
         if (issues.length < 100) break;
         startAt += issues.length;
     }
     return tickets;
 }
 
-function _transformLite(issue) {
+function _transformLite(issue, spIds = []) {
     const f = issue.fields || {};
     const jiraStatus = f.status?.name || '';
     const status = STATUS_MAP[jiraStatus.toLowerCase().trim()] || 'todo';
@@ -571,7 +573,7 @@ function _transformLite(issue) {
         priority: f.priority?.name || '',
         leader: f.assignee?.displayName || '',
         labels: f.labels || [],
-        points: f.customfield_10023 || f.customfield_10026 || 0,
+        points: spIds.map(id => f[id]).find(v => v != null) || 0,
         team: null, // pas évalué ici (le sprint définit l'équipe)
         // Pour les charts rétrospectifs (burndown, throughput, cycle time)
         resolvedDate: f.resolutiondate || null,

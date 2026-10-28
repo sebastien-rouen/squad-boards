@@ -12,10 +12,10 @@
  *     ticket porte une étiquette métier de l'équipe (Fuego : OPS), OU il est rangé dans l'équipe.
  * Un ticket peut relever de plusieurs regards : il apparaît dans chacun (chaque rôle a sa part à faire).
  *
- * Périmètre = `CADRAGE_PERIMETERS[équipe]` (config.js), sinon le nom de la ligne produit (groupe du
+ * Périmètre = réglage de projet `sb-cadrage-perimeters` (`cadragePerimeters()`), sinon le nom de la ligne produit (groupe du
  * topbar contenant l'équipe : Juke → GEX).
  */
-import { CADRAGE_PERIMETERS } from '../config.js';
+import { projectStorage } from '../project-settings.js';
 import { findPerson } from './person-name.js';
 import { isAbandoned } from './sprint-scope.js';
 import { priorityKey } from './priority.js';
@@ -33,11 +33,30 @@ const _STATUS_RANK = { blocked: 0, inprog: 1, review: 2, test: 3, todo: 4, done:
 /** Numéros de PI des étiquettes `Cadrage_PI<N>` d'un ticket. */
 export const cadragePis = t => (t.labels || []).map(l => String(l).trim().match(_CADRAGE_RE)).filter(Boolean).map(m => +m[1]);
 
-/** Périmètre de cadrage d'une équipe : `{ product, tags }` (product en majuscules, '' si inconnu). */
+/**
+ * Périmètres de cadrage PROPRES à une équipe (réglage de projet `sb-cadrage-perimeters`, 3.266.0 — avant : en dur
+ * dans config.js) : `{ <équipe>: { product, tags } }`. `product` = suffixe des étiquettes de rôle (`SA-<product>`,
+ * `PO-<product>`, `PM-<product>`), `tags` = étiquettes métier où l'équipe contribue. Équipe absente → nom de sa
+ * ligne produit (ex. une équipe d'exploitation porte « INFRA » plutôt que la ligne produit qui l'héberge).
+ */
+export const CADRAGE_KEY = 'sb-cadrage-perimeters';
+export function cadragePerimeters() {
+    try { return JSON.parse(projectStorage.getItem(CADRAGE_KEY) || '{}') || {}; } catch { return {}; }
+}
+/** Enregistre (ou retire, produit et étiquettes vides) le périmètre propre d'une équipe. */
+export function setCadragePerimeter(team, product, tags) {
+    const all = cadragePerimeters();
+    const p = String(product || '').trim().toUpperCase();
+    const t = [...new Set((tags || []).map(x => String(x).trim().toUpperCase()).filter(Boolean))];
+    if (p || t.length) all[team] = { product: p, tags: t }; else delete all[team];
+    if (Object.keys(all).length) projectStorage.setItem(CADRAGE_KEY, JSON.stringify(all)); else projectStorage.removeItem(CADRAGE_KEY);
+}
+
+/** Périmètre de cadrage d'une équipe : `{ product, tags, own }` (product en majuscules, '' si inconnu). */
 export function cadragePerimeter(team, groups = []) {
-    const own = CADRAGE_PERIMETERS[team];
+    const own = cadragePerimeters()[team];
     const product = own?.product || (groups.find(g => (g.teams || []).includes(team))?.name) || '';
-    return { product: String(product).toUpperCase(), tags: (own?.tags || []).map(x => String(x).toUpperCase()) };
+    return { product: String(product).toUpperCase(), tags: (own?.tags || []).map(x => String(x).toUpperCase()), own: !!own };
 }
 
 /**

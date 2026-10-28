@@ -117,7 +117,8 @@ export function cadrageSectionHtml(model, { open = true, hideDone = false, expan
             <span class="rf-cad-ring" style="--p:${pct}" role="img" aria-label="${pct} % des tickets de cadrage prêts"><b>${pct}<small>%</small></b></span>
             <div class="rf-cad-head-main">
                 <h3 id="rf-cad-title" class="rf-cad-title"><span class="rf-cad-tag">🧭 Cadrage</span> ${piLabel}
-                    <span class="rf-cad-scope">${esc(scope)}</span></h3>
+                    <span class="rf-cad-scope" title="${p.own ? 'Périmètre propre à l\'équipe' : 'Nom de la ligne produit (aucun périmètre propre)'}">${esc(scope)}</span>
+                    <button type="button" class="btn-icon btn-xs rf-cad-edit" data-rf-cad-edit aria-label="Modifier le périmètre de cadrage" title="Modifier le périmètre de cadrage (partagé)">✏️</button></h3>
                 <p class="rf-cad-sub">${model.auto
                     ? `À préparer avant le PI ${model.targetPi} : sujets prêts et macro-estimés
                     — étiquette <code>Cadrage_PI${model.targetPi}</code>${model.openCurrent ? `, + ${model.openCurrent} cadrage${model.openCurrent > 1 ? 's' : ''} du PI ${model.piNum} encore ouvert${model.openCurrent > 1 ? 's' : ''}` : ''}.`

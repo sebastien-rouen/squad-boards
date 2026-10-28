@@ -26,7 +26,7 @@ export const PROJECT_KEYS = Object.freeze([
     'sb-jiraProjectTeams', 'sb-jira-excluded-teams', 'sb-boardColumns',
     // Règles métier
     'sb-meteo-thresholds', 'sb-meteo-scope', 'sb-sla-target-days', 'sb-backlog-stale-months',
-    'sb-dash-stale-days', 'sb-reminders',
+    'sb-dash-stale-days', 'sb-reminders', 'sb-cadrage-perimeters',
 ]);
 // Clés à suffixe : charge prévue par sprint, objectifs d'équipe de l'Atlas (par équipe et PI)
 export const PROJECT_PREFIXES = Object.freeze(['sb-charge-', 'sb-team-objectives-']);

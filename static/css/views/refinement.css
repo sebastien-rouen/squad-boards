@@ -157,6 +157,8 @@
 .rf-cad-tag { padding: 2px 10px; border-radius: var(--r-full); background: var(--cad); color: #fff; font-size: 12px; letter-spacing: .02em; }
 [data-theme="dark"] .rf-cad-tag { color: #1e1b4b; }
 .rf-cad-scope { padding: 1px 8px; border-radius: var(--r-full); font-size: 11px; font-weight: var(--fw-semibold); font-family: var(--font-mono); color: var(--cad); border: 1px solid color-mix(in srgb, var(--cad) 45%, transparent); }
+.rf-cad-edit { margin-left: 4px; vertical-align: middle; opacity: .55; font-size: 12px; }
+.rf-cad-edit:hover, .rf-cad-edit:focus-visible { opacity: 1; }
 .rf-cad-sub { margin: 4px 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
 .rf-cad-sub code { font-size: 11px; padding: 1px 5px; border-radius: 4px; background: var(--bg-alt); color: var(--text-secondary); }
 .rf-cad-kpis { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }

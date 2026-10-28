@@ -82,24 +82,16 @@ export const STATUS_MAP = {
  * piInfo.statusOverride, qui prime dès qu'elle contient un statut).
  * Par colonne cible (Terminé, En cours, À faire) : statuts JIRA rangés dans cette colonne pour
  * TOUTES les équipes sauf `exceptTeams`, quoi qu'en dise la colonne du board JIRA (« Recette » →
- * Test) ou STATUS_MAP. Fuego garde son propre découpage (recette / validation suivies comme du
+ * Test) ou STATUS_MAP. Une équipe exemptée garde son propre découpage (ex. recette suivie comme du
  * travail en cours). Un statut présent dans deux listes reste dans la 1re (done > inprog > todo).
  * Appliqué par utils/status-override.js : synchro (statut + rejeu du changelog → startedDate,
  * resolvedDate, cycle time), colonnes du board, et au chargement (sans attendre une synchro).
  * Libellés comparés sans accents ni casse : « A livrer » = « À livrer ».
  */
-export const DONE_OVERRIDE = Object.freeze({
-    statuses: [
-        'À livrer pour validation', 'En cours de test Recette', 'En cours de test Préprod',
-        'En cours de Recette', 'À livrer en prod', 'En Prod', 'Terminé', 'Clos sans suite',
-    ],
-    exceptTeams: ['Fuego'],
-});
-export const STATUS_OVERRIDE_DEFAULTS = Object.freeze({
-    done:   DONE_OVERRIDE,
-    inprog: Object.freeze({ statuses: [], exceptTeams: ['Fuego'] }),
-    todo:   Object.freeze({ statuses: [], exceptTeams: ['Fuego'] }),
-});
+// Défauts VIDES depuis 3.266.0 (P1-3) : la carte STATUS_MAP range déjà les libellés courants ; les règles d'un
+// projet (statuts maison, équipes exemptées) se saisissent dans Paramètres → JIRA et vivent en base.
+const _NO_OVERRIDE = Object.freeze({ statuses: Object.freeze([]), exceptTeams: Object.freeze([]) });
+export const STATUS_OVERRIDE_DEFAULTS = Object.freeze({ done: _NO_OVERRIDE, inprog: _NO_OVERRIDE, todo: _NO_OVERRIDE });
 /** Colonnes cibles, par priorité (un statut dans deux listes reste dans la 1re), et leur libellé. */
 export const STATUS_OVERRIDE_TARGETS = Object.freeze([
     { key: 'done',   icon: '✅', label: 'Terminé' },
@@ -243,12 +235,3 @@ export function syncSetting(name) {
     return (raw !== '' && !isNaN(n) && n >= 0) ? n : SYNC_DEFAULTS[name];
 }
 
-/**
- * Périmètre de CADRAGE d'une équipe (page Affinage, utils/cadrage.js) — `product` = suffixe des
- * étiquettes de rôle (`SA-<product>`, `PO-<product>`, `PM-<product>`), `tags` = étiquettes métier qui
- * concernent l'équipe en tant que contributrice. Équipe absente → ligne produit de son groupe
- * (Juke → GEX). Fuego (équipe Ops de la ligne GCOM) porte l'infrastructure, pas GCOM.
- */
-export const CADRAGE_PERIMETERS = Object.freeze({
-    Fuego: { product: 'INFRA', tags: ['OPS'] },
-});

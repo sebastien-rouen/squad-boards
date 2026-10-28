@@ -9,6 +9,18 @@ import { SYNC_CONFIG } from './config.js';
 import { detectContributorsField, setContributorsField } from './sync-parse.js';
 import { projectStorage } from './project-settings.js';
 
+let _spIds = null;
+/**
+ * Champs « story points » de l'instance JIRA (tous ceux dont le nom contient « story point » : une instance en a
+ * souvent deux, « Story Points » et « Story point estimate »). Une lecture de /field par session.
+ */
+export async function storyPointFieldIds() {
+    if (_spIds) return _spIds;
+    const fields = await api.jiraGet('rest/api/3/field');
+    _spIds = fields.filter(f => f.custom && f.name?.toLowerCase().includes('story point')).map(f => f.id);
+    return _spIds;
+}
+
 /** @returns {Promise<{ storyPointsField: string, sprintFieldId: string, piSprintField: string|null, teamFieldId: string|null, fieldIndex: Map<string, string> }>} */
 export async function detectSyncFields() {
     const piSprintFieldOverride = (projectStorage.getItem('sb-sync-piSprintField') || '').trim() || null;

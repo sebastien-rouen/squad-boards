@@ -1264,6 +1264,19 @@ export function rollupStatus(children, fallback = null) {
  * Pour les modales/tickets, garder les données JIRA brutes (assignee.displayName, etc.).
  */
 export function deriveMembersFromAbsences(absences, members = []) {
+    // Projet SANS export RH (3.274.0) : aucune absence du tout → les membres saisis à la main (Paramètres →
+    // Membres) font foi, sinon l'Atlas, la capacité et la rotation n'avaient personne. Bascule GLOBALE et non
+    // par équipe : avec un export RH, la table `members` garde des lignes anciennes ou mal orthographiées
+    // (« Dézir ») qui feraient apparaître des équipes fantômes.
+    if (!(absences || []).some(a => a.memberName && a.team)) {
+        const seen = new Map();
+        for (const m of (members || [])) {
+            if (!m.name || !m.team) continue;
+            const team = extractTeam(m.team);
+            seen.set(`${m.name}|${team}`, { name: m.name, team, role: m.role || '' });
+        }
+        return [...seen.values()];
+    }
     const byKey = new Map();
     for (const a of (absences || [])) {
         if (!a.memberName || !a.team) continue;

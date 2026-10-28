@@ -58,7 +58,8 @@ export function membersSectionHtml(ctx) {
                 </div>
 
                 <h4 class="text-sm font-semibold mt-4 mb-1">Import CSV membres</h4>
-                <p class="text-xs text-muted mb-2">Format : <code>Nom;Equipe;Entite;Role</code> — une ligne par membre. Colonnes supplémentaires ignorées. Écrase toute la liste existante.</p>
+                <p class="text-xs text-muted mb-2">Format : <code>Nom;Equipe;Entite;Role</code> — une ligne par membre. Une ligne d'en-tête (<code>Nom</code>, <code>Équipe</code>, <code>Rôle</code>, <code>Entité</code>, en français ou en anglais) permet n'importe quel ordre de colonnes. Colonnes supplémentaires ignorées. Écrase toute la liste existante.</p>
+                ${absences.some(a => a.memberName && a.team) ? '' : '<p class="text-xs mb-2">🧑‍🤝‍🧑 <strong>Aucun export RH importé</strong> : cette liste fait foi pour tout le site (Atlas, capacité, rotation, météo). Importer des congés RH la remplacera comme source.</p>'}
                 <textarea class="input" id="member-csv-input" rows="5" placeholder="Alice;Fuego;Accenture;Dev&#10;Bob;Gabbiano;Capgemini;PO&#10;Claire;Fuego;Accenture;SM"></textarea>
                 <div class="flex gap-2 mt-2">
                     <button class="btn btn-primary btn-sm" id="btn-import-member-csv">Importer le CSV</button>
@@ -149,10 +150,7 @@ export function wireMembersSection(container, ctx) {
     container.querySelector('#btn-import-member-csv')?.addEventListener('click', async () => {
         const raw = container.querySelector('#member-csv-input')?.value.trim();
         if (!raw) { toast('Collez des donnees CSV d\'abord', 'warning'); return; }
-        const parsed = raw.split('\n')
-            .map(l => l.split(/[;\t]/).map(c => c.trim()))
-            .filter(cols => cols[0])
-            .map(cols => ({ name: cols[0], team: cols[1] || '', entity: cols[2] || '', role: cols[3] || '' }));
+        const parsed = parseMembersCsv(raw);
         if (!parsed.length) { toast('Aucune donnee valide', 'warning'); return; }
         if (!(await confirmDanger('Remplacer tous les membres', `Remplacer les ${members.length} membres actuels par ${parsed.length} membres du CSV ?`, { confirmLabel: 'Remplacer', danger: false }))) return;
         try {
@@ -184,4 +182,22 @@ export function wireMembersSection(container, ctx) {
         if (memberFilterCount) memberFilterCount.textContent = q ? `${visible} résultat${visible > 1 ? 's' : ''}` : '';
     };
     memberFilterInput?.addEventListener('input', _memberFilterRows);
+}
+
+const _HEAD = { name: /^(nom|name|noms?, ?pr[ée]nom|membre|personne)$/i, team: /^([ée]quipes?|team)$/i, entity: /^(entit[ée]|soci[ée]t[ée]|company|entity)$/i, role: /^(r[ôo]les?|role|fonction)$/i };
+/**
+ * CSV membres → [{ name, team, entity, role }]. Ligne d'en-tête reconnue (FR / EN, accents facultatifs) → colonnes
+ * dans n'importe quel ordre ; sinon ordre fixe Nom;Equipe;Entite;Role (3.274.0).
+ */
+export function parseMembersCsv(raw) {
+    const rows = String(raw || '').split('\n').map(l => l.split(/[;\t]/).map(c => c.trim())).filter(cols => cols[0]);
+    if (!rows.length) return [];
+    const idx = { name: 0, team: 1, entity: 2, role: 3 };
+    const head = rows[0].map(c => Object.keys(_HEAD).find(k => _HEAD[k].test(c)) || null);
+    if (head.includes('name')) {
+        for (const k of Object.keys(idx)) idx[k] = head.indexOf(k);
+        rows.shift();
+    }
+    const at = (cols, k) => (idx[k] >= 0 ? cols[idx[k]] || '' : '');
+    return rows.map(cols => ({ name: at(cols, 'name'), team: at(cols, 'team'), entity: at(cols, 'entity'), role: at(cols, 'role') })).filter(m => m.name);
 }

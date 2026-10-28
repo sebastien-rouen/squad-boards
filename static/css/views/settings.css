@@ -140,6 +140,49 @@
 .settings-tabs ~ .settings-section .chevron { display: none; }
 .settings-tabs ~ .settings-section .settings-section-header { cursor: default; }
 
+/* ── Ordinateur : navigation en colonne (3.282.0) ───────────────────────────────
+   19 onglets dans un rail de 1440 px n'en montraient qu'un tiers. Au-delà de 1100 px (seuil
+   `_SIDE_MQ`, settings.js), la nav devient une liste groupée collée à gauche, le contenu à droite.
+   Les sections gardent leur cap de 800 px ; Sprint & PI et la Rotation s'étendent sur la colonne. */
+.stg-shell--side {
+    display: grid;
+    grid-template-columns: 224px minmax(0, 1fr);
+    gap: var(--sp-5);
+    align-items: start;
+}
+.stg-shell--side .settings-tabs {
+    position: sticky;
+    top: 0;
+    max-height: calc(100dvh - var(--topbar-h, 56px) - 2 * var(--content-pad, var(--sp-6)));
+    overflow-y: auto;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+.stg-shell--side .stg-tab-group-label { font-size: 10px; padding: 0 var(--sp-2); }
+.stg-shell--side .stg-tab-group-items { flex-direction: column; gap: 2px; }
+.stg-shell--side .stg-tab {
+    display: flex;
+    width: 100%;
+    padding: 6px var(--sp-2);
+    gap: var(--sp-2);
+    background: transparent;
+    font-size: var(--fs-sm);
+    white-space: normal;
+    text-align: left;
+}
+.stg-shell--side .stg-tab::before { display: none; }
+.stg-shell--side .stg-tab-icon { width: 20px; text-align: center; font-size: 15px; }
+.stg-shell--side .settings-layout { max-width: none; }
+.stg-shell--side .settings-section { max-width: 800px; }
+.stg-shell--side .settings-section--wide { width: auto; max-width: 1100px; }
+.stg-shell--side .settings-section--rotation { width: auto; max-width: none; }
+.content:has(.stg-shell--side) { scroll-padding-top: var(--sp-3); }
+
 .settings-section {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -722,3 +765,9 @@
 .backup-warn { font-size: var(--fs-xs); color: var(--amber-text, var(--text-muted)); }
 .backup-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
 @media (max-width: 760px) { .backup-card { grid-template-columns: 1fr; } .backup-actions { flex-direction: row; flex-wrap: wrap; } }
+.stg-shell--side .stg-tab:hover { background: color-mix(in srgb, var(--tab-color) 10%, transparent); color: var(--text); }
+.stg-shell--side .stg-tab.is-active { background: var(--tab-color); color: #fff; }
+/* Mode onglets : plus de repli par section (le sélecteur d'avant, `.settings-tabs ~ .settings-section`, ne visait
+   plus rien depuis que les sections vivent dans `.settings-layout`) */
+.stg-shell .settings-section .chevron { display: none; }
+.stg-shell .settings-section-header { cursor: default; }

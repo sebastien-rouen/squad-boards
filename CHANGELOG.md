@@ -1,3 +1,24 @@
+## [3.282.0] - 2026-10-29
+
+### Paramètres — navigation repensée (lot 1/3 : propositions 1, 2, 3)
+
+- **Registre `SETTINGS_NAV`** (`views/settings-nav.js`) : groupe, icône, libellé court et mots-clés de chaque onglet,
+  au lieu de libellés tirés des titres et d'icônes devinées par mots (6 onglets en ⚙️). Les slugs ne changent pas :
+  tous les liens `#settings/…` existants restent valides (vérifié : cap-roles, rotation, plugin-jira-optionnel,
+  faits-marquants, a-propos).
+- **Groupes par intention** : 🏁 Projet (Identité, Modules & menu, Sprint & PI, Calendrier de travail) · 👥 Personnes
+  (Lignes produit, Équipes, Membres, Capacité par rôle, Absences & congés) · 🛎️ Rituels (Rotation support, Rappels &
+  cérémonies) · ⚖️ Règles (Règles métier, Seuils météo) · 🔌 Connexions (JIRA, Agendas (ICS), Slack) · 💾 Données
+  (Sauvegarde & données, Faits marquants, À propos). « Faits marquants » reste ici (liste de TOUT le train, la frise
+  ne gère que l'équipe affichée) mais quitte « Planning ».
+- 🐛 « Capacité dev — % de travail par rôle » rangée dans « Autres » (slug `cap-roles` absent des groupes) → Personnes.
+- **Ordinateur (≥ 1100 px)** : navigation en COLONNE collée à gauche, les 19 onglets visibles d'un coup (le rail
+  horizontal n'en montrait qu'un tiers à 1440 px) ; une couleur par groupe. Tablette / mobile : rail inchangé.
+  Sprint & PI et Rotation s'étendent sur la colonne de contenu.
+- 🐛 Chevron de repli affiché dans chaque section alors que les onglets l'ont remplacé (sélecteur mort).
+  « A propos » → « À propos ».
+- Vérifié : Chromium 1440 / 1024 / 390 px, 6 groupes, aucun « Autres », liens historiques, 0 erreur.
+
 ## [3.281.0] - 2026-10-28
 
 ### Écritures signées par le compte SSO

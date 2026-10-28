@@ -53,8 +53,8 @@ export function dataSectionHtml(ctx) {
 export function aboutSectionHtml(_ctx) {
     return `
         <!-- ═══ About ═══ -->
-        <div class="settings-section">
-            <div class="settings-section-header" data-stg-toggle><h3>A propos</h3><svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg></div>
+        <div class="settings-section" id="section-a-propos">
+            <div class="settings-section-header" data-stg-toggle><h3>À propos</h3><svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg></div>
             <div class="settings-section-body">
                 <p class="text-sm"><strong>Squad Board</strong> v3.0 - Board autoporteur avec SQLite</p>
                 <div class="mt-4 detail-grid" style="max-width:360px;">

@@ -120,7 +120,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
   (`_settingsCtx`), assemble et câble. Contrat de chaque `settings-<section>.js` : `<section>SectionHtml(ctx)` +
   `wire<Section>Section(container, ctx)`, rechargement par `ctx.reload()` / `ctx.rerender()` — ⚠️ un module de
   section n'importe JAMAIS settings.js (cycle). Nouvelle section = nouveau module, ajouté dans l'assemblage (ordre =
-  ordre des onglets) ET, si besoin, dans `TAB_GROUPS`. Jours ouvrés d'un sprint = `piWorkdays` (fériés de holidays.js).
+  ordre de rendu) ET dans le REGISTRE `SETTINGS_NAV` (views/settings-nav.js, 3.282.0 : groupe, icône, libellé court,
+  module, mots-clés) — sans entrée, elle tombe dans « Autres ». Le SLUG (id de section) fait les liens `#settings/<slug>` :
+  ne jamais le renommer. Navigation : colonne latérale ≥ 1100 px (`_SIDE_MQ`), rail horizontal en dessous. Jours ouvrés d'un sprint = `piWorkdays` (fériés de holidays.js).
 - **settings.js éclaté** (3.141.8) : `settings-rotation.js` (grille/shuffle) et ses trois
   satellites (3.162.0) `settings-rotation-weeks.js` (semaines d'un PI, dates, absences),
   `-display.js` (pliage, PI épinglé, « Congés seuls » — que du localStorage) et

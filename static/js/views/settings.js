@@ -13,6 +13,7 @@ import { store } from '../state.js';
 import { esc, deriveMembersFromAbsences, scrollToEl } from '../utils.js';
 import * as api from '../api.js';
 import { mountNavRail } from '../components/nav-rail.js';
+import { SETTINGS_NAV, NAV_BY_SLUG } from './settings-nav.js';
 import { _rotRenderPanels, _rotSetCollapsed } from './settings-rotation.js';
 import { jiraSectionHtml, wireJiraSection } from './settings-jira.js';
 import { wirePersonAliases } from './settings-person-aliases.js';
@@ -72,8 +73,9 @@ function _settingsCtx(container) {
 export function renderSettings(container) {
     const ctx = _settingsCtx(container);
 
-    container.innerHTML = `
-        <!-- Barre de tabs PLEINE LARGEUR (hors du settings-layout qui est cappé à 800px) -->
+    // Ordinateur (≥ 1100 px) : navigation en COLONNE à gauche ; en dessous, rail horizontal collant (3.282.0)
+    const side = _sideNav();
+    container.innerHTML = `<div class="stg-shell${side ? ' stg-shell--side' : ''}">
         <nav id="settings-tabs" class="settings-tabs" aria-label="Sections Paramètres"></nav>
         <div class="settings-layout">
             ${groupsSectionHtml(ctx)}
@@ -95,7 +97,7 @@ export function renderSettings(container) {
             ${modulesSectionHtml()}
             ${dataSectionHtml(ctx)}
             ${aboutSectionHtml(ctx)}
-        </div>`;
+        </div></div>`;
 
     // Sections repliables
     container.querySelectorAll('[data-stg-toggle]').forEach(header => {
@@ -242,55 +244,46 @@ function _settingsApplyTabs(container) {
         const slug = id.replace(/^section-/, '');
         // En mode tabs : on retire le toggle individuel des headers (ils ne doivent plus collapser)
         sec.querySelectorAll('[data-stg-toggle]').forEach(h => h.removeAttribute('data-stg-toggle'));
-        return { sec, id, slug, title, icon: _settingsTabIcon(title), color: _settingsTabColor(i) };
+        const nav = NAV_BY_SLUG[slug];
+        const gi = nav ? SETTINGS_NAV.findIndex(g => g.group === nav.group) : SETTINGS_NAV.length;
+        return { sec, id, slug, title, label: nav?.label || title, icon: nav?.icon || '⚙️', color: _GROUP_COLORS[gi % _GROUP_COLORS.length] };
     });
 
     const nav = container.querySelector('#settings-tabs');
     if (!nav) return;
 
-    // Groupes de tabs — l'ordre et les slugs doivent correspondre aux titres h3 des sections
-    const TAB_GROUPS = [
-        { label: 'Équipe',        slugs: ['lignes-produit-groupes', 'equipes', 'membres', 'capacite-dev-de-travail-par-role', 'absences-conges'] },
-        { label: 'Planning',      slugs: ['sprint-pi', 'rotation', 'faits-marquants', 'rappels-ceremonies', 'calendrier-de-travail'] },
-        { label: 'Règles',        slugs: ['seuils-meteo', 'regles-metier'] },
-        { label: 'Intégrations',  slugs: ['calendriers-ics', 'plugin-jira-optionnel', 'slack-optionnel'] },
-        { label: 'Système',       slugs: ['identite-du-projet', 'modules-menu', 'donnees', 'a-propos'] },
-    ];
-
+    // Groupes, libellés et icônes : registre settings-nav.js (les slugs, eux, restent ceux des sections)
     const _tabBtn = t =>
         `<button class="stg-tab" data-stg-tab="${esc(t.slug)}" style="--tab-color:${t.color}" title="${esc(t.title)}">
-            <span class="stg-tab-icon">${t.icon}</span>
-            <span class="stg-tab-label">${esc(t.title)}</span>
+            <span class="stg-tab-icon" aria-hidden="true">${t.icon}</span>
+            <span class="stg-tab-label">${esc(t.label)}</span>
         </button>`;
+    const _groupHtml = (label, icon, items) => items.length ? `<div class="stg-tab-group">
+            <span class="stg-tab-group-label">${icon ? `<span aria-hidden="true">${icon}</span> ` : ''}${esc(label)}</span>
+            <div class="stg-tab-group-items">${items.map(_tabBtn).join('')}</div>
+        </div>` : '';
+    const bySlug = new Map(tabs.map(t => [t.slug, t]));
+    // Section sans entrée au registre → « Autres » (signal : la classer dans settings-nav.js)
+    const unassigned = tabs.filter(t => !NAV_BY_SLUG[t.slug]);
+    nav.innerHTML = SETTINGS_NAV.map(g => _groupHtml(g.group, g.icon, g.items.map(it => bySlug.get(it.slug)).filter(Boolean))).join('')
+        + _groupHtml('Autres', '', unassigned);
 
-    // Construit les groupes — les tabs non matchées tombent dans "Autres"
-    const assignedSlugs = new Set(TAB_GROUPS.flatMap(g => g.slugs));
-    const unassigned = tabs.filter(t => !assignedSlugs.has(t.slug));
-
-    const groupsHtml = TAB_GROUPS.map(g => {
-        const groupTabs = tabs.filter(t => g.slugs.includes(t.slug))
-            .sort((a, b) => g.slugs.indexOf(a.slug) - g.slugs.indexOf(b.slug));
-        if (!groupTabs.length) return '';
-        return `<div class="stg-tab-group">
-            <span class="stg-tab-group-label">${esc(g.label)}</span>
-            <div class="stg-tab-group-items">${groupTabs.map(_tabBtn).join('')}</div>
-        </div>`;
-    }).join('');
-
-    const othersHtml = unassigned.length
-        ? `<div class="stg-tab-group"><span class="stg-tab-group-label">Autres</span><div class="stg-tab-group-items">${unassigned.map(_tabBtn).join('')}</div></div>`
-        : '';
-
-    nav.innerHTML = groupsHtml + othersHtml;
-    // Rail défilant : la barre tenait 8 lignes et 227 px sur un iPhone 14 (mesuré), soit
-    // plus de la moitié de l'écran pour une nav collante. Monté APRÈS le remplissage —
-    // le composant a besoin du contenu pour savoir s'il déborde.
+    const side = container.querySelector('.stg-shell--side');
     _navRail?.destroy();
-    _navRail = mountNavRail(nav, {
-        labelPrev: 'Sections précédentes',
-        labelNext: 'Sections suivantes',
-    });
-    _publishTabsHeight(container, nav);
+    _navRail = null;
+    _tabsResizeObs?.disconnect();
+    if (side) {
+        container.style.setProperty('--stg-tabs-h', '0px');   // la nav n'est plus au-dessus du contenu
+    } else {
+        // Rail défilant : la barre tenait 8 lignes et 227 px sur un iPhone 14 (mesuré), soit
+        // plus de la moitié de l'écran pour une nav collante. Monté APRÈS le remplissage —
+        // le composant a besoin du contenu pour savoir s'il déborde.
+        _navRail = mountNavRail(nav, {
+            labelPrev: 'Sections précédentes',
+            labelNext: 'Sections suivantes',
+        });
+        _publishTabsHeight(container, nav);
+    }
 
     const activate = (slug, { syncHash = true } = {}) => {
         const found = tabs.find(t => t.slug === slug) || tabs[0];
@@ -299,8 +292,10 @@ function _settingsApplyTabs(container) {
         // peut être hors champ, et rien n'indiquerait alors où l'on se trouve.
         // `requestAnimationFrame` : appelé avant que la classe active soit posée, le
         // navigateur centrerait la position d'AVANT le changement de style.
-        requestAnimationFrame(() =>
-            _navRail?.center(nav.querySelector(`[data-stg-tab="${CSS.escape(found.slug)}"]`)));
+        requestAnimationFrame(() => {
+            const btn = nav.querySelector(`[data-stg-tab="${CSS.escape(found.slug)}"]`);
+            if (_navRail) _navRail.center(btn); else btn?.scrollIntoView({ block: 'nearest' });   // colonne : rester visible
+        });
         tabs.forEach(t => {
             const isActive = t === found;
             t.sec.style.display = isActive ? '' : 'none';
@@ -345,27 +340,16 @@ function _settingsApplyTabs(container) {
     });
 }
 
-function _settingsTabIcon(title) {
-    const t = title.toLowerCase();
-    if (t.includes('météo') || t.includes('meteo')) return '🌤️';
-    if (t.includes('groupe') || t.includes('ligne')) return '🌳';
-    if (t.includes('equipe') || t.includes('équipe')) return '👥';
-    if (t.includes('membre')) return '🧑';
-    if (t.includes('absence') || t.includes('conge') || t.includes('congé')) return '🌴';
-    if (t.includes('sprint') || t.includes('pi')) return '🚀';
-    if (t.includes('rotation') || t.includes('support')) return '🛎️';
-    if (t.includes('fait') || t.includes('event')) return '⚡';
-    if (t.includes('calend')) return '📅';
-    if (t.includes('jira')) return '🔗';
-    if (t.includes('rappel') || t.includes('reminder')) return '⏰';
-    if (t.includes('donn') || t.includes('export') || t.includes('import')) return '📦';
-    return '⚙️';
-}
-function _settingsTabColor(i) {
-    const palette = ['#0ea5e9','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#a855f7','#22c55e','#f97316','#3b82f6','#ec4899','#14b8a6'];
-    return palette[i % palette.length];
-}
+// Une couleur par GROUPE (avant : par position, deux voisins d'un même groupe ne se ressemblaient pas)
+const _GROUP_COLORS = ['#0ea5e9', '#8b5cf6', '#f59e0b', '#10b981', '#3b82f6', '#64748b', '#ef4444'];
 
+/** Colonne latérale sur ordinateur ; la vue se re-rend au passage du seuil (rotation d'une tablette, fenêtre). */
+const _SIDE_MQ = typeof matchMedia === 'function' ? matchMedia('(min-width: 1100px)') : null;
+const _sideNav = () => !!_SIDE_MQ?.matches;
+_SIDE_MQ?.addEventListener?.('change', () => {
+    const c = document.getElementById('content');
+    if (store.get('view') === 'settings' && c?.querySelector('.stg-shell')) renderSettings(c);
+});
 
 async function reloadAndRender(container) {
     const [tickets, features, epics, members, teams, groups, absences, support, events, sprint, pi, calendars, calendarEvents] = await Promise.all([

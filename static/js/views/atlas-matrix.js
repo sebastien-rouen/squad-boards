@@ -110,6 +110,7 @@ export function matrixHtml(ctx, st) {
             <button type="button" class="atl-chip${st.reqOnly ? ' atl-chip--on' : ''}" data-flag="reqOnly" aria-pressed="${!!st.reqOnly}">⭐ Requises seulement</button>
             <button type="button" class="atl-chip${st.hideEmpty ? ' atl-chip--on' : ''}" data-flag="hideEmpty" aria-pressed="${!!st.hideEmpty}">Masquer les vides</button>
             <span class="spacer"></span>
+            <button type="button" class="btn btn-sm btn-secondary" data-campaign>📋 Campagne</button>
             <button type="button" class="btn btn-sm btn-secondary" data-suggest="">🧭 Qui affecter ?</button>
         </div>
         ${st.scope === 'member' ? legend : ''}
@@ -164,6 +165,7 @@ export function bindMatrix(root, ctx, st, rerender, act) {
         if (b('[data-eval]')) { const c = b('[data-eval]'); act.openEval(c.dataset.eval, c.dataset.skill); return; }
         if (b('[data-member]')) { act.openMember(b('[data-member]').dataset.member); return; }
         if (b('[data-pick-team]')) { st.cmpA = b('[data-pick-team]').dataset.pickTeam; rerender(); return; }
+        if (b('[data-campaign]')) { act.openCampaign(ctx.teams.length === 1 ? ctx.teams[0] : null); return; }
         if (b('[data-suggest]')) { act.openSuggest(b('[data-suggest]').dataset.suggest || null, null); return; }
         if (b('[data-skillup]')) act.openSkillUp(null, null, b('[data-skillup]').dataset.skillup);
     });

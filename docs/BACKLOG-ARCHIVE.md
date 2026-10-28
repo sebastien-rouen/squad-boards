@@ -132,3 +132,5 @@
 - [x] **Historique des niveaux Atlas** · ✅ 3.198.0 — table `skill_level_history`, bloc « 📈 Évolution » de la fiche membre.
 
 - [x] **Roster météo : présence de l'itération en barres** · ✅ 3.212.0 — une case par jour ouvré (vert présent, orange ½ journée, rouge absent, gris férié), largeur fixe pour aligner les membres ; `supportAbsenceDayLevel` + `holidayName`.
+- [x] **Palette Ctrl+K : mots dans le désordre** · ✅ 3.265.0 — accents ignorés, mots en ordre libre, libellé + mots-clés réunis.
+- [x] **Outil de campagne d'évaluation Atlas** · ✅ 3.265.0 — 📋 Campagne (équipe → ⭐ requises → personnes → bilan) ; la campagne réelle reste ouverte.

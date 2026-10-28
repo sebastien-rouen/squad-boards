@@ -1,6 +1,6 @@
 # BACKLOG — squad-boards
 
-> Dernière mise à jour : 2026-10-24 (Atlas refondu en 3.263.0, suites ajoutées ; dette de taille recomptée)
+> Dernière mise à jour : 2026-10-28 (campagne d'évaluation et palette en mots libres en 3.265.0 ; analyse « site paramétrable »)
 >
 > Ce fichier ne contient que **ce qui reste à faire**. Les items soldés sont
 > dans [`docs/BACKLOG-ARCHIVE.md`](docs/BACKLOG-ARCHIVE.md) ; leur récit complet
@@ -39,9 +39,10 @@
 
 ### 🧬 Atlas — suites de la refonte (3.263.0)
 
-- [ ] **🔥 Première campagne d'évaluation** — la base n'a encore AUCUNE évaluation : carte et tableau de bord restent
-  éteints. Évaluer une équipe pilote, poser ses ⭐ compétences requises, puis ajuster les règles des signaux sur données
-  réelles (sachant = niveau ≥ 2, bus factor ≤ 1 sachant). — *2026-10-24*
+- [ ] **🔥 Mener la campagne pilote** — l'OUTIL est livré en 3.265.0 (📋 Campagne : bandeau de l'Atlas, bouton de la
+  matrice, palette Ctrl+K) ; reste à l'utiliser : une équipe pilote, ses ⭐ requises, ses personnes (~2 min chacune),
+  puis relire les signaux sur données réelles et ajuster les seuils (sachant = niveau ≥ 2, bus factor ≤ 1 sachant —
+  cf. « Seuils métier réglables » plus bas). La base n'a encore AUCUNE évaluation. — *2026-10-24, outil 2026-10-28*
 - [ ] **Auto-évaluation par la personne** — aujourd'hui seul un manager évalue (depuis la matrice). Proposer « ✏️ Mon
   profil » : la personne note niveaux + envies, le manager VALIDE (statut `proposé` → `validé` sur `member_skill`). Sans
   ça, la matrice repose sur une seule personne et vieillit vite. — *2026-10-24*
@@ -72,9 +73,70 @@
 - [ ] **ESLint à zéro avertissement** — les modules découpés (Paramètres, PI, Dashboard, Health, Atlas) sont propres ;
   il reste les anciens fichiers (settings-rotation.js : imports inutilisés, etc.). Puis `eslint` + `check:size --strict`
   en garde avant commit. — *2026-10-24*
-- [ ] **Palette Ctrl+K : mots dans le désordre** — la recherche exige une suite CONTIGUË du libellé ou des mots-clés :
-  « tableau de bord des compétences » ne trouve rien, « bus factor » oui. Chercher chaque mot séparément (tous présents,
-  ordre libre) dans `_score()` de cmdpalette.js. — *2026-10-24*
+- [ ] **`core` (628 Mo) à la racine** — vidage mémoire d'un processus Python (`multiprocessing.spawn` = uvicorn en
+  `reload`, cf. #A2) ; le checkpoint automatique du 26/10 l'avait commité (retiré avant push en 3.265.0, désormais
+  dans `.gitignore`). À supprimer du disque quand tu veux (`rm -f core`). — *2026-10-28*
+
+### 🧩 Rendre le site paramétrable pour n'importe quel projet (analyse du 2026-10-28)
+
+Constat : le moteur est générique (JIRA optionnel, saisie manuelle possible, démo semée), mais une partie des règles
+du client actuel vit **dans le code** et une partie des réglages de projet vit **dans le navigateur** (localStorage,
+un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** (la table de réglages est le socle du reste) ;
+#A2 (authentification) reste préalable à tout ce qui touche aux secrets ou au multi-projets.
+
+**🔴 P1 — bloquant pour brancher un autre projet**
+- [ ] **P1-1 · Réglages de projet en base, partagés** — ~20 réglages de PROJET sont en localStorage `sb-*` : mapping
+  JIRA (`sb-sync-sprintField|teamField|piSprintField|contributorsField`), profondeurs de synchro (`closedKeep`,
+  `closedTicketSprints`, `maxBoards`…), `sb-jiraProjectTeams`, `sb-jira-excluded-teams`, `sb-meteo-thresholds`,
+  `sb-sla-target-days`, `sb-backlog-stale-months`, `sb-dash-stale-days`, `sb-refinement-steps|groups`,
+  `sb-team-objectives-*`. **À faire** : table `project_setting(key, value JSON)` + `GET/PUT /api/settings`, chargée
+  dans le store au démarrage, ajoutée à `CONFIG_DOMAINS` (export `.local`) ; liste blanche « projet » vs « préférence
+  d'affichage » (qui reste locale) ; migration unique des clés locales comme `sb-team-req-*` en 3.263.0. — *2026-10-28*
+- [ ] **P1-2 · Correspondance des statuts et types JIRA éditable** — `STATUS_MAP` (~120 libellés, dont ceux du client :
+  « à livrer en qualif (mi) », « 3 amigos ») et `TYPE_MAP` sont dans `config.js` ; un libellé inconnu retombe
+  SILENCIEUSEMENT sur `todo` (le ticket sort des métriques de flux). Les statuts forcés (3.195.0) ne couvrent que
+  done / inprog / todo. **À faire** : table complète (6 colonnes, review / test / blocked compris) en réglages projet,
+  défaut = carte générique ; écran « statuts vus à la dernière synchro et non rangés » à classer en un clic. — *2026-10-28*
+- [ ] **P1-3 · Sortir les défauts du client actuel du code** — `config.js` : `DONE_OVERRIDE` (8 statuts +
+  `exceptTeams: ['Fuego']`, repris pour inprog / todo), `CADRAGE_PERIMETERS` (`Fuego → INFRA / OPS`, étiquettes
+  `SA-|PO-|PM-<produit>`) ; `sprint_tickets_modal.js` lit les story points en dur (`customfield_10023|10026`) alors
+  que `detectSyncFields` les détecte ; `SYNC_CONFIG.sprintField = customfield_10021`. **À faire** : défauts vides ou
+  détectés, valeurs actuelles migrées UNE fois en réglages projet (aucun changement visible pour le client). — *2026-10-28*
+- [ ] **P1-4 · Secrets hors du navigateur** — jeton JIRA (`sb-jira-token`) et webhook Slack (`sb-slack-webhook`) en
+  localStorage : exclus des sauvegardes, mais lisibles par tout script de la page et à ressaisir sur chaque PC. Après
+  #A2 : côté serveur (`.env` ou table chiffrée), le navigateur ne connaît plus que l'URL. — *2026-10-28*
+
+**🟠 P2 — adopter sans développeur**
+- [ ] **P2-5 · Assistant de mise en route** — `first_launch.js` propose démo / JIRA / à la main, sans guider la suite.
+  Parcours en 5 étapes qui écrit les réglages P1 : nom du projet, cadence (durée de sprint, sprints par PI, IP),
+  lignes produit + équipes, source des personnes, statuts JIRA. — *2026-10-28*
+- [ ] **P2-6 · Personnes sans export RH du client** — source de vérité = import Congés RH à SON format (pivot
+  `NOMS, Prénom · Équipes · Entité · Rôles · dd/mm…` ou `Nom;Equipe;Debut;Fin;Type;Jours`, « Jours PIP exclus »).
+  Vérifier qu'une saisie manuelle des membres suffit PARTOUT (Atlas, capacité, météo, rotation), et ajouter un
+  rapprochement de colonnes à l'import (quelle colonne = nom, équipe, début, fin). — *2026-10-28*
+- [ ] **P2-7 · Modules activables + vocabulaire** — PI Planning, Roadmap, Support, Atlas, Poker, Affinage, TV toujours
+  affichés ; une équipe Scrum hors SAFe n'a ni PI ni train. Réglage « modules actifs » (navigation, palette, Dashboard)
+  et libellés « PI → Release / Trimestre », « Train → Programme », « Ligne produit → Domaine ». — *2026-10-28*
+- [ ] **P2-8 · Seuils métier réglables, réunis** — Atlas (sachant `EXPERT_MIN = 2`, bus factor ≤ 1, absence « bientôt »
+  14 j), météo (`METEO_START_TOLERANCE`, item plus haut), stagnation > 5 j, SLA support, échelle du poker figée côté
+  serveur (`poker.py _ALLOWED = 1,2,3,5,8,13,21,?` : ni 0, ni ½, ni tailles de t-shirt). Un écran « Règles » qui les
+  rassemble avec leur effet. — *2026-10-28*
+- [ ] **P2-9 · Jours fériés par pays** — `utils/holidays.js` = France métropole en dur. Choix FR / Alsace-Moselle /
+  BE / CH / aucun + jours de fermeture de l'entreprise (ponts). — *2026-10-28*
+- [ ] **P2-10 · Référentiel de niveaux Atlas éditable** — les 4 libellés actuels sont une décision du client (à NE PAS
+  changer pour lui) ; pour un autre projet : libellés et descriptions éditables dans le Catalogue, échelle 0-4
+  conservée (les calculs en dépendent). — *2026-10-28*
+
+**🟡 P3 — confort, plusieurs instances**
+- [ ] **P3-11 · Identité de l'instance** — « Squad Board » en dur (`index.html`, `first_launch.js`) : nom, logo,
+  couleur primaire en réglages ; `<title>` dynamique — utile dès que deux instances tournent côte à côte. — *2026-10-28*
+- [ ] **P3-12 · Nommage des boards → équipes** — `extractTeam()` connaît `Sprint|Équipe|Team|Board|Kanban` et les
+  suffixes « Ité 31.2 » du client ; exposer une table « board → équipe » (existe en partie : `sb-jiraProjectTeams`). — *2026-10-28*
+- [ ] **P3-13 · Plusieurs projets** — aujourd'hui 1 base = 1 projet (`SB_DB_PATH`). Recommandation : multi-INSTANCE
+  (une base + un port par projet, déjà possible) documenté avec un gabarit `ecosystem.config.cjs`, plutôt qu'un
+  multi-tenant (chantier lourd). `.env.example` annonce encore `PORT=3000` (réel 3010, cf. #A5). — *2026-10-28*
+- [ ] **P3-14 · Gabarit de projet** — l'export de configuration `.local` (3.198.0) existe ; ajouter un mode « gabarit »
+  SANS données (catalogue Atlas, statuts, seuils, modèles d'ateliers) pour démarrer un projet depuis un autre. — *2026-10-28*
 
 ## 💡 Idées (à affiner)
 

@@ -10,6 +10,7 @@
  *   🧭 Mobilité       atlas-mobility.js  trajectoires souhait → bilan
  *   ⚙️ Catalogue      atlas-catalog.js   compétences + envies, ordre, suppression annulable
  * Calculs : atlas-model.js (source unique). Fiche + évaluation : atlas-member.js. Actions : atlas-actions.js.
+ * Campagne d'évaluation guidée (équipe → ⭐ requises → personne par personne) : atlas-campaign.js.
  * Le conteneur des onglets est RECRÉÉ à chaque rendu : les écouteurs délégués ne s'empilent jamais.
  */
 
@@ -23,6 +24,7 @@ import { mobilityHtml, bindMobility, openMobility } from './atlas-mobility.js';
 import { catalogHtml, bindCatalog } from './atlas-catalog.js';
 import { openMemberCard as _openMemberCard, openEval } from './atlas-member.js';
 import { openSkillUp, openSuggest } from './atlas-actions.js';
+import { openCampaign } from './atlas-campaign.js';
 
 // API publique inchangée (team.js, tv.js, app.js, atlas_history.js)
 export { SKILL_LEVELS, APPETENCE_VALUES } from './atlas-model.js';
@@ -53,6 +55,7 @@ const act = {
     openMember: name => _openMemberCard(name, act),
     openEval: (name, skillId) => openEval(name, skillId, act),
     openSuggest, openSkillUp,
+    openCampaign: team => openCampaign(team, act),
     openMobility: name => openMobility(name, rerender),
     onSaved: rerender,
     goto(tab, opts = {}) {
@@ -68,6 +71,9 @@ const act = {
 /** Fiche d'une personne, ouvrable depuis n'importe quelle vue (team.js, TV, marqueur `~membre=`). */
 export const openMemberCard = name => _openMemberCard(name, act);
 
+/** Campagne d'évaluation (palette Ctrl+K) : sur l'équipe du filtre si une seule est choisie. */
+export const openAtlasCampaign = () => { const t = store.get('team'); act.openCampaign(t && t !== 'all' ? t : null); };
+
 const VIEWS = {
     map: [mapHtml, bindMap],
     matrix: [matrixHtml, bindMatrix],
@@ -80,7 +86,7 @@ function _render(container) {
     const ctx = atlasCtx();
     const [html, bind] = VIEWS[st.tab];
     const nudge = ctx.skills.length && !hasEvaluations(ctx) && st.tab !== 'catalog' && st.tab !== 'matrix'
-        ? '<div class="atl-nudge">🧬 Aucune compétence évaluée : la carte et le tableau de bord s\'allumeront avec les premières évaluations. <button type="button" class="btn btn-primary btn-xs" data-nudge>🎯 Évaluer dans la matrice</button></div>'
+        ? '<div class="atl-nudge">🧬 Aucune compétence évaluée : la carte et le tableau de bord s\'allumeront avec les premières évaluations. <button type="button" class="btn btn-primary btn-xs" data-nudge-cp>📋 Lancer une campagne d\'évaluation</button><button type="button" class="btn btn-ghost btn-xs" data-nudge>🎯 Évaluer dans la matrice</button></div>'
         : !ctx.skills.length && st.tab !== 'catalog'
             ? '<div class="atl-nudge">⚙️ Le catalogue de compétences est vide. <button type="button" class="btn btn-primary btn-xs" data-nudge-cat>Créer le catalogue</button></div>' : '';
     const body = document.createElement('div');
@@ -90,6 +96,7 @@ function _render(container) {
     if (old) old.replaceWith(body); else container.querySelector('.atlas')?.appendChild(body);
     container.querySelectorAll('[data-atl-tab]').forEach(b => { const on = b.dataset.atlTab === st.tab; b.classList.toggle('is-active', on); b.setAttribute('aria-selected', on); });
     body.querySelector('[data-nudge]')?.addEventListener('click', () => act.goto('matrix'));
+    body.querySelector('[data-nudge-cp]')?.addEventListener('click', openAtlasCampaign);
     body.querySelector('[data-nudge-cat]')?.addEventListener('click', () => act.goto('catalog'));
     bind(body, ctx, st, rerender, act);
 }

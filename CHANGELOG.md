@@ -1,3 +1,29 @@
+## [3.265.0] - 2026-10-28
+
+### Atlas : campagne d'évaluation guidée · palette Ctrl+K en mots libres · backlog « site paramétrable »
+
+- **📋 Campagne d'évaluation** (`atlas-campaign.js`) — pour allumer l'Atlas une équipe à la fois, dans une seule
+  fenêtre : ① ⭐ compétences requises de l'équipe, ② une personne à la fois (requises en tête, autres repliées ;
+  passer à quelqu'un d'autre ENREGISTRE les lignes modifiées, « Passer » n'écrit rien ; pastilles ✓ des personnes
+  déjà évaluées, saut direct), ③ bilan (personnes évaluées, requises sans sachant, « Équipe suivante », carte, matrice).
+  Accès : bandeau « Aucune compétence évaluée », bouton 📋 Campagne de la matrice, action de la palette Ctrl+K.
+  Les briques d'évaluation de `atlas-member.js` sont exportées et partagées (`evalRowHtml`, `handleEvalClick`,
+  `evalChanges`, `saveEvaluations`) — plus de ligne d'évaluation dupliquée.
+- **Palette Ctrl+K** : accents et casse ignorés, mots dans n'importe quel ordre (« competences bord tableau » →
+  📊 Tableau de bord des compétences), libellé et mots-clés notés ensemble ; surlignage mot par mot. Les actions et
+  vues trouvées par recherche affichent leur propre icône au lieu de ✨ + identifiant technique.
+- **Modales de l'Atlas sur mobile** : un contenu large (pastilles défilantes) ne pousse plus la fenêtre hors de
+  l'écran (`.atl-overlay` en `grid-template-columns: minmax(0, 1fr)`).
+- **BACKLOG** : section « 🧩 Rendre le site paramétrable » — 14 items priorisés (P1 réglages de projet en base au lieu
+  du navigateur, statuts / types JIRA éditables, défauts du client sortis du code, secrets hors du navigateur ; P2
+  assistant de mise en route, personnes sans export RH, modules activables, seuils, fériés, niveaux ; P3 identité,
+  boards → équipes, multi-instance, gabarit de projet).
+- **Hygiène** : un vidage mémoire Python de 628 Mo (`core`) commité par le checkpoint automatique du 26/10 est retiré de
+  l'historique local avant push et ignoré (`.gitignore`).
+- Vérifié dans Chromium (desktop sombre, mobile clair, base réelle sans évaluation, écritures interceptées) : campagne
+  complète (3 requises, 3 personnes, saut, bilan, carte), 5 recherches de la palette, action palette → campagne —
+  aucune erreur ; 406 tests verts, ESLint propre.
+
 ## [3.264.0] - 2026-10-24
 
 ### Atlas dans la palette Ctrl+K · onglet dans l'adresse · backlog des suites

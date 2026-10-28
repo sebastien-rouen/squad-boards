@@ -41,3 +41,6 @@ tmp/
 *.tmp
 docs/demo/*.webm
 docs/demo/.auth-state.json
+
+# Vidages mémoire (crash Python)
+/core

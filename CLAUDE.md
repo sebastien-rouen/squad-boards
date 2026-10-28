@@ -810,6 +810,12 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Prénom d'un nom RH « NOM, Prénom » = `firstName` (jamais `split(' ')[0]`). Onglet = hash `#atlas/<équipe>/<onglet>` (store
   `atlasTab`, posé par `act.goto`) ; états vides = `emptyStateHtml`. Contrats externes : `openMemberCard`,
   `SKILL_LEVELS`, `APPETENCE_VALUES`, id `atlas-membercard-overlay` (TV), `#atlas-stage` (palette Ctrl+K).
+  Campagne d'évaluation (3.265.0) = `atlas-campaign.js` (équipe → ⭐ requises → personne par personne → bilan) : elle
+  RÉUTILISE les briques d'évaluation exportées par `atlas-member.js` (`evalRowHtml`, `handleEvalClick`, `evalChanges`,
+  `saveEvaluations`) — ne pas recopier une ligne d'évaluation ailleurs. Progression non stockée (relue des évaluations).
+- **Palette Ctrl+K — recherche** : `_score()` ignore accents et casse, puis accepte les mots DANS LE DÉSORDRE (chaque
+  mot significatif doit commencer un mot du texte, mots outils `_STOP` écartés, score 30 < sous-chaîne 40). Vues,
+  blocs et actions sont notés sur libellé, mots-clés ET les deux réunis (`_scoreEntry`).
   CSS : css/views/atlas.css (+ `-map`, `-panels`), préfixe `atl-` ; `atlas-hist-*` reste à atlas-history.css.
 - **Historique des niveaux Atlas** (3.198.0) : table `skill_level_history`, écrite UNIQUEMENT par
   `PUT /api/member-skills` (une ligne par changement réel), lue par `components/atlas_history.js`.

@@ -56,8 +56,8 @@ export function openMemberCard(name, act = {}) {
     });
 }
 
-/** Enregistre un lot de changements { skillId, level, appetence } pour une personne (optimiste). */
-async function _save(person, changes) {
+/** Enregistre un lot de changements { skillId, level, appetence } pour une personne (optimiste). Renvoie true si tout est écrit. */
+export async function saveEvaluations(person, changes, { quiet = false } = {}) {
     const before = store.get('memberSkills') || [];
     let next = before;
     for (const c of changes) {
@@ -68,12 +68,39 @@ async function _save(person, changes) {
     store.set('memberSkills', next);
     try {
         for (const c of changes) await api.upsertMemberSkill({ scope: 'member', scopeKey: person.name, team: person.team, skillId: c.skillId, level: c.level, appetence: c.appetence });
-        toast(changes.length > 1 ? `${changes.length} évaluations enregistrées` : 'Évaluation enregistrée', 'success');
+        if (!quiet) toast(changes.length > 1 ? `${changes.length} évaluations enregistrées` : 'Évaluation enregistrée', 'success');
+        return true;
     } catch {
         store.set('memberSkills', before);
         toast('Évaluation non enregistrée', 'error');
+        return false;
     }
 }
+
+/** Ligne compacte d'évaluation (niveau 0-4 + envie) — partagée avec la campagne (atlas-campaign.js). */
+export const evalRowHtml = (s, cur, { required = false } = {}) => `<div class="atl-evrow"><span class="atl-evrow__name">${dotHtml(s.color)}<b>${esc(s.name)}</b>${required ? ' <span title="Requise pour l\'équipe">⭐</span>' : ''}</span><span class="atl-evrow__lv" role="radiogroup" aria-label="${esc(s.name)}">${M.SKILL_LEVELS.map(l => `<button type="button" role="radio" class="atl-lvbtn atl-lvl--${l.v}${l.v === cur.level ? ' is-on' : ''}" aria-checked="${l.v === cur.level}" data-lvl-set="${l.v}" data-skill="${esc(s.id)}" title="${esc(l.label)}">${l.short}</button>`).join('')}</span><button type="button" class="atl-apbtn" data-app-cycle="${esc(s.id)}" title="Envie : ${cur.appetence}">${appetenceHtml(cur.appetence)}</button></div>`;
+
+/** Met à jour l'affichage d'une compétence après un clic. */
+function _paint(el, state, id) {
+    el.querySelectorAll(`[data-lvl-set][data-skill="${CSS.escape(id)}"]`).forEach(b => { const on = Number(b.dataset.lvlSet) === state[id].level; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', on); });
+    el.querySelectorAll(`[data-app-set][data-skill="${CSS.escape(id)}"]`).forEach(b => b.classList.toggle('seg__item--on', b.dataset.appSet === state[id].appetence));
+    const cyc = el.querySelector(`[data-app-cycle="${CSS.escape(id)}"]`);
+    if (cyc) { cyc.innerHTML = appetenceHtml(state[id].appetence); cyc.title = `Envie : ${state[id].appetence}`; }
+}
+
+/** Clic dans un formulaire d'évaluation : niveau, envie (segment ou cycle). Renvoie true si traité. */
+export function handleEvalClick(e, el, state) {
+    const x = e.target.closest('[data-lvl-set], [data-app-set], [data-app-cycle]');
+    if (!x || !el.contains(x)) return false;
+    if (x.dataset.lvlSet !== undefined) { const id = x.dataset.skill; state[id].level = Number(x.dataset.lvlSet); _paint(el, state, id); }
+    else if (x.dataset.appSet !== undefined) { const id = x.dataset.skill; state[id].appetence = x.dataset.appSet; _paint(el, state, id); }
+    else { const id = x.dataset.appCycle; const o = ['faible', 'neutre', 'forte']; state[id].appetence = o[(o.indexOf(state[id].appetence) + 1) % 3]; _paint(el, state, id); }
+    return true;
+}
+
+/** Changements entre deux états { skillId: { level, appetence } }. */
+export const evalChanges = (state, was) => Object.entries(state)
+    .filter(([id, v]) => v.level !== was[id].level || v.appetence !== was[id].appetence).map(([id, v]) => ({ skillId: id, ...v }));
 
 const _appSeg = (id, cur) => `<div class="seg atl-seg-app" role="group" aria-label="Envie">${M.APPETENCE_VALUES.map(a => `<button type="button" class="seg__item${a.v === cur ? ' seg__item--on' : ''}" data-app-set="${a.v}" data-skill="${esc(id)}">${appetenceHtml(a.v)} ${a.label}</button>`).join('')}</div>`;
 
@@ -91,29 +118,19 @@ export function openEval(name, skillId, act = {}) {
            <div class="atl-lvlpick" role="radiogroup" aria-label="Niveau">${M.SKILL_LEVELS.map(l => `<button type="button" role="radio" class="atl-lvlpick__opt${l.v === state[one.id].level ? ' is-on' : ''}" aria-checked="${l.v === state[one.id].level}" data-lvl-set="${l.v}" data-skill="${esc(one.id)}">${levelHtml(l.v)}<span><b>${esc(l.label)}</b><small>${esc(l.desc)}</small></span></button>`).join('')}</div>
            <h4 class="atl-sec">Envie de progresser</h4>${_appSeg(one.id, state[one.id].appetence)}`
         : `<p class="atl-muted">Niveau 0 à 4 et envie pour chaque compétence du catalogue. Seules les lignes modifiées sont enregistrées.</p>
-           ${skills.map(s => `<div class="atl-evrow"><span class="atl-evrow__name">${dotHtml(s.color)}<b>${esc(s.name)}</b></span><span class="atl-evrow__lv" role="radiogroup" aria-label="${esc(s.name)}">${M.SKILL_LEVELS.map(l => `<button type="button" role="radio" class="atl-lvbtn atl-lvl--${l.v}${l.v === state[s.id].level ? ' is-on' : ''}" aria-checked="${l.v === state[s.id].level}" data-lvl-set="${l.v}" data-skill="${esc(s.id)}" title="${esc(l.label)}">${l.short}</button>`).join('')}</span><button type="button" class="atl-apbtn" data-app-cycle="${esc(s.id)}" title="Envie : ${state[s.id].appetence}">${appetenceHtml(state[s.id].appetence)}</button></div>`).join('')}`;
+           ${skills.map(s => evalRowHtml(s, state[s.id])).join('')}`;
     const { el, close } = openAtlasModal({
         id: 'atlas-eval-overlay', wide: !one,
         title: `✏️ ${one ? 'Évaluer' : 'Évaluer toutes les compétences de'} ${one ? esc(one.name) : esc(name)}`,
         body, foot: '<button type="button" class="btn btn-ghost btn-sm" data-cancel>Annuler</button><button type="button" class="btn btn-primary btn-sm" data-save>Enregistrer</button>',
     });
-    const paint = id => {
-        el.querySelectorAll(`[data-lvl-set][data-skill="${CSS.escape(id)}"]`).forEach(b => { const on = Number(b.dataset.lvlSet) === state[id].level; b.classList.toggle('is-on', on); b.setAttribute('aria-checked', on); });
-        el.querySelectorAll(`[data-app-set][data-skill="${CSS.escape(id)}"]`).forEach(b => b.classList.toggle('seg__item--on', b.dataset.appSet === state[id].appetence));
-        const cyc = el.querySelector(`[data-app-cycle="${CSS.escape(id)}"]`);
-        if (cyc) { cyc.innerHTML = appetenceHtml(state[id].appetence); cyc.title = `Envie : ${state[id].appetence}`; }
-    };
     el.addEventListener('click', e => {
-        const b = sel => e.target.closest(sel);
-        if (b('[data-lvl-set]')) { const x = b('[data-lvl-set]'); state[x.dataset.skill].level = Number(x.dataset.lvlSet); paint(x.dataset.skill); }
-        else if (b('[data-app-set]')) { const x = b('[data-app-set]'); state[x.dataset.skill].appetence = x.dataset.appSet; paint(x.dataset.skill); }
-        else if (b('[data-app-cycle]')) { const id = b('[data-app-cycle]').dataset.appCycle; const o = ['faible', 'neutre', 'forte']; state[id].appetence = o[(o.indexOf(state[id].appetence) + 1) % 3]; paint(id); }
-        else if (b('[data-cancel]')) close();
-        else if (b('[data-save]')) {
-            const was = JSON.parse(initial);
-            const changes = Object.entries(state).filter(([id, v]) => v.level !== was[id].level || v.appetence !== was[id].appetence).map(([id, v]) => ({ skillId: id, ...v }));
+        if (handleEvalClick(e, el, state)) return;
+        if (e.target.closest('[data-cancel]')) close();
+        else if (e.target.closest('[data-save]')) {
+            const changes = evalChanges(state, JSON.parse(initial));
             close();
-            if (changes.length) _save(person, changes).then(() => act.onSaved?.());
+            if (changes.length) saveEvaluations(person, changes).then(() => act.onSaved?.());
         }
     });
 }

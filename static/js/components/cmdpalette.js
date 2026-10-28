@@ -149,6 +149,12 @@ const ACTIONS = [
         run: () => window.__squadBoard?.handleJiraImport?.('full'),
     },
     {
+        id: 'atlas-campaign', label: 'Campagne d\'évaluation des compétences', icon: '📋',
+        keywords: 'atlas campagne evaluation evaluer competences skills niveaux equipe',
+        // Import à la demande : l'Atlas n'est chargé qu'ici, sans dépendance circulaire avec la palette
+        run: async () => { store.set('view', 'atlas'); (await import('../views/atlas.js')).openAtlasCampaign(); },
+    },
+    {
         id: 'create-ticket', label: 'Nouveau ticket', icon: '➕',
         keywords: 'nouveau créer create ticket ajouter new issue',
         run: () => document.getElementById('btn-create')?.click(),
@@ -401,15 +407,29 @@ function _parse(q) {
 }
 
 // ── Scoring ───────────────────────────────────────────────────────────────────
+// Accents et casse ignorés (« competences » trouve « Compétences ») ; mots outils écartés de la recherche en désordre.
+const _STOP = new Set(['a', 'au', 'aux', 'd', 'de', 'des', 'du', 'en', 'et', 'l', 'la', 'le', 'les', 'par', 'pour', 'sur', 'un', 'une']);
+const _reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const _fold = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const _words = s => _fold(s).split(/[\s'’-]+/).filter(w => w && !_STOP.has(w));
+
 function _score(haystack, needle) {
     if (!needle) return 0.5;
-    const h = (haystack || '').toLowerCase();
+    const h = _fold(haystack);
     if (!h) return 0;
-    if (h === needle) return 100;
-    if (h.startsWith(needle)) return 80;
-    if (new RegExp(`\\b${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(h)) return 60;
-    if (h.includes(needle)) return 40;
-    return 0;
+    const n = _fold(needle);
+    if (h === n) return 100;
+    if (h.startsWith(n)) return 80;
+    if (new RegExp(`\\b${_reEsc(n)}`).test(h)) return 60;
+    if (h.includes(n)) return 40;
+    // Mots dans le désordre : chaque mot significatif commence un mot du texte (« bord compétences tableau »)
+    const ws = _words(n);
+    return ws.length > 1 && ws.every(w => new RegExp(`\\b${_reEsc(w)}`).test(h)) ? 30 : 0;
+}
+
+/** Vue / bloc / action : libellé, mots-clés, puis les deux réunis (un mot dans chacun). */
+function _scoreEntry(e, text) {
+    return Math.max(_score(e.label, text), _score(e.keywords, text) * 0.85, _score(`${e.label} ${e.keywords || ''}`, text) * 0.8);
 }
 
 function _matchFilters(t, filters) {
@@ -430,26 +450,23 @@ function _search(q) {
     // Views
     if (!hasFilters && text) {
         for (const v of VIEWS) {
-            const s = Math.max(_score(v.label, text), _score(v.keywords, text) * 0.85);
+            const s = _scoreEntry(v, text);
             if (s > 0) results.push({ group: 'view', score: s + 20, item: v });
         }
         // Blocs de page (« Temps par colonne », « Prévision de fin »…) — sous les vues,
         // au-dessus des tickets : on cherche un endroit où aller, pas un ticket.
         for (const sec of SECTIONS) {
-            const s2 = Math.max(_score(sec.label, text), _score(sec.keywords, text) * 0.85);
+            const s2 = _scoreEntry(sec, text);
             if (s2 > 0) results.push({ group: 'section', score: s2 + 18, item: sec });
         }
         // Actions (commandes app) — keywords boost
         for (const a of ACTIONS) {
-            const sLabel = _score(a.label, text);
-            const sKey = _score(a.keywords, text);
-            const s = Math.max(sLabel, sKey * 0.85);
+            const s = _scoreEntry(a, text);
             if (s > 0) results.push({ group: 'action', score: s + 25, item: a });
         }
     }
 
     // Tickets
-    const team    = store.get('team');
     const tickets = store.get('tickets') || [];
     const epics   = store.get('epics') || [];
     const features = store.get('features') || [];
@@ -506,8 +523,10 @@ const _GROUP_LABEL  = { ticket: 'Tickets', epic: 'Epics', feature: 'Features', v
 
 function _highlight(text, term) {
     if (!term || !text) return esc(text || '');
-    const safe = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return esc(text).replace(new RegExp(`(${safe})`, 'gi'), '<mark class="cmd-hl">$1</mark>');
+    // Terme entier s'il est présent tel quel, sinon chacun de ses mots (recherche en désordre)
+    const parts = text.toLowerCase().includes(term.toLowerCase()) ? [term] : _words(term).filter(w => w.length > 1);
+    if (!parts.length) return esc(text);
+    return esc(text).replace(new RegExp(`(${parts.map(p => _reEsc(esc(p))).join('|')})`, 'gi'), '<mark class="cmd-hl">$1</mark>');
 }
 
 /** Ligne d'un bloc de page : icône propre, vue d'accueil en méta, badge « copier le lien ». */
@@ -593,12 +612,14 @@ function _renderResults(results, term, evMatches = []) {
                 ? `<span class="cmd-type badge badge-type badge-${item.type} badge-2xs">${esc(typeLabel)}</span>`
                 : '';
             const meta = item.team ? `<span class="cmd-meta">${esc(item.team)}</span>` : '';
-            const idEl = item.id !== item.title
+            // Vues et actions : icône propre, pas d'identifiant technique (« atlas-campaign »)
+            const named = grp === 'action' || grp === 'view';
+            const idEl = !named && item.id !== item.title
                 ? `<span class="cmd-id">${esc(item.id)}</span>`
                 : '';
 
             html += `<div class="cmd-item" data-group="${grp}" data-id="${esc(item.id)}" tabindex="-1">
-                <span class="cmd-item-icon">${_GROUP_ICON[grp]}</span>
+                <span class="cmd-item-icon">${named && item.icon ? item.icon : _GROUP_ICON[grp]}</span>
                 ${idEl}
                 ${typeBadge}
                 <span class="cmd-item-title">${_highlight(item.title || item.label || item.id, term)}</span>

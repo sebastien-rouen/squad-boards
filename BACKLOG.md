@@ -91,11 +91,7 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
   SILENCIEUSEMENT sur `todo` (le ticket sort des métriques de flux). Les statuts forcés (3.195.0) ne couvrent que
   done / inprog / todo. **À faire** : table complète (6 colonnes, review / test / blocked compris) en réglages projet,
   défaut = carte générique ; écran « statuts vus à la dernière synchro et non rangés » à classer en un clic. — *2026-10-28*
-- [ ] **P1-3 · Sortir les défauts du client actuel du code** — `config.js` : `DONE_OVERRIDE` (8 statuts +
-  `exceptTeams: ['Fuego']`, repris pour inprog / todo), `CADRAGE_PERIMETERS` (`Fuego → INFRA / OPS`, étiquettes
-  `SA-|PO-|PM-<produit>`) ; `sprint_tickets_modal.js` lit les story points en dur (`customfield_10023|10026`) alors
-  que `detectSyncFields` les détecte ; `SYNC_CONFIG.sprintField = customfield_10021`. **À faire** : défauts vides ou
-  détectés, valeurs actuelles migrées UNE fois en réglages projet (aucun changement visible pour le client). — *2026-10-28*
+- [x] **P1-3 · Défauts du client sortis du code** · ✅ 3.267.0 — statuts forcés vides, cadrage en réglage (✏️), story points détectés.
 - [ ] **P1-4 · Secrets hors du navigateur** — jeton JIRA (`sb-jira-token`) et webhook Slack (`sb-slack-webhook`) en
   localStorage : exclus des sauvegardes, mais lisibles par tout script de la page et à ressaisir sur chaque PC. Après
   #A2 : côté serveur (`.env` ou table chiffrée), le navigateur ne connaît plus que l'URL. — *2026-10-28*

@@ -1,3 +1,23 @@
+## [3.267.0] - 2026-10-28
+
+### P1-3 — Les règles du client actuel sortent du code
+
+- **Statuts forcés** : les défauts de `config.js` (8 statuts « Terminé » maison + `exceptTeams: ['Fuego']` sur les
+  trois colonnes) deviennent VIDES — un nouveau projet part de la carte `STATUS_MAP` générique. Aucun effet ici :
+  la base porte déjà sa propre règle (`piInfo.statusOverride`, qui prime). « Rétablir les valeurs par défaut »
+  signifie désormais « aucune règle ».
+- **Périmètres de cadrage** : `CADRAGE_PERIMETERS` (`Fuego → INFRA / OPS`) quitte `config.js` pour le réglage de
+  projet `sb-cadrage-perimeters` ; la valeur du client a été reportée UNE fois dans la base réelle (aucun changement
+  visible). Nouveau ✏️ dans l'en-tête du cadrage (page Affinage) : produit des étiquettes `SA- / PO- / PM-<produit>`
+  et étiquettes métier, partagés par tous ; l'info-bulle du périmètre dit s'il est propre à l'équipe ou hérité de
+  la ligne produit.
+- **Story points de la modale des tickets d'un sprint** : plus d'ids du client en dur (`customfield_10023 / 10026`) —
+  les champs « story point » de l'instance sont détectés (`storyPointFieldIds()`, sync-fields.js, une lecture par
+  session).
+- `SYNC_CONFIG.sprintField` documenté comme simple repli (le champ Sprint est détecté par son nom).
+- Vérifié : Chromium (Affinage Fuego = `INFRA · OPS` lu en base, Ami = ligne produit, édition → 1 PUT fusionné,
+  écritures interceptées) ; 406 tests verts.
+
 ## [3.266.0] - 2026-10-28
 
 ### P1-1 — Réglages de projet partagés, en base (plus un comportement par navigateur)

@@ -720,7 +720,7 @@ python main.py          # http://localhost:3001  — Swagger /docs
   Volet 🧭 Cadrage (3.230.0) = UNIQUEMENT `cadrageModel` (utils/cadrage.js), rendu `components/refinement_cadrage.js` :
   cible `Cadrage_PI<PI de l'équipe + 1>` + `Cadrage_PI<PI en cours>` encore ouverts ; ⚠️ PAS de filtre `t.team` (les
   cadrages vivent chez « ERPC - Team Transverse ») mais SA- / PO- / PM-<périmètre> + contributeur (membre du roster
-  via `findPerson`, étiquette métier, ou équipe). Périmètre = `CADRAGE_PERIMETERS` (config.js) > ligne produit.
+  via `findPerson`, étiquette métier, ou équipe). Périmètre = réglage de projet `sb-cadrage-perimeters` (`cadragePerimeters()`, ✏️ dans l'en-tête du cadrage) > ligne produit.
   Contributeurs JIRA : champ détecté par `detectContributorsField` (sync-parse.js), à ajouter à toute NOUVELLE
   liste `fields` d'une passe tickets via `contributorsFieldParam()` (sinon `[]` silencieux).
   Sans ce champ (cas de l'ERPC, 3.251.0) : contributeurs = OBSERVATEURS JIRA (`sync-watchers.js`) — la même
@@ -817,6 +817,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
   l'équipe (seuils, champs JIRA, charges, rappels…) passe par `projectStorage` (project-settings.js, en base,
   `GET/PUT /api/project-settings`) et sa clé s'ajoute à `PROJECT_KEYS` / `PROJECT_PREFIXES` ; une préférence
   d'affichage (dépliage, filtre, onglet, thème) reste en `localStorage`. Jamais de secret dans `projectStorage`.
+  Aucune règle PROPRE AU CLIENT dans le code (3.267.0) : statuts forcés par défaut VIDES, champs story points
+  détectés (`storyPointFieldIds()`), périmètres de cadrage en réglage — une valeur client se migre une fois en base.
 - **Palette Ctrl+K — recherche** : `_score()` ignore accents et casse, puis accepte les mots DANS LE DÉSORDRE (chaque
   mot significatif doit commencer un mot du texte, mots outils `_STOP` écartés, score 30 < sous-chaîne 40). Vues,
   blocs et actions sont notés sur libellé, mots-clés ET les deux réunis (`_scoreEntry`).

@@ -179,6 +179,8 @@ export const NAV_ITEMS = [
     { id: 'settings',   label: 'Paramètres',   icon: 'i-settings',   shortcut: ',', section: 'footer' },
 ];
 
+// Repli SEULEMENT si la lecture de /rest/api/3/field échoue : le champ « Sprint » est détecté par son nom
+// (sync-fields.js) et surchargeable dans Paramètres → JIRA → Synchro (réglage de projet `sb-sync-sprintField`).
 export const SYNC_CONFIG = {
     sprintField: 'customfield_10021',
 };

@@ -1,3 +1,28 @@
+## [3.268.0] - 2026-10-28
+
+### P1-2 — Correspondance des statuts et types JIRA, modifiable sans code
+
+- **Paramètres → JIRA → 🗂️ Correspondance** (nouvel onglet, `settings-jira-mapping.js`) :
+  - **⚠️ À ranger** : libellés de statut ou de type qu'AUCUNE source ne connaissait à la dernière synchro (ni
+    le board JIRA, ni la carte générique) — avant, ils tombaient en « À faire » / « Tâche » sans rien dire.
+    Un menu suffit pour les ranger ;
+  - **Statuts vus dans les tickets** : chaque statut JIRA présent, sa colonne actuelle (ou « selon le board »),
+    modifiable vers les 6 colonnes (À faire, En cours, Revue, Test, Bloqué, Terminé) ; filtre ; repère 🎯 quand
+    un statut forcé prime ;
+  - **Correspondances du projet** : liste retirable + ajout manuel d'un libellé.
+- **Ordre de décision** : statut forcé → correspondance du projet → colonne du board → `STATUS_MAP` (statuts) ;
+  correspondance → `TYPE_MAP` (types). Réglages de projet `sb-status-map` / `sb-type-map` (`utils/jira-mapping.js`).
+- **Effet immédiat pour les statuts** : la correspondance est rejouée sur les tickets en mémoire
+  (`status-override.js`, comme les statuts forcés), puis gravée à la synchro suivante. Un type change à la
+  prochaine synchro (le libellé JIRA du type n'est pas gardé sur le ticket).
+- **La synchro note les inconnus** (`noteUnmapped` dans sync-parse.js → `sb-sync-unmapped` en fin de synchro ;
+  une rapide complète la liste, une complète la remplace).
+- `mapStatus`, la frise des blocages (`utils/blocked.js`) et la modale des tickets d'un sprint passent tous par
+  la même correspondance.
+- Vérifié dans Chromium (desktop + mobile, écritures interceptées) : 3 libellés à ranger affichés, un statut
+  re-rangé → tickets déplacés aussitôt (sauf ceux qu'un statut forcé retient), type rangé → sort de la liste,
+  retrait → retour à l'état initial ; 406 tests verts.
+
 ## [3.267.0] - 2026-10-28
 
 ### P1-3 — Les règles du client actuel sortent du code

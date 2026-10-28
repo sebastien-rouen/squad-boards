@@ -11,6 +11,7 @@
 
 import { store } from '../state.js';
 import { STATUS_OVERRIDE_DEFAULTS, STATUS_OVERRIDE_TARGETS, STATUS_MAP } from '../config.js';
+import { customStatusOf, STATUS_MAP_KEY } from './jira-mapping.js';
 
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const TARGETS = STATUS_OVERRIDE_TARGETS.map(t => t.key);   // priorité : done > inprog > todo
@@ -96,7 +97,7 @@ export function overrideReason(t, rules) {
     if (!t?.jiraStatus) return '';
     const k = forcedStatus(t.team, t.jiraStatus, rules);
     if (!k) return '';
-    const natural = t._preOverride ?? STATUS_MAP[String(t.jiraStatus).toLowerCase().trim()] ?? 'todo';
+    const natural = t._preOverride ?? customStatusOf(t.jiraStatus) ?? STATUS_MAP[String(t.jiraStatus).toLowerCase().trim()] ?? 'todo';
     if (natural === k) return '';
     return `Statut JIRA : ${t.jiraStatus} → ${TARGET_LABEL[k] || k} (règle « Statuts forcés », Paramètres → Plugin JIRA)`;
 }
@@ -124,7 +125,9 @@ export function applyStatusOverride(tickets, rules) {
     if (!Array.isArray(tickets)) return tickets;
     let changed = false;
     const out = tickets.map(t => {
-        const raw = rawStatus(t), k = forcedStatus(t.team, t.jiraStatus, rules);
+        // Statut forcé, sinon correspondance du projet (Paramètres → JIRA → Correspondance) : appliquée dès le
+        // chargement, sans attendre la synchro qui la gravera en base.
+        const raw = rawStatus(t), k = forcedStatus(t.team, t.jiraStatus, rules) || (t.jiraStatus ? customStatusOf(t.jiraStatus) : null);
         const target = k && k !== 'done' && t.flagged ? 'blocked' : k;
         if (target && target !== raw) {
             if (t.status === target && t._preOverride !== undefined) return t;
@@ -150,4 +153,7 @@ export const forceAllColumns = (byTeam, rules) => Object.fromEntries(
 store.transform('tickets', ts => applyStatusOverride(ts));
 store.on('piInfo', (v, old) => {
     if (JSON.stringify(v?.statusOverride || {}) !== JSON.stringify(old?.statusOverride || {})) store.set('tickets', store.get('tickets'));
+});
+store.on('projectSettings', (v, old) => {
+    if ((v?.[STATUS_MAP_KEY] || '') !== (old?.[STATUS_MAP_KEY] || '')) store.set('tickets', store.get('tickets'));
 });

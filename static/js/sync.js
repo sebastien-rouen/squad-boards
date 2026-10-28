@@ -18,6 +18,7 @@ import {
     fetchImprovementTickets, fetchBufferHistory,
 } from './sync-passes.js';
 import { projectStorage } from './project-settings.js';
+import { resetUnmapped, saveUnmapped } from './utils/jira-mapping.js';
 // API publique inchangée (app.js, topbar, Paramètres, tests) : ré-exports
 export { makeIncidents, getExcludedTeams, addExcludedTeam, removeExcludedTeam, clearExcludedTeams, dismissSyncReport } from './sync-report.js';
 export { clearEmptyClosedMemory, _buildClosedArchive } from './sync-archive.js';
@@ -63,6 +64,7 @@ export async function importFromJira(options = {}) {
 
 async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), archiveOn = false) {
     const quickMode = sinceDays != null;
+    resetUnmapped();   // libellés JIRA inconnus de cette synchro (utils/jira-mapping.js)
     // Une équipe est exclue si son nom (insensible à la casse) figure dans la liste des retraits.
     const isExcludedTeam = name => excludedTeams.size > 0 && excludedTeams.has(String(name || '').toLowerCase());
     if (excludedTeams.size) {
@@ -584,6 +586,8 @@ async function _doImport(projects, sinceDays = null, excludedTeams = new Set(), 
         teams,
         sprint: sprintPayload ? [sprintPayload] : [],
     }, quickMode ? 'merge' : 'replace');
+    // Statuts / types qu'aucune source ne range → Paramètres → JIRA → Correspondance (une rapide complète la liste)
+    saveUnmapped({ merge: quickMode });
 
     if (sprintPayload) {
         await api.updateSprint(sprintPayload);

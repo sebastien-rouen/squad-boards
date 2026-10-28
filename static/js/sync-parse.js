@@ -7,8 +7,9 @@
 
 import * as api from './api.js';
 import { mapStatus, mapType, extractTeam, parseWikiMarkup, workdayDurationDays } from './utils.js';
-import { CYCLE_START_STATUSES, CYCLE_END_STATUS } from './config.js';
+import { CYCLE_START_STATUSES, CYCLE_END_STATUS, STATUS_MAP, TYPE_MAP } from './config.js';
 import { forcedStatus } from './utils/status-override.js';
+import { customStatusOf, noteUnmapped } from './utils/jira-mapping.js';
 
 // ── Map JIRA column name → internal status key ───────────────────────────────
 export function _mapColToInternal(colName) {
@@ -64,6 +65,7 @@ function _contributors(f) {
 export function transformIssue(issue, teamName, sprint, storyPointsField, boardStatusMap = null, sprintFieldId = null, piSprintFieldId = null, teamFieldId = null) {
     const f = issue.fields || {};
     const type = mapType(f.issuetype?.name);
+    if (f.issuetype?.name && type === 'task' && !TYPE_MAP[f.issuetype.name.toLowerCase().trim()]) noteUnmapped('type', f.issuetype.name);
     const jiraStatusName = f.status?.name || '';
     // Préserve le label JIRA brut pour affichage UI (ex: "En cours de développement" au lieu de "En cours")
     const jiraStatus = jiraStatusName;
@@ -85,11 +87,13 @@ export function transformIssue(issue, teamName, sprint, storyPointsField, boardS
         || (/^PI\s*#?\s*\d+\s*$/i.test(_sprintName || '') ? null : extractTeam(_sprintName))
         || 'Autre';
 
-    // Statut interne : « statuts forcés » d'abord (Paramètres → JIRA, défauts config.js → « À livrer pour
-    // validation »… en Terminé pour toutes les équipes sauf Fuego), puis la colonne du board JIRA, puis
-    // STATUS_MAP. L'équipe définitive est connue ici : l'exception porte sur elle, pas sur le board.
-    const status = forcedStatus(team, jiraStatusName)
-        || (boardStatusMap && boardStatusMap[jiraStatusName.toLowerCase().trim()]) || mapStatus(jiraStatusName);
+    // Statut interne : « statuts forcés » d'abord (Paramètres → JIRA, équipes exemptées possibles), puis la
+    // correspondance du projet (utils/jira-mapping.js), la colonne du board JIRA, enfin STATUS_MAP. L'équipe
+    // définitive est connue ici : l'exception porte sur elle, pas sur le board. Libellé connu de personne →
+    // noté (Paramètres → JIRA → Correspondance) au lieu de tomber en silence dans « À faire ».
+    const _boardSt = boardStatusMap && boardStatusMap[jiraStatusName.toLowerCase().trim()];
+    if (jiraStatusName && !_boardSt && !customStatusOf(jiraStatusName) && !STATUS_MAP[jiraStatusName.toLowerCase().trim()]) noteUnmapped('status', jiraStatusName);
+    const status = forcedStatus(team, jiraStatusName) || customStatusOf(jiraStatusName) || _boardSt || mapStatus(jiraStatusName);
 
     const comments = (f.comment?.comments || []).slice(-5).map(c => ({
         id: c.id || Math.random().toString(36).slice(2, 10),
@@ -128,7 +132,7 @@ export function transformIssue(issue, teamName, sprint, storyPointsField, boardS
             for (const item of (history.items || [])) {
                 if (item.field !== 'status') continue;
                 const toStatus = (item.toString || '').toLowerCase().trim();
-                const mapped = forcedStatus(team, toStatus) || (boardStatusMap && boardStatusMap[toStatus]) || mapStatus(toStatus);
+                const mapped = forcedStatus(team, toStatus) || customStatusOf(toStatus) || (boardStatusMap && boardStatusMap[toStatus]) || mapStatus(toStatus);
                 if (!startedDate && CYCLE_START_STATUSES.includes(mapped)) {
                     startedDate = history.created;
                 }

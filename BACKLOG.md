@@ -86,11 +86,7 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
 
 **🔴 P1 — bloquant pour brancher un autre projet**
 - [x] **P1-1 · Réglages de projet en base** · ✅ 3.266.0 — `projectStorage` (project-settings.js), table `project_setting`.
-- [ ] **P1-2 · Correspondance des statuts et types JIRA éditable** — `STATUS_MAP` (~120 libellés, dont ceux du client :
-  « à livrer en qualif (mi) », « 3 amigos ») et `TYPE_MAP` sont dans `config.js` ; un libellé inconnu retombe
-  SILENCIEUSEMENT sur `todo` (le ticket sort des métriques de flux). Les statuts forcés (3.195.0) ne couvrent que
-  done / inprog / todo. **À faire** : table complète (6 colonnes, review / test / blocked compris) en réglages projet,
-  défaut = carte générique ; écran « statuts vus à la dernière synchro et non rangés » à classer en un clic. — *2026-10-28*
+- [x] **P1-2 · Correspondance des statuts et types JIRA** · ✅ 3.268.0 — onglet 🗂️ Correspondance, inconnus notés à la synchro.
 - [x] **P1-3 · Défauts du client sortis du code** · ✅ 3.267.0 — statuts forcés vides, cadrage en réglage (✏️), story points détectés.
 - [ ] **P1-4 · Secrets hors du navigateur** — jeton JIRA (`sb-jira-token`) et webhook Slack (`sb-slack-webhook`) en
   localStorage : exclus des sauvegardes, mais lisibles par tout script de la page et à ressaisir sur chaque PC. Après

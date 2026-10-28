@@ -11,8 +11,8 @@
  */
 
 import { store } from '../state.js';
-import { esc, pct, sumBy, toast, ticketModalOnTop, copySlack, getSprintForTeam, isBufferItem, trapFocus, engagedInSprint, sprintStartsOf, carriedOverTo, extractSprintLabel } from '../utils.js';
-import { STATUS_LABELS, STATUS_ORDER, STATUS_MAP, TYPE_ICONS } from '../config.js';
+import { esc, pct, sumBy, mapStatus, toast, ticketModalOnTop, copySlack, getSprintForTeam, isBufferItem, trapFocus, engagedInSprint, sprintStartsOf, carriedOverTo, extractSprintLabel } from '../utils.js';
+import { STATUS_LABELS, STATUS_ORDER, TYPE_ICONS } from '../config.js';
 import * as api from '../api.js';
 import { openDemoMode } from './sprint_demo.js';
 import { _buildSprintReport, _buildSprintReportHtml, _buildSprintReportMd, _canRenderBurndown, _maybeInjectBurndown, _maybeRenderBurndown } from './sprint_reports.js';
@@ -564,7 +564,7 @@ async function _fetchAllIssuesForSprint(sprintId) {
 function _transformLite(issue, spIds = []) {
     const f = issue.fields || {};
     const jiraStatus = f.status?.name || '';
-    const status = STATUS_MAP[jiraStatus.toLowerCase().trim()] || 'todo';
+    const status = mapStatus(jiraStatus);
     return {
         id: issue.key,
         title: f.summary || '',

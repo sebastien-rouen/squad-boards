@@ -819,6 +819,8 @@ python main.py          # http://localhost:3001  — Swagger /docs
   d'affichage (dépliage, filtre, onglet, thème) reste en `localStorage`. Jamais de secret dans `projectStorage`.
   Aucune règle PROPRE AU CLIENT dans le code (3.267.0) : statuts forcés par défaut VIDES, champs story points
   détectés (`storyPointFieldIds()`), périmètres de cadrage en réglage — une valeur client se migre une fois en base.
+  Statut interne d'un ticket : statut forcé → correspondance du projet (`customStatusOf`, utils/jira-mapping.js) →
+  colonne du board → `STATUS_MAP` ; ne JAMAIS lire `STATUS_MAP[...]` en direct (passer par `mapStatus`).
 - **Palette Ctrl+K — recherche** : `_score()` ignore accents et casse, puis accepte les mots DANS LE DÉSORDRE (chaque
   mot significatif doit commencer un mot du texte, mots outils `_STOP` écartés, score 30 < sous-chaîne 40). Vues,
   blocs et actions sont notés sur libellé, mots-clés ET les deux réunis (`_scoreEntry`).

@@ -13,6 +13,7 @@ import * as api from '../api.js';
 import { esc, toast, emptyStateHtml, getCurrentPi } from '../utils.js';
 import { getExcludedTeams, removeExcludedTeam, clearExcludedTeams } from '../sync.js';
 import { statusOverrideHtml, wireStatusOverride } from './settings-status-override.js';
+import { jiraMappingHtml, wireJiraMapping } from './settings-jira-mapping.js';
 import { projectStorage } from '../project-settings.js';
 
 /** Valeur effective d'un réglage de sync (saisie utilisateur, sinon défaut). */
@@ -64,6 +65,7 @@ const _TABS = [
     { key: 'sync',   icon: '⏱️', label: 'Synchro' },
     { key: 'teams',  icon: '🚫', label: 'Équipes masquées' },
     { key: 'status', icon: '🎯', label: 'Statuts forcés' },
+    { key: 'mapping', icon: '🗂️', label: 'Correspondance' },
 ];
 const _TAB_KEY = 'sb-settings-jira-tab';
 function _activeTab() {
@@ -365,6 +367,10 @@ export function jiraSectionHtml() {
                 <div class="jira-panel" id="jira-panel-status" role="tabpanel" aria-labelledby="jira-tab-status"${tab === 'status' ? '' : ' hidden'}>
                 ${statusOverrideHtml()}
                 </div>
+
+                <div class="jira-panel" id="jira-panel-mapping" role="tabpanel" aria-labelledby="jira-tab-mapping"${tab === 'mapping' ? '' : ' hidden'}>
+                ${jiraMappingHtml()}
+                </div>
             </div>
         </div>
 
@@ -379,6 +385,7 @@ export function jiraSectionHtml() {
 export function wireJiraSection(container, onReload = () => {}) {
     const reloadAndRender = () => onReload();
     wireStatusOverride(container, reloadAndRender);   // 🎯 Statuts forcés dans une colonne (règle partagée)
+    wireJiraMapping(container);                       // 🗂️ Correspondance des statuts et types (réglage de projet)
 
     // ── JIRA sync config ──────────────────────────────────────────────────────
     // `min` : 0 est une valeur LÉGITIME pour l'historique des tickets (désactive la passe),

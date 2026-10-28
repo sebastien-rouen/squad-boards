@@ -1,0 +1,22 @@
+/* Paramètres → JIRA → 🗂️ Correspondance des statuts et types (settings-jira-mapping.js, 3.268.0) */
+.jmap-h { display: flex; align-items: center; gap: 8px; margin: 16px 0 4px; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text); }
+.jmap-count { padding: 0 8px; border-radius: var(--r-full); background: var(--surface-hover); color: var(--text-secondary); font-size: 11px; }
+.jmap-list { display: grid; gap: 4px; margin-top: 8px; max-height: 360px; overflow-y: auto; }
+.jmap-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(150px, 190px); align-items: center; gap: 8px; padding: 4px 8px; border-radius: var(--r-sm); border: 1px solid transparent; }
+.jmap-row > .jmap-label:first-child { grid-column: 1 / 3; }
+.jmap-row.is-todo { border-color: color-mix(in srgb, var(--warning) 45%, transparent); background: color-mix(in srgb, var(--warning) 8%, transparent); }
+.jmap-row.is-own { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.jmap-row small { color: var(--text-muted); white-space: nowrap; }
+.jmap-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--fw-semibold); }
+.jmap-kind { font-size: 11px; padding: 0 6px; border-radius: var(--r-full); border: 1px solid var(--border); color: var(--text-secondary); }
+.jmap-q { margin-top: 8px; max-width: 320px; }
+.jmap-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.jmap-add input { flex: 1 1 220px; }
+
+@media (max-width: 720px) {
+    .jmap-row { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 8px; }
+    .jmap-row > .jmap-label:first-child { grid-column: auto; }
+    .jmap-label { white-space: normal; }
+    .jmap-kind { justify-self: start; }
+    .jmap-row .btn { justify-self: start; }
+}

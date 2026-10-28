@@ -3,6 +3,7 @@
  */
 
 import { STATUS_MAP, STATUS_LABELS, TYPE_MAP, TYPE_LABELS, TYPE_ICONS, WIP_STATUSES } from './config.js';
+import { customStatusOf, customTypeOf } from './utils/jira-mapping.js';
 
 // ── Modules extraits — utils.js reste le point d'entrée unique des vues ────────
 export * from './utils/dom.js';
@@ -121,13 +122,14 @@ export function diagramFrameHtml(src, alt, extraClass = '') {
 /** Map a JIRA status string to internal status key. */
 export function mapStatus(jiraStatus) {
     if (!jiraStatus) return 'todo';
-    return STATUS_MAP[jiraStatus.toLowerCase().trim()] || 'todo';
+    // Correspondance du projet (Paramètres → JIRA → Correspondance) avant la carte générique
+    return customStatusOf(jiraStatus) || STATUS_MAP[jiraStatus.toLowerCase().trim()] || 'todo';
 }
 
 /** Map a JIRA issue type to internal type key. */
 export function mapType(jiraType) {
     if (!jiraType) return 'task';
-    return TYPE_MAP[jiraType.toLowerCase().trim()] || 'task';
+    return customTypeOf(jiraType) || TYPE_MAP[jiraType.toLowerCase().trim()] || 'task';
 }
 
 /**

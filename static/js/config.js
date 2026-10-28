@@ -75,7 +75,8 @@ export const STATUS_MAP = {
  * ⚠️ Tout repose sur `mapStatus()`, un lookup EXACT dans STATUS_MAP avec repli SILENCIEUX sur
  * 'todo'. Un libellé JIRA absent de la table ne déclenche donc rien et ne se signale nulle part :
  * le ticket sort simplement des métriques de flux (`cycleTimeDays > 0` partout). D'où le golden
- * dataset de `tests/status-map.test.mjs`, à compléter dès qu'une équipe introduit un statut.
+ * dataset de `tests/status-map.test.mjs`. Depuis 3.268.0, un libellé inconnu de TOUTES les sources est
+ * noté à la synchro et se range sans code (Paramètres → JIRA → 🗂️ Correspondance, utils/jira-mapping.js).
  */
 /**
  * Valeurs PAR DÉFAUT des « statuts forcés » — modifiables dans Paramètres → JIRA (en base :

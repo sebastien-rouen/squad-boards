@@ -3,13 +3,14 @@
  * détail « Flux » de la modale ticket).
  */
 import { STATUS_MAP } from '../config.js';
+import { customStatusOf } from './jira-mapping.js';
 import { workdayDurationDays } from './workdays.js';
 
 /** Date JIRA → ms ; le changelog écrit « +0200 », que Date.parse ne lit pas sans le « : ». */
 const _msOf = v => (v ? Date.parse(String(v).replace(/([+-]\d{2})(\d{2})$/, '$1:$2')) : NaN);
 
-/** Même lookup exact que `mapStatus` (utils.js) — importer le barrel ici créerait un cycle. */
-const _isBlockedStatus = s => !!s && STATUS_MAP[s.toLowerCase().trim()] === 'blocked';
+/** Même lookup que `mapStatus` (utils.js) — importer le barrel ici créerait un cycle. */
+const _isBlockedStatus = s => !!s && (customStatusOf(s) || STATUS_MAP[s.toLowerCase().trim()]) === 'blocked';
 
 /**
  * Périodes de blocage entre `fromMs` et `toMs`, rejouées depuis l'historique : bloqué = drapeau

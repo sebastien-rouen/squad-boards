@@ -11,9 +11,14 @@ pip install -r requirements.txt
 python main.py
 ```
 
-👉 Ouvrez **http://localhost:3000** — des données de démo sont créées automatiquement.
+👉 Ouvrez **http://localhost:3000** (port par défaut, `PORT` dans `.env` — 3010 pour l'instance drafts) : le
+premier lancement propose la démo, l'import JIRA ou **🧭 Mettre en route mon projet**.
 
 > 💡 Aucun build, aucun framework JS, aucun service externe requis : ça marche tel quel.
+
+**Un autre projet ?** Une instance par projet (même code, base et port propres) : voir
+[docs/multi-instance.md](docs/multi-instance.md). Tout ce qui est propre au projet — règles métier,
+correspondance JIRA, jours fériés, modules, identité, secrets — se règle dans Paramètres et vit dans sa base.
 
 ---
 

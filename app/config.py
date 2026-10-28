@@ -16,8 +16,11 @@ DEMO_DIR = BASE_DIR / "docs" / "demo"   # démos vidéo servies sous /demo/ (mai
 # jeu de démo filmé par tools/demo-video (`PORT=3011 SB_DB_PATH=data/demo.db python3 main.py`). Défaut : data/board.db.
 _db_env = os.getenv("SB_DB_PATH", "").strip()
 DB_PATH = (Path(_db_env) if Path(_db_env).is_absolute() else BASE_DIR / _db_env) if _db_env else DATA_DIR / "board.db"
-UPLOADS_DIR = DATA_DIR / "uploads"
-UPLOADS_DIR.mkdir(exist_ok=True)
+# Pièces jointes : `SB_UPLOADS_DIR` (absolu ou relatif à la racine) pour qu'une instance parallèle n'écrive pas dans
+# le dossier d'une autre (docs/multi-instance.md, 3.278.0). Défaut : data/uploads.
+_up_env = os.getenv("SB_UPLOADS_DIR", "").strip()
+UPLOADS_DIR = (Path(_up_env) if Path(_up_env).is_absolute() else BASE_DIR / _up_env) if _up_env else DATA_DIR / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 JIRA_URL = os.getenv("JIRA_URL", "").rstrip("/")
 JIRA_USER = os.getenv("JIRA_USER", "")

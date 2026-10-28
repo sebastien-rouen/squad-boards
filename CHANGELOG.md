@@ -1,3 +1,17 @@
+## [3.278.0] - 2026-10-28
+
+### P3-13 — Plusieurs projets : une instance par projet (documenté, outillé)
+
+- **`docs/multi-instance.md`** : décision multi-INSTANCE (pas multi-tenant) — ce qui vit dans la base d'une
+  instance (données, réglages de projet, secrets), ce qui est partagé (code, `.env` de repli, pièces jointes sauf
+  `SB_UPLOADS_DIR`), lancer et exposer un deuxième projet, limites (#A2, `reload=True`).
+- **`ecosystem.instances.example.cjs`** : gabarit PM2 d'une instance (`PORT`, `SB_DB_PATH`, `SB_UPLOADS_DIR`).
+- **`SB_UPLOADS_DIR`** (`app/config.py`) : dossier des pièces jointes par instance ; défaut inchangé `data/uploads`.
+- **`.env.example`** : port 3010 (au lieu de 3000), `SB_DB_PATH` / `SB_UPLOADS_DIR`, `JIRA_ALLOWED_HOSTS`, JIRA du
+  `.env` présenté comme repli. README : premier lancement et lien vers la doc.
+- Vérifié : instance jetable sur le port 3019 (base et pièces jointes dans un dossier temporaire) → démarre, base
+  créée, aucune équipe ni réglage, arrêtée par son PID ; l'instance drafts (3010) n'est pas touchée.
+
 ## [3.277.0] - 2026-10-28
 
 ### P3-12 — Noms de boards / sprints → équipes, sans code

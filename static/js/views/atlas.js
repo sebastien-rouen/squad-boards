@@ -139,7 +139,7 @@ export function renderAtlas(container) {
     });
     _render(container);
     if (!container._atlasSubs) {
-        container._atlasSubs = ['team', 'group', 'skills', 'appetences', 'memberSkills', 'memberAppetences', 'mobility', 'teamSkillRequirements', 'absences']
+        container._atlasSubs = ['team', 'group', 'skills', 'appetences', 'memberSkills', 'memberAppetences', 'mobility', 'teamSkillRequirements', 'absences', 'projectSettings']
             .map(k => store.on(k, () => { if (container.isConnected && _container === container) rerender(); }));
         // Onglet changé par le hash (lien, palette, retour arrière) alors que l'Atlas est déjà affiché
         container._atlasSubs.push(store.on('atlasTab', t => {

@@ -9,6 +9,7 @@ import { store } from '../state.js';
 import * as api from '../api.js';
 import { esc, toast, toastUndo, emptyStateHtml } from '../utils.js';
 import * as M from './atlas-model.js';
+import { projectStorage } from '../project-settings.js';
 
 const DEFAULT_CATALOG = [
     ['Frontend', '#3b82f6', ['React / JS', 'CSS / Design System', 'Accessibilité']],
@@ -40,13 +41,36 @@ function _section(ctx, kind, list, title, hint) {
         + `<form class="atl-cat__add" data-add="${kind}"><input class="input input-sm" name="name" placeholder="Nouvelle ${k.label}" required aria-label="Nom"><input class="input input-sm" name="category" list="atl-cat-cats" placeholder="Catégorie" aria-label="Catégorie"><input type="color" name="color" value="${kind === 'skill' ? '#6366f1' : '#f59e0b'}" aria-label="Couleur"><button type="submit" class="btn btn-primary btn-sm">＋ Ajouter</button></form></section>`;
 }
 
+/** 🎚️ Référentiel des niveaux (libellés du projet ; l'échelle 0-4 reste fixe). */
+function _levelsSection() {
+    const custom = !!projectStorage.getItem(M.LEVELS_KEY);
+    return `<section class="atl-card atl-lvref"><h3>🎚️ Référentiel des niveaux <small>partagé · échelle 1 à 4 fixe, sachant = niveau ≥ ${M.EXPERT_MIN}</small></h3>
+        ${M.SKILL_LEVELS.filter(l => l.v).map(l => `<div class="atl-lvref__row"><span class="atl-lvl atl-lvl--${l.v}">${l.v}</span>
+            <input class="input input-sm" data-lvl="${l.v}" data-lvl-field="label" value="${esc(l.label)}" placeholder="${esc(M.DEFAULT_LEVELS[l.v].label)}" maxlength="40" aria-label="Libellé du niveau ${l.v}">
+            <input class="input input-sm" data-lvl="${l.v}" data-lvl-field="desc" value="${esc(l.desc)}" placeholder="${esc(M.DEFAULT_LEVELS[l.v].desc)}" maxlength="200" aria-label="Description du niveau ${l.v}"></div>`).join('')}
+        ${custom ? '<button type="button" class="btn btn-ghost btn-sm" data-lvl-reset>Rétablir le référentiel par défaut</button>' : ''}</section>`;
+}
+
+/** Enregistre les 4 niveaux depuis les champs ; identiques aux défauts → réglage supprimé. */
+function _saveLevels(root) {
+    const out = {};
+    for (const l of M.SKILL_LEVELS.filter(x => x.v)) {
+        const d = M.DEFAULT_LEVELS[l.v];
+        const label = root.querySelector(`[data-lvl="${l.v}"][data-lvl-field="label"]`)?.value.trim() || '';
+        const desc = root.querySelector(`[data-lvl="${l.v}"][data-lvl-field="desc"]`)?.value.trim() || '';
+        if ((label && label !== d.label) || (desc && desc !== d.desc)) out[l.v] = { label: label === d.label ? '' : label, desc: desc === d.desc ? '' : desc };
+    }
+    if (Object.keys(out).length) projectStorage.setItem(M.LEVELS_KEY, JSON.stringify(out)); else projectStorage.removeItem(M.LEVELS_KEY);
+    M.applyLevelLabels();
+}
+
 export function catalogHtml(ctx) {
     const cats = [...new Set([...ctx.skills, ...ctx.appetences].map(x => x.category).filter(Boolean))];
     const empty = !ctx.skills.length
         ? emptyStateHtml({ icon: '⚙️', title: 'Catalogue vide', text: 'Partez d\'un catalogue type (12 compétences en 4 catégories) ou ajoutez les vôtres ci-dessous.', action: { label: '⚙️ Catalogue par défaut', attrs: 'data-seed' } })
         : '';
     return `${empty}<datalist id="atl-cat-cats">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
-        <div class="atl-cat">${_section(ctx, 'skill', ctx.skills, '🧭 Compétences', 'ordre = colonnes de la matrice et axes des radars')}${_section(ctx, 'app', ctx.appetences, '💡 Envies (hors compétences)', 'Management, Coaching… — l\'envie PAR compétence se note dans l\'évaluation')}</div>`;
+        <div class="atl-cat">${_section(ctx, 'skill', ctx.skills, '🧭 Compétences', 'ordre = colonnes de la matrice et axes des radars')}${_section(ctx, 'app', ctx.appetences, '💡 Envies (hors compétences)', 'Management, Coaching… — l\'envie PAR compétence se note dans l\'évaluation')}${_levelsSection()}</div>`;
 }
 
 async function _seed() {
@@ -92,6 +116,7 @@ function _delete(kind, id) {
 export function bindCatalog(root) {
     root.addEventListener('click', e => {
         if (e.target.closest('[data-seed]')) { _seed(); return; }
+        if (e.target.closest('[data-lvl-reset]')) { projectStorage.removeItem(M.LEVELS_KEY); M.applyLevelLabels(); toast('Référentiel par défaut rétabli', 'success'); return; }
         const row = e.target.closest('.atl-cat__row');
         if (!row) return;
         const mv = e.target.closest('[data-move]');
@@ -99,6 +124,7 @@ export function bindCatalog(root) {
         else if (e.target.closest('[data-del]')) _delete(row.dataset.kind, row.dataset.id);
     });
     root.addEventListener('change', async e => {
+        if (e.target.closest('[data-lvl]')) { _saveLevels(root); return; }   // projectSettings → l'Atlas se re-rend
         const f = e.target.closest('[data-field]');
         const row = e.target.closest('.atl-cat__row');
         if (!f || !row) return;

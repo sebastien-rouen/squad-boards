@@ -120,6 +120,10 @@ span.atl-tag { cursor: default; }
 .atl-step { display: grid; grid-template-columns: 24px minmax(0, 1fr) 150px 36px; align-items: center; gap: 6px; }
 .atl-step.is-done input[data-step-label] { text-decoration: line-through; color: var(--text-muted); }
 
+/* ── Référentiel des niveaux (atlas-catalog.js, 3.271.0) ─────────────────── */
+.atl-lvref { grid-column: 1 / -1; }
+.atl-lvref__row { display: grid; grid-template-columns: 28px minmax(140px, 220px) minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 6px; }
+
 /* ── Campagne d'évaluation (atlas-campaign.js) ─────────────────────────── */
 .atl-cp-head { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
 .atl-cp-prog { flex: 1 1 200px; display: grid; gap: 4px; }
@@ -146,6 +150,8 @@ span.atl-tag { cursor: default; }
     .atl-bus__who { grid-column: 1 / -1; }
     .atl-fiche { grid-template-columns: 1fr; }
     .atl-cat { grid-template-columns: 1fr; }
+    .atl-lvref__row { grid-template-columns: 28px minmax(0, 1fr); }
+    .atl-lvref__row input[data-lvl-field="desc"] { grid-column: 2; }
     .atl-kanban { grid-template-columns: 1fr; }
     .atl-step { grid-template-columns: 24px minmax(0, 1fr) 36px; }
     .atl-step input[type="date"] { grid-column: 2; }

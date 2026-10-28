@@ -107,9 +107,7 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
   serveur (`poker.py _ALLOWED = 1,2,3,5,8,13,21,?` : ni 0, ni ½, ni tailles de t-shirt). Un écran « Règles » qui les
   rassemble avec leur effet. — *2026-10-28*
 - [x] **P2-9 · Jours fériés par pays** · ✅ 3.270.0 — Paramètres → Calendrier de travail (FR, Alsace-Moselle, BE, CH, aucun) + fermetures.
-- [ ] **P2-10 · Référentiel de niveaux Atlas éditable** — les 4 libellés actuels sont une décision du client (à NE PAS
-  changer pour lui) ; pour un autre projet : libellés et descriptions éditables dans le Catalogue, échelle 0-4
-  conservée (les calculs en dépendent). — *2026-10-28*
+- [x] **P2-10 · Référentiel de niveaux Atlas éditable** · ✅ 3.271.0 — ⚙️ Catalogue → 🎚️ Référentiel (libellés 1-4, échelle fixe).
 
 **🟡 P3 — confort, plusieurs instances**
 - [ ] **P3-11 · Identité de l'instance** — « Squad Board » en dur (`index.html`, `first_launch.js`) : nom, logo,

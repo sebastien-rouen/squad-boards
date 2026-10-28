@@ -10,6 +10,7 @@
 
 import { store } from '../state.js';
 import { deriveMembersFromAbsences, hashColor } from '../utils.js';
+import { projectStorage } from '../project-settings.js';
 
 export const SKILL_LEVELS = [
     { v: 0, label: 'Non évalué',             short: '–', color: 'var(--border)', desc: 'Compétence non encore évaluée pour cette personne / équipe.' },
@@ -26,12 +27,32 @@ export const APPETENCE_VALUES = [
 /** Prénom d'un nom RH « NOM, Prénom » ou JIRA « Prénom Nom ». */
 export const firstName = n => { const s = String(n || ''); const i = s.indexOf(','); return (i >= 0 ? s.slice(i + 1) : s).trim().split(/\s+/)[0] || s; };
 export const levelMeta = v => SKILL_LEVELS.find(l => l.v === v) || SKILL_LEVELS[0];
+
+/**
+ * Référentiel PROPRE AU PROJET (3.271.0) : libellé et description des niveaux 1 à 4, réglage de projet
+ * `sb-atlas-levels` = { 1: { label, desc }, … }, édité dans ⚙️ Catalogue. L'ÉCHELLE (0-4, sachant ≥ 2) ne change
+ * pas : les calculs en dépendent. Appliqué EN PLACE sur SKILL_LEVELS (même tableau pour la TV, la fiche, la
+ * frise) ; champ vide = libellé par défaut ci-dessus.
+ */
+export const LEVELS_KEY = 'sb-atlas-levels';
+export const DEFAULT_LEVELS = Object.freeze(SKILL_LEVELS.map(l => Object.freeze({ ...l })));
+export function applyLevelLabels() {
+    let custom = {};
+    try { custom = JSON.parse(projectStorage.getItem(LEVELS_KEY) || '{}') || {}; } catch { /* réglage illisible : défauts */ }
+    for (const l of SKILL_LEVELS) {
+        const d = DEFAULT_LEVELS[l.v], c = l.v ? custom[l.v] : null;
+        l.label = String(c?.label || '').trim() || d.label;
+        l.desc = String(c?.desc || '').trim() || d.desc;
+    }
+}
+applyLevelLabels();
 export const EXPERT_MIN = 2;
 
 const bySort = (a, b) => (a.sort ?? 0) - (b.sort ?? 0) || (a.name || '').localeCompare(b.name || '', 'fr');
 
 /** Contexte d'un rendu : personnes, équipes visibles (filtre topbar), catalogues, index des évaluations. */
 export function atlasCtx() {
+    applyLevelLabels();   // le référentiel a pu changer (autre poste, Catalogue)
     const groups = store.get('groups') || [];
     const allTeams = store.get('teams') || [];
     const selGroup = store.get('group');

@@ -1,3 +1,16 @@
+## [3.271.0] - 2026-10-28
+
+### P2-10 — Référentiel des niveaux de l'Atlas modifiable par projet
+
+- **⚙️ Catalogue → 🎚️ Référentiel des niveaux** : libellé et description des niveaux 1 à 4, partagés (réglage de
+  projet `sb-atlas-levels`). L'ÉCHELLE reste fixe (0-4, sachant = niveau ≥ 2) : les calculs en dépendent. Champ
+  vide ou identique au défaut = libellé par défaut ; « Rétablir le référentiel par défaut ».
+- Appliqué EN PLACE sur `SKILL_LEVELS` (`applyLevelLabels`, atlas-model.js) : matrice, fiche, évaluation,
+  campagne, historique des niveaux, TV et frise lisent le même tableau. L'Atlas se re-rend sur `projectSettings`.
+- Le référentiel du client (« Exécutant spécialisé … Référent / architecte ») reste le défaut : rien ne change ici.
+- Vérifié dans Chromium (écritures interceptées) : niveau 3 renommé « Expert » → légende de la matrice à jour,
+  rétablir → réglage supprimé ; 406 tests verts.
+
 ## [3.270.0] - 2026-10-28
 
 ### P2-9 — Jours fériés par pays + fermetures de l'entreprise

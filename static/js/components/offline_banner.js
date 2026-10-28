@@ -43,7 +43,8 @@ function _show(reason) {
 /** Sonde l'API ; `manual` = clic sur Réessayer (redessine la vue si ça répond). */
 export async function probe(manual = false) {
     try {
-        const r = await fetch('/api/config', { cache: 'no-store' });
+        // Route PUBLIQUE (3.280.0) : une session expirée (401) n'est pas une panne de serveur
+        const r = await fetch('/api/auth/status', { cache: 'no-store' });
         if (!r.ok) throw new Error(String(r.status));
         _lastOk = new Date();
         _hide();

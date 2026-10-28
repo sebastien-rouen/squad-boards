@@ -24,6 +24,7 @@ from app.routers import (
     team_identity, workshop_templates, team_workshops, attachments, slack, calendar_rules,
     config_bundle, project_settings, secrets,
 )
+from app import auth
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Bootstrap base de données (modèles enregistrés ci-dessus → create_all les voit)
@@ -44,7 +45,9 @@ async def lifespan(app: FastAPI):
     await http_client.shutdown()
 
 
-app = FastAPI(title="Squad Board", version="3.0.0", lifespan=lifespan)
+# Swagger fermé quand l'authentification est armée (il décrit toute l'API) — cf. app/auth.py
+_docs = {} if not auth.REQUIRED else {"docs_url": None, "redoc_url": None, "openapi_url": None}
+app = FastAPI(title="Squad Board", version="3.0.0", lifespan=lifespan, **_docs)
 
 # Routeurs par domaine (agile expose 4 sous-routeurs).
 for _r in (
@@ -55,7 +58,7 @@ for _r in (
     calendars.router, jira.router, data.router, poker.router_poker,
     team_identity.router, workshop_templates.router, team_workshops.router,
     attachments.router, slack.router, calendar_rules.router, config_bundle.router,
-    project_settings.router, secrets.router,
+    project_settings.router, secrets.router, auth.router,
 ):
     app.include_router(_r)
 
@@ -64,6 +67,8 @@ for _r in (
 # JS / CSS / JSON en gzip (×4 à ×6 de moins sur le réseau). `/api/all` arrive déjà compressé
 # depuis son cache (Content-Encoding posé) : le middleware le laisse passer tel quel.
 app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
+# Verrou SSO (3.280.0) : enregistré APRÈS GZip, donc exécuté AVANT lui — une requête refusée ne lit rien.
+app.middleware("http")(auth.auth_middleware)
 
 
 # ── Static Files ──────────────────────────────────────────────────────────────
@@ -82,4 +87,8 @@ app.mount("/", NoCacheStaticFiles(directory=str(STATIC_DIR), html=True), name="s
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 3000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    # Écoute LOCALE par défaut (3.280.0) : Nginx joint 127.0.0.1 ; `SB_HOST=0.0.0.0` pour exposer sur le réseau.
+    # `SB_RELOAD=false` en exploitation (un seul processus, pas de surveillance des fichiers).
+    host = os.getenv("SB_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    reload = os.getenv("SB_RELOAD", "true").strip().lower() != "false"
+    uvicorn.run("main:app", host=host, port=port, reload=reload)

@@ -1,0 +1,37 @@
+/* ============================================================
+   LOGIN — thème Squad Board (3.280.0)
+   login.css (référence commune BastaVerse) parle le vocabulaire de jetons du backlog ;
+   on le relie ici aux jetons de tokens.css, clair ET sombre (data-theme posé par login.js),
+   et on règle le décor : halo bleu « board » + halo turquoise, étincelles du train agile.
+   ============================================================ */
+.login-body {
+    --space-xs: 4px; --space-sm: 8px; --space-md: 16px; --space-lg: 24px; --space-xl: 32px;
+    --radius-md: 10px; --radius-xl: 20px;
+    --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.125rem; --text-xl: 1.5rem;
+    --font-ui: var(--font);
+    --transition-fast: 150ms ease;
+    --text-primary: var(--text);
+    --accent-primary: var(--primary);
+    --accent-hover: var(--primary-hover);
+    --accent-glow: color-mix(in srgb, var(--primary) 32%, transparent);
+    --color-idea: #14b8a6;
+    --bg-idea: color-mix(in srgb, #14b8a6 14%, transparent);
+    --bg-input: var(--surface);
+    --bg-hover: var(--surface-hover);
+    --border-input: var(--border);
+    --border-subtle: var(--border);
+    --color-error: var(--danger);
+    --bg-error: color-mix(in srgb, var(--danger) 12%, transparent);
+    --shadow-card: 0 24px 60px -20px rgb(0 0 0 / 0.45);
+    --shadow-btn: 0 6px 18px -6px color-mix(in srgb, var(--primary) 60%, transparent);
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+}
+
+/* login.css est pensé pour un site sombre seulement (verre rgba(30,33,48)) : la carte suit ici les deux thèmes */
+.login-body .login-card {
+    background: color-mix(in srgb, var(--surface) 86%, transparent);
+    border-color: var(--border);
+}

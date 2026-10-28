@@ -3,6 +3,8 @@
  * Full CRUD on all entities - no JIRA dependency.
  */
 
+import { onUnauthorized } from './auth-session.js';
+
 // Signal réseau pour le bandeau hors ligne (offline_banner.js). Un `fetch` qui n'obtient
 // AUCUNE réponse est une panne de réseau ou de serveur — pas un 4xx/5xx, qui, lui, est une
 // réponse. Gardé silencieux hors navigateur (tests Node).
@@ -11,9 +13,10 @@ const _emit = name => { if (typeof window !== 'undefined' && typeof CustomEvent 
 async function request(path, options = {}) {
     let resp;
     try {
+        // headers APRÈS ...options : un appelant qui passe ses en-têtes garde le Content-Type par défaut
         resp = await fetch(path, {
-            headers: { 'Content-Type': 'application/json', ...options.headers },
             ...options,
+            headers: { 'Content-Type': 'application/json', ...options.headers },
         });
     } catch (netErr) {
         _emit('sb:api-offline');
@@ -24,6 +27,8 @@ async function request(path, options = {}) {
         throw e;
     }
     _emit('sb:api-online');
+    // Refus du verrou SSO (en-tête propre à app/auth.py, ≠ 401 relayé par le proxy JIRA) → reconnexion
+    if (resp.status === 401 && resp.headers.get('X-Auth-Required')) onUnauthorized();
     if (!resp.ok) {
         const err = await resp.json().catch(() => ({ detail: resp.statusText }));
         const e = new Error(err.detail || `HTTP ${resp.status}`);

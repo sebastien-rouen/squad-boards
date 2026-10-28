@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Connexion à Squad Board">
+    <title>Connexion — Squad Board</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <link rel="stylesheet" href="/css/tokens.css">
+    <link rel="stylesheet" href="/css/login.css">
+    <link rel="stylesheet" href="/css/login-theme.css">
+</head>
+<body class="login-body">
+
+    <!-- Décor animé (login.css, commun BastaVerse) : deux halos qui dérivent derrière la carte -->
+    <div class="login-aura" aria-hidden="true">
+        <span class="aura aura--1"></span>
+        <span class="aura aura--2"></span>
+    </div>
+
+    <!-- Étincelles : le train agile — board, poker, PI, objectifs, Atlas -->
+    <div class="login-sparks" aria-hidden="true">
+        <span class="spark spark--1">📋</span>
+        <span class="spark spark--2">🃏</span>
+        <span class="spark spark--3">🚂</span>
+        <span class="spark spark--4">🎯</span>
+        <span class="spark spark--5">🧭</span>
+    </div>
+
+    <main class="login-card" id="login-card">
+        <div class="login-logo">
+            <span class="login-logo-ring" aria-hidden="true"></span>
+            <span class="login-logo-icon" aria-hidden="true">📋</span>
+        </div>
+
+        <h1 class="login-title" id="login-title">Squad Board</h1>
+        <p class="login-tagline">Le tableau de bord du train</p>
+
+        <p class="login-notice" id="login-notice" role="status" hidden></p>
+
+        <!-- Fournisseurs SSO déclarés par le hub, remplis au chargement -->
+        <div class="login-providers" id="providers">
+            <span class="login-skeleton" aria-hidden="true"></span>
+            <span class="login-skeleton" aria-hidden="true"></span>
+        </div>
+
+        <!-- Repli e-mail : une configuration OAuth cassée ne doit pas fermer la porte à double tour -->
+        <details class="login-fallback" id="fallback" hidden>
+            <summary class="login-fallback-toggle">Se connecter par e-mail</summary>
+            <form class="login-form" id="password-form" novalidate>
+                <label class="login-label" for="email">E-mail</label>
+                <input class="login-input" type="email" id="email" name="email"
+                       autocomplete="username" required inputmode="email" placeholder="moi@exemple.fr">
+                <label class="login-label" for="password">Mot de passe</label>
+                <input class="login-input" type="password" id="password" name="password"
+                       autocomplete="current-password" required placeholder="••••••••">
+                <button type="submit" class="login-submit" id="password-submit">Se connecter</button>
+            </form>
+        </details>
+
+        <p class="login-error" id="login-error" role="alert" hidden></p>
+    </main>
+
+    <script type="module" src="/js/login.js"></script>
+</body>
+</html>

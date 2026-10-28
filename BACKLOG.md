@@ -94,10 +94,7 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
 - [ ] **P2-5 · Assistant de mise en route** — `first_launch.js` propose démo / JIRA / à la main, sans guider la suite.
   Parcours en 5 étapes qui écrit les réglages P1 : nom du projet, cadence (durée de sprint, sprints par PI, IP),
   lignes produit + équipes, source des personnes, statuts JIRA. — *2026-10-28*
-- [ ] **P2-6 · Personnes sans export RH du client** — source de vérité = import Congés RH à SON format (pivot
-  `NOMS, Prénom · Équipes · Entité · Rôles · dd/mm…` ou `Nom;Equipe;Debut;Fin;Type;Jours`, « Jours PIP exclus »).
-  Vérifier qu'une saisie manuelle des membres suffit PARTOUT (Atlas, capacité, météo, rotation), et ajouter un
-  rapprochement de colonnes à l'import (quelle colonne = nom, équipe, début, fin). — *2026-10-28*
+- [x] **P2-6 · Personnes sans export RH du client** · ✅ 3.274.0 — membres saisis = source si aucune absence ; CSV membres à en-tête libre.
 - [x] **P2-7 · Modules activables + libellés du menu** · ✅ 3.273.0 — Paramètres → Modules & menu.
 - [ ] **P2-7b · Vocabulaire dans les pages** — les libellés du MENU se renomment, pas le texte des vues : ~900
   chaînes contiennent « PI », ~190 « train », « ligne produit » idem. Piste : un `term('pi')` (utils/modules.js)
@@ -152,7 +149,7 @@ Backend : `app/routers/atlas.py` — envie par compétence (`member_skill.appete
 
 ## ⚠️ Pièges & conventions à respecter (cf. CLAUDE.md)
 
-- **Source de vérité membres** = table `absences` (CSV RH), via `deriveMembersFromAbsences(absences, members)`. NE PAS utiliser `store.get('members')` brut pour lister les personnes.
+- **Source de vérité membres** = table `absences` (CSV RH), via `deriveMembersFromAbsences(absences, members)` — ou la table `members` si le projet n'a AUCUNE absence (3.274.0). NE PAS utiliser `store.get('members')` brut pour lister les personnes.
 - **Échapper avec `esc()`** avant tout `innerHTML` (XSS).
 - **Mapping snake/camel** : backend renvoie camelCase via les `_xxx_dict()`. Vérifier la correspondance (ex: `scope_key` → `scopeKey`, `member_name` → `memberName`).
 - **Filtre topbar** : `store.get('team')` (équipe ou `'all'`) + `store.get('group')` (id de ligne produit). Toutes les vues de l'Atlas le respectent via `atlasCtx()` (`teams`, `visiblePeople`).

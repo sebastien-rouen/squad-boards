@@ -1,3 +1,18 @@
+## [3.274.0] - 2026-10-28
+
+### P2-6 — Un projet sans export RH a quand même ses personnes
+
+- **`deriveMembersFromAbsences`** (source unique des personnes) : si le projet n'a AUCUNE absence RH, les membres
+  saisis dans Paramètres → Membres font foi — avant, l'Atlas, la capacité, la rotation et la météo n'avaient
+  personne. Bascule GLOBALE et non par équipe : chez le client (2 813 absences), la table `members` garde 11 lignes
+  hors RH dont une équipe mal orthographiée (« Dézir ») qui serait devenue une équipe fantôme — rien ne change ici.
+- **Import CSV des membres** : une ligne d'en-tête (`Nom`, `Équipe`, `Rôle`, `Entité`, FR ou EN, accents
+  facultatifs) permet n'importe quel ordre de colonnes (`parseMembersCsv`) ; sans en-tête, ordre historique
+  `Nom;Equipe;Entite;Role`.
+- Avis « Aucun export RH importé : cette liste fait foi » dans Paramètres → Membres quand c'est le cas.
+- Vérifié : parseur (en-tête dans le désordre, sans en-tête, tabulations) ; Chromium avec `/api/all` sans absence →
+  130 personnes sur la carte de l'Atlas au lieu de 0, avis affiché ; 406 tests verts.
+
 ## [3.273.0] - 2026-10-28
 
 ### P2-7 — Modules activables et libellés du menu

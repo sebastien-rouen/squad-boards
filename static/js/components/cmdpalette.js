@@ -7,6 +7,7 @@ import { store } from '../state.js';
 import { esc, toast, getSprintForTeam, recentTicketIds } from '../utils.js';
 import { STATUS_LABELS, TYPE_LABELS, NAV_ITEMS } from '../config.js';
 import { SECTIONS, getSection, gotoSection, sectionsOfView, sectionLink } from './cmd_sections.js';
+import { isModuleOn, defaultLabel } from '../utils/modules.js';
 
 const HISTORY_KEY   = 'sb-cmd-history';
 const FIRST_OPEN_KEY = 'sb-cmd-seen';
@@ -129,10 +130,12 @@ const _VIEW_META = {
     settings:  { icon: '⚙️', keywords: 'paramètres settings configuration admin' },
     refinement: { icon: '🃏', keywords: 'affinage refinement poker estimation cadrage' },
 };
-const VIEWS = NAV_ITEMS.map(n => ({
+// Recalculées à chaque recherche : modules désactivés et libellés du projet (utils/modules.js, 3.273.0).
+// Le libellé PAR DÉFAUT reste dans les mots-clés : « PI Planning » trouve encore la vue renommée « Release ».
+const _views = () => NAV_ITEMS.filter(n => isModuleOn(n.id)).map(n => ({
     id: n.id, label: n.label,
     icon: _VIEW_META[n.id]?.icon || '📐',
-    keywords: _VIEW_META[n.id]?.keywords || '',
+    keywords: `${_VIEW_META[n.id]?.keywords || ''} ${defaultLabel(n.id)}`,
 }));
 
 // ── Actions rapides — déclenchent des helpers app sans changer de vue ─────────
@@ -149,7 +152,7 @@ const ACTIONS = [
         run: () => window.__squadBoard?.handleJiraImport?.('full'),
     },
     {
-        id: 'atlas-campaign', label: 'Campagne d\'évaluation des compétences', icon: '📋',
+        id: 'atlas-campaign', label: 'Campagne d\'évaluation des compétences', icon: '📋', module: 'atlas',
         keywords: 'atlas campagne evaluation evaluer competences skills niveaux equipe',
         // Import à la demande : l'Atlas n'est chargé qu'ici, sans dépendance circulaire avec la palette
         run: async () => { store.set('view', 'atlas'); (await import('../views/atlas.js')).openAtlasCampaign(); },
@@ -358,7 +361,7 @@ function _renderEmpty() {
             </div>`).join('');
     }
     // Vues en pastilles (3.237.0) — au doigt, le menu ☰ est replié : la palette sert de navigation.
-    html += `<div class="cmd-group-label">🧭 Aller à</div><div class="cmd-views">${VIEWS.map(v =>
+    html += `<div class="cmd-group-label">🧭 Aller à</div><div class="cmd-views">${_views().map(v =>
         `<button type="button" class="cmd-item cmd-view-chip" data-group="view" data-id="${esc(v.id)}" tabindex="-1"><span aria-hidden="true">${v.icon}</span> ${esc(v.label)}</button>`).join('')}</div>`;
     // Blocs de la page en cours — l'usage le plus courant est de sauter dans la vue
     // qu'on a déjà sous les yeux ; les autres vues restent accessibles à la frappe.
@@ -449,18 +452,20 @@ function _search(q) {
 
     // Views
     if (!hasFilters && text) {
-        for (const v of VIEWS) {
+        for (const v of _views()) {
             const s = _scoreEntry(v, text);
             if (s > 0) results.push({ group: 'view', score: s + 20, item: v });
         }
         // Blocs de page (« Temps par colonne », « Prévision de fin »…) — sous les vues,
         // au-dessus des tickets : on cherche un endroit où aller, pas un ticket.
         for (const sec of SECTIONS) {
+            if (!isModuleOn(sec.view)) continue;
             const s2 = _scoreEntry(sec, text);
             if (s2 > 0) results.push({ group: 'section', score: s2 + 18, item: sec });
         }
         // Actions (commandes app) — keywords boost
         for (const a of ACTIONS) {
+            if (a.module && !isModuleOn(a.module)) continue;   // action d'un module masqué
             const s = _scoreEntry(a, text);
             if (s > 0) results.push({ group: 'action', score: s + 25, item: a });
         }

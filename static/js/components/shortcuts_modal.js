@@ -6,6 +6,7 @@
 
 import { NAV_ITEMS } from '../config.js';
 import { esc, trapFocus } from '../utils.js';
+import { isModuleOn } from '../utils/modules.js';
 
 let _releaseTrap = null;
 
@@ -20,7 +21,7 @@ function _close() {
 export function openShortcutsModal() {
     if (document.getElementById('shortcuts-overlay')) { _close(); return; }
 
-    const navRows = NAV_ITEMS.filter(n => n.shortcut).map(n =>
+    const navRows = NAV_ITEMS.filter(n => n.shortcut && isModuleOn(n.id)).map(n =>
         `<div class="sc-row"><span>${esc(n.label)}</span><kbd>${esc(n.shortcut)}</kbd></div>`
     ).join('');
 

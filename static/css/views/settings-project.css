@@ -1,4 +1,4 @@
-/* Paramètres → Calendrier de travail (settings-workcal.js, 3.270.0) et Règles métier (settings-rules.js, 3.272.0) */
+/* Paramètres de projet : Calendrier de travail (3.270.0), Règles métier (3.272.0), Modules & menu (3.273.0) */
 .wc-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; margin: 2px 4px 2px 0; border-radius: var(--r-full); border: 1px solid var(--border); background: var(--surface); font-size: 12px; color: var(--text-secondary); }
 .wc-chip.is-past { opacity: .55; }
 .wc-del { border: 0; background: none; color: var(--text-muted); cursor: pointer; padding: 0 2px; }
@@ -9,3 +9,9 @@
 /* Paramètres → Règles métier (settings-rules.js, 3.272.0) */
 .rules-eff { display: block; margin-top: 2px; font-size: 11px; color: var(--text-muted); }
 #rules .sync-cfg-block + .sync-cfg-block { margin-top: 12px; }
+
+/* Paramètres → Modules & menu (settings-modules.js, 3.273.0) */
+.mods-row { display: grid; grid-template-columns: 110px minmax(0, 260px) auto; gap: 8px; align-items: center; padding: 4px 0; }
+.mods-row.is-off input[data-mod-label] { opacity: .55; }
+.mods-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); cursor: pointer; }
+#mods .sync-cfg-block + .sync-cfg-block { margin-top: 12px; }

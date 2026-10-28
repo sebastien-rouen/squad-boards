@@ -6,6 +6,7 @@ import { store } from '../state.js';
 import { NAV_ITEMS, TEAM_COLORS } from '../config.js';
 import { esc } from '../utils.js';
 import { redrawAllCharts } from './charts.js';
+import { isModuleOn } from '../utils/modules.js';
 
 export function initSidebar() {
     const nav = document.getElementById('sidebar-nav');
@@ -72,8 +73,9 @@ export function initSidebar() {
         const curInTeam = _TEAM_ITEMS.some(n => n.id === curView);
         // Replié par défaut (déclutter) ; seul '0' explicite force le déploiement persistant.
         const collapsed = curInTeam ? false : localStorage.getItem(_LS_TEAM_COLLAPSED) !== '0';
-        const mainHtml   = _loadOrder().map(i => _navItemHtml(i, newCount, curView)).join('');
-        const teamHtml   = _TEAM_ITEMS.map(i => _navItemHtml(i, newCount, curView)).join('');
+        // Modules désactivés (Paramètres → Modules & menu) : absents du menu
+        const mainHtml   = _loadOrder().filter(i => isModuleOn(i.id)).map(i => _navItemHtml(i, newCount, curView)).join('');
+        const teamHtml   = _TEAM_ITEMS.filter(i => isModuleOn(i.id)).map(i => _navItemHtml(i, newCount, curView)).join('');
         const footerHtml = _FOOTER_ITEMS.map(i => _navItemHtml(i, newCount, curView)).join('');
         nav.innerHTML = `
             <div class="nav-main">${mainHtml}</div>
@@ -204,6 +206,7 @@ export function initSidebar() {
     // du groupe "Équipe & RH" quand on navigue vers une de ses vues (raccourci clavier inclus).
     store.on('view', renderNav);
     store.on('newCount', renderNav);
+    store.on('navVersion', renderNav);   // modules / libellés du projet changés
 
     // ── Team buttons ──────────────────────────────────────────────────────────
     function renderTeamBtns() {
@@ -372,7 +375,7 @@ export function initSidebar() {
         if (e.ctrlKey || e.metaKey || e.altKey) return;
         // La vue PI Planning possède ses propres raccourcis 1-9 (onglets) : on lui cède les chiffres.
         if (store.get('view') === 'pi' && /^[0-9]$/.test(e.key)) return;
-        const item = NAV_ITEMS.find(n => n.shortcut && n.shortcut === e.key);
+        const item = NAV_ITEMS.find(n => n.shortcut && n.shortcut === e.key && isModuleOn(n.id));
         if (item) { e.preventDefault(); store.set('view', item.id); }
     });
 }

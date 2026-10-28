@@ -40,6 +40,7 @@ import { updateInfoPanel } from './components/infopanel.js';
 import { renderCalBanner } from './components/cal_banner.js';
 import { applyStatusOverride, forceAllColumns } from './utils/status-override.js';
 import { projectStorage, migrateLocalProjectSettings } from './project-settings.js';
+import './utils/modules.js';   // modules activables + libellés du menu (garde de route sur `view`)
 
 // ── Vues en lazy loading — chaque module n'est téléchargé/parsé qu'à la première
 // visite de la vue (settings ≈ 300 KB, pi ≈ 176 KB, atlas ≈ 148 KB ne pèsent plus
@@ -325,6 +326,8 @@ function applyHash() {
                 }
             }
             _applyingHash = false;
+            // Vue refusée (module masqué, utils/modules.js) : l'adresse suit la vue réellement affichée
+            if (store.get('view') !== view) pushHash();
         }
     }
 
@@ -393,7 +396,7 @@ VIEW_TITLES.tv = 'Mode TV';              // hors NAV_ITEMS : entrée par le bout
 function _updateTitle() {
     const view  = store.get('view') || 'dashboard';
     const team  = store.get('team');
-    const label = VIEW_TITLES[view] || view;
+    const label = NAV_ITEMS.find(n => n.id === view)?.label || VIEW_TITLES[view] || view;   // libellé du projet d'abord
     const teamPart = (team && team !== 'all') ? ` · ${team}` : '';
     document.title = `${label}${teamPart} — Squad Board`;
 }

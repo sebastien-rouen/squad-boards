@@ -1,3 +1,20 @@
+## [3.273.0] - 2026-10-28
+
+### P2-7 — Modules activables et libellés du menu
+
+- **Paramètres → Système → Modules & menu** (`settings-modules.js`) : chaque vue s'active / se masque et son entrée
+  de menu se renomme (ex. « PI Planning » → « Release »), pour TOUT le projet (réglage `sb-modules`,
+  `utils/modules.js`). Dashboard et Paramètres restent toujours actifs ; masquer ne supprime aucune donnée.
+- **Un module masqué** disparaît de la barre latérale, des raccourcis chiffrés (et de leur aide), de la palette
+  Ctrl+K (vue, blocs de page, actions liées comme 📋 Campagne) ; sa route renvoie au Dashboard (garde
+  `store.transform('view')`), et l'adresse suit la vue réellement affichée.
+- **Libellés** appliqués EN PLACE sur `NAV_ITEMS` : barre latérale, titre de l'onglet, palette, blocs de page ;
+  l'ancien libellé reste un mot-clé de recherche (« pi planning » trouve encore la vue).
+- `css/views/settings-workcal.css` renommé `settings-project.css` (calendrier, règles, modules).
+- Vérifié dans Chromium (écritures interceptées) : Atlas masqué → absent du menu et de la palette, `#atlas` →
+  `#dashboard` ; PI renommé « Release » → menu, raccourci 4 et titre « Release — Squad Board » ; 406 tests verts.
+- Hors périmètre : le VOCABULAIRE dans les pages (~900 textes contiennent « PI », ~190 « train ») → BACKLOG.
+
 ## [3.272.0] - 2026-10-28
 
 ### P2-8 — Règles métier réunies et réglables (Paramètres → Règles)

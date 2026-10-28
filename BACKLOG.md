@@ -98,9 +98,10 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
   `NOMS, Prénom · Équipes · Entité · Rôles · dd/mm…` ou `Nom;Equipe;Debut;Fin;Type;Jours`, « Jours PIP exclus »).
   Vérifier qu'une saisie manuelle des membres suffit PARTOUT (Atlas, capacité, météo, rotation), et ajouter un
   rapprochement de colonnes à l'import (quelle colonne = nom, équipe, début, fin). — *2026-10-28*
-- [ ] **P2-7 · Modules activables + vocabulaire** — PI Planning, Roadmap, Support, Atlas, Poker, Affinage, TV toujours
-  affichés ; une équipe Scrum hors SAFe n'a ni PI ni train. Réglage « modules actifs » (navigation, palette, Dashboard)
-  et libellés « PI → Release / Trimestre », « Train → Programme », « Ligne produit → Domaine ». — *2026-10-28*
+- [x] **P2-7 · Modules activables + libellés du menu** · ✅ 3.273.0 — Paramètres → Modules & menu.
+- [ ] **P2-7b · Vocabulaire dans les pages** — les libellés du MENU se renomment, pas le texte des vues : ~900
+  chaînes contiennent « PI », ~190 « train », « ligne produit » idem. Piste : un `term('pi')` (utils/modules.js)
+  introduit vue par vue, en commençant par les titres et en-têtes visibles (Dashboard, PI Planning, Roadmap). — *2026-10-28*
 - [x] **P2-8 · Seuils métier réglables, réunis** · ✅ 3.272.0 — Paramètres → Règles métier (stagnation, sachant, absence, cartes du poker).
 - [ ] **« Stagnant » : une seule définition** — le seuil est commun depuis 3.272.0, mais le Dashboard mesure le
   temps depuis le dernier MOUVEMENT de statut, alors que `business_rules.js` (info-panel, Santé, TV) lit `updatedAt`

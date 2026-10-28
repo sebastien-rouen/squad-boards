@@ -20,7 +20,6 @@ import { store } from '../state.js';
 import { toast, scrollToEl } from '../utils.js';
 import { NAV_ITEMS } from '../config.js';
 
-const VIEW_LABELS = Object.fromEntries(NAV_ITEMS.map(n => [n.id, n.label]));
 
 // Délai max d'attente de l'apparition du bloc (rendu de vue lazy + import dynamique)
 const REVEAL_TIMEOUT_MS = 3000;
@@ -171,7 +170,7 @@ const RAW = [
 export const SECTIONS = RAW.map(s => ({
     ...s,
     id: `${s.view}:${_slug(s.label)}`,
-    viewLabel: VIEW_LABELS[s.view] || s.view,
+    get viewLabel() { return NAV_ITEMS.find(n => n.id === s.view)?.label || s.view; },   // libellé du projet (modules.js)
 }));
 
 const _byId = Object.fromEntries(SECTIONS.map(s => [s.id, s]));

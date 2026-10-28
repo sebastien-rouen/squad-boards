@@ -1,3 +1,20 @@
+## [3.275.0] - 2026-10-28
+
+### P2-5 — 🧭 Assistant de mise en route d'un projet
+
+- **`components/setup_wizard.js`** : 5 étapes — 🏷️ projet (nom, durée d'un sprint, sprints par PI), 👥 équipes
+  (une par ligne ; seules les nouvelles sont créées, casse ignorée), 🧩 modules (vues proposées), 📅 jours fériés,
+  ✅ et ensuite (Personnes, JIRA, Règles métier, Atlas). Rien n'est écrit avant « Terminer » ; un lien de la
+  dernière étape enregistre AUSSI avant d'y emmener. Retour arrière sans perte de saisie.
+- Écrit dans les réglages existants : `PUT /api/pi` (cadence), `POST /api/teams`, réglages de projet
+  `sb-project-name` (nouveau, pour P3-11), `sb-modules`, `sb-holidays`.
+- **Entrées** : premier lancement (« 🧭 Mettre en route mon projet » remplace le lien « Créer à la main »),
+  Paramètres → Modules & menu, palette Ctrl+K (« mise en route »).
+- `css/setup-wizard.css` (feuille de bas de page en mobile).
+- Vérifié dans Chromium desktop + mobile (écritures interceptées) : parcours complet → 3 écritures (PI, 1 équipe
+  créée sur 2 saisies, réglages groupés en 1 PUT), lien « Personnes » → enregistre puis `#settings/membres` ;
+  406 tests verts.
+
 ## [3.274.0] - 2026-10-28
 
 ### P2-6 — Un projet sans export RH a quand même ses personnes

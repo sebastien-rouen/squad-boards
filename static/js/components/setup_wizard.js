@@ -38,7 +38,7 @@ function _stepHtml(w) {
             <div class="sw-mods">${NAV_ITEMS.filter(n => !ALWAYS_ON.includes(n.id)).map(n => `<label class="sw-mod"><input type="checkbox" data-mod="${n.id}"${w.off.includes(n.id) ? '' : ' checked'}> ${esc(defaultLabel(n.id))}</label>`).join('')}</div>`;
         case 3: return `<label class="sw-field"><span>Jours fériés</span><select class="input" data-w="country">${HOLIDAY_COUNTRIES.map(c => `<option value="${c.key}"${c.key === w.country ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}</select></label>
             <p class="sw-hint">Ils comptent comme non ouvrés partout (capacité, durées, calendrier). Les ponts se règlent dans Paramètres → Calendrier de travail.</p>`;
-        default: return `<p>Tout est prêt à enregistrer. Ensuite :</p><div class="sw-next">${NEXT.map(([href, t, d]) => `<a class="sw-next__item" href="${href}" data-sw-go><b>${t}</b><small>${esc(d)}</small></a>`).join('')}</div>`;
+        default: return `<p>Tout est prêt. « Terminer » enregistre ; un lien ci-dessous enregistre aussi, puis t'y emmène :</p><div class="sw-next">${NEXT.map(([href, t, d]) => `<a class="sw-next__item" href="${href}" data-sw-go><b>${t}</b><small>${esc(d)}</small></a>`).join('')}</div>`;
     }
 }
 
@@ -90,19 +90,25 @@ export function openSetupWizard() {
     });
     ov.addEventListener('click', async e => {
         if (e.target === ov || e.target.closest('[data-sw-close]')) { close(); return; }
-        if (e.target.closest('[data-sw-go]')) { close(); return; }   // le lien navigue lui-même
         if (e.target.closest('[data-sw-prev]') && w.step) { w.step--; paint(); return; }
-        if (!e.target.closest('[data-sw-next]')) return;
-        if (w.step < STEPS.length - 1) { w.step++; paint(); return; }
+        // « Terminer » ou un lien « Et ensuite » : on ENREGISTRE d'abord (un lien seul perdait toute la saisie)
+        const go = e.target.closest('[data-sw-go]');
+        if (go) e.preventDefault();
         const btn = e.target.closest('[data-sw-next]');
-        btn.disabled = true;
+        if (!go && !btn) return;
+        if (btn && w.step < STEPS.length - 1) { w.step++; paint(); return; }
+        ov.classList.add('is-saving');   // boutons et liens inactifs pendant l'enregistrement (setup-wizard.css)
         try {
             const created = await _apply(w);
             await window.__squadBoard?.loadAllData?.();
             toast(`Projet enregistré${created ? ` · ${created} équipe${created > 1 ? 's' : ''} créée${created > 1 ? 's' : ''}` : ''}`, 'success', 4000);
             close();
-            window.__squadBoard?.rerenderView?.();
-        } catch (err) { btn.disabled = false; toast('Enregistrement impossible : ' + (err.message || err), 'error'); }
+            if (go) location.hash = go.getAttribute('href');
+            else window.__squadBoard?.rerenderView?.();
+        } catch (err) {
+            ov.classList.remove('is-saving');
+            toast('Enregistrement impossible : ' + (err.message || err), 'error');
+        }
     });
     document.addEventListener('keydown', onKey, true);
     paint();

@@ -20,6 +20,7 @@
 .sw-next__item small { color: var(--text-muted); }
 .sw-foot { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); }
 .sw-foot .spacer { flex: 1 1 auto; }
+.sw-overlay.is-saving [data-sw-next], .sw-overlay.is-saving [data-sw-go] { pointer-events: none; opacity: .6; }
 
 @media (max-width: 720px) {
     .sw-overlay { padding: 0; align-items: end; }

@@ -91,9 +91,7 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
 - [x] **P1-4 · Secrets hors du navigateur** · ✅ 3.269.0 — table `server_secret`, écriture seule, compte JIRA partagé (décision 2026-10-28).
 
 **🟠 P2 — adopter sans développeur**
-- [ ] **P2-5 · Assistant de mise en route** — `first_launch.js` propose démo / JIRA / à la main, sans guider la suite.
-  Parcours en 5 étapes qui écrit les réglages P1 : nom du projet, cadence (durée de sprint, sprints par PI, IP),
-  lignes produit + équipes, source des personnes, statuts JIRA. — *2026-10-28*
+- [x] **P2-5 · Assistant de mise en route** · ✅ 3.275.0 — 🧭 5 étapes (projet, équipes, modules, calendrier, suite).
 - [x] **P2-6 · Personnes sans export RH du client** · ✅ 3.274.0 — membres saisis = source si aucune absence ; CSV membres à en-tête libre.
 - [x] **P2-7 · Modules activables + libellés du menu** · ✅ 3.273.0 — Paramètres → Modules & menu.
 - [ ] **P2-7b · Vocabulaire dans les pages** — les libellés du MENU se renomment, pas le texte des vues : ~900

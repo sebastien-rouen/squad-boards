@@ -1,3 +1,27 @@
+## [3.269.0] - 2026-10-28
+
+### P1-4 — Jeton JIRA et webhook Slack hors du navigateur (connexion partagée, écriture seule)
+
+- **Nouvelle table `server_secret`** (`app/secrets_store.py`) : jeton JIRA, URL, compte et webhook Slack du
+  PROJET. Routes en **écriture seule** `PUT /api/secrets/jira` (`url` / `user` / `token`, champ absent = inchangé,
+  `reset`) et `PUT /api/secrets/slack` ; `/api/config` ne dit que leur présence (`jiraTokenSet`, `jiraSource`
+  `serveur | env`, `slackConfigured`). Jamais dans `/api/export`, le bundle `.local` ni les sauvegardes.
+- **Proxy JIRA** : connexion enregistrée > `.env` ; les gardes de 3.238.0 restent (URL HTTPS + hôte Atlassian ou
+  `JIRA_ALLOWED_HOSTS`, aussi à l'enregistrement ; une autre URL exige ses propres identifiants). Un jeton perso
+  envoyé en en-tête `X-Jira-*` reste accepté (API), sans écran dédié.
+- **Slack** : `/api/slack/send` prend le webhook du projet ; boutons 💬 Slack des rotations affichés selon
+  `store.slackConfigured`.
+- **Paramètres → JIRA → Connexion** et **Paramètres → Slack** : valeurs effectives du serveur, jeton / webhook
+  jamais réaffichés (« enregistré — laissez vide pour conserver »), « Réinitialiser (.env) » efface la connexion
+  enregistrée. Enregistrer sans rien changer n'écrit rien (le `.env` n'est pas figé en base).
+- **Migration unique au chargement** : jeton / compte / URL JIRA et webhook Slack d'un poste montent côté serveur
+  s'il n'en a pas encore (le premier poste fait foi), puis sont effacés du localStorage. ⚠️ Conséquence voulue
+  (décision du 2026-10-28) : toutes les synchros passent par ce compte partagé.
+- Vérifié : API sur une COPIE de la base (17 contrôles : jeton jamais renvoyé ni exporté, URL interne / http
+  refusées, reset, Slack) ; Chromium (migration → 2 PUT puis clés locales effacées, jeton absent de la page,
+  formulaire pré-rempli depuis le serveur, enregistrement sans changement = 0 écriture) ; 406 tests verts.
+- Reste lié à #A2 : sans authentification, quiconque atteint le port peut REMPLACER (pas lire) ces secrets.
+
 ## [3.268.0] - 2026-10-28
 
 ### P1-2 — Correspondance des statuts et types JIRA, modifiable sans code

@@ -14,7 +14,7 @@
 
 ### 🚨 Audit du 2026-10-21 — top 5 par impact
 
-- [ ] **🔴 #A2 — API sans authentification, exposée sur `0.0.0.0:3010`** — aucune route protégée : `POST /api/import` (mode remplacer) efface la base, `/api/export` livre absences RH et membres, `/docs` (Swagger) ouvert. Lancé sous PM2 avec `reload=True` (mode dev, 2 processus). **À faire** : écouter sur `127.0.0.1` derrière Nginx, raccorder le SSO `auth` BastaVerse (skill `/auth-sso`) ou au minimum une clé, fermer `/docs`, retirer `reload` en exploitation. — *2026-10-21*
+- [ ] **🔴 #A2 — API sans authentification, exposée sur `0.0.0.0:3010`** — aucune route protégée : `POST /api/import` (mode remplacer) efface la base, `/api/export` livre absences RH et membres, `/docs` (Swagger) ouvert. Lancé sous PM2 avec `reload=True` (mode dev, 2 processus). Depuis 3.269.0 les secrets JIRA / Slack sont côté serveur en écriture seule : sans auth, n'importe qui peut les REMPLACER (`PUT /api/secrets/*`). **À faire** : écouter sur `127.0.0.1` derrière Nginx, raccorder le SSO `auth` BastaVerse (skill `/auth-sso`) ou au minimum une clé, fermer `/docs`, retirer `reload` en exploitation. — *2026-10-21*
 - [ ] **🟠 #A3 — `/api/all` : alléger la 1ʳᵉ ouverture** — ✅ fait en 3.245.0 : gzip (17,6 → 2,85 Mo), cache serveur + ETag (304 à l'actualisation), encodage direct, JS / CSS versionnés en cache. **Reste** : 62 % du poids des tickets = `description` + `comments` + `recentChanges` → `description` et `comments` pourraient se charger à l'ouverture d'un ticket (PAS `recentChanges`, lu par le périmètre de sprint). ⚠️ Golden test `/api/all` + aller-retour `_ticket_dict` ↔ `import_all` (cf. CLAUDE.md). — *2026-10-22*
 - [ ] **🟠 #A4 — Backend : validation des entrées et journalisation** — 0 modèle Pydantic, 48 corps `await request.json()` lus bruts ; `crud.py:52-55` fait `setattr` de toute clé reçue (y compris `id`, `created_at`). Aucun journal applicatif ; 20 `except` muets + 12 `except Exception`. **À faire** : modèles d'entrée sur les routes d'écriture, `logging` à la place des silences. — *2026-10-21*
 - [ ] **🟡 #A5 — Petits correctifs de cohérence** — (a) thème **clair** par défaut (`state.js:52`, `<html data-theme="light">`) ≠ règle BastaVerse n° 7 (sombre) ; (c) ports incohérents dans la doc (CLAUDE.md 3001, README / docs 3000, réel 3010) et « 161 tests » annoncés pour 406 ; (d) 7 `data/*.bak.db` (~110 Mo) à archiver ; (f) titres JIRA non échappés dans la copie HTML de `pi.js:1122-1127` (`<` / `&` cassent le collage). — *2026-10-21*
@@ -88,9 +88,7 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
 - [x] **P1-1 · Réglages de projet en base** · ✅ 3.266.0 — `projectStorage` (project-settings.js), table `project_setting`.
 - [x] **P1-2 · Correspondance des statuts et types JIRA** · ✅ 3.268.0 — onglet 🗂️ Correspondance, inconnus notés à la synchro.
 - [x] **P1-3 · Défauts du client sortis du code** · ✅ 3.267.0 — statuts forcés vides, cadrage en réglage (✏️), story points détectés.
-- [ ] **P1-4 · Secrets hors du navigateur** — jeton JIRA (`sb-jira-token`) et webhook Slack (`sb-slack-webhook`) en
-  localStorage : exclus des sauvegardes, mais lisibles par tout script de la page et à ressaisir sur chaque PC. Après
-  #A2 : côté serveur (`.env` ou table chiffrée), le navigateur ne connaît plus que l'URL. — *2026-10-28*
+- [x] **P1-4 · Secrets hors du navigateur** · ✅ 3.269.0 — table `server_secret`, écriture seule, compte JIRA partagé (décision 2026-10-28).
 
 **🟠 P2 — adopter sans développeur**
 - [ ] **P2-5 · Assistant de mise en route** — `first_launch.js` propose démo / JIRA / à la main, sans guider la suite.

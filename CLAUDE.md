@@ -821,6 +821,9 @@ python main.py          # http://localhost:3001  — Swagger /docs
   détectés (`storyPointFieldIds()`), périmètres de cadrage en réglage — une valeur client se migre une fois en base.
   Statut interne d'un ticket : statut forcé → correspondance du projet (`customStatusOf`, utils/jira-mapping.js) →
   colonne du board → `STATUS_MAP` ; ne JAMAIS lire `STATUS_MAP[...]` en direct (passer par `mapStatus`).
+- **Secrets** (3.269.0) : jeton / compte / URL JIRA et webhook Slack = table `server_secret` (`app/secrets_store.py`),
+  en ÉCRITURE SEULE (`PUT /api/secrets/jira|slack`), jamais renvoyés ni exportés ; `/api/config` n'en donne que la
+  présence. Ne jamais les remettre en localStorage ni dans `projectStorage`.
 - **Palette Ctrl+K — recherche** : `_score()` ignore accents et casse, puis accepte les mots DANS LE DÉSORDRE (chaque
   mot significatif doit commencer un mot du texte, mots outils `_STOP` écartés, score 30 < sous-chaîne 40). Vues,
   blocs et actions sont notés sur libellé, mots-clés ET les deux réunis (`_scoreEntry`).

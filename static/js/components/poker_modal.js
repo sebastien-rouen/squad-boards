@@ -14,12 +14,15 @@ import { flyPokerChip } from './poker_chip_fly.js';
 import { descSections, descSectionsHtml } from './desc_sections.js';
 import { _fmtHistDate, _modalIdx, _modalList, avatar, openTicketModal, overlay } from './modal.js';
 import { _renderCommentBody } from './ticket_desc.js';
+import { rule } from '../rules.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Planning Poker — vote collectif Story Points
 // ══════════════════════════════════════════════════════════════════════════════
-const POKER_FIB  = [1, 2, 3, 5, 8, 13, 21, '?'];
-const POKER_FIBS = [1, 2, 3, 5, 8, 13, 21];
+// Cartes du PROJET (Paramètres → Règles métier, 3.272.0 ; défaut Fibonacci 1 → 21 + « ? ») : nombres entiers,
+// « ? » et « ☕ ». `_pokerNums()` = les seules valeurs enregistrables comme story points.
+const _pokerCards = () => rule('sb-poker-scale').map(v => (/^\d+$/.test(v) ? Number(v) : v));
+const _pokerNums = () => _pokerCards().filter(v => typeof v === 'number');
 // Couleurs des cartes : décor CYCLIQUE par rang, d'une seule encre (poker-table.css) — aucun lien avec la valeur,
 // les cartes de vote restent neutres.
 const _POKER_SUITS = ['♠', '♥', '♣', '♦'];
@@ -40,7 +43,7 @@ function _pokerReferences(ticket) {
     const saved = (ticket.team && store.get('piInfo')?.pokerReferences?.[ticket.team]) || {};
     const team = ticket.team ? done.filter(t => t.team === ticket.team) : [];
     const median = arr => { const v = [...arr].sort((a, b) => a - b); const m = Math.floor(v.length / 2); return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; };
-    const rows = POKER_FIBS.map(v => {
+    const rows = _pokerNums().map(v => {
         let src = 'team', pool = team.filter(t => Number(t.points) === v);
         if (!pool.length) { src = 'train'; pool = done.filter(t => Number(t.points) === v); }
         const pinned = saved[String(v)] ? all.find(t => t.id === saved[String(v)]) : null;
@@ -77,7 +80,7 @@ function _pokerRefsHtml(refs, { open, mine, nearest, current, picking }) {
                        ${r.chosen ? `<span class="poker-ref-pin" title="Référence choisie par l'équipe ${esc(refs.team)}">📌 équipe</span>` : r.src === 'train' ? '<span class="poker-ref-src" title="Aucun ticket livré de cette taille dans l\'équipe : référence prise dans le train">train</span>' : ''}`
                     : '<span class="poker-ref-none">aucun ticket livré de cette taille</span>';
                 return `<tr class="${cls}">
-                    <td><span class="poker-ref-size"><span class="poker-ref-animal" aria-hidden="true">${POKER_ANIMALS[r.v]}</span><span class="mdl-points pts-tone--${tone}">${r.v}<small>pts</small></span></span></td>
+                    <td><span class="poker-ref-size"><span class="poker-ref-animal" aria-hidden="true">${POKER_ANIMALS[r.v] || '🃏'}</span><span class="mdl-points pts-tone--${tone}">${r.v}<small>pts</small></span></span></td>
                     <td class="poker-ref-cell"><div class="poker-ref-line">${refHtml}${r.v === current ? '<span class="poker-ref-tag">ce ticket</span>' : ''}${r.v === nearest ? '<span class="poker-ref-tag poker-ref-tag--star">★ consensus</span>' : ''}</div></td>
                     <td>${r.median != null ? `<span class="poker-ref-bar"><i class="pts-tone--${tone}" style="width:${Math.max(6, r.median / refs.max * 100)}%"></i></span><b>${fmtJ(r.median)}</b>` : '—'}</td>
                     <td class="poker-ref-n">${r.n || '—'}</td>
@@ -135,7 +138,7 @@ export function _pokerRoundsHtml(rounds) {
 
 const _adaptVote = (v, myName) => ({
     name: v.voter,
-    val: v.value === '?' ? '?' : (v.value === '' || v.value == null ? null : parseInt(v.value)),
+    val: v.value === '?' || v.value === '☕' ? v.value : (v.value === '' || v.value == null ? null : parseInt(v.value)),
     me: v.voter === myName,
     revealed: !!v.revealed,
 });
@@ -218,7 +221,7 @@ export function _openPokerModal(ticket, apiSave, openTicketModal) {
         const std   = numVotes.length > 1
             ? Math.sqrt(numVotes.reduce((s, v) => s + Math.pow(v.val - avg, 2), 0) / numVotes.length) : 0;
         const nearest = avg !== null
-            ? POKER_FIBS.reduce((a, b) => Math.abs(b - avg) < Math.abs(a - avg) ? b : a) : null;
+            ? _pokerNums().reduce((a, b) => Math.abs(b - avg) < Math.abs(a - avg) ? b : a) : null;
 
         // Phase : 'identity' | 'vote' | 'revealed'
         const phase = !myName ? 'identity' : revealed ? 'revealed' : 'vote';
@@ -301,7 +304,7 @@ export function _openPokerModal(ticket, apiSave, openTicketModal) {
                 <div class="poker-vote-section">
                     <div class="poker-vote-label">Votre estimation</div>
                     <div class="poker-cards${deal ? ' poker-cards--deal' : ''}">
-                        ${POKER_FIB.map((v, i) => {
+                        ${_pokerCards().map((v, i) => {
                             const isSelected = meVote?.val === v;
                             // Après révélation : carte inactive (un nouveau tour est nécessaire pour revoter).
                             // Sans prénom : carte CLIQUABLE qui amène au champ prénom (plus de bouton mort).
@@ -391,7 +394,7 @@ export function _openPokerModal(ticket, apiSave, openTicketModal) {
                         </div>
                     </div>
                     <div class="poker-distrib${revealAnim ? ' poker-reveal-in' : ''}" style="--reveal-delay:${revealDelay}">
-                        ${POKER_FIBS.filter(f => numVotes.some(v => v.val === f)).map(f => {
+                        ${_pokerNums().filter(f => numVotes.some(v => v.val === f)).map(f => {
                             const count = numVotes.filter(v => v.val === f).length;
                             const pct   = Math.round(count / numVotes.length * 100);
                             const isNearest = f === nearest;
@@ -419,7 +422,7 @@ export function _openPokerModal(ticket, apiSave, openTicketModal) {
                         <span class="poker-save-hint">★ consensus <b>${nearest}</b>${Number(ticket.points) > 0 ? ` · actuellement ${Number(ticket.points)} pts` : ' · pas encore estimé'}</span>
                     </div>
                     <div class="poker-save-pick" role="radiogroup" aria-label="Valeur à enregistrer">
-                        ${POKER_FIBS.map(f => {
+                        ${_pokerNums().map(f => {
                             const n = numVotes.filter(v => v.val === f).length;
                             return `<button type="button" role="radio" aria-checked="${f === picked}" data-save-pts="${f}"
                                     class="poker-save-chip pts-tone--${pointsTone(f).key}${f === picked ? ' is-on' : ''}${f === nearest ? ' is-nearest' : ''}"
@@ -572,7 +575,7 @@ export function _openPokerModal(ticket, apiSave, openTicketModal) {
                 ov.querySelectorAll('.poker-card--pending').forEach(c => c.classList.remove('poker-card--pending'));
                 card.classList.add('poker-card--pending');
                 const raw = card.dataset.val;
-                _justPicked = raw === '?' ? '?' : Number(raw);
+                _justPicked = raw === '?' || raw === '☕' ? raw : Number(raw);
                 playPokerSound('flip');
                 try { await api.pokerVote(ticket.id, name, String(raw)); await refresh(); }
                 catch (e) { _justPicked = null; card.classList.remove('poker-card--pending'); toast(e.message, 'error'); }
@@ -639,7 +642,7 @@ export function _openPokerModal(ticket, apiSave, openTicketModal) {
 
         const saveRound = async (goNext) => {
             const pts = _savePick ?? nearest;
-            if (!POKER_FIBS.includes(pts)) return;
+            if (!_pokerNums().includes(pts)) return;
             const btn = ov.querySelector(goNext ? '#poker-save-next' : '#poker-save');
             ov.querySelectorAll('#poker-save, #poker-save-next').forEach(b => { b.disabled = true; });
             flyPokerChip(ov, pts);   // le jeton part au pot DÈS le clic (clone sur body : survit à la suite)

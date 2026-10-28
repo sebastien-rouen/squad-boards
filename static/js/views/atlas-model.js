@@ -11,6 +11,7 @@
 import { store } from '../state.js';
 import { deriveMembersFromAbsences, hashColor } from '../utils.js';
 import { projectStorage } from '../project-settings.js';
+import { rule } from '../rules.js';
 
 export const SKILL_LEVELS = [
     { v: 0, label: 'Non évalué',             short: '–', color: 'var(--border)', desc: 'Compétence non encore évaluée pour cette personne / équipe.' },
@@ -46,13 +47,17 @@ export function applyLevelLabels() {
     }
 }
 applyLevelLabels();
-export const EXPERT_MIN = 2;
+// Règles métier (rules.js) relues à chaque `atlasCtx()` : liaison VIVANTE, les importeurs voient la valeur à jour.
+export let EXPERT_MIN = 2;
+let AWAY_DAYS = 14;
 
 const bySort = (a, b) => (a.sort ?? 0) - (b.sort ?? 0) || (a.name || '').localeCompare(b.name || '', 'fr');
 
 /** Contexte d'un rendu : personnes, équipes visibles (filtre topbar), catalogues, index des évaluations. */
 export function atlasCtx() {
     applyLevelLabels();   // le référentiel a pu changer (autre poste, Catalogue)
+    EXPERT_MIN = rule('sb-atlas-expert-min');
+    AWAY_DAYS = rule('sb-atlas-away-days');
     const groups = store.get('groups') || [];
     const allTeams = store.get('teams') || [];
     const selGroup = store.get('group');
@@ -93,11 +98,11 @@ export const requiredOf = (ctx, team) => ctx.reqs.get(team) || new Set();
 export const membersOf = (ctx, team) => ctx.people.filter(p => p.team === team);
 export const hasEvaluations = ctx => ctx.idx.size > 0;
 
-/** Sachants (niveau ≥ 2) d'une compétence, parmi `people`. */
+/** Sachants (niveau ≥ EXPERT_MIN) d'une compétence, parmi `people`. */
 export const expertsOf = (ctx, skillId, people = ctx.visiblePeople) => people.filter(p => levelOf(ctx, p.name, skillId) >= EXPERT_MIN);
-/** Apprenants : niveau 1, ou envie forte sans être encore sachant — la relève possible. */
+/** Apprenants : évalués SOUS le seuil de sachant, ou envie forte sans l'être encore — la relève possible. */
 export const learnersOf = (ctx, skillId, people = ctx.visiblePeople) =>
-    people.filter(p => { const l = levelOf(ctx, p.name, skillId); return l === 1 || (l < EXPERT_MIN && wantOf(ctx, p.name, skillId) === 'forte'); });
+    people.filter(p => { const l = levelOf(ctx, p.name, skillId); return (l >= 1 && l < EXPERT_MIN) || (l < EXPERT_MIN && wantOf(ctx, p.name, skillId) === 'forte'); });
 
 /** Niveau moyen d'une compétence sur des personnes (évaluées seulement), arrondi au dixième ; 0 = aucune. */
 export function avgLevel(ctx, skillId, people = ctx.visiblePeople) {
@@ -124,10 +129,10 @@ export const activeSkills = ctx => ctx.skills.filter(s =>
     ctx.visiblePeople.some(p => levelOf(ctx, p.name, s.id) > 0 || wantOf(ctx, p.name, s.id) === 'forte')
     || ctx.teams.some(t => requiredOf(ctx, t).has(s.id)));
 
-/** Absent dans les 14 prochains jours (période qui chevauche aujourd'hui → J+14). */
+/** Absent dans les AWAY_DAYS prochains jours (14 par défaut, règle métier) — période qui chevauche aujourd'hui → J+n. */
 export function absentSoon(ctx, name) {
     const today = new Date().toISOString().slice(0, 10);
-    const in2w = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+    const in2w = new Date(Date.now() + AWAY_DAYS * 864e5).toISOString().slice(0, 10);
     return ctx.absences.find(a => a.memberName === name && a.startDate <= in2w && a.endDate >= today) || null;
 }
 /** Charge = tickets actifs dont la personne est porteuse ou contributrice. */
@@ -145,7 +150,7 @@ export function signals(ctx) {
         for (const id of coverage(ctx, team).missing) {
             const learners = learnersOf(ctx, id, membersOf(ctx, team));
             out.push({ sev: 'danger', kind: 'trou', icon: '🕳️', team, skillId: id, who: learners.map(p => p.name),
-                title: `${team} : ${name(id)} non couvert`, text: `Requis par l'équipe, aucun sachant (niveau ≥ 2).${learners.length ? ` Relève possible : ${learners.map(p => firstName(p.name)).join(', ')}.` : ''}` });
+                title: `${team} : ${name(id)} non couvert`, text: `Requis par l'équipe, aucun sachant (niveau ≥ ${EXPERT_MIN}).${learners.length ? ` Relève possible : ${learners.map(p => firstName(p.name)).join(', ')}.` : ''}` });
         }
     }
     for (const s of activeSkills(ctx)) {

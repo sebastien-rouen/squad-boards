@@ -12,7 +12,7 @@ import { piProgressModel } from '../components/pi_progress.js';
 import { piBounds } from '../utils/pi-weeks.js';
 import { TEAM_COLORS } from '../config.js';
 import { lineProductScope, piStageFlowModel, bufferTest, piFlowRowsHtml } from '../components/pi_stage_flow.js';
-import { projectStorage } from '../project-settings.js';
+import { rule } from '../rules.js';
 
 /** Modèle complet du Dashboard (phases dans l'ordre : chacune lit les sorties des précédentes). */
 export function dashboardModel() {
@@ -206,9 +206,8 @@ function _flowModel(m) {
 function _signalsModel(m) {
     const { _nowMs, DAY_MS, tickets, displayPiNum, sprintInfoAll, isCurrentPi, team, piInfo, teams, teamObjects, groupId, groups, allTickets, _scopeTickets, sprintInfo, piOffset, ptsPct } = m;
     // ── Tickets bloqués / stagnants (même état depuis longtemps) ──────────────
-    // Seuil de stagnation éditable (champ discret dans la card), persisté en localStorage.
-    const _staleRaw = parseInt(projectStorage.getItem('sb-dash-stale-days') || '', 10);
-    const STALE_DAYS = (!isNaN(_staleRaw) && _staleRaw >= 1 && _staleRaw <= 365) ? _staleRaw : 5;
+    // Seuil de stagnation PARTAGÉ (règle métier, rules.js) : champ discret dans la card ou Paramètres → Règles métier.
+    const STALE_DAYS = rule('sb-dash-stale-days');
     const _daysSince = iso => iso ? Math.max(0, Math.round((_nowMs - new Date(iso).getTime()) / DAY_MS)) : null;
     // ⚠ NE PAS utiliser `updatedAt` : c'est l'horodatage d'écriture en base (= heure de sync),
     // pas la dernière activité JIRA → vaudrait 0 pour tous les tickets après une sync.

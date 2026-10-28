@@ -16,6 +16,7 @@
  */
 
 import { extractPiNum } from './utils.js';
+import { rule } from './rules.js';
 
 // Détection ticket ActionRetro — exportée pour rester l'unique source de vérité (cf. note
 // ci-dessus) : utilisée ici par la règle `noPoints` ET par health.js pour regrouper ces
@@ -55,13 +56,14 @@ export const ANOMALY_RULES = [
     {
         key: 'stale',
         icon: '🐌', label: 'Stagnants',
-        desc: 'En cours sans update depuis >5 jours',
+        // Seuil = règle métier partagée (rules.js), le même que le Dashboard — avant : 5 j en dur.
+        get desc() { return `En cours sans update depuis >${rule('sb-dash-stale-days')} jours`; },
         sev: 'warning',
-        title: 'Tickets stagnants (>5j sans update)',
-        intro: 'En cours mais aucune activité depuis plus de 5 jours. Relance ou réassigne.',
+        get title() { return `Tickets stagnants (>${rule('sb-dash-stale-days')}j sans update)`; },
+        get intro() { return `En cours mais aucune activité depuis plus de ${rule('sb-dash-stale-days')} jours. Relance ou réassigne.`; },
         editableFields: ['leader', 'points'],
         match: t => ['inprog', 'review', 'test'].includes(t.status) && t.updatedAt &&
-            (Date.now() - new Date(t.updatedAt).getTime()) > 5 * 86400 * 1000,
+            (Date.now() - new Date(t.updatedAt).getTime()) > rule('sb-dash-stale-days') * 86400 * 1000,
     },
     {
         key: 'unassigned',

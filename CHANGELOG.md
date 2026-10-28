@@ -1,3 +1,24 @@
+## [3.272.0] - 2026-10-28
+
+### P2-8 — Règles métier réunies et réglables (Paramètres → Règles)
+
+- **`static/js/rules.js`** : registre UNIQUE des seuils partagés (`RULES`, `rule(key)` = saisie valide sinon défaut) ;
+  ajouter une règle au registre l'affiche dans l'écran.
+- **Paramètres → Règles → Règles métier** (`settings-rules.js`, onglet « Météo » renommé « Règles ») :
+  - 🐌 **Ticket stagnant après N jours** — UN seul seuil pour le Dashboard, l'alerte de l'info-panel, la Santé
+    et la TV (avant : réglable sur le Dashboard, mais « > 5 j » en dur dans l'info-panel et `business_rules.js`) ;
+  - 🧬 **Sachant à partir du niveau** (`EXPERT_MIN`, désormais liaison vivante) et **absence « bientôt »**
+    (14 j) — couverture, bus factor, relève (apprenants = évalués SOUS le seuil, identique au défaut), libellés
+    « Sachants (≥ n) » de la matrice et du tableau de bord ;
+  - 🃏 **Cartes du planning poker** : entiers 0 à 999, « ? » et « ☕ » (3 à 15 cartes). Le serveur accepte la même
+    forme (`poker.py`, avant : Fibonacci 1 → 21 figé) ; vote ☕ affiché, jetons « valeur à enregistrer » = cartes
+    numériques. Tailles de t-shirt NON proposées : un vote devient des story points.
+- Vérifié : votes 0 / 40 / ☕ / ? acceptés et abc / 1000 / 0.5 refusés (API sur COPIE de la base) ; Chromium —
+  stagnation 9 j → alerte « > 9 j », sachant ≥ 3 → matrice « Sachants (≥ 3) », échelle 0…40 + ☕ dans la modale de
+  poker ; 406 tests verts.
+- Vu, pas corrigé : la DÉFINITION de « stagnant » diffère encore (Dashboard = dernier mouvement de statut,
+  info-panel / Santé = `updatedAt`, heure de synchro) → BACKLOG.
+
 ## [3.271.0] - 2026-10-28
 
 ### P2-10 — Référentiel des niveaux de l'Atlas modifiable par projet

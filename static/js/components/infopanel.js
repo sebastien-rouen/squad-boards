@@ -10,6 +10,7 @@ import { loadReminders, REMINDER_DEFS } from '../reminders.js';
 import { openAlertModal } from './alert_modal.js';
 import { ANOMALY_BY_KEY } from '../business_rules.js';
 import { panelVotesHtml, bindPanelVotes } from './panel_votes.js';
+import { rule } from '../rules.js';
 // sprint.js est chargé à la demande (lazy loading des vues) — cf. handler "Aller au Daily"
 
 const panel = () => document.getElementById('info-panel');
@@ -675,13 +676,13 @@ export function getSprintAlerts(tickets, sprintInfo) {
     if (_cap && inprog > _wipMax)
         alerts.push({ type: 'warning', actionable: 'wip', text: `WIP élevé : ${inprog} en cours pour ${_cap.available} présent${_cap.available > 1 ? 's' : ''} (seuil ${_wipMax})` });
 
-    // Tickets stagnants : en cours/review/test depuis plus de 5 jours sans update
+    // Tickets stagnants : en cours/review/test au-delà du seuil partagé (règle métier `sb-dash-stale-days`)
     // Règles PARTAGÉES avec le plan d'action et la modale (business_rules.js) — une seule définition.
     const stale = tickets.filter(t => ANOMALY_BY_KEY.stale.match(t));
     if (stale.length > 0)
         alerts.push({
             type: 'warning',
-            text: `${stale.length} ${stale.length > 1 ? 'tickets' : 'ticket'} en cours ${stale.length > 1 ? 'stagnants' : 'stagnant'} dans le sprint (> 5 j sans mise à jour)`,
+            text: `${stale.length} ${stale.length > 1 ? 'tickets' : 'ticket'} en cours ${stale.length > 1 ? 'stagnants' : 'stagnant'} dans le sprint (> ${rule('sb-dash-stale-days')} j sans mise à jour)`,
             actionable: 'stale', ids: stale.map(t => t.id),
         });
 

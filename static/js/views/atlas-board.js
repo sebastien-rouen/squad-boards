@@ -94,7 +94,7 @@ export function boardHtml(ctx, st) {
             <div class="atl-board">
                 <section class="atl-card"><h3>🛡️ Couverture des compétences requises</h3><div class="atl-rings">${ctx.teams.map(t => _ring(ctx, t)).join('')}</div></section>
                 <section class="atl-card"><h3>✨ Ciel des compétences <small>un point = une personne, couleur = niveau</small></h3>${M.activeSkills(ctx).map(s => _sky(ctx, s)).join('')}</section>
-                <section class="atl-card"><h3>🚌 Bus factor <small>sachants ≥ 2 · 📈 relève (niveau 1 ou envie forte)</small></h3>${_busFactor(ctx)}</section>
+                <section class="atl-card"><h3>🚌 Bus factor <small>sachants ≥ ${M.EXPERT_MIN} · 📈 relève (niveau 1 ou envie forte)</small></h3>${_busFactor(ctx)}</section>
                 <section class="atl-card"><h3>🌱 À accompagner</h3>${_toCoach(ctx)}</section>
             </div>
             <aside class="atl-panel">

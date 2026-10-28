@@ -101,11 +101,11 @@ un comportement par PC). Ordre conseillé : **P1-1 → P1-3 → P1-2 → P2-5** 
 - [ ] **P2-7 · Modules activables + vocabulaire** — PI Planning, Roadmap, Support, Atlas, Poker, Affinage, TV toujours
   affichés ; une équipe Scrum hors SAFe n'a ni PI ni train. Réglage « modules actifs » (navigation, palette, Dashboard)
   et libellés « PI → Release / Trimestre », « Train → Programme », « Ligne produit → Domaine ». — *2026-10-28*
-- [ ] **P2-8 · Seuils métier réglables, réunis** — Atlas (sachant `EXPERT_MIN = 2`, bus factor ≤ 1, absence « bientôt »
-  14 j), météo (`METEO_START_TOLERANCE`, item plus haut), stagnation (Dashboard réglable, mais l'alerte de
-  l'info-panel garde son propre « > 5 j » en dur — infopanel.js), SLA support, échelle du poker figée côté
-  serveur (`poker.py _ALLOWED = 1,2,3,5,8,13,21,?` : ni 0, ni ½, ni tailles de t-shirt). Un écran « Règles » qui les
-  rassemble avec leur effet. — *2026-10-28*
+- [x] **P2-8 · Seuils métier réglables, réunis** · ✅ 3.272.0 — Paramètres → Règles métier (stagnation, sachant, absence, cartes du poker).
+- [ ] **« Stagnant » : une seule définition** — le seuil est commun depuis 3.272.0, mais le Dashboard mesure le
+  temps depuis le dernier MOUVEMENT de statut, alors que `business_rules.js` (info-panel, Santé, TV) lit `updatedAt`
+  = heure d'écriture en base (sync) : après une synchro, presque rien n'y est « stagnant ». Aligner sur le
+  calcul du Dashboard (`_daysSince` de dashboard-model.js). — *2026-10-28*
 - [x] **P2-9 · Jours fériés par pays** · ✅ 3.270.0 — Paramètres → Calendrier de travail (FR, Alsace-Moselle, BE, CH, aucun) + fermetures.
 - [x] **P2-10 · Référentiel de niveaux Atlas éditable** · ✅ 3.271.0 — ⚙️ Catalogue → 🎚️ Référentiel (libellés 1-4, échelle fixe).
 

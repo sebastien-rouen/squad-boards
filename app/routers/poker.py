@@ -14,6 +14,8 @@ Endpoints :
 Les tours conclus (`PokerRound`) sont DURABLES : dans /api/export (et sa restauration), pas dans /api/all
 (chargés à la demande par la modale ticket).
 """
+import re
+
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlmodel import Session, select
 
@@ -24,8 +26,13 @@ from app.serializers import _poker_dict, _poker_round_dict
 
 router_poker = APIRouter(tags=["poker"])
 
-# Cartes acceptées (Fibonacci + carte "inconnu")
-_ALLOWED = {"1", "2", "3", "5", "8", "13", "21", "?"}
+# Cartes acceptées (3.272.0) : l'échelle est réglable par projet (Paramètres → Règles métier) — tout entier de
+# 0 à 999, « ? » et « ☕ » ; même motif que POKER_CARD_RE (static/js/rules.js). Avant : Fibonacci 1 → 21 figé.
+_CARD_RE = re.compile(r"^(\d{1,3}|\?|☕)$")
+
+
+def _allowed(value: str) -> bool:
+    return bool(_CARD_RE.match(value or ""))
 
 
 def _votes_of(ticket: str, session: Session):
@@ -45,7 +52,7 @@ async def vote_poker(ticket: str, request: Request, session: Session = Depends(g
     value = str(body.get("value") or "").strip()
     if not voter:
         raise HTTPException(400, "Le nom du participant est requis")
-    if value not in _ALLOWED:
+    if not _allowed(value):
         raise HTTPException(400, "Valeur de vote invalide")
     # Upsert : un vote par (ticket, voter). Voter à nouveau remet le vote à "caché".
     existing = session.exec(
@@ -108,7 +115,7 @@ async def save_poker_round(ticket: str, request: Request, session: Session = Dep
         raise HTTPException(400, "Valeur retenue invalide")
     votes = [{"voter": str(v.get("voter") or "").strip(), "value": str(v.get("value") or "").strip()}
              for v in (body.get("votes") or []) if isinstance(v, dict)]
-    votes = [v for v in votes if v["voter"] and v["value"] in _ALLOWED]
+    votes = [v for v in votes if v["voter"] and _allowed(v["value"])]
     nums = [int(v["value"]) for v in votes if v["value"].isdigit()]
     avg = round(sum(nums) / len(nums), 2) if nums else None
     spread = round((sum((n - avg) ** 2 for n in nums) / len(nums)) ** 0.5, 2) if len(nums) > 1 else (0.0 if nums else None)

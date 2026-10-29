@@ -36,6 +36,7 @@ import { workcalSectionHtml, wireWorkcalSection } from './settings-workcal.js';
 import { rulesSectionHtml, wireRulesSection } from './settings-rules.js';
 import { modulesSectionHtml, wireModulesSection } from './settings-modules.js';
 import { identitySectionHtml, wireIdentitySection } from './settings-identity.js';
+import { accessSectionHtml, wireAccessSection } from './settings-access.js';
 import { calendarsSectionHtml, wireCalendarsSection } from './settings-calendars.js';
 import { slackSectionHtml, wireSlackSection } from './settings-slack.js';
 import { dataSectionHtml, aboutSectionHtml, wireDataSection } from './settings-data.js';
@@ -97,6 +98,7 @@ export function renderSettings(container) {
             ${meteoSectionHtml()}
             ${rulesSectionHtml()}
             ${identitySectionHtml()}
+            ${accessSectionHtml()}
             ${modulesSectionHtml()}
             ${dataSectionHtml(ctx)}
             ${aboutSectionHtml(ctx)}
@@ -116,6 +118,7 @@ export function renderSettings(container) {
     wireRulesSection(container);
     wireModulesSection(container);
     wireIdentitySection(container);
+    wireAccessSection(container);
     wireSlackSection(container, ctx);
     wireGroupsSection(container, ctx);
     wireTeamsSection(container, ctx);

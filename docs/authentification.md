@@ -2,7 +2,7 @@
 
 Squad Board s'adosse au **hub d'identité `auth`** de l'écosystème (collection `users` d'une PocketBase dédiée,
 fournisseurs Google et Infomaniak) : le même compte ouvre le backlog, le carnet… et Squad Board. Le site ne gère
-aucun compte. Livré en **3.280.0**, porte **ouverte** (`AUTH_REQUIRED=false`).
+aucun compte. Livré en **3.280.0**, **armé en 3.285.0** (`AUTH_REQUIRED=true`, `SB_RELOAD=false`).
 
 ## Comment ça marche
 
@@ -27,6 +27,14 @@ FastAPI :3010 ── app/auth.py ── POST /api/collections/users/auth-refresh
   (jeton JIRA expiré) reste une erreur JIRA.
 - Page, JS, CSS restent publics (le code n'est pas secret, les données le sont).
 - Swagger (`/docs`) n'existe plus quand la porte est fermée.
+
+## Qui peut entrer
+
+⚠️ Le hub CRÉE un compte à la première connexion Google / Infomaniak : sans liste, n'importe quel compte entre.
+- **Accès de secours** : `AUTH_ALLOWED_EMAILS` du `.env` — toujours autorisés, modifiables seulement sur le serveur.
+- **Paramètres → 🔐 Accès** (3.285.0) : les autres comptes, un e-mail par ligne, pris en compte en 15 s sans
+  redémarrage (table `server_secret`, jamais exportée). Le serveur refuse une liste qui retirerait l'accès à celui
+  qui l'enregistre (hors accès de secours).
 
 ## Réglages (`.env`)
 

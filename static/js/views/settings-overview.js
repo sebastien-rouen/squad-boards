@@ -23,6 +23,8 @@ function _checks(ctx) {
     const out = {};
     const name = projectName();
     out['identite-du-projet'] = name !== APP_NAME ? [OK, name] : [OPT, 'nom par défaut « Squad Board »'];
+    const auth = store.get('authStatus');
+    if (auth) out.acces = auth.required ? [OK, 'connexion SSO obligatoire'] : [TODO, 'porte ouverte : sans connexion, tout le monde accède'];
     const off = modulesConfig().off.length;
     out['modules-menu'] = [OK, off ? `${_plural(off, 'module')} masqué${off > 1 ? 's' : ''}` : 'toutes les vues actives'];
     out['sprint-pi'] = pi.startDate

@@ -18,17 +18,22 @@ Le front lit le commutateur sur `GET /api/auth/status` (public) : il ne peut pas
 import hashlib
 import logging
 import os
+import re
 import time
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from app import http_client
+from app.secrets_store import get_secret, set_secrets
 
 REQUIRED = os.getenv("AUTH_REQUIRED", "").strip().lower() == "true"
 PB_URL = os.getenv("AUTH_POCKETBASE_URL", "").strip().rstrip("/")
 PUBLIC_URL = os.getenv("AUTH_PUBLIC_URL", "https://auth-drafts.bastou.dev/pb").strip().rstrip("/")
-ALLOWED = {e.strip().lower() for e in os.getenv("AUTH_ALLOWED_EMAILS", "").split(",") if e.strip()}
+ALLOWED = {e.strip().lower() for e in os.getenv("AUTH_ALLOWED_EMAILS", "").split(",") if e.strip()}   # accès de secours
+_DB_KEY = "auth_allowed_emails"   # liste éditée dans Paramètres → Accès (table server_secret, 3.285.0)
+_EMAIL_RE = re.compile(r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$")
+_db_cache: tuple[float, set] = (0.0, set())
 COOKIE = "sb_session"
 logger = logging.getLogger("uvicorn.error")   # journal pm2 du site
 
@@ -80,6 +85,21 @@ async def _verify(token: str) -> dict | None:
     return user
 
 
+def _db_allowed() -> set:
+    """Liste de Paramètres → Accès, relue au plus toutes les 15 s (sinon une lecture SQLite par requête)."""
+    global _db_cache
+    if _db_cache[0] > time.monotonic():
+        return _db_cache[1]
+    emails = {e for e in get_secret(_DB_KEY).split(",") if e}
+    _db_cache = (time.monotonic() + 15.0, emails)
+    return emails
+
+
+def allowed_emails() -> set:
+    """`.env` ∪ liste éditée ; vide = tout compte du hub."""
+    return ALLOWED | _db_allowed()
+
+
 def _deny(detail: str, status: int = 401) -> JSONResponse:
     # En-tête propre au verrou : un 401 RELAYÉ par le proxy JIRA (jeton JIRA expiré) ne doit pas déconnecter
     return JSONResponse({"detail": detail}, status_code=status, headers={"X-Auth-Required": "1"})
@@ -98,7 +118,8 @@ async def auth_middleware(request: Request, call_next):
     user = await _verify(token)
     if not user:
         return _deny("Session invalide ou expirée")
-    if ALLOWED and str(user.get("email", "")).lower() not in ALLOWED:
+    allowed = allowed_emails()
+    if allowed and str(user.get("email", "")).lower() not in allowed:
         logger.warning("[auth] compte hors liste : %s", user.get("email"))
         return _deny("Ce compte n'est pas autorisé sur Squad Board", 403)
     request.state.user = user
@@ -125,3 +146,33 @@ def signed(request: Request, fallback: str = "") -> str:
     if not u:
         return fallback
     return (str(u.get("name") or "").strip() or str(u.get("email") or "").split("@")[0] or fallback)[:80]
+
+
+@router.get("/api/auth/access")
+def get_access(request: Request):
+    """Paramètres → Accès : état du verrou, liste `.env` (lecture seule) et liste éditée."""
+    u = getattr(request.state, "user", None)
+    return {"required": REQUIRED, "envEmails": sorted(ALLOWED), "emails": sorted(_db_allowed()),
+            "me": (u or {}).get("email", "")}
+
+
+@router.put("/api/auth/access")
+async def put_access(request: Request):
+    """Remplace la liste éditée. Refuse ce qui fermerait la porte à celui qui écrit (compte hors `.env`)."""
+    global _db_cache
+    body = await request.json()
+    raw = body.get("emails") if isinstance(body, dict) else None
+    if not isinstance(raw, list):
+        return JSONResponse({"detail": "emails (liste) requis"}, status_code=400)
+    emails = sorted({str(e).strip().lower() for e in raw if str(e).strip()})
+    bad = [e for e in emails if not _EMAIL_RE.match(e)]
+    if bad:
+        return JSONResponse({"detail": f"E-mail invalide : {bad[0]}"}, status_code=400)
+    if len(emails) > 200:
+        return JSONResponse({"detail": "200 e-mails au plus"}, status_code=400)
+    me = str((getattr(request.state, "user", None) or {}).get("email", "")).lower()
+    if REQUIRED and me and (ALLOWED or emails) and me not in ALLOWED and me not in emails:
+        return JSONResponse({"detail": "Tu te retirerais l'accès : garde ton e-mail dans la liste"}, status_code=400)
+    set_secrets({_DB_KEY: ",".join(emails)})
+    _db_cache = (0.0, set())
+    return {"ok": True, "emails": emails}

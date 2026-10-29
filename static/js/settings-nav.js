@@ -16,6 +16,7 @@ export const SETTINGS_NAV = Object.freeze([
     ] },
     { group: 'Projet', icon: '🏁', items: [
         { slug: 'identite-du-projet',     icon: '🏷️', label: 'Identité',              keywords: 'nom projet couleur marque initiales logo' },
+        { slug: 'acces',                  icon: '🔐', label: 'Accès',                 keywords: 'connexion sso login comptes autorises email collegues securite' },
         { slug: 'modules-menu',           icon: '🧩', label: 'Modules & menu',        keywords: 'vues masquer renommer menu navigation assistant mise en route' },
         { slug: 'sprint-pi',              icon: '🚀', label: 'Sprint & PI',           keywords: 'cadence duree sprint pi dates objectifs velocite' },
         { slug: 'calendrier-de-travail',  icon: '📆', label: 'Calendrier de travail', keywords: 'jours feries pays fermeture pont entreprise' },

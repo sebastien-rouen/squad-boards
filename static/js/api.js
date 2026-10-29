@@ -43,6 +43,9 @@ async function request(path, options = {}) {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 export const getConfig = () => request('/api/config');
+// Accès SSO (3.285.0) : liste des comptes autorisés (Paramètres → Accès)
+export const getAccess = () => request('/api/auth/access');
+export const putAccess = emails => request('/api/auth/access', { method: 'PUT', body: JSON.stringify({ emails }) });
 
 // ── Tickets ───────────────────────────────────────────────────────────────────
 export const getTickets = (params = {}) => {

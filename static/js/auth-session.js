@@ -22,6 +22,7 @@ export async function authStatus() {
         const r = await fetch('/api/auth/status', { cache: 'no-store' });
         _status = r.ok ? await r.json() : { required: false, hub: '' };
     } catch { _status = { required: false, hub: '' }; }
+    try { (await import('./state.js')).store.set('authStatus', _status); } catch { /* hors application (page de connexion) */ }
     return _status;
 }
 

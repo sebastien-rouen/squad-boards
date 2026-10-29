@@ -46,3 +46,13 @@
 .stg-fold--detect .tcd > h4 { display: none; }
 .stg-nav-search { width: 100%; margin-bottom: var(--sp-1); }
 .stg-tab[hidden], .stg-tab-group[hidden] { display: none; }
+/* Paramètres → Accès (3.285.0) */
+.acc-state { padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); margin-bottom: var(--sp-3); }
+.acc-state--on { background: color-mix(in srgb, var(--success) 12%, transparent); }
+.acc-state--off { background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.acc-chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+#acc-emails { font-family: var(--font-mono); font-size: var(--fs-sm); }
+#acc-body .sync-cfg-block > :not(.sync-cfg-title) { margin-inline: var(--sp-4); }
+#acc-body .sync-cfg-block > :last-child { margin-bottom: var(--sp-4); }
+#acc-body .sync-cfg-block > .text-xs { margin-top: var(--sp-3); margin-bottom: var(--sp-2); }
+#acc-emails { width: calc(100% - 2 * var(--sp-4)); }

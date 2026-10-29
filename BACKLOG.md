@@ -14,9 +14,8 @@
 
 ### 🚨 Audit du 2026-10-21 — top 5 par impact
 
-- [~] **🔴 #A2 — Authentification** · ✅ 3.280.0 livrée PORTE OUVERTE — SSO BastaVerse (`app/auth.py`, cookie `sb_session`,
-  `/login.html`), écoute 127.0.0.1, Swagger fermé une fois armé, `SB_RELOAD`. **Reste (décision utilisateur)** : tester
-  `/login.html?test`, puis `AUTH_REQUIRED=true` (+ `AUTH_ALLOWED_EMAILS`) et `SB_RELOAD=false` — docs/authentification.md. — *2026-10-28*
+- [x] **🔴 #A2 — Authentification** · ✅ 3.280.0 → 3.285.0 — SSO BastaVerse ARMÉ (`AUTH_REQUIRED=true`), accès de secours
+  `.env` + comptes autorisés dans Paramètres → 🔐 Accès, écoute 127.0.0.1, Swagger fermé, `SB_RELOAD=false`. — *2026-10-29*
 - [ ] **🟠 #A3 — `/api/all` : alléger la 1ʳᵉ ouverture** — ✅ fait en 3.245.0 : gzip (17,6 → 2,85 Mo), cache serveur + ETag (304 à l'actualisation), encodage direct, JS / CSS versionnés en cache. **Reste** : 62 % du poids des tickets = `description` + `comments` + `recentChanges` → `description` et `comments` pourraient se charger à l'ouverture d'un ticket (PAS `recentChanges`, lu par le périmètre de sprint). ⚠️ Golden test `/api/all` + aller-retour `_ticket_dict` ↔ `import_all` (cf. CLAUDE.md). — *2026-10-22*
 - [ ] **🟠 #A4 — Backend : validation des entrées et journalisation** — 0 modèle Pydantic, 48 corps `await request.json()` lus bruts ; `crud.py:52-55` fait `setattr` de toute clé reçue (y compris `id`, `created_at`). Aucun journal applicatif ; 20 `except` muets + 12 `except Exception`. **À faire** : modèles d'entrée sur les routes d'écriture, `logging` à la place des silences. — *2026-10-21*
 - [ ] **🟡 #A5 — Petits correctifs de cohérence** — (a) thème **clair** par défaut (`state.js:52`, `<html data-theme="light">`) ≠ règle BastaVerse n° 7 (sombre) ; (c) ports incohérents dans la doc (CLAUDE.md 3001 ; README et `.env.example` clarifiés en 3.278.0, réel 3010) et « 161 tests » annoncés pour 406 ; (d) 7 `data/*.bak.db` (~110 Mo) à archiver ; (f) titres JIRA non échappés dans la copie HTML de `pi.js:1122-1127` (`<` / `&` cassent le collage). — *2026-10-21*

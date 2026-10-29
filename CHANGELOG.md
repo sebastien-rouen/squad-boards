@@ -1,3 +1,17 @@
+## [3.285.0] - 2026-10-29
+
+### 🔐 SSO armé + Paramètres → Accès
+
+- **Porte fermée** sur le serveur réel : `AUTH_REQUIRED=true`, accès de secours `AUTH_ALLOWED_EMAILS` (ton compte),
+  `SB_RELOAD=false` (un seul processus). Vérifié par le domaine : `/api/*`, `/jira/*`, `/docs` → 401 ; page,
+  `/login.html` et `/api/auth/status` publics.
+- ⚠️ Le hub crée un compte à toute première connexion Google / Infomaniak : une liste vide aurait ouvert le site
+  (et les congés RH) à n'importe qui. D'où l'onglet **🔐 Accès** (groupe Projet) : comptes autorisés, un e-mail par
+  ligne, effectifs en 15 s sans redémarrage — `GET/PUT /api/auth/access`, table `server_secret` (hors exports).
+  Le serveur refuse une liste qui retirerait l'accès à celui qui l'enregistre. Ligne d'état dans la Vue d'ensemble.
+- Vérifié : 9 contrôles serveur sur une copie (403 hors liste, ajout → entrée en 15 s, auto-retrait refusé, accès de
+  secours, e-mail invalide, absent des exports) ; Chromium 1440 / 390 px sur une instance jetable (port 3019).
+
 ## [3.284.0] - 2026-10-29
 
 ### Paramètres — pages longues et recherche (lot 3/3 : propositions 6, 7)

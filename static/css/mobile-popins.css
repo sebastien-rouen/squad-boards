@@ -5,7 +5,8 @@
    - plan d'action météo : tableau de 728 px dans 342 → statut / porteur / points hors écran → une CARTE par ticket ;
    - zoom d'un graphique : ~80 pastilles de filtres en vrac, le graphique sortait de l'écran → filtres sur UNE ligne
      qui défile, titre sur sa propre ligne ;
-   - détail « temps par colonne » : boutons 🚫 de 20 px → 36 px.
+   - détail « temps par colonne » : boutons 🚫 de 20 px → 36 px ;
+   - export (faits marquants…) : 4ᵉ format coupé à droite, tuiles carrées de 300 px → formats 2 × 2, tuiles basses (3.289.0).
    Lié APRÈS les feuilles de vues (index.html) : les règles de même spécificité l'emportent par l'ordre.
    ══════════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
@@ -66,4 +67,12 @@
 
     /* ── Détail « temps par colonne » ────────────────────────────────────────── */
     .stage-flow-exclude-btn { min-width: 36px; min-height: 36px; }
+
+    /* ── Choix d'export (utils/modals.js exportChoiceModal) ──────────────────── */
+    .export-choice-formats { flex-wrap: wrap; align-items: flex-start; }
+    .export-choice-formats .board-modes { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+    .export-choice-formats .board-mode-btn { border-bottom: 1px solid var(--border); justify-content: center; text-align: center; }
+    .export-choice-grid { grid-template-columns: 1fr 1fr; }
+    .export-choice-btn { aspect-ratio: auto; flex-direction: row; justify-content: flex-start; min-height: 52px; padding: var(--sp-2) var(--sp-3); }
+    .export-choice-label { text-align: left; }
 }

@@ -114,7 +114,7 @@ export function renderRetro(container) {
     container.innerHTML = `
         <div class="flex justify-between items-center mb-4">
             <div>
-                <span class="text-sm text-muted">${total} elements, ${done} termines</span>
+                <span class="text-sm text-muted">${total} éléments, ${done} terminés</span>
                 ${ticketItems.length ? `<span class="text-xs text-muted ml-2">(${filteredItems.length} actions + ${ticketItems.length} tickets)</span>` : ''}
             </div>
             <button class="btn btn-primary btn-sm" id="btn-add-retro">+ Action</button>

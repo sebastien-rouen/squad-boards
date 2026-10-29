@@ -245,7 +245,7 @@ export function renderRoadmap(container) {
                 <span class="metric-icon">🗺️</span>
                 <span class="metric-label">Features PI</span>
                 <span class="metric-value">${features.length}</span>
-                <span class="metric-sub">${features.filter(f => f.status === 'done').length} terminees</span>
+                <span class="metric-sub">${features.filter(f => f.status === 'done').length} terminées</span>
             </div>
             <div class="metric-card mc-primary" style="cursor: help" title="${esc(_predictTooltip(predict, team))}">
                 <span class="metric-icon">📊</span>

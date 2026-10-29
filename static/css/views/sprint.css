@@ -343,8 +343,12 @@
 .sprint-dates { font-size: var(--fs-sm); color: var(--text-muted); }
 .sprint-stats {
     display: flex;
-    gap: var(--sp-4);
+    flex-wrap: wrap;            /* 3.289.0 : sans retour à la ligne, « Tickets » passait SOUS Review / Demo en mobile */
+    gap: var(--sp-1) var(--sp-4);
     font-size: var(--fs-sm);
+}
+@media (max-width: 640px) {
+    .sprint-header.sprint-header--2col .sprint-header-col--stats .sprint-stats { flex-basis: 100%; }
 }
 .sprint-stat {
     display: flex;

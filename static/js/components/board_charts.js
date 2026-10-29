@@ -28,7 +28,7 @@ const _WIPAGE_TIP = 'Age = jours depuis la mise en cours (ou la création si pas
 export function renderBoardChartsSection({ collapsed = false, sectionId = 'charts-section' } = {}) {
     return `
         <details ${collapsed ? '' : 'open'} id="${sectionId}">
-            <summary class="text-xs font-semibold text-muted mb-2">Metriques sprint</summary>
+            <summary class="text-xs font-semibold text-muted mb-2">Métriques sprint</summary>
             <div class="dashboard-grid mb-4">
                 <div class="card"><div class="card-header"><span class="card-title">Burndown</span></div><div class="chart-container chart-h-sm"><canvas id="${IDS.burndown}"></canvas></div></div>
                 <div class="card"><div class="card-header"><span class="card-title">Burnup</span></div><div class="chart-container chart-h-sm"><canvas id="${IDS.burnup}"></canvas></div></div>

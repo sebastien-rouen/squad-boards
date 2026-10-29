@@ -342,8 +342,8 @@ export function renderBurndown(canvasId, tickets, sprint, events = []) {
         data: {
             labels: dayInfo.map(d => d.label),
             datasets: [
-                { label: 'Ideal', data: ideal, borderColor: '#94A3B8', borderDash: [5, 5], pointRadius: 0, borderWidth: 2, fill: false },
-                { label: `Reel (${ptsDone}/${ptsTotal} pts)`, data: real, borderColor: '#0284C7', backgroundColor: 'rgba(2,132,199,.1)', pointRadius: 3, borderWidth: 2, fill: true },
+                { label: 'Idéal', data: ideal, borderColor: '#94A3B8', borderDash: [5, 5], pointRadius: 0, borderWidth: 2, fill: false },
+                { label: `Réel (${ptsDone}/${ptsTotal} pts)`, data: real, borderColor: '#0284C7', backgroundColor: 'rgba(2,132,199,.1)', pointRadius: 3, borderWidth: 2, fill: true },
                 { label: `Tickets (${tDone}/${tTotal})`, data: ticketLine, borderColor: '#F59E0B', borderDash: [3, 3], pointRadius: 0, borderWidth: 1.5, yAxisID: 'y1', fill: false },
             ],
         },
@@ -1094,14 +1094,24 @@ function _timelinePlugin({ xMin, xMax, marks = [], today = false, afterRows }) {
             const { ctx: cx, chartArea, scales: { x } } = chart;
             if (!x || !chartArea) return;
             cx.save();
-            const line = (xp, color, label) => {
+            cx.font = '600 11px system-ui,sans-serif';
+            // Libellés sans chevauchement (3.288.0) : sur mobile, 10 débuts de sprint s'écrivaient les uns sur les autres.
+            // Le trait reste toujours ; un libellé n'est écrit que s'il a la place, « Aujourd'hui » d'abord (réservé).
+            const taken = [];
+            const fits = (x0, w) => !taken.some(([a, b]) => x0 < b + 4 && x0 + w > a - 4);
+            const todayX = today ? x.getPixelForValue(Date.now()) : null;
+            if (todayX != null) taken.push([todayX + 3, todayX + 3 + cx.measureText("Aujourd'hui").width]);
+            const line = (xp, color, label, reserved = false) => {
                 cx.beginPath(); cx.setLineDash([4, 4]); cx.strokeStyle = color; cx.lineWidth = 1.25;
                 cx.moveTo(xp, chartArea.top); cx.lineTo(xp, chartArea.bottom); cx.stroke(); cx.setLineDash([]);
-                cx.font = '600 11px system-ui,sans-serif'; cx.fillStyle = color; cx.textAlign = 'left'; cx.textBaseline = 'bottom';
+                const w = cx.measureText(label).width;
+                if (!reserved && !fits(xp + 3, w)) return;
+                if (!reserved) taken.push([xp + 3, xp + 3 + w]);
+                cx.fillStyle = color; cx.textAlign = 'left'; cx.textBaseline = 'bottom';
                 cx.fillText(label, xp + 3, chartArea.top - 3);
             };
             for (const m of marks) line(x.getPixelForValue(m.at), css('--primary') || '#0284C7', `▸ ${m.key}`);
-            if (today) line(x.getPixelForValue(Date.now()), '#EF4444', "Aujourd'hui");
+            if (todayX != null) line(todayX, '#EF4444', "Aujourd'hui", true);
             cx.restore();
             afterRows?.(chart);
         },
@@ -1848,7 +1858,7 @@ export function renderThroughput(canvasId, tickets, sprint, events = []) {
         data: {
             labels: dayInfo.map(d => d.label),
             datasets: [
-                { label: `Tickets termines (moy: ${avgPerDay}/j)`, data, backgroundColor: barColors, borderRadius: 3 },
+                { label: `Tickets terminés (moy : ${avgPerDay}/j)`, data, backgroundColor: barColors, borderRadius: 3 },
                 { label: 'Tendance (3j)', data: trend, type: 'line', borderColor: '#0284C7', borderWidth: 2, tension: 0.4, pointRadius: 0, fill: false },
             ],
         },

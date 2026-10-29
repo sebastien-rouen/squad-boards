@@ -40,3 +40,11 @@
 @media (min-width: 1025px) and (max-width: 1279px) {
     #pi-selector-host { display: none; }
 }
+
+/* Mobile (3.289.0) : sur le Board, le commutateur « ⚡ Scrum | ▥ Kanban » écrasait la gauche de la barre (☰ sous la
+   loupe) et poussait le menu ⋮ HORS écran (389 → 433 px pour 390) — icônes seules, libellé en aria-label. */
+@media (max-width: 640px) {
+    .board-mode-lbl { display: none; }
+    /* Titre « Board » retiré quand le commutateur est là (il dit déjà où l'on est) : 46 px rendus au menu ⋮ */
+    .topbar:has(#board-mode-host:not([hidden])) .topbar-title { display: none; }
+}

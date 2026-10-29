@@ -78,11 +78,11 @@ export function initTopbar() {
         const mode = store.get('boardMode') || 'scrum';
         boardModeHost.hidden = false;
         boardModeHost.innerHTML = `<div class="board-mode-toggle" role="group" aria-label="Vue Board">
-            <button class="board-mode-btn${mode === 'scrum' ? ' is-active' : ''}" data-mode="scrum" title="Vue Scrum — liste par sprint">
-                <svg class="icon icon-sm"><use href="#i-zap"/></svg> Scrum
+            <button class="board-mode-btn${mode === 'scrum' ? ' is-active' : ''}" data-mode="scrum" title="Vue Scrum — liste par sprint" aria-label="Vue Scrum">
+                <svg class="icon icon-sm"><use href="#i-zap"/></svg> <span class="board-mode-lbl">Scrum</span>
             </button>
-            <button class="board-mode-btn${mode === 'kanban' ? ' is-active' : ''}" data-mode="kanban" title="Vue Kanban — colonnes par statut">
-                <svg class="icon icon-sm"><use href="#i-columns"/></svg> Kanban
+            <button class="board-mode-btn${mode === 'kanban' ? ' is-active' : ''}" data-mode="kanban" title="Vue Kanban — colonnes par statut" aria-label="Vue Kanban">
+                <svg class="icon icon-sm"><use href="#i-columns"/></svg> <span class="board-mode-lbl">Kanban</span>
             </button>
         </div>`;
         boardModeHost.querySelectorAll('[data-mode]').forEach(btn => {

@@ -277,13 +277,13 @@ export function renderPI(container) {
                 <span class="metric-icon">📦</span>
                 <span class="metric-label">Features</span>
                 <span class="metric-value">${features.length}</span>
-                <span class="metric-sub">${features.filter(f => f.status === 'done').length} terminees</span>
+                <span class="metric-sub">${features.filter(f => f.status === 'done').length} terminées</span>
             </div>
             <div class="metric-card mc-info mc-has-tooltip" data-mc-tt="mc-tt-epics">
                 <span class="metric-icon">🏗️</span>
                 <span class="metric-label">Epics</span>
                 <span class="metric-value">${piEpics.length}</span>
-                <span class="metric-sub">${piEpics.filter(e => e.status === 'done').length} termines</span>
+                <span class="metric-sub">${piEpics.filter(e => e.status === 'done').length} terminés</span>
             </div>
             ${(() => {
                 // Météo du PI (domaine 🗓️ de la matrice) — PI courant seulement, même calcul que le Dashboard.

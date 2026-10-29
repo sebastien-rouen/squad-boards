@@ -1,5 +1,6 @@
 /**
  * Navigation de Paramètres (3.282.0) — SOURCE UNIQUE des onglets : groupe, icône, libellé court, mots-clés.
+ * Hors de `views/` (3.284.0) : la palette Ctrl+K (cmd_sections.js, un composant) en tire ses entrées « réglage ».
  *
  * Le SLUG est l'identifiant de la section (`#section-<slug>`, ou le titre slugifié) : il fait les liens
  * `#settings/<slug>` posés partout dans le site — ne JAMAIS le renommer ici (seuls libellé, icône et groupe

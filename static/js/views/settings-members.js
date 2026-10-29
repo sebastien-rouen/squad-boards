@@ -6,6 +6,7 @@
 import { _memberAbsenceInfo } from './settings-absences-csv.js';
 import { esc, deriveMembersFromAbsences, toast, confirmDanger } from '../utils.js';
 import * as api from '../api.js';
+import { DEFAULT_ROLE_ALIASES, projectRoleAliases, setRoleAlias } from '../utils/roles.js';
 
 /** Section « Membres ». */
 /** Membres rangés par équipe (alphabétique, « sans équipe » en dernier), noms triés dans chaque équipe (3.284.0). */
@@ -96,6 +97,7 @@ export function capRolesSectionHtml(ctx) {
         <div>
             <h3>Capacité dev — % de travail par rôle</h3>
             <p>Pondère la contribution de chaque rôle au calcul de capacité. 100% = dev full-time, 0% = exclu.</p>
+            <p class="text-xs text-muted">Libellés regroupés d'office : majuscules et accents ignorés, abréviations ${Object.entries(DEFAULT_ROLE_ALIASES).map(([k, v]) => `${k.toUpperCase()} → ${esc(v)}`).join(', ')}${Object.keys(projectRoleAliases()).length ? ` ; regroupés par le projet : ${Object.entries(projectRoleAliases()).map(([k, v]) => `${esc(k)} → ${esc(v)} <button type="button" class="btn-link cap-role-unalias" data-role="${esc(k)}" title="Séparer à nouveau">✕</button>`).join(', ')}` : ''}.</p>
         </div>
         <svg class="icon icon-sm chevron"><use href="#i-chevron-down"/></svg>
     </div>
@@ -120,6 +122,10 @@ export function capRolesSectionHtml(ctx) {
                             <span class="cap-role-tip-hint">Clic pour copier</span>
                         </span>
                     </span>
+                    <select class="select select-sm cap-role-alias" data-role="${esc(r)}" title="Ce libellé désigne-t-il un autre rôle ? Il sera alors affiché et compté sous ce rôle, partout" aria-label="Même rôle que">
+                        <option value="">= rôle distinct</option>
+                        ${roles.filter(o => o !== r).map(o => `<option value="${esc(o)}">= ${esc(o)}</option>`).join('')}
+                    </select>
                     <div class="cap-role-slider-wrap">
                         <input type="range" class="cap-role-slider" min="0" max="100" step="10"
                             value="${pct}" data-role="${esc(r)}">
@@ -134,6 +140,22 @@ export function capRolesSectionHtml(ctx) {
 
 /** Câblage des Membres : ajout, équipe, suppression, CSV, filtre live. */
 export function wireMembersSection(container, ctx) {
+    // Rôles regroupés (3.286.0) : « Design = Designer » → affiché et compté sous Designer, partout ; données rechargées
+    const capRoles = container.querySelector('#section-cap-roles');
+    capRoles?.addEventListener('change', async e => {
+        const sel = e.target.closest('.cap-role-alias');
+        if (!sel?.value) return;
+        setRoleAlias(sel.dataset.role, sel.value);
+        toast(`« ${sel.dataset.role} » compté comme « ${sel.value} »`, 'success');
+        await ctx.reload();
+    });
+    capRoles?.addEventListener('click', async e => {
+        const b = e.target.closest('.cap-role-unalias');
+        if (!b) return;
+        setRoleAlias(b.dataset.role, '');
+        toast(`« ${b.dataset.role} » redevient un rôle distinct — rechargement`, 'info');
+        location.reload();   // la séparation exige de relire les libellés bruts (déjà fusionnés en mémoire)
+    });
     const { members } = ctx;
     // ── Members ───────────────────────────────────────────────────────────────
     container.querySelector('#btn-add-member')?.addEventListener('click', async () => {

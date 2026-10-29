@@ -1,0 +1,69 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+   Popins sur MOBILE (3.287.0) — mesurées à 390 px depuis le Dashboard, une règle par constat :
+   - fiche ticket / plan d'action : carte à 85 vh avec marges → FEUILLE plein écran ;
+   - boutons « macOS » de la fiche : 14 × 14 px, icônes invisibles sans survol → 30 px, icônes affichées ;
+   - plan d'action météo : tableau de 728 px dans 342 → statut / porteur / points hors écran → une CARTE par ticket ;
+   - zoom d'un graphique : ~80 pastilles de filtres en vrac, le graphique sortait de l'écran → filtres sur UNE ligne
+     qui défile, titre sur sa propre ligne ;
+   - détail « temps par colonne » : boutons 🚫 de 20 px → 36 px.
+   Lié APRÈS les feuilles de vues (index.html) : les règles de même spécificité l'emportent par l'ordre.
+   ══════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+    /* ── Feuille plein écran ─────────────────────────────────────────────────── */
+    .modal-overlay, .modal-overlay--fullscreen { padding: 0; align-items: stretch; }
+    .modal-overlay .modal, .modal--fullscreen {
+        max-width: none;
+        max-height: none;
+        height: 100dvh;
+        border-radius: 0;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* ── En-tête de la fiche : vrais boutons au doigt ────────────────────────── */
+    .modal-header-actions { gap: var(--sp-3); }
+    .modal-action-btn { width: 30px; height: 30px; }
+    .modal-action-btn svg { width: 14px; height: 14px; opacity: 1; }
+    .mdl-nav-group .mdl-nav-btn { width: 36px; height: 36px; }
+    .alert-modal-header .mdl-nav-btn { width: 36px; height: 36px; flex-shrink: 0; }
+
+    /* ── Plan d'action (alert_modal.js) : une carte par ticket ───────────────── */
+    .alert-modal-header { flex-wrap: wrap; row-gap: var(--sp-2); }
+    .alert-modal-header h2 { flex: 1 1 100%; min-width: 0; }
+    .alert-modal-header h2 .truncate { white-space: normal; }
+    .alert-modal-table thead { display: none; }
+    .alert-modal-table, .alert-modal-table tbody { display: block; width: 100%; }
+    .alert-modal-table tr.alert-row {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        gap: var(--sp-2);
+        align-items: center;
+        padding: var(--sp-3);
+        border-bottom: 1px solid var(--border);
+    }
+    .alert-modal-table tr.alert-row > td { display: block; padding: 0; border: 0; min-width: 0; }
+    .alert-modal-table .alert-cell-type { grid-row: 1 / span 3; align-self: start; }
+    .alert-modal-table .alert-cell-ticket { grid-column: 2 / -1; }
+    .alert-modal-table tr.alert-row > td:nth-child(3) { grid-column: 2 / -1; }
+    .alert-modal-table tr.alert-row > td:nth-child(4) { grid-column: 2; }
+    .alert-modal-table tr.alert-row > td:nth-child(5) { grid-column: 3; }
+    .alert-modal-table .alert-input--points { width: 72px; min-height: 36px; }
+
+    /* ── Zoom d'un graphique : titre seul sur sa ligne, filtres sur une ligne qui défile ─ */
+    .chart-zoom-header { flex-wrap: wrap; }
+    .chart-zoom-title { order: -1; flex: 1 1 100%; min-width: 0; }
+    .chart-zoom-toolbar { gap: var(--sp-2); }
+    .chart-zoom-tb-group {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+        -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+        mask-image: linear-gradient(90deg, #000 85%, transparent);
+    }
+    .chart-zoom-tb-group::-webkit-scrollbar { display: none; }
+    .chart-zoom-tb-label { position: sticky; left: 0; background: var(--surface); padding-right: var(--sp-2); z-index: 1; }
+    .chart-zoom-chip, .chart-zoom-seg { flex: 0 0 auto; min-height: 32px; white-space: nowrap; }
+
+    /* ── Détail « temps par colonne » ────────────────────────────────────────── */
+    .stage-flow-exclude-btn { min-width: 36px; min-height: 36px; }
+}

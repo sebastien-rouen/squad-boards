@@ -56,3 +56,10 @@
 #acc-body .sync-cfg-block > :last-child { margin-bottom: var(--sp-4); }
 #acc-body .sync-cfg-block > .text-xs { margin-top: var(--sp-3); margin-bottom: var(--sp-2); }
 #acc-emails { width: calc(100% - 2 * var(--sp-4)); }
+/* Regroupement de rôles (3.286.0, « = même rôle que… ») : 4ᵉ colonne ; sur mobile, sélecteur et curseur passent dessous */
+.cap-role-row { grid-template-columns: 1fr auto minmax(120px, 170px) 200px; }
+.cap-role-alias { font-size: var(--fs-xs); }
+@media (max-width: 640px) {
+    .cap-role-row { grid-template-columns: 1fr auto; row-gap: 4px; }
+    .cap-role-alias, .cap-role-row .cap-role-slider-wrap { grid-column: 1 / -1; }
+}

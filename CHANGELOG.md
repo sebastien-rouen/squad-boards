@@ -1,3 +1,18 @@
+## [3.286.0] - 2026-10-29
+
+### Un seul libellé par rôle et par équipe
+
+- **Rôles** (`utils/canonical.js`) : « PO » est affiché ET compté comme « Product Owner » partout (pondération 0 %
+  au lieu de 100 % par défaut) ; abréviations reconnues : PO, SM, TL, BO, RTE ; majuscules et accents ignorés
+  (« DIMI » = « DiMi », la graphie la plus fréquente l'emporte). Pour les cas qu'aucune règle ne devine, Paramètres →
+  Capacité par rôle → **« = même rôle que… »** (réglage de projet `sb-role-aliases`, ✕ pour séparer à nouveau) —
+  ex. « Design » = « Designer ».
+- **Équipes** : comparées sans casse ni accents — « Dézir » (1 fiche membre) rejoint « Dezir » (table des équipes,
+  congés, 302 tickets) ; la graphie de la table des équipes fait foi.
+- Appliqué au chargement (members, absences, rosters par PI, clés de `roleCapacity`) : la base garde la saisie RH.
+- Vérifié sur une instance jetable (copie de la base) : Product Owner 23 (22 + 1 « PO »), DiMi 9, Design → Designer
+  5 à 0 %, « Dezir » 13 ; Vue d'ensemble : 5 → 3 rôles non pondérés (Lead Ops, Stagiaire, consultant).
+
 ## [3.285.0] - 2026-10-29
 
 ### 🔐 SSO armé + Paramètres → Accès

@@ -40,7 +40,7 @@ import { updateInfoPanel } from './components/infopanel.js';
 import { renderCalBanner } from './components/cal_banner.js';
 import { applyStatusOverride, forceAllColumns } from './utils/status-override.js';
 import { projectStorage, migrateLocalProjectSettings } from './project-settings.js';
-import './utils/roles.js';     // rôles canoniques (PO → Product Owner) sur members / piInfo
+import './utils/canonical.js'; // libellés canoniques : rôles (PO → Product Owner) et équipes (Dézir = Dezir)
 import './utils/modules.js';   // modules activables + libellés du menu (garde de route sur `view`)
 import { applyIdentity, projectName } from './utils/identity.js';
 import { ensureAuth, initAccountButton } from './auth-session.js';

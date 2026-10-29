@@ -829,6 +829,12 @@ python main.py          # http://localhost:3001  — Swagger /docs
 - **Secrets** (3.269.0) : jeton / compte / URL JIRA et webhook Slack = table `server_secret` (`app/secrets_store.py`),
   en ÉCRITURE SEULE (`PUT /api/secrets/jira|slack`), jamais renvoyés ni exportés ; `/api/config` n'en donne que la
   présence. Ne jamais les remettre en localStorage ni dans `projectStorage`.
+- **Libellés canoniques** (3.286.0, [utils/canonical.js](static/js/utils/canonical.js)) : rôles ET équipes comparés sans
+  casse ni accents, appliqués au CHARGEMENT (`store.transform` sur `members`, `absences`, `piInfo` : rosters par PI et
+  clés de `roleCapacity`). Rôle : alias du projet (`sb-role-aliases`, « = même rôle que… » de Capacité par rôle) >
+  abréviations `DEFAULT_ROLE_ALIASES` (PO → Product Owner…) > graphie la plus fréquente. Équipe : graphie de la table
+  des équipes, sinon la plus fréquente. ⚠️ Le store ne prend qu'UNE transformation par clé : en ajouter une sur
+  `members` / `absences` / `piInfo` se fait DANS ce module. La base garde la saisie RH telle quelle.
 - **Authentification SSO** (3.280.0) : verrou UNIQUE `app/auth.py` (middleware) — commutateur `AUTH_REQUIRED` côté
   serveur SEULEMENT, lu par le front sur `/api/auth/status` (public). Jeton = en-tête OU cookie `sb_session`
   (`auth-session.js`) : un `fetch` / `<img>` direct passe sans rien ajouter. Une route publique s'ajoute à `_PUBLIC`

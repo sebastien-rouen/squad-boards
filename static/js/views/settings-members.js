@@ -6,7 +6,7 @@
 import { _memberAbsenceInfo } from './settings-absences-csv.js';
 import { esc, deriveMembersFromAbsences, toast, confirmDanger } from '../utils.js';
 import * as api from '../api.js';
-import { DEFAULT_ROLE_ALIASES, projectRoleAliases, setRoleAlias } from '../utils/roles.js';
+import { DEFAULT_ROLE_ALIASES, projectRoleAliases, setRoleAlias } from '../utils/canonical.js';
 
 /** Section « Membres ». */
 /** Membres rangés par équipe (alphabétique, « sans équipe » en dernier), noms triés dans chaque équipe (3.284.0). */

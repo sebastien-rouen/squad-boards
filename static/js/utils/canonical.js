@@ -1,5 +1,10 @@
 /**
- * Rôles canoniques (3.286.0) — un même rôle n'a qu'UN libellé dans tout le site (« Product Owner », jamais « PO »).
+ * Libellés canoniques (3.286.0) — un même RÔLE ou une même ÉQUIPE n'a qu'UN libellé dans tout le site.
+ *
+ * ÉQUIPES : majuscules et accents ignorés (« Dézir » = « Dezir ») ; la graphie de la table des équipes fait foi,
+ * sinon la plus fréquente. Appliqué aux membres et aux absences (champ `team`).
+ *
+ * RÔLES : « Product Owner », jamais « PO ».
  *
  * Trois règles, dans l'ordre :
  *   1. alias du projet (réglage `sb-role-aliases`, édité dans Paramètres → Capacité par rôle : « même rôle que… ») ;
@@ -83,5 +88,34 @@ function _canonPi(pi) {
     return { ...pi, piMembers, roleCapacity: rc };
 }
 
-store.transform('members', _canonMembers);
+// ── Équipes ──────────────────────────────────────────────────────────────────
+const _teamSeen = new Map();
+function _noteTeam(t) {
+    if (!t) return;
+    const k = foldRole(t);
+    const m = _teamSeen.get(k) || new Map();
+    m.set(t, (m.get(t) || 0) + 1);
+    _teamSeen.set(k, m);
+}
+
+/** Libellé canonique d'une équipe : celui de la liste des équipes, sinon la graphie la plus fréquente. */
+export function canonicalTeam(team) {
+    if (!team) return team;
+    const k = foldRole(team);
+    const known = (store.get('teams') || []).find(t => foldRole(t) === k);
+    if (known) return known;
+    const m = _teamSeen.get(k);
+    return m ? [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0] : team;
+}
+
+const _mapTeams = list => (Array.isArray(list) ? list.map(x => (x?.team ? { ...x, team: canonicalTeam(x.team) } : x)) : list);
+
+store.transform('members', list => {
+    if (Array.isArray(list)) list.forEach(m => _noteTeam(m?.team));
+    return _mapTeams(_canonMembers(list));
+});
+store.transform('absences', list => {
+    if (Array.isArray(list)) list.forEach(a => _noteTeam(a?.team));
+    return _mapTeams(list);
+});
 store.transform('piInfo', _canonPi);

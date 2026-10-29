@@ -1,3 +1,12 @@
+## [3.288.0] - 2026-10-29
+
+### 📱 Graphiques « une ligne par ticket » lisibles sur mobile
+
+- Sous 640 px, l'axe des libellés ne dispose que de ~99 px (plafond Chart.js) et le texte était coupé à GAUCHE :
+  la clé du ticket disparaissait, il ne restait que « …[SUPPOR… ». Désormais la CLÉ seule (+ ⚠ hors norme / 🚫
+  bloqué), titre entier au survol — frise Cycle / Lead Time, aging WIP, barres de cycle time (compact et agrandi).
+  Règle unique `_narrow()` / `_short()` (components/charts.js) ; ordinateur inchangé (vérifié à 1440 px).
+
 ## [3.287.0] - 2026-10-29
 
 ### 📱 Mobile : bas de page coupé et popins du Dashboard

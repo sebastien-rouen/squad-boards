@@ -826,9 +826,9 @@ export function renderCycleTime(canvasId, tickets, opts = {}) {
     const labels  = done.map(t => {
         // Compact : 16 car. — à 28, « GCOM-4335 · Gestion démarches : Passage… » était coupé à GAUCHE dans la carte
         // demi-largeur du Dashboard (la clé disparaissait). Titre entier au survol et en zoom.
-        const ti = String(t.title || '').trim(), max = zoomed ? 42 : 16;
-        const short = ti.length > max ? `${ti.slice(0, max - 1).trim()}…` : ti;
-        return `${zoomed ? `${TYPE_ICONS[t.type] || '•'} ` : ''}${t.id}${short ? ` · ${short}` : ''}`;
+        const ti = String(t.title || '').trim(), n = _narrow();
+        const short = n ? '' : _short(ti, zoomed ? 42 : 16);
+        return `${zoomed && !n ? `${TYPE_ICONS[t.type] || '•'} ` : ''}${t.id}${short ? ` · ${short}` : ''}`;
     });
     const waitData = done.map((t, i) => Math.max(0, ltVals[i] - cycleDays(t)));
     const ctData   = done.map(t => cycleDays(t));
@@ -1133,10 +1133,18 @@ function _fitRows(c, n, zoomed) {
     box.style.setProperty('--rows', n);
 }
 
+/**
+ * Mobile (3.288.0) : Chart.js plafonne l'axe des libellés (99 px à 390 px, ~13 caractères) et coupe le texte à GAUCHE —
+ * la clé du ticket disparaissait. Sous 640 px : la CLÉ seule (+ ⚠ / 🚫), titre entier au survol.
+ */
+const _NARROW = typeof matchMedia === 'function' ? matchMedia('(max-width: 640px)') : null;
+const _narrow = () => !!_NARROW?.matches;
+const _short = (ti, max) => (ti.length > max ? `${ti.slice(0, max - 1).trim()}…` : ti);
+
 /** Libellé de ligne : (⚠ / 🚫) icône du type, clé, titre tronqué proprement. */
 const _rowLabel = (t, warn = false) => {
-    const ti = String(t.title || '');
-    return `${t.status === 'blocked' ? '🚫 ' : ''}${warn ? '⚠ ' : ''}${TYPE_ICONS[t.type] || '•'} ${t.id}${ti ? ` · ${ti.length > 38 ? `${ti.slice(0, 37)}…` : ti}` : ''}`;
+    const ti = String(t.title || '').trim(), n = _narrow();
+    return `${t.status === 'blocked' ? '🚫 ' : ''}${warn ? '⚠ ' : ''}${n ? '' : `${TYPE_ICONS[t.type] || '•'} `}${t.id}${ti && !n ? ` · ${_short(ti, 38)}` : ''}`;
 };
 
 /**
@@ -1685,7 +1693,7 @@ export function renderWIPAge(canvasId, tickets, opts = {}) {
 
     // Agrandi : icône du type + clé + titre tronqué proprement (le ticket se reconnaît sans survol).
     const labels = wip.map(t => {
-        if (!zoomed) return `${t.status === 'blocked' ? '🚫 ' : ''}${t.id} · ${(t.title || '').slice(0, 25)}`;
+        if (!zoomed) return `${t.status === 'blocked' ? '🚫 ' : ''}${t.id}${_narrow() ? '' : ` · ${_short(String(t.title || '').trim(), 25)}`}`;
         return _rowLabel(t);
     });
     const data = wip.map(t => t.age);

@@ -1,3 +1,22 @@
+## [3.289.0] - 2026-10-29
+
+### 📱 Revue mobile : Board, PI, Santé, Équipe (390 px, mesurée page par page)
+
+- **Board** : barre du haut — le commutateur « ⚡ Scrum | ▥ Kanban » écrasait la gauche (☰ sous la loupe) et poussait
+  le menu ⋮ HORS écran (389 → 433 px) → icônes seules (libellé en `aria-label`), titre masqué quand le commutateur est
+  là ; carte du sprint — « Tickets » passait sous Review / Demo → statistiques qui passent à la ligne, boutons dessous ;
+  bandeau calendrier — créneaux réduits à 27 px (« 09l ») → les absences cèdent la place et défilent.
+- **Graphiques** (partout) : boutons copier / agrandir (toujours visibles au doigt) posés SUR la légende → bande
+  réservée ; repères de début de sprint qui s'écrivaient les uns sur les autres → libellé écrit seulement s'il a la
+  place (« Aujourd'hui » prioritaire), trait toujours tracé — ordinateur compris.
+- **Équipe** → popin « Exporter les faits marquants » : 4ᵉ format coupé à droite, tuiles carrées de 300 px (9 tuiles =
+  3 écrans) → formats en 2 × 2, tuiles basses en ligne (`exportChoiceModal`, tous les exports).
+- **Accents** : statuts « À faire / Bloqué / Terminé » (`STATUS_LABELS`, 51 usages), légendes « Idéal / Réel /
+  Terminé », « Métriques sprint », « terminées » (PI, Roadmap), « éléments » (Amélioration).
+- PI et Santé : aucun débordement ni popin fautive. Restent signalés : page Équipe très longue (13 000 px), textes
+  < 10,5 px (libellés d'anomalies de Santé, avatars).
+- Vérifié sur une instance jetable (copie de la base), Chromium 390 px tactile ; 406 tests unitaires.
+
 ## [3.288.0] - 2026-10-29
 
 ### 📱 Graphiques « une ligne par ticket » lisibles sur mobile

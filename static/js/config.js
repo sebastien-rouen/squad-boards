@@ -5,12 +5,12 @@ import { projectStorage } from './project-settings.js';
 export const STATUS_ORDER = ['todo', 'inprog', 'review', 'test', 'blocked', 'done'];
 
 export const STATUS_LABELS = {
-    todo: 'A faire',
+    todo: 'À faire',
     inprog: 'En cours',
     review: 'Revue',
     test: 'Test',
-    blocked: 'Bloque',
-    done: 'Termine',
+    blocked: 'Bloqué',
+    done: 'Terminé',
 };
 
 export const STATUS_MAP = {

@@ -6,7 +6,9 @@
    - zoom d'un graphique : ~80 pastilles de filtres en vrac, le graphique sortait de l'écran → filtres sur UNE ligne
      qui défile, titre sur sa propre ligne ;
    - détail « temps par colonne » : boutons 🚫 de 20 px → 36 px ;
-   - export (faits marquants…) : 4ᵉ format coupé à droite, tuiles carrées de 300 px → formats 2 × 2, tuiles basses (3.289.0).
+   - export (faits marquants…) : 4ᵉ format coupé à droite, tuiles carrées de 300 px → formats 2 × 2, tuiles basses (3.289.0) ;
+   - graphiques : boutons copier / agrandir (toujours visibles au doigt) posés SUR la légende → bande réservée (3.289.0) ;
+   - bandeau calendrier : absences en `flex: 0 0 auto` (227 px), créneaux réduits à 27 px (« 09l ») → absences défilent.
    Lié APRÈS les feuilles de vues (index.html) : les règles de même spécificité l'emportent par l'ordre.
    ══════════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
@@ -75,4 +77,11 @@
     .export-choice-grid { grid-template-columns: 1fr 1fr; }
     .export-choice-btn { aspect-ratio: auto; flex-direction: row; justify-content: flex-start; min-height: 52px; padding: var(--sp-2) var(--sp-3); }
     .export-choice-label { text-align: left; }
+
+    /* ── Graphiques : bande réservée aux boutons flottants (chart_zoom.js) ───── */
+    .chart-container[data-zoom-ready="1"] { padding-top: 38px; }
+
+    /* ── Bandeau calendrier (cal_banner.js) : les absences cèdent la place aux créneaux ── */
+    .cal-banner-events--rows > .cal-banner-line--off { flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+    .cal-banner-events--rows > .cal-banner-split { min-width: 150px; }
 }

@@ -398,7 +398,7 @@ export function renderBurnup(canvasId, tickets, sprint, events = [], opts = {}) 
             labels: dayInfo.map(d => d.label),
             datasets: [
                 { label: `Scope (${scope} pts)`, data: scopeLine, borderColor: '#94A3B8', borderDash: [5, 5], pointRadius: 0, borderWidth: 2, fill: false },
-                { label: `Termine (${done} pts)`, data: doneLine, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,.12)', pointRadius: 3, borderWidth: 2, fill: true },
+                { label: `Terminé (${done} pts)`, data: doneLine, borderColor: '#10B981', backgroundColor: 'rgba(16,185,129,.12)', pointRadius: 3, borderWidth: 2, fill: true },
             ],
         },
         options: {
@@ -432,7 +432,7 @@ export function renderCFD(canvasId, tickets, sprint, events = []) {
     // Simulate linear transition from all-todo to current
     const statuses = ['done', 'test', 'review', 'inprog', 'blocked', 'todo'];
     const colors = { done: '#10B981', test: '#06B6D4', review: '#8B5CF6', inprog: '#3B82F6', blocked: '#EF4444', todo: '#94A3B8' };
-    const labels = { done: 'Termine', test: 'Test', review: 'Revue', inprog: 'En cours', blocked: 'Bloque', todo: 'A faire' };
+    const labels = { done: 'Terminé', test: 'Test', review: 'Revue', inprog: 'En cours', blocked: 'Bloqué', todo: 'À faire' };
 
     const datasets = statuses.map(s => {
         const startVal = s === 'todo' ? total : 0;

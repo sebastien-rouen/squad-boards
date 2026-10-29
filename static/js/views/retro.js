@@ -31,9 +31,9 @@ const SOURCES = [
 ];
 
 const STATUSES = [
-    { id: 'todo',   label: 'A faire' },
+    { id: 'todo',   label: 'À faire' },
     { id: 'inprog', label: 'En cours' },
-    { id: 'done',   label: 'Termine' },
+    { id: 'done',   label: 'Terminé' },
 ];
 
 const PRIORITY_CSS = { critical: 'danger', high: 'warning', medium: 'info', low: 'success' };

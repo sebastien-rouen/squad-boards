@@ -1,6 +1,6 @@
 /* 🧭 Assistant de mise en route d'un projet (components/setup_wizard.js, 3.275.0) */
 .sw-overlay { position: fixed; inset: 0; z-index: 1100; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 16px; background: rgba(4, 7, 15, .55); }
-.sw-modal { width: min(640px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); color: var(--text); }
+.sw-modal { width: min(640px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); color: var(--text); }
 .sw-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
 .sw-head h3 { margin: 0; font-size: var(--fs-lg, 1.1rem); }
 .sw-steps { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 12px 20px 0; font-size: var(--fs-sm); color: var(--text-muted); }

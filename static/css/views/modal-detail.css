@@ -240,7 +240,7 @@
 
 /* `.modal { max-height: 85vh }` est déclaré APRÈS `.modal--fullscreen` (base-components.css) et
    l'écrasait : la « pleine page » s'arrêtait à 85 % de la hauteur. Spécificité doublée ici. */
-.modal.modal--fullscreen { max-width: 1440px; max-height: calc(100vh - 48px); height: calc(100vh - 48px); }
+.modal.modal--fullscreen { max-width: 1440px; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); height: calc(100vh - 48px); height: calc(100dvh - 48px); }
 .modal--fullscreen .mdl-titlebar .mdl-title-span { font-size: 21px; -webkit-line-clamp: 3; }
 .modal--fullscreen .mdl-layout {
     display: grid;

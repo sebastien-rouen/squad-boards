@@ -57,7 +57,7 @@ span.atl-tag { cursor: default; }
 
 /* ── Modales ─ */
 .atl-overlay { position: fixed; inset: 0; z-index: 1100; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 16px; background: rgba(4, 7, 15, .55); }
-.atl-modal { width: min(560px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-lg); color: var(--text); }
+.atl-modal { width: min(560px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-lg); color: var(--text); }
 .atl-modal--wide { width: min(880px, 100%); }
 .atl-modal__head { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 18px; border-bottom: 1px solid var(--border); }
 .atl-modal__head h3 { margin: 0; flex: 1 1 auto; font-size: 16px; }

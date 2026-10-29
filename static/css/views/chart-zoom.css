@@ -82,7 +82,7 @@ body.chart-zoom-lock { overflow: hidden; }
     position: relative;
     z-index: 1;
     width: min(1100px, 96vw);
-    max-height: calc(100vh - 2 * clamp(var(--sp-3), 4vh, var(--sp-10)));
+    max-height: calc(100vh - 2 * clamp(var(--sp-3), 4vh, var(--sp-10))); max-height: calc(100dvh - 2 * clamp(var(--sp-3), 4vh, var(--sp-10)));
     display: flex;
     flex-direction: column;
     background: var(--surface);

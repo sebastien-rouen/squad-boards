@@ -1,3 +1,22 @@
+## [3.287.0] - 2026-10-29
+
+### 📱 Mobile : bas de page coupé et popins du Dashboard
+
+- 🐛 **Bas de page invisible sur téléphone** (Paramètres → Modules & menu, et toutes les pages) : `body` et `.app`
+  faisaient `100vh` = hauteur écran barres du navigateur REPLIÉES ; le défilement se faisant DANS l'appli, elles ne se
+  replient jamais → le bas restait sous la barre d'outils. Passage à `100dvh` (hauteur visible, repli `100vh`), et de
+  même pour les popins calées sur la hauteur d'écran (fiche plein page, zoom, Atlas, assistant) — 9 déclarations.
+- **Popins du Dashboard < 640 px** (`css/mobile-popins.css`, chargée en dernier), mesurées avant / après à 390 px :
+  - fiche ticket et plan d'action en **feuille plein écran** (avant : carte 342 × 717 à 85 vh) ; boutons « macOS »
+    de la fiche 14 → 30 px avec icônes visibles, navigation ‹ › 24 → 36 px ;
+  - **plan d'action météo** : une carte par ticket (type · ticket / statut / porteur · points) au lieu d'un tableau de
+    728 px dont statut, porteur et points étaient hors écran (111 éléments → 0) ; titre en entier ;
+  - **zoom d'un graphique** : titre sur sa ligne (il tombait à « C. »), filtres Vue / Type / Lead sur UNE ligne qui
+    défile (≈ 80 pastilles noyaient l'écran, le graphique n'était plus visible) ; 78 petites cibles → 0 ;
+  - **détail « temps par colonne »** : boutons 🚫 20 → 36 px (25 petites cibles → 0).
+- Vérifié sur une instance jetable (copie de la base) : Chromium 390 px tactile (Dashboard global + équipe), 1440 px
+  sans régression, 406 tests unitaires.
+
 ## [3.286.0] - 2026-10-29
 
 ### Un seul libellé par rôle et par équipe

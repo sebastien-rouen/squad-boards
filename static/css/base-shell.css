@@ -22,6 +22,9 @@ body {
     background: var(--bg);
     overflow: hidden;
     height: 100vh;
+    /* Hauteur VISIBLE (3.287.0) : sur mobile, 100vh = écran barres du navigateur repliées ; comme on défile DANS
+       l'appli, elles ne se replient jamais → le bas de chaque page restait caché sous la barre d'outils */
+    height: 100dvh;
 }
 a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -617,6 +620,7 @@ body { display: flex; }
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;   /* cf. body : hauteur visible réelle sur mobile */
     min-width: 0;
     /* Filet de sécurité : si la topbar déborde malgré topbar-fit.css, le surplus est coupé
        au lieu d'élargir le document. Sans lui, un focus()/scrollIntoView sur un bouton hors

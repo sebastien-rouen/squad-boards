@@ -432,6 +432,8 @@
     width: 100%;
     max-height: calc(100vh - 48px);
     height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+    height: calc(100dvh - 48px);
     border-radius: var(--r-xl);
     box-shadow: 0 0 0 1px var(--border), var(--shadow-xl);
 }

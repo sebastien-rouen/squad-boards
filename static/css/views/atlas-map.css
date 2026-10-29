@@ -6,8 +6,8 @@
     background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--primary) 8%, var(--surface)), var(--surface) 70%);
 }
 .atl-stage:fullscreen { padding: 24px; background: var(--bg); }
-.atl-orbit { width: 100%; height: auto; max-height: calc(100vh - 230px); overflow: visible; }
-.atl-stage:fullscreen .atl-orbit { max-height: calc(100vh - 80px); }
+.atl-orbit { width: 100%; height: auto; max-height: calc(100vh - 230px); max-height: calc(100dvh - 230px); overflow: visible; }
+.atl-stage:fullscreen .atl-orbit { max-height: calc(100vh - 80px); max-height: calc(100dvh - 80px); }
 .atl-orbit__ring { fill: none; stroke: color-mix(in srgb, var(--text-muted) 25%, transparent); stroke-dasharray: 2 6; }
 .atl-orbit__sector { fill: color-mix(in srgb, var(--c) 8%, transparent); stroke: color-mix(in srgb, var(--c) 24%, transparent); }
 .atl-orbit__line { fill: var(--c); font-size: 17px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; text-anchor: middle; cursor: zoom-in; }
@@ -50,7 +50,7 @@
 }
 
 /* ── Skills Matrix ─ */
-.atl-hm-wrap { overflow: auto; max-height: calc(100vh - 230px); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.atl-hm-wrap { overflow: auto; max-height: calc(100vh - 230px); max-height: calc(100dvh - 230px); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
 .atl-hm { border-collapse: separate; border-spacing: 0; font-size: 12px; min-width: 100%; }
 .atl-hm th, .atl-hm td { height: 26px; padding: 0; text-align: center; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
 .atl-hm thead th { position: sticky; top: 0; z-index: 3; height: 38px; background: var(--surface-hover); }
